@@ -14,9 +14,11 @@ import {
   ChevronDown,
   ChevronRight,
   BarChart2,
-  PlusCircle
+  PlusCircle,
+  Compass
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SidebarLinkProps {
   to: string;
@@ -45,17 +47,13 @@ export default function DashboardSidebar() {
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [spacesExpanded, setSpacesExpanded] = useState(true);
+  const { userDetails, signOut } = useAuth();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
   const closeMobileSidebar = () => setIsMobileOpen(false);
   const toggleSpaces = () => setSpacesExpanded(!spacesExpanded);
 
-  // Mock spaces data - in a real app, this would come from an API or context
-  const spaces = [
-    { id: "1", name: "Design Community" },
-    { id: "2", name: "Tech Entrepreneurs" },
-    { id: "3", name: "Digital Marketing" },
-  ];
+  const isCreator = userDetails?.role === 'creator';
 
   return (
     <>
@@ -113,6 +111,14 @@ export default function DashboardSidebar() {
                 onClick={closeMobileSidebar}
               />
 
+              <SidebarLink
+                to="/discover"
+                icon={<Compass className="h-5 w-5" />}
+                label="Discover"
+                isActive={isActive("/discover")}
+                onClick={closeMobileSidebar}
+              />
+
               <div className="pt-4 pb-2">
                 <button
                   onClick={toggleSpaces}
@@ -128,16 +134,6 @@ export default function DashboardSidebar() {
 
                 {spacesExpanded && (
                   <div className="mt-1 pl-4 space-y-1">
-                    {spaces.map((space) => (
-                      <Link
-                        key={space.id}
-                        to={`/spaces/${space.id}`}
-                        className="flex items-center px-4 py-2 text-sm text-gray-600 rounded-md hover:bg-gray-100"
-                        onClick={closeMobileSidebar}
-                      >
-                        {space.name}
-                      </Link>
-                    ))}
                     <Link
                       to="/spaces/create"
                       className="flex items-center px-4 py-2 text-sm text-lokaa-600 rounded-md hover:bg-gray-100"
@@ -150,43 +146,45 @@ export default function DashboardSidebar() {
                 )}
               </div>
 
-              <div className="pt-2">
-                <SidebarLink
-                  to="/dashboard/courses"
-                  icon={<BookOpen className="h-5 w-5" />}
-                  label="Courses"
-                  isActive={isActive("/dashboard/courses")}
-                  onClick={closeMobileSidebar}
-                />
-                <SidebarLink
-                  to="/dashboard/events"
-                  icon={<Calendar className="h-5 w-5" />}
-                  label="Events"
-                  isActive={isActive("/dashboard/events")}
-                  onClick={closeMobileSidebar}
-                />
-                <SidebarLink
-                  to="/dashboard/members"
-                  icon={<Users className="h-5 w-5" />}
-                  label="Members"
-                  isActive={isActive("/dashboard/members")}
-                  onClick={closeMobileSidebar}
-                />
-                <SidebarLink
-                  to="/dashboard/earnings"
-                  icon={<CreditCard className="h-5 w-5" />}
-                  label="Earnings"
-                  isActive={isActive("/dashboard/earnings")}
-                  onClick={closeMobileSidebar}
-                />
-                <SidebarLink
-                  to="/dashboard/analytics"
-                  icon={<BarChart2 className="h-5 w-5" />}
-                  label="Analytics"
-                  isActive={isActive("/dashboard/analytics")}
-                  onClick={closeMobileSidebar}
-                />
-              </div>
+              {isCreator && (
+                <div className="pt-2">
+                  <SidebarLink
+                    to="/dashboard/courses"
+                    icon={<BookOpen className="h-5 w-5" />}
+                    label="Courses"
+                    isActive={isActive("/dashboard/courses")}
+                    onClick={closeMobileSidebar}
+                  />
+                  <SidebarLink
+                    to="/dashboard/events"
+                    icon={<Calendar className="h-5 w-5" />}
+                    label="Events"
+                    isActive={isActive("/dashboard/events")}
+                    onClick={closeMobileSidebar}
+                  />
+                  <SidebarLink
+                    to="/dashboard/members"
+                    icon={<Users className="h-5 w-5" />}
+                    label="Members"
+                    isActive={isActive("/dashboard/members")}
+                    onClick={closeMobileSidebar}
+                  />
+                  <SidebarLink
+                    to="/dashboard/earnings"
+                    icon={<CreditCard className="h-5 w-5" />}
+                    label="Earnings"
+                    isActive={isActive("/dashboard/earnings")}
+                    onClick={closeMobileSidebar}
+                  />
+                  <SidebarLink
+                    to="/dashboard/analytics"
+                    icon={<BarChart2 className="h-5 w-5" />}
+                    label="Analytics"
+                    isActive={isActive("/dashboard/analytics")}
+                    onClick={closeMobileSidebar}
+                  />
+                </div>
+              )}
             </nav>
           </div>
 
@@ -201,6 +199,7 @@ export default function DashboardSidebar() {
               />
               <button
                 className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors w-full text-left text-gray-700 hover:bg-gray-100"
+                onClick={signOut}
               >
                 <LogOut className="h-5 w-5" />
                 <span>Log Out</span>

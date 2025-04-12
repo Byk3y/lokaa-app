@@ -11,7 +11,7 @@ type AuthContextType = {
   userDetails: any | null; // From our 'users' table
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -115,7 +115,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, username: string) => {
+  const signUp = async (email: string, password: string, username: string, fullName?: string) => {
     try {
       setLoading(true);
       
@@ -140,7 +140,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         password,
         options: {
           data: {
-            username: username
+            username: username,
+            full_name: fullName || username
           }
         }
       });
@@ -158,7 +159,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: "Account created",
         description: "Welcome to Lokaa! Please verify your email if required.",
       });
-      navigate('/dashboard');
+      
+      // Redirect new users to discover page instead of dashboard
+      navigate('/discover');
     } catch (error: any) {
       toast({
         title: "Sign up failed",

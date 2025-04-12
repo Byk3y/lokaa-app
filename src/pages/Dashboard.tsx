@@ -51,6 +51,8 @@ export default function Dashboard() {
     fetchSpaces();
   }, []);
 
+  const isCreator = userDetails?.role === 'creator';
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <DashboardSidebar />
@@ -62,8 +64,8 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
               <p className="text-gray-600">
-                Welcome back, {userDetails?.username || "User"}
-                {userDetails?.role === 'creator' && <span className="ml-2 px-2 py-1 text-xs bg-lokaa-100 text-lokaa-700 rounded-full">Creator</span>}
+                Welcome back, {userDetails?.full_name || userDetails?.username || "User"}
+                {isCreator && <span className="ml-2 px-2 py-1 text-xs bg-lokaa-100 text-lokaa-700 rounded-full">Creator</span>}
               </p>
             </div>
             <div className="mt-4 md:mt-0">
@@ -76,8 +78,24 @@ export default function Dashboard() {
             </div>
           </div>
           
+          {/* Creator CTA for members */}
+          {!isCreator && (
+            <div className="mb-8 bg-lokaa-50 rounded-xl p-6 border border-lokaa-100">
+              <div className="text-center">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Want to build your own Space?</h3>
+                <p className="text-gray-600 mb-4">Start your community and monetize your passion.</p>
+                <Button 
+                  className="bg-lokaa-600 hover:bg-lokaa-700 px-6 py-2 text-lg"
+                  asChild
+                >
+                  <Link to="/spaces/create">Create My Space</Link>
+                </Button>
+              </div>
+            </div>
+          )}
+          
           {/* Analytics Cards - Only show for creators */}
-          {userDetails?.role === 'creator' && (
+          {isCreator && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card>
                 <CardHeader className="pb-2">
@@ -133,8 +151,12 @@ export default function Dashboard() {
           <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Your Spaces</h2>
-              <Button variant="ghost" className="text-lokaa-600 hover:text-lokaa-700 hover:bg-lokaa-50">
-                View All
+              <Button 
+                variant="ghost" 
+                className="text-lokaa-600 hover:text-lokaa-700 hover:bg-lokaa-50"
+                asChild
+              >
+                <Link to="/discover">Discover Spaces</Link>
               </Button>
             </div>
             

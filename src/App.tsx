@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
+import DiscoverCommunities from "./pages/DiscoverCommunities";
 import CreateSpace from "./pages/CreateSpace";
 import SpaceSettings from "./pages/SpaceSettings";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,7 @@ const App = () => {
               {/* Protected Routes */}
               <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/discover" element={<DiscoverCommunities />} />
                 <Route path="/spaces/create" element={<CreateSpace />} />
                 <Route path="/spaces/:spaceId/settings" element={<SpaceSettings />} />
               </Route>

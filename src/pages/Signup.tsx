@@ -11,6 +11,8 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const signupSchema = z.object({
+  fullName: z.string().min(2, { message: "Full name must be at least 2 characters" })
+    .max(50, { message: "Full name must be less than 50 characters" }),
   username: z.string().min(3, { message: "Username must be at least 3 characters" })
     .max(20, { message: "Username must be less than 20 characters" })
     .regex(/^[a-zA-Z0-9_]+$/, { message: "Username can only contain letters, numbers, and underscores" }),
@@ -30,12 +32,13 @@ export default function Signup() {
   
   // If user is already logged in, redirect them
   if (user) {
-    navigate("/dashboard", { replace: true });
+    navigate("/discover", { replace: true });
   }
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
+      fullName: "",
       username: "",
       email: "",
       password: "",
@@ -44,7 +47,7 @@ export default function Signup() {
   });
 
   const onSubmit = async (data: SignupFormValues) => {
-    await signUp(data.email, data.password, data.username);
+    await signUp(data.email, data.password, data.username, data.fullName);
   };
 
   return (
@@ -59,6 +62,22 @@ export default function Signup() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="John Doe" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="username"
