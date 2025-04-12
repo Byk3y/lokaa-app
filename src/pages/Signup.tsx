@@ -1,91 +1,157 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import AuthForm from "@/components/auth/AuthForm";
-import { useToast } from "@/hooks/use-toast";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
+const signupSchema = z.object({
+  username: z.string().min(3, { message: "Username must be at least 3 characters" })
+    .max(20, { message: "Username must be less than 20 characters" })
+    .regex(/^[a-zA-Z0-9_]+$/, { message: "Username can only contain letters, numbers, and underscores" }),
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
+
+type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function Signup() {
-  const [isLoading, setIsLoading] = useState(false);
+  const { signUp, loading, user } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  
+  // If user is already logged in, redirect them
+  if (user) {
+    navigate("/dashboard", { replace: true });
+  }
 
-  const handleSignup = async (data: any) => {
-    setIsLoading(true);
-    
-    // Simulate signup process
-    try {
-      // Here you would normally connect to Firebase Auth
-      // For now, we'll just simulate a successful signup
-      console.log("Signup attempt with:", data);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Success message and redirect
-      toast({
-        title: "Account created successfully",
-        description: "Welcome to Lokaa! Redirecting to your dashboard...",
-        variant: "default",
-      });
-      
-      // Redirect to dashboard after successful signup
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1000);
-      
-    } catch (error) {
-      console.error("Signup error:", error);
-      toast({
-        title: "Signup failed",
-        description: "Unable to create your account. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const form = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  const onSubmit = async (data: SignupFormValues) => {
+    await signUp(data.email, data.password, data.username);
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left Side - Image/Brand Area */}
-      <div className="hidden md:block md:w-1/2 bg-hero-gradient">
-        <div className="h-full flex flex-col items-center justify-center p-10 text-white text-center">
-          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-8">
-            <div className="w-10 h-10 rounded-full bg-lokaa-600 flex items-center justify-center">
-              <span className="text-white font-bold text-xl">L</span>
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
+          <CardDescription className="text-center">
+            Sign up to get started with Lokaa
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="yourusername" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="you@example.com" 
+                        type="email" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="******" 
+                        type="password" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="******" 
+                        type="password" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button 
+                type="submit" 
+                className="w-full bg-lokaa-600 hover:bg-lokaa-700" 
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                    Creating account...
+                  </>
+                ) : (
+                  "Sign up"
+                )}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-center text-sm">
+            Already have an account?{" "}
+            <Link to="/login" className="text-lokaa-600 hover:text-lokaa-700 font-medium">
+              Log in
+            </Link>
           </div>
-          <h2 className="text-3xl font-bold mb-4">Join Lokaa Today</h2>
-          <p className="text-xl text-white/80 max-w-sm">
-            Create your community, share knowledge, and monetize your passion.
-          </p>
-          <div className="mt-12 grid grid-cols-2 gap-6 w-full max-w-lg">
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-lg">
-              <h3 className="font-semibold text-xl mb-2">Create Spaces</h3>
-              <p className="text-white/80">Build dedicated communities with custom branding</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-lg">
-              <h3 className="font-semibold text-xl mb-2">Sell Courses</h3>
-              <p className="text-white/80">Create and monetize your knowledge</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-lg">
-              <h3 className="font-semibold text-xl mb-2">Host Events</h3>
-              <p className="text-white/80">Schedule virtual and in-person gatherings</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-lg">
-              <h3 className="font-semibold text-xl mb-2">Get Paid</h3>
-              <p className="text-white/80">Accept payments in your local currency</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Right Side - Auth Form */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-10">
-        <div className="w-full max-w-md">
-          <AuthForm type="signup" onSubmit={handleSignup} />
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

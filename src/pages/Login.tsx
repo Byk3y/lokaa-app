@@ -1,78 +1,118 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import AuthForm from "@/components/auth/AuthForm";
-import { useToast } from "@/hooks/use-toast";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
+const loginSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function Login() {
-  const [isLoading, setIsLoading] = useState(false);
+  const { signIn, loading, user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const from = location.state?.from?.pathname || "/dashboard";
+  
+  // If user is already logged in, redirect them
+  if (user) {
+    navigate(from, { replace: true });
+  }
 
-  const handleLogin = async (data: any) => {
-    setIsLoading(true);
-    
-    // Simulate login process
-    try {
-      // Here you would normally connect to Firebase Auth
-      // For now, we'll just simulate a successful login
-      console.log("Login attempt with:", data);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Success message and redirect
-      toast({
-        title: "Login successful",
-        description: "Welcome back to Lokaa! Redirecting to dashboard...",
-        variant: "default",
-      });
-      
-      // Redirect to dashboard after successful login
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1000);
-      
-    } catch (error) {
-      console.error("Login error:", error);
-      toast({
-        title: "Login failed",
-        description: "Invalid email or password. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (data: LoginFormValues) => {
+    await signIn(data.email, data.password);
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left Side - Auth Form */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-10">
-        <div className="w-full max-w-md">
-          <AuthForm type="login" onSubmit={handleLogin} />
-        </div>
-      </div>
-      
-      {/* Right Side - Image/Brand Area */}
-      <div className="hidden md:block md:w-1/2 bg-hero-gradient">
-        <div className="h-full flex flex-col items-center justify-center p-10 text-white text-center">
-          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-8">
-            <div className="w-10 h-10 rounded-full bg-lokaa-600 flex items-center justify-center">
-              <span className="text-white font-bold text-xl">L</span>
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">Log in to your account</CardTitle>
+          <CardDescription className="text-center">
+            Enter your email and password to access your Lokaa account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="you@example.com" 
+                        type="email" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="******" 
+                        type="password" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button 
+                type="submit" 
+                className="w-full bg-lokaa-600 hover:bg-lokaa-700" 
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                    Logging in...
+                  </>
+                ) : (
+                  "Log in"
+                )}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-center text-sm">
+            Don't have an account?{" "}
+            <Link to="/signup" className="text-lokaa-600 hover:text-lokaa-700 font-medium">
+              Sign up
+            </Link>
           </div>
-          <h2 className="text-3xl font-bold mb-4">Welcome back to Lokaa</h2>
-          <p className="text-xl text-white/80 max-w-sm">
-            The complete platform for creators in emerging markets to build, grow, and monetize their communities.
-          </p>
-          <img 
-            src="/lovable-uploads/476dc072-85b6-4ca9-8439-46df4879562e.png" 
-            alt="Lokaa dashboard preview" 
-            className="mt-12 w-full max-w-lg rounded-lg shadow-2xl"
-          />
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

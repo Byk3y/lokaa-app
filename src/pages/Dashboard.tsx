@@ -1,51 +1,54 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PlusCircle, Users, BarChart2, MessageSquare, Calendar } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import EmptyState from "@/components/dashboard/EmptyState";
 import SpaceCard from "@/components/spaces/SpaceCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
-  // This state would normally come from an auth context or API
-  const [user] = useState({
-    name: "John Doe",
-    avatar: "/lovable-uploads/3df25f54-2ad0-4da7-ace5-23cbdb81a334.png"
-  });
+  const { userDetails } = useAuth();
+  const [spaces, setSpaces] = useState([]);
+  const [loading, setLoading] = useState(true);
   
-  // Mock spaces data - in a real app, this would come from an API
-  const [spaces] = useState([
-    {
-      id: "1",
-      name: "Design Community",
-      description: "A space for designers to share work, get feedback, and discuss design trends.",
-      coverImage: "/lovable-uploads/133af0aa-ab1a-40f2-921a-ff85fcef82f0.png",
-      memberCount: 238,
-      postCount: 56,
-      upcomingEvents: 2,
-      isPaid: false
-    },
-    {
-      id: "2",
-      name: "Tech Entrepreneurs",
-      description: "Connect with fellow tech founders to share insights and grow your business.",
-      coverImage: "/lovable-uploads/f2c1a9ce-a72f-423c-b708-8163076b9d26.png",
-      memberCount: 124,
-      postCount: 38,
-      upcomingEvents: 1,
-      isPaid: true,
-      price: 9.99
-    }
-  ]);
-  
-  // Mock analytics data
+  // Analytics data (this would come from Supabase in a real implementation)
   const analytics = {
-    totalMembers: 362,
-    activeMembers: 145,
-    totalPosts: 94,
-    totalRevenue: 842.50
+    totalMembers: 0,
+    activeMembers: 0,
+    totalPosts: 0,
+    totalRevenue: 0.00
   };
+
+  useEffect(() => {
+    const fetchSpaces = async () => {
+      try {
+        // Fetch spaces the user has created (if creator) or joined (if member)
+        // For now this just fetches all spaces visible to the user based on RLS
+        const { data, error } = await supabase
+          .from('spaces')
+          .select('*');
+        
+        if (error) throw error;
+        
+        setSpaces(data || []);
+      } catch (error) {
+        console.error('Error fetching spaces:', error);
+        toast({
+          title: "Error loading spaces",
+          description: "Could not load your spaces at this time.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSpaces();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -57,7 +60,10 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-600">Welcome back, {user.name}</p>
+              <p className="text-gray-600">
+                Welcome back, {userDetails?.username || "User"}
+                {userDetails?.role === 'creator' && <span className="ml-2 px-2 py-1 text-xs bg-lokaa-100 text-lokaa-700 rounded-full">Creator</span>}
+              </p>
             </div>
             <div className="mt-4 md:mt-0">
               <Button className="bg-lokaa-600 hover:bg-lokaa-700">
@@ -67,56 +73,58 @@ export default function Dashboard() {
             </div>
           </div>
           
-          {/* Analytics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-gray-500 font-normal">Total Members</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center">
-                  <Users className="h-5 w-5 text-lokaa-600 mr-2" />
-                  <span className="text-2xl font-bold">{analytics.totalMembers}</span>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-gray-500 font-normal">Active Members</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center">
-                  <BarChart2 className="h-5 w-5 text-lokaa-600 mr-2" />
-                  <span className="text-2xl font-bold">{analytics.activeMembers}</span>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-gray-500 font-normal">Total Posts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center">
-                  <MessageSquare className="h-5 w-5 text-lokaa-600 mr-2" />
-                  <span className="text-2xl font-bold">{analytics.totalPosts}</span>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-gray-500 font-normal">Total Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center">
-                  <span className="text-lokaa-600 font-bold mr-2">$</span>
-                  <span className="text-2xl font-bold">{analytics.totalRevenue.toFixed(2)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Analytics Cards - Only show for creators */}
+          {userDetails?.role === 'creator' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-gray-500 font-normal">Total Members</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center">
+                    <Users className="h-5 w-5 text-lokaa-600 mr-2" />
+                    <span className="text-2xl font-bold">{analytics.totalMembers}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-gray-500 font-normal">Active Members</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center">
+                    <BarChart2 className="h-5 w-5 text-lokaa-600 mr-2" />
+                    <span className="text-2xl font-bold">{analytics.activeMembers}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-gray-500 font-normal">Total Posts</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center">
+                    <MessageSquare className="h-5 w-5 text-lokaa-600 mr-2" />
+                    <span className="text-2xl font-bold">{analytics.totalPosts}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-gray-500 font-normal">Total Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center">
+                    <span className="text-lokaa-600 font-bold mr-2">$</span>
+                    <span className="text-2xl font-bold">{analytics.totalRevenue.toFixed(2)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           
           {/* Your Spaces */}
           <div className="mb-8">
@@ -127,7 +135,11 @@ export default function Dashboard() {
               </Button>
             </div>
             
-            {spaces.length > 0 ? (
+            {loading ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-lokaa-600"></div>
+              </div>
+            ) : spaces.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {spaces.map((space) => (
                   <SpaceCard key={space.id} {...space} />
