@@ -472,6 +472,7 @@ export type Database = {
           owner_id: string
           price_per_month: number | null
           pricing_type: Database["public"]["Enums"]["pricing_type"]
+          primary_color: string | null
           subdomain: string
           updated_at: string
         }
@@ -485,6 +486,7 @@ export type Database = {
           owner_id: string
           price_per_month?: number | null
           pricing_type?: Database["public"]["Enums"]["pricing_type"]
+          primary_color?: string | null
           subdomain: string
           updated_at?: string
         }
@@ -498,6 +500,7 @@ export type Database = {
           owner_id?: string
           price_per_month?: number | null
           pricing_type?: Database["public"]["Enums"]["pricing_type"]
+          primary_color?: string | null
           subdomain?: string
           updated_at?: string
         }

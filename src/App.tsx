@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import CreateSpace from "./pages/CreateSpace";
+import SpaceSettings from "./pages/SpaceSettings";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -31,6 +32,7 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/spaces/create" element={<CreateSpace />} />
+              <Route path="/spaces/:spaceId/settings" element={<SpaceSettings />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />

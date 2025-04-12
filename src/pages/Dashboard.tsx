@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { PlusCircle, Users, BarChart2, MessageSquare, Calendar } from "lucide-react";
+import { PlusCircle, Users, BarChart2, MessageSquare, Calendar, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,9 +67,11 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="mt-4 md:mt-0">
-              <Button className="bg-lokaa-600 hover:bg-lokaa-700">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Space
+              <Button className="bg-lokaa-600 hover:bg-lokaa-700" asChild>
+                <Link to="/spaces/create">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create Space
+                </Link>
               </Button>
             </div>
           </div>
@@ -142,11 +145,26 @@ export default function Dashboard() {
             ) : spaces.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {spaces.map((space) => (
-                  <SpaceCard key={space.id} {...space} />
+                  <div key={space.id} className="relative group">
+                    <SpaceCard {...space} />
+                    
+                    {/* Settings button overlay for spaces owned by the user */}
+                    {space.owner_id === userDetails?.id && (
+                      <Link 
+                        to={`/spaces/${space.id}/settings`}
+                        className="absolute top-2 right-2 bg-white rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Space Settings"
+                      >
+                        <Settings className="h-4 w-4 text-gray-600" />
+                      </Link>
+                    )}
+                  </div>
                 ))}
                 <Card className="border-2 border-dashed border-gray-200 flex flex-col items-center justify-center p-6 hover:bg-gray-50 transition-colors cursor-pointer">
-                  <PlusCircle className="h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600 font-medium">Create New Space</p>
+                  <Link to="/spaces/create" className="w-full h-full flex flex-col items-center justify-center">
+                    <PlusCircle className="h-12 w-12 text-gray-400 mb-4" />
+                    <p className="text-gray-600 font-medium">Create New Space</p>
+                  </Link>
                 </Card>
               </div>
             ) : (

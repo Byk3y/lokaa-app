@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, InfoIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const spaceFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long").max(50, "Name must be less than 50 characters long"),
@@ -25,9 +26,21 @@ const spaceFormSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Subdomain can only contain lowercase letters, numbers, and hyphens"),
   pricingType: z.enum(["free", "paid"]),
   pricePerMonth: z.string().optional(),
+  primaryColor: z.string().default("#7c3aed"),
 });
 
 type SpaceFormValues = z.infer<typeof spaceFormSchema>;
+
+const COLOR_OPTIONS = [
+  { name: "Purple", value: "#7c3aed", class: "bg-lokaa-600" },
+  { name: "Blue", value: "#3b82f6", class: "bg-blue-500" },
+  { name: "Green", value: "#10b981", class: "bg-green-500" },
+  { name: "Orange", value: "#f97316", class: "bg-orange-500" },
+  { name: "Red", value: "#ef4444", class: "bg-red-500" },
+  { name: "Pink", value: "#ec4899", class: "bg-pink-500" },
+  { name: "Teal", value: "#14b8a6", class: "bg-teal-500" },
+  { name: "Black", value: "#171717", class: "bg-neutral-800" },
+];
 
 export default function CreateSpaceForm() {
   const { user, refreshProfile } = useAuth();
@@ -42,10 +55,12 @@ export default function CreateSpaceForm() {
       subdomain: "",
       pricingType: "free",
       pricePerMonth: "0",
+      primaryColor: "#7c3aed",
     },
   });
 
   const pricingType = form.watch("pricingType");
+  const primaryColor = form.watch("primaryColor");
 
   const onSubmit = async (data: SpaceFormValues) => {
     if (!user) return;
@@ -75,6 +90,7 @@ export default function CreateSpaceForm() {
         owner_id: user.id,
         pricing_type: data.pricingType,
         price_per_month: data.pricingType === 'paid' ? parseFloat(data.pricePerMonth || "0") : 0,
+        primary_color: data.primaryColor,
       };
       
       const { data: space, error } = await supabase
@@ -184,6 +200,45 @@ export default function CreateSpaceForm() {
             
             <FormField
               control={form.control}
+              name="primaryColor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Space Color Theme</FormLabel>
+                  <FormControl>
+                    <div className="grid grid-cols-4 gap-3">
+                      {COLOR_OPTIONS.map((color) => (
+                        <div key={color.value} className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => field.onChange(color.value)}
+                            className={`h-10 w-10 rounded-full ${color.class} mx-auto mb-1 flex items-center justify-center transition-all ${
+                              field.value === color.value 
+                                ? 'ring-2 ring-offset-2 ring-black' 
+                                : 'hover:scale-110'
+                            }`}
+                            aria-label={`Select ${color.name} color`}
+                          >
+                            {field.value === color.value && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                                <path d="M20 6L9 17l-5-5"/>
+                              </svg>
+                            )}
+                          </button>
+                          <p className="text-xs font-medium">{color.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </FormControl>
+                  <FormDescription>
+                    This color will be used for buttons, links, and other accent elements in your space.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
               name="pricingType"
               render={({ field }) => (
                 <FormItem className="space-y-3">
@@ -204,6 +259,12 @@ export default function CreateSpaceForm() {
                       </div>
                     </RadioGroup>
                   </FormControl>
+                  <Alert variant="info" className="bg-blue-50">
+                    <InfoIcon className="h-4 w-4" />
+                    <AlertDescription>
+                      You can switch to a paid community later from your Space settings.
+                    </AlertDescription>
+                  </Alert>
                   <FormMessage />
                 </FormItem>
               )}
