@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, TrendingUp, Music, Code, Gamepad2, GraduationCap } from "lucide-react";
@@ -28,7 +27,6 @@ export default function DiscoverCommunities() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Fetch spaces the user has joined
   useEffect(() => {
     const fetchJoinedSpaces = async () => {
       try {
@@ -69,13 +67,11 @@ export default function DiscoverCommunities() {
     fetchJoinedSpaces();
   }, [user]);
 
-  // Fetch trending and category spaces
   useEffect(() => {
     const fetchSpaces = async () => {
       try {
         setLoading(true);
         
-        // Fetch trending spaces (those with most members)
         const { data: trendingData, error: trendingError } = await supabase
           .from('spaces')
           .select('*')
@@ -85,8 +81,6 @@ export default function DiscoverCommunities() {
         if (trendingError) throw trendingError;
         setTrendingSpaces(trendingData || []);
         
-        // For demo purposes, we'll just distribute the spaces randomly into categories
-        // In a real app, you would have a category field in the spaces table
         const categories = ['music', 'tech', 'gaming', 'education'];
         const categorizedSpaces = {
           music: [],
@@ -95,7 +89,6 @@ export default function DiscoverCommunities() {
           education: []
         };
         
-        // Get all spaces
         const { data: allSpaces, error: allSpacesError } = await supabase
           .from('spaces')
           .select('*')
@@ -103,7 +96,6 @@ export default function DiscoverCommunities() {
         
         if (allSpacesError) throw allSpacesError;
         
-        // Randomly assign spaces to categories for demo purposes
         if (allSpaces) {
           allSpaces.forEach(space => {
             const randomCategoryIndex = Math.floor(Math.random() * categories.length);
@@ -130,7 +122,6 @@ export default function DiscoverCommunities() {
     fetchSpaces();
   }, []);
 
-  // Handle space search
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
@@ -157,7 +148,6 @@ export default function DiscoverCommunities() {
     }
   };
 
-  // Handle joining a space
   const handleJoinSpace = async (spaceId) => {
     if (!user) {
       navigate('/login');
@@ -165,7 +155,6 @@ export default function DiscoverCommunities() {
     }
     
     try {
-      // Check if already a member
       const { data: existingMembership, error: checkError } = await supabase
         .from('memberships')
         .select('*')
@@ -179,7 +168,6 @@ export default function DiscoverCommunities() {
       
       if (existingMembership) {
         if (!existingMembership.is_active) {
-          // Reactivate membership
           const { error: updateError } = await supabase
             .from('memberships')
             .update({ is_active: true })
@@ -194,7 +182,6 @@ export default function DiscoverCommunities() {
           return;
         }
       } else {
-        // Create new membership
         const { error: insertError } = await supabase
           .from('memberships')
           .insert({
@@ -211,7 +198,6 @@ export default function DiscoverCommunities() {
         description: "You have successfully joined this space.",
       });
       
-      // Refresh joined spaces
       const { data: joinedData, error: joinedError } = await supabase
         .from('spaces')
         .select('*')
@@ -239,7 +225,6 @@ export default function DiscoverCommunities() {
         <div className="p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Discover Communities</h1>
           
-          {/* Search */}
           <div className="mb-8">
             <div className="relative">
               <Input
@@ -282,7 +267,6 @@ export default function DiscoverCommunities() {
             </div>
           ) : null}
           
-          {/* Spaces You've Joined */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Spaces You've Joined</h2>
             {loading ? (
@@ -299,12 +283,13 @@ export default function DiscoverCommunities() {
               <EmptyState
                 title="No spaces joined yet"
                 description="Join spaces to connect with communities you're interested in"
+                actionText="Browse Spaces"
+                actionLink="#trending-spaces"
                 icon={<TrendingUp className="h-8 w-8 text-lokaa-600" />}
               />
             )}
           </div>
           
-          {/* Create Space CTA */}
           <div className="mb-10 bg-lokaa-50 rounded-xl p-6 border border-lokaa-100">
             <div className="text-center">
               <h3 className="text-xl font-bold text-gray-900 mb-2">Want to build your own Space?</h3>
@@ -318,8 +303,7 @@ export default function DiscoverCommunities() {
             </div>
           </div>
           
-          {/* Trending Spaces */}
-          <div className="mb-8">
+          <div className="mb-8" id="trending-spaces">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Trending Spaces</h2>
             {loading ? (
               <div className="flex justify-center items-center h-40">
@@ -343,12 +327,13 @@ export default function DiscoverCommunities() {
               <EmptyState
                 title="No trending spaces available"
                 description="Check back later for trending spaces"
+                actionText="Create a Space"
+                actionLink="/spaces/create"
                 icon={<TrendingUp className="h-8 w-8 text-lokaa-600" />}
               />
             )}
           </div>
           
-          {/* Categories */}
           <div>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Browse by Category</h2>
             <Tabs defaultValue="music">
@@ -391,6 +376,8 @@ export default function DiscoverCommunities() {
                     <EmptyState
                       title={`No ${category} spaces available`}
                       description={`Check back later for ${category} spaces`}
+                      actionText="Explore Other Categories"
+                      actionLink="#trending-spaces"
                       icon={<TrendingUp className="h-8 w-8 text-lokaa-600" />}
                     />
                   )}
