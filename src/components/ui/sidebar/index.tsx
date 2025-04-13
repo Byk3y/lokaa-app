@@ -17,17 +17,16 @@ import {
 const SidebarProvider = React.forwardRef<
   HTMLDivElement,
   React.ComponentPropsWithoutRef<typeof InternalSidebarProvider>
->((props, ref) => {
-  return (
-    <TooltipProvider delayDuration={0}>
-      <InternalSidebarProvider 
-        ref={ref} 
-        className="group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar"
-        {...props} 
-      />
-    </TooltipProvider>
-  );
-});
+>((props, ref) => (
+  <TooltipProvider delayDuration={0}>
+    <InternalSidebarProvider 
+      ref={ref} 
+      className="group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar"
+      {...props} 
+    />
+  </TooltipProvider>
+));
+
 SidebarProvider.displayName = "SidebarProvider";
 
 export { SidebarProvider };
