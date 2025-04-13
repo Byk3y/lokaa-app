@@ -1,20 +1,26 @@
 
-import { useState, useEffect } from "react";
-import { PlusCircle, Users, BarChart2, MessageSquare, Calendar, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Users, BarChart2, MessageSquare, Calendar } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import EmptyState from "@/components/dashboard/EmptyState";
-import SpaceCard from "@/components/spaces/SpaceCard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import JoinedSpacesSection from "@/components/dashboard/JoinedSpacesSection";
+import FeaturedSpaces from "@/components/dashboard/FeaturedSpaces";
+import TrendingSpaces from "@/components/discover/TrendingSpaces";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import useSpacesData from "@/hooks/useSpacesData";
+import useJoinSpace from "@/hooks/useJoinSpace";
 
 export default function Dashboard() {
   const { userDetails } = useAuth();
-  const [spaces, setSpaces] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    joinedSpaces, 
+    setJoinedSpaces, 
+    trendingSpaces, 
+    featuredSpaces,
+    loading 
+  } = useSpacesData();
+  
+  const handleJoinSpace = useJoinSpace(setJoinedSpaces);
   
   // Analytics data (this would come from Supabase in a real implementation)
   const analytics = {
@@ -23,33 +29,6 @@ export default function Dashboard() {
     totalPosts: 0,
     totalRevenue: 0.00
   };
-
-  useEffect(() => {
-    const fetchSpaces = async () => {
-      try {
-        // Fetch spaces the user has created (if creator) or joined (if member)
-        // For now this just fetches all spaces visible to the user based on RLS
-        const { data, error } = await supabase
-          .from('spaces')
-          .select('*');
-        
-        if (error) throw error;
-        
-        setSpaces(data || []);
-      } catch (error) {
-        console.error('Error fetching spaces:', error);
-        toast({
-          title: "Error loading spaces",
-          description: "Could not load your spaces at this time.",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSpaces();
-  }, []);
 
   const isCreator = userDetails?.role === 'creator';
 
@@ -68,31 +47,7 @@ export default function Dashboard() {
                 {isCreator && <span className="ml-2 px-2 py-1 text-xs bg-lokaa-100 text-lokaa-700 rounded-full">Creator</span>}
               </p>
             </div>
-            <div className="mt-4 md:mt-0">
-              <Button className="bg-lokaa-600 hover:bg-lokaa-700" asChild>
-                <Link to="/spaces/create">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Create Space
-                </Link>
-              </Button>
-            </div>
           </div>
-          
-          {/* Creator CTA for members */}
-          {!isCreator && (
-            <div className="mb-8 bg-lokaa-50 rounded-xl p-6 border border-lokaa-100">
-              <div className="text-center">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Want to build your own Space?</h3>
-                <p className="text-gray-600 mb-4">Start your community and monetize your passion.</p>
-                <Button 
-                  className="bg-lokaa-600 hover:bg-lokaa-700 px-6 py-2 text-lg"
-                  asChild
-                >
-                  <Link to="/spaces/create">Create My Space</Link>
-                </Button>
-              </div>
-            </div>
-          )}
           
           {/* Analytics Cards - Only show for creators */}
           {isCreator && (
@@ -147,76 +102,22 @@ export default function Dashboard() {
             </div>
           )}
           
-          {/* Your Spaces */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Your Spaces</h2>
-              <Button 
-                variant="ghost" 
-                className="text-lokaa-600 hover:text-lokaa-700 hover:bg-lokaa-50"
-                asChild
-              >
-                <Link to="/discover">Discover Spaces</Link>
-              </Button>
-            </div>
-            
-            {loading ? (
-              <div className="flex justify-center items-center h-40">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-lokaa-600"></div>
-              </div>
-            ) : spaces.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {spaces.map((space) => (
-                  <div key={space.id} className="relative group">
-                    <SpaceCard {...space} />
-                    
-                    {/* Settings button overlay for spaces owned by the user */}
-                    {space.owner_id === userDetails?.id && (
-                      <Link 
-                        to={`/spaces/${space.id}/settings`}
-                        className="absolute top-2 right-2 bg-white rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Space Settings"
-                      >
-                        <Settings className="h-4 w-4 text-gray-600" />
-                      </Link>
-                    )}
-                  </div>
-                ))}
-                <Card className="border-2 border-dashed border-gray-200 flex flex-col items-center justify-center p-6 hover:bg-gray-50 transition-colors cursor-pointer">
-                  <Link to="/spaces/create" className="w-full h-full flex flex-col items-center justify-center">
-                    <PlusCircle className="h-12 w-12 text-gray-400 mb-4" />
-                    <p className="text-gray-600 font-medium">Create New Space</p>
-                  </Link>
-                </Card>
-              </div>
-            ) : (
-              <EmptyState
-                title="No spaces yet"
-                description="Create your first space to start building your community"
-                actionText="Create a Space"
-                actionLink="/spaces/create"
-                icon={<Users className="h-8 w-8 text-lokaa-600" />}
-              />
-            )}
-          </div>
+          {/* Joined Spaces Section */}
+          <JoinedSpacesSection spaces={joinedSpaces} loading={loading} />
           
-          {/* Upcoming Events */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Upcoming Events</h2>
-              <Button variant="ghost" className="text-lokaa-600 hover:text-lokaa-700 hover:bg-lokaa-50">
-                View All
-              </Button>
-            </div>
-            
-            <EmptyState
-              title="No upcoming events"
-              description="Schedule your first event to engage with your community"
-              actionText="Create an Event"
-              actionLink="/events/create"
-              icon={<Calendar className="h-8 w-8 text-lokaa-600" />}
-            />
-          </div>
+          {/* Featured Spaces */}
+          <FeaturedSpaces 
+            spaces={featuredSpaces} 
+            loading={loading} 
+            onJoinSpace={handleJoinSpace} 
+          />
+          
+          {/* Trending Spaces */}
+          <TrendingSpaces 
+            spaces={trendingSpaces} 
+            loading={loading} 
+            onJoinSpace={handleJoinSpace} 
+          />
         </div>
       </div>
     </div>

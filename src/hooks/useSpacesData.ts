@@ -8,6 +8,7 @@ export default function useSpacesData() {
   const { user } = useAuth();
   const [joinedSpaces, setJoinedSpaces] = useState([]);
   const [trendingSpaces, setTrendingSpaces] = useState([]);
+  const [featuredSpaces, setFeaturedSpaces] = useState([]);
   const [categorySpaces, setCategorySpaces] = useState({
     music: [],
     tech: [],
@@ -20,7 +21,10 @@ export default function useSpacesData() {
   useEffect(() => {
     const fetchJoinedSpaces = async () => {
       try {
-        if (!user) return;
+        if (!user) {
+          setJoinedSpaces([]);
+          return;
+        }
         
         const { data, error } = await supabase
           .from('memberships')
@@ -63,6 +67,7 @@ export default function useSpacesData() {
       try {
         setLoading(true);
         
+        // Get trending spaces
         const { data: trendingData, error: trendingError } = await supabase
           .from('spaces')
           .select('*')
@@ -72,6 +77,17 @@ export default function useSpacesData() {
         if (trendingError) throw trendingError;
         setTrendingSpaces(trendingData || []);
         
+        // Get featured spaces (for now, we'll use the top 3 most popular)
+        const { data: featuredData, error: featuredError } = await supabase
+          .from('spaces')
+          .select('*')
+          .order('member_count', { ascending: false })
+          .limit(3);
+        
+        if (featuredError) throw featuredError;
+        setFeaturedSpaces(featuredData || []);
+        
+        // Get spaces by category
         const categories = ['music', 'tech', 'gaming', 'education'];
         const categorizedSpaces = {
           music: [],
@@ -117,6 +133,7 @@ export default function useSpacesData() {
     joinedSpaces,
     setJoinedSpaces,
     trendingSpaces,
+    featuredSpaces,
     categorySpaces,
     loading
   };
