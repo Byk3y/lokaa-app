@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import DiscoverCommunities from "./pages/DiscoverCommunities";
 import CreateSpace from "./pages/CreateSpace";
 import SpaceSettings from "./pages/SpaceSettings";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -31,6 +32,7 @@ const App = () => {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/profile/:username" element={<Profile />} />
               
               {/* Protected Routes */}
               <Route element={<ProtectedRoute />}>
