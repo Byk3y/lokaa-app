@@ -1,9 +1,9 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 interface AuthRedirectProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   requireAuth?: boolean;
   redirectTo?: string;
 }
@@ -40,8 +40,8 @@ const AuthRedirect = ({
     return <Navigate to={redirectTo} replace />;
   }
 
-  // Otherwise, render the children
-  return <>{children}</>;
+  // Otherwise, render the children or outlet
+  return children ? <>{children}</> : <Outlet />;
 };
 
 export default AuthRedirect;
