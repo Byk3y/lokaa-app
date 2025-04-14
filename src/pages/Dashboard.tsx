@@ -2,6 +2,7 @@
 import { Link } from "react-router-dom";
 import { Users, BarChart2, MessageSquare, Calendar } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import JoinedSpacesSection from "@/components/dashboard/JoinedSpacesSection";
 import FeaturedSpaces from "@/components/dashboard/FeaturedSpaces";
@@ -37,7 +38,9 @@ export default function Dashboard() {
       <DashboardSidebar />
       
       <div className="flex-1 lg:ml-64">
-        <div className="p-6">
+        <DashboardHeader />
+        
+        <div className="p-6 mt-16">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
             <div>

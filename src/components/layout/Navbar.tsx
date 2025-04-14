@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, userDetails, signOut } = useAuth();
+  const location = useLocation();
+
+  // Don't show the navbar on dashboard routes if user is logged in
+  const isDashboardRoute = location.pathname.startsWith('/dashboard') || 
+                          location.pathname.startsWith('/discover') || 
+                          location.pathname.startsWith('/spaces');
+  
+  // If user is logged in and on a dashboard route, don't render the navbar
+  if (user && isDashboardRoute) {
+    return null;
+  }
 
   // Helper function to get avatar fallback (initials)
   const getInitials = (name: string) => {

@@ -13,7 +13,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export default function DashboardHeader() {
   const { user, userDetails, signOut } = useAuth();
@@ -24,9 +23,11 @@ export default function DashboardHeader() {
     return name.charAt(0).toUpperCase();
   };
 
+  const isCreator = userDetails?.role === 'creator';
+
   return (
-    <header className="bg-white border-b fixed top-0 left-0 right-0 z-10">
-      <div className="mx-auto flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8 lg:pl-72">
+    <header className={`bg-white border-b fixed top-0 right-0 z-30 ${isCreator ? 'left-64' : 'left-0'} lg:left-64 transition-all duration-300`}>
+      <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center space-x-6">
           <Link to="/dashboard" className="hidden lg:flex items-center">
             <span className="text-xl font-bold text-lokaa-700">Lokaa</span>
