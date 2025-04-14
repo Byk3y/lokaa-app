@@ -1,0 +1,39 @@
+
+import { Trophy, MapPin } from "lucide-react";
+
+interface ProfileAboutProps {
+  profileData: any;
+}
+
+export default function ProfileAbout({ profileData }: ProfileAboutProps) {
+  return (
+    <div className="mt-6">
+      {/* Level and points info */}
+      <div className="mb-6 flex items-center">
+        <div className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full flex items-center">
+          <Trophy className="h-4 w-4 mr-1" /> 
+          <span className="font-medium">Level 1</span>
+        </div>
+        <div className="ml-4 text-sm text-gray-500">
+          <span>{profileData.activity_score || 0} points</span> • <span>10 to level up</span>
+        </div>
+      </div>
+
+      {/* Biography */}
+      <div className="mb-6">
+        <h3 className="text-lg font-medium mb-2">Biography</h3>
+        <p className="text-gray-700">
+          {profileData.bio || "Want to start my own ai agency, can you be my mentor?"}
+        </p>
+      </div>
+
+      {/* Location */}
+      {profileData.location && (
+        <div className="flex items-center text-gray-600 mb-4">
+          <MapPin className="h-4 w-4 mr-2" />
+          <span>Lagos Nigeria</span>
+        </div>
+      )}
+    </div>
+  );
+}
