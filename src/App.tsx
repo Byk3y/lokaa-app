@@ -53,6 +53,9 @@ const App = () => {
                 <Route path="/discover" element={<DiscoverCommunities />} />
                 <Route path="/spaces/create" element={<CreateSpace />} />
                 <Route path="/spaces/:spaceId/settings" element={<SpaceSettings />} />
+                <Route path="/profile/edit" element={<div>Edit Profile Page</div>} />
+                <Route path="/notifications" element={<div>Notifications Page</div>} />
+                <Route path="/settings" element={<div>Authentication Settings Page</div>} />
               </Route>
               
               {/* Default route for logged in users */}

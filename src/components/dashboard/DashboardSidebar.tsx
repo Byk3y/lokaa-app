@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import DashboardHeader from "./DashboardHeader";
 
 import MobileMenuToggle from "./MobileMenuToggle";
 import SidebarHeader from "./SidebarHeader";
@@ -20,6 +21,8 @@ export default function DashboardSidebar() {
 
   return (
     <>
+      <DashboardHeader />
+      
       <MobileMenuToggle 
         isMobileOpen={isMobileOpen} 
         setIsMobileOpen={setIsMobileOpen}
