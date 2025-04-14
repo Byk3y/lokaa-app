@@ -73,7 +73,7 @@ export default function Navbar() {
                   <Link to="/dashboard" className="cursor-pointer w-full">Dashboard</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/profile" className="cursor-pointer w-full">Profile</Link>
+                  <Link to={`/profile/${userDetails?.username}`} className="cursor-pointer w-full">Profile</Link>
                 </DropdownMenuItem>
                 {userDetails?.role === 'creator' && (
                   <DropdownMenuItem asChild>
@@ -169,7 +169,7 @@ export default function Navbar() {
                         Dashboard
                       </Link>
                       <Link
-                        to="/profile"
+                        to={`/profile/${userDetails?.username}`}
                         className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
                         onClick={() => setMobileMenuOpen(false)}
                       >
