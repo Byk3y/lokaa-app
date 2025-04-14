@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import DashboardHeader from "./DashboardHeader";
+import { Home, Compass, Plus } from "lucide-react";
 
 import MobileMenuToggle from "./MobileMenuToggle";
 import SidebarHeader from "./SidebarHeader";
-import MainSidebarNav from "./MainSidebarNav";
+import SidebarLink from "./SidebarLink";
+import SpacesSection from "./SpacesSection";
 import SidebarFooter from "./SidebarFooter";
 
 export default function DashboardSidebar() {
@@ -21,8 +22,6 @@ export default function DashboardSidebar() {
 
   return (
     <>
-      <DashboardHeader />
-      
       <MobileMenuToggle 
         isMobileOpen={isMobileOpen} 
         setIsMobileOpen={setIsMobileOpen}
@@ -39,12 +38,45 @@ export default function DashboardSidebar() {
           <SidebarHeader closeMobileSidebar={closeMobileSidebar} />
           
           <div className="flex-1 overflow-y-auto py-4 px-3">
-            <MainSidebarNav 
-              isActive={isActive} 
-              closeMobileSidebar={closeMobileSidebar}
-              isCreator={isCreator}
-              location={location}
-            />
+            <nav className="space-y-1">
+              <SidebarLink
+                to="/dashboard"
+                icon={<Home className="h-5 w-5" />}
+                label="Home"
+                isActive={location.pathname === "/dashboard"}
+                onClick={closeMobileSidebar}
+              />
+
+              <SidebarLink
+                to="/discover"
+                icon={<Compass className="h-5 w-5" />}
+                label="Discover"
+                isActive={isActive("/discover")}
+                onClick={closeMobileSidebar}
+              />
+              
+              {/* Community icons section */}
+              <div className="pt-6 pb-2">
+                <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Your Spaces
+                </h3>
+                
+                {/* Community icon list */}
+                <div className="mt-3 grid grid-cols-3 gap-2 px-2">
+                  {/* This will be populated dynamically from SpacesSection */}
+                  <SpacesSection closeMobileSidebar={closeMobileSidebar} />
+                </div>
+              </div>
+              
+              {/* Create Space Button */}
+              <SidebarLink
+                to="/spaces/create"
+                icon={<Plus className="h-5 w-5" />}
+                label="Create Space"
+                isActive={isActive("/spaces/create")}
+                onClick={closeMobileSidebar}
+              />
+            </nav>
           </div>
 
           <SidebarFooter 
