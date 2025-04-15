@@ -8,13 +8,6 @@ export default function useCommunitiesData() {
   const { user } = useAuth();
   const [joinedCommunities, setJoinedCommunities] = useState([]);
   const [trendingCommunities, setTrendingCommunities] = useState([]);
-  const [featuredCommunities, setFeaturedCommunities] = useState([]);
-  const [categoryCommunities, setCategoryCommunities] = useState({
-    music: [],
-    tech: [],
-    gaming: [],
-    education: []
-  });
   const [loading, setLoading] = useState(true);
 
   // Fetch joined communities
@@ -55,86 +48,47 @@ export default function useCommunitiesData() {
           description: "Could not load your communities at this time.",
           variant: "destructive"
         });
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchJoinedCommunities();
   }, [user]);
 
-  // Fetch trending and category communities
+  // Fetch trending communities
   useEffect(() => {
-    const fetchCommunities = async () => {
+    const fetchTrendingCommunities = async () => {
       try {
-        setLoading(true);
+        // Skip fetching trending if we're already loading joined communities
+        if (loading) return;
         
         // Get trending communities
-        const { data: trendingData, error: trendingError } = await supabase
+        const { data, error } = await supabase
           .from('communities')
           .select('*')
           .order('member_count', { ascending: false })
           .limit(6);
         
-        if (trendingError) throw trendingError;
-        setTrendingCommunities(trendingData || []);
-        
-        // Get featured communities (for now, we'll use the top 3 most popular)
-        const { data: featuredData, error: featuredError } = await supabase
-          .from('communities')
-          .select('*')
-          .order('member_count', { ascending: false })
-          .limit(3);
-        
-        if (featuredError) throw featuredError;
-        setFeaturedCommunities(featuredData || []);
-        
-        // Get communities by category
-        const categories = ['music', 'tech', 'gaming', 'education'];
-        const categorizedCommunities = {
-          music: [],
-          tech: [],
-          gaming: [],
-          education: []
-        };
-        
-        const { data: allCommunities, error: allCommunitiesError } = await supabase
-          .from('communities')
-          .select('*')
-          .limit(20);
-        
-        if (allCommunitiesError) throw allCommunitiesError;
-        
-        if (allCommunities) {
-          allCommunities.forEach(community => {
-            const randomCategoryIndex = Math.floor(Math.random() * categories.length);
-            const category = categories[randomCategoryIndex];
-            if (categorizedCommunities[category].length < 6) {
-              categorizedCommunities[category].push(community);
-            }
-          });
-        }
-        
-        setCategoryCommunities(categorizedCommunities);
+        if (error) throw error;
+        setTrendingCommunities(data || []);
       } catch (error) {
-        console.error('Error fetching communities:', error);
+        console.error('Error fetching trending communities:', error);
         toast({
           title: "Error loading communities",
-          description: "Could not load communities at this time.",
+          description: "Could not load trending communities at this time.",
           variant: "destructive"
         });
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchCommunities();
-  }, []);
+    fetchTrendingCommunities();
+  }, [loading]);
 
   return {
     joinedCommunities,
     setJoinedCommunities,
     trendingCommunities,
-    featuredCommunities,
-    categoryCommunities,
     loading
   };
 }

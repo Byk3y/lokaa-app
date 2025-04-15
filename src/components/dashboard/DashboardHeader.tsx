@@ -23,16 +23,10 @@ export default function DashboardHeader() {
     return name.charAt(0).toUpperCase();
   };
 
-  const isCreator = userDetails?.role === 'creator';
-
   return (
-    <header className={`bg-white border-b fixed top-0 right-0 z-30 ${isCreator ? 'left-64' : 'left-0'} lg:left-64 transition-all duration-300`}>
+    <header className="bg-white border-b fixed top-0 right-0 z-30 left-[72px] transition-all duration-300">
       <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center space-x-6">
-          <Link to="/dashboard" className="hidden lg:flex items-center">
-            <span className="text-xl font-bold text-lokaa-700">Lokaa</span>
-          </Link>
-          
+        <div className="flex items-center space-x-6">          
           {/* Search bar */}
           <div className="relative w-full max-w-md">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
