@@ -7,26 +7,18 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Loader2, InfoIcon } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { SpaceTemplates } from "./SpaceTemplates";
 
 const spaceFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long").max(50, "Name must be less than 50 characters long"),
   description: z.string().max(500, "Description must be less than 500 characters long").optional(),
-  subdomain: z.string()
-    .min(3, "Subdomain must be at least 3 characters long")
-    .max(20, "Subdomain must be less than 20 characters long")
-    .regex(/^[a-z0-9-]+$/, "Subdomain can only contain lowercase letters, numbers, and hyphens"),
-  pricingType: z.enum(["free", "paid"]),
-  pricePerMonth: z.string().optional(),
-  primaryColor: z.string().default("#7c3aed"),
+  color: z.string().default("#7c3aed"),
 });
 
 type SpaceFormValues = z.infer<typeof spaceFormSchema>;
@@ -42,43 +34,55 @@ const COLOR_OPTIONS = [
   { name: "Black", value: "#171717", class: "bg-neutral-800" },
 ];
 
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[\s\W-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export default function CreateSpaceForm() {
-  const { user, refreshProfile } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { communityId } = useParams();
+  const [searchParams] = useSearchParams();
+  const spaceType = searchParams.get('type');
+  
+  if (!spaceType) {
+    return <div>Invalid space type</div>;
+  }
 
   const form = useForm<SpaceFormValues>({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
       name: "",
       description: "",
-      subdomain: "",
-      pricingType: "free",
-      pricePerMonth: "0",
-      primaryColor: "#7c3aed",
+      color: "#7c3aed",
     },
   });
 
-  const pricingType = form.watch("pricingType");
-  const primaryColor = form.watch("primaryColor");
-
   const onSubmit = async (data: SpaceFormValues) => {
-    if (!user) return;
+    if (!user || !communityId) return;
     
     setLoading(true);
     
     try {
-      // Check if subdomain is already taken
+      const slug = generateSlug(data.name);
+      
+      // Check if slug is already taken in this community
       const { data: existingSpace, error: checkError } = await supabase
-        .from('spaces')
+        .from('spaces_new')
         .select('id')
-        .eq('subdomain', data.subdomain)
+        .eq('community_id', communityId)
+        .eq('slug', slug)
         .single();
         
       if (existingSpace) {
-        form.setError('subdomain', { 
+        form.setError('name', { 
           type: 'manual', 
-          message: 'This subdomain is already taken' 
+          message: 'A space with this name already exists in this community' 
         });
         return;
       }
@@ -86,40 +90,29 @@ export default function CreateSpaceForm() {
       const newSpace = {
         name: data.name,
         description: data.description || "",
-        subdomain: data.subdomain,
+        slug,
+        community_id: communityId,
         owner_id: user.id,
-        pricing_type: data.pricingType,
-        price_per_month: data.pricingType === 'paid' ? parseFloat(data.pricePerMonth || "0") : 0,
-        primary_color: data.primaryColor,
+        type: spaceType,
+        color: data.color,
+        settings: {},
       };
       
       const { data: space, error } = await supabase
-        .from('spaces')
+        .from('spaces_new')
         .insert(newSpace)
         .select()
         .single();
         
       if (error) throw error;
       
-      // Create membership for the owner
-      await supabase
-        .from('memberships')
-        .insert({
-          user_id: user.id,
-          space_id: space.id,
-          is_active: true,
-        });
-      
-      // Refresh user profile to get updated role (creator)
-      await refreshProfile();
-      
       toast({
         title: "Space created successfully!",
-        description: `Your space ${data.name} has been created.`,
+        description: `${data.name} has been created.`,
       });
       
       // Navigate to the new space
-      navigate(`/spaces/${space.id}`);
+      navigate(`/c/${communityId}/s/${space.slug}`);
     } catch (error: any) {
       console.error('Error creating space:', error);
       toast({
@@ -135,7 +128,7 @@ export default function CreateSpaceForm() {
   return (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">Create a new Space</CardTitle>
+        <CardTitle className="text-2xl font-bold">Create New Space</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -147,10 +140,10 @@ export default function CreateSpaceForm() {
                 <FormItem>
                   <FormLabel>Space Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="E.g., Design Mastermind, Coding Club" {...field} />
+                    <Input placeholder={`My ${spaceType} Space`} {...field} />
                   </FormControl>
                   <FormDescription>
-                    This is the name of your community space.
+                    This is what members will see when browsing spaces.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -165,13 +158,13 @@ export default function CreateSpaceForm() {
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea 
-                      placeholder="Describe what your space is about..." 
+                      placeholder="Describe what this space is about..." 
                       className="resize-none h-24"
                       {...field} 
                     />
                   </FormControl>
                   <FormDescription>
-                    A brief description to help people understand what your space is about.
+                    A brief description to help people understand what this space is about.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -180,27 +173,7 @@ export default function CreateSpaceForm() {
             
             <FormField
               control={form.control}
-              name="subdomain"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Subdomain</FormLabel>
-                  <FormControl>
-                    <div className="flex items-center">
-                      <Input placeholder="your-space" {...field} />
-                      <span className="ml-2 text-muted-foreground">.lokaa.so</span>
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    This will be the URL for your space: https://{field.value || "your-space"}.lokaa.so
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="primaryColor"
+              name="color"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Space Color Theme</FormLabel>
@@ -230,64 +203,12 @@ export default function CreateSpaceForm() {
                     </div>
                   </FormControl>
                   <FormDescription>
-                    This color will be used for buttons, links, and other accent elements in your space.
+                    This color will be used for accent elements in your space.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
-            <FormField
-              control={form.control}
-              name="pricingType"
-              render={({ field }) => (
-                <FormItem className="space-y-3">
-                  <FormLabel>Pricing</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className="flex flex-col space-y-1"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="free" id="free" />
-                        <Label htmlFor="free">Free - Anyone can join without payment</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="paid" id="paid" />
-                        <Label htmlFor="paid">Paid - Members pay a monthly subscription</Label>
-                      </div>
-                    </RadioGroup>
-                  </FormControl>
-                  <Alert variant="info" className="bg-blue-50">
-                    <InfoIcon className="h-4 w-4" />
-                    <AlertDescription>
-                      You can switch to a paid community later from your Space settings.
-                    </AlertDescription>
-                  </Alert>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            {pricingType === "paid" && (
-              <FormField
-                control={form.control}
-                name="pricePerMonth"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Price per month ($)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="1" step="0.01" placeholder="9.99" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      The monthly subscription price for your space.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
             
             <Button 
               type="submit" 
