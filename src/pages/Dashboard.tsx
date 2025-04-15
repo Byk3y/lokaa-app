@@ -1,27 +1,27 @@
 
 import { Link } from "react-router-dom";
-import { Users, BarChart2, MessageSquare, Calendar } from "lucide-react";
+import { Users, BarChart2, MessageSquare } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import JoinedSpacesSection from "@/components/dashboard/JoinedSpacesSection";
-import FeaturedSpaces from "@/components/dashboard/FeaturedSpaces";
-import TrendingSpaces from "@/components/discover/TrendingSpaces";
+import FeaturedCommunities from "@/components/dashboard/FeaturedCommunities";
+import TrendingCommunities from "@/components/discover/TrendingCommunities";
 import { useAuth } from "@/contexts/AuthContext";
-import useSpacesData from "@/hooks/useSpacesData";
-import useJoinSpace from "@/hooks/useJoinSpace";
+import useCommunitiesData from "@/hooks/useCommunitiesData";
+import useJoinCommunity from "@/hooks/useJoinCommunity";
 
 export default function Dashboard() {
   const { userDetails } = useAuth();
   const { 
-    joinedSpaces, 
-    setJoinedSpaces, 
-    trendingSpaces, 
-    featuredSpaces,
+    joinedCommunities, 
+    setJoinedCommunities, 
+    trendingCommunities, 
+    featuredCommunities,
     loading 
-  } = useSpacesData();
+  } = useCommunitiesData();
   
-  const handleJoinSpace = useJoinSpace(setJoinedSpaces);
+  const handleJoinCommunity = useJoinCommunity(setJoinedCommunities);
   
   // Analytics data (this would come from Supabase in a real implementation)
   const analytics = {
@@ -105,21 +105,24 @@ export default function Dashboard() {
             </div>
           )}
           
-          {/* Joined Spaces Section */}
-          <JoinedSpacesSection spaces={joinedSpaces} loading={loading} />
-          
-          {/* Featured Spaces */}
-          <FeaturedSpaces 
-            spaces={featuredSpaces} 
+          {/* Joined Communities Section */}
+          <JoinedSpacesSection 
+            communities={joinedCommunities} 
             loading={loading} 
-            onJoinSpace={handleJoinSpace} 
           />
           
-          {/* Trending Spaces */}
-          <TrendingSpaces 
-            spaces={trendingSpaces} 
+          {/* Featured Communities */}
+          <FeaturedCommunities 
+            communities={featuredCommunities} 
             loading={loading} 
-            onJoinSpace={handleJoinSpace} 
+            onJoinCommunity={handleJoinCommunity} 
+          />
+          
+          {/* Trending Communities */}
+          <TrendingCommunities 
+            communities={trendingCommunities} 
+            loading={loading} 
+            onJoinCommunity={handleJoinCommunity} 
           />
         </div>
       </div>

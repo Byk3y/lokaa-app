@@ -1,67 +1,42 @@
 
-import { TrendingUp, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import SpaceCard from "@/components/spaces/SpaceCard";
+import { TrendingUp } from "lucide-react";
+import CommunityCard from "@/components/communities/CommunityCard";
 import EmptyState from "@/components/dashboard/EmptyState";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
-import { Button } from "@/components/ui/button";
 
 interface JoinedSpacesSectionProps {
-  spaces: any[];
+  communities: any[];
   loading: boolean;
 }
 
-export default function JoinedSpacesSection({ spaces, loading }: JoinedSpacesSectionProps) {
-  if (loading) {
-    return (
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Communities</h2>
-        <LoadingSpinner />
-      </div>
-    );
-  }
-  
-  if (spaces.length === 0) {
-    return (
-      <div className="mb-8">
-        <EmptyState
-          title="You haven't joined any communities yet"
-          description="Join spaces to connect with communities you're interested in"
-          actionText="Discover Communities"
-          actionLink="/discover"
-          icon={<Users className="h-8 w-8 text-lokaa-600" />}
-        />
-      </div>
-    );
-  }
-  
+export default function JoinedSpacesSection({ communities, loading }: JoinedSpacesSectionProps) {
   return (
     <div className="mb-8">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-900">Your Communities</h2>
-        <Button 
-          variant="ghost" 
-          className="text-lokaa-600 hover:text-lokaa-700 hover:bg-lokaa-50"
-          asChild
-        >
-          <Link to="/discover">Discover More</Link>
-        </Button>
+        <Link to="/discover" className="text-sm text-lokaa-600 hover:text-lokaa-700">
+          View all
+        </Link>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {spaces.map((space) => (
-          <div key={space.id} className="relative">
-            <SpaceCard {...space} />
-            <Link to={`/spaces/${space.id}`}>
-              <Button
-                className="absolute bottom-4 right-4 bg-lokaa-600 hover:bg-lokaa-700"
-              >
-                Visit Space
-              </Button>
-            </Link>
-          </div>
-        ))}
-      </div>
+
+      {loading ? (
+        <LoadingSpinner />
+      ) : communities.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {communities.map((community) => (
+            <CommunityCard key={community.id} {...community} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No communities joined yet"
+          description="Join communities to connect with like-minded people"
+          actionText="Discover Communities"
+          actionLink="/discover"
+          icon={<TrendingUp className="h-8 w-8 text-lokaa-600" />}
+        />
+      )}
     </div>
   );
 }
