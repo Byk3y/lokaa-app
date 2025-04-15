@@ -8,9 +8,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import useCommunitiesData from "@/hooks/useCommunitiesData";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function LoggedInLayout() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, userDetails, loading: authLoading } = useAuth();
   const { joinedCommunities, loading: communitiesLoading } = useCommunitiesData();
   const location = useLocation();
   const navigate = useNavigate();
@@ -31,18 +32,38 @@ export default function LoggedInLayout() {
     // Skip if already in a good place
     if (isViewingCommunity || isDiscoverPage) return;
 
-    // If on dashboard or root, decide where to go
-    if (location.pathname === '/dashboard' || location.pathname === '/') {
-      if (joinedCommunities.length === 0) {
-        // No communities - go to discover
-        navigate('/discover');
-      } else {
-        // Has communities - go to the first (or last active) one
-        // For now we'll just use the first one
-        navigate(`/c/${joinedCommunities[0].id}`);
+    const redirectUser = async () => {
+      // Check if user is a creator
+      const isCreator = userDetails?.role === 'creator';
+      
+      if (isCreator) {
+        // Find owned communities
+        const { data: ownedCommunities } = await supabase
+          .from('communities')
+          .select('id')
+          .eq('owner_id', user?.id);
+          
+        if (ownedCommunities && ownedCommunities.length > 0) {
+          // Redirect creator to their first community dashboard
+          navigate(`/c/${ownedCommunities[0].id}`);
+          return;
+        }
       }
-    }
-  }, [authLoading, communitiesLoading, joinedCommunities, isViewingCommunity, isDiscoverPage, location.pathname, navigate]);
+      
+      // If on dashboard or root, decide where to go
+      if (location.pathname === '/dashboard' || location.pathname === '/') {
+        if (joinedCommunities.length === 0) {
+          // No communities - go to discover
+          navigate('/discover');
+        } else {
+          // Has communities - go to the first (or last active) one
+          navigate(`/c/${joinedCommunities[0].id}`);
+        }
+      }
+    };
+    
+    redirectUser();
+  }, [authLoading, communitiesLoading, joinedCommunities, userDetails, user, isViewingCommunity, isDiscoverPage, location.pathname, navigate]);
 
   return (
     <div className="min-h-screen bg-gray-50">

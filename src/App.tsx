@@ -18,6 +18,7 @@ import AuthRedirect from "./components/auth/AuthRedirect";
 import { useState } from "react";
 import LoggedInLayout from "./components/layout/LoggedInLayout";
 import CommunityHome from "./components/communities/CommunityHome";
+import CreatorDashboard from "./pages/CreatorDashboard";
 
 const App = () => {
   // Move queryClient inside the component to fix hooks error
@@ -64,6 +65,7 @@ const App = () => {
                   <Route path="/c/:communityId" element={<CommunityHome />} />
                   <Route path="/c/:communityId/feed" element={<div>Feed Page</div>} />
                   <Route path="/c/:communityId/spaces" element={<div>Spaces Page</div>} />
+                  <Route path="/c/:communityId/spaces/create" element={<CreateSpace />} />
                   <Route path="/c/:communityId/events" element={<div>Events Page</div>} />
                   <Route path="/c/:communityId/courses" element={<div>Courses Page</div>} />
                   <Route path="/c/:communityId/members" element={<div>Members Page</div>} />

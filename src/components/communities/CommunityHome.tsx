@@ -2,6 +2,9 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import CreatorDashboard from "@/pages/CreatorDashboard";
 
 interface Community {
   id: string;
@@ -16,8 +19,10 @@ interface Community {
 
 export default function CommunityHome() {
   const { communityId } = useParams();
+  const { user } = useAuth();
   const [community, setCommunity] = useState<Community | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     const fetchCommunity = async () => {
@@ -32,6 +37,11 @@ export default function CommunityHome() {
           
         if (error) throw error;
         setCommunity(data);
+        
+        // Check if user is the owner
+        if (user && data.owner_id === user.id) {
+          setIsOwner(true);
+        }
       } catch (error) {
         console.error('Error fetching community:', error);
       } finally {
@@ -40,16 +50,22 @@ export default function CommunityHome() {
     };
     
     fetchCommunity();
-  }, [communityId]);
+  }, [communityId, user]);
 
   if (loading) {
-    return <div className="flex justify-center p-8">Loading community...</div>;
+    return <LoadingSpinner />;
   }
 
   if (!community) {
     return <div className="text-center p-8">Community not found</div>;
   }
 
+  // Show Creator Dashboard if the user is the owner
+  if (isOwner) {
+    return <CreatorDashboard />;
+  }
+
+  // Show Member View for non-owners
   return (
     <div>
       <div className="mb-6">
