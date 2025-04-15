@@ -8,6 +8,7 @@ export default function useCommunitiesData() {
   const { user } = useAuth();
   const [joinedCommunities, setJoinedCommunities] = useState([]);
   const [trendingCommunities, setTrendingCommunities] = useState([]);
+  const [featuredCommunities, setFeaturedCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch joined communities
@@ -56,24 +57,35 @@ export default function useCommunitiesData() {
     fetchJoinedCommunities();
   }, [user]);
 
-  // Fetch trending communities
+  // Fetch trending and featured communities
   useEffect(() => {
-    const fetchTrendingCommunities = async () => {
+    const fetchTrendingAndFeaturedCommunities = async () => {
       try {
         // Skip fetching trending if we're already loading joined communities
         if (loading) return;
         
         // Get trending communities
-        const { data, error } = await supabase
+        const { data: trendingData, error: trendingError } = await supabase
           .from('communities')
           .select('*')
           .order('member_count', { ascending: false })
           .limit(6);
         
-        if (error) throw error;
-        setTrendingCommunities(data || []);
+        if (trendingError) throw trendingError;
+        setTrendingCommunities(trendingData || []);
+        
+        // For now, featured communities are just the top 3 trending ones
+        // In a real app, you might have a "featured" flag in your database
+        const { data: featuredData, error: featuredError } = await supabase
+          .from('communities')
+          .select('*')
+          .order('member_count', { ascending: false })
+          .limit(3);
+        
+        if (featuredError) throw featuredError;
+        setFeaturedCommunities(featuredData || []);
       } catch (error) {
-        console.error('Error fetching trending communities:', error);
+        console.error('Error fetching communities:', error);
         toast({
           title: "Error loading communities",
           description: "Could not load trending communities at this time.",
@@ -82,13 +94,14 @@ export default function useCommunitiesData() {
       }
     };
 
-    fetchTrendingCommunities();
+    fetchTrendingAndFeaturedCommunities();
   }, [loading]);
 
   return {
     joinedCommunities,
     setJoinedCommunities,
     trendingCommunities,
+    featuredCommunities,
     loading
   };
 }
