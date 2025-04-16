@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,6 +30,7 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
+  // Remove the explicit generic type parameter to avoid deep instantiation
   const form = useForm({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
