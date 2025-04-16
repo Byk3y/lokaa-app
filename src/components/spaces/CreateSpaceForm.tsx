@@ -22,6 +22,7 @@ export default function CreateSpaceForm() {
   const navigate = useNavigate();
   const params = useParams();
   const communityId = params.communityId;
+  // Fixed the type inference issue with useSearchParams by using the first item from the array
   const [searchParams] = useSearchParams();
   const spaceType = searchParams.get('type');
   
