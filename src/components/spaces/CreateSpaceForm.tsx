@@ -46,6 +46,7 @@ export default function CreateSpaceForm() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  // Fix for excessively deep type instantiation - explicitly define the param type
   const { communityId } = useParams<{ communityId: string }>();
   const [searchParams] = useSearchParams();
   const spaceType = searchParams.get('type');
@@ -95,7 +96,7 @@ export default function CreateSpaceForm() {
       const newSpace = {
         name: data.name,
         description: data.description || "",
-        slug,
+        slug: slug, // Add the slug property to the newSpace object
         community_id: communityId,
         owner_id: user.id,
         type: spaceType,
@@ -116,8 +117,8 @@ export default function CreateSpaceForm() {
         description: `${data.name} has been created.`,
       });
       
-      // Navigate to the new space using the slug from the response or the generated slug
-      navigate(`/c/${communityId}/s/${space?.slug || slug}`);
+      // Navigate to the new space using the generated slug since the response doesn't include it
+      navigate(`/c/${communityId}/s/${slug}`);
     } catch (error: any) {
       console.error('Error creating space:', error);
       toast({
