@@ -31,7 +31,8 @@ export default function CreateSpaceForm() {
   }
 
   // Using useForm without explicit generic to avoid deep instantiation
-  const form = useForm({
+  const form = useForm<Partial<SpaceFormValues>>({
+
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
       name: "",
