@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -13,46 +12,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { SpaceTemplates } from "./SpaceTemplates";
-
-const spaceFormSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters long").max(50, "Name must be less than 50 characters long"),
-  description: z.string().max(500, "Description must be less than 500 characters long").optional(),
-  color: z.string().default("#7c3aed"),
-});
-
-type SpaceFormValues = z.infer<typeof spaceFormSchema>;
-
-const COLOR_OPTIONS = [
-  { name: "Purple", value: "#7c3aed", class: "bg-lokaa-600" },
-  { name: "Blue", value: "#3b82f6", class: "bg-blue-500" },
-  { name: "Green", value: "#10b981", class: "bg-green-500" },
-  { name: "Orange", value: "#f97316", class: "bg-orange-500" },
-  { name: "Red", value: "#ef4444", class: "bg-red-500" },
-  { name: "Pink", value: "#ec4899", class: "bg-pink-500" },
-  { name: "Teal", value: "#14b8a6", class: "bg-teal-500" },
-  { name: "Black", value: "#171717", class: "bg-neutral-800" },
-];
-
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[\s\W-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-// Define an interface for the params to avoid excessive type instantiation
-interface RouteParams {
-  communityId: string;
-}
+import { SpaceColorPicker } from "./SpaceColorPicker";
+import { spaceFormSchema, type SpaceFormValues } from "./spaceFormSchema";
+import { generateSlug } from "@/utils/slugUtils";
 
 export default function CreateSpaceForm() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  // Use the explicitly defined interface to avoid type instantiation issues
-  const { communityId } = useParams<RouteParams>();
+  const { communityId } = useParams<"communityId">();
   const [searchParams] = useSearchParams();
   const spaceType = searchParams.get('type');
   
@@ -77,7 +45,6 @@ export default function CreateSpaceForm() {
     try {
       const slug = generateSlug(data.name);
       
-      // Check if slug is already taken in this community
       const { data: existingSpace, error: checkError } = await supabase
         .from('spaces_new')
         .select('id')
@@ -101,7 +68,7 @@ export default function CreateSpaceForm() {
       const newSpace = {
         name: data.name,
         description: data.description || "",
-        slug: slug, // Add the slug property to the newSpace object
+        slug: slug,
         community_id: communityId,
         owner_id: user.id,
         type: spaceType,
@@ -109,7 +76,7 @@ export default function CreateSpaceForm() {
         settings: {},
       };
       
-      const { data: space, error } = await supabase
+      const { error } = await supabase
         .from('spaces_new')
         .insert(newSpace)
         .select()
@@ -122,7 +89,6 @@ export default function CreateSpaceForm() {
         description: `${data.name} has been created.`,
       });
       
-      // Navigate to the new space using the generated slug
       navigate(`/c/${communityId}/s/${slug}`);
     } catch (error: any) {
       console.error('Error creating space:', error);
@@ -182,44 +148,7 @@ export default function CreateSpaceForm() {
               )}
             />
             
-            <FormField
-              control={form.control}
-              name="color"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Space Color Theme</FormLabel>
-                  <FormControl>
-                    <div className="grid grid-cols-4 gap-3">
-                      {COLOR_OPTIONS.map((color) => (
-                        <div key={color.value} className="text-center">
-                          <button
-                            type="button"
-                            onClick={() => field.onChange(color.value)}
-                            className={`h-10 w-10 rounded-full ${color.class} mx-auto mb-1 flex items-center justify-center transition-all ${
-                              field.value === color.value 
-                                ? 'ring-2 ring-offset-2 ring-black' 
-                                : 'hover:scale-110'
-                            }`}
-                            aria-label={`Select ${color.name} color`}
-                          >
-                            {field.value === color.value && (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                                <path d="M20 6L9 17l-5-5"/>
-                              </svg>
-                            )}
-                          </button>
-                          <p className="text-xs font-medium">{color.name}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    This color will be used for accent elements in your space.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <SpaceColorPicker form={form} />
             
             <Button 
               type="submit" 
