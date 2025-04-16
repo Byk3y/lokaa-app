@@ -19,21 +19,17 @@ export default function CreateSpaceForm() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  // Use useParams without type parameters to avoid excessive type instantiation
   const params = useParams();
   const communityId = params.communityId;
   
-  // Use a simpler approach to useSearchParams to avoid deep type instantiation
   const [searchParams] = useSearchParams();
-  // Get space type as string
   const spaceType = searchParams.get('type');
   
   if (!spaceType) {
     return <div>Invalid space type</div>;
   }
 
-  // Explicitly type the form with SpaceFormValues to avoid deep inference
-  const form = useForm<SpaceFormValues>({
+  const form = useForm({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
       name: "",
@@ -42,7 +38,6 @@ export default function CreateSpaceForm() {
     },
   });
 
-  // Keep the rest of the component unchanged
   const onSubmit = async (data: SpaceFormValues) => {
     if (!user || !communityId) return;
     
