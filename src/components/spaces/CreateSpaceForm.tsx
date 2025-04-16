@@ -16,16 +16,12 @@ import { SpaceColorPicker } from "./SpaceColorPicker";
 import { spaceFormSchema, type SpaceFormValues } from "./spaceFormSchema";
 import { generateSlug } from "@/utils/slugUtils";
 
-// Define the type for route parameters to fix the TypeScript error
-interface RouteParams {
-  communityId: string;
-}
-
 export default function CreateSpaceForm() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { communityId } = useParams<RouteParams>();
+  const params = useParams();
+  const communityId = params.communityId;
   const [searchParams] = useSearchParams();
   const spaceType = searchParams.get('type');
   
