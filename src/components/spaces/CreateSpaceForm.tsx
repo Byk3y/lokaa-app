@@ -42,12 +42,17 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+// Define an interface for the params to avoid excessive type instantiation
+interface RouteParams {
+  communityId: string;
+}
+
 export default function CreateSpaceForm() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  // Fix for excessively deep type instantiation - explicitly define the param type
-  const { communityId } = useParams<{ communityId: string }>();
+  // Use the explicitly defined interface to avoid type instantiation issues
+  const { communityId } = useParams<RouteParams>();
   const [searchParams] = useSearchParams();
   const spaceType = searchParams.get('type');
   
@@ -117,7 +122,7 @@ export default function CreateSpaceForm() {
         description: `${data.name} has been created.`,
       });
       
-      // Navigate to the new space using the generated slug since the response doesn't include it
+      // Navigate to the new space using the generated slug
       navigate(`/c/${communityId}/s/${slug}`);
     } catch (error: any) {
       console.error('Error creating space:', error);
