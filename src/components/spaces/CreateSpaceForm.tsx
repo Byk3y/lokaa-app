@@ -46,7 +46,7 @@ export default function CreateSpaceForm() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { communityId } = useParams();
+  const { communityId } = useParams<{ communityId: string }>();
   const [searchParams] = useSearchParams();
   const spaceType = searchParams.get('type');
   
@@ -79,11 +79,16 @@ export default function CreateSpaceForm() {
         .eq('slug', slug)
         .single();
         
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+        
       if (existingSpace) {
         form.setError('name', { 
           type: 'manual', 
           message: 'A space with this name already exists in this community' 
         });
+        setLoading(false);
         return;
       }
       
@@ -111,8 +116,8 @@ export default function CreateSpaceForm() {
         description: `${data.name} has been created.`,
       });
       
-      // Navigate to the new space
-      navigate(`/c/${communityId}/s/${space.slug}`);
+      // Navigate to the new space using the slug from the response or the generated slug
+      navigate(`/c/${communityId}/s/${space?.slug || slug}`);
     } catch (error: any) {
       console.error('Error creating space:', error);
       toast({
