@@ -2,10 +2,10 @@
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { COLOR_OPTIONS } from "./SpaceColorOptions";
 import { UseFormReturn } from "react-hook-form";
-import { type SpaceFormValues } from "./spaceFormSchema";
 
+// Remove the specific type reference to avoid circular type issues
 interface SpaceColorPickerProps {
-  form: UseFormReturn<SpaceFormValues>;
+  form: UseFormReturn<any>;
 }
 
 export function SpaceColorPicker({ form }: SpaceColorPickerProps) {

@@ -49,21 +49,21 @@ export default function SpaceLayout() {
         if (error) throw error;
         
         // Transform spaces_new data to match SpaceData interface
-        // Supabase doesn't return all fields we need, so we need to provide defaults
+        // Map the database fields to our interface, providing defaults for missing fields
         const spaceData: SpaceData = {
           id: data.id,
           name: data.name,
           description: data.description || '',
-          // Use space_type from DB, or default to 'posts'
+          // Use space_type from DB, map it to our type field
           type: data.space_type || 'posts', 
-          // Provide a default color if not in the database
+          // Provide a default color if not present
           color: data.color || '#7c3aed',
           slug: spaceSlug,
-          // If owner_id is not in data, use a placeholder
+          // Use owner_id from database or default to empty string
           owner_id: data.owner_id || '',
           community_id: data.community_id,
           created_at: data.created_at,
-          // Provide empty settings object if not in the database
+          // Provide empty settings object if not present
           settings: data.settings || {},
           cover_image: data.cover_image,
           icon: data.icon,
