@@ -27,6 +27,25 @@ interface SpaceData {
   updated_at?: string;
 }
 
+// Define the actual Supabase database structure for spaces_new
+interface SpaceNewRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  community_id: string;
+  space_type: string;
+  cover_image: string | null;
+  icon: string | null;
+  is_locked: boolean;
+  price_to_unlock: number | null;
+  created_at: string;
+  updated_at: string;
+  slug?: string;
+  color?: string;
+  owner_id?: string;
+  settings?: Record<string, any>;
+}
+
 export default function SpaceLayout() {
   const { communityId, spaceSlug } = useParams();
   const [space, setSpace] = useState<SpaceData | null>(null);
@@ -50,26 +69,27 @@ export default function SpaceLayout() {
         if (error) throw error;
         
         // Transform spaces_new data to match SpaceData interface
+        const spaceRecord = data as SpaceNewRecord;
         const spaceData: SpaceData = {
-          id: data.id,
-          name: data.name,
-          description: data.description || '',
+          id: spaceRecord.id,
+          name: spaceRecord.name,
+          description: spaceRecord.description || '',
           // Map space_type from database to type field in our interface
-          type: data.space_type || 'posts', 
-          // These fields might not exist in the database, so provide defaults
-          color: data.color || '#7c3aed', // Default color
+          type: spaceRecord.space_type || 'posts', 
+          // These fields might not exist in the database schema, so provide defaults
+          color: spaceRecord.color || '#7c3aed', // Default color
           slug: spaceSlug,
-          owner_id: data.owner_id || '', // Default empty string for owner_id
-          community_id: data.community_id,
-          created_at: data.created_at,
-          settings: data.settings || {}, // Default empty settings object
+          owner_id: spaceRecord.owner_id || '', // Default empty string for owner_id
+          community_id: spaceRecord.community_id,
+          created_at: spaceRecord.created_at,
+          settings: spaceRecord.settings || {}, // Default empty settings object
           // Include the rest of the fields from the database
-          cover_image: data.cover_image,
-          icon: data.icon,
-          is_locked: data.is_locked,
-          price_to_unlock: data.price_to_unlock,
-          space_type: data.space_type,
-          updated_at: data.updated_at
+          cover_image: spaceRecord.cover_image,
+          icon: spaceRecord.icon,
+          is_locked: spaceRecord.is_locked,
+          price_to_unlock: spaceRecord.price_to_unlock,
+          space_type: spaceRecord.space_type,
+          updated_at: spaceRecord.updated_at
         };
         
         setSpace(spaceData);

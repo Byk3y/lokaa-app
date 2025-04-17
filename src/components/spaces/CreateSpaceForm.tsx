@@ -30,7 +30,7 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
-  // Use a concrete type instead of letting TypeScript infer it
+  // Explicitly type the form to avoid excessive type instantiation
   const form = useForm<SpaceFormValues>({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
