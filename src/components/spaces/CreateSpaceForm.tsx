@@ -16,6 +16,13 @@ import { SpaceColorPicker } from "./SpaceColorPicker";
 import { spaceFormSchema } from "./spaceFormSchema";
 import { generateSlug } from "@/utils/slugUtils";
 
+// Define a simple type for our form data to avoid circular references
+type FormData = {
+  name: string;
+  description: string;
+  color: string;
+};
+
 export default function CreateSpaceForm() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -30,8 +37,8 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
-  // Create form with explicit any type to break circular references
-  const form = useForm({
+  // Define the form with the simplified FormData type
+  const form = useForm<FormData>({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
       name: "",
@@ -40,7 +47,7 @@ export default function CreateSpaceForm() {
     },
   });
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: FormData) => {
     if (!user || !communityId) return;
     
     setLoading(true);

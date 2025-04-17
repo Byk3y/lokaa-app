@@ -2,11 +2,10 @@
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { COLOR_OPTIONS } from "./SpaceColorOptions";
 import { UseFormReturn } from "react-hook-form";
-import { SpaceFormValues } from "./spaceFormSchema";
 
-// Further simplify the props interface to avoid any deep type instantiation
+// Define a simple props interface without circular references
 interface SpaceColorPickerProps {
-  form: UseFormReturn<any>; // Use 'any' to break potential circular type references
+  form: UseFormReturn<any>; // Use 'any' to avoid type complexity
 }
 
 export function SpaceColorPicker({ form }: SpaceColorPickerProps) {

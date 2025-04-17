@@ -8,4 +8,5 @@ export const spaceFormSchema = z.object({
   color: z.string().default("#7c3aed"),
 });
 
+// Export the type separately to avoid circular references
 export type SpaceFormValues = z.infer<typeof spaceFormSchema>;
