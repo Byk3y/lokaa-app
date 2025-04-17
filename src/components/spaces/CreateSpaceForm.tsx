@@ -31,7 +31,8 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
-  // Explicitly cast the form to break the recursive type inference
+  // Create a non-generic useForm call and explicitly cast it
+  // This blocks TypeScript from trying to deeply infer the type
   const form = useForm({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {

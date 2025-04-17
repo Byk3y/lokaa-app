@@ -2,10 +2,11 @@
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { COLOR_OPTIONS } from "./SpaceColorOptions";
 import { Control } from "react-hook-form";
+import { SpaceFormValues } from "./spaceFormSchema";
 
-// Create a simple, completely decoupled props interface
+// Create props interface with explicit type
 interface SpaceColorPickerProps {
-  control: Control<any>; // Use 'any' type to avoid circular dependencies
+  control: Control<SpaceFormValues>;
 }
 
 export function SpaceColorPicker({ control }: SpaceColorPickerProps) {
