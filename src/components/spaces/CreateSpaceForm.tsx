@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SpaceColorPicker } from "./SpaceColorPicker";
-import { spaceFormSchema, type SpaceFormValues } from "./spaceFormSchema";
+import { spaceFormSchema } from "./spaceFormSchema";
 import { generateSlug } from "@/utils/slugUtils";
 
 export default function CreateSpaceForm() {
@@ -40,7 +40,7 @@ export default function CreateSpaceForm() {
     },
   });
 
-  const onSubmit = async (data: SpaceFormValues) => {
+  const onSubmit = async (data) => {
     if (!user || !communityId) return;
     
     setLoading(true);
@@ -74,7 +74,7 @@ export default function CreateSpaceForm() {
         slug: slug,
         community_id: communityId,
         owner_id: user.id,
-        type: spaceType,
+        space_type: spaceType,
         color: data.color,
         settings: {},
       };
@@ -93,7 +93,7 @@ export default function CreateSpaceForm() {
       });
       
       navigate(`/c/${communityId}/s/${slug}`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating space:', error);
       toast({
         title: "Error creating space",

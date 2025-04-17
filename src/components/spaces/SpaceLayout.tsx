@@ -49,22 +49,20 @@ export default function SpaceLayout() {
         if (error) throw error;
         
         // Transform spaces_new data to match SpaceData interface
-        // Map the database fields to our interface, providing defaults for missing fields
         const spaceData: SpaceData = {
           id: data.id,
           name: data.name,
           description: data.description || '',
-          // Use space_type from DB, map it to our type field
+          // Map space_type from database to type field in our interface
           type: data.space_type || 'posts', 
-          // Provide a default color if not present
-          color: data.color || '#7c3aed',
+          // These fields might not exist in the database, so provide defaults
+          color: '#7c3aed', // Default color
           slug: spaceSlug,
-          // Use owner_id from database or default to empty string
-          owner_id: data.owner_id || '',
+          owner_id: '', // Default empty string for owner_id
           community_id: data.community_id,
           created_at: data.created_at,
-          // Provide empty settings object if not present
-          settings: data.settings || {},
+          settings: {}, // Default empty settings object
+          // Include the rest of the fields from the database
           cover_image: data.cover_image,
           icon: data.icon,
           is_locked: data.is_locked,
