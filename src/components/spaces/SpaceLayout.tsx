@@ -6,6 +6,7 @@ import { SpaceTemplates } from './SpaceTemplates';
 import LoadingSpinner from '@/components/discover/LoadingSpinner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+// Define a more comprehensive SpaceData interface that includes all fields we'll use
 interface SpaceData {
   id: string;
   name: string;
@@ -56,12 +57,12 @@ export default function SpaceLayout() {
           // Map space_type from database to type field in our interface
           type: data.space_type || 'posts', 
           // These fields might not exist in the database, so provide defaults
-          color: '#7c3aed', // Default color
+          color: data.color || '#7c3aed', // Default color
           slug: spaceSlug,
-          owner_id: '', // Default empty string for owner_id
+          owner_id: data.owner_id || '', // Default empty string for owner_id
           community_id: data.community_id,
           created_at: data.created_at,
-          settings: {}, // Default empty settings object
+          settings: data.settings || {}, // Default empty settings object
           // Include the rest of the fields from the database
           cover_image: data.cover_image,
           icon: data.icon,

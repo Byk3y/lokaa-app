@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SpaceColorPicker } from "./SpaceColorPicker";
-import { spaceFormSchema } from "./spaceFormSchema";
+import { spaceFormSchema, type SpaceFormValues } from "./spaceFormSchema";
 import { generateSlug } from "@/utils/slugUtils";
 
 export default function CreateSpaceForm() {
@@ -30,8 +30,8 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
-  // Remove the generic type parameter to avoid excessive type instantiation
-  const form = useForm({
+  // Use a concrete type instead of letting TypeScript infer it
+  const form = useForm<SpaceFormValues>({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
       name: "",
@@ -40,7 +40,7 @@ export default function CreateSpaceForm() {
     },
   });
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data: SpaceFormValues) => {
     if (!user || !communityId) return;
     
     setLoading(true);
@@ -93,7 +93,7 @@ export default function CreateSpaceForm() {
       });
       
       navigate(`/c/${communityId}/s/${slug}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating space:', error);
       toast({
         title: "Error creating space",
