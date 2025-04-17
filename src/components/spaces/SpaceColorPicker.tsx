@@ -2,7 +2,7 @@
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { COLOR_OPTIONS } from "./SpaceColorOptions";
 import { UseFormReturn } from "react-hook-form";
-import { SpaceFormValues } from "./spaceFormSchema";
+import { type SpaceFormValues } from "./spaceFormSchema";
 
 interface SpaceColorPickerProps {
   form: UseFormReturn<SpaceFormValues>;
