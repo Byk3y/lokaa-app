@@ -9,6 +9,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import useCommunitiesData from "@/hooks/useCommunitiesData";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export default function LoggedInLayout() {
   const { user, userDetails, loading: authLoading } = useAuth();
@@ -33,32 +34,43 @@ export default function LoggedInLayout() {
     if (isViewingCommunity || isDiscoverPage) return;
 
     const redirectUser = async () => {
-      // Check if user is a creator
-      const isCreator = userDetails?.role === 'creator';
-      
-      if (isCreator) {
-        // Find owned communities
-        const { data: ownedCommunities } = await supabase
-          .from('communities')
-          .select('id')
-          .eq('owner_id', user?.id);
-          
-        if (ownedCommunities && ownedCommunities.length > 0) {
-          // Redirect creator to their first community dashboard
-          navigate(`/c/${ownedCommunities[0].id}`);
-          return;
+      try {
+        // Check if user is a creator
+        const isCreator = userDetails?.role === 'creator';
+        
+        if (isCreator) {
+          // Find owned communities
+          const { data: ownedCommunities, error } = await supabase
+            .from('communities')
+            .select('id')
+            .eq('owner_id', user?.id);
+            
+          if (error) throw error;
+            
+          if (ownedCommunities && ownedCommunities.length > 0) {
+            // Redirect creator to their first community dashboard
+            navigate(`/c/${ownedCommunities[0].id}`);
+            return;
+          }
         }
-      }
-      
-      // If on dashboard or root, decide where to go
-      if (location.pathname === '/dashboard' || location.pathname === '/') {
-        if (joinedCommunities.length === 0) {
-          // No communities - go to discover
-          navigate('/discover');
-        } else {
-          // Has communities - go to the first (or last active) one
-          navigate(`/c/${joinedCommunities[0].id}`);
+        
+        // If on dashboard or root, decide where to go
+        if (location.pathname === '/dashboard' || location.pathname === '/') {
+          if (joinedCommunities.length === 0) {
+            // No communities - go to discover
+            navigate('/discover');
+          } else {
+            // Has communities - go to the first (or last active) one
+            navigate(`/c/${joinedCommunities[0].id}`);
+          }
         }
+      } catch (error) {
+        console.error('Error redirecting user:', error);
+        toast({
+          title: "Navigation error",
+          description: "There was a problem loading your dashboard",
+          variant: "destructive"
+        });
       }
     };
     

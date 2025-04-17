@@ -39,6 +39,7 @@ export default function Login() {
 
   const onSubmit = async (data: LoginFormValues) => {
     await signIn(data.email, data.password);
+    // The redirect will happen in LoggedInLayout
   };
 
   return (
