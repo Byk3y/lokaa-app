@@ -4,6 +4,7 @@ import { COLOR_OPTIONS } from "./SpaceColorOptions";
 import { UseFormReturn } from "react-hook-form";
 import { SpaceFormValues } from "./spaceFormSchema";
 
+// Use a simple interface that doesn't rely on deep type instantiation
 interface SpaceColorPickerProps {
   form: UseFormReturn<SpaceFormValues>;
 }
