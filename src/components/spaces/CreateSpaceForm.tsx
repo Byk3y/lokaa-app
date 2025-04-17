@@ -30,7 +30,7 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
-  // Use the explicit SpaceFormValues type to avoid deep type instantiation
+  // Use SpaceFormValues type directly to avoid deep type instantiation
   const form = useForm<SpaceFormValues>({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
