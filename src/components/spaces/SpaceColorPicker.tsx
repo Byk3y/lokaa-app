@@ -4,9 +4,9 @@ import { COLOR_OPTIONS } from "./SpaceColorOptions";
 import { UseFormReturn } from "react-hook-form";
 import { SpaceFormValues } from "./spaceFormSchema";
 
-// Use a simple interface that doesn't rely on deep type instantiation
+// Further simplify the props interface to avoid any deep type instantiation
 interface SpaceColorPickerProps {
-  form: UseFormReturn<SpaceFormValues>;
+  form: UseFormReturn<any>; // Use 'any' to break potential circular type references
 }
 
 export function SpaceColorPicker({ form }: SpaceColorPickerProps) {
