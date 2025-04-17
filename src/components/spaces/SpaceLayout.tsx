@@ -17,6 +17,13 @@ interface SpaceData {
   community_id: string;
   created_at: string;
   settings: Record<string, any>;
+  // Additional fields from spaces_new table
+  cover_image?: string;
+  icon?: string;
+  is_locked?: boolean;
+  price_to_unlock?: number;
+  space_type?: string;
+  updated_at?: string;
 }
 
 export default function SpaceLayout() {
@@ -40,7 +47,28 @@ export default function SpaceLayout() {
           .single();
 
         if (error) throw error;
-        setSpace(data);
+        
+        // Transform spaces_new data to match SpaceData interface
+        const spaceData: SpaceData = {
+          id: data.id,
+          name: data.name,
+          description: data.description || '',
+          type: data.type || data.space_type || 'posts',
+          color: data.color || '#7c3aed',
+          slug: spaceSlug,
+          owner_id: data.owner_id,
+          community_id: data.community_id,
+          created_at: data.created_at,
+          settings: data.settings || {},
+          cover_image: data.cover_image,
+          icon: data.icon,
+          is_locked: data.is_locked,
+          price_to_unlock: data.price_to_unlock,
+          space_type: data.space_type,
+          updated_at: data.updated_at
+        };
+        
+        setSpace(spaceData);
       } catch (err: any) {
         console.error('Error fetching space:', err);
         setError(err.message || 'Failed to load space');
