@@ -19,6 +19,7 @@ import { useState } from "react";
 import LoggedInLayout from "./components/layout/LoggedInLayout";
 import CommunityHome from "./components/communities/CommunityHome";
 import CreatorDashboard from "./pages/CreatorDashboard";
+import SpaceLayout from "./components/spaces/SpaceLayout";
 
 const App = () => {
   // Move queryClient inside the component to fix hooks error
@@ -66,6 +67,10 @@ const App = () => {
                   <Route path="/c/:communityId/feed" element={<div>Feed Page</div>} />
                   <Route path="/c/:communityId/spaces" element={<div>Spaces Page</div>} />
                   <Route path="/c/:communityId/spaces/create" element={<CreateSpace />} />
+                  
+                  {/* Space routes - new! */}
+                  <Route path="/c/:communityId/s/:spaceSlug" element={<SpaceLayout />} />
+                  
                   <Route path="/c/:communityId/events" element={<div>Events Page</div>} />
                   <Route path="/c/:communityId/courses" element={<div>Courses Page</div>} />
                   <Route path="/c/:communityId/members" element={<div>Members Page</div>} />

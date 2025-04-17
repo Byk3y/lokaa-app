@@ -30,9 +30,8 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
-  // Using useForm without explicit generic to avoid deep instantiation
-  const form = useForm<Partial<SpaceFormValues>>({
-
+  // Using useForm without explicit generic type parameter to avoid deep instantiation
+  const form = useForm({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
       name: "",
@@ -80,7 +79,7 @@ export default function CreateSpaceForm() {
         settings: {},
       };
       
-      const { error } = await supabase
+      const { data: createdSpace, error } = await supabase
         .from('spaces_new')
         .insert(newSpace)
         .select()
