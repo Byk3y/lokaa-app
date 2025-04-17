@@ -15,6 +15,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SpaceColorPicker } from "./SpaceColorPicker";
 import { spaceFormSchema, SpaceFormValues } from "./spaceFormSchema";
 import { generateSlug } from "@/utils/slugUtils";
+import type { UseFormReturn } from "react-hook-form";
 
 export default function CreateSpaceForm() {
   const { user } = useAuth();
@@ -30,15 +31,15 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
-  // Use SpaceFormValues type directly to avoid deep type instantiation
-  const form = useForm<SpaceFormValues>({
+  // Explicitly cast the form to break the recursive type inference
+  const form = useForm({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
       name: "",
       description: "",
       color: "#7c3aed",
     },
-  });
+  }) as UseFormReturn<SpaceFormValues>;
 
   const onSubmit = async (data: SpaceFormValues) => {
     if (!user || !communityId) return;

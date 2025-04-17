@@ -14,3 +14,4 @@ export const spaceFormSchema = z.object({
   description: z.string().max(500, "Description must be less than 500 characters long").optional(),
   color: z.string().default("#7c3aed"),
 });
+
