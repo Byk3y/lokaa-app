@@ -13,15 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { SpaceColorPicker } from "./SpaceColorPicker";
-import { spaceFormSchema } from "./spaceFormSchema";
+import { spaceFormSchema, SpaceFormValues } from "./spaceFormSchema";
 import { generateSlug } from "@/utils/slugUtils";
-
-// Define a simple type for our form data to avoid circular references
-type FormData = {
-  name: string;
-  description: string;
-  color: string;
-};
 
 export default function CreateSpaceForm() {
   const { user } = useAuth();
@@ -37,8 +30,8 @@ export default function CreateSpaceForm() {
     return <div>Invalid space type</div>;
   }
 
-  // Define the form with the simplified FormData type
-  const form = useForm<FormData>({
+  // Define the form with completely explicit typing
+  const form = useForm<SpaceFormValues>({
     resolver: zodResolver(spaceFormSchema),
     defaultValues: {
       name: "",
@@ -47,7 +40,7 @@ export default function CreateSpaceForm() {
     },
   });
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: SpaceFormValues) => {
     if (!user || !communityId) return;
     
     setLoading(true);
@@ -158,7 +151,7 @@ export default function CreateSpaceForm() {
               )}
             />
             
-            <SpaceColorPicker form={form} />
+            <SpaceColorPicker control={form.control} />
             
             <Button 
               type="submit" 
