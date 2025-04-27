@@ -1,4 +1,3 @@
-
 import SpaceCard from "@/components/spaces/SpaceCard";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +16,7 @@ export default function SearchResults({ searchQuery, results, onJoinSpace }: Sea
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {results.map((space) => (
           <div key={space.id} className="relative">
-            <SpaceCard {...space} />
+            <SpaceCard {...space} linkType="about" />
             <Button
               className="absolute bottom-4 right-4 bg-lokaa-600 hover:bg-lokaa-700"
               onClick={() => onJoinSpace(space.id)}

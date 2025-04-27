@@ -1,4 +1,3 @@
-
 export const COLOR_OPTIONS = [
   { name: "Purple", value: "#7c3aed", class: "bg-lokaa-600" },
   { name: "Blue", value: "#3b82f6", class: "bg-blue-500" },

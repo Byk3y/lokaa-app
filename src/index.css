@@ -1,4 +1,5 @@
-
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "./styles/grid-background.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,19 +12,19 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 262 83% 58%;
+    --primary: 180 100% 25%;
     --primary-foreground: 0 0% 98%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 262 83% 96%;
+    --accent: 180 100% 96%;
     --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 262 83% 58%;
+    --ring: 180 100% 25%;
     --radius: 0.5rem;
   }
  
@@ -34,7 +35,7 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 262 83% 58%;
+    --primary: 180 70% 40%;
     --primary-foreground: 0 0% 98%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
@@ -46,7 +47,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 262 83% 58%;
+    --ring: 180 70% 40%;
   }
 }
 
@@ -58,23 +59,51 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-to-r from-lokaa-600 to-lokaa-700 text-white font-medium py-3 px-6 rounded-full hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-lokaa-500 focus:ring-opacity-50;
+    @apply bg-gradient-to-r from-teal-600 to-teal-700 text-white font-medium py-3 px-6 rounded-full hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50;
   }
   
   .btn-secondary {
-    @apply bg-white text-lokaa-700 border border-lokaa-200 font-medium py-3 px-6 rounded-full hover:bg-lokaa-50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-lokaa-500 focus:ring-opacity-50;
+    @apply bg-white text-teal-700 border border-teal-200 font-medium py-3 px-6 rounded-full hover:bg-teal-50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50;
   }
   
   .input-primary {
-    @apply bg-white border border-gray-300 rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-lokaa-500 focus:border-transparent transition duration-200;
+    @apply bg-white border border-gray-300 rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition duration-200;
   }
   
   .card-hoverable {
     @apply bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden;
+  }
+}
+
+/* Add this custom utility for hiding scrollbars while maintaining scrollability */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* For Internet Explorer and Edge */
+  scrollbar-width: none;     /* For Firefox */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;             /* For Chrome, Safari, and Opera */
+}
+
+/* Enhanced touch handling for horizontal scrolling containers */
+@layer utilities {
+  .scrollable-x {
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    will-change: scroll-position;
+    overscroll-behavior-x: contain;
   }
 }

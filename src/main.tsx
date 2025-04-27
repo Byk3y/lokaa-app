@@ -1,11 +1,73 @@
-
-import { createRoot } from 'react-dom/client'
-import { StrictMode } from 'react'
+import React from 'react'
+import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import './utils/authModals'
+import { redirectToSpace } from './utils/spaceRedirect'
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
+// Immediate space redirection for authenticated users
+// Run before React app initialization
+// This ensures users with spaces don't see the Discover page at all
+(async function immediateSpaceRedirect() {
+  console.log('🔍 Checking for immediate redirection opportunities');
+  
+  // Only run on Discover page or home page 
+  const isOnDiscoverPage = window.location.pathname === '/discover' || window.location.pathname === '/'
+  
+  if (isOnDiscoverPage) {
+    console.log('🔀 Attempting immediate space redirection...')
+    
+    // Add console entries to help debug local storage issues
+    try {
+      // Check if we have any cached spaces
+      const hasLastCreatedSpace = !!localStorage.getItem('lastCreatedSpace');
+      const hasLastVisitedSpace = !!localStorage.getItem('lastVisitedSpace');
+      
+      console.log('📋 localStorage check:', {
+        hasLastCreatedSpace,
+        hasLastVisitedSpace,
+        currentPath: window.location.pathname,
+        href: window.location.href,
+        timestamp: new Date().toISOString()
+      });
+    } catch (storageError) {
+      console.warn('⚠️ Error checking localStorage:', storageError);
+    }
+    
+    try {
+      // Attempt direct redirection with a short timeout
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => reject(new Error('Redirection timeout')), 5000)
+      });
+      
+      // Start the actual redirection - no navigate function means window.location.href will be used
+      const redirectionPromise = redirectToSpace().catch(err => {
+        console.error('❌ Error in redirectToSpace:', err);
+        return false;
+      });
+      
+      // Race between redirection and timeout
+      const redirected = await Promise.race([redirectionPromise, timeoutPromise])
+        .catch(err => {
+          console.warn('⚠️ Redirection failed with timeout or error:', err);
+          return false;
+        });
+        
+      if (redirected) {
+        console.log('✅ Successfully redirected user to space');
+      } else {
+        console.log('ℹ️ No redirection performed, continuing to load app');
+      }
+    } catch (err) {
+      console.error('❌ Error during immediate space redirection:', err);
+      // Continue loading the app even if there's an error
+    }
+  }
+})();
+
+// Initialize React app
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
     <App />
-  </StrictMode>
-);
+  </React.StrictMode>,
+)

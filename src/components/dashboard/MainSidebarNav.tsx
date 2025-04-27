@@ -1,4 +1,3 @@
-
 import { Home, Compass } from "lucide-react";
 import SidebarLink from "./SidebarLink";
 import SpacesSection from "./SpacesSection";
@@ -28,7 +27,7 @@ const MainSidebarNav = ({
       />
 
       <SidebarLink
-        to="/discover"
+        to="/discover?force=discover"
         icon={<Compass className="h-5 w-5" />}
         label="Discover"
         isActive={isActive("/discover")}

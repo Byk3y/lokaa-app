@@ -1,0 +1,1 @@
+const fs = require("fs"); const path = require("path"); const data = JSON.parse(fs.readFileSync("update.json")); const file = path.resolve("src/pages/Login.tsx"); let content = fs.readFileSync(file, "utf8"); content = content.replace(data.update, data.replace); fs.writeFileSync(file, content); console.log("Updated Login.tsx");

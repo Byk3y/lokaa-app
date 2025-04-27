@@ -1,4 +1,3 @@
-
 import { TrendingUp } from "lucide-react";
 import SpaceCard from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
@@ -21,7 +20,14 @@ export default function TrendingSpaces({ spaces, loading, onJoinSpace }: Trendin
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {spaces.map((space) => (
             <div key={space.id} className="relative">
-              <SpaceCard {...space} />
+              <a
+                href={space.subdomain ? `/${space.subdomain}/about` : "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block"
+              >
+                <SpaceCard {...space} linkType="about" />
+              </a>
               <Button
                 className="absolute bottom-4 right-4 bg-lokaa-600 hover:bg-lokaa-700"
                 onClick={() => onJoinSpace(space.id)}
@@ -36,7 +42,7 @@ export default function TrendingSpaces({ spaces, loading, onJoinSpace }: Trendin
           title="No trending spaces available"
           description="Check back later for trending spaces"
           actionText="Create a Space"
-          actionLink="/spaces/create"
+          actionLink="/create-space"
           icon={<TrendingUp className="h-8 w-8 text-lokaa-600" />}
         />
       )}

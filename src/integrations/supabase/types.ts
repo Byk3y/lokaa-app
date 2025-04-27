@@ -51,51 +51,6 @@ export type Database = {
           },
         ]
       }
-      communities: {
-        Row: {
-          cover_image: string | null
-          created_at: string
-          description: string | null
-          id: string
-          is_paid: boolean
-          member_count: number | null
-          name: string
-          owner_id: string
-          price_per_month: number | null
-          primary_color: string | null
-          subdomain: string
-          updated_at: string
-        }
-        Insert: {
-          cover_image?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_paid?: boolean
-          member_count?: number | null
-          name: string
-          owner_id: string
-          price_per_month?: number | null
-          primary_color?: string | null
-          subdomain: string
-          updated_at?: string
-        }
-        Update: {
-          cover_image?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_paid?: boolean
-          member_count?: number | null
-          name?: string
-          owner_id?: string
-          price_per_month?: number | null
-          primary_color?: string | null
-          subdomain?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       course_enrollments: {
         Row: {
           course_id: string
@@ -175,7 +130,6 @@ export type Database = {
       }
       courses: {
         Row: {
-          community_id: string
           cover_image: string | null
           created_at: string
           creator_id: string
@@ -187,7 +141,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          community_id: string
           cover_image?: string | null
           created_at?: string
           creator_id: string
@@ -199,7 +152,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          community_id?: string
           cover_image?: string | null
           created_at?: string
           creator_id?: string
@@ -211,13 +163,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "courses_community_id_fkey"
-            columns: ["community_id"]
-            isOneToOne: false
-            referencedRelation: "communities"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "courses_creator_id_fkey"
             columns: ["creator_id"]
@@ -268,7 +213,6 @@ export type Database = {
       }
       events: {
         Row: {
-          community_id: string
           created_at: string
           creator_id: string
           description: string | null
@@ -281,7 +225,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          community_id: string
           created_at?: string
           creator_id: string
           description?: string | null
@@ -294,7 +237,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          community_id?: string
           created_at?: string
           creator_id?: string
           description?: string | null
@@ -308,95 +250,8 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "events_community_id_fkey"
-            columns: ["community_id"]
-            isOneToOne: false
-            referencedRelation: "communities"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "events_creator_id_fkey"
             columns: ["creator_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      members: {
-        Row: {
-          community_id: string
-          id: string
-          is_active: boolean
-          joined_at: string
-          next_billing_date: string | null
-          role: string
-          user_id: string
-        }
-        Insert: {
-          community_id: string
-          id?: string
-          is_active?: boolean
-          joined_at?: string
-          next_billing_date?: string | null
-          role?: string
-          user_id: string
-        }
-        Update: {
-          community_id?: string
-          id?: string
-          is_active?: boolean
-          joined_at?: string
-          next_billing_date?: string | null
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "members_community_id_fkey"
-            columns: ["community_id"]
-            isOneToOne: false
-            referencedRelation: "communities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      memberships: {
-        Row: {
-          id: string
-          is_active: boolean
-          joined_at: string
-          next_billing_date: string | null
-          space_id: string
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          is_active?: boolean
-          joined_at?: string
-          next_billing_date?: string | null
-          space_id: string
-          user_id: string
-        }
-        Update: {
-          id?: string
-          is_active?: boolean
-          joined_at?: string
-          next_billing_date?: string | null
-          space_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "memberships_space_id_fkey"
-            columns: ["space_id"]
-            isOneToOne: false
-            referencedRelation: "spaces"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "memberships_user_id_fkey"
-            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -406,7 +261,6 @@ export type Database = {
       payments: {
         Row: {
           amount: number
-          community_id: string
           id: string
           payment_date: string
           payment_method: string
@@ -416,7 +270,6 @@ export type Database = {
         }
         Insert: {
           amount: number
-          community_id: string
           id?: string
           payment_date?: string
           payment_method: string
@@ -426,7 +279,6 @@ export type Database = {
         }
         Update: {
           amount?: number
-          community_id?: string
           id?: string
           payment_date?: string
           payment_method?: string
@@ -435,13 +287,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "payments_community_id_fkey"
-            columns: ["community_id"]
-            isOneToOne: false
-            referencedRelation: "communities"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "payments_user_id_fkey"
             columns: ["user_id"]
@@ -454,7 +299,6 @@ export type Database = {
       posts: {
         Row: {
           comment_count: number | null
-          community_id: string
           content: string
           created_at: string
           id: string
@@ -465,7 +309,6 @@ export type Database = {
         }
         Insert: {
           comment_count?: number | null
-          community_id: string
           content: string
           created_at?: string
           id?: string
@@ -476,7 +319,6 @@ export type Database = {
         }
         Update: {
           comment_count?: number | null
-          community_id?: string
           content?: string
           created_at?: string
           id?: string
@@ -486,13 +328,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "posts_community_id_fkey"
-            columns: ["community_id"]
-            isOneToOne: false
-            referencedRelation: "communities"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "posts_user_id_fkey"
             columns: ["user_id"]
@@ -577,7 +412,7 @@ export type Database = {
             foreignKeyName: "space_access_space_id_fkey"
             columns: ["space_id"]
             isOneToOne: false
-            referencedRelation: "spaces_new"
+            referencedRelation: "spaces"
             referencedColumns: ["id"]
           },
         ]
@@ -587,7 +422,10 @@ export type Database = {
           cover_image: string | null
           created_at: string
           description: string | null
+          icon_image: string | null
           id: string
+          initials: string | null
+          is_private: boolean
           member_count: number | null
           name: string
           owner_id: string
@@ -601,7 +439,10 @@ export type Database = {
           cover_image?: string | null
           created_at?: string
           description?: string | null
+          icon_image?: string | null
           id?: string
+          initials?: string | null
+          is_private?: boolean
           member_count?: number | null
           name: string
           owner_id: string
@@ -615,7 +456,10 @@ export type Database = {
           cover_image?: string | null
           created_at?: string
           description?: string | null
+          icon_image?: string | null
           id?: string
+          initials?: string | null
+          is_private?: boolean
           member_count?: number | null
           name?: string
           owner_id?: string
@@ -631,56 +475,6 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      spaces_new: {
-        Row: {
-          community_id: string
-          cover_image: string | null
-          created_at: string
-          description: string | null
-          icon: string | null
-          id: string
-          is_locked: boolean
-          name: string
-          price_to_unlock: number | null
-          space_type: string
-          updated_at: string
-        }
-        Insert: {
-          community_id: string
-          cover_image?: string | null
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          is_locked?: boolean
-          name: string
-          price_to_unlock?: number | null
-          space_type?: string
-          updated_at?: string
-        }
-        Update: {
-          community_id?: string
-          cover_image?: string | null
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          is_locked?: boolean
-          name?: string
-          price_to_unlock?: number | null
-          space_type?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "spaces_new_community_id_fkey"
-            columns: ["community_id"]
-            isOneToOne: false
-            referencedRelation: "communities"
             referencedColumns: ["id"]
           },
         ]
@@ -732,7 +526,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_public_spaces: {
+        Args: {}
+        Returns: Array<{
+          id: string
+          name: string
+          description: string | null
+          cover_image: string | null
+          icon_image: string | null
+          initials: string | null
+          subdomain: string
+          owner_id: string
+          pricing_type: Database["public"]["Enums"]["pricing_type"]
+          price_per_month: number | null
+          member_count: number | null
+          created_at: string
+          updated_at: string
+          primary_color: string | null
+          is_private: boolean
+        }>
+      }
     }
     Enums: {
       pricing_type: "free" | "paid"

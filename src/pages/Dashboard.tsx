@@ -1,27 +1,29 @@
-
-import { Link } from "react-router-dom";
-import { Users, BarChart2, MessageSquare } from "lucide-react";
-import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Users, Star, TrendingUp, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import JoinedSpacesSection from "@/components/dashboard/JoinedSpacesSection";
-import FeaturedCommunities from "@/components/dashboard/FeaturedCommunities";
-import TrendingCommunities from "@/components/discover/TrendingCommunities";
+import FeaturedSpaces from "@/components/dashboard/FeaturedSpaces";
 import { useAuth } from "@/contexts/AuthContext";
-import useCommunitiesData from "@/hooks/useCommunitiesData";
-import useJoinCommunity from "@/hooks/useJoinCommunity";
+import useSpacesData from "@/hooks/useSpacesData";
+import DashboardLayout from '../components/dashboard/DashboardLayout';
+import SpacesList from '../components/spaces/SpacesList';
+import { fetchUserSpaces } from '../utils/spaceUtils';
+import { Bell, Plus } from 'lucide-react';
+import { Space } from '../types/space';
 
 export default function Dashboard() {
-  const { userDetails } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [loading, setLoading] = useState(true);
   const { 
-    joinedCommunities, 
-    setJoinedCommunities, 
-    trendingCommunities, 
-    featuredCommunities,
-    loading 
-  } = useCommunitiesData();
-  
-  const handleJoinCommunity = useJoinCommunity(setJoinedCommunities);
+    joinedSpaces, 
+    setJoinedSpaces, 
+    trendingSpaces, 
+    featuredSpaces,
+    loading: spacesDataLoading 
+  } = useSpacesData();
   
   // Analytics data (this would come from Supabase in a real implementation)
   const analytics = {
@@ -31,101 +33,95 @@ export default function Dashboard() {
     totalRevenue: 0.00
   };
 
-  const isCreator = userDetails?.role === 'creator';
+  const isCreator = user?.role === 'creator';
+
+  useEffect(() => {
+    console.log('Dashboard: Component mounted');
+    
+    // If no user, redirect to signin
+    if (!user) {
+      console.log('Dashboard: No user found, redirecting to signin');
+      navigate('/signin');
+      return;
+    }
+    
+    // Special handling for test account
+    if (user.email === 'francischukwuma706@gmail.com') {
+      console.log('Dashboard: Test account detected, redirecting to discover page');
+      navigate('/discover');
+      return;
+    }
+
+    const loadSpaces = async () => {
+      console.log('Dashboard: Loading spaces for user');
+      setLoading(true);
+      
+      try {
+        // Fetch user spaces
+        const userSpaces = await fetchUserSpaces(user.id);
+        console.log('Dashboard: Fetched spaces:', userSpaces);
+        
+        if (userSpaces && userSpaces.length > 0) {
+          setSpaces(userSpaces);
+          
+          // If there are spaces, redirect to the first one
+          if (window.location.pathname === '/dashboard') {
+            console.log('Dashboard: Redirecting to first space:', userSpaces[0].subdomain);
+            navigate(`/space/${userSpaces[0].subdomain}`);
+          }
+        } else {
+          console.log('Dashboard: No spaces found, redirecting to discover page');
+          
+          // If no spaces found, redirect to the discover page
+          if (window.location.pathname === '/dashboard') {
+            console.log('Dashboard: Redirecting to discover page');
+            navigate('/discover');
+          }
+        }
+      } catch (error) {
+        console.error('Dashboard: Error loading spaces:', error);
+        setSpaces([]);
+        
+        // On error, redirect to discover page
+        if (window.location.pathname === '/dashboard') {
+          console.log('Dashboard: Error occurred, redirecting to discover page');
+          navigate('/discover');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSpaces();
+  }, [user, navigate]);
+
+  const createNewSpace = () => {
+    navigate('/create-space');
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <DashboardSidebar />
-      
-      <div className="flex-1 lg:ml-64">
-        <DashboardHeader />
-        
-        <div className="p-6 mt-16">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-600">
-                Welcome back, {userDetails?.full_name || userDetails?.username || "User"}
-                {isCreator && <span className="ml-2 px-2 py-1 text-xs bg-lokaa-100 text-lokaa-700 rounded-full">Creator</span>}
-              </p>
-            </div>
+    <DashboardLayout>
+      <div className="p-6">
+        <div className="mb-6 flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">Your Spaces</h1>
+          
+          <div className="flex items-center space-x-4">
+            <button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+              <Bell className="h-5 w-5 text-gray-600" />
+            </button>
+            
+            <button
+              onClick={createNewSpace}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="h-5 w-5 mr-1" />
+              New Space
+            </button>
           </div>
-          
-          {/* Analytics Cards - Only show for creators */}
-          {isCreator && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-500 font-normal">Total Members</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center">
-                    <Users className="h-5 w-5 text-lokaa-600 mr-2" />
-                    <span className="text-2xl font-bold">{analytics.totalMembers}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-500 font-normal">Active Members</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center">
-                    <BarChart2 className="h-5 w-5 text-lokaa-600 mr-2" />
-                    <span className="text-2xl font-bold">{analytics.activeMembers}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-500 font-normal">Total Posts</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center">
-                    <MessageSquare className="h-5 w-5 text-lokaa-600 mr-2" />
-                    <span className="text-2xl font-bold">{analytics.totalPosts}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-500 font-normal">Total Revenue</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center">
-                    <span className="text-lokaa-600 font-bold mr-2">$</span>
-                    <span className="text-2xl font-bold">{analytics.totalRevenue.toFixed(2)}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          
-          {/* Joined Communities Section */}
-          <JoinedSpacesSection 
-            communities={joinedCommunities} 
-            loading={loading} 
-          />
-          
-          {/* Featured Communities */}
-          <FeaturedCommunities 
-            communities={featuredCommunities} 
-            loading={loading} 
-            onJoinCommunity={handleJoinCommunity} 
-          />
-          
-          {/* Trending Communities */}
-          <TrendingCommunities 
-            communities={trendingCommunities} 
-            loading={loading} 
-            onJoinCommunity={handleJoinCommunity} 
-          />
         </div>
+
+        <SpacesList spaces={spaces} loading={loading} />
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

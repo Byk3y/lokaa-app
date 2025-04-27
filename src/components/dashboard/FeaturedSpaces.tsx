@@ -1,4 +1,3 @@
-
 import { TrendingUp } from "lucide-react";
 import SpaceCard from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
@@ -21,7 +20,7 @@ export default function FeaturedSpaces({ spaces, loading, onJoinSpace }: Feature
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {spaces.map((space) => (
             <div key={space.id} className="relative">
-              <SpaceCard {...space} />
+              <SpaceCard {...space} linkType="about" />
               <Button
                 className="absolute bottom-4 right-4 bg-lokaa-600 hover:bg-lokaa-700"
                 onClick={() => onJoinSpace(space.id)}

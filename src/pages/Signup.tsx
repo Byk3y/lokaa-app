@@ -1,176 +1,277 @@
-
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client"; // Direct import for checking response
 
 const signupSchema = z.object({
-  fullName: z.string().min(2, { message: "Full name must be at least 2 characters" })
-    .max(50, { message: "Full name must be less than 50 characters" }),
-  username: z.string().min(3, { message: "Username must be at least 3 characters" })
-    .max(20, { message: "Username must be less than 20 characters" })
-    .regex(/^[a-zA-Z0-9_]+$/, { message: "Username can only contain letters, numbers, and underscores" }),
+  firstName: z.string().min(2, { message: "First name is required" }),
+  lastName: z.string().min(2, { message: "Last name is required" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function Signup() {
-  const { signUp, loading, user } = useAuth();
+  const { signUp, user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const background = location.state?.background;
+  const [isModalVisible, setIsModalVisible] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
+  const { toast } = useToast();
   
-  // If user is already logged in, redirect them
-  if (user) {
-    navigate("/discover", { replace: true });
-  }
+  // Handle close modal
+  const handleClose = () => {
+    if (background) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+  
+  // Only redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/discover", { replace: true });
+    }
+  }, [user, navigate]);
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      fullName: "",
-      username: "",
+      firstName: "",
+      lastName: "",
       email: "",
       password: "",
-      confirmPassword: "",
     },
+    mode: "onChange",
   });
 
-  const onSubmit = async (data: SignupFormValues) => {
-    await signUp(data.email, data.password, data.username, data.fullName);
+  // Form submission handler
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSignupError(null);
+    
+    // Get form values
+    const formData = {
+      firstName: form.getValues("firstName"),
+      lastName: form.getValues("lastName"),
+      email: form.getValues("email"),
+      password: form.getValues("password")
+    };
+    
+    // Validate form data
+    const validation = signupSchema.safeParse(formData);
+    if (!validation.success) {
+      console.error("Form validation failed:", validation.error);
+      return;
+    }
+    
+    // Set loading state
+    setIsLoading(true);
+    
+    try {
+      console.log("Attempting to sign up user:", formData.email);
+      
+      // Call signUp with metadata
+      const { error, data: userData } = await signUp(
+        formData.email, 
+        formData.password,
+        {
+          firstName: formData.firstName,
+          lastName: formData.lastName
+        }
+      );
+      
+      console.log("Signup result:", { error, userData });
+      
+      if (error) {
+        setSignupError(error.message || "Failed to create account");
+        toast({
+          title: "Error creating account",
+          description: error.message || "There was an error creating your account. Please try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+      } else {
+        // Check if we got the expected user data back
+        if (userData?.user) {
+          toast({
+            title: "Account created!",
+            description: "Your account has been created successfully.",
+          });
+          
+          // Redirect to discover page
+          navigate('/discover', { replace: true });
+        } else {
+          // Show confirmation message with instruction to check email
+          toast({
+            title: "Check your email",
+            description: "We've sent a confirmation link to your email. Please check your inbox to complete signup.",
+          });
+          
+          // Wait a moment before redirecting
+          setTimeout(() => {
+            navigate('/discover', { replace: true });
+          }, 2000);
+        }
+      }
+    } catch (error: any) {
+      console.error("Signup exception:", error);
+      setSignupError(error?.message || "An unexpected error occurred");
+      toast({
+        title: "Error",
+        description: error?.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
-          <CardDescription className="text-center">
-            Sign up to get started with Lokaa
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="John Doe" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50" onClick={handleClose}>
+      <div 
+        className={`w-full max-w-[400px] transform transition-all duration-300 ease-out
+          ${isModalVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-white rounded-xl shadow-xl overflow-hidden relative">
+          {/* Close button */}
+          <button 
+            onClick={handleClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            aria-label="Close signup modal"
+          >
+            <X size={20} />
+          </button>
+          
+          <div className="p-8">
+            {/* Lokaa Logo */}
+            <div className="flex justify-center mb-6">
+              <h1 className="text-3xl font-bold text-teal-600">Lokaa</h1>
+            </div>
+            
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
+              Create your Lokaa account
+            </h2>
+            
+            {/* Error message */}
+            {signupError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                {signupError}
+              </div>
+            )}
+            
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Input 
+                  placeholder="First name" 
+                  className="h-12 px-4 text-base rounded-lg border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  {...form.register("firstName")}
+                  disabled={isLoading}
+                />
+                {form.formState.errors.firstName && (
+                  <p className="text-red-500 text-sm mt-1">{form.formState.errors.firstName.message}</p>
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="yourusername" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              </div>
+              
+              <div>
+                <Input 
+                  placeholder="Last name" 
+                  className="h-12 px-4 text-base rounded-lg border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  {...form.register("lastName")}
+                  disabled={isLoading}
+                />
+                {form.formState.errors.lastName && (
+                  <p className="text-red-500 text-sm mt-1">{form.formState.errors.lastName.message}</p>
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="you@example.com" 
-                        type="email" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              </div>
+              
+              <div>
+                <Input 
+                  placeholder="Email" 
+                  type="email" 
+                  className="h-12 px-4 text-base rounded-lg border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  {...form.register("email")}
+                  disabled={isLoading}
+                />
+                {form.formState.errors.email && (
+                  <p className="text-red-500 text-sm mt-1">{form.formState.errors.email.message}</p>
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="******" 
-                        type="password" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              </div>
+              
+              <div>
+                <Input 
+                  placeholder="Password" 
+                  type="password" 
+                  className="h-12 px-4 text-base rounded-lg border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  {...form.register("password")}
+                  disabled={isLoading}
+                />
+                {form.formState.errors.password && (
+                  <p className="text-red-500 text-sm mt-1">{form.formState.errors.password.message}</p>
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="******" 
-                        type="password" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button 
-                type="submit" 
-                className="w-full bg-lokaa-600 hover:bg-lokaa-700" 
-                disabled={loading}
+              </div>
+              
+              {/* Submit Button */}
+              <button 
+                type="submit"
+                className={`w-full h-12 text-white font-medium rounded-lg text-sm uppercase tracking-wide mt-4 transition-colors
+                  ${!isLoading && form.formState.isValid
+                    ? 'bg-teal-600 hover:bg-teal-700 cursor-pointer' 
+                    : 'bg-gray-300 cursor-not-allowed'}`}
+                disabled={isLoading || !form.formState.isValid}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 
                     Creating account...
-                  </>
+                  </div>
                 ) : (
-                  "Sign up"
+                  "SIGN UP"
                 )}
-              </Button>
+              </button>
+              
+              {/* Terms and Privacy */}
+              <div className="text-center text-sm text-gray-500 mt-4">
+                By signing up, you accept our{" "}
+                <Link to="/terms" className="text-[#0B65F5] hover:underline">
+                  terms
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" className="text-[#0B65F5] hover:underline">
+                  privacy policy
+                </Link>
+                .
+              </div>
+              
+              {/* Login Link */}
+              <div className="text-center text-base mt-6">
+                Already have an account?{" "}
+                <Link 
+                  to="/login" 
+                  state={{ background }}
+                  className="text-[#0B65F5] hover:underline font-medium"
+                >
+                  Log in
+                </Link>
+              </div>
             </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="text-center text-sm">
-            Already have an account?{" "}
-            <Link to="/login" className="text-lokaa-600 hover:text-lokaa-700 font-medium">
-              Log in
-            </Link>
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

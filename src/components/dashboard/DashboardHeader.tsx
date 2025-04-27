@@ -1,7 +1,6 @@
-
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bell, MessageCircle, Bookmark, Search, User, Pen, Lock, LogOut } from "lucide-react";
+import { Bell, MessageCircle, Bookmark, User, Pen, Lock, LogOut } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +11,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 export default function DashboardHeader() {
   const { user, userDetails, signOut } = useAuth();
@@ -24,22 +22,8 @@ export default function DashboardHeader() {
   };
 
   return (
-    <header className="bg-white border-b fixed top-0 right-0 z-30 left-[72px] transition-all duration-300">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center space-x-6">          
-          {/* Search bar */}
-          <div className="relative w-full max-w-md">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
-            <Input
-              type="search"
-              placeholder="Search..."
-              className="pl-10 py-2 bg-gray-50 border-gray-200"
-            />
-          </div>
-        </div>
-        
+    <header className="bg-white border-b fixed top-0 right-0 z-30 left-0 lg:left-64 transition-all duration-300">
+      <div className="flex items-center justify-end px-4 py-3">
         <div className="flex items-center space-x-2">
           {/* Icon buttons */}
           <Button variant="ghost" size="icon" className="relative text-gray-500 hover:text-lokaa-700">
@@ -85,12 +69,6 @@ export default function DashboardHeader() {
                 <Link to="/profile/edit" className="cursor-pointer w-full flex items-center">
                   <Pen className="mr-2 h-4 w-4" />
                   <span>Edit profile</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/notifications" className="cursor-pointer w-full flex items-center">
-                  <Bell className="mr-2 h-4 w-4" />
-                  <span>Notifications</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

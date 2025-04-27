@@ -1,0 +1,7 @@
+{"update": "console.log(\"Login successful, redirecting to:\", from);", "replace": "console.log(\"Login successful, redirecting to:\", from);
+        // Manually redirect non-test users (test user handled in AuthContext)
+        if (data.email !== \"francischukwuma706@gmail.com\") {
+          setTimeout(() => {
+            navigate(from, { replace: true });
+          }, 100);
+        }"}

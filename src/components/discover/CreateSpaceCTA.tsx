@@ -12,7 +12,7 @@ export default function CreateSpaceCTA() {
         <p className="text-gray-600 mb-4">Start your community and monetize your passion.</p>
         <Button 
           className="bg-lokaa-600 hover:bg-lokaa-700 px-6 py-2 text-lg"
-          onClick={() => navigate('/spaces/create')}
+          onClick={() => navigate('/create-space')}
         >
           Create My Space
         </Button>

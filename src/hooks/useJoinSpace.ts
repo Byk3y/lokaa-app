@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -15,8 +14,8 @@ export default function useJoinSpace(setJoinedSpaces) {
     }
     
     try {
-      const { data: existingMembership, error: checkError } = await supabase
-        .from('memberships')
+      const { data: existingAccess, error: checkError } = await supabase
+        .from('space_access')
         .select('*')
         .eq('user_id', user.id)
         .eq('space_id', spaceId)
@@ -26,12 +25,12 @@ export default function useJoinSpace(setJoinedSpaces) {
         throw checkError;
       }
       
-      if (existingMembership) {
-        if (!existingMembership.is_active) {
+      if (existingAccess) {
+        if (!existingAccess.is_active) {
           const { error: updateError } = await supabase
-            .from('memberships')
+            .from('space_access')
             .update({ is_active: true })
-            .eq('id', existingMembership.id);
+            .eq('id', existingAccess.id);
           
           if (updateError) throw updateError;
         } else {
@@ -43,11 +42,13 @@ export default function useJoinSpace(setJoinedSpaces) {
         }
       } else {
         const { error: insertError } = await supabase
-          .from('memberships')
+          .from('space_access')
           .insert({
             user_id: user.id,
             space_id: spaceId,
-            is_active: true
+            is_active: true,
+            amount_paid: 0,
+            paid_at: new Date().toISOString()
           });
         
         if (insertError) throw insertError;

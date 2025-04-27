@@ -1,9 +1,11 @@
-import { Navigate, useLocation, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2 } from "lucide-react";
+import { useCreatorStatus } from "../../hooks/useCreatorStatus";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthRedirectProps {
-  children?: React.ReactNode;
   requireAuth?: boolean;
   redirectTo?: string;
 }
@@ -13,35 +15,68 @@ interface AuthRedirectProps {
  * - requireAuth=true: Redirects unauthenticated users to login
  * - requireAuth=false: Redirects authenticated users to dashboard
  */
-const AuthRedirect = ({ 
-  children, 
-  requireAuth = false, 
-  redirectTo 
-}: AuthRedirectProps) => {
+export default function AuthRedirect({ requireAuth = true, redirectTo = "/" }: AuthRedirectProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const { data: creatorCommunity, isLoading: isLoadingCreator } = useCreatorStatus();
+  const navigate = useNavigate();
 
-  // Show loading state while checking auth
-  if (loading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-lokaa-600" />
-      </div>
-    );
-  }
+  console.log('AuthRedirect Debug:', {
+    user: !!user,
+    loading,
+    requireAuth,
+    creatorCommunity,
+    isLoadingCreator,
+    currentPath: location.pathname
+  });
 
-  // If auth is required and user isn't logged in, redirect to login
-  if (requireAuth && !user) {
+  useEffect(() => {
+    const handleAuthRedirect = async () => {
+      try {
+        // Get the auth code from the URL
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        
+        if (!code) {
+          console.error("No code found in URL");
+          navigate('/login');
+          return;
+        }
+
+        // Exchange the code for a session
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (error) {
+          console.error("Error exchanging code for session:", error);
+          navigate('/login');
+          return;
+        }
+
+        console.log("Successfully authenticated");
+        
+        // Redirect to the discover page
+        navigate('/discover', { replace: true });
+      } catch (err) {
+        console.error("Error in auth redirect:", err);
+        navigate('/login');
+      }
+    };
+
+    handleAuthRedirect();
+  }, [navigate]);
+
+  // If we require auth and user is not logged in, redirect to login
+  if (requireAuth && !user && !loading) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If page is for non-authenticated users only and user is logged in
-  if (!requireAuth && user && redirectTo) {
+  // If we don't require auth and user is logged in
+  if (!requireAuth && user) {
+    // Redirect to discover page regardless of creator status
+    console.log('Redirecting to:', redirectTo);
     return <Navigate to={redirectTo} replace />;
   }
 
-  // Otherwise, render the children or outlet
-  return children ? <>{children}</> : <Outlet />;
-};
-
-export default AuthRedirect;
+  // In all other cases, render the child routes
+  return <Outlet />;
+}

@@ -1,41 +1,40 @@
-
 import { TrendingUp } from "lucide-react";
-import CommunityCard from "@/components/communities/CommunityCard";
+import SpaceCard from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 
-interface FeaturedCommunitiesProps {
-  communities: any[];
+interface FeaturedSpacesProps {
+  spaces: any[];
   loading: boolean;
-  onJoinCommunity: (communityId: string) => void;
+  onJoinSpace: (spaceId: string) => void;
 }
 
-export default function FeaturedCommunities({ communities, loading, onJoinCommunity }: FeaturedCommunitiesProps) {
+export default function FeaturedSpaces({ spaces, loading, onJoinSpace }: FeaturedSpacesProps) {
   return (
     <div className="mb-8">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">Featured Communities</h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">Featured Spaces</h2>
       {loading ? (
         <LoadingSpinner />
-      ) : communities.length > 0 ? (
+      ) : spaces.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {communities.map((community) => (
-            <div key={community.id} className="relative">
-              <CommunityCard {...community} />
+          {spaces.map((space) => (
+            <div key={space.id} className="relative">
+              <SpaceCard {...space} linkType="about" />
               <Button
                 className="absolute bottom-4 right-4 bg-lokaa-600 hover:bg-lokaa-700"
-                onClick={() => onJoinCommunity(community.id)}
+                onClick={() => onJoinSpace(space.id)}
               >
-                Join Community
+                Join Space
               </Button>
             </div>
           ))}
         </div>
       ) : (
         <EmptyState
-          title="No featured communities available"
-          description="Check back later for featured communities"
-          actionText="Explore Other Communities"
+          title="No featured spaces available"
+          description="Check back later for featured spaces"
+          actionText="Explore Other Spaces"
           actionLink="/discover"
           icon={<TrendingUp className="h-8 w-8 text-lokaa-600" />}
         />

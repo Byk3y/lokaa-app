@@ -1,101 +1,150 @@
-
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import DiscoverCommunities from "./pages/DiscoverCommunities";
-import CreateSpace from "./pages/CreateSpace";
-import SpaceSettings from "./pages/SpaceSettings";
-import Profile from "./pages/Profile";
-import NotFound from "./pages/NotFound";
-import { AuthProvider } from "./contexts/AuthContext";
-import ProtectedRoute from "./components/auth/ProtectedRoute";
-import AuthRedirect from "./components/auth/AuthRedirect";
-import { useState } from "react";
-import LoggedInLayout from "./components/layout/LoggedInLayout";
-import CommunityHome from "./components/communities/CommunityHome";
-import CreatorDashboard from "./pages/CreatorDashboard";
-import SpaceLayout from "./components/spaces/SpaceLayout";
+import { useState, useEffect } from "react";
+import { HelmetProvider } from "react-helmet-async";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Toaster } from "@/components/ui/toaster";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import PublicRoute from "@/components/auth/PublicRoute";
+import AuthRedirect from "@/components/auth/AuthRedirect";
+import CommunityLayout from "@/components/layout/CommunityLayout";
+import CreatorDashboard from "@/pages/CreatorDashboard";
+import SmartLanding from "@/pages/SmartLanding";
+import QuickSpaceRedirect from "@/pages/QuickSpaceRedirect";
+import Discover from "@/pages/Discover";
+import Space from "@/pages/Space";
+import SpaceAboutPage from "@/pages/SpaceAboutPage";
+import Dashboard from "@/pages/Dashboard"; // Import for direct redirection
+import CreateSpace from "@/pages/CreateSpace";
+import CreateSpaceWrapper from "@/pages/CreateSpaceWrapper"; // Import the wrapper component
+import { LandingPageWrapper } from "@/pages/LandingPage";
+import WhiteScreenFix from "@/components/errors/WhiteScreenFix"; // Import the WhiteScreenFix component
+import React from "react";
+import { Loader2 } from "lucide-react";
+import SpaceAbout from "./pages/SpaceAbout";
 
-const App = () => {
-  // Move queryClient inside the component to fix hooks error
-  const [queryClient] = useState(() => new QueryClient());
+// Import our modal utility for authentication
+import "@/utils/authModals";
+
+// Route logger component to track route changes
+function RouteLogger() {
+  const location = useLocation();
+  
+  useEffect(() => {
+    console.log('Route changed to:', location.pathname);
+  }, [location]);
+  
+  return null;
+}
+
+// Wrapper component for routes
+function AppRoutes() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+  
+  // Handle root path redirection based on auth state
+  useEffect(() => {
+    // Skip if auth is still loading
+    if (loading) return;
+    
+    // Only redirect non-direct navigations to the root path
+    const isDirectNavigation = 
+      location.pathname === "/" && 
+      (!document.referrer || !document.referrer.includes(window.location.origin));
+    
+    if (user && location.pathname === '/' && !isDirectNavigation) {
+      console.log('AppRoutes: User is logged in on root path, redirecting to SmartLanding');
+      // Send to SmartLanding which will handle space redirection
+      navigate('/app', { replace: true });
+    }
+  }, [user, loading, location.pathname, navigate]);
+  
+  return (
+    <>
+      <RouteLogger />
+      <Routes>
+        {/* Public routes - accessible without authentication */}
+        <Route path="/" element={<LandingPageWrapper />} />
+        <Route path="/auth/callback" element={<AuthRedirect />} />
+        
+        {/* Recovery tools route - public access */}
+        <Route path="/fix" element={<WhiteScreenFix />} />
+        
+        {/* Space about page - public access */}
+        <Route path="/:subdomain/about" element={<SpaceAboutPage />} />
+        
+        {/* Redirect auth routes to home with appropriate modal */}
+        <Route path="/signup" element={
+          <Navigate to="/" replace state={{ showAuthModal: 'signup' }} />
+        } />
+        <Route path="/login" element={
+          <Navigate to="/" replace state={{ showAuthModal: 'login' }} />
+        } />
+        <Route path="/forgot-password" element={
+          <Navigate to="/" replace state={{ showAuthModal: 'forgot' }} />
+        } />
+        
+        {/* Create page with modal auth handling */}
+        <Route path="/create" element={<CreateSpaceWrapper />} />
+        <Route path="/create-space" element={<CreateSpaceWrapper />} />
+
+        {/* Protected routes - require authentication */}
+        <Route element={<ProtectedRoute />}>
+          {/* Smart landing - redirects based on user's spaces */}
+          <Route path="/app" element={<QuickSpaceRedirect />} />
+          
+          {/* For testing, keep the original SmartLanding on a different path */}
+          <Route path="/smart-landing" element={<SmartLanding />} />
+          
+          {/* Discover page for finding spaces when user has none */}
+          <Route path="/discover" element={<Discover />} />
+          
+          {/* Creator Dashboard (accessible via profile dropdown) */}
+          <Route path="/dashboard" element={<CreatorDashboard />} />
+          
+          {/* Space routes */}
+          <Route path="/space/:subdomain" element={<Space />} />
+          <Route path="/space/:subdomain/about" element={<SpaceAbout />} />
+          <Route path="/s/:subdomain" element={<Space />} />
+          
+          {/* Temporary direct route to test creator dashboard */}
+          <Route path="/direct-dashboard" element={<Dashboard />} />
+          
+          {/* Legacy Community routes - will be phased out in favor of /space/:subdomain */}
+          <Route path="/c/:communitySlug/*" element={<CommunityLayout />}>
+            {/* All legacy routes inside CommunityLayout will redirect to home */}
+          </Route>
+        </Route>
+
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
+  );
+}
+
+export default function App() {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        retry: 1,
+        staleTime: 0, // Don't use cached data for critical auth-related queries
+      },
+    },
+  }));
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <TooltipProvider>
+      <HelmetProvider>
+        <Router>
           <AuthProvider>
+            <AppRoutes />
             <Toaster />
-            <Sonner />
-            <Routes>
-              {/* Public marketing routes - redirect to discover if logged in */}
-              <Route element={<AuthRedirect requireAuth={false} redirectTo="/discover" />}>
-                <Route path="/" element={<Home />} />
-                <Route path="/features" element={<Home />} />
-                <Route path="/pricing" element={<Home />} />
-                <Route path="/about" element={<Home />} />
-              </Route>
-              
-              {/* Auth routes - redirect to discover if logged in */}
-              <Route element={<AuthRedirect requireAuth={false} redirectTo="/discover" />}>
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-              </Route>
-              
-              {/* Profile page - accessible to everyone but with different views */}
-              <Route path="/profile/:username" element={<Profile />} />
-              
-              {/* Protected Routes with new LoggedInLayout */}
-              <Route element={<ProtectedRoute />}>
-                <Route element={<LoggedInLayout />}>
-                  {/* Legacy redirect */}
-                  <Route path="/dashboard" element={<Navigate to="/discover" replace />} />
-                  
-                  {/* Discover page */}
-                  <Route path="/discover" element={<DiscoverCommunities />} />
-                  
-                  {/* Community creation */}
-                  <Route path="/communities/create" element={<CreateSpace />} />
-                  
-                  {/* Community Routes */}
-                  <Route path="/c/:communityId" element={<CommunityHome />} />
-                  <Route path="/c/:communityId/feed" element={<div>Feed Page</div>} />
-                  <Route path="/c/:communityId/spaces" element={<div>Spaces Page</div>} />
-                  <Route path="/c/:communityId/spaces/create" element={<CreateSpace />} />
-                  
-                  {/* Space routes - new! */}
-                  <Route path="/c/:communityId/s/:spaceSlug" element={<SpaceLayout />} />
-                  
-                  <Route path="/c/:communityId/events" element={<div>Events Page</div>} />
-                  <Route path="/c/:communityId/courses" element={<div>Courses Page</div>} />
-                  <Route path="/c/:communityId/members" element={<div>Members Page</div>} />
-                  <Route path="/c/:communityId/settings" element={<SpaceSettings />} />
-                  
-                  {/* User settings */}
-                  <Route path="/profile/edit" element={<div>Edit Profile Page</div>} />
-                  <Route path="/notifications" element={<div>Notifications Page</div>} />
-                  <Route path="/settings" element={<div>Authentication Settings Page</div>} />
-                </Route>
-              </Route>
-              
-              {/* Default route for logged in users */}
-              <Route 
-                path="/profile" 
-                element={<Navigate to="/discover" replace />} 
-              />
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
           </AuthProvider>
-        </TooltipProvider>
-      </BrowserRouter>
+        </Router>
+      </HelmetProvider>
     </QueryClientProvider>
   );
-};
-
-export default App;
+}

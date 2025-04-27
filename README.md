@@ -1,73 +1,142 @@
-# Welcome to your Lovable project
+# Lokaa Connect Spaces
 
-## Project info
+A modern web application for creating and managing online communities and spaces. Built with React, TypeScript, and Supabase.
 
-**URL**: https://lovable.dev/projects/8bbb11e2-748d-4f67-bbee-19103a0c3cb4
+## 🚀 Features
 
-## How can I edit this code?
+- **Authentication System**
+  - User registration and login
+  - Profile management
+  - Secure session handling
 
-There are several ways of editing your application.
+- **Community Management**
+  - Create and manage communities
+  - Discover existing communities
+  - Community settings and customization
 
-**Use Lovable**
+- **Space Management**
+  - Create dedicated spaces within communities
+  - Customize space settings
+  - Manage space content and members
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/8bbb11e2-748d-4f67-bbee-19103a0c3cb4) and start prompting.
+- **Modern UI/UX**
+  - Built with Shadcn UI components
+  - Responsive design
+  - Dark mode support
+  - Toast notifications
+  - Tooltips and interactive elements
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🛠️ Tech Stack
 
-**Use your preferred IDE**
+- **Frontend Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **UI Components**: Shadcn UI
+- **State Management**: React Query
+- **Routing**: React Router v6
+- **Authentication**: Supabase Auth
+- **Database**: Supabase
+- **Form Handling**: React Hook Form with Zod validation
+- **Date Handling**: date-fns
+- **Charts**: Recharts
+- **Notifications**: Sonner
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 📦 Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Clone the repository:
+```bash
+git clone [repository-url]
+cd lokaa-connect-spaces
+```
 
-Follow these steps:
+2. Install dependencies:
+```bash
+npm install
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+3. Create a `.env` file in the root directory and add your Supabase credentials:
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+4. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## 🏗️ Project Structure
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+src/
+├── components/         # Reusable UI components
+├── contexts/          # React contexts (Auth, etc.)
+├── hooks/             # Custom React hooks
+├── pages/             # Page components
+├── utils/             # Utility functions
+└── App.tsx           # Main application component
+```
 
-**Use GitHub Codespaces**
+## 🚀 Available Scripts
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run build:dev` - Build for development
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
 
-## What technologies are used for this project?
+## 🔒 Authentication Flow
 
-This project is built with:
+The application uses Supabase for authentication with the following features:
+- Email/password authentication
+- Protected routes
+- Session management
+- User profile management
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🎨 UI Components
 
-## How can I deploy this project?
+The project uses Shadcn UI, a collection of re-usable components built with Radix UI and Tailwind CSS. This includes:
+- Buttons
+- Forms
+- Dialogs
+- Dropdowns
+- Navigation menus
+- Toast notifications
+- And many more
 
-Simply open [Lovable](https://lovable.dev/projects/8bbb11e2-748d-4f67-bbee-19103a0c3cb4) and click on Share -> Publish.
+## 📱 Responsive Design
 
-## Can I connect a custom domain to my Lovable project?
+The application is fully responsive and works on:
+- Desktop
+- Tablet
+- Mobile devices
 
-Yes it is!
+## 🤝 Contributing
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+mkdir .cursor
+
+touch .cursor/mcp.json
+
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "<your-personal-access-token>"
+      ]
+    }
+  }
+}

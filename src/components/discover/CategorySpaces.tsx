@@ -1,4 +1,3 @@
-
 import { Music, Code, Gamepad2, GraduationCap, TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SpaceCard from "@/components/spaces/SpaceCard";
@@ -45,7 +44,14 @@ export default function CategorySpaces({ categorySpaces, loading, onJoinSpace }:
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {categorySpaces[category].map((space) => (
                   <div key={space.id} className="relative">
-                    <SpaceCard {...space} />
+                    <a
+                      href={space.subdomain ? `/${space.subdomain}/about` : "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <SpaceCard {...space} linkType="about" />
+                    </a>
                     <Button
                       className="absolute bottom-4 right-4 bg-lokaa-600 hover:bg-lokaa-700"
                       onClick={() => onJoinSpace(space.id)}
