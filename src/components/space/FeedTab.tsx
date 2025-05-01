@@ -39,6 +39,17 @@ export default function FeedTab({ space, user }: FeedTabProps) {
   const handleTaskComplete = (taskId: string) => {
     setSetupCompletion(prev => ({ ...prev, [taskId]: !prev[taskId] }));
   };
+
+  // Button hover variants
+  const buttonHoverVariants = {
+    initial: (completed: boolean) => ({
+      color: completed ? "#78909C" : "#26A69A"
+    }),
+    hover: {
+      color: "#FF6F61",
+      transition: { duration: 0.2 }
+    }
+  };
   
   return (
     <div className="flex-1 space-y-6">
@@ -150,12 +161,15 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                 )}
               </motion.div>
               <motion.button 
-                whileHover={{ color: "#FF6F61" }}
+                variants={buttonHoverVariants}
+                initial="initial"
+                whileHover="hover"
+                custom={setupCompletion.invitePeople}
                 onClick={() => handleTaskComplete("invitePeople")}
                 className={`${
                   setupCompletion.invitePeople 
-                    ? 'text-[#78909C] line-through' 
-                    : 'text-[#26A69A] hover:text-[#FF6F61]'
+                    ? 'line-through' 
+                    : ''
                 } text-sm font-medium flex items-center`}
               >
                 Invite 3 people
@@ -185,12 +199,15 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                 )}
               </motion.div>
               <motion.button 
-                whileHover={{ color: "#FF6F61" }}
+                variants={buttonHoverVariants}
+                initial="initial"
+                whileHover="hover"
+                custom={setupCompletion.addDescription}
                 onClick={() => handleTaskComplete("addDescription")}
                 className={`${
                   setupCompletion.addDescription 
-                    ? 'text-[#78909C] line-through' 
-                    : 'text-[#26A69A] hover:text-[#FF6F61]'
+                    ? 'line-through' 
+                    : ''
                 } text-sm font-medium flex items-center`}
               >
                 Add group description
@@ -220,12 +237,15 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                 )}
               </motion.div>
               <motion.button 
-                whileHover={{ color: "#FF6F61" }}
+                variants={buttonHoverVariants}
+                initial="initial"
+                whileHover="hover"
+                custom={setupCompletion.setCoverImage}
                 onClick={() => handleTaskComplete("setCoverImage")}
                 className={`${
                   setupCompletion.setCoverImage 
-                    ? 'text-[#78909C] line-through' 
-                    : 'text-[#26A69A] hover:text-[#FF6F61]'
+                    ? 'line-through' 
+                    : ''
                 } text-sm font-medium flex items-center`}
               >
                 Set cover image
@@ -255,12 +275,15 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                 )}
               </motion.div>
               <motion.button 
-                whileHover={{ color: "#FF6F61" }}
+                variants={buttonHoverVariants}
+                initial="initial"
+                whileHover="hover"
+                custom={setupCompletion.writeFirstPost}
                 onClick={() => handleTaskComplete("writeFirstPost")}
                 className={`${
                   setupCompletion.writeFirstPost 
-                    ? 'text-[#78909C] line-through' 
-                    : 'text-[#26A69A] hover:text-[#FF6F61]'
+                    ? 'line-through' 
+                    : ''
                 } text-sm font-medium flex items-center`}
               >
                 Write your first post

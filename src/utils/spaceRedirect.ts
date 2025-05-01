@@ -47,7 +47,7 @@ export async function redirectToSpace(
     }
     
     // 3. Perform the actual redirection
-    const spaceUrl = `/space/${spaceData.subdomain}`;
+    const spaceUrl = `/${spaceData.subdomain}`;
     
     if (navigate) {
       // React Router navigation

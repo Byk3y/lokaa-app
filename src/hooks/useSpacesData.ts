@@ -22,6 +22,14 @@ export interface DatabaseSpace {
   // Additional fields for our frontend
   ranking?: number;
   tags?: string[];
+  // Fields from the join
+  profiles?: {
+    name?: string;
+    avatar_url?: string;
+  };
+  // Added fields
+  about_description?: string | null;
+  is_private?: boolean;
 }
 
 // Processed space type after mapping
@@ -47,6 +55,13 @@ export interface Space {
   posts?: number;
   createdAt?: string;
   updatedAt?: string;
+  // Add missing fields that are used in SpaceCard
+  about_description?: string | null;
+  is_private?: boolean;
+  owner?: {
+    name?: string;
+    avatar_url?: string;
+  };
 }
 
 export default function useSpacesData(initialCategory = 'all') {
@@ -163,7 +178,13 @@ export default function useSpacesData(initialCategory = 'all') {
       posts: dbSpace.post_count || 0,
       createdAt: dbSpace.created_at || new Date().toISOString(),
       updatedAt: dbSpace.updated_at || new Date().toISOString(),
-      tags: dbSpace.tags || generateTags(dbSpace)
+      tags: dbSpace.tags || generateTags(dbSpace),
+      about_description: dbSpace.about_description || null,
+      is_private: dbSpace.is_private || false,
+      owner: {
+        name: "Space Owner", // Default value
+        avatar_url: null
+      }
     };
   }
 

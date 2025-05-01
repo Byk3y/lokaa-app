@@ -3,7 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Search, Bell, MessageSquare, ChevronDown, User, Plus, Compass, LogOut, Settings, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import SpaceCard from "@/components/spaces/SpaceCard";
+import { SpaceCard } from "@/components/spaces/SpaceCard";
+import { DiscoverSpaceCard } from "@/components/discover/DiscoverSpaceCard";
 import { Space } from "@/types/space";
 import StandaloneLoginModal from "@/components/auth/StandaloneLoginModal";
 import { toast } from "@/hooks/use-toast";
@@ -949,7 +950,7 @@ export default function Discover() {
           <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16">
             {/* Display loading state with AnimatePresence for unmounting */}
             <AnimatePresence>
-              {isLoading ? (
+            {isLoading ? (
                 <motion.div 
                   className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-100"
                   initial={{ opacity: 1 }}
@@ -957,18 +958,18 @@ export default function Discover() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="inline-block animate-spin w-10 h-10 border-4 border-gray-300 border-t-teal-600 rounded-full mb-4"></div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-2">Loading spaces...</h3>
-                  <p className="text-gray-500 max-w-md mx-auto">
-                    We're getting the latest spaces for you. This should only take a moment.
-                  </p>
-                  {/* Show a loading timeout message after 15 seconds */}
-                  {retryCount > 0 && (
-                    <div className="mt-6 text-amber-600 max-w-md mx-auto">
-                      <p className="font-medium">Taking longer than expected...</p>
-                      <p className="text-sm mt-1">Please wait while we try to connect.</p>
-                    </div>
-                  )}
+                <div className="inline-block animate-spin w-10 h-10 border-4 border-gray-300 border-t-teal-600 rounded-full mb-4"></div>
+                <h3 className="text-lg font-medium text-gray-800 mb-2">Loading spaces...</h3>
+                <p className="text-gray-500 max-w-md mx-auto">
+                  We're getting the latest spaces for you. This should only take a moment.
+                </p>
+                {/* Show a loading timeout message after 15 seconds */}
+                {retryCount > 0 && (
+                  <div className="mt-6 text-amber-600 max-w-md mx-auto">
+                    <p className="font-medium">Taking longer than expected...</p>
+                    <p className="text-sm mt-1">Please wait while we try to connect.</p>
+                  </div>
+                )}
                 </motion.div>
               ) : null}
             </AnimatePresence>
@@ -1040,79 +1041,14 @@ export default function Discover() {
               </div>
             ) : (
               /* Space cards grid - 3 columns on desktop with more horizontal spacing */
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredSpaces.map((space) => (
-                  <a 
-                    key={space.id}
-                    href={prepareSpaceNavigation(space, 'about')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all border border-gray-200 h-full flex flex-col"
-                    onClick={(e) => {
-                      // The prepareSpaceNavigation function already handles caching
-                      console.log('Viewing about page for space:', space.subdomain);
-                    }}
-                  >
-                    {/* Card with ranking badge */}
-                    <div className="relative">
-                      {/* Ranking badge */}
-                      {space.ranking && (
-                        <div className="absolute top-3 left-3 bg-gray-800 text-white rounded-full h-8 w-8 flex items-center justify-center text-sm font-semibold z-10">
-                          #{space.ranking}
-                        </div>
-                      )}
-                      
-                      {/* Cover image */}
-                      <div className="w-full h-44 bg-gray-100">
-                        <motion.div 
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.4, ease: "easeOut" }}
-                          className="w-full h-full bg-cover bg-center"
-                          style={{ backgroundImage: `url(${space.cover_image || "/default-space-cover.jpg"})` }}
-                        />
-                      </div>
+              <div className="flex justify-center">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-8 justify-items-center">
+                  {filteredSpaces.map((space) => (
+                    <div key={space.id} className="w-[337px]">
+                      <DiscoverSpaceCard key={space.id} space={space} />
                     </div>
-                    
-                    {/* Content */}
-                    <div className="p-4 flex-1 flex flex-col">
-                      {/* Space info */}
-                      <div className="flex items-start mb-3">
-                        <div className="flex-shrink-0 mr-3">
-                          <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
-                            {/* Space icon or first letter */}
-                            <span className="text-lg font-semibold text-gray-600">
-                              {space.name?.charAt(0) || 'S'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-1">{space.name}</h3>
-                          {/* Description */}
-                          <p className="text-sm text-gray-700 mb-4 line-clamp-2">{space.description}</p>
-                        </div>
-                      </div>
-                      
-                      {/* Stats row */}
-                      <div className="flex items-center justify-between text-sm mt-auto">
-                        <div className="flex items-center">
-                          <span className="font-medium">
-                            {space.member_count && space.member_count > 1000 
-                              ? `${(space.member_count / 1000).toFixed(1)}k` 
-                              : space.member_count || 0} Members
-                          </span>
-                        </div>
-                        <div>
-                          {space.pricing_type === 'paid' && space.price_per_month ? (
-                            <span className="text-teal-600 font-semibold">${space.price_per_month}/month</span>
-                          ) : (
-                            <span className="text-teal-600 font-semibold">Free</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </a>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>

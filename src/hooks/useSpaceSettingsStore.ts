@@ -6,7 +6,9 @@ interface SpaceSettingsData {
   id: string;
   name: string;
   description: string | null;
+  about_description: string | null;
   cover_image: string | null;
+  icon_image: string | null;
   subdomain: string;
   owner_id: string;
   is_private: boolean;
@@ -54,7 +56,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       console.log("Starting spaces query for spaceId:", spaceId);
       const { data, error } = await supabase
         .from('spaces')
-        .select('id, name, description, cover_image, subdomain, owner_id, is_private') // Select specific fields
+        .select('id, name, description, about_description, cover_image, icon_image, subdomain, owner_id, is_private') // Select specific fields
         .eq('id', spaceId)
         .single();
 
@@ -80,7 +82,8 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       }
 
       console.log("Space data successfully retrieved:", data);
-      const spaceData = data as SpaceSettingsData;
+      // First convert to unknown type, then to our expected type to avoid TypeScript errors
+      const spaceData = data as unknown as SpaceSettingsData;
 
       // First check if user is the owner
       const isOwner = spaceData.owner_id === userId;
@@ -130,7 +133,9 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         formData: {
           name: spaceData.name,
           description: spaceData.description,
+          about_description: spaceData.about_description,
           cover_image: spaceData.cover_image,
+          icon_image: spaceData.icon_image,
           is_private: spaceData.is_private ?? false,
           // Subdomain is part of space, not formData directly for editing
         },

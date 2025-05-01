@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
-import { Bell, MessageSquare, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Upload, Lock, Check, Globe, Loader2, Trophy } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
+import { Bell, MessageSquare, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Upload, Lock, Check, Globe, Loader2, Trophy, GraduationCap } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,15 +28,34 @@ import FeedTab from "@/components/space/FeedTab";
 import CalendarTab from "@/components/space/CalendarTab";
 import MembersTab from "@/components/space/MembersTab";
 import LeaderboardsTab from "@/components/space/LeaderboardsTab";
+import ClassroomTab from "@/components/space/ClassroomTab";
+import { getSpaceUrl, cacheSpaceData } from "@/utils/urlUtils";
 
 // Initialize spaceAccessFix with the Supabase client
 spaceAccessFix.init(supabase);
+
+// Helper function to resolve image URLs that might be stored in localStorage
+const resolveImageUrl = (imageUrl: string | null, fallbackUrl: string = '/default-cover.jpg'): string => {
+  if (!imageUrl) return fallbackUrl;
+  
+  // If the URL starts with 'local:', retrieve from localStorage
+  if (imageUrl.startsWith('local:')) {
+    const storageKey = imageUrl.replace('local:', '');
+    const storedImage = localStorage.getItem(storageKey);
+    return storedImage || fallbackUrl;
+  }
+  
+  // Otherwise, use the URL directly
+  return imageUrl;
+};
 
 interface SpaceDetails {
   id: string;
   name: string;
   description: string | null;
+  about_description?: string | null;
   cover_image: string | null;
+  icon_image?: string | null;
   primary_color: string | null;
   member_count: number | null;
   pricing_type: 'free' | 'paid';
@@ -53,7 +72,9 @@ interface SpaceRPCResponse {
     id: string;
     name: string;
     description: string;
+    about_description?: string | null;
     cover_image: string;
+    icon_image?: string | null;
     subdomain: string;
     owner_id: string;
     pricing_type: "free" | "paid";
@@ -75,12 +96,45 @@ const setupTasks = [
   { id: 'writeFirstPost', label: 'Write your first post' },
 ];
 
-export default function Space() {
-  const { subdomain } = useParams<{ subdomain: string }>();
+// Add interface for component props
+interface SpaceProps {
+  initialTab?: string;
+}
+
+// Types for the space state must include about_description to fix linter error
+interface SpaceType {
+  id?: string;
+  name?: string;
+  subdomain?: string;
+  description?: string;
+  about_description?: string | null;
+  icon_image?: string | null;
+  cover_image?: string | null;
+  primary_color?: string | null;
+  is_private?: boolean;
+  owner_id?: string;
+  pricing_type?: 'free' | 'paid';
+  price_per_month?: number | null;
+  initials?: string;
+  created_at?: string;
+  updated_at?: string;
+  member_count?: number | null;
+  owner?: {
+    id?: string;
+    email?: string | null;
+    display_name?: string | null;
+    avatar_url?: string | null;
+  } | null;
+}
+
+export default function Space({ initialTab }: SpaceProps) {
+  const { subdomain, tab } = useParams<{ subdomain: string; tab?: string }>();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loadingSpace, setLoadingSpace] = useState(true);
-  const [activeTab, setActiveTab] = useState("community");
+  // Use the tab URL parameter if available, otherwise fall back to initialTab prop or default value
+  const [activeTab, setActiveTab] = useState(tab || initialTab || "community");
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [setupCompletion, setSetupCompletion] = useState<Record<string, boolean>>({
@@ -89,9 +143,14 @@ export default function Space() {
     setCoverImage: false,
     writeFirstPost: false
   });
-  const [notificationShown, setNotificationShown] = useState(true);
+  const [notificationShown, setNotificationShown] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiSource, setConfettiSource] = useState({ x: 0, y: 0 });
+  
+  // State for description editing
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionText, setDescriptionText] = useState("");
+  const [descriptionLength, setDescriptionLength] = useState(0);
   
   const openSpaceSettingsModal = useSpaceSettingsModal(state => state.open);
   const { 
@@ -100,6 +159,146 @@ export default function Space() {
     loading: loadingSettings,
     error: settingsError 
   } = useSpaceSettingsStore();
+
+  // State for about_description
+  const [aboutDescription, setAboutDescription] = useState("");
+  const [editingAbout, setEditingAbout] = useState(false);
+  const [aboutCharCount, setAboutCharCount] = useState(0);
+  const [aboutChanged, setAboutChanged] = useState(false);
+  const [savingAbout, setSavingAbout] = useState(false);
+
+  // Initialize description text from space data
+  useEffect(() => {
+    if (space?.description) {
+      setDescriptionText(space.description);
+      setDescriptionLength(space.description.length);
+    }
+  }, [space?.description]);
+
+  // Handle description text change
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    setDescriptionText(text);
+    setDescriptionLength(text.length);
+  };
+
+  // Save description
+  const saveDescription = async () => {
+    try {
+      if (!space?.id) return;
+      
+      // Call supabase to update the description
+      const { error } = await supabase
+        .from('spaces')
+        .update({ description: descriptionText })
+        .eq('id', space.id);
+        
+      if (error) throw error;
+      
+      // Update local state
+      useSpaceSettingsStore.setState({ 
+        space: { ...space, description: descriptionText } 
+      });
+      
+      // Mark description task as complete
+      setSetupCompletion(prev => ({ ...prev, addDescription: true }));
+      
+      // Exit edit mode
+      setEditingDescription(false);
+      
+      toast({
+        title: "Description saved",
+        description: "Your space description has been updated."
+      });
+    } catch (error) {
+      console.error("Error saving description:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save description. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Cancel editing
+  const cancelDescription = () => {
+    // Reset to original description
+    setDescriptionText(space?.description || "");
+    setDescriptionLength((space?.description || "").length);
+    setEditingDescription(false);
+  };
+
+  // Initialize aboutDescription from space data
+  useEffect(() => {
+    if (space?.about_description) {
+      setAboutDescription(space.about_description);
+      setAboutCharCount(space.about_description.length);
+      setAboutChanged(false);
+    }
+  }, [space?.about_description]);
+
+  // Handler for textarea changes
+  const handleAboutChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setAboutDescription(val);
+    setAboutCharCount(val.length);
+    setAboutChanged(val !== (space?.about_description || ""));
+  };
+
+  // Save about description
+  const handleSaveAbout = async () => {
+    try {
+      setSavingAbout(true);
+      
+      if (!space?.id) return;
+      
+      // First get the current settings
+      const { data, error } = await supabase
+        .from('spaces')
+        .update({ 
+          about_description: aboutDescription 
+        })
+        .eq('id', space.id)
+        .select('about_description');
+      
+      if (error) throw error;
+      
+      if (space) {
+        // Update space data in store with proper typing
+        useSpaceSettingsStore.setState({
+          space: {
+            ...space,
+            about_description: aboutDescription,
+          } as any // Use type assertion as a last resort
+        });
+      }
+      
+      setAboutChanged(false);
+      setEditingAbout(false);
+      
+      toast({
+        title: "About section saved",
+        description: "Your about section has been updated."
+      });
+    } catch (error) {
+      console.error("Error saving about section:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save about section. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingAbout(false);
+    }
+  };
+
+  // Cancel editing
+  const handleCancelAbout = () => {
+    setAboutDescription(space?.about_description || "");
+    setAboutCharCount((space?.about_description || "").length);
+    setEditingAbout(false);
+    setAboutChanged(false);
+  };
 
   console.log("Space component rendering for subdomain:", subdomain);
   console.log("Current user:", user?.email);
@@ -130,225 +329,158 @@ export default function Space() {
     }
   };
 
-  // Fetch space details AND trigger settings fetch
+  // Set initial active tab based on URL path segment
   useEffect(() => {
-    const fetchInitialSpaceData = async () => {
+    // Extract the tab from the path
+    const pathSegments = location.pathname.split('/');
+    if (pathSegments.length > 2) {
+      const tabFromPath = pathSegments[2];
+      // Make sure this list matches the actual tab names used in the component
+      const validTabs = ['about', 'members', 'calendar', 'leaderboard', 'community', 'classroom'];
+      
+      if (validTabs.includes(tabFromPath)) {
+        // Normalize the tab name to match our internal naming
+        const normalizedTab = tabFromPath === 'leaderboard' ? 'leaderboard' : tabFromPath;
+        setActiveTab(normalizedTab);
+      }
+    }
+  }, [location.pathname]);
+
+  // Debug: Log visibility and focus events to troubleshoot unexpected reloads
+  useEffect(() => {
+    const onVisibility = () => {
+      console.log('[Space Debug] Document visibility changed:', document.visibilityState, 'at', new Date());
+    };
+    const onFocus = () => {
+      console.log('[Space Debug] Window focused at', new Date());
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
+
+  // ADDED: Cache and restore space data to make the component resilient to remounts
+  useEffect(() => {
+    if (space && subdomain) {
+      try {
+        // Save to sessionStorage when we have space data
+        const cacheKey = `space_data_${subdomain}`;
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          space,
+          timestamp: new Date().getTime()
+        }));
+        console.log('[Space] Cached space data to sessionStorage');
+      } catch (err) {
+        console.warn('[Space] Failed to cache space data:', err);
+      }
+    }
+  }, [space, subdomain]);
+
+  // ADDED: Quick Recovery from Cache
+  const [quickRecoveryAttempted, setQuickRecoveryAttempted] = useState(false);
+  useEffect(() => {
+    // Only attempt quick recovery once and only if we're in loading state
+    if (!quickRecoveryAttempted && loadingSpace && subdomain) {
+      setQuickRecoveryAttempted(true);
+      try {
+        const cacheKey = `space_data_${subdomain}`;
+        const cachedData = sessionStorage.getItem(cacheKey);
+        
+        if (cachedData) {
+          const parsed = JSON.parse(cachedData);
+          const cacheAge = new Date().getTime() - parsed.timestamp;
+          
+          // Use cache if it's less than 5 minutes old
+          if (cacheAge < 5 * 60 * 1000) {
+            console.log('[Space] Quick recovery from cache while fetching fresh data');
+            // Load from cache (don't setLoadingSpace to false yet - let the real fetch complete)
+            useSpaceSettingsStore.setState({ 
+              space: parsed.space,
+              loading: true // Keep loading true until the real data arrives
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[Space] Failed to recover from cache:', err);
+      }
+    }
+  }, [loadingSpace, subdomain, quickRecoveryAttempted]);
+
+  // Create a memoized fetch function with useCallback
+  const fetchInitialSpaceData = useCallback(async () => {
       if (!subdomain || !user) {
-        console.log("No subdomain or user found, redirecting to login");
-        navigate('/login', { replace: true });
+      setLoadingSpace(false);
         return;
       }
       
       setLoadingSpace(true);
-      console.log("Space component: Starting space data fetch for subdomain:", subdomain);
-      
-      // Set a timeout to prevent endless loading
-      const timeoutId = setTimeout(() => {
-        console.error("Space loading timeout - forcing completion");
-        setLoadingSpace(false);
-        
-        // Show a toast with a recovery option
-        toast({ 
-          title: "Loading Timeout", 
-          description: "Could not load space data. Please try the recovery option below or go to the discover page.", 
-          variant: "destructive",
-          action: (
-            <Button
-              variant="outline"
-              onClick={async () => {
-                try {
-                  toast({
-                    title: "Attempting recovery...",
-                    description: "Trying to fix access issues for this space.",
-                  });
-                  
-                  const success = await fixSpaceAccessBySubdomain(subdomain);
-                  
-                  if (success) {
-                    toast({
-                      title: "Recovery successful",
-                      description: "Space access has been fixed. Reloading page.",
-                    });
-                    // Reload the page after a short delay
-                    setTimeout(() => window.location.reload(), 1500);
-                  } else {
-                    navigate('/discover', { replace: true });
-                    toast({
-                      title: "Recovery failed",
-                      description: "Redirecting to discover page.",
-                      variant: "destructive"
-                    });
-                  }
-                } catch (error) {
-                  console.error("Recovery error:", error);
-                  navigate('/discover', { replace: true });
-                }
-              }}
-              className="bg-amber-500 text-white hover:bg-amber-600"
-            >
-              Recover
-            </Button>
-          )
-        });
-      }, 15000); // 15 seconds timeout
-      
-      try {
-        // Use the RPC function to bypass RLS and get space data
-        console.log("Fetching space by subdomain using admin_get_space_by_subdomain:", subdomain);
-        
-        // Use a more explicit approach with type casting to avoid TypeScript errors
-        const { data: rpcResponse, error: rpcError } = await (supabase as any)
-          .rpc('admin_get_space_by_subdomain', { target_subdomain: subdomain }) as {
-            data: SpaceRPCResponse | null;
-            error: any;
-          };
-          
-        if (rpcError) {
-          console.error("Error fetching space via RPC:", rpcError);
-          
-          // Fall back to the original method if RPC fails
-          console.log("Falling back to direct spaces query");
-          const { data: pageData, error: pageError } = await supabase
+    try {
+      // Use the existing supabase query method that was previously in this component
+      console.log("Fetching space by subdomain:", subdomain);
+      const { data: spaceData, error } = await supabase
             .from("spaces")
-            .select("id, name, description, cover_image, primary_color, member_count, pricing_type, price_per_month, subdomain, owner_id, is_private")
+        .select("id, name, description, cover_image, icon_image, primary_color, member_count, pricing_type, price_per_month, subdomain, owner_id, is_private")
             .eq("subdomain", subdomain)
             .single();
             
-          if (pageError) {
-            console.error("Error fetching initial space data:", pageError);
-            
-            // Specific handling for different error types
-            if (pageError.code === 'PGRST116') {
-              // No rows returned
-              toast({ 
-                title: "Space Not Found", 
-                description: "The space you're looking for doesn't exist.", 
-                variant: "destructive" 
-              });
-              navigate('/discover', { replace: true });
-            } else {
-              toast({ 
-                title: "Error Loading Space", 
-                description: "There was a problem loading this space: " + pageError.message, 
-                variant: "destructive" 
-              });
-            }
-            
-            throw pageError;
-          }
-          
-          if (!pageData) {
-            console.error("Space not found by subdomain:", subdomain);
-            toast({ 
-              title: "Space Not Found", 
-              description: "The space you're looking for doesn't exist.", 
-              variant: "destructive" 
-            });
-            navigate('/discover', { replace: true });
-            return;
-          }
-          
-          // Continue with the pageData from direct query
-          processSpaceData(pageData);
-        } else {
-          // Parse RPC response
-          const typedResponse = rpcResponse as unknown as SpaceRPCResponse;
-          
-          if (!typedResponse || !typedResponse.success) {
-            console.error("Space not found or RPC returned error:", typedResponse);
-            toast({ 
-              title: "Space Not Found", 
-              description: "The space you're looking for doesn't exist.", 
-              variant: "destructive" 
-            });
-            navigate('/discover', { replace: true });
-            return;
-          }
-          
-          // Extract space data from RPC response
-          const pageData = typedResponse.space;
-          console.log("Successfully retrieved space data via RPC:", pageData);
-          
-          // Process the space data from RPC
-          processSpaceData(pageData);
-        }
-      } catch (error) {
-        console.error("Error loading initial space data:", error);
-        toast({ 
-          title: "Error", 
-          description: "Failed to load space. Redirecting to discover page.", 
-          variant: "destructive" 
-        });
-        
-        // Navigate to discover page on error
-        navigate('/discover', { replace: true });
-      } finally {
-        setLoadingSpace(false);
-        // Ensure the timeout is cleared
-        clearTimeout(timeoutId);
-      }
-    };
-    
-    // Helper function to process the space data
-    const processSpaceData = async (pageData: any) => {
-      if (!pageData || !user) {
-        console.error("Missing page data or user object");
-        navigate('/discover', { replace: true });
+      if (error) {
+        console.error("Error fetching space data:", error);
+        navigate('/discover');
         return;
       }
       
-      // Check if user is the owner or has access to this space
-      const isOwner = pageData.owner_id === user.id;
-      
-      if (!isOwner) {
-        console.log("User is not the owner, checking for access rights");
-        // Check if user has access via space_access table
-        const { data: accessData, error: accessError } = await supabase
-          .from('space_access')
-          .select('id')
-          .eq('space_id', pageData.id)
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .single();
-          
-        if (accessError && accessError.code !== 'PGRST116') {
-          console.error("Error checking space access:", accessError);
-        }
+      if (spaceData) {
+        // Update the space in the store - don't specify about_description if it doesn't exist
+        useSpaceSettingsStore.setState({ 
+          space: {
+            id: spaceData.id,
+            name: spaceData.name,
+            description: spaceData.description,
+            about_description: null, // Set to null since it's not in the query
+            cover_image: spaceData.cover_image,
+            icon_image: spaceData.icon_image,
+            subdomain: spaceData.subdomain,
+            owner_id: spaceData.owner_id,
+            is_private: spaceData.is_private
+          }
+        });
         
-        if (!accessData && !isOwner) {
-          console.error("User does not have access to this space.");
-          toast({ 
-            title: "Access Denied", 
-            description: "You don't have permission to access this space.", 
-            variant: "destructive" 
-          });
-          navigate('/discover', { replace: true });
+        // Also load space settings with full fields including about_description
+        await fetchSpaceSettings(spaceData.id, user.id);
+        
+        // Update document title
+        document.title = `${spaceData.name} | Lokaa`;
+      } else {
+        // Space not found, redirect to discover
+        navigate('/discover');
+        }
+      } catch (error) {
+      console.error('Error fetching space:', error);
+      navigate('/discover');
+      } finally {
+        setLoadingSpace(false);
+    }
+  }, [subdomain, user, supabase, navigate, fetchSpaceSettings]);
+
+  // Fetch space details AND trigger settings fetch
+  useEffect(() => {
+    // Check if we're just changing tabs within the same space
+    const isTabChangeOnly = location.state && 
+      typeof location.state === 'object' && 
+      'preserveSpace' in location.state && 
+      location.state.preserveSpace === true;
+    
+    // Skip data fetching if just changing tabs and space data is already loaded
+    if (isTabChangeOnly && space) {
+      console.log("Space component: Skipping data fetch for tab change");
           return;
         }
-        
-        console.log("User has access to space via membership");
-      } else {
-        console.log("User is the owner of this space");
-      }
-      
-      const typedSpaceData = pageData as any; // Use appropriate type
-      document.title = `${typedSpaceData.name} | Lokaa`;
-      
-      // Update setup completion based on initial data
-      setSetupCompletion(prev => ({
-        ...prev,
-        addDescription: !!typedSpaceData.description,
-        setCoverImage: !!typedSpaceData.cover_image
-      }));
-
-      // NOW, trigger the fetch for the detailed settings data
-      // We use pageData.id and user.id
-      console.log("Triggering settings fetch for space ID:", pageData.id);
-      await fetchSpaceSettings(pageData.id, user.id);
-    };
     
     fetchInitialSpaceData();
-  }, [subdomain, user, fetchSpaceSettings, navigate]); // Add navigate to dependencies
+  }, [subdomain, user, fetchSpaceSettings, navigate, location, space, fetchInitialSpaceData]);
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -445,32 +577,140 @@ export default function Space() {
   }, [user, subdomain, space, isOwner]);
 
   // Use modern tab styles for navigation
-  const renderTabButton = (tab: string, icon: JSX.Element, label: string) => (
-    <motion.button 
-      whileHover={{ scale: 1.02 }}
-      className={`px-5 py-4 font-medium relative text-sm flex items-center gap-1.5 transition-colors ${
-        activeTab === tab 
-          ? 'text-[#26A69A] font-medium' 
-          : 'text-[#78909C] hover:text-[#37474F]'
+  const renderTabButton = (tab: string, icon: React.ReactNode, label: string) => {
+    const isActive = activeTab === tab;
+    // Map 'community' tab to 'feed' URL path
+    const url = `/${subdomain}/space/${tab === 'community' ? 'feed' : tab}`;
+    
+    return (
+      <Link 
+        to={url}
+        state={{ preserveSpace: true }} // Add state to indicate this is just a tab change
+        onClick={(e) => {
+          e.preventDefault(); // Prevent default link behavior
+          handleTabChange(tab);
+        }}
+        className={`inline-flex items-center px-4 py-3 border-b-2 text-sm font-medium whitespace-nowrap ${
+          isActive
+            ? 'border-indigo-500 text-indigo-600 dark:text-white dark:border-white'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:border-gray-600'
       }`}
-      onClick={() => setActiveTab(tab)}
+        aria-current={isActive ? 'page' : undefined}
     >
-      {icon}
+        <span className="mr-2">{icon}</span>
       {label}
-      {activeTab === tab && (
-        <motion.div 
-          layoutId="activeTabIndicator"
-          className="absolute bottom-0 left-0 w-full h-0.5 bg-[#26A69A] shadow-[0_0_8px_rgba(38,166,154,0.5)]"
-        />
-      )}
-    </motion.button>
-  );
+      </Link>
+    );
+  };
+  
+  // Handle tab change and synchronize with URL
+  const handleTabChange = (tab: string) => {
+    // First set the active tab to ensure immediate UI feedback
+    setActiveTab(tab);
+    
+    // Store the current tab in sessionStorage to maintain it across page refreshes
+    try {
+      sessionStorage.setItem(`active_tab_${subdomain}`, tab);
+    } catch (err) {
+      console.warn('Failed to store active tab:', err);
+    }
+    
+    // Update URL without reloading the page
+    // Use the new URL structure for space navigation
+    // Map 'community' tab to 'feed' URL path
+    const url = `/${subdomain}/space/${tab === 'community' ? 'feed' : tab}`;
+    
+    // Use navigate with replace to prevent adding to the history stack
+    navigate(url, { 
+      replace: true,
+      state: { 
+        preserveSpace: true, // Add state to indicate this is just a tab change
+        activeTab: tab 
+      } 
+    });
+  };
+
+  // Check if this is a newly created space and show notification
+  useEffect(() => {
+    // Check if we should show the space creation notification
+    const checkForNewSpace = () => {
+      try {
+        const lastCreatedSpace = localStorage.getItem('lastCreatedSpace');
+        if (!lastCreatedSpace) return;
+        
+        const spaceData = JSON.parse(lastCreatedSpace);
+        
+        // If this is the same space as the current one and was created recently (within the last minute)
+        if (spaceData && spaceData.subdomain === subdomain) {
+          const createdAt = new Date(spaceData.created_at);
+          const now = new Date();
+          const timeDiffMs = now.getTime() - createdAt.getTime();
+          const timeDiffSec = timeDiffMs / 1000;
+          
+          // If space was created in the last 60 seconds and notification hasn't been shown yet
+          if (timeDiffSec < 60) {
+            const notificationShownBefore = localStorage.getItem(`space_${spaceData.id}_notification_shown`);
+            
+            if (!notificationShownBefore) {
+              // Mark that we've shown the notification for this space
+              localStorage.setItem(`space_${spaceData.id}_notification_shown`, 'true');
+              setNotificationShown(true);
+              
+              // Auto-dismiss after 5 seconds
+              setTimeout(() => {
+                setNotificationShown(false);
+              }, 5000);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for new space:', error);
+      }
+    };
+    
+    checkForNewSpace();
+  }, [subdomain]);
+
+  // Initialize space data from cached values if they exist
+  useEffect(() => {
+    if (space && space.id) {
+      // Check if cover image URLs are stored in localStorage in the 'local:' format
+      if (space.cover_image && typeof space.cover_image === 'string' && space.cover_image.startsWith('local:')) {
+        // Extract key from the format 'local:space_cover_123'
+        const keyParts = space.cover_image.split(':');
+        if (keyParts.length >= 2) {
+          const localKey = keyParts[1];
+          const storedCover = localStorage.getItem(localKey);
+          
+          if (storedCover) {
+            console.log("Restoring cover image from localStorage:", localKey);
+            
+            // Update directly in the UI without updating the store
+            const coverElements = document.querySelectorAll(`[style*="background-image"][style*="${space.cover_image}"]`);
+            coverElements.forEach(element => {
+              (element as HTMLElement).style.backgroundImage = `url(${storedCover})`;
+            });
+          }
+        }
+      }
+    }
+  }, [space]);
+
+  // Update active tab when URL parameter changes
+  useEffect(() => {
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [tab]);
 
   // While loading or auth is in process, show only a loading screen
   if (loadingSpace || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-10 w-10 rounded-full border-t-2 border-b-2 border-amber-600"></div>
+        <div className="flex flex-col items-center">
+          <div className="animate-spin h-10 w-10 rounded-full border-t-2 border-b-2 border-amber-600 mb-4"></div>
+          {quickRecoveryAttempted && <div className="text-sm text-gray-500">Reconnecting to your space...</div>}
+        </div>
       </div>
     );
   }
@@ -639,8 +879,18 @@ export default function Space() {
           <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
             {/* Left - Space Logo and Name with Switch Button */}
             <div className="flex items-center">
-              <div className="h-10 w-10 bg-[#26A69A] rounded-lg flex items-center justify-center text-white font-bold mr-3 shadow-sm">
+              <div className="h-10 w-10 bg-[#26A69A] rounded-lg flex items-center justify-center text-white font-bold mr-3 shadow-sm relative overflow-hidden">
+                {space?.icon_image ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    className="absolute inset-0 w-full h-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${resolveImageUrl(space.icon_image)})` }}
+                  />
+                ) : (
                 <span>{space?.name?.charAt(0).toUpperCase()}</span>
+                )}
               </div>
               <div className="flex flex-col justify-center">
                 <div className="flex items-center">
@@ -659,19 +909,19 @@ export default function Space() {
                 <Search 
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#78909C]" 
                 />
-                <input
-                  type="text"
-                  placeholder="Search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+              <input
+                type="text"
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-[#F5FAFA] rounded-full border border-[#E0F2F1] focus:outline-none focus:ring-1 focus:ring-[#26A69A] text-sm text-[#37474F] placeholder-[#78909C] transition-all"
-                />
+              />
               </div>
             </div>
             
             {/* Right - User Controls */}
             <div className="flex items-center space-x-6">
-              {/* Messages */}
+            {/* Messages */}
               <motion.button 
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
@@ -679,8 +929,8 @@ export default function Space() {
               >
                 <MessageSquare className="h-5 w-5" />
               </motion.button>
-              
-              {/* Notifications */}
+            
+            {/* Notifications */}
               <div className="relative">
                 <div className="h-5 w-5 bg-[#FF6F61] rounded-full flex items-center justify-center text-white text-xs absolute -top-1.5 -right-1.5 font-medium shadow-sm">
                   1
@@ -736,13 +986,13 @@ export default function Space() {
                         whileHover={{ backgroundColor: "#F5FAFA" }}
                         className="block w-full text-left px-4 py-3 text-sm text-[#37474F] transition-colors"
                       >
-                        Profile
+                    Profile
                       </motion.button>
                       <motion.button 
                         whileHover={{ backgroundColor: "#F5FAFA" }}
                         className="block w-full text-left px-4 py-3 text-sm text-[#37474F] transition-colors"
                       >
-                        Settings
+                    Settings
                       </motion.button>
                       <motion.button 
                         whileHover={{ backgroundColor: "#F5FAFA" }}
@@ -782,8 +1032,8 @@ export default function Space() {
                       <motion.button 
                         whileHover={{ backgroundColor: "#F5FAFA" }}
                         className="block w-full text-left px-4 py-3 text-sm text-[#78909C] transition-colors"
-                        onClick={handleSignOut}
-                      >
+                    onClick={handleSignOut}
+                  >
                         Log out
                       </motion.button>
                     </div>
@@ -799,9 +1049,10 @@ export default function Space() {
           <div className="max-w-6xl mx-auto px-4">
             <div className="flex overflow-x-auto">
               {renderTabButton("community", <MessageSquare className="h-4 w-4" />, "Feed")}
+              {renderTabButton("classroom", <GraduationCap className="h-4 w-4" />, "Classroom")}
               {renderTabButton("calendar", <Calendar className="h-4 w-4" />, "Calendar")}
               {renderTabButton("members", <Users className="h-4 w-4" />, "Members")}
-              {renderTabButton("leaderboards", <Trophy className="h-4 w-4" />, "Leaderboards")}
+              {renderTabButton("leaderboard", <Trophy className="h-4 w-4" />, "Leaderboards")}
               {renderTabButton("about", <BookOpen className="h-4 w-4" />, "About")}
             </div>
           </div>
@@ -811,117 +1062,114 @@ export default function Space() {
         <main className="flex-grow py-6">
           <div className="max-w-6xl mx-auto px-4">
           {activeTab === "about" ? (
-            <AboutTab space={space} />
+            <AboutTab 
+              space={space as any} 
+              onSpaceUpdate={(updatedSpace) => {
+                console.log("Space updated with new data:", updatedSpace);
+                // Update the space in the store with type safety
+                useSpaceSettingsStore.setState((state) => ({
+                  space: {
+                    ...state.space,
+                    about_description: updatedSpace.about_description
+                  }
+                }));
+                toast({
+                  title: "Space updated",
+                  description: "Your space details have been refreshed.",
+                });
+              }}
+            />
           ) : activeTab === "calendar" ? (
             <CalendarTab space={space} />
           ) : activeTab === "members" ? (
             <MembersTab space={space} />
-          ) : activeTab === "leaderboards" ? (
+          ) : activeTab === "leaderboard" ? (
             <LeaderboardsTab space={space} />
+          ) : activeTab === "classroom" ? (
+            <ClassroomTab space={space} />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Left Content Area */}
               <div className="md:col-span-2">
                 <FeedTab space={space} user={user} />
               </div>
               
               {/* Right Sidebar */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Cover Photo/Space Info - Adjusted layout */}
                 <motion.div 
                   whileHover={{ boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)" }}
-                  className="bg-white rounded-xl overflow-hidden shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)] border border-[#E0F2F1] transition-all duration-300"
+                  className="bg-white rounded-lg overflow-hidden shadow-sm border border-[#E0F2F1] transition-all duration-300"
                 >
                   {/* Cover Image Area */}
-                  <div className="h-28 bg-[#F5FAFA] flex items-center justify-center relative">
+                  <div 
+                    className="h-36 bg-[#26A69A] flex items-center justify-center relative cursor-pointer"
+                    onClick={() => {
+                      if (isOwner && space) {
+                        openSpaceSettingsModal(space.id, space.subdomain);
+                      }
+                    }}
+                  >
                     {space?.cover_image ? (
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.4, ease: "easeOut" }}
                         className="absolute inset-0 w-full h-full bg-cover bg-center"
-                        style={{ backgroundImage: `url(${space.cover_image || '/default-space-cover.jpg'})` }}
+                        style={{ backgroundImage: `url(${resolveImageUrl(space.cover_image, '/default-space-cover.jpg')})` }}
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center text-[#26A69A]">
-                        <Upload className="h-5 w-5 mb-1" />
-                        <span className="text-xs font-medium">Upload cover photo</span>
+                      <div className="flex flex-col items-center justify-center text-white">
+                        <Upload className="h-6 w-6 mb-2" />
+                        <span className="text-base font-medium">Upload cover photo</span>
                       </div>
                     )}
                   </div>
                   
                   {/* Space Info Content */}
                   <div className="p-4">
-                    <h2 className="text-lg font-semibold text-[#37474F] mb-1">{space?.name}</h2>
+                    <h2 className="text-lg font-bold text-[#37474F] mb-1">{space?.name}</h2>
                     {/* Display Subdomain URL */}
-                    <p className="text-xs text-[#78909C] mb-2">lokaa.com/{space?.subdomain || 'your-subdomain'}</p>
-                    {/* Description */}
-                    <p className="text-sm text-[#37474F] mb-3">
-                      {space?.description || `Add your space description here by clicking the "Settings" button.`}
-                    </p>
-                    {/* Privacy Indicator */}
-                    <div className="flex items-center text-[#78909C]">
-                      {space?.is_private ? (
-                        <>
-                          <Lock className="h-3.5 w-3.5 mr-1" />
-                          <span className="text-xs">Private space</span>
-                        </>
-                      ) : (
-                        <>
-                          <Globe className="h-3.5 w-3.5 mr-1" />
-                          <span className="text-xs">Public space</span>
-                        </>
-                      )}
-                    </div>
+                    <p className="text-sm text-[#78909C] mb-3">lokaa.com/{space?.subdomain || 'your-subdomain'}</p>
                   </div>
                 </motion.div>
                 
                 {/* Space Stats */}
-                <motion.div 
-                  whileHover={{ boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)" }}
-                  className="bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB] rounded-xl p-4 shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)] transition-all duration-300"
-                >
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2">
-                      <div className="text-xl font-bold text-[#26A69A]">1</div>
-                      <div className="text-sm text-[#37474F]">Members</div>
-                    </div>
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2">
-                      <div className="text-xl font-bold text-[#26A69A]">0</div>
-                      <div className="text-sm text-[#37474F]">Online</div>
-                    </div>
-                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2">
-                      <div className="text-xl font-bold text-[#26A69A]">1</div>
-                      <div className="text-sm text-[#37474F]">Admins</div>
-                    </div>
+                <div className="grid grid-cols-3 gap-3 border border-[#E0F2F1] rounded-lg overflow-hidden bg-white">
+                  <div className="text-center p-3 bg-white">
+                    <div className="text-xl font-bold text-[#26A69A]">1</div>
+                    <div className="text-xs text-[#78909C]">Members</div>
                   </div>
-                </motion.div>
+                  <div className="text-center p-3 bg-white">
+                    <div className="text-xl font-bold text-[#26A69A]">0</div>
+                    <div className="text-xs text-[#78909C]">Online</div>
+                  </div>
+                  <div className="text-center p-3 bg-white">
+                    <div className="text-xl font-bold text-[#26A69A]">1</div>
+                    <div className="text-xs text-[#78909C]">Admin</div>
+                  </div>
+                </div>
                 
                 {/* Settings Button - Opens settings modal */}
                 {isOwner && space ? (
-                  <motion.div
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.98 }}
+                  <Button 
+                    className="w-full py-3 bg-[#26A69A] hover:bg-[#1E8E7E] rounded-lg flex items-center justify-center font-medium text-white transition-colors text-base uppercase"
+                    onClick={() => openSpaceSettingsModal(space.id, space.subdomain)}
+                    disabled={loadingSettings}
                   >
-                    <Button 
-                      className="w-full py-2.5 bg-[#26A69A] hover:bg-[#FF6F61] rounded-xl flex items-center justify-center font-medium text-white transition-colors shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)]"
-                      onClick={() => openSpaceSettingsModal(space.id, space.subdomain)}
-                      disabled={loadingSettings}
-                    >
-                      {loadingSettings ? 
-                         <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : 
-                         <Settings className="h-4 w-4 mr-2" />
-                      }
-                      SETTINGS
-                    </Button>
-                  </motion.div>
+                    {loadingSettings ? 
+                       <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : 
+                       <Settings className="h-5 w-5 mr-2" />
+                    }
+                    SETTINGS
+                  </Button>
                 ) : (
                   // Optionally render a disabled button or nothing if not the owner
                   <Button 
-                    className="w-full py-2.5 bg-gray-100 rounded-lg flex items-center justify-center font-medium text-gray-500 text-sm border border-gray-200 cursor-not-allowed opacity-60"
+                    className="w-full py-3 bg-gray-100 rounded-lg flex items-center justify-center font-medium text-gray-500 text-base uppercase border border-gray-200 cursor-not-allowed"
                     disabled
                   >
-                    <Settings className="h-4 w-4 mr-2" />
+                    <Settings className="h-5 w-5 mr-2" />
                     SETTINGS
                   </Button>
                 )}
@@ -942,7 +1190,7 @@ export default function Space() {
         {/* Creation Success Notification */}
         {notificationShown && (
           <div className="fixed bottom-4 right-4 w-auto bg-gray-900 text-white px-5 py-3 rounded-lg shadow-lg flex items-center justify-between">
-            <div className="text-sm mr-4">Group was created</div>
+            <div className="text-sm mr-4">Space was created</div>
             <button 
               onClick={handleCloseNotification}
               className="text-white hover:text-gray-200"

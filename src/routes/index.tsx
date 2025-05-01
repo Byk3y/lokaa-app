@@ -61,6 +61,14 @@ function AppRoutes() {
       <Route path="/space/:subdomain" element={user ? <SafeRoute element={<Space />} /> : <Navigate to="/login" replace />} />
       <Route path="/spaces/:id" element={user ? <SafeRoute element={<Space />} /> : <Navigate to="/login" replace />} />
       
+      {/* Space Tab Routes */}
+      <Route path="/:subdomain/space/feed" element={user ? <SafeRoute element={<Space initialTab="community" />} /> : <Navigate to="/login" replace />} />
+      <Route path="/:subdomain/space/classroom" element={user ? <SafeRoute element={<Space initialTab="classroom" />} /> : <Navigate to="/login" replace />} />
+      <Route path="/:subdomain/space/calendar" element={user ? <SafeRoute element={<Space initialTab="calendar" />} /> : <Navigate to="/login" replace />} />
+      <Route path="/:subdomain/space/members" element={user ? <SafeRoute element={<Space initialTab="members" />} /> : <Navigate to="/login" replace />} />
+      <Route path="/:subdomain/space/leaderboard" element={user ? <SafeRoute element={<Space initialTab="leaderboard" />} /> : <Navigate to="/login" replace />} />
+      <Route path="/:subdomain/space/about" element={user ? <SafeRoute element={<Space initialTab="about" />} /> : <Navigate to="/login" replace />} />
+      
       {/* Error handling routes */}
       <Route path="/error" element={<NotFound />} />
       <Route path="/not-found" element={<NotFound />} />

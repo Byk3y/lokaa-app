@@ -90,16 +90,16 @@ const Discovery = () => {
               <div className="animate-spin h-8 w-8 border-4 border-gray-300 rounded-full border-t-teal-600"></div>
             </div>
           ) : filteredSpaces.length === 0 ? (
-            <div className="text-center py-10 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-gray-600 mb-5 max-w-md mx-auto">
+        <div className="text-center py-10 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-gray-600 mb-5 max-w-md mx-auto">
                 No spaces found matching your criteria. Try a different search or category.
-              </p>
-              <Link 
-                to="/discover" 
-                className="px-5 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors inline-block"
-              >
+          </p>
+          <Link 
+            to="/discover" 
+            className="px-5 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors inline-block"
+          >
                 Explore More on Discover
-              </Link>
+          </Link>
             </div>
           ) : (
             <SpaceCardGrid spaces={filteredSpaces} isLoading={isLoading} />

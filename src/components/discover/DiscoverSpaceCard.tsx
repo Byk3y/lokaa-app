@@ -1,60 +1,27 @@
 import { Link } from "react-router-dom";
-import { Globe, Lock, Users, Tag } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useSpacePreviewStore } from "@/stores/useSpacePreviewStore";
+import { prepareSpaceNavigation } from "@/utils/fixSpacesAccess";
+import { motion } from "framer-motion";
 
-interface SpaceCardProps {
+interface DiscoverSpaceCardProps {
   space: {
     id: string;
     name: string;
     description: string | null;
     about_description?: string | null;
-    cover_image: string | null;
+    cover_image?: string | null;
     member_count?: number;
     subdomain?: string;
-    is_private?: boolean;
-    owner?: {
-      name?: string;
-      avatar_url?: string;
-    };
+    ranking?: number;
+    pricing_type?: 'free' | 'paid';
+    price_per_month?: number | null;
   };
-  /**
-   * Controls the behavior when the card is clicked:
-   * - When true: Opens a modal preview using useSpacePreviewStore (used on homepage for quick browsing)
-   * - When false: Navigates directly to the space's about page (used on discover page and for shareable links)
-   * 
-   * @default true
-   */
-  openInModal?: boolean;
 }
 
 /**
- * SpaceCard component renders a card displaying information about a space.
- * Implements a hybrid navigation approach depending on the context:
- * - In the homepage: Uses modal preview for fast browsing experience
- * - In the discover page: Uses direct navigation for shareable links
+ * A specialized space card component for the Discover page that uses the same styling
+ * as our updated SpaceCard component but opens in a new tab.
  */
-export function SpaceCard({ space, openInModal = true }: SpaceCardProps) {
-  const openPreview = useSpacePreviewStore(state => state.open);
-  
-  /**
-   * Handles the card click based on the openInModal prop:
-   * - When openInModal is true: Opens the space preview modal
-   * - When openInModal is false: Navigates to the space's about page directly
-   */
-  const handleCardClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    
-    if (openInModal) {
-      e.stopPropagation();
-      openPreview(space.id);
-    } else {
-      if (space.subdomain) {
-        window.location.href = `/${space.subdomain}/about`;
-      }
-    }
-  };
-  
+export function DiscoverSpaceCard({ space }: DiscoverSpaceCardProps) {
   // Function to convert space name to title case (first letter of each word capitalized)
   const toTitleCase = (str: string) => {
     return str.split(' ')
@@ -63,17 +30,31 @@ export function SpaceCard({ space, openInModal = true }: SpaceCardProps) {
   };
   
   return (
-    <div 
-      onClick={handleCardClick}
+    <a 
+      href={prepareSpaceNavigation(space, 'about')}
+      target="_blank"
+      rel="noopener noreferrer"
       className="cursor-pointer rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 bg-white border border-gray-100 flex flex-col w-[337px] h-[382px]"
+      onClick={() => {
+        console.log('Viewing about page for space:', space.subdomain);
+      }}
     >
-      {/* Cover Image - Keep at 335x176.98 */}
+      {/* Cover Image - 335x176.98 */}
       <div className="relative w-full h-[176.98px]">
+        {/* Ranking badge if available */}
+        {space.ranking && (
+          <div className="absolute top-3 left-3 bg-gray-800 text-white rounded-full h-8 w-8 flex items-center justify-center text-sm font-semibold z-10">
+            #{space.ranking}
+          </div>
+        )}
+        
         {space.cover_image ? (
-          <img 
-            src={space.cover_image} 
-            alt={space.name}
-            className="w-full h-full object-cover"
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="w-full h-full bg-cover bg-center"
+            style={{ backgroundImage: `url(${space.cover_image})` }}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
@@ -120,11 +101,15 @@ export function SpaceCard({ space, openInModal = true }: SpaceCardProps) {
             </span>
             <span className="mx-2 text-gray-300">•</span>
             <span className="font-bold text-base">
-              {space.is_private ? '$9/month' : 'Free'}
+              {space.pricing_type === 'paid' && space.price_per_month ? (
+                `$${space.price_per_month}/month`
+              ) : (
+                'Free'
+              )}
             </span>
           </div>
         </div>
       </div>
-    </div>
+    </a>
   );
-}
+} 

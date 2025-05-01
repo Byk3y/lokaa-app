@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import PublicRoute from "@/components/auth/PublicRoute";
 import { Search, Menu, ChevronDown, ChevronUp, Plus, Compass, Apple, Play, X } from "lucide-react";
@@ -7,6 +7,8 @@ import CategoriesFilter from "@/components/spaces/CategoriesFilter";
 import SpaceCardGrid from "@/components/spaces/SpaceCardGrid";
 import useSpacesData from "@/hooks/useSpacesData";
 import DottedBackground from "@/components/ui/DottedBackground";
+import { SpacePreviewModal } from "@/components/modals/SpacePreviewModal";
+import { useSpacePreviewStore } from "@/stores/useSpacePreviewStore";
 
 // Categories for the discovery section - refined selection for desktop view
 const categories = [
@@ -28,6 +30,7 @@ export default function LandingPage() {
   const { user } = useAuth();
   const [navMenuOpen, setNavMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Use our spaces data hook, but add safety measures
   const { 
@@ -350,7 +353,38 @@ export default function LandingPage() {
         </div>
       </footer>
       </main>
+
+      {/* Space Preview Modal */}
+      <SpaceModalWithStore />
     </div>
+  );
+}
+
+/**
+ * Helper component that connects the SpacePreviewModal to the Zustand store.
+ * This is part of the hybrid navigation approach used in the application:
+ * 
+ * 1. On the homepage, space cards open in a modal for fast browsing experience
+ * 2. On the discover page, space cards navigate directly to about pages for shareable links
+ * 
+ * This component enables the modal approach for the homepage.
+ */
+function SpaceModalWithStore() {
+  const navigate = useNavigate();
+  const { isOpen, spaceId, close } = useSpacePreviewStore();
+  
+  const handleJoinSpace = (spaceId: string) => {
+    // Navigate to space join page or login if not authenticated
+    navigate(`/space/join/${spaceId}`);
+  };
+  
+  return (
+    <SpacePreviewModal
+      open={isOpen}
+      onOpenChange={(open) => !open && close()}
+      spaceId={spaceId}
+      onJoin={handleJoinSpace}
+    />
   );
 }
 

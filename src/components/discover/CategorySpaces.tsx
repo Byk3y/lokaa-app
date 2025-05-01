@@ -1,6 +1,6 @@
 import { Music, Code, Gamepad2, GraduationCap, TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import SpaceCard from "@/components/spaces/SpaceCard";
+import { SpaceCard } from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,15 @@ interface CategorySpacesProps {
   onJoinSpace: (spaceId: string) => void;
 }
 
+/**
+ * CategorySpaces component displays spaces organized by category.
+ * Uses the modal approach for space navigation (openInModal=true) to provide
+ * a fast browsing experience.
+ * 
+ * The application uses a hybrid navigation strategy:
+ * - Internal browsing: Uses modals for quick space preview
+ * - External sharing: Uses direct page navigation for shareable links
+ */
 export default function CategorySpaces({ categorySpaces, loading, onJoinSpace }: CategorySpacesProps) {
   return (
     <div>
@@ -44,14 +53,8 @@ export default function CategorySpaces({ categorySpaces, loading, onJoinSpace }:
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {categorySpaces[category].map((space) => (
                   <div key={space.id} className="relative">
-                    <a
-                      href={space.subdomain ? `/${space.subdomain}/about` : "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                    >
-                      <SpaceCard {...space} linkType="about" />
-                    </a>
+                    <SpaceCard space={space} openInModal={true} />
+                    
                     <Button
                       className="absolute bottom-4 right-4 bg-lokaa-600 hover:bg-lokaa-700"
                       onClick={() => onJoinSpace(space.id)}
