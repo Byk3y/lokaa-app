@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Route Debug Tool</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    h1 {
+      color: #00A389;
+    }
+    .card {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    button, a.button {
+      background: #00A389;
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    button:hover, a.button:hover {
+      background: #008E78;
+    }
+    .info {
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 15px;
+    }
+    .log {
+      max-height: 200px;
+      overflow-y: auto;
+      background: #2a2a2a;
+      color: #fafafa;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Route Debug Tool</h1>
+  <p>This tool helps diagnose routing issues with profile pages.</p>
+  
+  <div class="card">
+    <h2>Test Profile Routes</h2>
+    <div class="button-group">
+      <a href="/@francispark" class="button">/@francispark</a>
+      <a href="/profile/francispark" class="button">/profile/francispark</a>
+    </div>
+    <div class="button-group">
+      <button onclick="navigateTo('/@francispark')">JS Navigate to /@francispark</button>
+      <button onclick="navigateTo('/profile/francispark')">JS Navigate to /profile/francispark</button>
+    </div>
+    <div class="button-group">
+      <button onclick="navigateWithReplace('/@francispark')">Replace to /@francispark</button>
+      <button onclick="navigateWithReplace('/profile/francispark')">Replace to /profile/francispark</button>
+    </div>
+    <div class="info">
+      <strong>Current Path:</strong> <span id="currentPath"></span><br>
+      <strong>Previous Path:</strong> <span id="previousPath"></span><br>
+      <strong>Referrer:</strong> <span id="referrer"></span>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2>Route Tests with Hash</h2>
+    <div class="button-group">
+      <a href="/#/@francispark" class="button">/#/@francispark</a>
+      <a href="/#/profile/francispark" class="button">/#/profile/francispark</a>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2>Clear Local Storage</h2>
+    <button onclick="clearStorage()">Clear All Storage</button>
+    <div id="storageInfo" class="info">
+      Checking storage...
+    </div>
+  </div>
+  
+  <div class="log" id="log"></div>
+  
+  <script>
+    // Update path info
+    document.getElementById('currentPath').textContent = window.location.pathname;
+    document.getElementById('previousPath').textContent = sessionStorage.getItem('previousPath') || 'None';
+    document.getElementById('referrer').textContent = document.referrer || 'None';
+    
+    // Store current path for next visit
+    sessionStorage.setItem('previousPath', window.location.pathname);
+    
+    // Log function
+    function log(message) {
+      const logElement = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+      logElement.appendChild(entry);
+      console.log(message);
+    }
+    
+    // Navigation functions
+    function navigateTo(url) {
+      log(`Navigating to: ${url}`);
+      window.location.href = url;
+    }
+    
+    function navigateWithReplace(url) {
+      log(`Replacing URL with: ${url}`);
+      window.location.replace(url);
+    }
+    
+    // Clear storage
+    function clearStorage() {
+      try {
+        log('Clearing all storage...');
+        
+        // Clear session storage
+        sessionStorage.clear();
+        
+        // Clear all localStorage
+        localStorage.clear();
+        
+        // Clear specific Supabase tokens if they exist
+        const storageKeys = Object.keys(localStorage);
+        const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
+        if (supabaseKeys.length > 0) {
+          log(`Found ${supabaseKeys.length} Supabase keys to remove`);
+          supabaseKeys.forEach(key => {
+            localStorage.removeItem(key);
+          });
+        }
+        
+        updateStorageInfo();
+        log('Storage cleared successfully');
+      } catch (e) {
+        log(`Error clearing storage: ${e.message}`);
+      }
+    }
+    
+    // Update storage info display
+    function updateStorageInfo() {
+      try {
+        const storageInfo = document.getElementById('storageInfo');
+        const sessionKeys = Object.keys(sessionStorage);
+        const localKeys = Object.keys(localStorage);
+        
+        let html = `<strong>Session Storage:</strong> ${sessionKeys.length} items<br>`;
+        html += `<strong>Local Storage:</strong> ${localKeys.length} items<br>`;
+        
+        // Check for Supabase tokens
+        const supabaseKeys = localKeys.filter(key => key.startsWith('sb-'));
+        if (supabaseKeys.length > 0) {
+          html += `<strong>Supabase Keys:</strong> ${supabaseKeys.length} found<br>`;
+          html += '<ul>';
+          supabaseKeys.forEach(key => {
+            html += `<li>${key}</li>`;
+          });
+          html += '</ul>';
+        } else {
+          html += '<strong>Supabase Keys:</strong> None found<br>';
+        }
+        
+        storageInfo.innerHTML = html;
+      } catch (e) {
+        log(`Error updating storage info: ${e.message}`);
+      }
+    }
+    
+    // Run on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      log('Debug page loaded');
+      updateStorageInfo();
+    });
+  </script>
+</body>
+</html> 

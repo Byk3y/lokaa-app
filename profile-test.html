@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile Link Tester</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    button, a.button {
+      background: #00A389;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-block;
+      text-decoration: none;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover, a.button:hover {
+      background: #008E78;
+    }
+    h1 {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Profile Link Test Page</h1>
+  
+  <div class="card">
+    <h2>Test Direct Navigation</h2>
+    <p>Click these links to test direct navigation to profile pages:</p>
+    
+    <a href="/@francispark" class="button">/@francispark</a>
+    <a href="/@francischukwuma706" class="button">/@francischukwuma706</a>
+    <a href="/@francis-swift" class="button">/@francis-swift</a>
+
+    <h3>Same links with full URL:</h3>
+    <a href="http://localhost:8080/@francispark" class="button" target="_blank">localhost:8080/@francispark</a>
+    <a href="http://localhost:8080/@francischukwuma706" class="button" target="_blank">localhost:8080/@francischukwuma706</a>
+  </div>
+
+  <div class="card">
+    <h2>Test JavaScript Navigation</h2>
+    <p>Click these buttons to test JavaScript-based navigation:</p>
+    
+    <button onclick="navigateTo('/@francispark')">JS Navigate to /@francispark</button>
+    <button onclick="navigateTo('/@francischukwuma706')">JS Navigate to /@francischukwuma706</button>
+    <button onclick="openInNewTab('/@francispark')">New Tab: /@francispark</button>
+
+    <script>
+      function navigateTo(url) {
+        console.log('Navigating to:', url);
+        window.location.href = url;
+      }
+      
+      function openInNewTab(url) {
+        console.log('Opening in new tab:', url);
+        window.open(url, '_blank');
+      }
+    </script>
+  </div>
+
+  <div class="card">
+    <h2>Form-based Navigation</h2>
+    <p>Enter a username to navigate to that profile:</p>
+    
+    <form onsubmit="event.preventDefault(); navigateToProfile();">
+      <input type="text" id="username" placeholder="Enter username" style="padding: 8px; width: 200px;">
+      <button type="submit">Go to Profile</button>
+    </form>
+
+    <script>
+      function navigateToProfile() {
+        const username = document.getElementById('username').value.trim();
+        if (username) {
+          const url = `/@${username}`;
+          console.log('Form navigating to:', url);
+          window.location.href = url;
+        }
+      }
+    </script>
+  </div>
+</body>
+</html> 

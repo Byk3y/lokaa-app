@@ -1,4 +1,3 @@
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProfileAbout from "./ProfileAbout";
 import ProfilePosts from "./ProfilePosts";
@@ -11,6 +10,13 @@ interface ProfileTabsProps {
 }
 
 export default function ProfileTabs({ profileData }: ProfileTabsProps) {
+  // Provide default values for potentially missing properties
+  const userData = {
+    ...profileData,
+    activity_score: profileData.activity_score || 0,
+    role: profileData.role || 'member'
+  };
+
   return (
     <div className="flex-1 p-4">
       <Tabs defaultValue="about">
@@ -18,28 +24,28 @@ export default function ProfileTabs({ profileData }: ProfileTabsProps) {
           <TabsTrigger value="about">About</TabsTrigger>
           <TabsTrigger value="posts">Posts</TabsTrigger>
           <TabsTrigger value="comments">Comments</TabsTrigger>
-          <TabsTrigger value="spaces">Spaces {profileData.role === 'creator' ? '4' : ''}</TabsTrigger>
+          <TabsTrigger value="spaces">Spaces {userData.role === 'creator' ? '4' : ''}</TabsTrigger>
           <TabsTrigger value="rewards">Rewards</TabsTrigger>
         </TabsList>
 
         <TabsContent value="about">
-          <ProfileAbout profileData={profileData} />
+          <ProfileAbout profileData={userData} />
         </TabsContent>
 
         <TabsContent value="posts">
-          <ProfilePosts userId={profileData.id} />
+          <ProfilePosts userId={userData.id} />
         </TabsContent>
 
         <TabsContent value="comments">
-          <ProfileComments userId={profileData.id} />
+          <ProfileComments userId={userData.id} />
         </TabsContent>
 
         <TabsContent value="spaces">
-          <ProfileSpaces userId={profileData.id} isCreator={profileData.role === 'creator'} />
+          <ProfileSpaces userId={userData.id} isCreator={userData.role === 'creator'} />
         </TabsContent>
 
         <TabsContent value="rewards">
-          <ProfileRewards userId={profileData.id} activityScore={profileData.activity_score || 0} />
+          <ProfileRewards userId={userData.id} activityScore={userData.activity_score} />
         </TabsContent>
       </Tabs>
     </div>

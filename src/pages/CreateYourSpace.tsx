@@ -106,7 +106,7 @@ export default function CreateYourSpace() {
         
         // Use the admin_create_space function which bypasses RLS
         const { data, error: funcError } = await supabase.rpc(
-          'admin_create_space' as string,
+          'admin_create_space',
           {
             space_name: spaceName,
             space_subdomain: slug,
@@ -372,7 +372,7 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
         <div className="md:w-1/2 flex flex-col justify-center max-w-md">
           {/* Lokaa Logo */}
           <div className="mb-6">
-            <div className="text-2xl font-bold text-teal-600">Lokaa</div>
+            <div className="text-2xl font-bold text-[#00A389]">Lokaa</div>
           </div>
           
           {/* Headline */}
@@ -456,10 +456,10 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
                 <input
                   type="text"
                   id="spaceName"
-                  placeholder="nextpath ai"
+                  placeholder="Your Amazing Community"
                   value={spaceName}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00A389]"
                   required
                 />
                 <div className="flex justify-between mt-1">
@@ -471,7 +471,7 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
               <div className="mb-6">
                 <div className="bg-yellow-50 rounded-md p-4">
                   <div className="flex items-center mb-2">
-                    <div className="w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center mr-2">
+                    <div className="w-5 h-5 bg-[#00A389] rounded-full flex items-center justify-center mr-2">
                       <span className="text-white font-bold text-xs">!</span>
                     </div>
                     <span className="font-semibold">Your payment info is secured</span>
@@ -482,13 +482,13 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
               
               <div className="mb-8 text-sm text-gray-600">
                 <p>Your first charge will be on May 24th, 2025 for $19.</p>
-                <p>Cancel anytime with 1-click. By continuing, you agree to our <a href="/terms" className="text-teal-600 hover:underline">terms</a>.</p>
+                <p>Cancel anytime with 1-click. By continuing, you agree to our <a href="/terms" className="text-[#00A389] hover:underline">terms</a>.</p>
               </div>
               
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full py-3 px-4 bg-yellow-500 hover:bg-yellow-600 text-center font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:ring-offset-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                className={`w-full py-3 px-4 bg-[#00A389] hover:bg-[#00866f] text-white text-center font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-[#00A389] focus:ring-offset-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center">

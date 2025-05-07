@@ -148,7 +148,7 @@ export default function LandingPage() {
               </button>
               
               {/* Logo - next to hamburger */}
-              <h1 className="text-2xl font-bold text-teal-600 tracking-tight">Lokaa</h1>
+              <h1 className="text-4xl font-bold leading-none" style={{ color: '#00A389' }}>Lokaa</h1>
             </div>
             
             {/* Sign In - right aligned */}
@@ -168,7 +168,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center justify-between w-full py-2">
             {/* Logo with dropdown - left-aligned */}
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-teal-600">Lokaa</h1>
+              <h1 className="text-4xl font-bold leading-none" style={{ color: '#00A389' }}>Lokaa</h1>
               
               {/* Desktop Dropdown Trigger */}
               <button 

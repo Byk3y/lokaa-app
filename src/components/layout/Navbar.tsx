@@ -1,18 +1,9 @@
-
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import ProfileDropdown from "@/components/common/ProfileDropdown";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -61,42 +52,7 @@ export default function Navbar() {
         
         <div className="flex flex-1 items-center justify-end gap-x-4">
           {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar>
-                    <AvatarImage src={userDetails?.avatar_url} />
-                    <AvatarFallback className="bg-lokaa-100 text-lokaa-700">
-                      {getInitials(userDetails?.username || user?.email || "")}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-1">
-                    <p className="font-medium">{userDetails?.username || "User"}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/dashboard" className="cursor-pointer w-full">Dashboard</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to={`/profile/${userDetails?.username}`} className="cursor-pointer w-full">Profile</Link>
-                </DropdownMenuItem>
-                {userDetails?.role === 'creator' && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/earnings" className="cursor-pointer w-full">Earnings</Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut} className="text-red-600 cursor-pointer">
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ProfileDropdown variant="default" size="md" />
           ) : (
             <div className="hidden lg:flex lg:items-center lg:gap-x-4">
               <Link to="/login" className="text-sm font-semibold leading-6 text-gray-900">
@@ -180,7 +136,7 @@ export default function Navbar() {
                         Dashboard
                       </Link>
                       <Link
-                        to={`/profile/${userDetails?.username}`}
+                        to={`/@${userDetails?.profile_url || ''}`}
                         className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
                         onClick={() => setMobileMenuOpen(false)}
                       >
@@ -195,6 +151,13 @@ export default function Navbar() {
                           Earnings
                         </Link>
                       )}
+                      <Link
+                        to="/settings"
+                        className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Settings
+                      </Link>
                       <button
                         onClick={() => {
                           signOut();

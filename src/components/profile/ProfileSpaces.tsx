@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import SpaceCard from "@/components/spaces/SpaceCard";
+import { SpaceCard } from "@/components/spaces/SpaceCard";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 
 interface ProfileSpacesProps {

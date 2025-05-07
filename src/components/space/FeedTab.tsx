@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Upload, Check, Users, Plus, Edit, Image } from "lucide-react";
+import { Upload, Check, Users, Plus, Edit, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,6 +23,7 @@ interface FeedTabProps {
 
 export default function FeedTab({ space, user }: FeedTabProps) {
   const [postText, setPostText] = useState("");
+  const [selectedTab, setSelectedTab] = useState("all");
   const [setupCompletion, setSetupCompletion] = useState({
     invitePeople: false,
     addDescription: !!space.description,
@@ -40,13 +41,18 @@ export default function FeedTab({ space, user }: FeedTabProps) {
     setSetupCompletion(prev => ({ ...prev, [taskId]: !prev[taskId] }));
   };
 
+  // Function to handle tab selection
+  const handleTabSelect = (tab: string) => {
+    setSelectedTab(tab);
+  };
+  
   // Button hover variants
   const buttonHoverVariants = {
     initial: (completed: boolean) => ({
-      color: completed ? "#78909C" : "#26A69A"
+      color: completed ? "#4B5563" : "#111827"
     }),
     hover: {
-      color: "#FF6F61",
+      color: "#1A8A7E",
       transition: { duration: 0.2 }
     }
   };
@@ -58,15 +64,15 @@ export default function FeedTab({ space, user }: FeedTabProps) {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="bg-white rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden"
+        className="bg-white rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-[#E1E4E8] overflow-hidden"
       >
         <div className="px-5 py-4 flex items-center">
-          <Avatar className="h-10 w-10 rounded-lg overflow-hidden mr-4 border-2 border-[#E0F2F1]">
+          <Avatar className="h-12 w-12 rounded-lg overflow-hidden mr-5 border-2 border-[#E0F2F1]">
             <AvatarImage 
               src={user?.user_metadata?.avatar_url} 
               alt="Profile" 
             />
-            <AvatarFallback className="bg-[#26A69A] text-white">
+            <AvatarFallback className="bg-[#26A69A] text-white text-lg">
               {user?.email?.charAt(0).toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
@@ -77,34 +83,48 @@ export default function FeedTab({ space, user }: FeedTabProps) {
               placeholder="Write something..."
               value={postText}
               onChange={(e) => setPostText(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#F5FAFA] rounded-xl border border-[#E0F2F1] focus:outline-none focus:ring-2 focus:ring-[#26A69A] text-[#37474F] placeholder-[#78909C] transition-all"
+              className="w-full px-4 py-2.5 bg-white rounded-xl border border-[#E1E4E8] focus:outline-none focus:ring-0 focus:border-[#1A8A7E] focus:border-2 text-[#37474F] placeholder-[#9CA3AF] transition-all"
             />
           </div>
         </div>
         
-        <div className="flex px-4 py-3 border-t border-[#E0F2F1] bg-[#F5FAFA]">
+        <div className="flex px-4 py-3 border-t border-[#E1E4E8] bg-white" role="tablist">
           <motion.button 
+            role="tab"
+            aria-selected={selectedTab === "all"}
+            onClick={() => handleTabSelect("all")}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
-            className="flex items-center justify-center px-4 py-1.5 rounded-lg hover:bg-[#E0F2F1] text-[#26A69A] text-sm transition-colors"
+            className={`flex items-center justify-center px-4 py-1.5 rounded-lg text-sm transition-colors border-b-2 ${
+              selectedTab === "all" 
+                ? 'border-[#1A8A7E] text-[#111827]' 
+                : 'border-transparent text-[#4B5563] hover:text-[#1A8A7E]'
+            }`}
           >
             All
           </motion.button>
           <motion.button 
+            role="tab"
+            aria-selected={selectedTab === "general"}
+            onClick={() => handleTabSelect("general")}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
-            className="flex items-center justify-center px-4 py-1.5 rounded-lg hover:bg-[#E0F2F1] text-[#26A69A] text-sm transition-colors"
+            className={`flex items-center justify-center px-4 py-1.5 rounded-lg text-sm transition-colors border-b-2 ${
+              selectedTab === "general" 
+                ? 'border-[#1A8A7E] text-[#111827]' 
+                : 'border-transparent text-[#4B5563] hover:text-[#1A8A7E]'
+            }`}
           >
             General discussion
           </motion.button>
           
           <div className="ml-auto flex space-x-2">
             <motion.button 
-              whileHover={{ scale: 1.05, backgroundColor: "#E0F2F1" }}
+              whileHover={{ scale: 1.05, backgroundColor: "#F5F5F5" }}
               whileTap={{ scale: 0.98 }}
-              className="p-1.5 text-[#26A69A] hover:bg-[#E0F2F1] rounded-lg transition-all"
+              className="p-1.5 text-[#4B5563] hover:bg-[#F5F5F5] rounded-lg transition-all"
             >
-              <Image className="h-5 w-5" />
+              <ImageIcon className="h-5 w-5" />
             </motion.button>
           </div>
         </div>
@@ -115,21 +135,21 @@ export default function FeedTab({ space, user }: FeedTabProps) {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB] rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden"
+        className="bg-[#F5F6F7] rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden"
       >
-        <div className="p-5">
+        <div className="px-4 py-6">
           {/* Progress Bar Section */}
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-md font-medium text-[#37474F]">Set up your group</h2>
-              <span className="text-sm text-[#26A69A]">{completedTasks}/{totalTasks} Complete</span>
+              <h2 className="text-base font-semibold text-[#111827]">Set up your group</h2>
+              <span className="text-sm font-medium text-[#4B5563]">{completedTasks}/{totalTasks} Complete</span>
             </div>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger className="w-full">
                   <Progress 
                     value={progressValue} 
-                    className="h-2 rounded-full shadow-sm bg-white [&>*]:bg-[#26A69A]"
+                    className="h-2 rounded-full shadow-sm bg-[#E1E4E8] [&>*]:bg-[#1A8A7E]"
                   />
                 </TooltipTrigger>
                 <TooltipContent>
@@ -153,11 +173,11 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                   opacity: setupCompletion.invitePeople ? 1 : 0.7 
                 }}
                 className={`h-6 w-6 rounded-full border flex items-center justify-center mr-3 transition-all ${
-                  setupCompletion.invitePeople ? 'border-[#26A69A] bg-[#E0F2F1]' : 'border-[#B2DFDB]'
+                  setupCompletion.invitePeople ? 'bg-[#1A8A7E] border-[#1A8A7E]' : 'border-[#E1E4E8] bg-transparent'
                 }`}
               >
                 {setupCompletion.invitePeople && (
-                  <Check className="h-3.5 w-3.5 text-[#26A69A]" />
+                  <Check className="h-3.5 w-3.5 text-white" />
                 )}
               </motion.div>
               <motion.button 
@@ -170,11 +190,11 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                   setupCompletion.invitePeople 
                     ? 'line-through' 
                     : ''
-                } text-sm font-medium flex items-center`}
+                } text-sm font-medium flex items-center text-[#111827]`}
               >
                 Invite 3 people
                 {!setupCompletion.invitePeople && (
-                  <Plus className="h-3.5 w-3.5 ml-1" />
+                  <Plus className="h-3.5 w-3.5 ml-1 text-[#4B5563]" />
                 )}
               </motion.button>
             </motion.div>
@@ -191,11 +211,11 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                   opacity: setupCompletion.addDescription ? 1 : 0.7 
                 }}
                 className={`h-6 w-6 rounded-full border flex items-center justify-center mr-3 transition-all ${
-                  setupCompletion.addDescription ? 'border-[#26A69A] bg-[#E0F2F1]' : 'border-[#B2DFDB]'
+                  setupCompletion.addDescription ? 'bg-[#1A8A7E] border-[#1A8A7E]' : 'border-[#E1E4E8] bg-transparent'
                 }`}
               >
                 {setupCompletion.addDescription && (
-                  <Check className="h-3.5 w-3.5 text-[#26A69A]" />
+                  <Check className="h-3.5 w-3.5 text-white" />
                 )}
               </motion.div>
               <motion.button 
@@ -208,11 +228,11 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                   setupCompletion.addDescription 
                     ? 'line-through' 
                     : ''
-                } text-sm font-medium flex items-center`}
+                } text-sm font-medium flex items-center text-[#111827]`}
               >
                 Add group description
                 {!setupCompletion.addDescription && (
-                  <Edit className="h-3.5 w-3.5 ml-1" />
+                  <Edit className="h-3.5 w-3.5 ml-1 text-[#4B5563]" />
                 )}
               </motion.button>
             </motion.div>
@@ -229,11 +249,11 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                   opacity: setupCompletion.setCoverImage ? 1 : 0.7 
                 }}
                 className={`h-6 w-6 rounded-full border flex items-center justify-center mr-3 transition-all ${
-                  setupCompletion.setCoverImage ? 'border-[#26A69A] bg-[#E0F2F1]' : 'border-[#B2DFDB]'
+                  setupCompletion.setCoverImage ? 'bg-[#1A8A7E] border-[#1A8A7E]' : 'border-[#E1E4E8] bg-transparent'
                 }`}
               >
                 {setupCompletion.setCoverImage && (
-                  <Check className="h-3.5 w-3.5 text-[#26A69A]" />
+                  <Check className="h-3.5 w-3.5 text-white" />
                 )}
               </motion.div>
               <motion.button 
@@ -246,11 +266,11 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                   setupCompletion.setCoverImage 
                     ? 'line-through' 
                     : ''
-                } text-sm font-medium flex items-center`}
+                } text-sm font-medium flex items-center text-[#111827]`}
               >
                 Set cover image
                 {!setupCompletion.setCoverImage && (
-                  <Upload className="h-3.5 w-3.5 ml-1" />
+                  <Upload className="h-3.5 w-3.5 ml-1 text-[#4B5563]" />
                 )}
               </motion.button>
             </motion.div>
@@ -267,11 +287,11 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                   opacity: setupCompletion.writeFirstPost ? 1 : 0.7 
                 }}
                 className={`h-6 w-6 rounded-full border flex items-center justify-center mr-3 transition-all ${
-                  setupCompletion.writeFirstPost ? 'border-[#26A69A] bg-[#E0F2F1]' : 'border-[#B2DFDB]'
+                  setupCompletion.writeFirstPost ? 'bg-[#1A8A7E] border-[#1A8A7E]' : 'border-[#E1E4E8] bg-transparent'
                 }`}
               >
                 {setupCompletion.writeFirstPost && (
-                  <Check className="h-3.5 w-3.5 text-[#26A69A]" />
+                  <Check className="h-3.5 w-3.5 text-white" />
                 )}
               </motion.div>
               <motion.button 
@@ -284,11 +304,11 @@ export default function FeedTab({ space, user }: FeedTabProps) {
                   setupCompletion.writeFirstPost 
                     ? 'line-through' 
                     : ''
-                } text-sm font-medium flex items-center`}
+                } text-sm font-medium flex items-center text-[#111827]`}
               >
                 Write your first post
                 {!setupCompletion.writeFirstPost && (
-                  <Edit className="h-3.5 w-3.5 ml-1" />
+                  <Edit className="h-3.5 w-3.5 ml-1 text-[#4B5563]" />
                 )}
               </motion.button>
             </motion.div>

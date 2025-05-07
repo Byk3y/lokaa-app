@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Search, Bell, MessageSquare, ChevronDown, User, Plus, Compass, LogOut, Settings, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfileImage } from "@/contexts/ProfileImageContext";
 import { SpaceCard } from "@/components/spaces/SpaceCard";
 import { DiscoverSpaceCard } from "@/components/discover/DiscoverSpaceCard";
 import { Space } from "@/types/space";
@@ -16,6 +17,11 @@ import LoadingIndicator from "@/components/LoadingIndicator";
 import authDebug from '@/utils/authDebug';
 import { prepareSpaceNavigation } from '@/utils/fixSpacesAccess';
 import { motion, AnimatePresence } from "framer-motion";
+import MinimalUpDownChevronIcon from "@/components/MinimalUpDownChevronIcon";
+import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
+import ProfileDropdown from "@/components/common/ProfileDropdown";
+// Include this import to use the CSS from UserSettingsStyles.css
+import "../pages/UserSettingsStyles.css";
 
 // Categories for the discovery section - refined selection to match Skool layout
 const categories = [
@@ -255,8 +261,40 @@ function handleCreateSpaceRedirect() {
   return checkAndRedirect();
 }
 
+// Add UserProfileCard component
+function UserProfileCard({ user, isCurrentUser }) {
+  return (
+    <div className="max-w-sm mx-auto bg-white rounded-2xl shadow-lg border border-gray-100 p-8 flex flex-col items-center">
+      <div className="w-32 h-32 rounded-full overflow-hidden bg-black flex items-center justify-center mb-6">
+        {user?.user_metadata?.avatar_url ? (
+          <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-5xl text-white font-bold">
+            {user?.user_metadata?.avatarInitials || user?.email?.charAt(0).toUpperCase() || "A"}
+          </div>
+        )}
+      </div>
+      <div className="text-2xl font-bold text-gray-900 mb-1">{user?.user_metadata?.fullName || user?.user_metadata?.firstName + ' ' + user?.user_metadata?.lastName || user?.email}</div>
+      <div className="text-gray-500 text-md mb-2">@{user?.user_metadata?.username || user?.email?.split("@")[0]}</div>
+      <div className="text-gray-700 mb-4 text-center">{user?.user_metadata?.bio || "Here to learn"}</div>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="flex items-center text-green-500 text-sm font-medium"><span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>Online now</span>
+        <span className="text-gray-400">•</span>
+        <span className="flex items-center text-gray-500 text-sm"><svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>Joined Dec 2, 2024</span>
+      </div>
+      <div className="flex justify-between w-full mb-6">
+        <div className="flex flex-col items-center"><span className="font-bold text-lg">0</span><span className="text-xs text-gray-500">Contributions</span></div>
+        <div className="flex flex-col items-center"><span className="font-bold text-lg">0</span><span className="text-xs text-gray-500">Followers</span></div>
+        <div className="flex flex-col items-center"><span className="font-bold text-lg">4</span><span className="text-xs text-gray-500">Following</span></div>
+      </div>
+      {isCurrentUser && <button className="w-full bg-gray-100 text-gray-900 font-semibold rounded-lg py-2 mt-2 hover:bg-gray-200 transition">EDIT PROFILE</button>}
+    </div>
+  );
+}
+
 export default function Discover() {
   const { user, signOut, signIn, routingInProgress } = useAuth();
+  const { profileImageUrl, refreshProfileImage } = useProfileImage();
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -276,6 +314,23 @@ export default function Discover() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+  // State for space switcher search
+  const [spaceSearchQuery, setSpaceSearchQuery] = useState("");
+
+  // Get user's initials for profile display
+  const getUserInitials = () => {
+    if (!user) return "A";
+    
+    if (user.user_metadata?.firstName && user.user_metadata?.lastName) {
+      return `${user.user_metadata.firstName.charAt(0)}${user.user_metadata.lastName.charAt(0)}`;
+    }
+    
+    if (user.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    
+    return "A";
+  };
 
   // Helper function for robust fetch with retries
   const createFetch = async (fetchFunction: () => Promise<any>, retries = 2, delay = 1000) => {
@@ -712,63 +767,108 @@ export default function Discover() {
       {/* Top navigation bar */}
       <header className="sticky top-0 bg-white border-b border-gray-100 z-50">
         <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 flex items-center justify-between h-16">
-          {/* Lokaa logo with dropdown */}
+          {/* Space Switcher Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <div className="flex items-center cursor-pointer" onClick={() => setDropdownOpen(!dropdownOpen)}>
-              <h1 className="text-2xl font-bold text-teal-600">Lokaa</h1>
-              <ChevronDown size={16} className="ml-1 text-gray-400" />
+              <h1 className="text-4xl font-bold leading-none" style={{ color: '#00A389' }}>Lokaa</h1>
+              <span className="ml-2"><ModernDropdownTrigger open={dropdownOpen} /></span>
             </div>
             
             {/* Dropdown menu */}
             {dropdownOpen && (
               <div
-                ref={dropdownRef}
-                className="fixed md:absolute top-14 md:top-12 left-0 md:left-auto right-0 md:right-auto md:w-48 bg-white rounded-lg shadow-lg py-1 md:py-2 z-20 border border-gray-200"
+                className="fixed md:absolute top-14 md:top-12 left-0 md:left-auto right-0 md:right-auto bg-white rounded-2xl shadow-2xl w-full md:w-[300px] z-20 border border-gray-100 max-h-[80vh] overflow-y-auto animate-dropdown transition-all duration-200"
+                style={{ minWidth: 240, opacity: dropdownOpen ? 1 : 0, transform: dropdownOpen ? 'translateY(0)' : 'translateY(-8px)' }}
               >
-                {user ? (
-                  <>
+                {/* Search bar */}
+                <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="text"
+                      placeholder="Search spaces"
+                      value={spaceSearchQuery}
+                      onChange={(e) => setSpaceSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="p-4 flex flex-col gap-2 border-b border-gray-100 bg-white">
                     <button 
-                      onClick={() => navigate('/create-space', { replace: true })}
-                      className="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 flex items-center"
+                    onClick={() => {navigate('/create-space'); setDropdownOpen(false);}}
+                    className="flex items-center px-3 py-2 rounded-lg hover:bg-[#E6F7F1] text-gray-800 font-medium transition"
                     >
-                      <Plus className="h-4 w-4 mr-2 text-gray-500" />
+                    <Plus className="h-5 w-5 text-gray-500 mr-3" />
                       Create a space
                     </button>
-                    
-                    <Link 
-                      to="/discover" 
-                      className="block px-4 py-2 text-gray-800 hover:bg-gray-100 flex items-center"
+                  <button
+                    onClick={() => {navigate('/discover'); setDropdownOpen(false);}}
+                    className="flex items-center px-3 py-2 rounded-lg hover:bg-[#E6F7F1] text-gray-800 font-medium transition"
                     >
-                      <Compass className="h-4 w-4 mr-2 text-gray-500" />
+                    <Compass className="h-5 w-5 text-gray-500 mr-3" />
                       Discover spaces
-                    </Link>
-                    
-                    <hr className="my-1 border-gray-200" />
-                    
+                  </button>
+                </div>
+
+                {/* User spaces */}
+                <div className="py-2 bg-white">
+                  {user ? (
+                    <>
+                      {isLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <div className="animate-spin h-5 w-5 border-2 border-teal-500 border-t-transparent rounded-full"></div>
+                        </div>
+                      ) : (
+                        <>
+                          {spaces
+                            .filter(space => !spaceSearchQuery || space.name.toLowerCase().includes(spaceSearchQuery.toLowerCase()))
+                            .slice(0, 10)
+                            .map((space) => (
                     <button
-                      onClick={handleSignOut}
-                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 flex items-center"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign out
+                                key={space.id}
+                                onClick={() => { navigate(`/space/${space.subdomain || space.id}`); setDropdownOpen(false); }}
+                                className="flex items-center px-4 py-2 w-full hover:bg-gray-50 rounded-lg transition group focus:ring-2 focus:ring-[#00A389]"
+                              >
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center mr-3 overflow-hidden bg-gray-100 group-hover:ring-2 group-hover:ring-[#00A389]">
+                                  {space.cover_image ? (
+                                    <img src={space.cover_image} alt={space.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-base font-bold text-gray-600">
+                                      {typeof space.name === 'string' && space.name.substring(0, 2).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-sm font-medium">{space.name}</span>
                     </button>
+                            ))}
+                          {/* Empty state */}
+                          {spaceSearchQuery && !spaces.some(space => space.name.toLowerCase().includes(spaceSearchQuery.toLowerCase())) && (
+                            <div className="px-4 py-8 text-center text-gray-400 text-sm">
+                              No spaces match your search
+                            </div>
+                          )}
+                        </>
+                      )}
                   </>
                 ) : (
-                  <>
+                    <div className="px-4 py-4">
                     <button 
                       onClick={handleSignInClick}
-                      className="w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100"
+                        className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 text-gray-800 text-sm font-medium mb-2"
                     >
                       Sign in
                     </button>
                     <button
                       onClick={handleSignUpClick}
-                      className="w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100"
+                        className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 text-gray-800 text-sm font-medium"
                     >
                       Sign up
                     </button>
-                  </>
+                    </div>
                 )}
+                </div>
               </div>
             )}
           </div>
@@ -789,51 +889,8 @@ export default function Discover() {
                 </button>
                 
                 {/* Profile dropdown */}
-                <div className="relative" ref={profileDropdownRef}>
-                  <button 
-                    className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-800 text-white"
-                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  >
-                    {user?.email ? user.email.charAt(0).toUpperCase() : <User size={18} />}
-                  </button>
-                  
-                  {/* Profile dropdown menu */}
-                  {profileDropdownOpen && (
-                    <div className="absolute top-full right-0 mt-1 w-64 bg-white rounded-md shadow-lg border border-gray-100 py-2 z-50">
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="font-medium text-gray-900">{user?.email || "User"}</p>
-                        <p className="text-xs text-gray-500 mt-1">Free Plan</p>
-                      </div>
-                      
-                      <div className="py-1">
-                        <Link to="/profile" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          <User size={16} className="mr-3 text-gray-500" />
-                          Profile
-                        </Link>
-                        <Link to="/settings" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          <Settings size={16} className="mr-3 text-gray-500" />
-                          Settings
-                        </Link>
-                        <button 
-                          onClick={() => navigate('/create-space', { replace: true })} 
-                          className="flex items-center px-4 py-2 text-sm w-full text-left text-gray-700 hover:bg-gray-50"
-                        >
-                          <Plus size={16} className="mr-3 text-gray-500" />
-                          Create a space
-                        </button>
-                      </div>
-                      
-                      <div className="border-t border-gray-100 pt-1 mt-1">
-                        <button 
-                          onClick={handleSignOut}
-                          className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                        >
-                          <LogOut size={16} className="mr-3" />
-                          Sign out
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                <div className="relative">
+                  <ProfileDropdown user={user} variant="animation" size="md" className="ml-4" />
                 </div>
               </>
             ) : (

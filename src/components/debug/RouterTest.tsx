@@ -1,0 +1,60 @@
+import { useLocation, useParams } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+
+export function RouterTest() {
+  const location = useLocation();
+  const params = useParams();
+  const renderCount = useRef(0);
+  const prevPathname = useRef(location.pathname);
+  
+  useEffect(() => {
+    // Only log if the pathname actually changed
+    if (prevPathname.current !== location.pathname) {
+      renderCount.current += 1;
+      prevPathname.current = location.pathname;
+      
+      // Log extensive details about this route
+      console.log('🧪 ROUTER TEST - Route Details:', {
+        pathname: location.pathname,
+        params,
+        isProfileRoute: location.pathname.startsWith('/@'),
+        profileSlug: location.pathname.startsWith('/@') ? location.pathname.substring(2) : null,
+        search: location.search,
+        hash: location.hash,
+        state: location.state,
+        key: location.key,
+        renderCount: renderCount.current
+      });
+    }
+  }, [location.pathname, params]);
+  
+  // Only show in development
+  if (process.env.NODE_ENV !== 'development') {
+    return null;
+  }
+  
+  const isProfileRoute = location.pathname.startsWith('/@');
+  const profileSlug = isProfileRoute ? location.pathname.substring(2) : null;
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '10px',
+      right: '10px',
+      zIndex: 9999,
+      background: 'rgba(0,0,0,0.8)',
+      color: 'white',
+      padding: '8px 12px',
+      borderRadius: '4px',
+      fontSize: '12px',
+      maxWidth: '300px',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+    }}>
+      <div><strong>Path:</strong> {location.pathname}</div>
+      <div><strong>Profile?</strong> {isProfileRoute ? '✅' : '❌'}</div>
+      {isProfileRoute && <div><strong>Slug:</strong> {profileSlug}</div>}
+      <div><strong>Params:</strong> {JSON.stringify(params)}</div>
+      <div><strong>Renders:</strong> {renderCount.current}</div>
+    </div>
+  );
+} 

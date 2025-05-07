@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
-import { Bell, MessageSquare, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Upload, Lock, Check, Globe, Loader2, Trophy, GraduationCap } from "lucide-react";
+import { BellRing, MessageCircle, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Upload, Lock, Check, Globe, Loader2, Trophy, GraduationCap, Camera } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +30,7 @@ import MembersTab from "@/components/space/MembersTab";
 import LeaderboardsTab from "@/components/space/LeaderboardsTab";
 import ClassroomTab from "@/components/space/ClassroomTab";
 import { getSpaceUrl, cacheSpaceData } from "@/utils/urlUtils";
+import ProfileDropdown from "@/components/common/ProfileDropdown";
 
 // Initialize spaceAccessFix with the Supabase client
 spaceAccessFix.init(supabase);
@@ -592,7 +593,7 @@ export default function Space({ initialTab }: SpaceProps) {
         }}
         className={`inline-flex items-center px-4 py-3 border-b-2 text-sm font-medium whitespace-nowrap ${
           isActive
-            ? 'border-indigo-500 text-indigo-600 dark:text-white dark:border-white'
+            ? 'border-[#2AB5A0] text-[#2AB5A0] dark:text-white dark:border-white'
             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:border-gray-600'
       }`}
         aria-current={isActive ? 'page' : undefined}
@@ -920,125 +921,32 @@ export default function Space({ initialTab }: SpaceProps) {
             </div>
             
             {/* Right - User Controls */}
-            <div className="flex items-center space-x-6">
-            {/* Messages */}
-              <motion.button 
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className="text-[#78909C] hover:text-[#26A69A] transition-colors"
-              >
-                <MessageSquare className="h-5 w-5" />
-              </motion.button>
-            
-            {/* Notifications */}
-              <div className="relative">
-                <div className="h-5 w-5 bg-[#FF6F61] rounded-full flex items-center justify-center text-white text-xs absolute -top-1.5 -right-1.5 font-medium shadow-sm">
-                  1
-                </div>
+            <div className="flex items-center gap-8">
+              {/* Messages */}
+              <div className="flex items-center justify-center">
                 <motion.button 
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
-                  className="text-[#78909C] hover:text-[#26A69A] transition-colors"
+                  className="text-[#78909C] hover:text-[#26A69A] transition-colors flex items-center justify-center p-1"
                 >
-                  <Bell className="h-5 w-5" />
+                  <MessageCircle className="h-6 w-6" />
+                </motion.button>
+              </div>
+            
+              {/* Notifications */}
+              <div className="flex items-center justify-center">
+                <motion.button 
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-[#78909C] hover:text-[#26A69A] transition-colors flex items-center justify-center p-1"
+                >
+                  <BellRing className="h-6 w-6" />
                 </motion.button>
               </div>
               
               {/* Profile */}
-              <div className="profile-dropdown-container relative">
-                <div className="flex items-center">
-                  <motion.div 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="h-9 w-9 rounded-full overflow-hidden border-2 border-[#26A69A] relative cursor-pointer bg-[#26A69A] shadow-sm"
-                    onClick={toggleProfileDropdown}
-                  >
-                    {user?.user_metadata?.avatar_url ? (
-                      // Show user avatar if available
-                      <img 
-                        src={user.user_metadata.avatar_url} 
-                        alt="Profile" 
-                        className="h-full w-full object-cover rounded-full"
-                      />
-                    ) : (
-                      // Show first letter as fallback
-                      <div className="bg-[#26A69A] h-full w-full flex items-center justify-center text-white font-medium">
-                        {user?.email?.charAt(0).toUpperCase() || "U"}
-                      </div>
-                    )}
-                  </motion.div>
-                </div>
-                
-                {/* Profile Dropdown Menu */}
-                {profileDropdownOpen && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg z-50 overflow-hidden border border-[#E0F2F1]"
-                  >
-                    <div className="py-3 px-4 border-b border-[#E0F2F1] text-sm text-ellipsis overflow-hidden text-[#37474F]">
-                      {user?.email || "francischukwuma706@gmail.com"}
-                    </div>
-                    
-                    <div className="py-1">
-                      <motion.button 
-                        whileHover={{ backgroundColor: "#F5FAFA" }}
-                        className="block w-full text-left px-4 py-3 text-sm text-[#37474F] transition-colors"
-                      >
-                    Profile
-                      </motion.button>
-                      <motion.button 
-                        whileHover={{ backgroundColor: "#F5FAFA" }}
-                        className="block w-full text-left px-4 py-3 text-sm text-[#37474F] transition-colors"
-                      >
-                    Settings
-                      </motion.button>
-                      <motion.button 
-                        whileHover={{ backgroundColor: "#F5FAFA" }}
-                        className="block w-full text-left px-4 py-3 text-sm text-[#37474F] transition-colors"
-                      >
-                        Affiliates
-                      </motion.button>
-                    </div>
-                    
-                    <div className="border-t border-[#E0F2F1]">
-                      <motion.button 
-                        whileHover={{ backgroundColor: "#F5FAFA" }}
-                        className="block w-full text-left px-4 py-3 text-sm text-[#78909C] transition-colors"
-                      >
-                        Help center
-                      </motion.button>
-                    </div>
-
-                    <div className="border-t border-[#E0F2F1]">
-                      <motion.button 
-                        whileHover={{ backgroundColor: "#F5FAFA" }}
-                        className="block w-full text-left px-4 py-3 text-sm text-[#78909C] transition-colors"
-                        onClick={() => navigate("/create-space")}
-                      >
-                        Create a space
-                      </motion.button>
-                      <motion.button 
-                        whileHover={{ backgroundColor: "#F5FAFA" }}
-                        className="block w-full text-left px-4 py-3 text-sm text-[#78909C] transition-colors"
-                        onClick={() => navigate("/discover")}
-                      >
-                        Discover spaces
-                      </motion.button>
-                    </div>
-
-                    <div className="border-t border-[#E0F2F1]">
-                      <motion.button 
-                        whileHover={{ backgroundColor: "#F5FAFA" }}
-                        className="block w-full text-left px-4 py-3 text-sm text-[#78909C] transition-colors"
-                    onClick={handleSignOut}
-                  >
-                        Log out
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                )}
+              <div className="flex items-center justify-center">
+                <ProfileDropdown variant="animation" size="md" />
               </div>
             </div>
           </div>
@@ -1048,7 +956,7 @@ export default function Space({ initialTab }: SpaceProps) {
         <nav className="bg-white border-b sticky top-16 z-40">
           <div className="max-w-6xl mx-auto px-4">
             <div className="flex overflow-x-auto">
-              {renderTabButton("community", <MessageSquare className="h-4 w-4" />, "Feed")}
+              {renderTabButton("community", <MessageCircle className="h-4 w-4" />, "Feed")}
               {renderTabButton("classroom", <GraduationCap className="h-4 w-4" />, "Classroom")}
               {renderTabButton("calendar", <Calendar className="h-4 w-4" />, "Calendar")}
               {renderTabButton("members", <Users className="h-4 w-4" />, "Members")}
@@ -1103,7 +1011,7 @@ export default function Space({ initialTab }: SpaceProps) {
                 >
                   {/* Cover Image Area */}
                   <div 
-                    className="h-36 bg-[#26A69A] flex items-center justify-center relative cursor-pointer"
+                    className="h-36 bg-[#F5F6F7] flex items-center justify-center relative cursor-pointer border border-[#E1E4E8] p-2"
                     onClick={() => {
                       if (isOwner && space) {
                         openSpaceSettingsModal(space.id, space.subdomain);
@@ -1119,9 +1027,8 @@ export default function Space({ initialTab }: SpaceProps) {
                         style={{ backgroundImage: `url(${resolveImageUrl(space.cover_image, '/default-space-cover.jpg')})` }}
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center text-white">
-                        <Upload className="h-6 w-6 mb-2" />
-                        <span className="text-base font-medium">Upload cover photo</span>
+                      <div className="flex flex-col items-center justify-center text-[#A0AEC0]">
+                        <Camera className="h-8 w-8 opacity-40" />
                       </div>
                     )}
                   </div>

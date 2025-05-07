@@ -3,6 +3,7 @@ import { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 import { fetchUserDetails } from '@/utils/authUtils'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { generateSlug } from '@/utils/slugUtils'
 
 /**
  * Debug utility to check for token presence in localStorage
@@ -210,6 +211,45 @@ async function getUserPreferredSpace(userId: string): Promise<{ subdomain: strin
     console.error('Unexpected error in getUserPreferredSpace:', error);
     return null;
   }
+}
+
+// Helper to generate a unique user URL slug
+async function generateUniqueUserSlug(user: any) {
+  if (!user) return null;
+  // Try username, email prefix, full name, or fallback to user id
+  const baseCandidates = [
+    user.user_metadata?.username,
+    user.email?.split('@')[0],
+    (user.user_metadata?.firstName && user.user_metadata?.lastName) ? `${user.user_metadata.firstName}-${user.user_metadata.lastName}` : null,
+    user.user_metadata?.fullName,
+    user.id
+  ].filter(Boolean);
+
+  for (let base of baseCandidates) {
+    let slug = generateSlug(base);
+    let unique = false;
+    let attempt = 0;
+    let candidate = slug;
+    while (!unique && attempt < 5) {
+      // Check uniqueness in users table
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('url', candidate)
+        .maybeSingle();
+      if (!data) {
+        unique = true;
+        slug = candidate;
+        break;
+      }
+      // If not unique, append a short random string
+      candidate = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+      attempt++;
+    }
+    if (unique) return slug;
+  }
+  // Fallback: user id
+  return user.id;
 }
 
 // Define the shape of the context
@@ -535,6 +575,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pathname: location.pathname,
           loading: false
         });
+
+        // After setting user/session in getInitialSession and onAuthStateChange, ensure user has a url
+        useEffect(() => {
+          async function ensureUserUrl() {
+            if (user && !(user as any).url) {
+              try {
+                console.log('Ensuring user has a URL for user ID:', user.id);
+                // Call our new database function to ensure user has a URL
+                const { data, error } = await (supabase.rpc as any)('ensure_user_url', {
+                  user_id: user.id
+                });
+                
+                if (error) {
+                  console.error('Failed to ensure user URL:', error.message);
+                } else if (data) {
+                  console.log('User URL set/retrieved successfully:', data);
+                  // Update the user state with the URL
+                  setUser((prev: any) => ({ ...prev, url: data }));
+                }
+              } catch (err) {
+                console.error('Error in ensureUserUrl:', err);
+              }
+            }
+          }
+          ensureUserUrl();
+          // Only run when user changes
+        }, [user]);
       } catch (error) {
         console.error('❌ Exception getting initial session:', error);
       } finally {
@@ -816,15 +883,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // If we get here and hasRouted is still false, then we didn't find any spaces
           // Only redirect to discover if no spaces were found, and after a delay
           if (!hasRouted) {
-            console.log('❌ No user space found, redirecting to discover page after delay');
+            console.log('❌ No user space found, checking if we should redirect to discover page');
+            console.log('🔍 Current pathname:', location.pathname);
+            console.log('🔍 Starts with /@?', location.pathname.startsWith('/@'));
+            console.log('🔍 Is profile URL (check):', location.pathname.match(/^\/@[^\/]+$/));
             
-            // Add a delay before redirecting to /discover
-            setTimeout(() => {
-              console.log('🔀 Redirecting to /discover (no spaces found)');
-              navigate('/discover', { replace: true });
+            // IMPORTANT: Profile routes need special handling - NEVER redirect away from profiles
+            const isProfileRoute = location.pathname.startsWith('/@') || location.pathname.startsWith('/profile/');
+            const isExactProfileRoute = !!(location.pathname.match(/^\/@[^\/]+$/) || location.pathname.match(/^\/profile\/[^\/]+$/));
+            
+            // Check for malformed profile routes (with extra path segments)
+            const isMalformedProfileRoute = location.pathname.startsWith('/@') && location.pathname.includes('/space');
+            if (isMalformedProfileRoute) {
+              console.warn('🚨 DETECTED MALFORMED PROFILE ROUTE:', location.pathname);
+              console.warn('🚨 This might indicate a routing issue with the profile page');
+              
+              // Extract the username from the malformed URL
+              const match = location.pathname.match(/\/@([^\/]+)/);
+              if (match && match[1]) {
+                const username = match[1];
+                console.log('🔄 Will redirect from malformed route to proper profile route:', `/@${username}`);
+                
+                // Redirect to the correct profile route
+                setTimeout(() => {
+                  navigate(`/@${username}`, { replace: true });
+                }, 100);
+                
+                // Return early to prevent further processing
+                return;
+              }
+            }
+
+            // Always log profile route detection for debugging
+            if (isProfileRoute) {
+              console.log('🔍 AUTH CONTEXT: Profile route detected!', {
+                path: location.pathname,
+                isExactProfileRoute
+              });
+            }
+            
+            if (isProfileRoute) {
+              console.log('🛑 NOT redirecting from profile page:', location.pathname);
+              console.log('🛑 Profile route detected - allowing profile view without redirect');
               setHasRouted(true);
               setRoutingInProgress(false);
-            }, 300);
+            } else {
+              // Only redirect to /discover if not on a profile page
+              setTimeout(() => {
+                console.log('🔀 Redirecting to /discover (no spaces found)');
+                navigate('/discover', { replace: true });
+                setHasRouted(true);
+                setRoutingInProgress(false);
+              }, 300);
+            }
           } else {
             console.log('✅ User already redirected to their space, no further redirection needed');
             // Ensure routingInProgress is reset
@@ -871,22 +982,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign up with email and password
   const signUp = async (email: string, password: string, options?: { firstName?: string, lastName?: string }) => {
     console.log('📝 Signing up user:', email, options ? 'with metadata' : 'without metadata');
-    
     // Prepare metadata if provided
     const metadata = options ? {
       first_name: options.firstName,
       last_name: options.lastName,
       full_name: `${options.firstName} ${options.lastName}`.trim()
     } : undefined;
-    
     try {
       // Clear any existing session
       console.log('🧹 Clearing any existing session before sign up');
       await supabase.auth.signOut();
-      
-      // Reset hasRouted for new signup
       setHasRouted(false);
-      
       // Attempt to sign up
       const { data, error } = await supabase.auth.signUp({ 
         email, 
@@ -895,19 +1001,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           data: metadata
         }
       });
-        
       if (error) {
         console.error('❌ Sign up error:', error.message);
         setAuthErrors(prev => [...prev, `Sign up error: ${error.message}`]);
         return { error, data: null };
       }
-      
       console.log('✅ Sign up successful', {
         user: data.user?.email,
         id: data.user?.id,
         hasSession: !!data.session
       });
-      
+      // --- Automatic slug generation and user url update ---
+      if (data.user && data.user.id) {
+        try {
+          console.log('Ensuring new user has a URL for user ID:', data.user.id);
+          // Call our database function to ensure user has a URL
+          const { data: urlData, error: urlError } = await (supabase.rpc as any)('ensure_user_url', {
+            user_id: data.user.id
+          });
+          
+          if (urlError) {
+            console.error('Failed to ensure URL for new user:', urlError.message);
+          } else if (urlData) {
+            console.log('URL for new user generated successfully:', urlData);
+            // Update user state with the URL
+            setUser((prev: any) => prev ? { ...prev, url: urlData } : prev);
+          }
+        } catch (err) {
+          console.error('Error during URL generation for new user:', err);
+        }
+      }
+      // --- End automatic slug generation ---
       return { error: null, data };
     } catch (err: any) {
       console.error('❌ Exception during sign up:', err);

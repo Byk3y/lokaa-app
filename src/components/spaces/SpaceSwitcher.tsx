@@ -32,6 +32,15 @@ interface SpaceSwitcherProps {
   userId: string;
 }
 
+// Function to properly capitalize each word in a string
+const capitalizeWords = (str: string): string => {
+  if (!str) return '';
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export default function SpaceSwitcher({ 
   currentSpaceSubdomain,
   currentSpaceName,
@@ -110,6 +119,9 @@ export default function SpaceSwitcher({
   const displayName = currentSpaceName || 
     spaces.find(space => space.subdomain === currentSpaceSubdomain)?.name || 
     currentSpaceSubdomain;
+    
+  // Properly capitalize the display name
+  const formattedDisplayName = capitalizeWords(displayName);
 
   return (
     <TooltipProvider>
@@ -117,10 +129,10 @@ export default function SpaceSwitcher({
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger className="flex items-center outline-none hover:text-teal-600 transition-colors">
-              <span className="font-semibold text-md mr-1">
-                {loading ? '...' : displayName}
+              <span className="font-bold text-xl mr-2 text-gray-800 tracking-tight">
+                {loading ? '...' : formattedDisplayName}
               </span>
-              <ChevronDown className="h-4 w-4 text-gray-500" />
+              <ChevronDown className="h-5 w-5 text-gray-700 stroke-[2.5px]" />
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>
@@ -145,7 +157,7 @@ export default function SpaceSwitcher({
                   <div className="h-6 w-6 rounded-md bg-gray-800 flex items-center justify-center text-white mr-2">
                     {space.name.charAt(0).toUpperCase()}
                   </div>
-                  <span>{space.name}</span>
+                  <span>{capitalizeWords(space.name)}</span>
                 </div>
               </DropdownMenuItem>
             ))

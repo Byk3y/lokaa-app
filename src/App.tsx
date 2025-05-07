@@ -1,8 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ProfileImageProvider } from "@/contexts/ProfileImageContext";
 import { Toaster } from "@/components/ui/toaster";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import SpaceProtectedRoute from "@/components/auth/SpaceProtectedRoute";
@@ -25,6 +26,8 @@ import StorageDebugger from "@/pages/StorageDebugger"; // Import the Storage Deb
 import UserSettings from "@/pages/UserSettings"; // Import the UserSettings page
 import React from "react";
 import { Loader2 } from "lucide-react";
+import Profile from "@/pages/Profile";
+import ProfileRouteHandler from "@/components/profile/ProfileRouteHandler"; // Import the new ProfileRouteHandler
 
 // Import our modal utility for authentication
 import "@/utils/authModals";
@@ -70,6 +73,13 @@ function AppRoutes() {
         {/* Public routes - accessible without authentication */}
         <Route path="/" element={<LandingPageWrapper />} />
         <Route path="/auth/callback" element={<AuthRedirect />} />
+        
+        {/* User Profile route - MUST come before subdomain routes */}
+        <Route path="/@:slug" element={<ProfileRouteHandler />} />
+        
+        {/* Fix for incorrect profile routes */}
+        <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
+        <Route path="/profile/space/feed" element={<Navigate to="/settings/profile" replace />} />
         
         {/* Public space about page - no auth required */}
         <Route path="/:subdomain/about" element={<SpaceAboutPage />} />
@@ -125,7 +135,7 @@ function AppRoutes() {
           <Route path="/:subdomain/members" element={<Navigate to="/:subdomain/space/members" replace />} />
           <Route path="/:subdomain/calendar" element={<Navigate to="/:subdomain/space/calendar" replace />} />
           <Route path="/:subdomain/leaderboard" element={<Navigate to="/:subdomain/space/leaderboard" replace />} />
-          </Route>
+        </Route>
         
         {/* Protected space routes - require space membership */}
         <Route path="/:subdomain/space" element={<SpaceProtectedRoute />}>
@@ -140,7 +150,10 @@ function AppRoutes() {
         </Route>
 
         {/* User Settings route */}
-        <Route path="/settings" element={<UserSettings />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/settings" element={<UserSettings />} />
+          <Route path="/settings/:tab" element={<UserSettings />} />
+        </Route>
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -176,8 +189,10 @@ export default function App() {
       <HelmetProvider>
         <Router>
           <AuthProvider>
+            <ProfileImageProvider>
             <AppRoutes />
             <Toaster />
+            </ProfileImageProvider>
           </AuthProvider>
         </Router>
       </HelmetProvider>

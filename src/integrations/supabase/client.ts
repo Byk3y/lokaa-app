@@ -8,4 +8,12 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Add debug logs to client initialization
+console.log('🔌 Initializing Supabase client with URL:', import.meta.env.VITE_SUPABASE_URL);
+console.log('🔌 Supabase API key format:', 
+  import.meta.env.VITE_SUPABASE_ANON_KEY ? 
+  `${import.meta.env.VITE_SUPABASE_ANON_KEY.substring(0, 5)}...${import.meta.env.VITE_SUPABASE_ANON_KEY.substring(import.meta.env.VITE_SUPABASE_ANON_KEY.length - 5)}` :
+  'Missing API key'
+);
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);

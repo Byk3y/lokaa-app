@@ -1,0 +1,137 @@
+/* Custom styles for cropper to create circular crop area */
+.cropper-view-box,
+.cropper-face {
+  border-radius: 50%;
+  outline: none;
+}
+
+.cropper-view-box {
+  box-shadow: 0 0 0 2px white;
+  outline: 0;
+}
+
+.cropper-face {
+  background-color: inherit !important;
+}
+
+/* Custom styling for the crop container */
+.cropper-container {
+  background-color: #000;
+  position: relative;
+  user-select: none;
+  touch-action: none;
+}
+
+.cropper-area {
+  position: relative;
+}
+
+.crop-container {
+  overflow: hidden;
+  position: relative;
+}
+
+/* Fix for the cropper grid */
+.cropper-line, .cropper-point {
+  opacity: 0.7;
+}
+
+/* Custom slider thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #00A389;
+  border: 2px solid #fff;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #00A389;
+  border: 2px solid #fff;
+  cursor: pointer;
+}
+
+/* Custom slider track */
+input[type="range"] {
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 6px;
+  background: #4b4b4b;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 6px;
+  background: #4b4b4b;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 6px;
+  background: #4b4b4b;
+}
+
+/* Save button styles */
+.save-btn {
+  background-color: #00A389 !important;
+  color: black !important;
+  font-weight: 600;
+  transition: background-color 0.2s;
+  height: 45px;
+  font-size: 16px;
+  border: none !important;
+  box-shadow: none !important;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.save-btn:hover {
+  background-color: #00b99c !important;
+}
+
+/* Dialog styles to ensure proper centering */
+.dialog-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 400px;
+  width: 95%;
+  max-height: 80vh;
+  margin: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Fix dragging by ensuring pointer events work correctly */
+.reactEasyCrop_Container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  cursor: move;
+}
+
+.reactEasyCrop_Image,
+.reactEasyCrop_Video {
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  will-change: transform; /* this improves performances */
+} 

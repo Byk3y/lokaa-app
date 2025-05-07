@@ -417,14 +417,136 @@ export type Database = {
           },
         ]
       }
+      space_members: {
+        Row: {
+          id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["member_role"]
+          space_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["member_role"]
+          space_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["member_role"]
+          space_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_members_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      space_rankings: {
+        Row: {
+          id: string
+          ranking: number
+          space_id: string
+        }
+        Insert: {
+          id?: string
+          ranking: number
+          space_id: string
+        }
+        Update: {
+          id?: string
+          ranking?: number
+          space_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_rankings_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: true
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      space_setup: {
+        Row: {
+          added_description: boolean | null
+          first_post: boolean | null
+          id: string
+          invited_members: boolean | null
+          set_cover_image: boolean | null
+          space_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          added_description?: boolean | null
+          first_post?: boolean | null
+          id?: string
+          invited_members?: boolean | null
+          set_cover_image?: boolean | null
+          space_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          added_description?: boolean | null
+          first_post?: boolean | null
+          id?: string
+          invited_members?: boolean | null
+          set_cover_image?: boolean | null
+          space_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_setup_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      space_tags: {
+        Row: {
+          id: string
+          space_id: string
+          tag_name: string
+        }
+        Insert: {
+          id?: string
+          space_id: string
+          tag_name: string
+        }
+        Update: {
+          id?: string
+          space_id?: string
+          tag_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_tags_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spaces: {
         Row: {
+          about_description: string | null
           cover_image: string | null
           created_at: string
           description: string | null
           icon_image: string | null
           id: string
-          initials: string | null
           is_private: boolean
           member_count: number | null
           name: string
@@ -436,12 +558,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          about_description?: string | null
           cover_image?: string | null
           created_at?: string
           description?: string | null
           icon_image?: string | null
           id?: string
-          initials?: string | null
           is_private?: boolean
           member_count?: number | null
           name: string
@@ -453,12 +575,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          about_description?: string | null
           cover_image?: string | null
           created_at?: string
           description?: string | null
           icon_image?: string | null
           id?: string
-          initials?: string | null
           is_private?: boolean
           member_count?: number | null
           name?: string
@@ -484,39 +606,48 @@ export type Database = {
           activity_score: number | null
           avatar_url: string | null
           bio: string | null
+          country: string | null
           created_at: string
+          first_name: string | null
           full_name: string | null
           id: string
+          last_name: string | null
+          profile_url: string | null
           role: Database["public"]["Enums"]["user_role"]
           social_links: Json | null
           updated_at: string
-          username: string | null
           wallet_balance: number | null
         }
         Insert: {
           activity_score?: number | null
           avatar_url?: string | null
           bio?: string | null
+          country?: string | null
           created_at?: string
+          first_name?: string | null
           full_name?: string | null
           id: string
+          last_name?: string | null
+          profile_url?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           social_links?: Json | null
           updated_at?: string
-          username?: string | null
           wallet_balance?: number | null
         }
         Update: {
           activity_score?: number | null
           avatar_url?: string | null
           bio?: string | null
+          country?: string | null
           created_at?: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
+          profile_url?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           social_links?: Json | null
           updated_at?: string
-          username?: string | null
           wallet_balance?: number | null
         }
         Relationships: []
@@ -526,35 +657,110 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      about_page_get_space: {
+        Args: { target_subdomain: string }
+        Returns: Json
+      }
+      admin_create_space: {
+        Args: { space_name: string; space_subdomain: string; owner_id: string }
+        Returns: string
+      }
+      admin_get_space_by_subdomain: {
+        Args: { target_subdomain: string }
+        Returns: Json
+      }
+      bypass_get_space_by_subdomain: {
+        Args: { subdomain: string }
+        Returns: Json
+      }
+      check_space_access_safely: {
+        Args: { space_id: string; user_id: string }
+        Returns: boolean
+      }
+      create_space_safely: {
+        Args: { space_name: string; space_subdomain: string; owner_id: string }
+        Returns: Json
+      }
       get_public_spaces: {
-        Args: {}
-        Returns: Array<{
-          id: string
-          name: string
-          description: string | null
+        Args: Record<PropertyKey, never>
+        Returns: {
+          about_description: string | null
           cover_image: string | null
-          icon_image: string | null
-          initials: string | null
-          subdomain: string
-          owner_id: string
-          pricing_type: Database["public"]["Enums"]["pricing_type"]
-          price_per_month: number | null
-          member_count: number | null
           created_at: string
-          updated_at: string
-          primary_color: string | null
+          description: string | null
+          icon_image: string | null
+          id: string
           is_private: boolean
-        }>
+          member_count: number | null
+          name: string
+          owner_id: string
+          price_per_month: number | null
+          pricing_type: Database["public"]["Enums"]["pricing_type"]
+          primary_color: string | null
+          subdomain: string
+          updated_at: string
+        }[]
+      }
+      get_space_by_subdomain: {
+        Args: { target_subdomain: string }
+        Returns: {
+          about_description: string | null
+          cover_image: string | null
+          created_at: string
+          description: string | null
+          icon_image: string | null
+          id: string
+          is_private: boolean
+          member_count: number | null
+          name: string
+          owner_id: string
+          price_per_month: number | null
+          pricing_type: Database["public"]["Enums"]["pricing_type"]
+          primary_color: string | null
+          subdomain: string
+          updated_at: string
+        }[]
+      }
+      space_by_subdomain: {
+        Args: { target_subdomain: string }
+        Returns: {
+          about_description: string | null
+          cover_image: string | null
+          created_at: string
+          description: string | null
+          icon_image: string | null
+          id: string
+          is_private: boolean
+          member_count: number | null
+          name: string
+          owner_id: string
+          price_per_month: number | null
+          pricing_type: Database["public"]["Enums"]["pricing_type"]
+          primary_color: string | null
+          subdomain: string
+          updated_at: string
+        }[]
+      }
+      update_space_setup: {
+        Args: { p_space_id: string; p_task: string; p_completed: boolean }
+        Returns: {
+          added_description: boolean | null
+          first_post: boolean | null
+          id: string
+          invited_members: boolean | null
+          set_cover_image: boolean | null
+          space_id: string
+          updated_at: string | null
+        }[]
       }
     }
     Enums: {
-      pricing_type: "free" | "paid"
-      user_role: "member" | "creator"
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
+      member_role: ["admin", "member"],
+      pricing_type: ["free", "paid"],
+      space_visibility: ["public", "private"],
+      user_role: ["member", "creator"],
+    },
+  },
 }
 
 type DefaultSchema = Database[Extract<keyof Database, "public">]
@@ -647,21 +853,6 @@ export type Enums<
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
 export const Constants = {
   public: {
     Enums: {
@@ -669,4 +860,4 @@ export const Constants = {
       user_role: ["member", "creator"],
     },
   },
-} as const
+}

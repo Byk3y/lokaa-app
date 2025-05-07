@@ -1,0 +1,34 @@
+# Debug URLs for Testing Profile Routes
+
+## Profile URLs Based on Database Records
+- http://localhost:8080/@francispark
+- http://localhost:8080/@francischukwuma706
+- http://localhost:8080/@francis-swift
+- http://localhost:8080/@anxietycores
+- http://localhost:8080/@nodesfarm
+- http://localhost:8080/@shinettw.com
+- http://localhost:8080/@insaneprompts
+- http://localhost:8080/@magicprompts
+- http://localhost:8080/@profit-walls
+- http://localhost:8080/@support
+
+## Test Cases for Root Cause Analysis
+1. Test direct URL entry in browser
+   - Paste each URL directly into the browser address bar
+
+2. Test clicking profile from user menu
+   - Login to your account
+   - Click your profile picture
+   - Click "Profile" in the dropdown
+
+3. Debugging Steps
+   - Open browser dev tools (F12)
+   - Go to Console
+   - Clear the console (press the clear button)
+   - Try navigation to profile
+   - Look for our debug logs (🔍 emoji prefixed logs)
+
+## User IDs for Reference
+- francispark: 78b13bce-3676-4113-a218-624c1e021c40
+- francischukwuma706: 8ee3afb9-6b99-4cb3-a288-e94527da1523
+- francis-swift: 1fca49da-3a53-4a0f-aeb3-63b567f35f84 

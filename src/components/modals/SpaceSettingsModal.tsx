@@ -8,13 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion } from "framer-motion";
-import { Loader2, Upload, Star, Users, Link, Layers, Shield, UserPlus, Settings, Globe, Lock, X } from "lucide-react";
+import { Loader2, Upload, Star, Users, Link, Layers, Shield, UserPlus, Settings, Globe, Lock, X, Info } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import useSpaceSettingsModal from '@/hooks/useSpaceSettingsModal';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from 'uuid';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Constants for storage
 const STORAGE_BUCKET_NAME = 'media';
@@ -117,6 +118,8 @@ export default function SpaceSettingsModal() {
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [useLocalStorage, setUseLocalStorage] = useState(false);
+  const [editingSubdomain, setEditingSubdomain] = useState(false);
+  const [subdomainValue, setSubdomainValue] = useState("");
   
   // Fetch space settings when the modal opens and spaceId changes
   useEffect(() => {
@@ -401,31 +404,31 @@ export default function SpaceSettingsModal() {
   };
   
   if (loading) {
-        return (
+    return (
       <Dialog open={isOpen} onOpenChange={close}>
-        <DialogContent className="sm:max-w-[800px]">
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh]">
           <div className="flex items-center justify-center p-10">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         </DialogContent>
       </Dialog>
     );
-    }
+  }
   
   return (
     <Dialog open={isOpen} onOpenChange={close}>
-      <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden max-h-[90vh]">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-xl font-semibold">Space settings</DialogTitle>
         </DialogHeader>
         
-        <div className="flex">
+        <div className="flex h-[600px]"> {/* Fixed height container for consistent sizing */}
           {/* Left sidebar with tabs */}
-          <div className="w-56 border-r">
+          <div className="w-56 border-r shrink-0">
             <div className="px-2 py-4">
               <div className="space-y-1">
                 <button 
-                  className={`w-full text-left px-3 py-2 rounded-md ${activeTab === "general" ? "bg-amber-50 text-amber-900" : "hover:bg-gray-100"}`}
+                  className={`w-full text-left px-3 py-2 rounded-md transition-colors ${activeTab === "general" ? "bg-amber-50 text-amber-900 font-medium" : "hover:bg-gray-100"}`}
                   onClick={() => setActiveTab("general")}
                 >
                   <div className="flex items-center">
@@ -434,7 +437,7 @@ export default function SpaceSettingsModal() {
                   </div>
                 </button>
                 <button 
-                  className={`w-full text-left px-3 py-2 rounded-md ${activeTab === "subscriptions" ? "bg-amber-50 text-amber-900" : "hover:bg-gray-100"}`}
+                  className={`w-full text-left px-3 py-2 rounded-md transition-colors ${activeTab === "subscriptions" ? "bg-amber-50 text-amber-900 font-medium" : "hover:bg-gray-100"}`}
                   onClick={() => setActiveTab("subscriptions")}
                 >
                   <div className="flex items-center">
@@ -443,7 +446,7 @@ export default function SpaceSettingsModal() {
                   </div>
                 </button>
                 <button 
-                  className={`w-full text-left px-3 py-2 rounded-md ${activeTab === "invite" ? "bg-amber-50 text-amber-900" : "hover:bg-gray-100"}`}
+                  className={`w-full text-left px-3 py-2 rounded-md transition-colors ${activeTab === "invite" ? "bg-amber-50 text-amber-900 font-medium" : "hover:bg-gray-100"}`}
                   onClick={() => setActiveTab("invite")}
                 >
                   <div className="flex items-center">
@@ -452,234 +455,435 @@ export default function SpaceSettingsModal() {
                   </div>
                 </button>
               </div>
-    </div>
+            </div>
           </div>
           
-          {/* Right content area */}
-          <div className="flex-1 p-6 overflow-y-auto max-h-[80vh]">
-            {activeTab === "general" && (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-2 gap-8 mb-8">
-                  {/* Icon upload */}
-                  <div>
-                    <Label className="block text-sm mb-1">Icon</Label>
-          <div>
-                      <div 
-                        className="aspect-square w-24 h-24 bg-gray-100 rounded-md border flex items-center justify-center relative overflow-hidden mb-1 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => document.getElementById('icon-upload-input')?.click()}
-                      >
-                        {formData.icon_image ? (
-                          <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.4, ease: "easeOut" }}
-                            className="absolute inset-0 w-full h-full bg-cover bg-center"
-                            style={{ backgroundImage: `url(${resolveImageUrl(formData.icon_image)})` }}
-                          />
-                        ) : (
-                          <div className="text-gray-400 text-center">
-                            <Upload className="h-5 w-5 mx-auto mb-1" />
-                            <span className="text-xs">Upload</span>
-                          </div>
-                        )}
-                        
-                        {uploadingIcon && (
-                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                            <Loader2 className="h-6 w-6 text-white animate-spin" />
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">Recommended: 128×128</p>
-                      <div className="relative">
-                        <Button 
-                          type="button" 
-                          className="mt-2 px-6 py-1.5 border rounded-md text-sm bg-white hover:bg-gray-50"
-                          onClick={() => document.getElementById('icon-upload-input')?.click()}
-                          disabled={uploadingIcon}
-                        >
-                          {uploadingIcon ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                              UPLOADING...
-                            </>
-                          ) : 'CHANGE'}
-                        </Button>
-                        <Input 
-                          id="icon-upload-input" 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={e => handleImageUpload(e, 'icon')}
-                          disabled={uploadingIcon}
-                        />
-                      </div>
-          </div>
-        </div>
-                  
-                  {/* Cover upload */}
-                  <div>
-                    <Label className="block text-sm mb-1">Cover</Label>
+          {/* Right content area - Consistent height content with scrollable interior */}
+          <div className="flex-1 overflow-hidden">
+            <div className="h-full overflow-y-auto p-6">
+              {/* GENERAL TAB */}
+              {activeTab === "general" && (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-2 gap-8 mb-8">
+                    {/* Icon upload */}
                     <div>
-                      <div 
-                        className="aspect-video w-full bg-gray-100 rounded-md border flex items-center justify-center relative overflow-hidden mb-1 cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => document.getElementById('cover-upload-input')?.click()}
-                      >
-                        {formData.cover_image ? (
-                          <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.4, ease: "easeOut" }}
-                            className="absolute inset-0 w-full h-full bg-cover bg-center"
-                            style={{ backgroundImage: `url(${resolveImageUrl(formData.cover_image)})` }}
-                          />
-                        ) : (
-                          <div className="text-gray-400 text-center">
-                            <Upload className="h-5 w-5 mx-auto mb-1" />
-                            <span className="text-xs">Upload</span>
-                          </div>
-                        )}
-                        
-                        {uploadingCover && (
-                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                            <Loader2 className="h-6 w-6 text-white animate-spin" />
-                          </div>
-                        )}
+                      <div className="flex items-center mb-1">
+                        <Label className="block text-sm font-medium">Icon</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 ml-1 text-gray-400 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              <p className="w-[200px] text-xs">Your space icon appears in navigation and listings. Square format recommended.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
-                      <p className="text-xs text-gray-500">Recommended: 1084×576</p>
-                      <div className="relative">
+                      <div>
+                        <div 
+                          className="aspect-square w-24 h-24 bg-gray-100 rounded-md border flex items-center justify-center relative overflow-hidden mb-1 cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
+                          onClick={() => document.getElementById('icon-upload-input')?.click()}
+                        >
+                          {formData.icon_image ? (
+                            <motion.div 
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.4, ease: "easeOut" }}
+                              className="absolute inset-0 w-full h-full bg-cover bg-center"
+                              style={{ backgroundImage: `url(${resolveImageUrl(formData.icon_image)})` }}
+                            />
+                          ) : (
+                            <div className="text-gray-400 text-center">
+                              <Upload className="h-5 w-5 mx-auto mb-1" />
+                              <span className="text-xs">Upload</span>
+                            </div>
+                          )}
+                          
+                          {uploadingIcon && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                              <Loader2 className="h-6 w-6 text-white animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">Recommended: 128×128</p>
+                        <div className="relative mt-2 flex space-x-2">
+                          <Button 
+                            type="button" 
+                            className="px-3 py-1.5 h-8 border rounded-md text-xs bg-white hover:bg-gray-50 shadow-sm"
+                            onClick={() => document.getElementById('icon-upload-input')?.click()}
+                            disabled={uploadingIcon}
+                          >
+                            {uploadingIcon ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                UPLOADING...
+                              </>
+                            ) : 'CHANGE'}
+                          </Button>
+                          
+                          {formData.icon_image && (
+                            <Button 
+                              type="button" 
+                              variant="outline"
+                              className="px-3 py-1.5 h-8 border rounded-md text-xs bg-white hover:bg-gray-50"
+                              onClick={() => setFormData(prev => ({ ...prev, icon_image: null }))}
+                            >
+                              RESET
+                            </Button>
+                          )}
+                          
+                          <Input 
+                            id="icon-upload-input" 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={e => handleImageUpload(e, 'icon')}
+                            disabled={uploadingIcon}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Cover upload */}
+                    <div>
+                      <div className="flex items-center mb-1">
+                        <Label className="block text-sm font-medium">Cover</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 ml-1 text-gray-400 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              <p className="w-[200px] text-xs">Cover image appears at the top of your space. Widescreen format recommended.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <div>
+                        <div 
+                          className="aspect-video w-full bg-gray-100 rounded-md border flex items-center justify-center relative overflow-hidden mb-1 cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
+                          onClick={() => document.getElementById('cover-upload-input')?.click()}
+                        >
+                          {formData.cover_image ? (
+                            <motion.div 
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.4, ease: "easeOut" }}
+                              className="absolute inset-0 w-full h-full bg-cover bg-center"
+                              style={{ backgroundImage: `url(${resolveImageUrl(formData.cover_image)})` }}
+                            />
+                          ) : (
+                            <div className="text-gray-400 text-center">
+                              <Upload className="h-5 w-5 mx-auto mb-1" />
+                              <span className="text-xs">Upload</span>
+                            </div>
+                          )}
+                          
+                          {uploadingCover && (
+                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                              <Loader2 className="h-6 w-6 text-white animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">Recommended: 1084×576</p>
+                        <div className="relative mt-2 flex space-x-2">
+                          <Button 
+                            type="button" 
+                            className="px-3 py-1.5 h-8 border rounded-md text-xs bg-white hover:bg-gray-50 shadow-sm"
+                            onClick={() => document.getElementById('cover-upload-input')?.click()}
+                            disabled={uploadingCover}
+                          >
+                            {uploadingCover ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                UPLOADING...
+                              </>
+                            ) : 'CHANGE'}
+                          </Button>
+                          
+                          {formData.cover_image && (
+                            <Button 
+                              type="button" 
+                              variant="outline"
+                              className="px-3 py-1.5 h-8 border rounded-md text-xs bg-white hover:bg-gray-50"
+                              onClick={() => setFormData(prev => ({ ...prev, cover_image: null }))}
+                            >
+                              RESET
+                            </Button>
+                          )}
+                          
+                          <Input 
+                            id="cover-upload-input" 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={e => handleImageUpload(e, 'cover')}
+                            disabled={uploadingCover}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Space name */}
+                  <div className="mb-6">
+                    <Label htmlFor="name" className="block text-sm font-medium mb-1">Space name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name || ''}
+                      onChange={handleInputChange}
+                      className="w-full max-w-md"
+                      maxLength={30}
+                    />
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-xs text-gray-500">This appears in navigation and listings</span>
+                      <span className="text-xs text-gray-500">{formData.name?.length || 0}/30</span>
+                    </div>
+                  </div>
+
+                  {/* URL */}
+                  <div className="mb-6">
+                    <Label className="block text-sm font-medium mb-1">URL</Label>
+                    {editingSubdomain ? (
+                      <div className="flex max-w-md">
+                        <div className="flex items-center px-3 bg-gray-100 border-y border-l rounded-l-md text-gray-500 text-sm">
+                          lokaa.com/
+                        </div>
+                        <Input
+                          value={subdomainValue}
+                          onChange={(e) => setSubdomainValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                          className="rounded-l-none focus-visible:ring-offset-0"
+                          placeholder="your-subdomain"
+                          maxLength={30}
+                        />
+                        <div className="flex ml-2">
+                          <Button 
+                            type="button" 
+                            size="sm"
+                            className="h-10 bg-amber-400 hover:bg-amber-500 text-black mr-1"
+                            onClick={() => {
+                              // TODO: Implement URL change logic
+                              setEditingSubdomain(false);
+                              toast({
+                                title: "URL updated",
+                                description: "Your space URL has been updated successfully."
+                              });
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            className="h-10"
+                            onClick={() => setEditingSubdomain(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center max-w-md">
+                        <div className="flex-1 flex items-center border rounded-md px-3 py-2 bg-gray-50 text-gray-700">
+                          <span className="text-gray-500">lokaa.com/</span>
+                          <span className="font-medium">{formData.subdomain || 'your-subdomain'}</span>
+                        </div>
                         <Button 
                           type="button" 
-                          className="mt-2 px-6 py-1.5 border rounded-md text-sm bg-white hover:bg-gray-50"
-                          onClick={() => document.getElementById('cover-upload-input')?.click()}
-                          disabled={uploadingCover}
+                          variant="link" 
+                          className="text-amber-600 hover:text-amber-700 px-2 py-0 h-auto"
+                          onClick={() => {
+                            setSubdomainValue(formData.subdomain || '');
+                            setEditingSubdomain(true);
+                          }}
                         >
-                          {uploadingCover ? (
-                            <>
-                              <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                              UPLOADING...
-                            </>
-                          ) : 'CHANGE'}
+                          CHANGE URL
                         </Button>
-                        <Input 
-                          id="cover-upload-input" 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={e => handleImageUpload(e, 'cover')}
-                          disabled={uploadingCover}
+                      </div>
+                    )}
+                    <div className="mt-1">
+                      <p className="text-xs text-gray-500">Changing your URL will break existing links to your space</p>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="mb-6">
+                    <Label htmlFor="description" className="block text-sm font-medium mb-1">Description</Label>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      value={formData.description ?? ""}
+                      onChange={handleInputChange}
+                      placeholder="Add a short description of your space"
+                      className="w-full resize-none"
+                      rows={4}
+                      maxLength={250}
+                    />
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-xs text-gray-500">This appears on your space page and in search results</span>
+                      <span className="text-xs text-gray-500">{(formData.description?.length || 0)}/250</span>
+                    </div>
+                  </div>
+
+                  {/* Privacy */}
+                  <div className="mb-6">
+                    <Label className="block text-sm font-medium mb-2">Privacy</Label>
+                    <RadioGroup 
+                      value={formData.is_private ? 'private' : 'public'}
+                      onValueChange={handlePrivacyChange}
+                      className="flex flex-col space-y-3"
+                    >
+                      <div className="flex items-center space-x-2 border rounded-md p-3 hover:bg-gray-50 transition-colors cursor-pointer">
+                        <RadioGroupItem value="public" id="public" />
+                        <Label htmlFor="public" className="flex items-center cursor-pointer">
+                          <Globe className="h-4 w-4 mr-2 text-green-600" />
+                          <div>
+                            <div className="font-medium">Public</div>
+                            <div className="text-xs text-gray-500">Anyone can see this space</div>
+                          </div>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2 border rounded-md p-3 hover:bg-gray-50 transition-colors cursor-pointer">
+                        <RadioGroupItem value="private" id="private" />
+                        <Label htmlFor="private" className="flex items-center cursor-pointer">
+                          <Lock className="h-4 w-4 mr-2 text-blue-600" />
+                          <div>
+                            <div className="font-medium">Private</div>
+                            <div className="text-xs text-gray-500">Only members can see this space</div>
+                          </div>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Submit button */}
+                  <div className="flex justify-end pt-4 border-t">
+                    <Button
+                      type="submit"
+                      className="bg-amber-400 hover:bg-amber-500 text-black font-medium"
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          SAVING...
+                        </>
+                      ) : 'SAVE CHANGES'}
+                    </Button>
+                  </div>
+                </form>
+              )}
+              
+              {/* SUBSCRIPTIONS TAB */}
+              {activeTab === "subscriptions" && (
+                <div className="h-full flex flex-col">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold mb-4">Subscriptions</h3>
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-6">
+                      <p className="text-amber-800">Setup subscriptions settings for your space (coming soon)</p>
+                      <p className="text-sm text-amber-700 mt-2">You'll be able to set up paid memberships, offer trials, and manage subscribers.</p>
+                    </div>
+
+                    {/* Placeholder content to maintain the same height as General tab */}
+                    <div className="space-y-6 opacity-50 pointer-events-none">
+                      <div className="mb-6">
+                        <Label className="block text-sm font-medium mb-1">Pricing</Label>
+                        <div className="flex items-center space-x-2">
+                          <Switch id="pricing-type" />
+                          <Label htmlFor="pricing-type">Enable paid subscriptions</Label>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-6">
+                        <Label className="block text-sm font-medium mb-1">Monthly Price ($)</Label>
+                        <Input
+                          type="number"
+                          className="w-full max-w-md"
+                          placeholder="9.99"
+                          disabled
+                        />
+                      </div>
+                      
+                      <div className="mb-6">
+                        <Label className="block text-sm font-medium mb-1">Free Trial Period (days)</Label>
+                        <Input
+                          type="number"
+                          className="w-full max-w-md"
+                          placeholder="7"
+                          disabled
                         />
                       </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Space name */}
-                <div className="mb-6">
-                  <Label htmlFor="name" className="block text-sm mb-1">Space name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formData.name || ''}
-                    onChange={handleInputChange}
-                    className="w-full max-w-md"
-                    maxLength={30}
-                  />
-                  <div className="text-right text-xs text-gray-500 mt-1">{formData.name?.length || 0}/30</div>
-                </div>
-
-                {/* URL */}
-                <div className="mb-6">
-                  <Label className="block text-sm mb-1">URL</Label>
-                  <div className="flex items-center border rounded-md px-3 py-2 bg-gray-50 text-gray-700 max-w-md">
-                    <span>lokaa.com/</span>
-                    <span className="font-medium">{formData.subdomain || 'your-subdomain'}</span>
-                  </div>
-                  <div className="text-right text-xs text-gray-500 mt-1">
-                    <button type="button" className="text-amber-600 hover:underline">
-                      CHANGE URL
-                </button>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div className="mb-6">
-                  <Label htmlFor="description" className="block text-sm mb-1">Description</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    value={formData.description ?? ""}
-                    onChange={handleInputChange}
-                    placeholder="Add a short description of your space"
-                    className="w-full resize-none"
-                    rows={4}
-                    maxLength={250}
-                  />
-                  <div className="text-right text-xs text-gray-500 mt-1">{(formData.description?.length || 0)}/250</div>
-                </div>
-
-                {/* Privacy */}
-                <div className="mb-6">
-                  <Label className="block text-sm mb-2">Privacy</Label>
-                  <RadioGroup 
-                    value={formData.is_private ? 'private' : 'public'}
-                    onValueChange={handlePrivacyChange}
-                    className="flex flex-col space-y-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="public" id="public" />
-                      <Label htmlFor="public" className="flex items-center cursor-pointer">
-                        <Globe className="h-4 w-4 mr-2" />
-                        <div>
-                          <div className="font-medium">Public</div>
-                          <div className="text-xs text-gray-500">Anyone can see this space.</div>
-                        </div>
-                      </Label>
+              )}
+              
+              {/* INVITE TAB */}
+              {activeTab === "invite" && (
+                <div className="h-full flex flex-col">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold mb-4">Invite members</h3>
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-6">
+                      <p className="text-amber-800">Invite by email feature coming soon</p>
+                      <p className="text-sm text-amber-700 mt-2">You'll be able to invite members via email and manage pending invitations.</p>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="private" id="private" />
-                      <Label htmlFor="private" className="flex items-center cursor-pointer">
-                        <Lock className="h-4 w-4 mr-2" />
-                        <div>
-                          <div className="font-medium">Private</div>
-                          <div className="text-xs text-gray-500">Only members can see this space.</div>
-                        </div>
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
 
-                {/* Submit button */}
-                <div className="flex justify-end pt-4 border-t">
-            <Button
-              type="submit"
-                    className="bg-amber-400 hover:bg-amber-500 text-black font-medium" 
-              disabled={saving}
-            >
-                    {saving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        SAVING...
-                      </>
-                    ) : 'SAVE CHANGES'}
-            </Button>
-          </div>
-        </form>
-            )}
-            
-            {activeTab === "subscriptions" && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Subscriptions</h3>
-                <p className="text-gray-500">Setup subscriptions settings for your space (coming soon)</p>
-      </div>
-            )}
-            
-            {activeTab === "invite" && (
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Invite members</h3>
-                <p className="text-gray-500">Invite new members to your space (coming soon)</p>
-    </div>
+                    {/* Placeholder content to maintain the same height as General tab */}
+                    <div className="space-y-6 opacity-50 pointer-events-none">
+                      <div className="mb-6">
+                        <Label className="block text-sm font-medium mb-1">Invite via Email</Label>
+                        <div className="flex max-w-md">
+                          <Input
+                            type="email"
+                            className="rounded-r-none"
+                            placeholder="user@example.com"
+                            disabled
+                          />
+                          <Button 
+                            type="button"
+                            className="rounded-l-none"
+                            disabled
+                          >
+                            Send Invite
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-6">
+                        <Label className="block text-sm font-medium mb-1">Invite Link</Label>
+                        <div className="flex max-w-md">
+                          <Input
+                            type="text"
+                            className="rounded-r-none bg-gray-50"
+                            value="https://lokaa.com/invite/abcdef123456"
+                            readOnly
+                            disabled
+                          />
+                          <Button 
+                            type="button"
+                            className="rounded-l-none"
+                            disabled
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-6">
+                        <Label className="block text-sm font-medium mb-1">Pending Invites</Label>
+                        <div className="border rounded-md p-4 text-center text-gray-500">
+                          No pending invites
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

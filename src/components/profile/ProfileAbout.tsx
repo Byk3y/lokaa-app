@@ -1,4 +1,3 @@
-
 import { Trophy, MapPin } from "lucide-react";
 
 interface ProfileAboutProps {
@@ -6,16 +5,21 @@ interface ProfileAboutProps {
 }
 
 export default function ProfileAbout({ profileData }: ProfileAboutProps) {
+  // Provide defaults for missing fields
+  const activityScore = profileData.activity_score || 0;
+  const userLevel = Math.floor(activityScore / 100) + 1;
+  const pointsToNextLevel = 100 - (activityScore % 100);
+  
   return (
     <div className="mt-6">
       {/* Level and points info */}
       <div className="mb-6 flex items-center">
         <div className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full flex items-center">
           <Trophy className="h-4 w-4 mr-1" /> 
-          <span className="font-medium">Level {Math.floor((profileData.activity_score || 0) / 100) + 1}</span>
+          <span className="font-medium">Level {userLevel}</span>
         </div>
         <div className="ml-4 text-sm text-gray-500">
-          <span>{profileData.activity_score || 0} points</span> • <span>{100 - ((profileData.activity_score || 0) % 100)} to level up</span>
+          <span>{activityScore} points</span> • <span>{pointsToNextLevel} to level up</span>
         </div>
       </div>
 
