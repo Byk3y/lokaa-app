@@ -83,10 +83,8 @@ export default function LandingPage() {
       e.stopPropagation();
       
       // Call the global function we exposed from Discover.tsx
-      // @ts-ignore - showDirectLoginModal exists on window
       if (typeof window.showDirectLoginModal === 'function') {
         console.log("LandingPage: calling showDirectLoginModal");
-        // @ts-ignore
         window.showDirectLoginModal(e);
       } else {
         console.error("LandingPage: showDirectLoginModal function not found on window");

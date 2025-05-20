@@ -6,7 +6,8 @@ import {
   CreditCard, BarChart2, RefreshCw, Smartphone, ChevronDown
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { Space } from "../../types/space";
+import { fetchUserSpaces } from "../../utils/spaceUtils";
 
 import MobileMenuToggle from "./MobileMenuToggle";
 import SidebarHeader from "./SidebarHeader";
@@ -14,27 +15,6 @@ import SidebarLink from "./SidebarLink";
 import SidebarFooter from "./SidebarFooter";
 import MainSidebarNav from "./MainSidebarNav";
 import { userHasSpaces, getUserSpaceCounts } from "@/utils/userSpaceUtils";
-
-// Define the Space interface if not imported from elsewhere
-interface Space {
-  id: string;
-  name: string;
-  description: string;
-  cover_image: string;
-  owner_id: string;
-  primary_color: string;
-  subdomain: string;
-  member_count: number;
-  pricing_type: 'free' | 'paid';
-  price_per_month: number | null;
-  created_at: string;
-  updated_at: string;
-  members?: number;
-  posts?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  tags?: string[];
-}
 
 export default function DashboardSidebar() {
   const location = useLocation();
@@ -73,7 +53,7 @@ export default function DashboardSidebar() {
           const countsResult = await getUserSpaceCounts(user.id);
           setSpaceCounts(countsResult);
           
-          // Fetch actual spaces
+          // Fetch actual spaces using the imported function
           const spaces = await fetchUserSpaces(user.id);
           setUserSpaces(spaces);
         } catch (error) {
@@ -238,72 +218,3 @@ export default function DashboardSidebar() {
     </>
   );
 }
-
-// Exported utility functions for checking user spaces
-export const fetchUserSpaces = async (userId: string): Promise<Space[]> => {
-  try {
-    // First try to fetch spaces owned by the user
-    const { data: ownedSpaces, error: ownedError } = await supabase
-      .from('spaces')
-      .select('*')
-      .eq('owner_id', userId)
-      .limit(1);
-    
-    // If no owned spaces, check for spaces the user has access to
-    const { data: accessRecords, error: accessError } = await supabase
-      .from('space_access')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .limit(1);
-      
-    // If there are access records, fetch those spaces
-    let accessedSpaces: any[] = [];
-    if (accessRecords && accessRecords.length > 0) {
-      const spaceIds = accessRecords.map(access => access.space_id);
-      
-      const { data: spacesData, error: spacesError } = await supabase
-        .from('spaces')
-        .select('*')
-        .in('id', spaceIds);
-        
-      accessedSpaces = spacesData || [];
-    }
-    
-    // Combine and deduplicate spaces
-    const allSpaces = [
-      ...(ownedSpaces || []),
-      ...accessedSpaces.filter(js => 
-        !ownedSpaces?.some(os => os.id === js.id)
-      )
-    ];
-    
-    return allSpaces;
-  } catch (error) {
-    return [];
-  }
-};
-
-const ProtectedSpaceRoute = ({ children }) => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    if (user) {
-      userHasSpaces(user.id).then(hasSpaces => {
-        if (!hasSpaces) {
-          navigate('/discover');
-        }
-        setLoading(false);
-      });
-    }
-  }, [user, navigate]);
-  
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
-    </div>
-  );
-  return children;
-};

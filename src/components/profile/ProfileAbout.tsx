@@ -1,7 +1,8 @@
 import { Trophy, MapPin } from "lucide-react";
+import { Database } from "@/types/supabase";
 
 interface ProfileAboutProps {
-  profileData: any;
+  profileData: Database['public']['Tables']['users']['Row'];
 }
 
 export default function ProfileAbout({ profileData }: ProfileAboutProps) {

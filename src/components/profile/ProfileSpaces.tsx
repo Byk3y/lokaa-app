@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SpaceCard } from "@/components/spaces/SpaceCard";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import { Database } from "@/types/supabase";
 
 interface ProfileSpacesProps {
   userId: string;
@@ -11,8 +12,8 @@ interface ProfileSpacesProps {
 }
 
 export default function ProfileSpaces({ userId, isCreator }: ProfileSpacesProps) {
-  const [createdSpaces, setCreatedSpaces] = useState<any[]>([]);
-  const [joinedSpaces, setJoinedSpaces] = useState<any[]>([]);
+  const [createdSpaces, setCreatedSpaces] = useState<Database['public']['Tables']['spaces']['Row'][]>([]);
+  const [joinedSpaces, setJoinedSpaces] = useState<Database['public']['Tables']['spaces']['Row'][]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,8 +90,8 @@ export default function ProfileSpaces({ userId, isCreator }: ProfileSpacesProps)
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {createdSpaces.map((space) => (
               <div key={space.id} className="relative">
-                <SpaceCard {...space} linkType="space" />
-                <Link to={space.subdomain ? `/${space.subdomain}` : `/spaces/${space.id}`} className="absolute inset-0" aria-label={`Visit ${space.name}`}></Link>
+                <SpaceCard space={space} />
+                <Link to={space.subdomain ? `/space/${space.subdomain}` : `/space/${space.id}`} className="absolute inset-0" aria-label={`Visit ${space.name}`}></Link>
               </div>
             ))}
           </div>
@@ -103,8 +104,8 @@ export default function ProfileSpaces({ userId, isCreator }: ProfileSpacesProps)
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {joinedSpaces.map((space) => (
               <div key={space.id} className="relative">
-                <SpaceCard {...space} linkType="space" />
-                <Link to={space.subdomain ? `/${space.subdomain}` : `/spaces/${space.id}`} className="absolute inset-0" aria-label={`Visit ${space.name}`}></Link>
+                <SpaceCard space={space} />
+                <Link to={space.subdomain ? `/space/${space.subdomain}` : `/space/${space.id}`} className="absolute inset-0" aria-label={`Visit ${space.name}`}></Link>
               </div>
             ))}
           </div>

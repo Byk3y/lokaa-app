@@ -1,13 +1,34 @@
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function RouterTest() {
   const location = useLocation();
   const params = useParams();
+  const navigate = useNavigate();
+  const { user, loading, userDetails } = useAuth();
   const renderCount = useRef(0);
   const prevPathname = useRef(location.pathname);
   
+  const routeInfo = {
+    pathname: location.pathname,
+    hash: location.hash,
+    search: location.search,
+    isProfileRoute: location.pathname.startsWith('/profile/'),
+    profileSlug: location.pathname.startsWith('/profile/') ? location.pathname.substring('/profile/'.length) : null,
+    subdomain: location.pathname.split('/')[1]?.startsWith('@') 
+      ? location.pathname.split('/')[1]
+      : null
+  };
+  
   useEffect(() => {
+    console.log("[RouterTest] Location changed:", location.pathname);
+    const isProfileRoute = location.pathname.startsWith('/profile/');
+    console.log("[RouterTest] Is profile route?", isProfileRoute);
+    if (isProfileRoute) {
+      const slug = location.pathname.substring('/profile/'.length);
+      console.log("[RouterTest] Profile slug:", slug);
+    }
     // Only log if the pathname actually changed
     if (prevPathname.current !== location.pathname) {
       renderCount.current += 1;
@@ -26,7 +47,7 @@ export function RouterTest() {
         renderCount: renderCount.current
       });
     }
-  }, [location.pathname, params]);
+  }, [location.pathname, params, location.search, location.hash, location.state, location.key]);
   
   // Only show in development
   if (process.env.NODE_ENV !== 'development') {

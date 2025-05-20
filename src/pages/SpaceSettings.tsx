@@ -64,7 +64,7 @@ export default function SpaceSettings() {
         // Use type assertion to work around TypeScript issues
         const { data, error } = await supabase
           .from('spaces')
-          .select('*')  // Select all fields to avoid specific column errors
+          .select('id, name, description, cover_image, primary_color, subdomain, owner_id, is_private') // Select specific columns
           .eq('subdomain', subdomain)
           .single();
           
@@ -79,7 +79,7 @@ export default function SpaceSettings() {
         }
         
         // Type assertion to safely handle the data
-        const spaceData = data as any;
+        const spaceData = data as SpaceSettingsData; // Use defined interface
         
         if (!spaceData || spaceData.owner_id !== user.id) {
           toast({ title: "Unauthorized", description: "You don't have permission to edit these settings.", variant: "destructive" });
@@ -106,9 +106,10 @@ export default function SpaceSettings() {
           cover_image: spaceData.cover_image,
           is_private: spaceData.is_private ?? false
         });
-      } catch (error: any) {
+      } catch (error: unknown) { // Typed error
         console.error("Error fetching space settings:", error);
-        toast({ title: "Error", description: `Failed to load settings: ${error.message || 'Unknown error'}`, variant: "destructive" });
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        toast({ title: "Error", description: `Failed to load settings: ${message}`, variant: "destructive" });
         navigate(`/space/${subdomain}`);
       } finally {
         setLoading(false);
@@ -154,11 +155,12 @@ export default function SpaceSettings() {
 
       toast({ title: "Success", description: "Settings updated successfully." });
       // Stay on the page after successful save
-    } catch (error: any) {
+    } catch (error: unknown) { // Typed error
       console.error("Error updating settings:", error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
       toast({
         title: "Error",
-        description: `Failed to update settings: ${error.message || 'Unknown error'}`,
+        description: `Failed to update settings: ${message}`,
         variant: "destructive"
       });
     } finally {
@@ -390,5 +392,6 @@ export default function SpaceSettings() {
         </div>
       </div>
     </div>
+    // Minor comment to try and refresh parser state
   );
 }

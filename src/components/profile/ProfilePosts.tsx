@@ -1,17 +1,17 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 import { MessageSquare, ThumbsUp } from "lucide-react";
+import { Database } from "@/types/supabase";
 
 interface ProfilePostsProps {
   userId: string;
 }
 
 export default function ProfilePosts({ userId }: ProfilePostsProps) {
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<Database['public']['Tables']['posts']['Row'][]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

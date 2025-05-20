@@ -4,13 +4,14 @@ import { SpaceCard } from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 import { Button } from "@/components/ui/button";
+import { Space } from "../../types/space";
 
 interface CategorySpacesProps {
   categorySpaces: {
-    music: any[];
-    tech: any[];
-    gaming: any[];
-    education: any[];
+    music: Space[];
+    tech: Space[];
+    gaming: Space[];
+    education: Space[];
   };
   loading: boolean;
   onJoinSpace: (spaceId: string) => void;
@@ -26,6 +27,8 @@ interface CategorySpacesProps {
  * - External sharing: Uses direct page navigation for shareable links
  */
 export default function CategorySpaces({ categorySpaces, loading, onJoinSpace }: CategorySpacesProps) {
+  const categoryKeys = Object.keys(categorySpaces) as Array<keyof typeof categorySpaces>;
+
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Browse by Category</h2>
@@ -45,13 +48,13 @@ export default function CategorySpaces({ categorySpaces, loading, onJoinSpace }:
           </TabsTrigger>
         </TabsList>
         
-        {Object.keys(categorySpaces).map((category) => (
-          <TabsContent key={category} value={category}>
+        {categoryKeys.map((categoryKey) => (
+          <TabsContent key={categoryKey} value={categoryKey}>
             {loading ? (
               <LoadingSpinner />
-            ) : categorySpaces[category].length > 0 ? (
+            ) : categorySpaces[categoryKey].length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {categorySpaces[category].map((space) => (
+                {categorySpaces[categoryKey].map((space) => (
                   <div key={space.id} className="relative">
                     <SpaceCard space={space} openInModal={true} />
                     
@@ -66,8 +69,8 @@ export default function CategorySpaces({ categorySpaces, loading, onJoinSpace }:
               </div>
             ) : (
               <EmptyState
-                title={`No ${category} spaces available`}
-                description={`Check back later for ${category} spaces`}
+                title={`No ${categoryKey} spaces available`}
+                description={`Check back later for ${categoryKey} spaces`}
                 actionText="Explore Other Categories"
                 actionLink="#trending-spaces"
                 icon={<TrendingUp className="h-8 w-8 text-lokaa-600" />}

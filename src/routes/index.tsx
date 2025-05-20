@@ -13,6 +13,7 @@ import CreateYourSpace from '../pages/CreateYourSpace';
 import Dashboard from '../pages/Dashboard';
 import Discover from '../pages/Discover';
 import NotFound from '../pages/NotFound'; // Import NotFound component for error handling
+import ProfileRouteHandler from '../components/profile/ProfileRouteHandler';
 
 function AppRoutes() {
   const { user } = useAuth();
@@ -77,9 +78,11 @@ function AppRoutes() {
       {/* <Route path="/space/:spaceId/content/:contentId" element={user ? <SpaceContent /> : <Navigate to="/login" replace />} /> */}
       
       {/* If no route matches, go to discover for logged-in users, home for others */}
+      {/* <Route path="/@:slug" element={<ProfileRouteHandler />} /> */}
+      <Route path="/profile/:slug" element={<ProfileRouteHandler />} />
       <Route path="*" element={user ? <Navigate to="/discover" replace /> : <Navigate to="/" replace />} />
     </Routes>
   );
 }
 
-export default AppRoutes; 
+export default AppRoutes;

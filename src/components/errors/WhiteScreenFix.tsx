@@ -10,21 +10,27 @@ interface WhiteScreenFixProps {
   message?: string;
 }
 
+interface DebugOperationResult {
+  success?: boolean;
+  error?: unknown; // Store the raw error, JSON.stringify will handle it
+  [key: string]: unknown; // Allow other properties from authDebug functions
+}
+
 const WhiteScreenFix: React.FC<WhiteScreenFixProps> = ({ 
   message = "It looks like you've encountered a white screen issue." 
 }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<Record<string, boolean>>({});
-  const [results, setResults] = useState<Record<string, any>>({});
+  const [results, setResults] = useState<Record<string, DebugOperationResult | null>>({}); // Typed state
 
   // Check session
   const checkSession = async () => {
     setLoading(prev => ({ ...prev, session: true }));
     try {
       const result = await authDebug.checkSession();
-      setResults(prev => ({ ...prev, session: result }));
+      setResults(prev => ({ ...prev, session: result as DebugOperationResult }));
     } catch (error) {
-      setResults(prev => ({ ...prev, session: { error } }));
+      setResults(prev => ({ ...prev, session: { error: error } })); // error is unknown
     } finally {
       setLoading(prev => ({ ...prev, session: false }));
     }
@@ -35,9 +41,9 @@ const WhiteScreenFix: React.FC<WhiteScreenFixProps> = ({
     setLoading(prev => ({ ...prev, storage: true }));
     try {
       const result = await authDebug.clearAuthStorage();
-      setResults(prev => ({ ...prev, storage: result }));
+      setResults(prev => ({ ...prev, storage: result as DebugOperationResult }));
     } catch (error) {
-      setResults(prev => ({ ...prev, storage: { error } }));
+      setResults(prev => ({ ...prev, storage: { error: error } }));
     }
     // Don't set loading to false - page will reload
   };
@@ -47,19 +53,24 @@ const WhiteScreenFix: React.FC<WhiteScreenFixProps> = ({
     setLoading(prev => ({ ...prev, signOut: true }));
     try {
       await authDebug.emergencySignOut();
-      // No need to update results - page will reload
+      // No need to update results - page will reload or should have a success message
+      // For consistency, let's assume emergencySignOut might return a success object
+      // or we can set a generic success if it resolves without error.
+      setResults(prev => ({ ...prev, signOut: { success: true, message: "Sign out process initiated." } }));
     } catch (error) {
       setLoading(prev => ({ ...prev, signOut: false }));
-      setResults(prev => ({ ...prev, signOut: { error } }));
+      setResults(prev => ({ ...prev, signOut: { error: error } }));
     }
   };
 
   // Create a result box component
-  const ResultBox = ({ title, data }: { title: string, data: any }) => {
+  const ResultBox = ({ title, data }: { title: string, data: DebugOperationResult | null }) => { // Typed data prop
     if (!data) return null;
     
-    const statusColor = data.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
-    const textColor = data.success ? 'text-green-800' : 'text-red-800';
+    // Accessing success safely, as it's optional
+    const isSuccess = data.success === true;
+    const statusColor = isSuccess ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+    const textColor = isSuccess ? 'text-green-800' : 'text-red-800';
     
     return (
       <div className={`mt-2 p-3 rounded border ${statusColor}`}>

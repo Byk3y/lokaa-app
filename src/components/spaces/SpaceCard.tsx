@@ -9,7 +9,7 @@ interface SpaceCardProps {
     name: string;
     description: string | null;
     about_description?: string | null;
-    cover_image: string | null;
+    cover_image?: string | null;
     member_count?: number;
     subdomain?: string;
     is_private?: boolean;

@@ -1,15 +1,16 @@
 import { Link } from "react-router-dom";
-import { TrendingUp } from "lucide-react";
-import SpaceCard from "@/components/spaces/SpaceCard";
+import { TrendingUp, Users } from "lucide-react";
+import { SpaceCard } from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import { Space } from "../../types/space";
 
-interface JoinedSpacesSectionProps {
-  spaces: any[];
+interface JoinedSpacesProps {
+  spaces: Space[];
   loading: boolean;
 }
 
-export default function JoinedSpacesSection({ spaces, loading }: JoinedSpacesSectionProps) {
+export default function JoinedSpacesSection({ spaces, loading }: JoinedSpacesProps) {
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-4">
@@ -24,7 +25,7 @@ export default function JoinedSpacesSection({ spaces, loading }: JoinedSpacesSec
       ) : spaces.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {spaces.map((space) => (
-            <SpaceCard key={space.id} {...space} linkType="space" />
+            <SpaceCard key={space.id} space={space} openInModal={false} />
           ))}
         </div>
       ) : (
@@ -33,7 +34,7 @@ export default function JoinedSpacesSection({ spaces, loading }: JoinedSpacesSec
           description="Join spaces to connect with like-minded people"
           actionText="Discover Spaces"
           actionLink="/discover"
-          icon={<TrendingUp className="h-8 w-8 text-lokaa-600" />}
+          icon={<Users className="h-8 w-8 text-lokaa-600" />}
         />
       )}
     </div>

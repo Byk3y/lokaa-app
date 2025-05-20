@@ -9,13 +9,14 @@ import { Separator } from "@/components/ui/separator";
 import useSpacesData from "@/hooks/useSpacesData";
 import { supabase } from "@/integrations/supabase/client";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import { SpaceData } from "@/contexts/SpaceContext";
 
 export function SpaceSidebar() {
   const { joinedSpaces, loading } = useSpacesData();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, userDetails } = useAuth();
-  const [ownedSpaces, setOwnedSpaces] = useState<any[]>([]);
+  const [ownedSpaces, setOwnedSpaces] = useState<SpaceData[]>([]);
   const [loadingOwned, setLoadingOwned] = useState(false);
 
   // Get the current space ID from the URL if available
@@ -97,7 +98,7 @@ export function SpaceSidebar() {
               <TooltipTrigger asChild>
                 <Button 
                   variant="ghost" 
-                  size="icon" 
+                  size="default"
                   className="rounded-full h-10 w-10 bg-gray-100 hover:bg-gray-200"
                   onClick={goToDiscoverPage}
                 >
@@ -118,7 +119,7 @@ export function SpaceSidebar() {
               <TooltipTrigger asChild>
                 <Button 
                   variant="ghost" 
-                  size="icon" 
+                  size="default"
                   className={`rounded-full h-10 w-10 ${
                     currentSpaceId === space.id 
                       ? 'ring-2 ring-lokaa-600' 
@@ -159,7 +160,7 @@ export function SpaceSidebar() {
                 <TooltipTrigger asChild>
                   <Button 
                     variant="ghost" 
-                    size="icon" 
+                    size="default"
                     className={`rounded-full h-10 w-10 ${
                       currentSpaceId === space.id 
                         ? 'ring-2 ring-lokaa-600' 
@@ -199,7 +200,7 @@ export function SpaceSidebar() {
               <TooltipTrigger asChild>
                 <Button 
                   variant="ghost" 
-                  size="icon" 
+                  size="default"
                   className="rounded-full h-10 w-10 bg-gray-100 hover:bg-gray-200 mb-2"
                   onClick={goToDiscoverPage}
                 >
@@ -218,7 +219,7 @@ export function SpaceSidebar() {
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
+                size="default"
                 className="rounded-full h-10 w-10 bg-gray-100 hover:bg-gray-200"
                 onClick={goToCreateSpace}
               >

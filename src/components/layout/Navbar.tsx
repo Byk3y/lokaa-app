@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 
@@ -9,6 +9,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, userDetails, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Don't show the navbar on dashboard routes if user is logged in
   const isDashboardRoute = location.pathname.startsWith('/dashboard') || 
@@ -136,11 +137,15 @@ export default function Navbar() {
                         Dashboard
                       </Link>
                       <Link
-                        to={`/@${userDetails?.profile_url || ''}`}
-                        className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
-                        onClick={() => setMobileMenuOpen(false)}
+                        to="/profile"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
+                        onClick={() => {
+                          navigate(`/profile/${userDetails?.profile_url || ''}`);
+                          setMobileMenuOpen(false);
+                        }}
                       >
-                        Profile
+                        <User className="mr-2 h-4 w-4" />
+                        <span>My Profile</span>
                       </Link>
                       {userDetails?.role === 'creator' && (
                         <Link

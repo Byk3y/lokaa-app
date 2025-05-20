@@ -18,6 +18,7 @@ export type SidebarContext = {
 
 const SidebarContext = React.createContext<SidebarContext | null>(null)
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSidebar() {
   const context = React.useContext(SidebarContext)
   if (!context) {

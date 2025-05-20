@@ -2,6 +2,15 @@
  * Error recovery utilities for database and space access issues
  */
 import { supabase } from '@/integrations/supabase/client';
+import { AuthError, PostgrestError } from '@supabase/supabase-js';
+
+// Define a more specific type for the diagnosis details, matching ErrorRecovery.tsx
+type DiagnosisDetails =
+  | PostgrestError
+  | AuthError
+  | { authenticated: false }
+  | { authenticated: true; userId?: string }
+  | { error: unknown }; // error is 'unknown' because it comes from a catch block
 
 /**
  * Diagnose and report database connectivity issues
@@ -9,7 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 export async function diagnoseDbConnection(): Promise<{
   success: boolean;
   message: string;
-  details?: any;
+  details?: DiagnosisDetails;
 }> {
   try {
     console.log('Diagnosing database connection...');
@@ -53,7 +62,7 @@ export async function diagnoseDbConnection(): Promise<{
       message: 'Database connection successful',
       details: { authenticated: true, userId: session.user?.id }
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Unexpected error during diagnosis:', error);
     return {
       success: false,
@@ -119,11 +128,25 @@ export function performEmergencyReset(): void {
   }
 }
 
+// Define the shape of the errorRecovery object
+interface ErrorRecoveryTools {
+  diagnoseDbConnection: typeof diagnoseDbConnection;
+  resetClientState: typeof resetClientState;
+  performEmergencyReset: typeof performEmergencyReset;
+}
+
+// Extend the global Window interface
+declare global {
+  interface Window {
+    errorRecovery?: ErrorRecoveryTools;
+  }
+}
+
 /**
  * Add the utility to the window for console debugging
  */
 if (typeof window !== 'undefined') {
-  (window as any).errorRecovery = {
+  window.errorRecovery = {
     diagnoseDbConnection,
     resetClientState,
     performEmergencyReset

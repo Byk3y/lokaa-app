@@ -1,29 +1,76 @@
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from "@/types/supabase";
+import { User as AuthUser } from "@/contexts/AuthContext";
+import { PostgrestError } from '@supabase/supabase-js';
+
+// Extend Window interface for debugging tools
+declare global {
+  interface Window {
+    fixSpacesAccess?: {
+      getSpaceBySubdomain: typeof getSpaceBySubdomain;
+      fixSpaceAccess: typeof fixSpaceAccess;
+      fixSpaceAccessBySubdomain: typeof fixSpaceAccessBySubdomain;
+      checkCurrentSpaceAccess: typeof checkCurrentSpaceAccess;
+      directSpaceAccessCheck: typeof directSpaceAccessCheck;
+      prepareSpaceNavigation: typeof prepareSpaceNavigation;
+    };
+  }
+}
+
+// Define aliases for DB row types
+type SpaceRow = Database['public']['Tables']['spaces']['Row'];
+type SpaceMemberRow = Database['public']['Tables']['space_members']['Row'];
 
 // Define types for our RPC function
 interface AdminGetSpaceResult {
   success: boolean;
-  space?: any;
+  space?: SpaceRow | null;
   error?: string;
+}
+
+interface CheckAccessResult {
+  space: SpaceRow | null;
+  isOwner: boolean;
+  hasAccess: boolean;
+  memberRecord: SpaceMemberRow | null;
+  membershipRole: string | null;
+  membershipStatus: string | null;
+  user: AuthUser | null;
 }
 
 /**
  * Get space ID by subdomain, attempting to bypass RLS
  * Falls back to direct query if RPC fails
  */
-export async function getSpaceBySubdomain(subdomain: string): Promise<any> {
+export async function getSpaceBySubdomain(subdomain: string): Promise<SpaceRow | null> {
   try {
     // Try to use the RPC function first
     try {
-      // Use any type to avoid TypeScript errors with dynamic RPC names
-      const { data, error } = await (supabase as any)
-        .rpc('admin_get_space_by_subdomain', { target_subdomain: subdomain });
+      const { 
+        data: rpcResponseData, 
+        error: rpcError       
+      } = await supabase.rpc(
+        'admin_get_space_by_subdomain',
+        { target_subdomain: subdomain }
+      ) as unknown as { data: AdminGetSpaceResult | null; error: PostgrestError | null }; // Strong cast
           
-      if (!error && data && data.success) {
-        return data.space;
+      if (rpcError) {
+        // This is an error in executing the RPC itself (network, db unavailable, etc.)
+        console.warn('RPC admin_get_space_by_subdomain execution failed:', rpcError.message);
+      } else if (rpcResponseData && rpcResponseData.success) {
+        // RPC executed, and indicates success, space is in rpcResponseData.space
+        return rpcResponseData.space as SpaceRow; // rpcResponseData.space is SpaceRow | null | undefined
+      } else if (rpcResponseData && rpcResponseData.error) {
+        // RPC executed, but returned a functional error message inside its payload
+        console.warn('RPC admin_get_space_by_subdomain indicated application failure:', rpcResponseData.error);
+      } else {
+        // RPC executed, but data is null or success is false with no specific error message
+        console.warn('RPC admin_get_space_by_subdomain returned no data or unexpected response.');
       }
-    } catch (rpcError) {
-      console.warn("RPC function not available:", rpcError);
+      // If any of the above RPC issues occur, fall through to direct query
+
+    } catch (errorInRpcAttempt) { // Catch errors from the await supabase.rpc call itself
+      console.warn("RPC function not available:", errorInRpcAttempt);
       // Continue to fallback
     }
     
@@ -33,7 +80,7 @@ export async function getSpaceBySubdomain(subdomain: string): Promise<any> {
       .from('spaces')
       .select('*')
       .eq('subdomain', subdomain)
-      .single();
+      .single<SpaceRow>();
       
     if (spaceError) {
       console.error("Error fetching space by subdomain:", spaceError);
@@ -96,163 +143,182 @@ export async function fixSpaceAccessBySubdomain(subdomain: string): Promise<bool
 /**
  * Checks current access state for a space
  */
-export async function checkCurrentSpaceAccess(subdomain: string): Promise<{
-  space: any | null;
-  isOwner: boolean;
-  hasAccess: boolean;
-  accessRecords: any[];
-  user: any | null;
-}> {
+export async function checkCurrentSpaceAccess(subdomain: string): Promise<CheckAccessResult> {
   try {
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { space: null, isOwner: false, hasAccess: false, accessRecords: [], user: null };
+    const { data: { user: authUserData }, error: userError } = await supabase.auth.getUser();
+    const currentUser = authUserData as AuthUser | null;
+
+    if (userError || !currentUser) {
+      return { space: null, isOwner: false, hasAccess: false, memberRecord: null, membershipRole: null, membershipStatus: null, user: null };
     }
     
-    // Get space using bypass function
     const space = await getSpaceBySubdomain(subdomain);
     if (!space) {
-      return { space: null, isOwner: false, hasAccess: false, accessRecords: [], user };
+      return { space: null, isOwner: false, hasAccess: false, memberRecord: null, membershipRole: null, membershipStatus: null, user: currentUser };
     }
     
-    // Check if user is owner
-    const isOwner = space.owner_id === user.id;
+    const isOwner = space.owner_id === currentUser.id;
     
-    // Check space_access records
-    const { data: accessRecords, error: accessError } = await supabase
-      .from('space_access')
-      .select('*')
+    // Check space_members records
+    let memberRecord = null;
+    let membershipRole = null;
+    let membershipStatus = null;
+    let hasActiveMemberRecord = false;
+
+    const { data: smData, error: smError } = await supabase
+      .from('space_members')
+      .select('id, role, status')
       .eq('space_id', space.id)
-      .eq('user_id', user.id);
+      .eq('user_id', currentUser.id)
+      .maybeSingle<SpaceMemberRow>();
       
-    if (accessError) {
-      console.error("Error fetching access records:", accessError);
-      return { space, isOwner, hasAccess: isOwner, accessRecords: [], user };
+    if (smError && smError.code !== 'PGRST116') {
+      console.error("Error fetching space_members record:", smError);
+      return { space, isOwner, hasAccess: isOwner, memberRecord: null, membershipRole: (isOwner ? 'owner' : null), membershipStatus: (isOwner ? 'active' : null), user: currentUser };
     }
     
-    // User has access if they're owner or have an active access record
-    const hasActiveAccessRecord = accessRecords?.some(record => record.is_active) || false;
-    const hasAccess = isOwner || hasActiveAccessRecord;
+    if (smData) {
+      memberRecord = smData;
+      membershipRole = smData.role;
+      membershipStatus = smData.status;
+      if (smData.status === 'active') {
+        hasActiveMemberRecord = true;
+      }
+    }
+    
+    const hasAccess = isOwner || hasActiveMemberRecord;
+
+    // If owner and no specific member record, infer role/status
+    if (isOwner && !membershipRole) {
+      membershipRole = 'admin'; // Or 'owner' for display
+      membershipStatus = 'active';
+    }
     
     return {
       space,
       isOwner,
       hasAccess,
-      accessRecords: accessRecords || [],
-      user
+      memberRecord,
+      membershipRole,
+      membershipStatus,
+      user: currentUser
     };
   } catch (error) {
     console.error("Error checking space access:", error);
-    return { space: null, isOwner: false, hasAccess: false, accessRecords: [], user: null };
+    return { space: null, isOwner: false, hasAccess: false, memberRecord: null, membershipRole: null, membershipStatus: null, user: null };
   }
+}
+
+interface ErrorDetails {
+  phase: string;
+  message: string;
+  originalError?: unknown;
+}
+
+interface DirectCheckResult {
+  success: boolean;
+  hasAccess?: boolean;
+  isOwner?: boolean;
+  space?: SpaceRow | null;
+  memberRecord?: SpaceMemberRow | null;
+  membershipRole?: string | null;
+  membershipStatus?: string | null;
+  errorDetails?: ErrorDetails;
 }
 
 /**
  * Direct client-side access check that doesn't require SQL functions
  * This is a more reliable way to check access when RLS policies might be causing issues
  */
-export async function directSpaceAccessCheck(subdomain: string): Promise<{
-  success: boolean;
-  hasAccess?: boolean;
-  isOwner?: boolean;
-  space?: any;
-  accessRecords?: any[];
-  errorDetails?: any;
-}> {
+export async function directSpaceAccessCheck(subdomain: string): Promise<DirectCheckResult> {
   try {
-    // Step 1: Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
-      return { 
-        success: false, 
-        errorDetails: { phase: 'auth', message: 'Not authenticated' } 
-      };
+    const { data: { user: authUserData }, error: userError } = await supabase.auth.getUser();
+    const currentUser = authUserData as AuthUser | null;
+
+    if (userError || !currentUser) {
+      return { success: false, errorDetails: { phase: 'auth', message: 'Not authenticated', originalError: userError } };
     }
     
-    console.log("Checking access for user:", user.id);
-    
-    // Step 2: Get space data through direct query
-    let space;
-    
-    try {
-      // First try with our helper
-      space = await getSpaceBySubdomain(subdomain);
-      
-      // If that fails, try different approach
-      if (!space) {
-        console.log("Trying alternate space lookup method");
-        
-        // Try to get all public spaces
+    let space: SpaceRow | null = await getSpaceBySubdomain(subdomain);
+    if (!space) {
+      // Fallback logic for space lookup from original code
+      console.log("Trying alternate space lookup method for directSpaceAccessCheck");
+      try {
         const { data: publicSpaces, error: publicError } = await supabase
           .from('spaces')
           .select('*')
-          .eq('is_private', false);
-          
+          .eq('is_private', false)
+          .returns<SpaceRow[]>();
         if (!publicError && publicSpaces) {
-          space = publicSpaces.find(s => s.subdomain === subdomain);
+          space = publicSpaces.find(s => s.subdomain === subdomain) || null;
         }
-        
-        // If space still not found, try getting owned spaces
         if (!space) {
           const { data: ownedSpaces, error: ownedError } = await supabase
             .from('spaces')
             .select('*')
-            .eq('owner_id', user.id);
-            
+            .eq('owner_id', currentUser.id)
+            .returns<SpaceRow[]>();
           if (!ownedError && ownedSpaces) {
-            space = ownedSpaces.find(s => s.subdomain === subdomain);
+            space = ownedSpaces.find(s => s.subdomain === subdomain) || null;
           }
         }
+      } catch (spaceLookupError) {
+        console.error("All space lookup methods failed in directSpaceAccessCheck:", spaceLookupError);
       }
-    } catch (spaceError) {
-      console.error("All space lookup methods failed:", spaceError);
+      if (!space) {
+        return { success: false, errorDetails: { phase: 'space_lookup', message: 'Space not found' } };
+      }
     }
     
-    if (!space) {
-      return { 
-        success: false, 
-        errorDetails: { phase: 'space_lookup', message: 'Space not found' } 
-      };
-    }
+    const isOwner = space.owner_id === currentUser.id;
     
-    console.log("Found space:", space);
-    
-    // Step 3: Check if user is owner
-    const isOwner = space.owner_id === user.id;
-    
-    // Step 4: Check space_access records
-    let accessRecords = [];
-    try {
-      const { data: records, error: accessError } = await supabase
-        .from('space_access')
-        .select('*')
-        .eq('space_id', space.id)
-        .eq('user_id', user.id);
+    let memberRecord: SpaceMemberRow | null = null;
+    let membershipRole = null;
+    let membershipStatus = null;
+    let hasActiveMemberRecord = false;
+
+    const { data: smData, error: smError } = await supabase
+      .from('space_members')
+      .select('id, role, status')
+      .eq('space_id', space.id)
+      .eq('user_id', currentUser.id)
+      .maybeSingle<SpaceMemberRow>();
         
-      if (!accessError && records) {
-        accessRecords = records;
-      }
-    } catch (accessError) {
-      console.warn("Error checking access records:", accessError);
+    if (smError && smError.code !== 'PGRST116') {
+      console.warn("Error checking space_members records:", smError);
     }
     
-    const hasActiveAccessRecord = accessRecords.some(r => r.is_active);
-    const hasAccess = isOwner || hasActiveAccessRecord;
+    if (smData) {
+      memberRecord = smData;
+      membershipRole = smData.role;
+      membershipStatus = smData.status;
+      if (smData.status === 'active') {
+        hasActiveMemberRecord = true;
+      }
+    }
+    
+    const hasAccess = isOwner || hasActiveMemberRecord;
+
+    if (isOwner && !membershipRole) {
+      membershipRole = 'admin';
+      membershipStatus = 'active';
+    }
     
     return {
       success: true,
       space,
       isOwner,
       hasAccess,
-      accessRecords
+      memberRecord,
+      membershipRole,
+      membershipStatus,
     };
   } catch (error) {
-    console.error("Unexpected error during direct access check:", error);
-    return { 
-      success: false, 
-      errorDetails: { phase: 'unexpected', message: String(error) } 
+    console.error("Error checking user space access directly:", error);
+    return {
+      success: false,
+      errorDetails: { phase: 'global_catch', message: (error instanceof Error ? error.message : 'Unknown error'), originalError: error }
     };
   }
 }
@@ -261,7 +327,7 @@ export async function directSpaceAccessCheck(subdomain: string): Promise<{
  * Safely prepare a URL for a space, with caching for future navigation
  * Use this when linking to space or about pages to ensure consistent experience
  */
-export function prepareSpaceNavigation(space: any, pageType: 'space' | 'about' = 'space'): string {
+export function prepareSpaceNavigation(space: SpaceRow, pageType: 'space' | 'about' = 'space'): string {
   if (!space || !space.subdomain) {
     console.error("Invalid space data for navigation:", space);
     return '/discover';
@@ -292,7 +358,7 @@ export function prepareSpaceNavigation(space: any, pageType: 'space' | 'about' =
  * Expose the utility to the window for debugging
  */
 if (typeof window !== 'undefined') {
-  (window as any).fixSpacesAccess = {
+  window.fixSpacesAccess = {
     getSpaceBySubdomain,
     fixSpaceAccess,
     fixSpaceAccessBySubdomain,

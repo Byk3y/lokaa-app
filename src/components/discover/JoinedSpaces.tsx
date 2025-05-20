@@ -1,10 +1,11 @@
 import { TrendingUp } from "lucide-react";
-import SpaceCard from "@/components/spaces/SpaceCard";
+import { SpaceCard } from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import { Space } from "../../types/space";
 
 interface JoinedSpacesProps {
-  spaces: any[];
+  spaces: Space[];
   loading: boolean;
 }
 
@@ -17,7 +18,7 @@ export default function JoinedSpaces({ spaces, loading }: JoinedSpacesProps) {
       ) : spaces.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {spaces.map((space) => (
-            <SpaceCard key={space.id} {...space} linkType="space" />
+            <SpaceCard key={space.id} space={space} openInModal={false} />
           ))}
         </div>
       ) : (

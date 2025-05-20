@@ -29,7 +29,7 @@ export interface DatabaseSpace {
   };
   // Added fields
   about_description?: string | null;
-  is_private?: boolean;
+  is_private: boolean;
 }
 
 // Processed space type after mapping
@@ -57,7 +57,7 @@ export interface Space {
   updatedAt?: string;
   // Add missing fields that are used in SpaceCard
   about_description?: string | null;
-  is_private?: boolean;
+  is_private: boolean;
   owner?: {
     name?: string;
     avatar_url?: string;
@@ -120,7 +120,7 @@ export default function useSpacesData(initialCategory = 'all') {
         const ownedSpacesArray = ownedSpaces || [];
         const accessedSpaces = accessData
           ?.filter(item => item.spaces) // Filter out any null values
-          .map(item => item.spaces as any) || [];
+          .map(item => item.spaces as DatabaseSpace) || [];
           
         // Merge and deduplicate by space ID
         const spaceMap = new Map();
@@ -160,7 +160,7 @@ export default function useSpacesData(initialCategory = 'all') {
   }, [user]); // Only depend on user to prevent unnecessary refetches
 
   // Helper function to map database space to interface
-  function mapDatabaseSpaceToSpace(dbSpace: any): Space {
+  function mapDatabaseSpaceToSpace(dbSpace: DatabaseSpace): Space {
     return {
       id: dbSpace.id,
       name: dbSpace.name,
@@ -325,7 +325,7 @@ export default function useSpacesData(initialCategory = 'all') {
 }
 
 // Helper function to generate tags based on space name
-function generateTags(space: any): string[] {
+function generateTags(space: DatabaseSpace): string[] {
   // Get tags that match our actual category IDs
   const name = space.name?.toLowerCase() || '';
   const description = space.description?.toLowerCase() || '';

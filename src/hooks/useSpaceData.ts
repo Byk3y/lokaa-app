@@ -40,6 +40,23 @@ export interface SpaceData {
   benefits: SpaceBenefit[];
 }
 
+// Define an interface for the raw data from the 'spaces' table
+interface RawSpaceRow {
+  id: string;
+  name: string;
+  description: string | null;
+  about_description?: string | null;
+  cover_image: string | null;
+  is_private: boolean;
+  subdomain: string;
+  pricing_type?: 'free' | 'paid' | string; // Made optional to match potential DB state
+  price_per_month?: number | null;
+  owner_id: string;
+  created_at?: string;
+  updated_at?: string;
+  // Add any other direct fields from the 'spaces' table from your Supabase schema
+}
+
 export function useSpaceData(spaceId: string | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,8 +82,8 @@ export function useSpaceData(spaceId: string | null) {
           
         if (spaceError) throw spaceError;
         
-        // Cast to work around TypeScript errors
-        const space = spaceData as any; // This will resolve the specific property access issues
+        // Cast to the defined RawSpaceRow type
+        const space = spaceData as RawSpaceRow;
         
         // Get media items from localStorage (temporarily until we migrate them to DB)
         let mediaItems: SpaceMedia[] = [];
@@ -127,7 +144,7 @@ export function useSpaceData(spaceId: string | null) {
           member_count: memberCount || 1,
           admin_count: adminCount,
           online_count: onlineCount,
-          pricing_type: space.pricing_type || 'free',
+          pricing_type: (space.pricing_type === 'paid') ? 'paid' : 'free',
           price_per_month: space.price_per_month,
           owner: {
             id: space.owner_id,
@@ -141,9 +158,10 @@ export function useSpaceData(spaceId: string | null) {
         
         setSpaceData(spaceDataObj);
         
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching space data:', err);
-        setError(err.message || 'Failed to load space data');
+        const message = err instanceof Error ? err.message : String(err);
+        setError(message || 'Failed to load space data');
         setSpaceData(null);
       } finally {
         setLoading(false);

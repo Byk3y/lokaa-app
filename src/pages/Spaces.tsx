@@ -3,8 +3,21 @@ import { SpaceCard } from "@/components/spaces/SpaceCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
+// Define an interface for the space objects with member_count
+interface SpaceWithMemberCount {
+  id: string;
+  name: string;
+  description: string | null;
+  cover_image: string | null;
+  subdomain: string;
+  owner_id: string;
+  is_private: boolean;
+  member_count: number;
+  // Add other fields from your 'spaces' table if needed by SpaceCard
+}
+
 export default function Spaces() {
-  const [spaces, setSpaces] = useState<any[]>([]);
+  const [spaces, setSpaces] = useState<SpaceWithMemberCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,10 +52,11 @@ export default function Spaces() {
           })
         );
 
-        setSpaces(spacesWithMemberCounts);
-      } catch (err: any) {
+        setSpaces(spacesWithMemberCounts as SpaceWithMemberCount[]);
+      } catch (err: unknown) {
         console.error("Error fetching spaces:", err);
-        setError(err.message || "Failed to load spaces");
+        const message = err instanceof Error ? err.message : "Failed to load spaces";
+        setError(message);
       } finally {
         setLoading(false);
       }

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { PostgrestError } from '@supabase/supabase-js';
 
 /**
  * Checks if a user has any spaces (either owned or joined)
@@ -129,6 +130,18 @@ export async function getFirstUserSpaceId(userId: string): Promise<string | null
   }
 }
 
+// Define interfaces for getFirstUserSpace accessRecords query
+interface NestedSpaceInfo {
+  id: string;
+  subdomain: string;
+  name: string | null; 
+}
+
+interface SpaceAccessRecordWithDetails {
+  space_id: string;
+  spaces: NestedSpaceInfo | null;
+}
+
 /**
  * Gets the first space for a user including the subdomain for navigation
  * @param userId - The ID of the user
@@ -170,13 +183,11 @@ export async function getFirstUserSpace(userId: string): Promise<{ id: string, s
     console.log("getFirstUserSpace: No owned spaces, checking joined spaces");
     const { data: accessRecords, error: accessError } = await supabase
       .from('space_access')
-      .select(`
-        space_id,
-        spaces:space_id(id, subdomain, name)
-      `)
+      .select('space_id, spaces:space_id(id, subdomain, name)')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .limit(1);
+      .limit(1)
+      .returns<SpaceAccessRecordWithDetails[]>();
       
     if (accessError) {
       console.error("getFirstUserSpace: Error fetching joined spaces:", accessError);
@@ -187,7 +198,7 @@ export async function getFirstUserSpace(userId: string): Promise<{ id: string, s
     
     // If found an accessed space, return its details
     if (accessRecords && accessRecords.length > 0 && accessRecords[0].spaces) {
-      const spaceDetails = accessRecords[0].spaces as any;
+      const spaceDetails = accessRecords[0].spaces;
       console.log("getFirstUserSpace: Found joined space:", spaceDetails);
       return {
         id: spaceDetails.id,
@@ -228,5 +239,54 @@ export async function getFirstUserSpace(userId: string): Promise<{ id: string, s
   } catch (error) {
     console.error("getFirstUserSpace: Unexpected error:", error);
     return null;
+  }
+}
+
+/**
+ * Updates the user's last joined space information
+ * This is used to track which space the user most recently joined
+ * for post-login redirection
+ * 
+ * @param spaceId The ID of the space the user joined
+ * @param spaceName The name of the space (optional)
+ * @param spaceSubdomain The subdomain of the space (optional)
+ */
+export async function updateLastJoinedSpace(
+  spaceId: string,
+  spaceName?: string,
+  spaceSubdomain?: string
+): Promise<void> {
+  try {
+    // First, ensure we have all the space details
+    if (!spaceName || !spaceSubdomain) {
+      const { data: spaceData, error } = await supabase
+        .from('spaces')
+        .select('name, subdomain')
+        .eq('id', spaceId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching space details:', error);
+        return;
+      }
+      
+      if (spaceData) {
+        spaceName = spaceData.name;
+        spaceSubdomain = spaceData.subdomain;
+      }
+    }
+    
+    // Save to localStorage for post-login redirection
+    const lastJoinedSpace = {
+      id: spaceId,
+      name: spaceName,
+      subdomain: spaceSubdomain,
+      joinedAt: new Date().toISOString()
+    };
+    
+    localStorage.setItem('lastJoinedSpace', JSON.stringify(lastJoinedSpace));
+    console.log('Updated last joined space:', lastJoinedSpace);
+  } catch (error) {
+    console.error('Error updating last joined space:', error);
   }
 } 

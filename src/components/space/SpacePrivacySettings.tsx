@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { Database } from "@/types/supabase";
 
 interface SpacePrivacySettingsProps {
   spaceId: string;
@@ -36,11 +37,10 @@ export default function SpacePrivacySettings({ spaceId }: SpacePrivacySettingsPr
         if (error) throw error;
 
         // Attempt to read is_private, defaulting to false if it doesn't exist
-        // This avoids TypeScript complaints while still working at runtime
-        const spaceData = data as any;
+        const spaceData = data as Database['public']['Tables']['spaces']['Row'] | null;
         setIsPrivate(spaceData?.is_private === true);
-      } catch (error: any) {
-        console.error("Error fetching privacy setting:", error);
+      } catch (error: unknown) {
+        console.error("Error fetching privacy setting:", error instanceof Error ? error.message : String(error));
         // Still allow component to render with default value
       } finally {
         setLoading(false);
@@ -60,7 +60,7 @@ export default function SpacePrivacySettings({ spaceId }: SpacePrivacySettingsPr
     setSaving(true);
     try {
       // Use type assertion to bypass TypeScript errors
-      const updateData = { is_private: isPrivate } as any;
+      const updateData: Partial<Database['public']['Tables']['spaces']['Row']> = { is_private: isPrivate };
       
       const { error } = await supabase
         .from('spaces')
@@ -73,11 +73,11 @@ export default function SpacePrivacySettings({ spaceId }: SpacePrivacySettingsPr
         title: "Success", 
         description: "Privacy settings updated successfully." 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating privacy setting:", error);
       toast({ 
         title: "Error", 
-        description: `Failed to update privacy settings: ${error.message || 'Unknown error'}`, 
+        description: `Failed to update privacy settings: ${(error instanceof Error ? error.message : String(error)) || 'Unknown error'}`, 
         variant: "destructive" 
       });
     } finally {

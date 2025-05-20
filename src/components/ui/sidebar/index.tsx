@@ -1,8 +1,11 @@
-
 // Export all sidebar components from a single entry point
+// eslint-disable-next-line react-refresh/only-export-components
 export * from "./sidebar-context";
+// eslint-disable-next-line react-refresh/only-export-components
 export * from "./sidebar-core";
+// eslint-disable-next-line react-refresh/only-export-components
 export * from "./sidebar-layout";
+// eslint-disable-next-line react-refresh/only-export-components
 export * from "./sidebar-menu";
 
 // Re-export for backwards compatibility

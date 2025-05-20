@@ -1,5 +1,4 @@
-
-import { Session, User } from "@supabase/supabase-js";
+import { Session, User, PostgrestError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -45,68 +44,50 @@ export const handleSignIn = async (email: string, password: string) => {
       description: "Welcome back!",
     });
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     toast({
       title: "Sign in failed",
-      description: error.message,
+      description: message,
       variant: "destructive"
     });
-    return { success: false, error };
+    return { success: false, error: { message } };
   }
 };
 
 // Handle sign up with email, password, username and optional full name
-export const handleSignUp = async (email: string, password: string, username: string, fullName?: string) => {
+export const handleSignUp = async (email: string, password: string, username: string, firstName: string, lastName: string) => {
   try {
-    // First check if username is available
-    const { data: existingUser } = await supabase
+    // Check if a profile URL exists for this username
+    const { data: profileData, error: profileError } = await supabase
       .from('users')
-      .select('username')
-      .eq('username', username)
-      .single();
-      
-    if (existingUser) {
-      toast({
-        title: "Username taken",
-        description: "This username is already in use. Please choose another one.",
-        variant: "destructive"
-      });
-      return { success: false, error: { message: "Username is already taken" } };
+      .select('profile_url')
+      .eq('profile_url', username)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Error checking profile URL during generation:", profileError.message);
+      return username; // Fallback to original username if error
+    }
+
+    if (profileData) {
+      // If user_url is taken, append a random suffix
+      const newUsername = `${username}-${Math.random().toString(36).substring(2, 7)}`;
+      console.log(`Username ${username} taken, generated new one: ${newUsername}`);
+      const potential_profile_url = `/profile/${newUsername}`; // New format
+      return newUsername; // Return the suffixed username, not the full path
     }
     
-    const { error } = await supabase.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        data: {
-          username: username,
-          full_name: fullName || username
-        }
-      }
-    });
-    
-    if (error) {
-      toast({
-        title: "Sign up failed",
-        description: error.message,
-        variant: "destructive"
-      });
-      return { success: false, error };
-    }
-    
-    toast({
-      title: "Account created",
-      description: "Welcome to Lokaa! Please verify your email if required.",
-    });
-    
-    return { success: true };
-  } catch (error: any) {
+    // If username is not taken, it can be used as is.
+    return username;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     toast({
       title: "Sign up failed",
-      description: error.message,
+      description: message,
       variant: "destructive"
     });
-    return { success: false, error };
+    return { success: false, error: { message } };
   }
 };
 
@@ -119,12 +100,13 @@ export const handleSignOut = async () => {
       description: "You have been signed out successfully.",
     });
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     toast({
       title: "Error signing out",
-      description: error.message,
+      description: message,
       variant: "destructive"
     });
-    return { success: false, error };
+    return { success: false, error: { message } };
   }
 };

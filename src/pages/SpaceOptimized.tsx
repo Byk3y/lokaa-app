@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Bell, MessageSquare, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Trophy, GraduationCap } from "lucide-react";
 import { motion } from "framer-motion";
@@ -13,7 +13,7 @@ import Confetti from 'react-confetti';
 import SpaceSettingsModal from "@/components/modals/SpaceSettingsModal";
 import { useSpace, SpaceProvider } from "@/contexts/SpaceContext";
 import SpaceLoadingSkeleton from "@/components/space/SpaceLoadingSkeleton";
-import { preloadSpaceAssets } from "@/utils/spacePerformance";
+// import { preloadSpaceAssets } from "@/utils/spacePerformance"; // Commented out due to missing export
 import { Link } from "react-router-dom";
 import AboutTab from "@/components/space/AboutTab";
 import FeedTab from "@/components/space/FeedTab";
@@ -39,16 +39,17 @@ const resolveImageUrl = (imageUrl: string | null, fallbackUrl: string = '/defaul
 };
 
 // Add interface for component props
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface SpaceProps {
-  initialTab?: string;
+  // initialTab?: string; // Removed initialTab
 }
 
 /**
  * Space wrapper component that provides context
  */
-export default function SpaceWrapper({ initialTab }: SpaceProps) {
+export default function SpaceWrapper(_props: SpaceProps) { // Removed empty destructuring, added _props
   return (
-    <SpaceProvider initialTab={initialTab}>
+    <SpaceProvider /*initialTab={initialTab}*/> {/* Removed initialTab */}
       <SpaceContent />
     </SpaceProvider>
   );
@@ -63,15 +64,26 @@ function SpaceContent() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get space data from context
+  // Get space data from context - ALIGN WITH SpaceContextValue
   const { 
-    space, 
-    isLoading, 
-    error, 
-    isOwner, 
-    activeTab, 
-    navigateToTab 
+    spaceData,      // Renamed from space
+    loading,        // Renamed from isLoading
+    error,          // error is provided
+    fetchSpaceData, // fetchSpaceData is provided
+    // isOwner, activeTab, navigateToTab ARE NOT directly from this context based on SpaceContext.tsx
   } = useSpace();
+
+  // Local state for tab management, since it's not in SpaceContextValue
+  const [activeTab, setActiveTab] = useState(location.pathname.split('/').pop() || 'community');
+
+  const navigateToTab = useCallback((tab: string) => {
+    setActiveTab(tab);
+    const path = `/${subdomain}/space/${tab === 'community' ? 'feed' : tab}`;
+    navigate(path);
+  }, [navigate, subdomain]);
+  
+  // Derived state for isOwner
+  const isOwner = spaceData?.owner_id === user?.id;
   
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -81,15 +93,15 @@ function SpaceContent() {
 
   // Preload space images when space data is loaded
   useEffect(() => {
-    if (space) {
+    if (spaceData) {
       const imagesToPreload = [
-        space.cover_image,
-        space.icon_image
+        spaceData.cover_image,
+        spaceData.icon_image
       ].filter(Boolean) as string[];
       
-      preloadSpaceAssets(imagesToPreload);
+      // preloadSpaceAssets(imagesToPreload); // Commented out due to missing export
     }
-  }, [space]);
+  }, [spaceData]);
 
   // Check if this is a newly created space and show notification
   useEffect(() => {
@@ -193,15 +205,16 @@ function SpaceContent() {
   const renderTabButton = (tab: string, icon: React.ReactNode, label: string) => {
     const isActive = activeTab === tab;
     // Map 'community' tab to 'feed' URL path
-    const url = `/${subdomain}/space/${tab === 'community' ? 'feed' : tab}`;
+    // const url = `/${subdomain}/space/${tab === 'community' ? 'feed' : tab}`;
+    // navigateToTab now handles navigation, so direct url construction might not be needed here for the button itself
     
     return (
       <button 
         onClick={() => navigateToTab(tab)}
-        className={`inline-flex items-center px-4 py-3 border-b-2 text-sm font-medium whitespace-nowrap ${
+        className={`inline-flex items-center px-16 py-3 border-b-2 text-sm font-medium whitespace-nowrap ${
           isActive
-            ? 'border-[#2AB5A0] text-[#2AB5A0] dark:text-white dark:border-white'
-            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:border-gray-600'
+            ? 'border-[#1A8A7E] text-[#111827] dark:text-white dark:border-white'
+            : 'border-transparent text-[#4B5563] hover:text-gray-700 hover:border-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:border-gray-600'
         }`}
         aria-current={isActive ? 'page' : undefined}
       >
@@ -212,12 +225,12 @@ function SpaceContent() {
   };
 
   // While loading, show the skeleton
-  if (isLoading || !user) {
+  if (loading || !user) { // Use loading
     return <SpaceLoadingSkeleton activeTab={activeTab} />;
   }
 
   // If there's an error or no space data, show error UI
-  if (!space || error) {
+  if (!spaceData || error) { // Use spaceData and error from context
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto">
@@ -250,7 +263,7 @@ function SpaceContent() {
   return (
     <TooltipProvider>
       <motion.div 
-        className="min-h-screen bg-[#F5FAFA] flex flex-col"
+        className="min-h-screen bg-white flex flex-col"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
@@ -272,24 +285,24 @@ function SpaceContent() {
           <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
             {/* Left - Space Logo and Name with Switch Button */}
             <div className="flex items-center">
-              <div className="h-10 w-10 bg-[#26A69A] rounded-lg flex items-center justify-center text-white font-bold mr-3 shadow-sm relative overflow-hidden">
-                {space?.icon_image ? (
+              <div className="h-10 w-10 bg-[#1A8A7E] rounded-lg flex items-center justify-center text-white font-bold mr-3 shadow-sm relative overflow-hidden">
+                {spaceData?.icon_image ? ( // Use spaceData
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
                     className="absolute inset-0 w-full h-full bg-cover bg-center"
-                    style={{ backgroundImage: `url(${resolveImageUrl(space.icon_image)})` }}
+                    style={{ backgroundImage: `url(${resolveImageUrl(spaceData.icon_image)})` }} // Use spaceData
                   />
                 ) : (
-                <span>{space?.name?.charAt(0).toUpperCase()}</span>
+                <span>{spaceData?.name?.charAt(0).toUpperCase()}</span> // Use spaceData
                 )}
               </div>
               <div className="flex flex-col justify-center">
                 <div className="flex items-center">
                   <SpaceSwitcher 
                     currentSpaceSubdomain={subdomain || ''} 
-                    currentSpaceName={space?.name}
+                    currentSpaceName={spaceData?.name} // Use spaceData
                     userId={user?.id || ''}
                   />
                 </div>
@@ -300,15 +313,15 @@ function SpaceContent() {
             <div className="flex-1 max-w-xl mx-8">
               <div className="relative">
                 <Search 
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#78909C]" 
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" 
                 />
-              <input
-                type="text"
-                placeholder="Search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-[#F5FAFA] rounded-full border border-[#E0F2F1] focus:outline-none focus:ring-1 focus:ring-[#26A69A] text-sm text-[#37474F] placeholder-[#78909C] transition-all"
-              />
+                <input
+                  type="text"
+                  placeholder="Search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-[#F5F6F7] rounded-full border border-[#E1E4E8] focus:outline-none focus:ring-0 focus:border-[#1A8A7E] focus:border-2 text-sm text-[#37474F] placeholder-[#9CA3AF] transition-all"
+                />
               </div>
             </div>
             
@@ -318,7 +331,7 @@ function SpaceContent() {
               <motion.button 
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                className="text-[#78909C] hover:text-[#26A69A] transition-colors"
+                className="text-[#4B5563] hover:text-[#1A8A7E] transition-colors"
               >
                 <MessageSquare className="h-5 w-5" />
               </motion.button>
@@ -331,7 +344,7 @@ function SpaceContent() {
                 <motion.button 
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
-                  className="text-[#78909C] hover:text-[#26A69A] transition-colors"
+                  className="text-[#4B5563] hover:text-[#1A8A7E] transition-colors"
                 >
                   <Bell className="h-5 w-5" />
                 </motion.button>
@@ -364,24 +377,24 @@ function SpaceContent() {
           <div className="max-w-6xl mx-auto px-4">
           {activeTab === "about" ? (
             <AboutTab 
-              space={space as any} 
               onSpaceUpdate={(updatedSpace) => {
                 // TODO: Use updateSpaceInCache from context
+                // Consider calling fetchSpaceData(subdomain, true) if AboutTab updates space significantly
               }}
             />
           ) : activeTab === "calendar" ? (
-            <CalendarTab space={space} />
+            <CalendarTab space={{ id: spaceData.id, name: spaceData.name }} />
           ) : activeTab === "members" ? (
-            <MembersTab space={space} />
+            <MembersTab />
           ) : activeTab === "leaderboard" ? (
-            <LeaderboardsTab space={space} />
+            <LeaderboardsTab space={{ id: spaceData.id, name: spaceData.name }} />
           ) : activeTab === "classroom" ? (
-            <ClassroomTab space={space} />
+            <ClassroomTab space={spaceData} />
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Left Content Area */}
               <div className="md:col-span-2">
-                <FeedTab space={space} user={user} />
+                <FeedTab user={user} isOwner={isOwner} isAdmin={isOwner} />
               </div>
               
               {/* Right Sidebar */}
@@ -395,13 +408,13 @@ function SpaceContent() {
                   <div 
                     className="h-36 bg-[#26A69A] flex items-center justify-center relative cursor-pointer"
                   >
-                    {space?.cover_image ? (
+                    {spaceData?.cover_image ? ( // Use spaceData
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.4, ease: "easeOut" }}
                         className="absolute inset-0 w-full h-full bg-cover bg-center"
-                        style={{ backgroundImage: `url(${resolveImageUrl(space.cover_image, '/default-space-cover.jpg')})` }}
+                        style={{ backgroundImage: `url(${resolveImageUrl(spaceData.cover_image, '/default-space-cover.jpg')})` }} // Use spaceData
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center text-white">
@@ -412,9 +425,9 @@ function SpaceContent() {
                   
                   {/* Space Info Content */}
                   <div className="p-4">
-                    <h2 className="text-lg font-bold text-[#37474F] mb-1">{space?.name}</h2>
+                    <h2 className="text-lg font-bold text-[#37474F] mb-1">{spaceData?.name}</h2> // Use spaceData
                     {/* Display Subdomain URL */}
-                    <p className="text-sm text-[#78909C] mb-3">lokaa.com/{space?.subdomain || 'your-subdomain'}</p>
+                    <p className="text-sm text-[#78909C] mb-3">lokaa.com/{spaceData?.subdomain || 'your-subdomain'}</p> // Use spaceData
                   </div>
                 </motion.div>
                 

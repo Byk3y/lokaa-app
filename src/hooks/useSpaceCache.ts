@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { SpaceData } from '@/contexts/SpaceContext'; // Import SpaceData type
 
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -38,7 +39,7 @@ export function useSpaceCache(subdomain: string | undefined) {
   /**
    * Updates sessionStorage cache with new space data
    */
-  const updateCache = useCallback((spaceData: any) => {
+  const updateCache = useCallback((spaceData: SpaceData | null) => {
     if (!subdomain || !spaceData) return;
     
     try {

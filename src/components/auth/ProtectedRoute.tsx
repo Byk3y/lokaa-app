@@ -63,6 +63,14 @@ export default function ProtectedRoute() {
     }
   }, [loading, authRetries, toast]);
 
+  // Reset retries if user becomes authenticated and not loading
+  useEffect(() => {
+    if (user && !loading) {
+      setAuthRetries(0);
+      setShowRecoveryLink(false);
+    }
+  }, [user, loading]);
+
   // If the user is not authenticated, redirect to login
   if (!user && !loading) {
     console.log('ProtectedRoute: User not authenticated, redirecting to login');

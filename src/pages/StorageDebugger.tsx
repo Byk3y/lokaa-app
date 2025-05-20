@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,12 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import type { Session } from '@supabase/supabase-js';
+import type { Bucket, FileObject } from '@supabase/storage-js';
 
 const StorageDebugger = () => {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [bucketInfo, setBucketInfo] = useState<any>(null);
-  const [bucketFiles, setBucketFiles] = useState<any[]>([]);
+  const [bucketInfo, setBucketInfo] = useState<Bucket | null>(null);
+  const [bucketFiles, setBucketFiles] = useState<FileObject[]>([]);
   const [bucketError, setBucketError] = useState('');
   const [directoryName, setDirectoryName] = useState('test-directory');
   const [directoryStatus, setDirectoryStatus] = useState('');
@@ -22,35 +24,15 @@ const StorageDebugger = () => {
   const [deleteStatus, setDeleteStatus] = useState('');
   const [permissionsResult, setPermissionsResult] = useState('');
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  const checkSession = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      if (data.session) {
-        setSession(data.session);
-        checkBucket();
-      }
-    } catch (error: any) {
-      console.error('Error checking session:', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkBucket = async () => {
+  const checkBucket = useCallback(async () => {
     try {
       setBucketError('');
       // Get bucket info
-      const { data: bucketData, error: bucketError } = await supabase
+      const { data: bucketData, error: bucketErrorRes } = await supabase
         .storage
         .getBucket('media');
 
-      if (bucketError) throw bucketError;
+      if (bucketErrorRes) throw bucketErrorRes;
       setBucketInfo(bucketData);
 
       // List files in bucket
@@ -61,13 +43,35 @@ const StorageDebugger = () => {
 
       if (filesError) throw filesError;
       setBucketFiles(filesData || []);
-    } catch (error: any) {
-      console.error('Error checking bucket:', error.message);
-      setBucketError(error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error checking bucket:', message);
+      setBucketError(message);
     }
-  };
+  }, []);
 
-  const createDirectory = async () => {
+  const checkSession = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      if (data.session) {
+        setSession(data.session);
+        checkBucket();
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error checking session:', message);
+    } finally {
+      setLoading(false);
+    }
+  }, [checkBucket]);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
+
+  const createDirectory = useCallback(async () => {
     try {
       setDirectoryStatus('Creating directory...');
       // To create a directory in Supabase storage, you upload a placeholder file
@@ -82,13 +86,14 @@ const StorageDebugger = () => {
       if (error) throw error;
       setDirectoryStatus(`Directory "${directoryName}" created successfully`);
       checkBucket(); // Refresh bucket info
-    } catch (error: any) {
-      console.error('Error creating directory:', error.message);
-      setDirectoryStatus(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error creating directory:', message);
+      setDirectoryStatus(`Error: ${message}`);
     }
-  };
+  }, [directoryName, checkBucket]);
 
-  const uploadTestFile = async () => {
+  const uploadTestFile = useCallback(async () => {
     if (!directoryName) {
       setUploadStatus('Please specify a directory name');
       return;
@@ -109,13 +114,14 @@ const StorageDebugger = () => {
       if (error) throw error;
       setUploadStatus(`Test file uploaded successfully to "${directoryName}"`);
       checkBucket(); // Refresh bucket info
-    } catch (error: any) {
-      console.error('Error uploading test file:', error.message);
-      setUploadStatus(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error uploading test file:', message);
+      setUploadStatus(`Error: ${message}`);
     }
-  };
+  }, [directoryName, checkBucket]);
 
-  const uploadSelectedFile = async () => {
+  const uploadSelectedFile = useCallback(async () => {
     if (!selectedFile) {
       setUploadStatus('Please select a file first');
       return;
@@ -141,13 +147,14 @@ const StorageDebugger = () => {
       const fileInput = document.getElementById('file-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       checkBucket(); // Refresh bucket info
-    } catch (error: any) {
-      console.error('Error uploading file:', error.message);
-      setUploadStatus(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error uploading file:', message);
+      setUploadStatus(`Error: ${message}`);
     }
-  };
+  }, [selectedFile, directoryName, checkBucket]);
 
-  const deleteTestFile = async () => {
+  const deleteTestFile = useCallback(async () => {
     if (!deleteFileName) {
       setDeleteStatus('Please specify a file name to delete');
       return;
@@ -165,24 +172,26 @@ const StorageDebugger = () => {
       setDeleteStatus(`File "${deleteFileName}" deleted successfully`);
       setDeleteFileName('');
       checkBucket(); // Refresh bucket info
-    } catch (error: any) {
-      console.error('Error deleting file:', error.message);
-      setDeleteStatus(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error deleting file:', message);
+      setDeleteStatus(`Error: ${message}`);
     }
-  };
+  }, [deleteFileName, checkBucket]);
 
-  const testBucketPermissions = async () => {
+  const testBucketPermissions = useCallback(async () => {
     try {
       setPermissionsResult('Testing bucket permissions...');
-      let results = [];
+      const results = [];
 
       // Test 1: List files
       try {
         const { data, error } = await supabase.storage.from('media').list();
         if (error) throw error;
         results.push('✅ Can list files');
-      } catch (error: any) {
-        results.push(`❌ Cannot list files: ${error.message}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        results.push(`❌ Cannot list files: ${message}`);
       }
 
       // Test 2: Upload a small test file
@@ -208,19 +217,22 @@ const StorageDebugger = () => {
           
           if (deleteError) throw deleteError;
           results.push(`✅ Can delete file: ${file.name}`);
-        } catch (deleteError: any) {
-          results.push(`❌ Cannot delete file: ${deleteError.message}`);
+        } catch (deleteError: unknown) {
+          const message = deleteError instanceof Error ? deleteError.message : String(deleteError);
+          results.push(`❌ Cannot delete file: ${message}`);
         }
-      } catch (error: any) {
-        results.push(`❌ Cannot upload file: ${error.message}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        results.push(`❌ Cannot upload file: ${message}`);
       }
 
       setPermissionsResult(results.join('\n'));
-    } catch (error: any) {
-      console.error('Error testing permissions:', error.message);
-      setPermissionsResult(`Error testing permissions: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error testing permissions:', message);
+      setPermissionsResult(`Error testing permissions: ${message}`);
     }
-  };
+  }, []);
 
   if (loading) {
     return (

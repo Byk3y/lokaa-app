@@ -40,18 +40,31 @@ export function parseProfileUrl(url: string): {
   const pathname = url.startsWith('http') ? new URL(url).pathname : url;
   
   // Check if this is a profile URL in any form
-  const profileRegex = /^\/?@?([^\/]+)(?:\/.*)?$/;
+  const profileRegex = /^\/?profile\/([^/]+)(?:\/.*)?$/;
   const match = pathname.match(profileRegex);
   
   if (!match) {
+    // Fallback check for old /@username format for transition period or direct links
+    const oldProfileRegex = /^\/?@([^/]+)(?:\/.*)?$/;
+    const oldMatch = pathname.match(oldProfileRegex);
+    if (oldMatch) {
+      const username = oldMatch[1];
+      const correctUrl = `/profile/${username}`;
+      console.warn(`parseProfileUrl: Detected old format /@${username}, converting to ${correctUrl}`);
+      return {
+        isProfileUrl: true,
+        username,
+        correctUrl: correctUrl,
+      };
+    }
     return { isProfileUrl: false, username: null, correctUrl: null };
   }
   
-  // Extract the username
+  // Extract the username from the new /profile/username format
   const username = match[1];
   
-  // Normalize to the correct format: /@username
-  const correctUrl = `/@${username}`;
+  // Normalize to the correct format: /profile/username
+  const correctUrl = `/profile/${username}`;
   
   // Check if the URL is already in the correct format
   const isCorrectFormat = pathname === correctUrl;
@@ -79,7 +92,7 @@ export function safelyNavigateToProfile(
   }
   
   // Construct the target URL
-  const targetUrl = `/@${username.replace(/^@/, '')}`;
+  const targetUrl = `/profile/${username.replace(/^@/, '')}`;
   
   // Check if we've already tried too many times
   if (redirectTracker.recordAttempt(targetUrl)) {

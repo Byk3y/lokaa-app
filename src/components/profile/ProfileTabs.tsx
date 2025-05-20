@@ -4,9 +4,10 @@ import ProfilePosts from "./ProfilePosts";
 import ProfileComments from "./ProfileComments";
 import ProfileSpaces from "./ProfileSpaces";
 import ProfileRewards from "./ProfileRewards";
+import { Database } from "@/types/supabase";
 
 interface ProfileTabsProps {
-  profileData: any;
+  profileData: Database['public']['Tables']['users']['Row'];
 }
 
 export default function ProfileTabs({ profileData }: ProfileTabsProps) {

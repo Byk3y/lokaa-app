@@ -1,9 +1,118 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react'
-import { Session, User } from '@supabase/supabase-js'
+import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback, useMemo } from 'react'
+import { Session, User as SupabaseUser, AuthError, PostgrestError } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 import { fetchUserDetails } from '@/utils/authUtils'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, NavigateFunction, Location } from 'react-router-dom'
 import { generateSlug } from '@/utils/slugUtils'
+import { getUserSpaceRedirectPath } from '@/utils/getUserSpaceRedirectPath';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getUserPreferredSpace } from '@/utils/authContextUtils';
+import { Database } from "@/types/supabase";
+
+// Define a common AppError type for caught exceptions
+interface AppError {
+  message: string;
+  // name?: string; // Optional: Remove 'name' if not consistently part of AppError
+}
+
+interface AuthDebugRoutingState {
+  hasRouted: boolean;
+  routingInProgress: boolean;
+  earlyRedirectAttempted: boolean;
+  pathname: string;
+}
+
+interface AuthDebugRouting {
+  state: AuthDebugRoutingState;
+  resetFlags: () => void;
+  getCurrentUser: () => User | null;
+  testSpaceRouting: () => Promise<{ subdomain: string; id?: string; name?: string; owner_id?: string; } | string | null>;
+  forceRedirect: (subdomain?: string) => Promise<void>;
+  testDirectNavigation: (path?: string) => string;
+  inspectNavigate: () => { navigate: NavigateFunction; location: Location };
+  showRedirectHistory: () => {
+    successes: RedirectHistoryEntry[];
+    failures: RedirectHistoryEntry[];
+    errors: RedirectHistoryEntry[];
+    authErrors: string[];
+  };
+}
+
+interface SpaceCacheData {
+  subdomain: string;
+  id: string;
+  name: string;
+  owner_id: string;
+}
+
+interface RedirectHistoryEntry {
+  timestamp: string;
+  from?: string;
+  to?: string;
+  userId?: string;
+  path?: string;
+  reason?: string;
+  error?: string;
+  [key: string]: unknown; // Changed from any to unknown
+}
+
+// Specific type for the 'owned' spaces returned by getSpacesFromDB, based on its select query
+interface OwnedSpaceInfo {
+  id: string;
+  name: string;
+  subdomain: string;
+  owner_id: string;
+}
+
+// Type for the nested 'spaces' object within the 'access' part of getSpacesFromDB result
+interface NestedSpaceInfo {
+  id: string;
+  name: string;
+  subdomain: string;
+}
+
+// Type for the items in the 'access' array of getSpacesFromDB result
+interface DebugSpaceMember {
+  id: string;
+  space_id: string;
+  status: Database['public']['Tables']['space_members']['Row']['status'];
+  role: Database['public']['Tables']['space_members']['Row']['role'];
+  spaces: NestedSpaceInfo | null;
+}
+
+// Full space row type, typically from generated types
+type FullSpaceRow = Database['public']['Tables']['spaces']['Row'];
+
+// Type for space members as returned by getSpacesFromDB, joining with spaces table
+type SpaceMemberRow = Database['public']['Tables']['space_members']['Row'] & {
+  spaces: FullSpaceRow | null; 
+};
+
+// Corrected definition for the structure returned by getSpacesFromDB (successful case)
+interface SpacesFromDBResult {
+  owned: OwnedSpaceInfo[] | null; 
+  access: DebugSpaceMember[] | null; // Uses DebugSpaceMember for the 'access' property
+}
+
+interface CachedSpacesResult {
+  lastCreatedSpace: SpaceCacheData | null;
+  lastVisitedSpace: SpaceCacheData | null;
+}
+
+interface AuthDebugSpaces {
+  getSpacesFromDB: (skipCache?: boolean) => Promise<SpacesFromDBResult | { error: PostgrestError | unknown } | string>;
+  getCachedSpaces: () => CachedSpacesResult | { error: unknown };
+  clearCachedSpaces: () => boolean | { error: unknown };
+}
+
+interface AuthDebugType {
+  getSession: () => Promise<void>;
+  checkTokens: () => boolean;
+  errors: string[];
+  clearSession: () => Promise<void>;
+  routing: AuthDebugRouting;
+  spaces: AuthDebugSpaces;
+}
 
 /**
  * Debug utility to check for token presence in localStorage
@@ -53,191 +162,72 @@ function debugCheckStorageTokens() {
   }
 }
 
-/**
- * Utility function to get the user's preferred space for redirection
- * Prioritizes last created space, then owned spaces, then joined spaces, and finally any cached space
- */
-async function getUserPreferredSpace(userId: string): Promise<{ subdomain: string } | null> {
-  if (!userId) {
-    console.error('❌ getUserPreferredSpace called with empty userId');
-    return null;
-  }
-
-  console.log('Finding preferred space for user:', userId);
-    
-  try {
-    // PRIORITY 1: Last Created Space from localStorage
-    console.log('Checking lastCreatedSpace in localStorage');
-    try {
-      const lastCreatedSpaceJson = localStorage.getItem('lastCreatedSpace');
-      
-      if (lastCreatedSpaceJson) {
-        try {
-          const lastCreatedSpace = JSON.parse(lastCreatedSpaceJson);
-          
-          if (lastCreatedSpace?.subdomain) {
-            // Verify it exists in the database
-            const { data, error } = await supabase
-            .from('spaces')
-              .select('id, subdomain')
-              .eq('subdomain', lastCreatedSpace.subdomain)
-            .single();
-            
-            if (error) {
-              console.log('Error verifying lastCreatedSpace:', error.message);
-            } else if (data) {
-              console.log('Using lastCreatedSpace:', data.subdomain);
-              return { subdomain: data.subdomain };
-          } else {
-              console.log('lastCreatedSpace not found in database');
-              // Clean up invalid entry
-            localStorage.removeItem('lastCreatedSpace');
-          }
-          } else {
-            console.log('lastCreatedSpace missing subdomain');
-          }
-        } catch (parseError) {
-          console.error('Error parsing lastCreatedSpace:', parseError);
-          // Invalid JSON - remove it
-          localStorage.removeItem('lastCreatedSpace');
-        }
-            } else {
-        console.log('No lastCreatedSpace found in localStorage');
-      }
-    } catch (storageError) {
-      console.error('Error accessing localStorage:', storageError);
-    }
-    
-    // PRIORITY 2: Owned Spaces
-    console.log('Checking for spaces owned by user');
-    try {
-      const { data: ownedSpaces, error } = await supabase
-      .from('spaces')
-      .select('id, subdomain, name, created_at')
-      .eq('owner_id', userId)
-      .order('created_at', { ascending: false });
-    
-      if (error) {
-        console.error('Error fetching owned spaces:', error.message);
-    } else if (ownedSpaces && ownedSpaces.length > 0) {
-        console.log(`Found ${ownedSpaces.length} owned spaces`);
-        
-        // Find first space with valid subdomain
-        const validSpace = ownedSpaces.find(space => !!space.subdomain);
-      
-        if (validSpace) {
-          console.log('Using owned space:', validSpace.subdomain);
-          
-          // Cache this for future use
-        try {
-            localStorage.setItem('lastCreatedSpace', JSON.stringify({
-              id: validSpace.id,
-              subdomain: validSpace.subdomain,
-              name: validSpace.name,
-              owner_id: userId
-            }));
-            console.log('Cached owned space in localStorage');
-        } catch (e) {
-            console.warn('Failed to cache space:', e);
-        }
-        
-          return { subdomain: validSpace.subdomain };
-        } else {
-          console.log('No owned spaces with valid subdomain found');
-      }
-    } else {
-        console.log('No owned spaces found');
-    }
-    } catch (dbError) {
-      console.error('Database error when checking owned spaces:', dbError);
-    }
-    
-    // PRIORITY 3: Joined Spaces via space_access
-    console.log('Checking spaces user has access to');
-    try {
-      const { data: accessRecords, error } = await supabase
-      .from('space_access')
-      .select(`
-        id,
-        space_id,
-        spaces:space_id(id, subdomain, name)
-      `)
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-    
-      if (error) {
-        console.error('Error fetching space access records:', error.message);
-    } else if (accessRecords && accessRecords.length > 0) {
-        console.log(`Found ${accessRecords.length} space access records`);
-      
-        // Find first access record with valid space data and subdomain
-        const validRecord = accessRecords.find(record => 
-          record.spaces && 
-          (record.spaces as any).subdomain
-        );
-      
-        if (validRecord) {
-          const space = validRecord.spaces as any;
-          console.log('Using space from access records:', space.subdomain);
-        
-          // Cache for future use
-        try {
-          localStorage.setItem('lastVisitedSpace', JSON.stringify({
-              id: space.id,
-              subdomain: space.subdomain,
-              name: space.name
-          }));
-            console.log('Cached joined space in localStorage');
-        } catch (e) {
-            console.warn('Failed to cache space:', e);
-        }
-        
-          return { subdomain: space.subdomain };
-      } else {
-          console.log('No valid spaces found in access records');
-      }
-    } else {
-        console.log('No space access records found');
-    }
-    } catch (dbError) {
-      console.error('Database error when checking joined spaces:', dbError);
-    }
-
-    // No valid space found through any method
-    console.log('No spaces found for user after checking all priorities');
-    return null;
-  } catch (error) {
-    console.error('Unexpected error in getUserPreferredSpace:', error);
-    return null;
-  }
+// Define our custom User type that includes the 'url' property
+export interface User extends SupabaseUser {
+  url?: string | null;
+  // Add any other custom properties you might have on your user object
+  user_metadata: {
+    avatar_url?: string;
+    banner_url?: string;
+    bio?: string;
+    email?: string;
+    firstName?: string;
+    full_name?: string;
+    lastName?: string;
+    name?: string;
+    preferred_name?: string;
+    twitter_handle?: string;
+    url?: string; // if you also store it in user_metadata
+    username?: string;
+    website?: string;
+    // you might also have other provider-specific data here
+  };
+  // If you directly attach other custom fields to the root user object from your DB:
+  // e.g., banner_url?: string;
+  // bio?: string;
+  // etc.
 }
 
 // Helper to generate a unique user URL slug
-async function generateUniqueUserSlug(user: any) {
+async function generateUniqueUserSlug(user: User) {
   if (!user) return null;
-  // Try username, email prefix, full name, or fallback to user id
-  const baseCandidates = [
-    user.user_metadata?.username,
-    user.email?.split('@')[0],
-    (user.user_metadata?.firstName && user.user_metadata?.lastName) ? `${user.user_metadata.firstName}-${user.user_metadata.lastName}` : null,
-    user.user_metadata?.fullName,
-    user.id
-  ].filter(Boolean);
 
-  for (let base of baseCandidates) {
+  // Destructure needed properties to simplify type inference
+  const userId = user.id;
+  const userEmail = user.email;
+  const meta = user.user_metadata;
+
+  // Type assertions for clarity
+  const username = meta.username as string | undefined;
+  const firstName = meta.firstName as string | undefined;
+  const lastName = meta.lastName as string | undefined;
+  const fullName = meta.full_name as string | undefined;
+
+  // Try username, email prefix, full name, or fallback to user id
+  const potentialBases: (string | undefined | null)[] = [
+    username,
+    userEmail?.split('@')[0],
+    (firstName && lastName) ? `${firstName}-${lastName}` : null,
+    fullName,
+    userId
+  ];
+  const baseCandidates: string[] = potentialBases.filter((s): s is string => typeof s === 'string' && s.length > 0);
+
+  for (const base of baseCandidates) {
     let slug = generateSlug(base);
     let unique = false;
     let attempt = 0;
     let candidate = slug;
     while (!unique && attempt < 5) {
       // Check uniqueness in users table
+      // @ts-expect-error - Bypassing "Type instantiation is excessively deep" error (or if cast below fixes it, this expects an error that might not be there)
       const { data, error } = await supabase
         .from('users')
         .select('id')
         .eq('url', candidate)
-        .maybeSingle();
-      if (!data) {
+        .maybeSingle() as { data: { id: string } | null; error: PostgrestError | null };
+
+      if (!data && !error) {
         unique = true;
         slug = candidate;
         break;
@@ -254,23 +244,28 @@ async function generateUniqueUserSlug(user: any) {
 
 // Define the shape of the context
 interface AuthContextType {
-  session: Session | null
-  user: User | null
-  userDetails: any | null
-  loading: boolean
-  routingInProgress: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string, options?: { firstName?: string, lastName?: string }) => Promise<{ error: any, data: any }>
-  signOut: () => Promise<void>
-  resetPassword: (email: string) => Promise<{ error: any }>
-  resetTestAccountState: () => Promise<void>
-  debugGetSession: () => Promise<void>
+  session: Session | null;
+  user: User | null;
+  userDetails: Database['public']['Tables']['users']['Row'] | null;
+  loading: boolean;
+  routingInProgress: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | AppError | null; success?: boolean; }>;
+  signUp: (
+    email: string,
+    password: string,
+    options?: { username?: string; firstName?: string; lastName?: string }
+  ) => Promise<{ data?: { user: SupabaseUser | null; session: Session | null; } | null; error: AuthError | AppError | null; success?: boolean; }>;
+  signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: AuthError | AppError | null; success?: boolean; }>;
+  resetTestAccountState: () => Promise<void>;
+  debugGetSession: () => Promise<void>;
 }
 
 // Create the context with default values
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Custom hook to use the auth context
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext)
   if (context === undefined) {
@@ -279,11 +274,10 @@ export function useAuth(): AuthContextType {
   return context
 }
 
-// Provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
-  const [userDetails, setUserDetails] = useState<any | null>(null)
+  const [userDetails, setUserDetails] = useState<Database['public']['Tables']['users']['Row'] | null>(null)
   const [loading, setLoading] = useState(true)
   const [authErrors, setAuthErrors] = useState<string[]>([])
   const [hasRouted, setHasRouted] = useState(false)
@@ -291,6 +285,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [earlyRedirectAttempted, setEarlyRedirectAttempted] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const redirectAfterLoginRef = useRef<string | null>(null)
+  const routingInProgressRef = useRef(routingInProgress);
+  const hasRoutedRef = useRef(hasRouted);
+  const earlyRedirectAttemptedRef = useRef(earlyRedirectAttempted);
+  const loadingRef = useRef(loading);
   
   // Debug function to get current session
   const debugGetSession = async (): Promise<void> => {
@@ -358,53 +357,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   // Early immediate space redirection - runs only once per session
-  const attemptEarlySpaceRedirect = useCallback(async (userId: string) => {
-    // Skip if we're already in the process of routing or have already routed
-    if (routingInProgress || hasRouted || earlyRedirectAttempted) {
-      console.log('Early redirect skipped - already in progress or completed');
-      return;
+  const attemptEarlySpaceRedirect = useCallback(async (userId: string): Promise<boolean> => {
+    // If on /discover, do not attempt to redirect away.
+    if (location.pathname === '/discover') {
+      console.log('AuthContext/attemptEarlySpaceRedirect: Currently on /discover. Early space redirection skipped.');
+      // Set flags to indicate this path was considered, but no actual redirect will happen here.
+      // This helps prevent other logic from re-attempting a redirect from /discover immediately.
+      setHasRouted(true); // Treat as handled to prevent re-triggering from other effects
+      setEarlyRedirectAttempted(true); // Mark as attempted
+      // routingInProgress is not set to false here as it's typically managed by the calling flow or finally blocks.
+      return false; // Indicate no redirect was made by this function
     }
-    
-    // Skip if user is already on a space page
-    if (location.pathname.startsWith('/space/')) {
+
+    // Only redirect from landing pages
+    const landingPaths = ['/', '/app', '/discover'];
+    const isLandingPage = landingPaths.includes(location.pathname);
+    if (!isLandingPage) {
+      console.log('Early redirect skipped - not on a landing page:', location.pathname);
+      setHasRouted(true);
+      setEarlyRedirectAttempted(true);
+      return false;
+    }
+    if (routingInProgressRef.current || hasRoutedRef.current || earlyRedirectAttemptedRef.current) {
+      console.log('Early redirect skipped - already in progress, completed, or previously attempted');
+      return false;
+    }
+    if (location.pathname.includes('/space/')) {
       console.log('Early redirect skipped - already on a space page:', location.pathname);
-      return;
+      setHasRouted(true);
+      setEarlyRedirectAttempted(true);
+      return true;
     }
-    
     console.log('Attempting early space redirection for user:', userId);
-    
-    // Mark that we're attempting redirection and it's in progress
     setEarlyRedirectAttempted(true);
-    setRoutingInProgress(true);
-    
-    // Set safety timeout to reset routingInProgress in case of unexpected issues
     const safetyTimeoutId = setTimeout(() => {
-      console.log('Safety timeout triggered - resetting routingInProgress');
-      setRoutingInProgress(false);
-    }, 10000); // 10 seconds should be more than enough
-    
+      console.log('Safety timeout triggered in attemptEarlySpaceRedirect');
+    }, 10000);
     try {
-      // Use the getUserPreferredSpace utility directly from this context
       console.log('Calling getUserPreferredSpace to find best space for user:', userId);
       const spaceData = await getUserPreferredSpace(userId);
-      
-      // Clear the safety timeout since we got a response
       clearTimeout(safetyTimeoutId);
-      
       if (spaceData) {
         console.log('Redirecting to user space:', spaceData.subdomain);
-        
-        // Log the exact path we're navigating to
         const targetPath = `/space/${spaceData.subdomain}`;
         console.log(`Navigating to ${targetPath}`);
-        
-        // Navigate immediately to the space
         navigate(targetPath, { replace: true });
-        
-        // Mark that we've successfully routed to avoid duplicate redirections
         setHasRouted(true);
-        
-        // Track successful redirect in sessionStorage for debugging
         try {
           const redirectHistory = JSON.parse(sessionStorage.getItem('redirectHistory') || '[]');
           redirectHistory.push({
@@ -417,10 +415,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (e) {
           console.error('Error saving redirect history:', e);
         }
+        return true;
       } else {
         console.log('No user space found. Staying on current page for now.');
-        
-        // Track failed redirect attempt in sessionStorage for debugging
         try {
           const redirectFailures = JSON.parse(sessionStorage.getItem('redirectFailures') || '[]');
           redirectFailures.push({
@@ -430,188 +427,173 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             reason: 'No spaces found'
           });
           sessionStorage.setItem('redirectFailures', JSON.stringify(redirectFailures));
-        } catch (e) {
-          console.error('Error saving redirect failure:', e);
+        } catch (e: unknown) {
+          console.error('Error saving redirect failure:', e instanceof Error ? e.message : String(e));
         }
+        return false;
       }
-    } catch (error) {
-      // Clear the safety timeout
+    } catch (error: unknown) {
       clearTimeout(safetyTimeoutId);
-      
       console.error('Early redirect error:', error);
-      
-      // Track error in sessionStorage for debugging
       try {
         const redirectErrors = JSON.parse(sessionStorage.getItem('redirectErrors') || '[]');
         redirectErrors.push({
           timestamp: new Date().toISOString(),
           path: location.pathname,
           userId,
-          error: error.message || String(error)
+          error: error instanceof Error ? error.message : String(error)
         });
         sessionStorage.setItem('redirectErrors', JSON.stringify(redirectErrors));
-      } catch (e) {
-        console.error('Error saving redirect error:', e);
+      } catch (e: unknown) {
+        console.error('Error saving redirect error:', e instanceof Error ? e.message : String(e));
       }
+      return false;
     } finally {
-      console.log('Setting routingInProgress to false after early redirect attempt');
+      console.log('(AESR) finally block. HPAR should be managing overall routingInProgress.');
       setRoutingInProgress(false);
     }
-  }, [navigate, location.pathname, routingInProgress, hasRouted, earlyRedirectAttempted]);
+    return false; 
+  }, [navigate, location.pathname, setHasRouted, setEarlyRedirectAttempted]);
 
-  // Handle initial session restore
+  // useEffect for initial session restore (keep this one)
   useEffect(() => {
     async function getInitialSession() {
-      try {
+      console.log('[AuthContext/getInitialSession] Attempting to get initial session...');
         setLoading(true);
-        
-        // Set a safety timeout to prevent infinite loading
-        const safetyTimeout = setTimeout(() => {
-          console.error('⏱️ SAFETY TIMEOUT: Session check took too long - forcing loading to complete');
-          setLoading(false);
-        }, 5000); // 5 second safety timeout
-        
-        console.log('🔄 Starting initial session check process');
-        console.log('⏱️ Time:', new Date().toISOString());
-        
-        // Log Supabase config (with partial key for security)
-        const supabaseUrl = (supabase as any)?.supabaseUrl || 'undefined';
-        const supabaseKey = (supabase as any)?.supabaseKey || 'undefined';
-        console.log('🔌 Supabase config check:', {
-          url: supabaseUrl,
-          key: supabaseKey ? `${supabaseKey.substring(0, 5)}...${supabaseKey.substring(supabaseKey.length - 4)}` : 'undefined',
-          initialized: !!supabase,
-          authEnabled: !!supabase?.auth
-        });
-        
-        console.log('📡 Calling supabase.auth.getSession()...');
-        const sessionResult = await supabase.auth.getSession();
-        console.log('📥 Raw getSession result:', JSON.stringify({
-          data: sessionResult.data ? {
-            hasSession: !!sessionResult.data.session,
-            user: sessionResult.data.session?.user ? {
-              id: sessionResult.data.session.user.id,
-              email: sessionResult.data.session.user.email,
-            } : null
-          } : null,
-          error: sessionResult.error ? {
-            message: sessionResult.error.message,
-            name: sessionResult.error.name
-          } : null
-        }));
-        
-        const { data: { session }, error } = sessionResult;
+      setHasRouted(false);
+      setEarlyRedirectAttempted(false);
+      // Do not set routingInProgress to true yet if we might bail for /discover
 
-        if (error) {
-          console.error('❌ Error getting initial session:', error.message, error);
-          clearTimeout(safetyTimeout);
-          setLoading(false);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      const currentUser = session?.user as User | null;
+
+      // --- START MODIFICATION FOR /discover ---
+      if (location.pathname === '/discover') {
+        console.log('[AuthContext/getInitialSession] Currently on /discover.');
+        
+        const userIntendsToStayOnDiscoverViaFlag = sessionStorage.getItem('userWantsDiscover') === 'true';
+        if (userIntendsToStayOnDiscoverViaFlag) {
+            console.log('[AuthContext/getInitialSession] Clearing userWantsDiscover flag.');
+            sessionStorage.removeItem('userWantsDiscover');
+        }
+
+        // Stay on /discover if:
+        // 1. No current user (logged out).
+        // 2. User explicitly navigated here via a flag (handled by clearing flag and then this check).
+        // 3. Routing has already been attempted/completed (e.g., refreshing /discover).
+        // 4. User explicitly came here via the Space Switcher (record this in sessionStorage)
+        if (!currentUser || userIntendsToStayOnDiscoverViaFlag || hasRoutedRef.current || earlyRedirectAttemptedRef.current) {
+            console.log('[AuthContext/getInitialSession] Condition to stay on /discover met (no user, flag, or already routed/attempted). Finalizing.');
+            setSession(session); 
+            setUser(currentUser);    
+            if (currentUser) await fetchUserDetails(currentUser.id); else setUserDetails(null);
+            setLoading(false); 
+            setRoutingInProgress(false); 
+            // Set flags to true because we've made a decision for this path.
+            setHasRouted(true);
+            setEarlyRedirectAttempted(true);
+            return; 
+          } else {
+            // User is on /discover, has a session, but it's a fresh routing scenario (e.g. login landed here).
+            // Do not return; allow main logic flow to determine actual destination (e.g. preferred space via /app).
+            console.log('[AuthContext/getInitialSession] On /discover with active session, but fresh routing. Proceeding to main logic flow.');
+            setSession(session); // Ensure session/user is set for subsequent logic
+            setUser(currentUser);
+            if (currentUser) await fetchUserDetails(currentUser.id);
+            // routingInProgress will be set to true after this block.
+        }
+      }
+      // --- END MODIFICATION FOR /discover ---
+
+      // If not on /discover OR on /discover but fresh routing, proceed.
+      // Now it's safe to set routingInProgress for other paths.
+      setRoutingInProgress(true); 
+
+      if (error) {
+        console.error('[AuthContext/getInitialSession] Error getting session:', error);
+        setSession(null); setUser(null); setUserDetails(null); setLoading(false); setRoutingInProgress(false);
+        return;
+      }
+
+      if (session) {
+        console.log('[AuthContext/getInitialSession] Session found (not on /discover path):');
+        debugCheckStorageTokens();
+        setSession(session);
+        if (currentUser) { 
+            setUser(currentUser); 
+            await fetchUserDetails(currentUser.id);
+              } else {
+            setUser(null);
+            setUserDetails(null);
+        }
+
+        const explicitRedirectPath = sessionStorage.getItem('redirect_after_login');
+        if (explicitRedirectPath) {
+          console.log(`[AuthContext/getInitialSession] Handling redirect_after_login to: ${explicitRedirectPath}`);
+          sessionStorage.removeItem('redirect_after_login');
+          if (location.pathname !== explicitRedirectPath) navigate(explicitRedirectPath, { replace: true });
+          setLoading(false); setHasRouted(true); setEarlyRedirectAttempted(true); setRoutingInProgress(false);
           return;
         }
-        
-        if (session) {
-          console.log('✅ Initial session found:', {
-            userId: session.user.id,
-            email: session.user.email,
-            expires: new Date(session.expires_at * 1000).toLocaleString()
-          });
-          
-          // Set session and user state
-          console.log('📝 BEFORE setting session state:', { 
-            currentSession: session ? 'exists' : 'null',
-            currentUser: user ? 'exists' : 'null'
-          });
-          
-          setSession(session);
-          setUser(session.user);
-          
-          // Log state immediately after (won't reflect changes yet due to React's batching)
-          console.log('📝 AFTER setting session and user state (not reflected yet due to React batching)');
-          
-          // TEMPORARILY DISABLE SPACE REDIRECTION to isolate login issues
-          console.log('⚠️ Space redirection temporarily disabled to diagnose login issues');
-          
-          // Wait a moment, then log the updated state 
-          setTimeout(() => {
-            console.log('🔍 Session state after update:', {
-              hasUser: !!user,
-              user: user ? { id: user.id, email: user.email } : null,
-              hasSession: !!session,
-              loading,
-              routingInProgress,
-              hasRouted,
-              pathname: location.pathname
-            });
-          }, 100);
-          
-          /* DISABLED FOR NOW - will re-enable after fixing login issues
-          // Log current routing state before redirect attempt
-          console.log('🚦 Current routing state:', {
-            hasRouted,
-            routingInProgress,
-            earlyRedirectAttempted,
-            currentPath: location.pathname
-          });
-          
-          // Delay the redirect attempt slightly to ensure state has been updated
-          console.log('⏱️ Delaying space redirect by 250ms to avoid race conditions');
-          setTimeout(() => {
-          // Trigger early space redirection immediately if user is authenticated
-            console.log('🚀 Triggering early space redirection from getInitialSession');
-          attemptEarlySpaceRedirect(session.user.id);
-          }, 250);
-          */
-        } else {
-          console.log('ℹ️ No initial session found');
-        }
-        
-        // Clear safety timeout since we completed normally
-        clearTimeout(safetyTimeout);
-        
-        // Log final auth state
-        console.log('🏁 Final auth state after session check:', {
-          authenticated: !!session,
-          user: session?.user ? { id: session.user.id, email: session.user.email } : null,
-          pathname: location.pathname,
-          loading: false
-        });
 
-        // After setting user/session in getInitialSession and onAuthStateChange, ensure user has a url
+        if (!hasRouted && !earlyRedirectAttempted && currentUser && 
+            !['/', '/login', '/signup', '/auth/callback', '/fix', '/storage-debug'].includes(location.pathname) && 
+            !location.pathname.endsWith('/about') && !location.pathname.startsWith('/profile/')) {
+          console.log(`[AuthContext/getInitialSession] Attempting early space redirect for user: ${currentUser.id} on path: ${location.pathname}`);
+          const redirected = await attemptEarlySpaceRedirect(currentUser.id);
+              setEarlyRedirectAttempted(true);
+          if (redirected) {
+            setHasRouted(true); setRoutingInProgress(false); setLoading(false);
+            return;
+          }
+          console.log('[AuthContext/getInitialSession] Early space redirect did not occur or failed.');
+        }
+        setLoading(false); setRoutingInProgress(false);
+        } else {
+        console.log('[AuthContext/getInitialSession] No session found.');
+        setSession(null); setUser(null); setUserDetails(null); setLoading(false); setRoutingInProgress(false);
+        const publicPaths = ['/', '/discover', '/login', '/signup', '/auth/callback', '/fix', '/storage-debug'];
+        if (!publicPaths.includes(location.pathname) && !location.pathname.endsWith('/about')) {
+          console.log(`[AuthContext/getInitialSession] No session, on protected path ${location.pathname}. ProtectedRoute will handle redirect.`);
+        }
+      }
+    }
+
+    getInitialSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Keep empty deps for mount-only execution
+
+  // NEW: Moved useEffect for ensureUserUrl to the top level
         useEffect(() => {
           async function ensureUserUrl() {
-            if (user && !(user as any).url) {
+      if (user && !user.url) { // <--- Now we can directly access user.url without casting
               try {
                 console.log('Ensuring user has a URL for user ID:', user.id);
-                // Call our new database function to ensure user has a URL
-                const { data, error } = await (supabase.rpc as any)('ensure_user_url', {
+          const { data, error: rpcError } = await supabase.rpc('ensure_user_url', {
                   user_id: user.id
-                });
+                }) as { data: string | null; error: PostgrestError | null };
                 
-                if (error) {
-                  console.error('Failed to ensure user URL:', error.message);
+          if (rpcError) {
+            console.error('Failed to ensure user URL:', rpcError.message);
                 } else if (data) {
                   console.log('User URL set/retrieved successfully:', data);
-                  // Update the user state with the URL
-                  setUser((prev: any) => ({ ...prev, url: data }));
+            setUser(prevUser => {
+              if (prevUser && prevUser.url !== data) {
+                // Ensure the returned object matches the User interface
+                return { ...prevUser, url: data } as User;
+              }
+              return prevUser;
+            });
                 }
               } catch (err) {
                 console.error('Error in ensureUserUrl:', err);
               }
             }
           }
+    if (user) { 
           ensureUserUrl();
-          // Only run when user changes
-        }, [user]);
-      } catch (error) {
-        console.error('❌ Exception getting initial session:', error);
-      } finally {
-        setLoading(false);
-        console.log('✅ Loading state set to FALSE');
-      }
     }
-
-    getInitialSession();
-  }, [/* Temporarily remove attemptEarlySpaceRedirect dependency to isolate login issues */]);
+        }, [user]);
 
   // Listen for auth changes
   useEffect(() => {
@@ -625,85 +607,170 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } : null,
           timestamp: new Date().toISOString()
         });
+
+        const currentSessionState = session; // Capture current session from state for comparison
+
+        // Check if this is a focus-triggered revalidation (same user, same token)
+        const currentUserId = user?.id; // Use user from state for this check
+        const newUserId = newSession?.user?.id;
+        const currentTokenSnippet = currentSessionState?.access_token?.substring(0, 9);
+        const newTokenSnippet = newSession?.access_token?.substring(0, 9);
         
-        // Set a timeout to prevent infinite blocking
+        const isIdenticalSessionContent = 
+          currentSessionState && // Ensure currentSessionState is not null
+          newSession &&
+          currentUserId === newUserId && // Compare IDs
+          currentSessionState.access_token === newSession.access_token && // Compare full tokens
+          currentSessionState.expires_at === newSession.expires_at; // Compare expiry
+        
+        console.log('[AuthFocusDebug] Current session in state BEFORE update:', {
+          userId: currentUserId,
+          accessTokenSnippet: currentTokenSnippet,
+          // isIdenticalToNewSession: isIdenticalSession // Old logic
+        });
+        
+        console.log('[AuthFocusDebug] Incoming newSession details:', {
+          userId: newUserId,
+          accessTokenSnippet: newTokenSnippet 
+        });
+
+        const isFocusRevalidation = event === 'SIGNED_IN' && isIdenticalSessionContent;
+        
+        if (isFocusRevalidation) {
+          console.log('🔁 [AuthFocusDebug] Auth event: SIGNED_IN received, session content is identical. This is likely a focus-triggered re-validation. Skipping setSession and setUser.');
+          // DO NOT call setSession(newSession) if content is identical to prevent new reference
+          // setUser is already handled by the more detailed check below, which would also skip if user content is identical
+          return; 
+        }
+        
+        // Smart setSession: Only update if newSession is substantively different or session is null
+        if (!currentSessionState || !newSession || 
+            currentSessionState.access_token !== newSession.access_token ||
+            currentSessionState.user.id !== newSession.user.id ||
+            currentSessionState.expires_at !== newSession.expires_at) {
+          console.log('[AuthContext] New session content detected or no current session, calling setSession.');
+          setSession(newSession); 
+        } else {
+          console.log('[AuthContext] Session content appears identical, skipping setSession to maintain reference.');
+        }
+        
         const timeoutId = setTimeout(() => {
           if (routingInProgress) {
             console.log('⚠️ Auth state change timeout - forcing routing to complete');
             setRoutingInProgress(false);
           }
-        }, 5000); // 5 second timeout
+        }, 5000); 
         
-        // Log before setting state
-        console.log('📝 BEFORE updating state in onAuthStateChange:', {
-          currentUser: user ? { id: user.id, email: user.email } : null,
-          newUser: newSession?.user ? { id: newSession.user.id, email: newSession.user.email } : null
-        });
-        
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        
-        // Log after setting state (react batching won't show updated values yet)
-        console.log('📝 AFTER setting state in onAuthStateChange (not reflected yet due to React batching)');
+        const oldUser = user; 
+
+        // setUser logic (existing smart update is good)
+        if (newSession?.user) {
+          const newUserFromSession = newSession.user as User; 
+          if (
+            !oldUser || 
+            oldUser.id !== newUserFromSession.id ||
+            oldUser.email !== newUserFromSession.email ||
+            JSON.stringify(oldUser.user_metadata) !== JSON.stringify(newUserFromSession.user_metadata)
+          ) {
+            console.log('[AuthFocusDebug] User data changed or new user, calling setUser.');
+            setUser(newUserFromSession);
+          } else {
+            console.log('[AuthFocusDebug] User data appears unchanged (ID, email, metadata). Skipping setUser to potentially avoid unnecessary re-renders.');
+          }
+        } else {
+          console.log('[AuthFocusDebug] No user in new session, calling setUser(null).');
+          if (user !== null) setUser(null); // Only call if user state is not already null
+        }
         
         switch (event) {
           case 'SIGNED_IN':
             console.log('✅ Auth event: User signed in:', newSession?.user?.email);
-            
+            let didNavigateInHandler = false; // Tracks if this handler instance calls navigate
+
             if (newSession?.user) {
-              // Reset routing flags at the start of a new session
-              setHasRouted(false);
-              setEarlyRedirectAttempted(false);
-            
-              // Check for redirect_after_login in sessionStorage first
-              const redirectPath = sessionStorage.getItem('redirect_after_login');
-              if (redirectPath) {
-                console.log('➡️ Auth event: Found redirect path after login:', redirectPath);
+              // If routing flags from refs indicate a previous phase already handled it and is not currently in progress.
+              // This check might be too aggressive if a SIGNED_IN event should always re-evaluate.
+              // For now, let's assume a SIGNED_IN event means a fresh decision point unless it's a focus revalidation.
+              // if (earlyRedirectAttemptedRef.current && hasRoutedRef.current && !routingInProgressRef.current) {
+              //   console.log('[AuthContext] SIGNED_IN: Flags indicate routing already handled and not in progress. No action.');
+              //   setRoutingInProgress(false); 
+              //   return; 
+              // }
+
+              const redirectPathFromStorage = sessionStorage.getItem('redirect_after_login');
+              if (redirectPathFromStorage) {
                 sessionStorage.removeItem('redirect_after_login');
-                
-                // Add a small delay to ensure state is updated
+                console.log(`[AuthContext] SIGNED_IN: Handling redirect_after_login to: ${redirectPathFromStorage}`);
                 setTimeout(() => {
-                  console.log('🔀 Auth event: Redirecting to explicit path:', redirectPath);
-                  navigate(redirectPath, { replace: true });
-                  setHasRouted(true);
-                  setRoutingInProgress(false);
-                }, 300);
+                  if (location.pathname !== redirectPathFromStorage) {
+                    navigate(redirectPathFromStorage, { replace: true });
+                  }
+                }, 50); // Reduced timeout, ensure it's minimal
+                didNavigateInHandler = true;
               } else {
-                // TEMPORARILY DISABLE SPACE REDIRECTION
-                console.log('⚠️ Space redirection in onAuthStateChange temporarily disabled');
-                setRoutingInProgress(false);
+                // No explicit sessionStorage redirect. 
+                // Default to /app for QuickSpaceRedirect to handle space finding.
+                // This should happen if on generic auth pages OR if on /discover after a fresh login.
+                const currentPath = location.pathname;
+                const genericAuthPaths = ['/', '/login', '/signin', '/signup', '/auth/callback'];
                 
-                /* DISABLED for now to fix login issues
-                // Attempt early space redirection immediately if no explicit redirect path
-                console.log('🔍 Auth event: No explicit redirect path, checking for user spaces');
-                await attemptEarlySpaceRedirect(newSession.user.id);
+                // Check if user explicitly wants to stay on the discover page
+                const userWantsDiscover = sessionStorage.getItem('userWantsDiscover') === 'true';
                 
-                // Double check if the redirection was successful
-                if (!hasRouted && !location.pathname.startsWith('/space/')) {
-                  console.log('ℹ️ Auth event: No spaces found and not on a space page, may redirect to discover');
-                  // Don't explicitly redirect to discover here - let the component handle that if needed
+                // If on discover page and user explicitly navigated there via the space switcher, stay there
+                if (currentPath === '/discover' && userWantsDiscover) {
+                  console.log('[AuthContext] SIGNED_IN: On /discover page with userWantsDiscover flag. No redirect.');
+                  sessionStorage.removeItem('userWantsDiscover'); // Clear the flag after using it
+                  didNavigateInHandler = false;
                 }
-                */
-                
-                // Instead of redirecting to spaces, just make sure loading state is completed
-                console.log('✅ Auth event: Sign-in completed, setting routingInProgress to false');
-                setRoutingInProgress(false);
+                // Otherwise, if on a generic auth path, /app, or initial discover page (no switcher flag)
+                // and not already on /app, navigate to /app.
+                else if (genericAuthPaths.includes(currentPath) || currentPath === '/app' || 
+                    (currentPath === '/discover' && !userWantsDiscover)) {
+                  if (currentPath !== '/app') {
+                    console.log(`[AuthContext] SIGNED_IN: Defaulting to /app from ${currentPath} for space resolution.`);
+                    setTimeout(() => navigate('/app', { replace: true }), 50); // Reduced timeout
+                      didNavigateInHandler = true;
+                    } else {
+                       console.log('[AuthContext] SIGNED_IN: Already on /app. QuickSpaceRedirect will handle.');
+                    // No navigation needed, but routing will be in progress via QSR
+                    }
+                  } else {
+                  // Not a generic page, not /app, not /discover. User might be on a profile page or already in a space.
+                  console.log(`[AuthContext] SIGNED_IN: On specific page ${currentPath}. No default navigation to /app from here.`);
+                }
               }
+            }
+            
+            // Finalize routing flags for this event consistently
+            setHasRouted(true);
+            setEarlyRedirectAttempted(true); // Indicate early redirect phase has been considered/attempted
+            
+            if (!didNavigateInHandler) {
+              // If this handler instance itself didn't call navigate(), 
+              // ensure routingInProgress is false to unlock UI.
+              // If it did navigate, the subsequent page load/auth event will manage routingInProgress.
+              console.log(`[AuthContext] SIGNED_IN: No navigation by this handler or already on /app. Setting routingInProgress=false.`);
+              setRoutingInProgress(false);
+            } else {
+              console.log(`[AuthContext] SIGNED_IN: Navigation initiated by this handler. routingInProgress will be managed by subsequent events or navigation completion.`);
+              // When navigation is initiated, routingInProgress should ideally be true until
+              // the new page loads and its auth state is stable.
+              // However, forcing it true here might conflict if navigation is quick.
+              // The getInitialSession and page load itself should set it true.
+              // For now, let's ensure it's not stuck on true if navigate wasn't called.
             }
             break;
             
           case 'SIGNED_OUT':
             console.log('👋 Auth event: User signed out');
-            // Reset routing flag on sign out
             setHasRouted(false);
             setEarlyRedirectAttempted(false);
             setRoutingInProgress(false);
-            // Redirect to landing page if on a protected route
             if (location.pathname !== '/' && 
                 location.pathname !== '/signin' && 
                 location.pathname !== '/signup' &&
                 location.pathname !== '/login') {
-              console.log('➡️ Auth event: Redirecting to landing page after logout');
               navigate('/', { replace: true });
             }
             break;
@@ -723,264 +790,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             break;
         }
         
-        // Ensure routingInProgress is reset in all cases
-        setTimeout(() => {
-          if (routingInProgress) {
-            console.log('⚠️ routingInProgress still true after auth event - resetting');
-            setRoutingInProgress(false);
-          }
-        }, 1000);
-        
-        // Clear the timeout when the auth state change is handled
         clearTimeout(timeoutId);
-        
-        // Finally log the current state 
-        setTimeout(() => {
-          console.log('🏁 Final state after auth event:', {
-            event,
-            user: newSession?.user ? { id: newSession.user.id, email: newSession.user.email } : null,
-            authenticated: !!newSession,
-            pathname: location.pathname,
-            routingInProgress,
-            hasRouted
-          });
-        }, 200);
       });
 
     return () => {
       console.log('🧹 Cleaning up auth subscription');
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname, /* Remove dependencies to isolate login issues */]);
+  }, [navigate, location.pathname, routingInProgress, session?.access_token, user]); // Updated dependencies
 
   // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     console.log('🔑 Signing in user:', email);
-    console.log('📅 Login attempt timestamp:', new Date().toISOString());
-    
-    try {
-      // Reset the hasRouted flag for the new login session
-      setHasRouted(false);
-      setEarlyRedirectAttempted(false);
-      
-      // Log browser details for troubleshooting
-      console.log(' Browser info:', {
-        userAgent: navigator.userAgent,
-        language: navigator.language,
-        cookiesEnabled: navigator.cookieEnabled,
-        localStorage: typeof localStorage !== 'undefined',
-        platform: navigator.platform
-      });
-      
-      // Verify Supabase client is configured
-      console.log('🔌 Supabase client check:', {
-        initialized: !!supabase,
-        authEnabled: !!supabase?.auth,
-        hasSignInMethod: !!supabase?.auth?.signInWithPassword
-      });
-      
-      // Set routing in progress to prevent UI flashes
-      setRoutingInProgress(true);
-      
-      // Set safety timeout to prevent UI from hanging
-      const safetyTimeout = setTimeout(() => {
-        console.error('⏱️ SAFETY TIMEOUT: Sign-in took too long - forcing routingInProgress to false');
-        setRoutingInProgress(false);
-      }, 10000); // 10 second safety timeout
-      
-      // Attempt to sign in
-      console.log('🔑 Sending signInWithPassword request...');
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      
-      // Clear safety timeout
-      clearTimeout(safetyTimeout);
-      
-      if (error) {
-        console.error('❌ Sign in error:', error.message);
-        console.error('❌ Error details:', {
-          code: error.code,
-          status: error.status,
-          name: error.name,
-          message: error.message,
-        });
-        setAuthErrors(prev => [...prev, `Sign in error: ${error.message}`]);
-        setRoutingInProgress(false);
-        return { error };
-      }
-      
-      console.log('✅ Sign in successful', {
-        user: data.user?.email,
-        userId: data.user?.id,
-        hasSession: !!data.session,
-        expires: data.session ? new Date(data.session.expires_at * 1000).toLocaleString() : 'N/A',
-        sessionId: data.session ? 'session-exists' : 'no-session'
-      });
-      
-      // Inspect user object for debugging
-      if (data.user) {
-        console.log('👤 User details:', {
-          id: data.user.id,
-          email: data.user.email,
-          emailConfirmed: data.user.email_confirmed_at,
-          phone: data.user.phone,
-          lastSignIn: data.user.last_sign_in_at,
-          createdAt: data.user.created_at,
-          updatedAt: data.user.updated_at,
-          hasMetadata: !!data.user.user_metadata,
-          roles: data.user.app_metadata?.roles || []
-        });
-      }
-      
-      // Manual state update in case onAuthStateChange doesn't fire immediately
-      console.log('📝 BEFORE updating session and user in signIn function');
-      setSession(data.session);
-      setUser(data.user);
-      console.log('📝 AFTER updating session and user in signIn function (not reflected yet due to React batching)');
-      
-      // Verify tokens were stored
-      setTimeout(() => {
-        console.log('🔍 Verifying token storage after login');
-        const hasTokens = debugCheckStorageTokens();
-        console.log('🔐 Token verification result:', hasTokens ? 'Tokens found' : 'Tokens missing');
-      }, 100);
-      
-      // Check for redirect_after_login in sessionStorage
-      const redirectPath = sessionStorage.getItem('redirect_after_login');
-      if (redirectPath) {
-        console.log('➡️ Found redirect path after login:', redirectPath);
-        sessionStorage.removeItem('redirect_after_login');
-        
-        // Add a small delay to ensure all state is updated
-        setTimeout(() => {
-          // If there's a specific redirect target, prioritize it over space routing
-          console.log('🔀 Redirecting to explicit path:', redirectPath);
-          navigate(redirectPath, { replace: true });
-          
-          // Mark that we've routed this session to avoid double redirects
-          setHasRouted(true);
-          setRoutingInProgress(false);
-        }, 300);
-        
-        return { error: null };
-      }
-      
-      // Perform space check and routing
-      if (data.user?.id) {
-        console.log('🧭 Initiating redirection flow for user:', data.user.id);
-        
-        try {
-          // Use attemptEarlySpaceRedirect to find and navigate to user's space
-          console.log('🔍 Attempting early space redirection');
-          await attemptEarlySpaceRedirect(data.user.id);
-          
-          // Wait a moment to ensure the hasRouted flag is updated if redirection happened
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Re-check hasRouted flag - if it's true, a space was found and redirection happened
-          console.log('🔍 Checking if space redirection was successful:', 
-            hasRouted ? 'YES - user was redirected to a space' : 'NO - no redirection occurred');
-          
-          // If we get here and hasRouted is still false, then we didn't find any spaces
-          // Only redirect to discover if no spaces were found, and after a delay
-          if (!hasRouted) {
-            console.log('❌ No user space found, checking if we should redirect to discover page');
-            console.log('🔍 Current pathname:', location.pathname);
-            console.log('🔍 Starts with /@?', location.pathname.startsWith('/@'));
-            console.log('🔍 Is profile URL (check):', location.pathname.match(/^\/@[^\/]+$/));
-            
-            // IMPORTANT: Profile routes need special handling - NEVER redirect away from profiles
-            const isProfileRoute = location.pathname.startsWith('/@') || location.pathname.startsWith('/profile/');
-            const isExactProfileRoute = !!(location.pathname.match(/^\/@[^\/]+$/) || location.pathname.match(/^\/profile\/[^\/]+$/));
-            
-            // Check for malformed profile routes (with extra path segments)
-            const isMalformedProfileRoute = location.pathname.startsWith('/@') && location.pathname.includes('/space');
-            if (isMalformedProfileRoute) {
-              console.warn('🚨 DETECTED MALFORMED PROFILE ROUTE:', location.pathname);
-              console.warn('🚨 This might indicate a routing issue with the profile page');
-              
-              // Extract the username from the malformed URL
-              const match = location.pathname.match(/\/@([^\/]+)/);
-              if (match && match[1]) {
-                const username = match[1];
-                console.log('🔄 Will redirect from malformed route to proper profile route:', `/@${username}`);
-                
-                // Redirect to the correct profile route
-                setTimeout(() => {
-                  navigate(`/@${username}`, { replace: true });
-                }, 100);
-                
-                // Return early to prevent further processing
-                return;
-              }
-            }
+    setLoading(true);
+    setAuthErrors([]); // Clear previous errors
 
-            // Always log profile route detection for debugging
-            if (isProfileRoute) {
-              console.log('🔍 AUTH CONTEXT: Profile route detected!', {
-                path: location.pathname,
-                isExactProfileRoute
-              });
-            }
-            
-            if (isProfileRoute) {
-              console.log('🛑 NOT redirecting from profile page:', location.pathname);
-              console.log('🛑 Profile route detected - allowing profile view without redirect');
-              setHasRouted(true);
-              setRoutingInProgress(false);
-            } else {
-              // Only redirect to /discover if not on a profile page
-              setTimeout(() => {
-                console.log('🔀 Redirecting to /discover (no spaces found)');
-                navigate('/discover', { replace: true });
-                setHasRouted(true);
-                setRoutingInProgress(false);
-              }, 300);
-            }
-          } else {
-            console.log('✅ User already redirected to their space, no further redirection needed');
-            // Ensure routingInProgress is reset
-            setRoutingInProgress(false);
-          }
-        } catch (error) {
-          console.error('❌ Error in redirection flow:', error);
-          
-          // Fallback to discover on error with a small delay
-          setTimeout(() => {
-            console.log('🔀 Redirecting to /discover (error fallback)');
-            navigate('/discover', { replace: true });
-            setHasRouted(true);
-            setRoutingInProgress(false);
-          }, 300);
-        }
-      } else {
-        // If no user ID, fall back to discover
-        console.log('⚠️ No user ID available after sign in, redirecting to discover');
-        setTimeout(() => {
-          console.log('🔀 Redirecting to /discover (no user ID)');
-          navigate('/discover', { replace: true });
-          setHasRouted(true);
-          setRoutingInProgress(false);
-        }, 300);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.warn('⚠️ Sign in error:', error.message);
+        setAuthErrors(prev => [...prev, `Sign in failed: ${error.message}`]);
+        // Ensure the returned error object matches AppError (message only)
+        const errorToReturn: AppError = { message: error.message };
+        return { error: errorToReturn, success: false };
+      }
+
+      if (!data.session || !data.user) {
+        console.warn('🤔 Sign in attempt returned no session or no user, but no explicit error.');
+        const noSessionError: AppError = { message: 'Sign in failed: No session or user returned.' };
+        setAuthErrors(prev => [...prev, noSessionError.message]);
+        return { error: noSessionError, success: false };
       }
       
-      return { error: null };
-    } catch (err: any) {
+      console.log('✅ Sign in successful. Session:', data.session, 'User:', data.user);
+      setSession(data.session);
+      const typedUser = data.user as User; 
+      setUser(typedUser);
+      
+      // Note: setUserIdForRouting was removed as it was part of an erroneous previous edit.
+      // The main session effect should handle post-auth routing logic.
+
+      return { error: null, success: true };
+    } catch (err: unknown) {
       console.error('❌ Exception during sign in:', err);
-      console.error('❌ Exception details:', {
-        name: err.name || 'Unknown error name',
-        message: err.message || 'Unknown error message',
-        stack: err.stack ? err.stack.split('\n')[0] : 'No stack trace',
-        code: err.code,
-        type: typeof err
-      });
-      setAuthErrors(prev => [...prev, `Sign in exception: ${err.message || err}`]);
-      setRoutingInProgress(false);
-      return { error: err };
+      const message = err instanceof Error ? err.message : String(err);
+      setAuthErrors(prev => [...prev, `Sign in exception: ${message}`]);
+      const errorResult: { error: AppError; success: boolean } = { error: { message }, success: false };
+      return errorResult;
+    } finally {
+      setLoading(false);
     }
   };
 
   // Sign up with email and password
-  const signUp = async (email: string, password: string, options?: { firstName?: string, lastName?: string }) => {
+  const signUp = async (email: string, password: string, options?: { username?: string; firstName?: string; lastName?: string }) => {
     console.log('📝 Signing up user:', email, options ? 'with metadata' : 'without metadata');
     // Prepare metadata if provided
     const metadata = options ? {
@@ -1016,7 +883,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           console.log('Ensuring new user has a URL for user ID:', data.user.id);
           // Call our database function to ensure user has a URL
-          const { data: urlData, error: urlError } = await (supabase.rpc as any)('ensure_user_url', {
+          const { data: urlData, error: urlError } = await supabase.rpc('ensure_user_url', {
             user_id: data.user.id
           });
           
@@ -1025,18 +892,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else if (urlData) {
             console.log('URL for new user generated successfully:', urlData);
             // Update user state with the URL
-            setUser((prev: any) => prev ? { ...prev, url: urlData } : prev);
+            setUser((prevUser: User | null) => prevUser ? { ...prevUser, url: urlData } as User : prevUser);
           }
-        } catch (err) {
-          console.error('Error during URL generation for new user:', err);
+        } catch (err: unknown) {
+          console.error('Error during URL generation for new user:', err instanceof Error ? err.message : String(err));
         }
       }
       // --- End automatic slug generation ---
-      return { error: null, data };
-    } catch (err: any) {
+      return { error: null, data, success: true };
+    } catch (err: unknown) {
       console.error('❌ Exception during sign up:', err);
-      setAuthErrors(prev => [...prev, `Sign up exception: ${err.message || err}`]);
-      return { error: err, data: null };
+      const message = err instanceof Error ? err.message : String(err);
+      setAuthErrors(prev => [...prev, `Sign up exception: ${message}`]);
+      return { error: { message } as AppError, data: null, success: false };
     }
   };
 
@@ -1044,24 +912,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     console.log('🚪 Signing out user');
     
-    try {
-      // Store the current pathname to determine if we need to manually refresh
-      const currentPath = window.location.pathname;
-      const isDiscoverPage = currentPath === '/discover';
+    // --- START MODIFICATION: Clear state and storage immediately ---
+    console.log('🧹 Immediately clearing client-side session state and storage...');
+    setUser(null);
+    setSession(null);
+    setUserDetails(null);
+    setHasRouted(false);
+    setEarlyRedirectAttempted(false);
+    setRoutingInProgress(false); // Reset routing progress immediately
       
-      // 1. First clear all storage items that might cause redirect loops
-      console.log('🧹 Clearing auth-related storage items');
-      
-      // Clear localStorage items
-      const localItems = [
+    // Clear localStorage items
+    const localItemsToClear = [
         'selectedSpaceId', 
-        'lastVisitedSpace', 
+        'lastVisitedSpace',
+      'lastCreatedSpace',
         'spaceData',
-        // Add Supabase-specific items for Safari
-        'supabase.auth.token'
+      'supabase.auth.token' // Specific Supabase token key
       ];
-      
-      localItems.forEach(item => {
+    localItemsToClear.forEach(item => {
         try {
           localStorage.removeItem(item);
         } catch (e) {
@@ -1070,14 +938,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       // Clear sessionStorage items
-      const sessionItems = [
+    const sessionItemsToClear = [
         'selectedSpaceId', 
         'spaceData', 
         'redirect_after_login', 
         'coming_from_space_switcher'
       ];
-      
-      sessionItems.forEach(item => {
+    sessionItemsToClear.forEach(item => {
         try {
           sessionStorage.removeItem(item);
         } catch (e) {
@@ -1085,20 +952,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
       
-      // Clear any Supabase keys in localStorage (important for Safari)
+    // Clear any Supabase keys in localStorage (important for Safari and general cleanup)
       try {
         Object.keys(localStorage)
-          .filter(key => key.startsWith('sb-'))
+        .filter(key => key.startsWith('sb-')) // Catches all Supabase-related keys
           .forEach(key => {
-            console.log(`Removing Supabase key: ${key}`);
+          console.log(`Removing Supabase localStorage key: ${key}`);
             localStorage.removeItem(key);
           });
       } catch (e) {
         console.warn('Failed to clear Supabase local storage items:', e);
       }
+    // --- END MODIFICATION ---
+    
+    try {
+      // Store the current pathname to determine if we need to manually refresh
+      const currentPath = window.location.pathname;
+      const isDiscoverPage = currentPath === '/discover';
       
-      // 2. Reset routing flag
-      setHasRouted(false);
+      // 1. First clear all storage items that might cause redirect loops
+      // console.log('🧹 Clearing auth-related storage items');
+      
+      // Clear localStorage items - add lastCreatedSpace to fix the redirection issue
+      // const localItems = [
+      //   'selectedSpaceId', 
+      //   'lastVisitedSpace',
+      //   'lastCreatedSpace', // Important: Add this to fix space redirection issues
+      //   'spaceData',
+      //   // Add Supabase-specific items for Safari
+      //   'supabase.auth.token'
+      // ];
+      
+      // localItems.forEach(item => {
+      //   try {
+      //     localStorage.removeItem(item);
+      //   } catch (e) {
+      //     console.warn(`Failed to remove ${item} from localStorage:`, e);
+      //   }
+      // });
+      
+      // Clear sessionStorage items
+      // const sessionItems = [
+      //   'selectedSpaceId', 
+      //   'spaceData', 
+      //   'redirect_after_login', 
+      //   'coming_from_space_switcher'
+      // ];
+      
+      // sessionItems.forEach(item => {
+      //   try {
+      //     sessionStorage.removeItem(item);
+      //   } catch (e) {
+      //     console.warn(`Failed to remove ${item} from sessionStorage:`, e);
+      //   }
+      // });
+      
+      // Clear any Supabase keys in localStorage (important for Safari)
+      // try {
+      //   Object.keys(localStorage)
+      //     .filter(key => key.startsWith('sb-'))
+      //     .forEach(key => {
+      //       console.log(`Removing Supabase key: ${key}`);
+      //       localStorage.removeItem(key);
+      //     });
+      // } catch (e) {
+      //   console.warn('Failed to clear Supabase local storage items:', e);
+      // }
+      
+      // 2. Reset routing flag -- MOVED UP
+      // setHasRouted(false);
       
       // 3. Sign out from Supabase
       console.log('🔑 Calling Supabase signOut method');
@@ -1110,10 +1032,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('✅ Supabase sign out successful');
       
-      // 4. Reset state
-      setUser(null);
-      setSession(null);
-      setUserDetails(null);
+      // 4. Reset state -- MOVED UP
+      // setUser(null);
+      // setSession(null);
+      // setUserDetails(null);
       
       // 5. Safari-specific fix for Discover page - force redirect with page reload
       if (isDiscoverPage) {
@@ -1141,9 +1063,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Fallback to direct location change
         window.location.replace('/');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error signing out:', error);
-      setAuthErrors(prev => [...prev, `Sign out error: ${error.message || error}`]);
+      setAuthErrors(prev => [...prev, `Sign out error: ${error instanceof Error ? error.message : String(error)}`]);
       
       // Even on error, make sure we reset the app state
       setUser(null);
@@ -1171,37 +1093,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       navigate('/discover', { replace: true });
       
       return Promise.resolve();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error resetting test account state:', error);
-      setAuthErrors(prev => [...prev, `Reset test account error: ${error.message || error}`]);
-      return Promise.reject(error);
+      const message = error instanceof Error ? error.message : String(error);
+      setAuthErrors(prev => [...prev, `Reset test account error: ${message || 'Unknown error'}`]);
+      return Promise.reject({ message });
     }
   };
 
   // Reset password
   const resetPassword = async (email: string) => {
-    console.log('🔑 Sending password reset for:', email);
-    
+    console.log('🔑 Requesting password reset for:', email);
+    setLoading(true);
+    setAuthErrors([]);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/update-password`, // Corrected redirect, was /reset-password
       });
-      
       if (error) {
-        console.error('❌ Password reset error:', error.message);
-        setAuthErrors(prev => [...prev, `Password reset error: ${error.message}`]);
+        console.warn('⚠️ Password reset error:', error.message);
+        setAuthErrors(prev => [...prev, `Password reset failed: ${error.message}`]);
+        // Ensure the returned error object matches AppError (message only)
+        const errorToReturn: AppError = { message: error.message };
+        return { error: errorToReturn, success: false };
       }
-      
-      return { error };
-    } catch (err: any) {
+      console.log('✅ Password reset email sent successfully.');
+      return { error: null, success: true };
+    } catch (err: unknown) {
       console.error('❌ Exception during password reset:', err);
-      setAuthErrors(prev => [...prev, `Password reset exception: ${err.message || err}`]);
-      return { error: err };
+      const message = err instanceof Error ? err.message : String(err);
+      setAuthErrors(prev => [...prev, `Password reset exception: ${message}`]);
+      const errorResult: { error: AppError; success: boolean } = { error: { message }, success: false };
+      return errorResult;
+    } finally {
+      setLoading(false);
     }
   };
 
   // Auth context value
-  const value = {
+  const contextValue = useMemo(() => ({
     session,
     user,
     userDetails,
@@ -1213,11 +1143,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword,
     resetTestAccountState,
     debugGetSession
-  };
+  }), [
+    session, 
+    user, 
+    userDetails, 
+    loading, 
+    routingInProgress, 
+    // Assuming signIn, signOut etc. are memoized by useCallback or stable
+    // If they are redefined on each render (not typical for functions declared outside useEffect/useCallback),
+    // they should also be dependencies or memoized themselves.
+    // For now, assuming they are stable as per common practice.
+  ]);
 
   // Expose debug methods to window
   if (typeof window !== 'undefined') {
-    (window as any).authDebug = {
+    (window as Window & typeof globalThis & { authDebug?: AuthDebugType }).authDebug = {
       getSession: debugGetSession,
       checkTokens: debugCheckStorageTokens,
       errors: authErrors,
@@ -1282,6 +1222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('🔎 Inspecting navigate function:', navigate);
           return { navigate, location };
         },
+        // Restore showRedirectHistory
         showRedirectHistory: () => ({
           successes: JSON.parse(sessionStorage.getItem('redirectHistory') || '[]'),
           failures: JSON.parse(sessionStorage.getItem('redirectFailures') || '[]'),
@@ -1314,19 +1255,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             // Also check space_access
             const { data: accessSpaces, error: accessError } = await supabase
-              .from('space_access')
+              .from('space_members')
               .select(`
                 id, 
                 space_id,
+                status,
+                role,
                 spaces:space_id(id, name, subdomain)
               `)
               .eq('user_id', user.id)
-              .eq('is_active', true);
+              .eq('status', 'active');
               
             if (accessError) {
               console.error('❌ Error fetching space access:', accessError);
             } else {
-              console.log(`✅ Found ${accessSpaces?.length || 0} spaces with access:`, accessSpaces);
+              console.log(`✅ Found ${accessSpaces?.length || 0} spaces with active membership:`, accessSpaces);
             }
             
             if (skipCache) {
@@ -1349,9 +1292,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             
             return { owned: spaces, access: accessSpaces };
-          } catch (e) {
+          } catch (e: unknown) {
             console.error('❌ Error in getSpacesFromDB:', e);
-            return { error: e };
+            return { error: e instanceof Error ? e : new Error(String(e)) };
           }
         },
         getCachedSpaces: () => {
@@ -1363,9 +1306,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               lastCreatedSpace: lastCreated ? JSON.parse(lastCreated) : null,
               lastVisitedSpace: lastVisited ? JSON.parse(lastVisited) : null
             };
-          } catch (e) {
+          } catch (e: unknown) {
             console.error('❌ Error getting cached spaces:', e);
-            return { error: e };
+            return { error: e instanceof Error ? e : new Error(String(e)) };
           }
         },
         clearCachedSpaces: () => {
@@ -1374,7 +1317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem('lastVisitedSpace');
             console.log('✅ Cleared cached spaces from localStorage');
             return true;
-          } catch (e) {
+          } catch (e: unknown) {
             console.error('❌ Error clearing cached spaces:', e);
             return false;
           }
@@ -1383,5 +1326,147 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  useEffect(() => {
+    hasRoutedRef.current = hasRouted;
+    routingInProgressRef.current = routingInProgress;
+    earlyRedirectAttemptedRef.current = earlyRedirectAttempted;
+  }, [hasRouted, routingInProgress, earlyRedirectAttempted]);
+
+  const handlePostAuthenticationRouting = useCallback(async (userId: string) => {
+    // This is the body for handlePostAuthenticationRouting
+    console.log('🧭 (HPAR) Initiating post-authentication routing for user:', userId);
+    setRoutingInProgress(true);
+
+    const routingSafetyTimeout = setTimeout(() => {
+      console.error('⏱️ SAFETY TIMEOUT: handlePostAuthenticationRouting took too long - forcing routingInProgress to false');
+      if (routingInProgressRef.current) {
+         setRoutingInProgress(false);
+      }
+    }, 15000);
+
+    try {
+      const explicitRedirectPath = sessionStorage.getItem('redirect_after_login');
+      if (explicitRedirectPath) {
+        console.log('➡️ (HPAR) Found explicit redirect path after login:', explicitRedirectPath);
+        sessionStorage.removeItem('redirect_after_login');
+        await new Promise(resolve => setTimeout(resolve, 50));
+        console.log('🔀 (HPAR) Redirecting to explicit path:', explicitRedirectPath);
+        navigate(explicitRedirectPath, { replace: true });
+        setHasRouted(true); // Mark that we took an explicit redirect path
+        // setRoutingInProgress(false); // HPAR's finally block will handle this
+        clearTimeout(routingSafetyTimeout);
+        return;
+      }
+
+      console.log('🔍 (HPAR) Calling attemptEarlySpaceRedirect for user:', userId);
+      const didRedirectEarly = await attemptEarlySpaceRedirect(userId);
+      
+      // Allow microtask queue to process any state updates from attemptEarlySpaceRedirect (like setHasRouted)
+      await Promise.resolve(); 
+
+      const currentPath = location.pathname;
+      console.log('🔍 (HPAR) State after attemptEarlySpaceRedirect call:', {
+        didRedirectEarly,
+        hasRoutedFromState: hasRoutedRef.current, // Compare with state for debugging
+        currentPath,
+      });
+
+      if (!didRedirectEarly) { 
+        console.log('🤔 (HPAR) didRedirectEarly is false. Evaluating fallbacks.');
+        // If attemptEarlySpaceRedirect didn't navigate (e.g. already on space page but returned true, or no space found and returned false)
+        // we might still need to decide on /discover or profile page handling.
+
+        // Check if already effectively handled by being on a space page and AESR returned true for it
+        if (location.pathname.includes('/space/') && didRedirectEarly) {
+             console.log('✅ (HPAR) Already on a space page and attemptEarlySpaceRedirect confirmed it or handled it. No further action.');
+             // setHasRouted(true) should have been called by attemptEarlySpaceRedirect if it returned true for this case
+        } else {
+            const preferredSpaceAfterAttempt = await getUserPreferredSpace(userId);
+            console.log('👑 (HPAR) Fresh preferred space after attempt (in fallback):', preferredSpaceAfterAttempt);
+
+            if (currentPath.includes('/space/') && !preferredSpaceAfterAttempt) {
+              console.log('❌ (HPAR) On a space page, but no preferred space confirmed for user. Redirecting to /discover.');
+              navigate('/discover', { replace: true });
+              setHasRouted(true);
+            } else {
+              // New logic for profile route handling
+              const isNewProfileFormat = currentPath.startsWith('/profile/');
+              const isOldProfileFormat = currentPath.startsWith('/@');
+              
+              let usernameFromOldFormat: string | null = null;
+              if (isOldProfileFormat) {
+                const oldMatch = currentPath.match(/@([^/]+)/);
+                if (oldMatch && oldMatch[1]) {
+                  usernameFromOldFormat = oldMatch[1];
+                }
+              }
+
+              const isOldMalformedRoute = isOldProfileFormat && currentPath.includes('/space/');
+
+              if (isOldMalformedRoute || (isOldProfileFormat && usernameFromOldFormat && !isNewProfileFormat)) {
+                // Redirect old formats or old malformed routes to the new /profile/username format
+                if (usernameFromOldFormat) {
+                  console.warn(`🚨 (HPAR) DETECTED OLD or MALFORMED PROFILE ROUTE: ${currentPath}. Redirecting to /profile/${usernameFromOldFormat}`);
+                  navigate(`/profile/${usernameFromOldFormat}`, { replace: true });
+                  setHasRouted(true);
+                } else {
+                  console.log('🔀 (HPAR) Malformed old profile route, but no username found. Redirecting to /discover.');
+                  navigate('/discover', { replace: true });
+                  setHasRouted(true);
+                }
+              } else if (isNewProfileFormat) {
+                // Current path is already in the new /profile/ format
+                // We might still want to check for malformed new routes like /profile/username/space
+                const isNewMalformedRoute = isNewProfileFormat && currentPath.includes('/space/');
+                if (isNewMalformedRoute) {
+                  const newMatch = currentPath.match(/\/profile\/([^/]+)/);
+                  if (newMatch && newMatch[1]) {
+                    const usernameFromNew = newMatch[1];
+                    console.warn(`🚨 (HPAR) DETECTED MALFORMED NEW PROFILE ROUTE: ${currentPath}. Correcting to /profile/${usernameFromNew}`);
+                    navigate(`/profile/${usernameFromNew}`, { replace: true });
+                    setHasRouted(true);
+                  } else {
+                    console.log('🔀 (HPAR) Malformed new profile route, but no username found. Redirecting to /discover.');
+                    navigate('/discover', { replace: true });
+                    setHasRouted(true);
+                  }
+                } else {
+                  console.log('🛑 (HPAR) Correctly on a /profile/ route. Allowing profile view.', { currentPath });
+                  setHasRouted(true); 
+                }
+              } else {
+                // Only navigate to discover if no space was found by AESR AND we are not on a profile page (old or new).
+                console.log('🔀 (HPAR) No space routed by AESR, not on an invalid space page, and not a profile page. Redirecting to /discover.');
+                navigate('/discover', { replace: true });
+                setHasRouted(true);
+              }
+            }
+        }
+      } else { // didRedirectEarly is true
+        console.log('✅ (HPAR) Routing to space was successful (attemptEarlySpaceRedirect returned true).');
+        // setHasRouted(true) should have been called by attemptEarlySpaceRedirect
+      }
+    } catch (error: unknown) {
+      console.error('❌ (HPAR) Error in handlePostAuthenticationRouting:', error);
+      if (!hasRoutedRef.current) {
+        console.log('🔀 (HPAR) Redirecting to /discover due to error in routing flow.');
+        navigate('/discover', { replace: true });
+        setHasRouted(true);
+      }
+    } finally {
+      console.log('🏁 (HPAR) Post-authentication routing finished.');
+      setRoutingInProgress(false);
+      clearTimeout(routingSafetyTimeout);
+    }
+  }, [
+    navigate, 
+    location, 
+    setHasRouted, 
+    setRoutingInProgress, 
+    attemptEarlySpaceRedirect, 
+    // getUserPreferredSpace is called directly, not a dep of HPAR itself but used within it.
+    // Refs are stable, so not needed in dep array.
+  ]);
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }

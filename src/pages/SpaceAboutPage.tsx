@@ -1,13 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ChevronLeft, Globe, Lock, Users, Tag, FileText, LogIn, Play } from "lucide-react";
+import { Loader2, ChevronLeft, Globe, Lock, Users, Tag, FileText, LogIn, Play, Upload, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Separator } from "@/components/ui/separator";
+import { useMembership } from "@/contexts/MembershipContext";
+import { updateLastJoinedSpace } from "@/utils/userSpaceUtils";
 
 // Add this constant at the top of the file with your other constants
 const STORAGE_BUCKET_NAME = 'media';
@@ -67,7 +69,7 @@ interface UserData {
 // First add a proper function to extract YouTube video IDs
 const extractVideoId = (url: string): string | null => {
   // Match YouTube URL patterns
-  const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+  const youtubeRegex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
   const match = url.match(youtubeRegex);
   return match ? match[1] : null;
 };
@@ -85,6 +87,7 @@ export default function SpaceAboutPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { joinSpace } = useMembership();
   const [aboutDescription, setAboutDescription] = useState<string>("");
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(0);
@@ -93,6 +96,11 @@ export default function SpaceAboutPage() {
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  // Add membership state
+  const [isMember, setIsMember] = useState(false);
+  const [checkingMembership, setCheckingMembership] = useState(false);
+  const [joiningSpace, setJoiningSpace] = useState(false);
   
   // Check if user was redirected due to access denial or needs login
   const accessDenied = location.state?.accessDenied === true;
@@ -126,6 +134,32 @@ export default function SpaceAboutPage() {
 
       setLoading(true);
       setError(null);
+      
+      // For users coming from discover page - mark that they were on the discover page
+      // This will help with navigation flow when they're a new user
+      try {
+        // Update localStorage and sessionStorage to remember they were on discover
+        if (document.referrer.includes('/discover')) {
+          console.log("User came from discover page, storing navigation state");
+          localStorage.removeItem('lastLocationWasDiscover');
+          sessionStorage.removeItem('lastLocationWasDiscover');
+        }
+        
+        // For users without spaces, check if they came from the discover page
+        if (user) {
+          const { count } = await supabase
+            .from('space_access')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('is_active', true);
+            
+          if (count === 0) {
+            console.log("User has no spaces, coming to about page");
+          }
+        }
+      } catch (err) {
+        console.warn("Error checking user spaces in about page:", err);
+      }
 
       try {
         // Fetch space data including about_description
@@ -164,22 +198,10 @@ export default function SpaceAboutPage() {
               .from('users')
               .select('id, email, username, display_name, avatar_url')
               .eq('id', spaceInfo.owner_id)
-              .single();
+              .single<OwnerData>();
 
-            if (!ownerError && userData) {
-              // Cast to our UserData type to handle any type mismatches
-              const typedUserData = userData as any;
-              
-              // Convert the user data to match our OwnerData interface
-              setOwnerData({
-                id: typedUserData.id,
-                email: typedUserData.email || null,
-                username: typedUserData.username || null,
-                display_name: typedUserData.display_name || typedUserData.username || (typedUserData.email ? typedUserData.email.split('@')[0] : 'Anonymous'),
-                avatar_url: typedUserData.avatar_url
-              });
-            } else {
-              // Set a default owner display when we can't fetch the actual owner
+            if (ownerError) {
+              console.error("Error fetching owner data:", ownerError);
               setOwnerData({
                 id: spaceInfo.owner_id,
                 email: null,
@@ -187,8 +209,26 @@ export default function SpaceAboutPage() {
                 display_name: 'Space Creator',
                 avatar_url: null
               });
+            } else if (!userData) {
+              console.warn("Owner data not found for ID:", spaceInfo.owner_id);
+              setOwnerData({
+                id: spaceInfo.owner_id,
+                email: null,
+                username: null,
+                display_name: 'Space Creator',
+                avatar_url: null
+              });
+            } else {
+              setOwnerData({
+                id: userData.id,
+                email: userData.email || null,
+                username: userData.username || null,
+                display_name: userData.display_name || userData.username || (userData.email ? userData.email.split('@')[0] : 'Anonymous'),
+                avatar_url: userData.avatar_url || null
+              });
             }
           } catch (userErr) {
+            console.error("Exception fetching owner data:", userErr);
             // Set a default owner even when errors occur
             setOwnerData({
               id: spaceInfo.owner_id,
@@ -233,7 +273,7 @@ export default function SpaceAboutPage() {
           const description = spaceInfo.about_description || spaceInfo.description || '';
           
           // More comprehensive YouTube regex to catch different formats
-          const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/g;
+          const descriptionYoutubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?/\s]{11})/g;
           
           // Also check for iframe embeds which are common in rich text editors
           const iframeEmbedRegex = /<iframe.*?src=["'](?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([^"']+)["'].*?><\/iframe>/g;
@@ -241,7 +281,7 @@ export default function SpaceAboutPage() {
           let match;
           
           // First check for direct YouTube links
-          while ((match = youtubeRegex.exec(description)) !== null) {
+          while ((match = descriptionYoutubeRegex.exec(description)) !== null) {
             const videoId = match[1];
             if (!demoMediaItems.some(item => item.type === 'video' && item.videoId === videoId)) {
               demoMediaItems.push({
@@ -309,6 +349,127 @@ export default function SpaceAboutPage() {
     fetchSpaceData();
   }, [subdomain, user]);
 
+  // Add effect to check if user is a member of the space
+  useEffect(() => {
+    const checkMembership = async () => {
+      if (!user || !spaceData?.id) {
+        return;
+      }
+      
+      try {
+        setCheckingMembership(true);
+        
+        const { data, error } = await supabase
+          .from('space_members')
+          .select('id, status')
+          .eq('user_id', user.id)
+          .eq('space_id', spaceData.id)
+          .maybeSingle();
+        
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking membership:', error);
+        }
+        
+        // User is a member if data exists and status is 'active'
+        setIsMember(!!data && data.status === 'active');
+      } catch (err) {
+        console.error('Failed to check membership status:', err);
+      } finally {
+        setCheckingMembership(false);
+      }
+    };
+    
+    if (user && spaceData?.id) {
+      checkMembership();
+    }
+  }, [user, spaceData?.id]);
+
+  // Improved function to handle joining the space with multiple fallback options
+  const handleJoinSpace = async () => {
+    if (!user) {
+      // Store the current page URL to redirect back after login
+      sessionStorage.setItem('redirect_after_login', window.location.pathname);
+      navigate('/login');
+      return;
+    }
+    
+    if (!spaceData?.id) {
+      toast({
+        title: "Error",
+        description: "Space information is missing",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setJoiningSpace(true);
+    
+    try {
+      console.log("[SpaceAboutPage] Attempting to join space via MembershipContext:", spaceData.id);
+      const success = await joinSpace(spaceData.id); // This now calls the updated RPC
+      
+      if (success) {
+        console.log("[SpaceAboutPage] joinSpace from context reported success.");
+        // The joinSpace function in MembershipContext now handles success toasts.
+        // It also triggers a refresh of membership status.
+        completeSuccessfulJoin(); 
+      } else {
+        // joinSpace from context would have already shown a toast for failure cases (RPC error, success:false)
+        console.warn("[SpaceAboutPage] joinSpace from context reported failure. Toasts should be handled by context.");
+        // Optionally, show a generic failure toast here if specific ones aren't guaranteed by context
+        // For now, we assume context handles failure toasts.
+      }
+    } catch (err: unknown) {
+      console.error("[SpaceAboutPage] Error during joinSpace call or in completeSuccessfulJoin:", err);
+      let message = "An unexpected error occurred. Please try again later.";
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      toast({
+        title: "Error Joining Space",
+        description: message,
+        variant: "destructive"
+      });
+    } finally {
+      setJoiningSpace(false);
+    }
+  };
+  
+  // Helper function for successful join completion
+  const completeSuccessfulJoin = async () => {
+    try {
+      // Set client-side flags
+      localStorage.setItem(`joined_space_${spaceData!.id}`, "true");
+      sessionStorage.setItem(`can_post_in_${spaceData!.id}`, "true");
+      
+      // Update last joined space
+      await updateLastJoinedSpace(
+        spaceData!.id,
+        spaceData!.name,
+        spaceData!.subdomain
+      );
+      
+      // Update membership state manually
+      setIsMember(true);
+      
+      // Show success message
+      toast({
+        title: "Successfully joined space",
+        description: `You've joined ${spaceData!.name}.`,
+      });
+      
+      // Redirect after small delay to ensure toast is seen
+      setTimeout(() => {
+        navigate(`/${subdomain}/space/feed`, { replace: true });
+      }, 500);
+    } catch (err) {
+      console.error("[SpaceAboutPage] Error in join completion:", err);
+      // Still consider it successful even if some cleanup fails
+    }
+  };
+
   // Handle thumbnail click to change active media
   const handleThumbnailClick = (index: number) => {
     setActiveMediaIndex(index);
@@ -337,7 +498,13 @@ export default function SpaceAboutPage() {
   };
 
   // Add this function to test storage access
-  const testStorageAccess = async () => {
+  const testStorageAccess = useCallback(async () => {
+    if (!spaceData?.id) {
+      console.warn("testStorageAccess: spaceData.id is not available. Skipping test.");
+      setStorageAvailable(false); 
+      setStorageLoading(false); 
+      return false;
+    }
     try {
       setStorageLoading(true);
       setStorageError(null);
@@ -345,7 +512,7 @@ export default function SpaceAboutPage() {
       // Test file
       const testContent = 'Storage access test';
       const testBlob = new Blob([testContent], { type: 'text/plain' });
-      const testPath = `space_${spaceData?.id}/test_${Date.now()}.txt`;
+      const testPath = `space_${spaceData.id}/test_${Date.now()}.txt`;
       
       // Try upload
       const { error } = await supabase.storage
@@ -367,22 +534,28 @@ export default function SpaceAboutPage() {
       setStorageAvailable(true);
       setStorageError(null);
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Storage test error:', error);
-      setStorageError(`Storage error: ${error.message}`);
+      let message = "An unexpected error occurred during storage test.";
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'string') {
+        message = error;
+      }
+      setStorageError(`Storage error: ${message}`);
       setStorageAvailable(false);
       return false;
     } finally {
       setStorageLoading(false);
     }
-  };
+  }, [spaceData, setStorageLoading, setStorageError, setStorageAvailable]);
 
   // Add this useEffect to run the test when the component mounts
   useEffect(() => {
     if (user) {
       testStorageAccess();
     }
-  }, [user]);
+  }, [user, testStorageAccess]);
 
   // Loading state
   if (loading) {
@@ -448,22 +621,54 @@ export default function SpaceAboutPage() {
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
-          <Button 
+            <Button 
               variant="ghost" 
               onClick={() => navigate(-1)}
               className="text-gray-600"
-          >
-            <ChevronLeft className="mr-2 h-4 w-4" />
+            >
+              <ChevronLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
             
             <div className="ml-auto">
-              <Button
-                onClick={() => navigate(`/${subdomain}`)}
-                className="bg-amber-300 hover:bg-amber-400 text-black"
-              >
-                JOIN GROUP
-          </Button>
+              {user && user.id === spaceData?.owner_id ? (
+                <Button
+                  onClick={() => navigate(`/${subdomain}/space/feed`)}
+                  className="bg-amber-300 hover:bg-amber-400 text-black"
+                >
+                  MANAGE SPACE
+                </Button>
+              ) : checkingMembership ? (
+                <Button
+                  disabled
+                  className="bg-gray-200 text-gray-500"
+                >
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  CHECKING...
+                </Button>
+              ) : isMember ? (
+                <Button
+                  onClick={() => navigate(`/${subdomain}/space/feed`)}
+                  className="bg-[#26A69A] hover:bg-[#1E8E7E] text-white"
+                >
+                  GO TO SPACE
+                </Button>
+              ) : joiningSpace ? (
+                <Button
+                  disabled
+                  className="bg-amber-300 hover:bg-amber-400 text-black"
+                >
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  JOINING...
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleJoinSpace}
+                  className="bg-amber-300 hover:bg-amber-400 text-black"
+                >
+                  JOIN GROUP
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -556,9 +761,9 @@ export default function SpaceAboutPage() {
                     </p>
                     <div className="text-sm text-gray-500">
                       Videos added to the space will appear here
+                </div>
               </div>
             </div>
-          </div>
               )}
 
               {/* Public/Member/Free metadata section */}
@@ -570,26 +775,26 @@ export default function SpaceAboutPage() {
                     <Globe className="h-4 w-4 mr-1 text-gray-700" />
                   )}
                   <span className="text-sm text-gray-700">{spaceData.is_private ? 'Private' : 'Public'}</span>
-            </div>
+                </div>
                 <div className="mx-3 text-gray-300">•</div>
                 <div className="flex items-center">
                   <Users className="h-4 w-4 mr-1 text-gray-700" /> 
                   <span className="text-sm text-gray-700">{spaceData.member_count || 1} member{spaceData.member_count !== 1 ? 's' : ''}</span>
-              </div>
+                </div>
                 <div className="mx-3 text-gray-300">•</div>
                 <div className="flex items-center">
                   <Tag className="h-4 w-4 mr-1 text-gray-700" /> 
                   <span className="text-sm text-gray-700">{spaceData.pricing_type === 'free' ? 'Free' : 'Paid'}</span>
-              </div>
+                </div>
                 <div className="ml-auto">
                   <span className="text-sm text-gray-700">
                     By {ownerData?.display_name || 'Space Creator'}
                   </span>
+                </div>
               </div>
-            </div>
 
               {/* About this space section with description box */}
-            <div className="mb-8">
+              <div className="mb-8">
                 <h2 className="text-xl font-semibold text-[#37474F] mb-3">About this space</h2>
                 
                 {/* Add Edit button that only appears for space owner */}
@@ -679,12 +884,44 @@ export default function SpaceAboutPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <Button 
-                  onClick={() => navigate(`/${subdomain}`)}
-                  className="w-full justify-center font-medium text-black bg-amber-300 hover:bg-amber-400 rounded-xl transition-colors duration-300"
-                >
-                  JOIN GROUP
-                </Button>
+                {user && user.id === spaceData?.owner_id ? (
+                  <Button 
+                    onClick={() => navigate(`/${subdomain}/space/feed`)}
+                    className="w-full justify-center font-medium text-black bg-amber-300 hover:bg-amber-400 rounded-xl transition-colors duration-300"
+                  >
+                    MANAGE SPACE
+                  </Button>
+                ) : checkingMembership ? (
+                  <Button
+                    disabled
+                    className="w-full justify-center font-medium text-black bg-gray-200 rounded-xl"
+                  >
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    CHECKING...
+                  </Button>
+                ) : isMember ? (
+                  <Button 
+                    onClick={() => navigate(`/${subdomain}/space/feed`)}
+                    className="w-full justify-center font-medium text-white bg-[#26A69A] hover:bg-[#1E8E7E] rounded-xl transition-colors duration-300"
+                  >
+                    GO TO SPACE
+                  </Button>
+                ) : joiningSpace ? (
+                  <Button
+                    disabled
+                    className="w-full justify-center font-medium text-black bg-amber-300 rounded-xl"
+                  >
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    JOINING...
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handleJoinSpace}
+                    className="w-full justify-center font-medium text-black bg-amber-300 hover:bg-amber-400 rounded-xl transition-colors duration-300"
+                  >
+                    JOIN SPACE
+                  </Button>
+                )}
               </motion.div>
               
               {/* Powered by */}

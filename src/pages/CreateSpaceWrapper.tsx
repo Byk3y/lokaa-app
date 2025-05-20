@@ -99,7 +99,7 @@ export default function CreateSpaceWrapper() {
     verifyAuthentication();
     
     return () => clearTimeout(timeoutId);
-  }, [navigate]);
+  }, [navigate, loading, authCheckAttempted]);
   
   if (loading) {
     return (

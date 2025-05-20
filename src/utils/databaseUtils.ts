@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { MemberRole } from '@/contexts/MembershipContext';
 
 /**
  * Diagnoses database schema issues by checking for a space record
@@ -103,9 +104,12 @@ export async function createMinimalSpace(
 /**
  * Adds a user to a space via the space_access table
  */
-export async function addUserToSpace(spaceId: string, userId: string, role = 'admin') {
-  console.log("Adding user to space:", { spaceId, userId, role });
+export async function addUserToSpace(spaceId: string, userId: string, roleParam: MemberRole = 'admin') {
+  console.log("[databaseUtils addUserToSpace] Adding user to space:", { spaceId, userId, roleParam });
   
+  // Determine the role for space_members: owners/admins become admins, members remain members.
+  const roleForSpaceMembers: 'admin' | 'member' = (roleParam === 'owner' || roleParam === 'admin') ? 'admin' : 'member';
+
   try {
     const { error } = await supabase
       .from('space_access')
@@ -113,20 +117,56 @@ export async function addUserToSpace(spaceId: string, userId: string, role = 'ad
         space_id: spaceId,
         user_id: userId,
         is_active: true,
-        role
+        role: roleParam // space_access.role can be text and store 'owner', 'admin', or 'member'
       });
     
     if (error) {
-      console.error("Error adding user to space:", error);
+      console.error("Error adding user to space (space_access):", error);
       return { success: false, error };
     }
-    
-    return { success: true };
+
+    console.log("[databaseUtils addUserToSpace] Successfully added user to space_access.");
+
+    // NOW, ALSO ADD TO space_members
+    try {
+      const { error: memberInsertError } = await supabase
+        .from('space_members')
+        .insert({
+          user_id: userId,
+          space_id: spaceId,
+          role: roleForSpaceMembers, // Use the adjusted role for space_members table
+          status: 'active',
+          joined_at: new Date().toISOString()
+        });
+
+      if (memberInsertError) {
+        console.error("[databaseUtils addUserToSpace] Error inserting into space_members:", memberInsertError);
+        // This is a significant issue, as the membership is now inconsistent.
+        // Return success:false but indicate partial success if space_access insert worked.
+        return { 
+          success: false, 
+          error: memberInsertError, 
+          message: "User added to space_access, but failed to finalize in space_members."
+        };
+      }
+      console.log("[databaseUtils addUserToSpace] Successfully inserted into space_members.");
+      return { success: true };
+
+    } catch (memberErr) {
+      console.error("[databaseUtils addUserToSpace] Exception during space_members insert:", memberErr);
+      return { 
+        success: false, 
+        error: memberErr instanceof Error ? memberErr : new Error(String(memberErr)),
+        message: "User added to space_access, but an exception occurred finalizing in space_members."
+      };
+    }
+
   } catch (err) {
-    console.error("Unexpected error adding user to space:", err);
+    console.error("Unexpected error in addUserToSpace (outer try-catch):", err);
     return { 
       success: false, 
-      error: err instanceof Error ? err : new Error(String(err)) 
+      error: err instanceof Error ? err : new Error(String(err)),
+      message: "User added to space_access, but an unexpected error occurred."
     };
   }
 }

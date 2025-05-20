@@ -8,15 +8,17 @@ CREATE OR REPLACE FUNCTION check_user_space_access(
 ) RETURNS JSONB AS $$
 DECLARE
   space_record RECORD;
-  access_records JSON;
-  space_id UUID;
+  member_records JSON; -- Renamed from access_records
+  space_id_val UUID; -- Renamed from space_id to avoid conflict with column names
   is_owner BOOLEAN;
   has_access BOOLEAN;
   result JSONB;
+  member_role TEXT;
+  member_status TEXT;
 BEGIN
   -- Get the space record
   SELECT * INTO space_record 
-  FROM spaces 
+  FROM public.spaces -- Assuming public schema
   WHERE subdomain = target_space_subdomain;
   
   -- If space not found, return error
@@ -29,26 +31,45 @@ BEGIN
   END IF;
   
   -- Store space_id for later use
-  space_id := space_record.id;
+  space_id_val := space_record.id;
   
   -- Check if user is the owner
   is_owner := (space_record.owner_id = target_user_id);
   
-  -- Check space_access records
-  SELECT COALESCE(json_agg(t), '[]'::json) INTO access_records
+  -- Check space_members records
+  SELECT COALESCE(json_agg(sm), '[]'::json) INTO member_records
   FROM (
-    SELECT * FROM space_access 
-    WHERE user_id = target_user_id 
-    AND space_id = space_record.id
-  ) t;
-  
-  -- Determine if user has access
-  has_access := is_owner OR EXISTS (
-    SELECT 1 FROM space_access 
-    WHERE user_id = target_user_id 
-    AND space_id = space_record.id 
-    AND is_active = true
-  );
+    SELECT 
+        sm.id AS membership_id, 
+        sm.role, 
+        sm.status, 
+        sm.created_at AS membership_created_at, 
+        sm.updated_at AS membership_updated_at,
+        u.full_name, -- Assuming you want user details too
+        u.username
+    FROM public.space_members sm
+    JOIN public.users u ON sm.user_id = u.id
+    WHERE sm.user_id = target_user_id 
+    AND sm.space_id = space_id_val
+  ) sm;
+
+  -- Determine if user has access based on active membership
+  -- and get role/status if they are a member
+  SELECT sm.status = 'active', sm.role, sm.status
+  INTO has_access, member_role, member_status
+  FROM public.space_members sm
+  WHERE sm.user_id = target_user_id
+  AND sm.space_id = space_id_val
+  AND sm.status = 'active'; -- Only consider active members for direct access via membership
+
+  -- If owner, they always have access.
+  -- If not found in space_members as active, has_access will be NULL from the query, so coalesce to false.
+  has_access := is_owner OR COALESCE(has_access, false);
+
+  IF is_owner AND member_role IS NULL THEN -- Owner might not have a separate member record, or it's not primary
+      member_role := 'owner'; -- Assign 'owner' role if they are the owner
+      member_status := 'active'; -- Owners are implicitly active
+  END IF;
   
   -- Build result JSON
   SELECT jsonb_build_object(
@@ -56,10 +77,12 @@ BEGIN
     'space', row_to_json(space_record),
     'is_owner', is_owner, 
     'has_access', has_access,
-    'access_records', access_records,
+    'membership_role', member_role, -- Added role from space_members
+    'membership_status', member_status, -- Added status from space_members
+    'member_records', member_records, -- Changed from access_records
     'summary', CASE 
-      WHEN is_owner THEN 'User is the owner of this space'
-      WHEN has_access THEN 'User has access via membership'
+      WHEN is_owner AND has_access THEN 'User is the owner of this space and has access.'
+      WHEN has_access THEN 'User has access via membership (Role: ' || COALESCE(member_role, 'N/A') || ', Status: ' || COALESCE(member_status, 'N/A') || ')'
       ELSE 'User does not have access to this space'
     END
   ) INTO result;
@@ -109,100 +132,5 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create an RPC function to add a user to a space (for fixing access issues)
-CREATE OR REPLACE FUNCTION fix_space_access(
-  user_id UUID,
-  space_subdomain TEXT
-) RETURNS JSONB AS $$
-DECLARE
-  space_record RECORD;
-  access_record RECORD;
-  result JSONB;
-BEGIN
-  -- Only admin or space owner can use this function
-  IF NOT (
-    -- Check for admin role
-    (SELECT EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
-      AND raw_app_meta_data->>'roles' ? 'admin'
-    ))
-    OR
-    -- Check if caller is space owner
-    (SELECT EXISTS (
-      SELECT 1 FROM spaces
-      WHERE subdomain = space_subdomain
-      AND owner_id = auth.uid()
-    ))
-  ) THEN
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', 'Unauthorized. Must be admin or space owner.',
-      'phase', 'authorization'
-    );
-  END IF;
-  
-  -- Get the space record
-  SELECT * INTO space_record 
-  FROM spaces 
-  WHERE subdomain = space_subdomain;
-  
-  -- If space not found, return error
-  IF space_record IS NULL THEN
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', 'Space not found with subdomain: ' || space_subdomain,
-      'phase', 'space_lookup'
-    );
-  END IF;
-  
-  -- Check if access record already exists
-  SELECT * INTO access_record
-  FROM space_access
-  WHERE space_id = space_record.id
-  AND user_id = user_id;
-  
-  IF access_record IS NOT NULL THEN
-    -- Record exists, make sure it's active
-    UPDATE space_access
-    SET is_active = true
-    WHERE id = access_record.id;
-    
-    RETURN jsonb_build_object(
-      'success', true,
-      'action', 'updated',
-      'message', 'Space access record updated and activated',
-      'space', row_to_json(space_record)
-    );
-  ELSE
-    -- Create new access record
-    INSERT INTO space_access (
-      space_id,
-      user_id,
-      is_active,
-      role,
-      created_at
-    ) VALUES (
-      space_record.id,
-      user_id,
-      true,
-      'member',
-      NOW()
-    );
-    
-    RETURN jsonb_build_object(
-      'success', true,
-      'action', 'created',
-      'message', 'New space access record created',
-      'space', row_to_json(space_record)
-    );
-  END IF;
-EXCEPTION
-  WHEN OTHERS THEN
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', SQLERRM,
-      'phase', 'unexpected'
-    );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; 
+-- TODO: Refactor or remove fix_space_access as it operates on space_access
+-- and its logic needs to be adapted for space_members. 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Globe, Lock, Users, Tag, Upload, X, Play, Plus, AlertCircle, Loader2, GripHorizontal, ArrowUpDown, Settings, FileText } from "lucide-react";
+import { Globe, Lock, Users, Tag, Upload, X, Play, Plus, AlertCircle, Loader2, GripHorizontal, ArrowUpDown, Settings, FileText, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
@@ -11,29 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import useSpaceSettingsModal from "@/hooks/useSpaceSettingsModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { useSpace } from "@/contexts/SpaceContext";
+import { useMembership } from "@/contexts/MembershipContext";
+import { Database } from "@/types/supabase";
 
 interface AboutTabProps {
-  space: {
-    id: string;
-    name: string;
-    description: string | null;
-    about_description?: string | null;
-    cover_image: string | null;
-    is_private: boolean;
-    member_count?: number | null;
-    pricing_type?: 'free' | 'paid';
-    price_per_month?: number | null;
-    primary_color?: string | null;
-    owner?: {
-      id: string;
-      email?: string | null;
-      display_name?: string | null;
-      avatar_url?: string | null;
-    } | null;
-    owner_id?: string;
-    subdomain?: string;
-  };
-  onSpaceUpdate?: (updatedSpace: any) => void;
+  onSpaceUpdate?: (updatedSpace: Database['public']['Tables']['spaces']['Row'] | null) => void;
 }
 
 interface MediaItem {
@@ -60,7 +44,21 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
+export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
+  const { spaceData, loading, error, fetchSpaceData } = useSpace();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const openSpaceSettingsModal = useSpaceSettingsModal(state => state.open);
+  
+  // Use MembershipContext instead of direct Supabase calls
+  const { 
+    isMember, 
+    isOwner, 
+    loading: membershipLoading, 
+    joinSpace 
+  } = useMembership();
+  
+  // State for UI components
   const [showMediaModal, setShowMediaModal] = useState(false);
   const [mediaLink, setMediaLink] = useState("");
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
@@ -75,30 +73,28 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
   const dragNode = useRef<HTMLDivElement | null>(null);
-  const openSpaceSettingsModal = useSpaceSettingsModal(state => state.open);
-  const { user } = useAuth();
+  
+  // State for joining a space
+  const [joiningSpace, setJoiningSpace] = useState(false);
   
   // About description state
-  const [aboutDescription, setAboutDescription] = useState(space.about_description || "");
-  const [aboutCharCount, setAboutCharCount] = useState((space.about_description || "").length);
+  const [aboutDescription, setAboutDescription] = useState(spaceData?.about_description || "");
+  const [aboutCharCount, setAboutCharCount] = useState((spaceData?.about_description || "").length);
   const [editingAbout, setEditingAbout] = useState(false);
   const [aboutChanged, setAboutChanged] = useState(false);
   const [savingAbout, setSavingAbout] = useState(false);
   
-  // Update aboutDescription when space.about_description changes
+  // Update aboutDescription when spaceData.about_description changes
   useEffect(() => {
-    setAboutDescription(space.about_description || "");
-    setAboutCharCount((space.about_description || "").length);
+    setAboutDescription(spaceData?.about_description || "");
+    setAboutCharCount((spaceData?.about_description || "").length);
     setAboutChanged(false);
-  }, [space.about_description]);
+  }, [spaceData?.about_description]);
   
   // Description state
   const [description, setDescription] = useState("");
   const [characterCount, setCharacterCount] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
-  
-  // Check if user is owner
-  const isOwner = user?.id === space.owner_id;
   
   // Add state for owner information
   const [ownerData, setOwnerData] = useState<{
@@ -108,27 +104,67 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
     display_name: string | null;
   } | null>(null);
   
+  // Function to handle joining the space
+  const handleJoinSpace = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    
+    if (!spaceData?.id) {
+      toast({
+        title: "Error",
+        description: "Space information is missing",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setJoiningSpace(true);
+    
+    try {
+      // Use the joinSpace function from MembershipContext
+      const success = await joinSpace(spaceData.id);
+      
+      if (success) {
+        toast({
+          title: "Joined space",
+          description: `You've successfully joined ${spaceData.name}.`,
+        });
+      }
+    } catch (err) {
+      console.error("Error joining space:", err);
+      toast({
+        title: "Error joining space",
+        description: "Could not join this space at this time.",
+        variant: "destructive"
+      });
+    } finally {
+      setJoiningSpace(false);
+    }
+  };
+  
   // Handle about description changes
   const handleAboutChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setAboutDescription(val);
     setAboutCharCount(val.length);
-    setAboutChanged(val !== (space?.about_description || ""));
+    setAboutChanged(val !== (spaceData?.about_description || ""));
   };
   
   // Save about description
   const handleSaveAbout = async () => {
-    if (!aboutChanged || !aboutDescription.trim()) return;
+    if (!aboutChanged || !aboutDescription.trim() || !spaceData?.id) return;
     
     setSavingAbout(true);
     try {
       // Create an update object with proper type assertion
-      const updateData: Record<string, any> = { about_description: aboutDescription.trim() };
+      const updateData: Partial<Database['public']['Tables']['spaces']['Row']> = { about_description: aboutDescription.trim() };
       
       const { error } = await supabase
         .from('spaces')
         .update(updateData)
-        .eq('id', space.id);
+        .eq('id', spaceData?.id);
       
       if (error) throw error;
       
@@ -144,9 +180,14 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
         const { data } = await supabase
           .from('spaces')
           .select('*')
-          .eq('id', space.id)
+          .eq('id', spaceData?.id)
           .single();
         onSpaceUpdate(data);
+        
+        // Also refresh the space data in the context
+        if (spaceData?.subdomain) {
+          fetchSpaceData(spaceData?.subdomain, true);
+        }
       }
     } catch (err) {
       console.error('Error saving about description:', err);
@@ -162,8 +203,8 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
   
   // Cancel about editing
   const handleCancelAbout = () => {
-    setAboutDescription(space?.about_description || "");
-    setAboutCharCount((space?.about_description || "").length);
+    setAboutDescription(spaceData?.about_description || "");
+    setAboutCharCount((spaceData?.about_description || "").length);
     setEditingAbout(false);
     setAboutChanged(false);
   };
@@ -211,7 +252,9 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
   
   // Load saved media items from localStorage on component mount
   useEffect(() => {
-    const savedMedia = localStorage.getItem(`space_media_${space.id}`);
+    if (!spaceData?.id) return;
+    
+    const savedMedia = localStorage.getItem(`space_media_${spaceData?.id}`);
     if (savedMedia) {
       try {
         const parsedMedia = JSON.parse(savedMedia);
@@ -224,28 +267,28 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
         console.error("Failed to parse saved media", e);
       }
     }
-  }, [space.id]);
+  }, [spaceData?.id]);
   
   // Save media items to localStorage whenever they change
   useEffect(() => {
-    if (mediaItems.length > 0) {
-      localStorage.setItem(`space_media_${space.id}`, JSON.stringify(mediaItems));
-    } else {
-      localStorage.removeItem(`space_media_${space.id}`);
+    if (mediaItems.length > 0 && spaceData?.id) {
+      localStorage.setItem(`space_media_${spaceData?.id}`, JSON.stringify(mediaItems));
+    } else if (spaceData?.id) {
+      localStorage.removeItem(`space_media_${spaceData?.id}`);
     }
-  }, [mediaItems, space.id]);
+  }, [mediaItems, spaceData?.id]);
   
   // Update the owner data fetching useEffect
   useEffect(() => {
     const fetchOwnerData = async () => {
-      if (!space.owner_id) return;
+      if (!spaceData?.owner_id) return;
       
       try {
-        console.log("Fetching owner data for ID:", space.owner_id);
+        console.log("Fetching owner data for ID:", spaceData?.owner_id);
         const { data, error } = await supabase
           .from('users')
           .select('id, email, display_name')
-          .eq('id', space.owner_id)
+          .eq('id', spaceData?.owner_id)
           .single();
           
         if (error) {
@@ -276,7 +319,7 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
     };
     
     fetchOwnerData();
-  }, [space.owner_id]);
+  }, [spaceData?.owner_id]);
   
   const handleUploadImage = () => {
     // Open the media modal instead of settings
@@ -300,7 +343,7 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
 
   const extractVideoId = (url: string): string | null => {
     // Match YouTube URL patterns
-    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const youtubeRegex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
     const match = url.match(youtubeRegex);
     return match ? match[1] : null;
   };
@@ -391,11 +434,11 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
         url: base64Data, 
         path: '' // Empty path as we're not using storage
       };
-    } catch (error: any) {
-      console.error('Error uploading image:', error.message);
+    } catch (error: unknown) {
+      console.error('Error uploading image:', error instanceof Error ? error.message : String(error));
       toast({
         title: "Upload error",
-        description: error.message || "Something went wrong",
+        description: (error instanceof Error ? error.message : String(error)) || "Something went wrong",
         variant: "destructive"
       });
       return null;
@@ -491,11 +534,11 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
           variant: "destructive"
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding media:', error);
       toast({
         title: "Operation failed",
-        description: error.message || "Something went wrong",
+        description: (error instanceof Error ? error.message : String(error)) || "Something went wrong",
         variant: "destructive"
       });
       setSelectedFileName(null); // Reset selected filename on error
@@ -707,22 +750,22 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
   
   // Settings button handler
   const handleOpenSettings = () => {
-    if (space.id && space.subdomain) {
-      openSpaceSettingsModal(space.id, space.subdomain);
+    if (spaceData?.id && spaceData?.subdomain) {
+      openSpaceSettingsModal(spaceData?.id, spaceData?.subdomain);
     } else {
       toast({
-        title: "Cannot open settings",
-        description: "Space information is incomplete",
+        title: "Error",
+        description: "Space information is missing",
         variant: "destructive"
       });
     }
   };
 
   // Default values for properties that might be missing
-  const memberCount = space.member_count ?? 1;
-  const pricingType = space.pricing_type ?? 'free';
-  const pricePerMonth = space.price_per_month ?? 0;
-  const primaryColor = space.primary_color ?? '#26A69A';
+  const memberCount = spaceData?.member_count ?? 1;
+  const pricingType = spaceData?.pricing_type ?? 'free';
+  const pricePerMonth = spaceData?.price_per_month ?? 0;
+  const primaryColor = spaceData?.primary_color ?? '#26A69A';
 
   // Get the active media item
   const activeMedia = activeMediaIndex !== null ? mediaItems[activeMediaIndex] : null;
@@ -737,13 +780,13 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
   // Save description
   const saveDescription = async () => {
     try {
-      if (!space.id) return;
+      if (!spaceData?.id) return;
       
       // Call supabase to update the description
       const { error } = await supabase
         .from('spaces')
         .update({ description })
-        .eq('id', space.id);
+        .eq('id', spaceData?.id);
         
       if (error) throw error;
       
@@ -754,6 +797,11 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
         title: "Description saved",
         description: "Your space description has been updated.",
       });
+      
+      // Refresh space data in the context
+      if (spaceData?.subdomain) {
+        fetchSpaceData(spaceData?.subdomain, true);
+      }
     } catch (error) {
       console.error("Error saving description:", error);
       toast({
@@ -770,6 +818,87 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
     setCharacterCount(0);
     setIsEditing(false);
   };
+
+  // Add effect to fetch space data if needed
+  useEffect(() => {
+    // If we don't have space data yet, fetch it using the subdomain from the URL
+    if (!spaceData && !loading) {
+      const subdomain = window.location.hostname.split('.')[0];
+      if (subdomain && subdomain !== 'localhost' && subdomain !== 'www') {
+        fetchSpaceData(subdomain);
+      }
+    }
+  }, [spaceData, loading, fetchSpaceData]);
+
+  // Render join button if not a member
+  const renderJoinButton = () => {
+    if (membershipLoading) {
+      return (
+        <Button disabled className="w-full">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Checking membership...
+        </Button>
+      );
+    }
+    
+    if (!isMember) {
+      return (
+        <Button 
+          onClick={handleJoinSpace} 
+          disabled={joiningSpace || !user}
+          className="w-full"
+        >
+          {joiningSpace ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Joining...
+            </>
+          ) : (
+            <>
+              <Plus className="mr-2 h-4 w-4" />
+              {user ? 'Join Space' : 'Login to Join'}
+            </>
+          )}
+        </Button>
+      );
+    }
+    
+    return null;
+  };
+
+  // Show loading state if data is being fetched
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-teal-600 mb-4" />
+          <p className="text-lg font-medium text-gray-700">Loading space information...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show error state if there was a problem
+  if (error || !spaceData) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Alert variant="destructive" className="max-w-lg">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error ? `Error loading space: ${error.message}` : "Space data not available"}
+          </AlertDescription>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </Button>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-[#F5FAFA] p-6 rounded-xl">
@@ -917,7 +1046,7 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
       <div className="flex flex-col md:flex-row gap-8 items-start">
         {/* Left column - Main content */}
         <div className="flex-1">
-          <h1 className="text-2xl font-bold mb-4 text-[#37474F]">{space.name}</h1>
+          <h1 className="text-2xl font-bold mb-4 text-[#37474F]">{spaceData?.name}</h1>
           
           {/* Main media area */}
           {mediaItems.length > 0 && activeMedia ? (
@@ -1051,16 +1180,16 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
             <div className="mx-3 text-gray-300">•</div>
             <div className="flex items-center">
               <Users className="h-4 w-4 mr-1 text-gray-700" /> 
-              <span className="text-sm text-gray-700">{space.member_count || 1} member{space.member_count !== 1 ? 's' : ''}</span>
+              <span className="text-sm text-gray-700">{spaceData?.member_count || 1} member{spaceData?.member_count !== 1 ? 's' : ''}</span>
             </div>
             <div className="mx-3 text-gray-300">•</div>
             <div className="flex items-center">
               <Tag className="h-4 w-4 mr-1 text-gray-700" /> 
-              <span className="text-sm text-gray-700">{space.pricing_type === 'free' ? 'Free' : 'Paid'}</span>
+              <span className="text-sm text-gray-700">{spaceData?.pricing_type === 'free' ? 'Free' : 'Paid'}</span>
             </div>
             <div className="ml-auto">
               <span className="text-sm text-gray-700">
-                By {ownerData?.display_name || space.owner?.display_name || 'Space Creator'}
+                By {ownerData?.display_name || spaceData?.owner?.display_name || 'Space Creator'}
               </span>
             </div>
           </div>
@@ -1105,7 +1234,7 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
             ) : (
               <div className="border rounded-lg p-4 bg-gray-50 min-h-[150px]">
                 <p className="whitespace-pre-line text-gray-700">
-                  {space?.about_description || <span className="text-gray-400">No description yet.</span>}
+                  {spaceData?.about_description || <span className="text-gray-400">No description yet.</span>}
                 </p>
               </div>
             )}
@@ -1127,10 +1256,10 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
             }}
             className="bg-[#26A69A] aspect-video rounded-xl flex items-center justify-center text-white cursor-pointer mb-3 shadow-md transition-all duration-300"
           >
-            {space.cover_image ? (
+            {spaceData?.cover_image ? (
               <img 
-                src={space.cover_image} 
-                alt={`${space.name} cover`}
+                src={spaceData?.cover_image} 
+                alt={`${spaceData?.name} cover`}
                 className="w-full h-full object-cover rounded-xl"
               />
             ) : (
@@ -1143,22 +1272,22 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
           
           {/* Space info */}
           <div className="bg-white rounded-xl border border-[#E0F2F1] p-4 mb-3 shadow-sm overflow-hidden">
-            <h3 className="font-semibold text-[#37474F] mb-1">{space.name}</h3>
+            <h3 className="font-semibold text-[#37474F] mb-1">{spaceData?.name}</h3>
             <p className="text-sm text-[#78909C] mb-3">
-              lokaa.com/{space.subdomain || 'space'}
+              lokaa.com/{spaceData?.subdomain || 'space'}
             </p>
             
             <Separator className="my-3 bg-[#E0F2F1]" />
             
             <p className="text-sm text-[#37474F] mb-4 whitespace-pre-wrap">
-              {space.description || "Add your group description here by clicking the \"Settings\" button."}
+              {spaceData?.description || "Add your group description here by clicking the \"Settings\" button."}
             </p>
             
             {/* Statistics */}
             <div className="grid grid-cols-3 gap-2">
               <div className="text-center p-2 bg-[#F5FAFA] rounded-lg shadow-sm">
-                <div className="text-lg font-semibold text-[#26A69A]">{space.member_count || 1}</div>
-                <div className="text-xs text-[#78909C]">Member{space.member_count !== 1 ? 's' : ''}</div>
+                <div className="text-lg font-semibold text-[#26A69A]">{spaceData?.member_count || 1}</div>
+                <div className="text-xs text-[#78909C]">Member{spaceData?.member_count !== 1 ? 's' : ''}</div>
               </div>
               <div className="text-center p-2 bg-[#F5FAFA] rounded-lg shadow-sm">
                 <div className="text-lg font-semibold text-[#26A69A]">0</div>
@@ -1171,18 +1300,21 @@ export default function AboutTab({ space, onSpaceUpdate }: AboutTabProps) {
             </div>
           </div>
           
-          {/* Settings button */}
+          {/* Settings/Join button section */}
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
           >
-            <Button 
-              onClick={handleOpenSettings}
-              className="w-full justify-center font-medium text-white bg-[#26A69A] hover:bg-[#FF6F61] rounded-xl transition-colors duration-300"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              SETTINGS
-            </Button>
+            {isOwner ? (
+              // Show settings button for owners
+              <Button 
+                onClick={handleOpenSettings}
+                className="w-full justify-center font-medium text-white bg-[#26A69A] hover:bg-[#FF6F61] rounded-xl transition-colors duration-300"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                SETTINGS
+              </Button>
+            ) : renderJoinButton()}
           </motion.div>
           
           {/* Powered by */}

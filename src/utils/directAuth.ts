@@ -138,11 +138,18 @@ export async function getCurrentUserId(): Promise<string | null> {
   }
 }
 
+interface DirectSpaceData {
+  id: string;
+  name: string;
+  subdomain: string;
+  created_at: string;
+}
+
 /**
  * Get owned spaces for a user directly
  * This bypasses React state and hooks for more reliable data fetching
  */
-export async function getDirectUserSpaces(userId: string): Promise<any[]> {
+export async function getDirectUserSpaces(userId: string): Promise<DirectSpaceData[]> {
   try {
     const { data, error } = await supabase
       .from('spaces')

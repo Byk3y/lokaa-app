@@ -7,25 +7,27 @@ import Profile from '@/pages/Profile';
  * and includes better debug logging
  */
 export default function ProfileRouteHandler() {
-  const { slug } = useParams();
+  const params = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const slug = params.slug;
   
   // Enhanced logging for debugging
-  console.log('ProfileRouteHandler: Handling profile for slug:', {
-    slug,
-    type: typeof slug,
-    exists: !!slug,
-    pathname: window.location.pathname
-  });
+  console.log('ProfileRouteHandler: Initializing. Params from react-router:', JSON.stringify(params), 'Extracted slug:', slug);
   
   useEffect(() => {
     if (!slug) {
-      console.error('ProfileRouteHandler: No slug parameter found');
+      console.error('ProfileRouteHandler: Slug is undefined or empty. Params were:', JSON.stringify(params), '. Navigating to /discover.');
       navigate('/discover', { replace: true });
       return;
     }
-  }, [slug, navigate]);
+    console.log('ProfileRouteHandler: Slug determined as:', slug, '- proceeding to render Profile page.');
+  }, [slug, navigate, params]);
   
-  // Just render the Profile component directly
+  if (!slug) {
+    // This check prevents rendering Profile if slug is not available (e.g., during redirect by useEffect)
+    return null;
+  }
+  
+  // Profile component likely uses useParams() itself or gets slug via context/store
   return <Profile />;
 } 

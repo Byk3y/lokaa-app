@@ -9,330 +9,103 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      comments: {
+      membership_history: {
         Row: {
-          content: string
+          action: string
           created_at: string
           id: string
-          post_id: string
-          updated_at: string
+          metadata: Json | null
+          new_role: string | null
+          performed_by: string | null
+          previous_role: string | null
+          space_id: string
           user_id: string
         }
         Insert: {
-          content: string
+          action: string
           created_at?: string
           id?: string
-          post_id: string
-          updated_at?: string
+          metadata?: Json | null
+          new_role?: string | null
+          performed_by?: string | null
+          previous_role?: string | null
+          space_id: string
           user_id: string
         }
         Update: {
-          content?: string
+          action?: string
           created_at?: string
           id?: string
-          post_id?: string
-          updated_at?: string
+          metadata?: Json | null
+          new_role?: string | null
+          performed_by?: string | null
+          previous_role?: string | null
+          space_id?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "comments_post_id_fkey"
-            columns: ["post_id"]
+            foreignKeyName: "membership_history_space_id_fkey"
+            columns: ["space_id"]
             isOneToOne: false
-            referencedRelation: "posts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "comments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      course_enrollments: {
-        Row: {
-          course_id: string
-          enrolled_at: string
-          id: string
-          progress: number | null
-          user_id: string
-        }
-        Insert: {
-          course_id: string
-          enrolled_at?: string
-          id?: string
-          progress?: number | null
-          user_id: string
-        }
-        Update: {
-          course_id?: string
-          enrolled_at?: string
-          id?: string
-          progress?: number | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_enrollments_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_enrollments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      course_lessons: {
-        Row: {
-          content: string | null
-          course_id: string
-          created_at: string
-          id: string
-          order_number: number
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          content?: string | null
-          course_id: string
-          created_at?: string
-          id?: string
-          order_number: number
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          content?: string | null
-          course_id?: string
-          created_at?: string
-          id?: string
-          order_number?: number
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_lessons_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      courses: {
-        Row: {
-          cover_image: string | null
-          created_at: string
-          creator_id: string
-          description: string | null
-          id: string
-          is_free: boolean | null
-          price: number | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          cover_image?: string | null
-          created_at?: string
-          creator_id: string
-          description?: string | null
-          id?: string
-          is_free?: boolean | null
-          price?: number | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          cover_image?: string | null
-          created_at?: string
-          creator_id?: string
-          description?: string | null
-          id?: string
-          is_free?: boolean | null
-          price?: number | null
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "courses_creator_id_fkey"
-            columns: ["creator_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      event_attendees: {
-        Row: {
-          created_at: string
-          event_id: string
-          id: string
-          status: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          event_id: string
-          id?: string
-          status: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          event_id?: string
-          id?: string
-          status?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_attendees_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_attendees_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      events: {
-        Row: {
-          created_at: string
-          creator_id: string
-          description: string | null
-          end_time: string | null
-          id: string
-          is_online: boolean | null
-          location: string | null
-          start_time: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          creator_id: string
-          description?: string | null
-          end_time?: string | null
-          id?: string
-          is_online?: boolean | null
-          location?: string | null
-          start_time: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          creator_id?: string
-          description?: string | null
-          end_time?: string | null
-          id?: string
-          is_online?: boolean | null
-          location?: string | null
-          start_time?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "events_creator_id_fkey"
-            columns: ["creator_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      payments: {
-        Row: {
-          amount: number
-          id: string
-          payment_date: string
-          payment_method: string
-          status: string
-          transaction_id: string | null
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          id?: string
-          payment_date?: string
-          payment_method: string
-          status: string
-          transaction_id?: string | null
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          id?: string
-          payment_date?: string
-          payment_method?: string
-          status?: string
-          transaction_id?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "spaces"
             referencedColumns: ["id"]
           },
         ]
       }
       posts: {
         Row: {
+          category_id: string | null
           comment_count: number | null
           content: string
-          created_at: string
+          created_at: string | null
           id: string
           like_count: number | null
           media_urls: Json | null
-          updated_at: string
+          space_id: string
+          title: string | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
+          category_id?: string | null
           comment_count?: number | null
           content: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           like_count?: number | null
           media_urls?: Json | null
-          updated_at?: string
+          space_id: string
+          title?: string | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
+          category_id?: string | null
           comment_count?: number | null
           content?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           like_count?: number | null
           media_urls?: Json | null
-          updated_at?: string
+          space_id?: string
+          title?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "posts_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "posts_category_id_fkey"
+            columns: ["category_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "space_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
             referencedColumns: ["id"]
           },
         ]
@@ -381,29 +154,26 @@ export type Database = {
       }
       space_access: {
         Row: {
-          amount_paid: number
-          expiry_date: string | null
+          created_at: string | null
           id: string
           is_active: boolean
-          paid_at: string
+          role: string
           space_id: string
           user_id: string
         }
         Insert: {
-          amount_paid?: number
-          expiry_date?: string | null
+          created_at?: string | null
           id?: string
           is_active?: boolean
-          paid_at?: string
+          role?: string
           space_id: string
           user_id: string
         }
         Update: {
-          amount_paid?: number
-          expiry_date?: string | null
+          created_at?: string | null
           id?: string
           is_active?: boolean
-          paid_at?: string
+          role?: string
           space_id?: string
           user_id?: string
         }
@@ -417,26 +187,73 @@ export type Database = {
           },
         ]
       }
+      space_categories: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          is_archived: boolean
+          name: string
+          space_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_archived?: boolean
+          name: string
+          space_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_archived?: boolean
+          name?: string
+          space_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_categories_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       space_members: {
         Row: {
           id: string
+          is_online: boolean | null
           joined_at: string
+          last_active_at: string | null
           role: Database["public"]["Enums"]["member_role"]
           space_id: string
+          status: Database["public"]["Enums"]["member_status"]
           user_id: string
         }
         Insert: {
           id?: string
+          is_online?: boolean | null
           joined_at?: string
+          last_active_at?: string | null
           role?: Database["public"]["Enums"]["member_role"]
           space_id: string
+          status?: Database["public"]["Enums"]["member_status"]
           user_id: string
         }
         Update: {
           id?: string
+          is_online?: boolean | null
           joined_at?: string
+          last_active_at?: string | null
           role?: Database["public"]["Enums"]["member_role"]
           space_id?: string
+          status?: Database["public"]["Enums"]["member_status"]
           user_id?: string
         }
         Relationships: [
@@ -606,12 +423,17 @@ export type Database = {
           activity_score: number | null
           avatar_url: string | null
           bio: string | null
+          contributions: number | null
           country: string | null
           created_at: string
           first_name: string | null
+          followers: number | null
+          following: number | null
           full_name: string | null
           id: string
+          last_joined_space_id: string | null
           last_name: string | null
+          location: string | null
           profile_url: string | null
           role: Database["public"]["Enums"]["user_role"]
           social_links: Json | null
@@ -622,12 +444,17 @@ export type Database = {
           activity_score?: number | null
           avatar_url?: string | null
           bio?: string | null
+          contributions?: number | null
           country?: string | null
           created_at?: string
           first_name?: string | null
+          followers?: number | null
+          following?: number | null
           full_name?: string | null
           id: string
+          last_joined_space_id?: string | null
           last_name?: string | null
+          location?: string | null
           profile_url?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           social_links?: Json | null
@@ -638,23 +465,63 @@ export type Database = {
           activity_score?: number | null
           avatar_url?: string | null
           bio?: string | null
+          contributions?: number | null
           country?: string | null
           created_at?: string
           first_name?: string | null
+          followers?: number | null
+          following?: number | null
           full_name?: string | null
           id?: string
+          last_joined_space_id?: string | null
           last_name?: string | null
+          location?: string | null
           profile_url?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           social_links?: Json | null
           updated_at?: string
           wallet_balance?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_users_last_joined_space_id"
+            columns: ["last_joined_space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
-      [_ in never]: never
+      space_members_view: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          full_name: string | null
+          id: string | null
+          is_online: boolean | null
+          joined_at: string | null
+          last_active_at: string | null
+          location: string | null
+          role: Database["public"]["Enums"]["member_role"] | null
+          space_id: string | null
+          space_name: string | null
+          space_subdomain: string | null
+          status: Database["public"]["Enums"]["member_status"] | null
+          user_id: string | null
+          username: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_members_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       about_page_get_space: {
@@ -680,6 +547,27 @@ export type Database = {
       create_space_safely: {
         Args: { space_name: string; space_subdomain: string; owner_id: string }
         Returns: Json
+      }
+      debug_space_members: {
+        Args: { space_id_param: string }
+        Returns: Json
+      }
+      ensure_user_url: {
+        Args: { user_id: string }
+        Returns: string
+      }
+      fix_space_members: {
+        Args: { space_id_param: string }
+        Returns: Json
+      }
+      fix_user_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          full_name: string
+          profile_url: string
+          fixed: boolean
+        }[]
       }
       get_public_spaces: {
         Args: Record<PropertyKey, never>
@@ -721,6 +609,26 @@ export type Database = {
           updated_at: string
         }[]
       }
+      join_space_directly: {
+        Args: { user_id_param: string; space_id_param: string }
+        Returns: Json
+      }
+      public_join_space: {
+        Args: { space_id_param: string }
+        Returns: Json
+      }
+      record_membership_event: {
+        Args: {
+          space_id_param: string
+          user_id_param: string
+          action_param: string
+          previous_role_param?: string
+          new_role_param?: string
+          performed_by_param?: string
+          metadata_param?: Json
+        }
+        Returns: string
+      }
       space_by_subdomain: {
         Args: { target_subdomain: string }
         Returns: {
@@ -741,6 +649,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      update_member_activity: {
+        Args: { p_user_id: string; p_space_id: string }
+        Returns: boolean
+      }
       update_space_setup: {
         Args: { p_space_id: string; p_task: string; p_completed: boolean }
         Returns: {
@@ -755,12 +667,16 @@ export type Database = {
       }
     }
     Enums: {
-      member_role: ["admin", "member"],
-      pricing_type: ["free", "paid"],
-      space_visibility: ["public", "private"],
-      user_role: ["member", "creator"],
-    },
-  },
+      member_role: "admin" | "member"
+      member_status: "active" | "cancelling" | "churned" | "banned"
+      pricing_type: "free" | "paid"
+      space_visibility: "public" | "private"
+      user_role: "member" | "creator"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
 }
 
 type DefaultSchema = Database[Extract<keyof Database, "public">]
@@ -853,11 +769,29 @@ export type Enums<
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof Database },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
 export const Constants = {
   public: {
     Enums: {
+      member_role: ["admin", "member"],
+      member_status: ["active", "cancelling", "churned", "banned"],
       pricing_type: ["free", "paid"],
+      space_visibility: ["public", "private"],
       user_role: ["member", "creator"],
     },
   },
-}
+} as const

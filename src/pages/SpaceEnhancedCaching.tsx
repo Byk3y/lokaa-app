@@ -2,7 +2,28 @@
 // This file contains the caching enhancements that can be integrated into the Space.tsx file
 
 import { useState, useEffect, useCallback } from "react";
-import { useSpaceSettingsStore } from "@/hooks/useSpaceSettingsStore";
+import useSpaceSettingsStore, { type SpaceSettingsData } from "@/hooks/useSpaceSettingsStore";
+import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js";
+import type { NavigateFunction } from "react-router-dom";
+import type { User as AuthUser } from "../contexts/AuthContext";
+
+// Type for the object stored in cache by saveSpaceToCache and returned by getSpaceFromCache
+// This should match the structure created in saveSpaceToCache
+interface CachedSpaceEntry {
+  id: string;
+  name: string;
+  description: string | null;
+  about_description: string | null;
+  cover_image: string | null;
+  icon_image: string | null;
+  subdomain: string;
+  owner_id: string;
+  is_private: boolean;
+  primary_color: string | null;
+  member_count: number | null;
+  pricing_type: string | null; // Match the properties being saved
+  price_per_month: number | null;
+}
 
 /**
  * Enhanced cache retrieval function for Space
@@ -10,7 +31,7 @@ import { useSpaceSettingsStore } from "@/hooks/useSpaceSettingsStore";
  * @returns The cached space data or null
  */
 export function getSpaceFromCache(subdomain: string | undefined): { 
-  space: any; 
+  space: CachedSpaceEntry; // Use defined type
   timestamp: number;
 } | null {
   if (!subdomain) return null;
@@ -43,7 +64,7 @@ export function getSpaceFromCache(subdomain: string | undefined): {
  * @param subdomain The space subdomain
  * @param data The space data to cache
  */
-export function saveSpaceToCache(subdomain: string | undefined, data: any): void {
+export function saveSpaceToCache(subdomain: string | undefined, data: CachedSpaceEntry): void {
   if (!subdomain || !data) return;
   
   try {
@@ -92,13 +113,13 @@ export function useQuickRecoveryFromCache(
  * This can replace the existing fetchInitialSpaceData in Space component
  */
 export function createEnhancedSpaceDataFetcher(
-  supabase: any,
-  navigate: any,
-  fetchSpaceSettings: any
+  supabase: SupabaseClient,
+  navigate: NavigateFunction,
+  fetchSpaceSettings: (spaceId: string, userId: string) => Promise<void>
 ) {
   return (
     subdomain: string | undefined, 
-    user: any, 
+    user: AuthUser | SupabaseUser | null,
     setLoadingSpace: (loading: boolean) => void
   ) => {
     const fetchInitialSpaceData = useCallback(async () => {
@@ -172,7 +193,7 @@ export function createEnhancedSpaceDataFetcher(
       } finally {
         setLoadingSpace(false);
       }
-    }, [subdomain, user, navigate, fetchSpaceSettings]);
+    }, [subdomain, user, setLoadingSpace]);
     
     return fetchInitialSpaceData;
   };
@@ -216,7 +237,7 @@ export function useElegantLoadingState(
 /**
  * Asset preloading for Space images
  */
-export function preloadSpaceImages(space: any): void {
+export function preloadSpaceImages(space: { cover_image?: string | null; icon_image?: string | null }): void {
   if (!space) return;
   
   const imagesToPreload = [

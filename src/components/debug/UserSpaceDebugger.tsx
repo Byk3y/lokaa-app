@@ -3,10 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Space } from '../../types/space';
+import { Database } from '../../types/supabase';
+
+type SpaceMember = Database['public']['Tables']['space_members']['Row'];
 
 type DebugResult = {
-  ownedSpaces?: any[];
-  accessRecords?: any[];
+  ownedSpaces?: Space[];
+  memberRecords?: SpaceMember[];
   error?: string;
 };
 
@@ -47,8 +51,9 @@ export const UserSpaceDebugger = () => {
       }
       
       setResult(data.result);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || 'An error occurred');
     } finally {
       setLoading(false);
     }

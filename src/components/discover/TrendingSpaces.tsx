@@ -3,9 +3,10 @@ import { SpaceCard } from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 import { Button } from "@/components/ui/button";
+import { Space } from "../../types/space";
 
 interface TrendingSpacesProps {
-  spaces: any[];
+  spaces: Space[];
   loading: boolean;
   onJoinSpace: (spaceId: string) => void;
 }

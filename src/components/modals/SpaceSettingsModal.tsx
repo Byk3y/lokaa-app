@@ -344,11 +344,11 @@ export default function SpaceSettingsModal() {
         await fetchSpaceSettings(space.id, user?.id || '');
       }
         
-      } catch (error: any) {
+      } catch (error: unknown) {
       console.error(`Error uploading ${type}:`, error);
       toast({
         title: "Upload failed",
-        description: error.message || `Could not upload ${type} image.`,
+        description: error instanceof Error ? error.message : String(error) || `Could not upload ${type} image.`,
         variant: "destructive"
       });
     } finally {
@@ -391,11 +391,11 @@ export default function SpaceSettingsModal() {
         fetchSpaceSettings(space.id, user.id);
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating settings:", error);
       toast({
         title: "Error",
-        description: `Failed to update settings: ${error.message || 'Unknown error'}`,
+        description: `Failed to update settings: ${error instanceof Error ? error.message : String(error) || 'Unknown error'}`,
         variant: "destructive"
       });
     } finally {

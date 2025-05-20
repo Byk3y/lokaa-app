@@ -78,12 +78,7 @@ BEGIN
             TO authenticated
             USING (
                 auth.uid() = owner_id OR
-                EXISTS (
-                    SELECT 1 FROM space_access 
-                    WHERE space_access.space_id = spaces.id 
-                    AND space_access.user_id = auth.uid()
-                    AND space_access.is_active = true
-                )
+                public.is_active_member_of_space(spaces.id, auth.uid())
             )';
     END IF;
     
@@ -196,19 +191,6 @@ BEGIN
     '#10b981'
   )
   RETURNING id INTO new_space_id;
-  
-  -- Also add the owner to space_access
-  INSERT INTO space_access (
-    space_id,
-    user_id,
-    is_active,
-    role
-  ) VALUES (
-    new_space_id,
-    owner_id,
-    true,
-    'admin'
-  );
   
   -- Return the space ID and subdomain for navigation
   SELECT jsonb_build_object(

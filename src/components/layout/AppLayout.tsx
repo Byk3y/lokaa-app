@@ -9,7 +9,7 @@ import { useEffect } from "react";
 export default function AppLayout() {
   const location = useLocation();
   const isInCommunity = location.pathname.includes("/c/");
-  const { isOpen, spaceId, close, open } = useSpacePreviewStore();
+  const { isOpen, spaceId, close } = useSpacePreviewStore();
   const navigate = useNavigate();
 
   // Debug logging for space preview state
@@ -75,9 +75,11 @@ export default function AppLayout() {
 
       <SpacePreviewModal
         open={isOpen}
-        onOpenChange={(open) => {
-          console.log("Modal open change:", open);
-          !open && close();
+        onOpenChange={(currentOpenState) => {
+          console.log("Modal open change:", currentOpenState);
+          if (!currentOpenState) {
+            close();
+          }
         }}
         spaceId={spaceId}
         onJoin={handleJoinSpace}

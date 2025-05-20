@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
@@ -7,9 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
+interface AuthFormData {
+  email: string;
+  password: string;
+  name?: string; // Name is optional, present for signup
+}
+
 interface AuthFormProps {
   type: "login" | "signup";
-  onSubmit: (data: any) => void;
+  onSubmit: (data: AuthFormData) => void;
 }
 
 export default function AuthForm({ type, onSubmit }: AuthFormProps) {

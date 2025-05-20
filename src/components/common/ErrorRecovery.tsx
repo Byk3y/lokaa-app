@@ -7,6 +7,7 @@ import {
   performEmergencyReset 
 } from '@/utils/errorRecovery';
 import { motion } from 'framer-motion';
+import { AuthError, PostgrestError } from '@supabase/supabase-js'; // Import error types
 
 interface ErrorRecoveryProps {
   title?: string;
@@ -16,6 +17,20 @@ interface ErrorRecoveryProps {
   showEmergencyReset?: boolean;
   compact?: boolean;
   onClose?: () => void;
+}
+
+// Define a more specific type for the diagnosis result
+type DiagnosisDetails =
+  | PostgrestError
+  | AuthError
+  | { authenticated: false }
+  | { authenticated: true; userId?: string }
+  | { error: unknown }; // Error from local catch or from diagnoseDbConnection's catch
+
+interface DiagnosisResultType {
+  success: boolean;
+  message: string;
+  details?: DiagnosisDetails;
 }
 
 export function ErrorRecovery({
@@ -28,7 +43,7 @@ export function ErrorRecovery({
   onClose
 }: ErrorRecoveryProps) {
   const navigate = useNavigate();
-  const [diagnosisResult, setDiagnosisResult] = useState<any>(null);
+  const [diagnosisResult, setDiagnosisResult] = useState<DiagnosisResultType | null>(null);
   const [isRunningDiagnosis, setIsRunningDiagnosis] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isEmergencyResetting, setIsEmergencyResetting] = useState(false);
@@ -38,7 +53,7 @@ export function ErrorRecovery({
     try {
       const result = await diagnoseDbConnection();
       setDiagnosisResult(result);
-    } catch (error) {
+    } catch (error: unknown) {
       setDiagnosisResult({
         success: false,
         message: "Failed to run diagnosis",

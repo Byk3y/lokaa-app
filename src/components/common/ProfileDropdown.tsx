@@ -6,12 +6,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from '@/integrations/supabase/client';
 import { safelyNavigateToProfile } from '@/utils/profileRedirect';
 
+interface CustomMenuItem {
+  label: string;
+  onClick: () => void;
+  icon?: React.ReactNode;
+  className?: string;
+}
+
 interface ProfileDropdownProps {
   user?: User | null;
   onSignOut?: () => void;
   className?: string;
   variant?: 'default' | 'animation';
   size?: 'sm' | 'md' | 'lg';
+  customMenuItems?: CustomMenuItem[];
 }
 
 // A utility to get initials from a name (up to 2 characters)
@@ -32,7 +40,8 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   onSignOut,
   className = "",
   variant = "default",
-  size = "md"
+  size = "md",
+  customMenuItems
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -114,9 +123,121 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   
   const handleProfileClick = () => {
     setIsOpen(false);
+    
+    // Store the current space information for profile page to use
+    try {
+      // Get current space from URL path
+      const pathname = window.location.pathname;
+      const spaceMatch = pathname.match(/\/([^\/]+)\/space/);
+      
+      if (spaceMatch && spaceMatch[1]) {
+        const currentSpaceSubdomain = spaceMatch[1];
+        
+        // Try to get space info from local storage first (which would have complete data)
+        try {
+          const storedSpaces = localStorage.getItem('lastVisitedSpace');
+          if (storedSpaces) {
+            const parsedSpace = JSON.parse(storedSpaces);
+            if (parsedSpace && parsedSpace.subdomain === currentSpaceSubdomain && parsedSpace.id) {
+              console.log('Found space info in localStorage with ID:', parsedSpace.id);
+              sessionStorage.setItem('navigatedFromSpace', JSON.stringify(parsedSpace));
+              
+              // After storing, we can proceed with navigation
+              if (profileSlug) {
+                navigate(`/profile/${profileSlug}`);
+              } else if (currentUser) {
+                navigate(`/settings/profile`);
+              }
+              return; // Exit early since we've already handled navigation
+            }
+          }
+        } catch (localStorageError) {
+          console.warn('Error checking localStorage for space data:', localStorageError);
+        }
+        
+        // Fallback: Try to get more details from SpaceSwitcher's dropdown
+        const spaceElements = document.querySelectorAll('[data-space-subdomain]');
+        let currentSpaceDetails = null;
+        
+        for (const element of spaceElements) {
+          const subdomain = element.getAttribute('data-space-subdomain');
+          if (subdomain === currentSpaceSubdomain) {
+            const spaceId = element.getAttribute('data-space-id');
+            const spaceName = element.getAttribute('data-space-name');
+            
+            // Only include valid data
+            if (spaceId && spaceName) {
+              currentSpaceDetails = {
+                id: spaceId,
+                name: spaceName,
+                subdomain: currentSpaceSubdomain
+              };
+              console.log('Found space details from DOM:', currentSpaceDetails);
+              break;
+            }
+          }
+        }
+        
+        // If we have space details with a valid ID, store them
+        if (currentSpaceDetails && currentSpaceDetails.id && currentSpaceDetails.id !== 'undefined') {
+          console.log('Storing complete space details for profile page:', currentSpaceDetails);
+          sessionStorage.setItem('navigatedFromSpace', JSON.stringify(currentSpaceDetails));
+        } else {
+          // Make a server request to get space details by subdomain
+          console.log('Fetching space details from server for subdomain:', currentSpaceSubdomain);
+          
+          const fetchSpaceDetails = async (subdomain) => {
+            try {
+              const { data, error } = await supabase
+                .from('spaces')
+                .select('id, name, subdomain')
+                .eq('subdomain', subdomain)
+                .single();
+                
+              if (error) {
+                throw error;
+              }
+              
+              if (data) {
+                console.log('Successfully fetched space details from server:', data);
+                sessionStorage.setItem('navigatedFromSpace', JSON.stringify(data));
+              } else {
+                console.warn('No space found for subdomain:', subdomain);
+                // Store basic info without ID as fallback
+                sessionStorage.setItem('navigatedFromSpace', JSON.stringify({
+                  subdomain: currentSpaceSubdomain,
+                  name: currentSpaceSubdomain.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                }));
+              }
+            } catch (fetchError) {
+              console.error('Error fetching space details:', fetchError);
+              // Store basic info without ID as fallback
+              sessionStorage.setItem('navigatedFromSpace', JSON.stringify({
+                subdomain: currentSpaceSubdomain,
+                name: currentSpaceSubdomain.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+              }));
+            }
+            
+            // Navigate after attempt to get space details
+            if (profileSlug) {
+              navigate(`/profile/${profileSlug}`);
+            } else if (currentUser) {
+              navigate(`/settings/profile`);
+            }
+          };
+          
+          // Start the fetch but don't wait for it
+          fetchSpaceDetails(currentSpaceSubdomain);
+          return; // Exit early since we'll navigate after the fetch
+        }
+      }
+    } catch (e) {
+      console.error('Error storing space context for profile navigation:', e);
+    }
+    
     if (profileSlug) {
       // Use navigate instead of direct window.location to prevent redirect loops
-      navigate(`/@${profileSlug}`);
+      navigate(`/profile/${profileSlug}`);
     } else if (currentUser) {
       // Fallback using user ID if profile URL isn't available
       navigate(`/settings/profile`);
@@ -151,7 +272,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <Avatar className={`${getAvatarSize()} transition border border-gray-200 cursor-pointer`}>
+        <Avatar className={`${getAvatarSize()} transition border border-[#E1E4E8] cursor-pointer`}>
           <AvatarImage src={avatarUrl} alt={displayName} />
           <AvatarFallback className="bg-teal-50 text-teal-900">
             {getInitials(displayName)}
@@ -185,6 +306,17 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </button>
+
+            {customMenuItems && customMenuItems.map((item, index) => (
+              <button
+                key={index}
+                onClick={() => { item.onClick(); setIsOpen(false); }}
+                className={`flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${item.className || ''}`}
+              >
+                {item.icon && <span className="mr-2 h-4 w-4">{item.icon}</span>}
+                {item.label}
+              </button>
+            ))}
 
             <button
               onClick={handleSignOut}

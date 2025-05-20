@@ -44,6 +44,16 @@ const PinIcon = () => (
   </svg>
 );
 
+// SocialLinks interface
+interface SocialLinks {
+  website?: string;
+  instagram?: string;
+  x?: string;
+  youtube?: string;
+  linkedin?: string;
+  facebook?: string;
+}
+
 // Menu item props interface
 interface MenuItemProps {
   id: string;
@@ -223,7 +233,7 @@ export default function UserSettings() {
                 });
               } else if (typeof userData.social_links === 'object') {
                 // If it's already an object
-                const links = userData.social_links as Record<string, any>;
+                const links = userData.social_links as SocialLinks;
                 setSocialLinks({
                   website: links.website || '',
                   instagram: links.instagram || '',
@@ -239,7 +249,8 @@ export default function UserSettings() {
           }
           
           // Check user metadata for name change status
-          if (user.user_metadata && user.user_metadata.has_changed_name) {
+          // @ts-expect-error - Linter seems to not pick up the extended user_metadata type here
+          if (user.user_metadata && user.user_metadata.has_changed_name === true) {
             setHasChangedName(true);
           }
         } else {
@@ -861,28 +872,25 @@ export default function UserSettings() {
                   <h3 className="text-lg font-semibold mb-4">Profile URL</h3>
                   
                   <div className="flex flex-col space-y-1">
-                    <Label htmlFor="profile-url">URL</Label>
-                    <div className="flex items-center">
+                    <Label htmlFor="profile-url">Your Profile URL</Label>
+                    <div className="flex items-center space-x-2">
                       <Input 
                         id="profile-url" 
                         type="text" 
-                        disabled={true}
-                        value={profileUrl ? `lokaa.com/@${profileUrl}` : "Not available yet"}
-                        className="bg-gray-50 text-gray-500"
+                        readOnly 
+                        value={profileUrl ? `lokaa.com/profile/${profileUrl}` : "Not available yet"}
+                        className="flex-grow"
                       />
-                      <Button
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
                         onClick={() => {
                           if (profileUrl) {
-                            navigator.clipboard.writeText(`lokaa.com/@${profileUrl}`);
-                            toast({
-                              title: "URL copied",
-                              description: "Profile URL copied to clipboard",
-                            });
+                            navigator.clipboard.writeText(`lokaa.com/profile/${profileUrl}`);
+                            toast({ title: "URL Copied!", description: "Profile URL copied to clipboard." });
                           }
                         }}
-                        variant="outline"
-                        className="ml-2"
-                        disabled={!profileUrl}
                       >
                         <CopyIcon className="h-4 w-4" />
                       </Button>

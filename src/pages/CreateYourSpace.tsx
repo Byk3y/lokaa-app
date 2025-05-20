@@ -243,34 +243,6 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
       
       // If space creation was successful
       if (creationSuccess && createdSpace) {
-        // Add the user to the space access table
-        try {
-          console.log("[CreateSpace] Adding user to space_access:", { 
-            spaceId: createdSpace.id, 
-            userId: user.id 
-          });
-          
-          const { error: accessError } = await supabase
-            .from("space_access")
-            .insert({
-              space_id: createdSpace.id,
-              user_id: user.id,
-              is_active: true,
-              role: "admin"
-            });
-            
-          if (accessError) {
-            console.warn("[CreateSpace] Warning: Failed to add user to space access:", accessError);
-            toast({
-              title: "Warning",
-              description: "Space created, but there was an issue adding you as a member. Please contact support.",
-              variant: "destructive",
-            });
-          }
-        } catch (accessErr) {
-          console.warn("[CreateSpace] Error in space access grant:", accessErr);
-        }
-        
         toast({
           title: "Space created!",
           description: "Your space has been successfully created.",
@@ -282,14 +254,16 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
       } else {
         throw new Error("Failed to create space due to database policy issues");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating space:", error);
       
       // Provide more specific error messages based on error type
       let errorMessage = "Something went wrong. Please try again.";
       let errorTitle = "Error creating space";
       
-      if (error.message) {
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Check for specific error messages or codes if available
         if (error.message.includes("violates foreign key constraint")) {
           errorMessage = "There was an issue with database references. Please try again later.";
         } else if (error.message.includes("duplicate key")) {
@@ -297,12 +271,14 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
         } else if (error.message.includes("violates not-null constraint")) {
           errorMessage = "Missing required information. Please check console for details.";
           console.error("Missing field error:", error.message);
-        } else if (error.code === "42703") {
+        } 
+        // Check for a 'code' property, common in Supabase errors
+        else if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: unknown }).code === "42703") {
           errorMessage = "Our system is being updated. Please try again in a few minutes.";
           errorTitle = "System Maintenance";
-        } else {
-          errorMessage = error.message;
         }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
       
       toast({

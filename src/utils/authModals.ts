@@ -1,5 +1,7 @@
 // Auth Modal utility functions
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 // Direct login modal function
 export function showDirectLoginModal(event?: React.MouseEvent) {
   console.log("showDirectLoginModal utility function started");
@@ -103,7 +105,7 @@ export function showDirectLoginModal(event?: React.MouseEvent) {
   document.body.appendChild(tempDiv.firstElementChild);
   
   // Now add the login function directly to window
-  // @ts-ignore
+  // @ts-expect-error Property 'handleDirectLogin' does not exist on type 'Window & typeof globalThis'.
   window.handleDirectLogin = async function() {
     console.log("Direct login handler called");
     
@@ -171,7 +173,7 @@ export function showDirectLoginModal(event?: React.MouseEvent) {
             
             // Race between the import and the timeout
             try {
-              const result = await Promise.race([importPromise, timeoutPromise]) as { supabase: any };
+              const result = await Promise.race([importPromise, timeoutPromise]) as { supabase: SupabaseClient };
               supabaseClient = result.supabase;
               
               if (!supabaseClient) {
@@ -419,7 +421,7 @@ export function showDirectSignupModal(event?: React.MouseEvent) {
   document.body.appendChild(tempDiv.firstElementChild);
   
   // Now add the signup function directly to window
-  // @ts-ignore
+  // @ts-expect-error Property 'handleDirectSignup' does not exist on type 'Window & typeof globalThis'.
   window.handleDirectSignup = async function() {
     console.log("Direct signup handler called");
     
@@ -624,7 +626,7 @@ export function showDirectForgotPasswordModal(event?: React.MouseEvent) {
   document.body.appendChild(tempDiv.firstElementChild);
   
   // Now add the forgot password function directly to window
-  // @ts-ignore
+  // @ts-expect-error Property 'handleForgotPassword' does not exist on type 'Window & typeof globalThis'.
   window.handleForgotPassword = async function() {
     console.log("Forgot password handler called");
     
@@ -722,11 +724,8 @@ export function showDirectForgotPasswordModal(event?: React.MouseEvent) {
 
 // Expose the functions globally on window for use anywhere
 if (typeof window !== 'undefined') {
-  // @ts-ignore
   window.showDirectLoginModal = showDirectLoginModal;
-  // @ts-ignore
   window.showDirectSignupModal = showDirectSignupModal;
-  // @ts-ignore
   window.showDirectForgotPasswordModal = showDirectForgotPasswordModal;
   console.log("Auth modal utilities exposed on window object");
 } 

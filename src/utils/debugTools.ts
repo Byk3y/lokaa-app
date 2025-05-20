@@ -26,35 +26,22 @@ export async function debugUserSpaceAccess(userId: string) {
       console.log('Owned spaces:', ownedSpaces);
     }
     
-    // Check space_access records
-    console.log('Checking space_access records...');
-    const { data: accessRecords, error: accessError } = await supabase
-      .from('space_access')
-      .select('*')
+    // Check space_members records
+    console.log('Checking space_members records...');
+    const { data: memberRecords, error: memberError } = await supabase
+      .from('space_members')
+      .select('*, space:spaces(name, subdomain)')
       .eq('user_id', userId);
       
-    if (accessError) {
-      console.error('Error fetching space access records:', accessError);
+    if (memberError) {
+      console.error('Error fetching space member records:', memberError);
     } else {
-      console.log('Space access records:', accessRecords);
+      console.log('Space member records:', memberRecords);
     }
-    
-    /* RLS test is commented out as the RPC doesn't exist yet
-    console.log('Checking permissions via RLS test...');
-    const { data: rlsTest, error: rlsError } = await supabase.rpc('check_user_permissions', {
-      target_user_id: userId
-    });
-    
-    if (rlsError) {
-      console.error('Error checking permissions:', rlsError);
-    } else {
-      console.log('RLS test result:', rlsTest);
-    }
-    */
     
     return {
       ownedSpaces,
-      accessRecords
+      memberRecords
     };
   } catch (error) {
     console.error('Unexpected error during debugging:', error);
@@ -73,7 +60,7 @@ export async function debugUserSpaceAccess(userId: string) {
 export async function checkSpaceAccessForUser(userId: string, spaceSubdomain: string) {
   if (!userId || !spaceSubdomain) {
     console.error('Missing required parameters: userId and spaceSubdomain are required');
-    return { success: false, error: 'Missing required parameters' };
+    return { success: false, error: 'Missing required parameters', phase: 'validation' };
   }
   
   console.log(`Checking access for user ${userId} to space ${spaceSubdomain}`);
@@ -112,37 +99,46 @@ export async function checkSpaceAccessForUser(userId: string, spaceSubdomain: st
     const isOwner = spaceData.owner_id === userId;
     console.log('2. Is user the owner?', isOwner);
     
-    // Step 3: If not owner, check space_access table
-    let hasAccess = isOwner;
-    let accessRecord = null;
+    // Step 3: Check space_members table
+    let hasAccessViaMembership = false;
+    let memberRecord = null;
+    let membershipRole = null;
+    let membershipStatus = null;
     
-    if (!isOwner) {
-      console.log('3. Checking space_access table...');
-      const { data: accessData, error: accessError } = await supabase
-        .from('space_access')
-        .select('*')
-        .eq('space_id', spaceData.id)
-        .eq('user_id', userId)
-        .eq('is_active', true);
+    console.log('3. Checking space_members table...');
+    const { data: smData, error: smError } = await supabase
+      .from('space_members')
+      .select('id, role, status')
+      .eq('space_id', spaceData.id)
+      .eq('user_id', userId)
+      .maybeSingle();
         
-      if (accessError) {
-        console.error('Error checking space access:', accessError);
-        return { 
-          success: false, 
-          error: accessError.message, 
-          code: accessError.code,
-          phase: 'access_check',
-          spaceData 
-        };
-      }
+    if (smError && smError.code !== 'PGRST116') {
+      console.error('Error checking space_members:', smError);
+      return { 
+        success: false, 
+        error: smError.message, 
+        code: smError.code,
+        phase: 'member_check',
+        spaceData 
+      };
+    }
       
-      hasAccess = accessData && accessData.length > 0;
-      accessRecord = hasAccess ? accessData[0] : null;
-      
-      console.log('Has access through membership?', hasAccess);
-      if (hasAccess) {
-        console.log('Access record:', accessRecord);
+    if (smData) {
+      memberRecord = smData;
+      membershipRole = smData.role;
+      membershipStatus = smData.status;
+      if (smData.status === 'active') {
+        hasAccessViaMembership = true;
       }
+      console.log('Found space_members record:', memberRecord);
+    }
+    
+    const hasAccess = isOwner || hasAccessViaMembership;
+
+    if (isOwner && (membershipRole === null || membershipRole !== 'admin')) {
+        membershipRole = 'admin';
+        membershipStatus = 'active';
     }
     
     // Step 4: Return comprehensive results
@@ -150,11 +146,13 @@ export async function checkSpaceAccessForUser(userId: string, spaceSubdomain: st
       success: true,
       hasAccess,
       isOwner,
-      accessRecord,
+      memberRecord,
+      membershipRole,
+      membershipStatus,
       spaceData,
       summary: hasAccess ? 
-        (isOwner ? 'User is the owner of this space' : 'User has access via membership') : 
-        'User does not have access to this space'
+        (isOwner ? `User is the owner of this space (Role: ${membershipRole}, Status: ${membershipStatus})` : `User has access via membership (Role: ${membershipRole}, Status: ${membershipStatus})`) :
+        `User does not have access to this space (Membership status: ${membershipStatus || 'not a member'})`
     };
     
   } catch (error) {
@@ -167,100 +165,6 @@ export async function checkSpaceAccessForUser(userId: string, spaceSubdomain: st
   }
 }
 
-// Function to ensure a user has proper space access
-export async function ensureUserSpaceAccess(userId: string, spaceId: string) {
-  if (!userId || !spaceId) {
-    console.error('Missing required parameters');
-    return { success: false, error: 'Missing required parameters' };
-  }
-  
-  try {
-    // Check if access record already exists
-    const { data: existingAccess, error: checkError } = await supabase
-      .from('space_access')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('space_id', spaceId)
-      .single();
-      
-    if (checkError && checkError.code !== 'PGRST116') { // Not 'no rows returned'
-      console.error('Error checking existing access:', checkError);
-      return { success: false, error: checkError };
-    }
-    
-    // If access record exists but is not active, update it
-    if (existingAccess) {
-      if (!existingAccess.is_active) {
-        const { data: updated, error: updateError } = await supabase
-          .from('space_access')
-          .update({ is_active: true })
-          .eq('id', existingAccess.id)
-          .select()
-          .single();
-          
-        if (updateError) {
-          console.error('Error updating access record:', updateError);
-          return { success: false, error: updateError };
-        }
-        
-        return { success: true, data: updated, action: 'updated' };
-      }
-      
-      return { success: true, data: existingAccess, action: 'exists' };
-    }
-    
-    // If no access record exists, create one
-    const { data: inserted, error: insertError } = await supabase
-      .from('space_access')
-      .insert({
-        user_id: userId,
-        space_id: spaceId,
-        is_active: true,
-        role: 'member'
-      })
-      .select()
-      .single();
-      
-    if (insertError) {
-      console.error('Error creating access record:', insertError);
-      return { success: false, error: insertError };
-    }
-    
-    return { success: true, data: inserted, action: 'created' };
-  } catch (e) {
-    console.error('Exception in ensureUserSpaceAccess:', e);
-    return { success: false, error: e };
-  }
-}
+// TODO: This function is outdated and needs complete refactoring to work with space_members.
 
-// Function to manually fix the automation jungle space access for a user
-export async function fixAutomationJungleAccess(userId: string) {
-  if (!userId) {
-    console.error('No user ID provided');
-    return { success: false, error: 'No user ID provided' };
-  }
-  
-  try {
-    // Find the automation jungle space
-    const { data: spaces, error: spaceError } = await supabase
-      .from('spaces')
-      .select('id')
-      .eq('subdomain', 'automation-jungle')
-      .single();
-      
-    if (spaceError) {
-      console.error('Error finding automation jungle space:', spaceError);
-      return { success: false, error: spaceError };
-    }
-    
-    if (!spaces) {
-      return { success: false, error: 'Automation jungle space not found' };
-    }
-    
-    // Ensure access
-    return await ensureUserSpaceAccess(userId, spaces.id);
-  } catch (error) {
-    console.error('Unexpected error fixing automation jungle access:', error);
-    return { success: false, error };
-  }
-} 
+// TODO: This function is outdated and needs complete refactoring to work with space_members. 

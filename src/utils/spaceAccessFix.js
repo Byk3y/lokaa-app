@@ -7,7 +7,7 @@
  * spaceAccessFix.checkAccess('my-space-subdomain')
  * 
  * // Fix access to a space (requires being logged in as admin or space owner):
- * spaceAccessFix.fixAccess('some-user-id', 'my-space-subdomain')
+ * // spaceAccessFix.fixAccess('some-user-id', 'my-space-subdomain') // TODO: This function is outdated due to space_members migration
  * 
  * // Run the client-side check (works without requiring the RPC functions):
  * spaceAccessFix.clientSideCheck('my-space-subdomain')
@@ -24,6 +24,8 @@ const spaceAccessFix = {
   },
   
   // Call the debug_my_space_access RPC function
+  // Note: The underlying RPC check_user_space_access has been updated.
+  // The response will now contain member_records, membership_role, membership_status.
   checkAccess: async function(spaceSubdomain) {
     if (!this.supabase) {
       console.error('Supabase client not initialized. Call spaceAccessFix.init(supabase) first.');
@@ -56,6 +58,8 @@ const spaceAccessFix = {
   },
   
   // Check access for a specific user (admin only)
+  // Note: The underlying RPC check_user_space_access has been updated.
+  // The response will now contain member_records, membership_role, membership_status.
   checkUserAccess: async function(userId, spaceSubdomain) {
     if (!this.supabase) {
       console.error('Supabase client not initialized. Call spaceAccessFix.init(supabase) first.');
@@ -89,36 +93,12 @@ const spaceAccessFix = {
   },
   
   // Fix access for a user to a space
+  // TODO: This function is outdated and needs complete refactoring to work with space_members.
+  // The original fix_space_access RPC it calls is also commented out.
+  // A new approach for admin-fixing memberships in space_members is required.
   fixAccess: async function(userId, spaceSubdomain) {
-    if (!this.supabase) {
-      console.error('Supabase client not initialized. Call spaceAccessFix.init(supabase) first.');
-      return null;
-    }
-    
-    if (!userId || !spaceSubdomain) {
-      console.error('Missing required parameters: userId and spaceSubdomain');
-      return null;
-    }
-    
-    console.log(`Fixing access for user ${userId} to space: ${spaceSubdomain}`);
-    
-    try {
-      const { data, error } = await this.supabase.rpc('fix_space_access', {
-        user_id: userId,
-        space_subdomain: spaceSubdomain
-      });
-      
-      if (error) {
-        console.error('Error fixing space access:', error);
-        return { success: false, error: error.message };
-      }
-      
-      console.log('Fix result:', data);
-      return data;
-    } catch (error) {
-      console.error('Exception fixing space access:', error);
-      return { success: false, error: error.message };
-    }
+    console.warn('fixAccess function is currently disabled as it relies on the outdated space_access table and fix_space_access RPC.');
+    return { success: false, error: 'Function disabled due to space_members migration.', phase: 'disabled' };
   },
   
   // Client-side access check (fallback if RPC functions don't exist)
@@ -141,7 +121,7 @@ const spaceAccessFix = {
       
       if (userError || !user) {
         console.error('Error getting current user:', userError || 'No user found');
-        return { success: false, error: userError?.message || 'Not authenticated' };
+        return { success: false, error: userError?.message || 'Not authenticated', phase: 'auth_check' };
       }
       
       const userId = user.id;
@@ -178,40 +158,58 @@ const spaceAccessFix = {
       const isOwner = spaceData.owner_id === userId;
       console.log('Is user the owner?', isOwner);
       
-      // 4. Check space_access records
-      const { data: accessData, error: accessError } = await this.supabase
-        .from('space_access')
-        .select('*')
+      // 4. Check space_members records
+      let memberRole = null;
+      let memberStatus = null;
+      let memberRecord = null; 
+
+      const { data: memberData, error: memberError } = await this.supabase
+        .from('space_members') // Changed from space_access
+        .select('role, status, created_at, updated_at, id') // Added role, status
         .eq('space_id', spaceData.id)
         .eq('user_id', userId)
-        .eq('is_active', true);
+        // .eq('status', 'active') // We fetch the record first, then check status for hasAccess
+        .maybeSingle(); // Expect at most one record
         
-      if (accessError) {
-        console.error('Error checking space access:', accessError);
+      if (memberError && memberError.code !== 'PGRST116') { // PGRST116: 0 rows
+        console.error('Error checking space membership:', memberError);
         return { 
           success: false, 
-          error: accessError.message,
-          phase: 'access_check'
+          error: memberError.message,
+          phase: 'member_check'
         };
       }
       
-      const hasAccessViaRecord = accessData && accessData.length > 0;
-      const hasAccess = isOwner || hasAccessViaRecord;
+      const hasActiveMemberRecord = memberData && memberData.status === 'active';
+      if (memberData) {
+        memberRecord = memberData;
+        memberRole = memberData.role;
+        memberStatus = memberData.status;
+        console.log('Space member record found:', memberData);
+      }
+
+      const hasAccess = isOwner || hasActiveMemberRecord;
       
-      console.log('Has access via membership?', hasAccessViaRecord);
-      console.log('Access records:', accessData);
+      if (isOwner && !memberRole) { // If owner and no specific member record, infer role/status
+        memberRole = 'owner';
+        memberStatus = 'active';
+      }
+
+      console.log('Has access via active membership record?', hasActiveMemberRecord);
       
       // 5. Return result
       return {
         success: true,
         hasAccess,
         isOwner,
-        accessRecords: accessData || [],
+        memberRecord: memberRecord, // Changed from accessRecords
+        membershipRole: memberRole,
+        membershipStatus: memberStatus,
         space: spaceData,
         user: { id: userId },
         summary: hasAccess ? 
-          (isOwner ? 'User is the owner of this space' : 'User has access via membership') : 
-          'User does not have access to this space'
+          (isOwner ? `User is the owner of this space (Role: ${memberRole}, Status: ${memberStatus})` : `User has access via membership (Role: ${memberRole}, Status: ${memberStatus})`) :
+          `User does not have access to this space (Membership status: ${memberStatus || 'not a member'})`
       };
     } catch (error) {
       console.error('Exception in client-side check:', error);
@@ -224,77 +222,11 @@ const spaceAccessFix = {
   },
   
   // Create access record directly using insert
+  // TODO: This function is outdated and needs complete refactoring to work with space_members.
+  // It should likely call a new admin RPC to create/update memberships in space_members with proper role/status.
   createAccessRecord: async function(userId, spaceId) {
-    if (!this.supabase) {
-      console.error('Supabase client not initialized. Call spaceAccessFix.init(supabase) first.');
-      return null;
-    }
-    
-    if (!userId || !spaceId) {
-      console.error('Missing required parameters: userId and spaceId');
-      return null;
-    }
-    
-    console.log(`Creating direct access record for user ${userId} to space ID: ${spaceId}`);
-    
-    try {
-      // First check if record already exists
-      const { data: existingData, error: checkError } = await this.supabase
-        .from('space_access')
-        .select('id, is_active')
-        .eq('space_id', spaceId)
-        .eq('user_id', userId);
-        
-      if (checkError) {
-        console.error('Error checking existing access:', checkError);
-        return { success: false, error: checkError.message };
-      }
-      
-      // If record exists, update it
-      if (existingData && existingData.length > 0) {
-        console.log('Access record already exists:', existingData[0]);
-        
-        // If it's not active, activate it
-        if (!existingData[0].is_active) {
-          const { data: updateData, error: updateError } = await this.supabase
-            .from('space_access')
-            .update({ is_active: true })
-            .eq('id', existingData[0].id);
-            
-          if (updateError) {
-            console.error('Error updating access record:', updateError);
-            return { success: false, error: updateError.message };
-          }
-          
-          console.log('Access record activated');
-          return { success: true, action: 'activated', record: existingData[0] };
-        }
-        
-        return { success: true, action: 'already_exists', record: existingData[0] };
-      }
-      
-      // Create new record
-      const { data: insertData, error: insertError } = await this.supabase
-        .from('space_access')
-        .insert({
-          space_id: spaceId,
-          user_id: userId,
-          is_active: true,
-          role: 'member'
-        })
-        .select();
-        
-      if (insertError) {
-        console.error('Error creating access record:', insertError);
-        return { success: false, error: insertError.message };
-      }
-      
-      console.log('Access record created:', insertData);
-      return { success: true, action: 'created', record: insertData };
-    } catch (error) {
-      console.error('Exception creating access record:', error);
-      return { success: false, error: error.message };
-    }
+    console.warn('createAccessRecord function is currently disabled as it relies on the outdated space_access table.');
+    return { success: false, error: 'Function disabled due to space_members migration.', phase: 'disabled' };
   }
 };
 

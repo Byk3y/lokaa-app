@@ -126,7 +126,7 @@ export default function ProfileImageUploader({
   };
 
   // Handler for when the crop is complete
-  const handleCropComplete = (_croppedArea: any, croppedAreaPixels: CropArea) => {
+  const handleCropComplete = (_croppedArea: CropArea, croppedAreaPixels: CropArea) => {
     setCroppedAreaPixels(croppedAreaPixels);
   };
 
@@ -256,7 +256,13 @@ export default function ProfileImageUploader({
         });
       
       if (uploadError) {
-        throw new Error(`Upload error: ${uploadError.message}`);
+        console.error('Error uploading image:', uploadError);
+        toast({
+          title: 'Upload failed',
+          description: uploadError.message,
+          variant: 'destructive',
+        });
+        return;
       }
       
       // Get the public URL of the uploaded image
@@ -264,30 +270,62 @@ export default function ProfileImageUploader({
         .from('avatars')
         .getPublicUrl(filePath);
       
-      // Update user metadata with the new avatar URL
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: { 
-          avatar_url: publicUrl,
-          avatar_updated_at: new Date().toISOString(),
-        }
-      });
-      
-      if (updateError) {
-        console.error('Error updating user metadata:', updateError);
-        // Continue anyway since the upload succeeded
+      if (!publicUrl) {
+        toast({
+          title: 'Error',
+          description: 'Could not get public URL for the image',
+          variant: 'destructive',
+        });
+        return;
       }
       
-      // Refresh the profile image in context
-      await refreshProfileImage();
+      // Update user metadata
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { 
+          avatar_url: publicUrl,
+          avatar_path: filePath,
+          avatar_updated_at: new Date().toISOString(),
+         },
+      });
       
-      // Notify any parent components
+      if (metadataError) {
+        console.error('Error updating user metadata:', metadataError);
+        toast({
+          title: 'Metadata update failed',
+          description: metadataError.message,
+          variant: 'destructive',
+        });
+        // Optionally, consider deleting the uploaded image if metadata update fails
+        return;
+      }
+      
+      // Update the public.users table
+      const { error: dbUpdateError } = await supabase
+        .from('users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+      
+      if (dbUpdateError) {
+        console.error('Error updating public.users table:', dbUpdateError);
+        toast({
+          title: 'Profile update failed',
+          description: 'Could not update your public profile with the new avatar.',
+          variant: 'destructive',
+        });
+        // Potentially an issue, but the auth metadata is updated, and storage has the file.
+        // The user might see an old avatar in some places if this fails.
+      }
+      
+      // Update the UI with the new image URL
+      setPreviewUrl(publicUrl);
       if (onImageUploaded) {
         onImageUploaded(publicUrl);
       }
+      refreshProfileImage(); // from ProfileImageContext to trigger global refresh
       
       toast({
         title: 'Success',
-        description: 'Profile image updated successfully',
+        description: 'Profile image updated!',
       });
     } catch (error) {
       console.error('Error uploading image:', error);

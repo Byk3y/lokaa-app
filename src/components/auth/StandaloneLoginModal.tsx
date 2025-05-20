@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { directLogin } from '@/utils/directAuth';
+import { AuthResponse } from '@supabase/supabase-js';
 
 interface StandaloneLoginModalProps {
   onClose: () => void;
@@ -10,7 +11,8 @@ interface StandaloneLoginModalProps {
 interface LoginResult {
   success: boolean;
   error?: string;
-  data?: any;
+  data?: AuthResponse['data'];
+  redirectPath?: string;
 }
 
 export default function StandaloneLoginModal({ onClose }: StandaloneLoginModalProps) {
@@ -68,10 +70,12 @@ export default function StandaloneLoginModal({ onClose }: StandaloneLoginModalPr
         setLoading(false);
       }
       // No need to handle success - directLogin will redirect
+      // The redirectPath is available in result.redirectPath if needed
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Login exception:", err);
-      setError(err.message || "An unexpected error occurred");
+      const message = err instanceof Error ? err.message : "An unexpected error occurred";
+      setError(message);
       setLoading(false);
     }
   };

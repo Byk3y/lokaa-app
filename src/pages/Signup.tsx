@@ -126,12 +126,13 @@ export default function Signup() {
           }, 2000);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Signup exception:", error);
-      setSignupError(error?.message || "An unexpected error occurred");
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      setSignupError(errorMessage);
       toast({
         title: "Error",
-        description: error?.message || "An unexpected error occurred. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       setIsLoading(false);

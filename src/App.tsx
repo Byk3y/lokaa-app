@@ -1,9 +1,12 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams, Outlet } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProfileImageProvider } from "@/contexts/ProfileImageContext";
+import { SpaceProvider } from "@/contexts/SpaceContext";
+import { MembershipProvider } from "@/contexts/MembershipContext";
+import { SpaceMembershipProvider } from "@/contexts/SpaceMembershipContext";
 import { Toaster } from "@/components/ui/toaster";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import SpaceProtectedRoute from "@/components/auth/SpaceProtectedRoute";
@@ -16,6 +19,7 @@ import QuickSpaceRedirect from "@/pages/QuickSpaceRedirect";
 import Discover from "@/pages/Discover";
 import Space from "@/pages/Space";
 import SpaceAboutPage from "@/pages/SpaceAboutPage";
+import SpaceDebugPage from "@/pages/SpaceDebugPage"; // Import the SpaceDebugPage component
 import SpaceRedirect from "@/pages/SpaceRedirect";
 import Dashboard from "@/pages/Dashboard"; // Import for direct redirection
 import CreateSpace from "@/pages/CreateSpace";
@@ -28,6 +32,8 @@ import React from "react";
 import { Loader2 } from "lucide-react";
 import Profile from "@/pages/Profile";
 import ProfileRouteHandler from "@/components/profile/ProfileRouteHandler"; // Import the new ProfileRouteHandler
+import SpaceJoinPage from "@/pages/SpaceJoinPage"; // Import the SpaceJoinPage component
+import SubdomainRouteHandler from "@/router/SubdomainRouteHandler"; // <--- IMPORT NEW HANDLER
 
 // Import our modal utility for authentication
 import "@/utils/authModals";
@@ -41,6 +47,63 @@ function RouteLogger() {
   }, [location]);
   
   return null;
+}
+
+// Add special handling for the automation-jungle route
+function AutomationJungleRedirect() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isRedirecting, setIsRedirecting] = useState(true);
+
+  useEffect(() => {
+    // If the URL pattern is like /automation-jungle/space/feed
+    // we want to normalize it to /:subdomain/space/feed
+    
+    const pathSegments = location.pathname.split('/');
+    if (pathSegments[1] === 'automation-jungle') {
+      // This is a direct access URL to automation-jungle without the proper structure
+      // Normalize it to match our expected format
+      let normalizedPath = `/${pathSegments[1]}/space`;
+      
+      // Add any remaining path segments
+      if (pathSegments.length > 2) {
+        const remainingSegments = pathSegments.slice(3).join('/');
+        if (remainingSegments) {
+          normalizedPath += `/${remainingSegments}`;
+        }
+      } else {
+        // Default to feed if no other segments
+        normalizedPath += '/feed';
+      }
+      
+      console.log(`Normalizing automation jungle URL from ${location.pathname} to ${normalizedPath}`);
+      
+      // Redirect to the normalized path
+      navigate(normalizedPath, { replace: true });
+    } else {
+      // Not a special URL, no need to redirect
+      setIsRedirecting(false);
+    }
+  }, [location.pathname, navigate]);
+
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+          <div className="flex items-center justify-center mb-4">
+            <Loader2 className="h-8 w-8 animate-spin text-teal-600 mr-2" />
+            <h2 className="text-xl font-semibold text-gray-800">
+              Redirecting...
+            </h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Not redirecting, proceed with normal route
+  return <Outlet />;
 }
 
 // Wrapper component for routes
@@ -62,7 +125,7 @@ function AppRoutes() {
     if (user && location.pathname === '/' && !isDirectNavigation) {
       console.log('AppRoutes: User is logged in on root path, redirecting to SmartLanding');
       // Send to SmartLanding which will handle space redirection
-      navigate('/app', { replace: true });
+      // navigate('/app', { replace: true }); // Temporarily commented out for diagnosis
     }
   }, [user, loading, location.pathname, navigate]);
   
@@ -74,8 +137,9 @@ function AppRoutes() {
         <Route path="/" element={<LandingPageWrapper />} />
         <Route path="/auth/callback" element={<AuthRedirect />} />
         
-        {/* User Profile route - MUST come before subdomain routes */}
-        <Route path="/@:slug" element={<ProfileRouteHandler />} />
+        {/* User Profile route - MOVED INSIDE ProtectedRoute below
+        <Route path="/@:slug" element={<ProfileRouteHandler />} /> 
+        */}
         
         {/* Fix for incorrect profile routes */}
         <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
@@ -107,6 +171,10 @@ function AppRoutes() {
 
         {/* Protected routes - require authentication */}
         <Route element={<ProtectedRoute />}>
+          {/* User Profile route - MUST come before subdomain routes */}
+          {/* <Route path="/@:slug" element={<ProfileRouteHandler />} /> */}
+          <Route path="/profile/:slug" element={<ProfileRouteHandler />} /> {/* Using :slug as the param name, maps to profile_url */}
+
           {/* Smart landing - redirects based on user's spaces */}
           <Route path="/app" element={<QuickSpaceRedirect />} />
           
@@ -115,6 +183,9 @@ function AppRoutes() {
           
           {/* Discover page for finding spaces when user has none */}
           <Route path="/discover" element={<Discover />} />
+          
+          {/* Space join route - handles joining a space */}
+          <Route path="/space/join/:spaceId" element={<SpaceJoinPage />} />
           
           {/* Creator Dashboard (accessible via profile dropdown) */}
           <Route path="/dashboard" element={<CreatorDashboard />} />
@@ -131,10 +202,15 @@ function AppRoutes() {
           <Route path="/space/:subdomain/leaderboard" element={<Navigate to="/:subdomain/space/leaderboard" replace />} />
           
           {/* Legacy /subdomain direct routes - redirect to new structure */}
-          <Route path="/:subdomain" element={<SpaceRedirect />} />
+          <Route path="/:subdomain" element={<SubdomainRouteHandler />} />
           <Route path="/:subdomain/members" element={<Navigate to="/:subdomain/space/members" replace />} />
           <Route path="/:subdomain/calendar" element={<Navigate to="/:subdomain/space/calendar" replace />} />
           <Route path="/:subdomain/leaderboard" element={<Navigate to="/:subdomain/space/leaderboard" replace />} />
+        </Route>
+        
+        {/* Route Handler for normalizing automation-jungle URLs */}
+        <Route path="/automation-jungle/*" element={<AutomationJungleRedirect />}>
+          <Route path="*" element={<Navigate to="/automation-jungle/space/feed" replace />} />
         </Route>
         
         {/* Protected space routes - require space membership */}
@@ -147,6 +223,7 @@ function AppRoutes() {
           <Route path="classroom" element={<Space initialTab="classroom" />} />
           <Route path="calendar" element={<Space initialTab="calendar" />} />
           <Route path="leaderboard" element={<Space initialTab="leaderboard" />} />
+          <Route path="debug" element={<SpaceDebugPage />} />
         </Route>
 
         {/* User Settings route */}
@@ -187,13 +264,19 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
-        <Router>
-          <AuthProvider>
-            <ProfileImageProvider>
-            <AppRoutes />
-            <Toaster />
-            </ProfileImageProvider>
-          </AuthProvider>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <SpaceMembershipProvider>
+            <AuthProvider>
+              <ProfileImageProvider>
+                <SpaceProvider>
+                  <MembershipProvider>
+                    <AppRoutes />
+                    <Toaster />
+                  </MembershipProvider>
+                </SpaceProvider>
+              </ProfileImageProvider>
+            </AuthProvider>
+          </SpaceMembershipProvider>
         </Router>
       </HelmetProvider>
     </QueryClientProvider>

@@ -174,11 +174,12 @@ export default function CreateSpace() {
         }, 300);
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating space:", error);
+      const message = error instanceof Error ? error.message : String(error);
       toast({
         title: "Error creating space",
-        description: error.message || "Something went wrong. Please try again.",
+        description: message || "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {

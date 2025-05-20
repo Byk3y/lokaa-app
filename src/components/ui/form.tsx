@@ -8,18 +8,30 @@ import {
   FieldValues,
   FormProvider,
   useFormContext,
+  UseFormReturn,
 } from "react-hook-form"
 
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
-interface FormProps {
+interface FormProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TContext = unknown,
+  TTransformedValues extends FieldValues | undefined = undefined
+> {
   children: React.ReactNode;
-  [key: string]: any;
+  methods: UseFormReturn<TFieldValues, TContext, TTransformedValues>;
 }
 
-const Form = ({ children, ...props }: FormProps) => {
-  return <FormProvider {...props}>{children}</FormProvider>;
+const Form = <
+  TFieldValues extends FieldValues = FieldValues,
+  TContext = unknown,
+  TTransformedValues extends FieldValues | undefined = undefined
+>({
+  children,
+  methods,
+}: FormProps<TFieldValues, TContext, TTransformedValues>) => {
+  return <FormProvider {...methods}>{children}</FormProvider>;
 };
 
 
@@ -172,6 +184,7 @@ const FormMessage = React.forwardRef<
 })
 FormMessage.displayName = "FormMessage"
 
+/* eslint-disable react-refresh/only-export-components */
 export {
   useFormField,
   Form,
@@ -182,3 +195,4 @@ export {
   FormMessage,
   FormField,
 }
+/* eslint-enable react-refresh/only-export-components */

@@ -51,9 +51,13 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
       }
     });
     
-    if (updateError) {
-      console.error('Error updating user metadata:', updateError);
-      // Return the URL anyway, since the upload succeeded
+    // NEW: Update the users table with the avatar_url
+    const { error: dbUpdateError } = await supabase
+      .from('users')
+      .update({ avatar_url: publicUrl })
+      .eq('id', user.id);
+    if (dbUpdateError) {
+      console.error('Error updating users table with avatar_url:', dbUpdateError);
     }
     
     return publicUrl;

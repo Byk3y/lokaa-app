@@ -1,17 +1,27 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Edit, Clock, Calendar } from "lucide-react";
+import { Copy, Edit, Clock, Calendar, MapPin, Link as LinkIcon, Twitter, Linkedin, Github } from "lucide-react";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import ProfileImageUploader from "./ProfileImageUploader";
+import { Database } from "@/types/supabase";
 
 interface ProfileHeaderProps {
-  profileData: any;
+  profileData: Database['public']['Tables']['users']['Row'];
   isCurrentUser: boolean;
 }
+
+// Helper to get social icon
+const getSocialIcon = (platform: string) => {
+  const lcPlatform = platform.toLowerCase();
+  if (lcPlatform.includes('twitter')) return <Twitter className="h-5 w-5" />;
+  if (lcPlatform.includes('linkedin')) return <Linkedin className="h-5 w-5" />;
+  if (lcPlatform.includes('github')) return <Github className="h-5 w-5" />;
+  return <LinkIcon className="h-5 w-5" />;
+};
 
 export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHeaderProps) {
   const navigate = useNavigate();
@@ -19,11 +29,13 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
   
   // Extract data with fallbacks for potentially missing fields
   const userData = {
-    username: profileData.username || profileData.profile_url || 'User',
+    username: profileData.profile_url || profileData.full_name || 'User',
     fullName: profileData.full_name || `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || profileData.profile_url || 'User',
     avatarUrl: profileData.avatar_url,
     role: profileData.role || 'member',
-    createdAt: profileData.created_at || new Date().toISOString()
+    createdAt: profileData.created_at || new Date().toISOString(),
+    socialLinks: profileData.social_links,
+    location: profileData.location || profileData.country,
   };
   
   const handleCopyLink = () => {
@@ -56,7 +68,7 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
   return (
     <div className="w-full flex flex-col items-center text-center">
       {/* Avatar */}
-      <div className="relative">
+      <div className="relative mb-4">
         {isCurrentUser ? (
           <ProfileImageUploader 
             currentImageUrl={profileImage} 
@@ -70,31 +82,54 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
             <AvatarFallback>{getInitials(userData.fullName)}</AvatarFallback>
           </Avatar>
         )}
-        
-        {userData.role === 'creator' && (
-          <span className="absolute bottom-0 right-0 bg-amber-300 text-amber-900 text-xs font-medium rounded-full h-6 w-6 flex items-center justify-center border-2 border-white">1</span>
-        )}
       </div>
 
       {/* User name */}
-      <h2 className="text-2xl font-semibold mt-4">{userData.fullName}</h2>
+      <h2 className="text-2xl font-semibold">{userData.fullName}</h2>
+      {userData.username && <p className="text-sm text-gray-500">@{userData.username}</p>}
 
       {/* Role badge */}
       {userData.role === 'creator' && (
-        <Badge variant="secondary" className="mt-1 bg-amber-100 text-amber-800">Creator</Badge>
+        <Badge variant="secondary" className="mt-2 bg-amber-100 text-amber-800">Creator</Badge>
       )}
 
-      {/* Last seen */}
-      <div className="flex items-center text-gray-500 mt-4">
-        <Clock className="h-4 w-4 mr-1" />
-        <span className="text-sm">Last seen recently</span>
-      </div>
+      {/* Location */}
+      {userData.location && (
+        <div className="flex items-center text-gray-500 mt-3 text-sm">
+          <MapPin className="h-4 w-4 mr-1.5" />
+          <span>{userData.location}</span>
+        </div>
+      )}
 
       {/* Member since */}
       <div className="flex items-center text-gray-500 mt-2">
-        <Calendar className="h-4 w-4 mr-1" />
+        <Calendar className="h-4 w-4 mr-1.5" />
         <span className="text-sm">Member since {memberSince}</span>
       </div>
+
+      {/* Social Links - increased margin top for spacing */}
+      {userData.socialLinks && Object.keys(userData.socialLinks).length > 0 && (
+        <div className="flex gap-3 mt-4">
+          {Object.entries(userData.socialLinks).map(([platform, link]) => {
+            // Basic validation for link
+            if (typeof link === 'string' && link.trim() !== '') {
+              return (
+                <a 
+                  key={platform} 
+                  href={link.startsWith('http') ? link : `https://${link}`} // Ensure link has protocol
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  aria-label={`Visit ${userData.fullName}\'s ${platform} profile`}
+                  className="text-gray-500 hover:text-primary transition-colors"
+                >
+                  {getSocialIcon(platform)}
+                </a>
+              );
+            }
+            return null;
+          })}
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="flex gap-2 mt-6">

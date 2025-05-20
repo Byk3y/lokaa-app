@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-interface SpaceSettingsData {
+export interface SpaceSettingsData {
   id: string;
   name: string;
   description: string | null;
@@ -12,146 +12,201 @@ interface SpaceSettingsData {
   subdomain: string;
   owner_id: string;
   is_private: boolean;
+  primary_color?: string;
+  pricing_type?: 'free' | 'paid' | string;
+  price_per_month?: number;
+  member_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface SpacePermissions {
+  isOwner: boolean;
+  isAdmin: boolean;
+  canEditSpace: boolean;
+  canManageMembers: boolean;
+  canCreateContent: boolean;
+  canAccessSettings: boolean;
 }
 
 interface SpaceSettingsState {
   space: SpaceSettingsData | null;
+  permissions: SpacePermissions | null;
   formData: Partial<SpaceSettingsData>;
-  loading: boolean;
+  loadingSpace: boolean;
+  loadingPermissions: boolean;
   error: string | null;
-  fetchSpaceSettings: (spaceId: string, userId: string) => Promise<void>;
-  setFormDataField: <K extends keyof Partial<SpaceSettingsData>>(field: K, value: Partial<SpaceSettingsData>[K]) => void;
-  resetStore: () => void; // To clear data when needed
+  
+  loadActiveSpace: (
+    identifier: { subdomain?: string; spaceId?: string }, 
+    userId: string, 
+    force?: boolean
+  ) => Promise<void>;
+
+  fetchPermissionsForSpace: (spaceId: string, userId: string) => Promise<void>;
+  
+  setFormDataField: <K extends keyof Partial<SpaceSettingsData>>(
+    field: K, 
+    value: Partial<SpaceSettingsData>[K]
+  ) => void;
+  resetStore: () => void;
 }
 
-const initialState = {
+interface SpaceAccessRow {
+  id: string;
+  space_id: string;
+  user_id: string;
+  role: 'owner' | 'admin' | 'member' | string;
+  is_active: boolean;
+}
+
+const initialState: Pick<SpaceSettingsState, 'space' | 'permissions' | 'formData' | 'loadingSpace' | 'loadingPermissions' | 'error'> = {
   space: null,
+  permissions: null,
   formData: {},
-  loading: false,
+  loadingSpace: false,
+  loadingPermissions: false,
   error: null,
 };
+
+const spaceCache = new Map<string, { data: SpaceSettingsData, timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
   ...initialState,
 
-  fetchSpaceSettings: async (spaceId: string, userId: string) => {
-    if (!spaceId || !userId) {
-      console.error("fetchSpaceSettings called with missing params:", { spaceId, userId });
-      set({ error: "User or Space ID missing.", loading: false });
+  loadActiveSpace: async (identifier, userId, force = false) => {
+    if (!userId) {
+      set({ error: "User ID is required to load space.", loadingSpace: false, loadingPermissions: false });
       return;
     }
-    
-    console.log("fetchSpaceSettings called with params:", { spaceId, userId });
-    
-    // Avoid refetch if data for the same space is already loaded
-    if (get().space?.id === spaceId && !get().loading) {
-       console.log("Settings data already loaded for space:", spaceId);
-       return;
+    if (!identifier.subdomain && !identifier.spaceId) {
+      set({ error: "Subdomain or Space ID is required.", loadingSpace: false, loadingPermissions: false });
+      return;
     }
 
-    console.log("Fetching settings data for space:", spaceId);
-    set({ loading: true, error: null });
+    const cacheKey = identifier.subdomain || identifier.spaceId!;
+    
+    if (!force) {
+      const cached = spaceCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        console.log(`[SpaceSettingsStore] Using cached data for ${cacheKey}`);
+        set({ 
+          space: cached.data, 
+          loadingSpace: false, 
+          error: null,
+          formData: { ...cached.data }
+        });
+        if (get().space && (!get().permissions || force || get().permissions === null)) {
+           await get().fetchPermissionsForSpace(get().space!.id, userId);
+        }
+        return;
+      }
+    }
+
+    set({ loadingSpace: true, loadingPermissions: true, error: null, space: null, permissions: null });
+
+    let spaceData: SpaceSettingsData | null = null;
+    let fetchError: string | null = null;
 
     try {
-      console.log("Starting spaces query for spaceId:", spaceId);
-      const { data, error } = await supabase
-        .from('spaces')
-        .select('id, name, description, about_description, cover_image, icon_image, subdomain, owner_id, is_private') // Select specific fields
-        .eq('id', spaceId)
-        .single();
+      let query = supabase.from('spaces').select('id, name, description, about_description, cover_image, icon_image, subdomain, owner_id, is_private, primary_color, pricing_type, price_per_month, member_count, created_at, updated_at');
+      
+      if (identifier.subdomain) {
+        query = query.eq('subdomain', identifier.subdomain);
+      } else if (identifier.spaceId) {
+        query = query.eq('id', identifier.spaceId);
+      }
+      
+      const { data: fetchedSpace, error: spaceFetchError } = await query.single();
 
-      if (error) {
-        console.error("Error fetching space settings:", error);
-        
-        if (error.code === 'PGRST116') {
-          console.log("Space not found with ID:", spaceId);
-          toast({ title: "Not Found", description: "Could not find settings for this space.", variant: "destructive" });
-          set({ error: "Space not found", loading: false });
-        } else {
-          console.error("Database error fetching space:", error.message);
-          toast({ title: "Error", description: `Failed to load settings: ${error.message}`, variant: "destructive" });
-          set({ error: `Failed to load settings: ${error.message}`, loading: false });
+      if (spaceFetchError) {
+        fetchError = `Failed to fetch space: ${spaceFetchError.message}`;
+        if (spaceFetchError.code === 'PGRST116') {
+          fetchError = "Space not found.";
         }
-        return;
+        throw new Error(fetchError);
       }
 
-      if (!data) {
-        console.error("No data returned for space ID:", spaceId);
-        set({ error: "No data returned", loading: false });
-        return;
+      if (!fetchedSpace) {
+        fetchError = "Space not found or no data returned.";
+        throw new Error(fetchError);
       }
-
-      console.log("Space data successfully retrieved:", data);
-      // First convert to unknown type, then to our expected type to avoid TypeScript errors
-      const spaceData = data as unknown as SpaceSettingsData;
-
-      // First check if user is the owner
-      const isOwner = spaceData.owner_id === userId;
-      console.log("Is user the owner?", isOwner);
       
-      // If not owner, check if user has access via space_access table
-      let hasAccess = isOwner;
+      spaceData = fetchedSpace as unknown as SpaceSettingsData;
+      spaceCache.set(cacheKey, { data: spaceData, timestamp: Date.now() });
       
-      if (!isOwner) {
-        console.log("User is not the owner, checking space_access table");
-        try {
-          const { data: accessData, error: accessError } = await supabase
-            .from('space_access')
-            .select('id, role, is_active')
-            .eq('space_id', spaceId)
-            .eq('user_id', userId)
-            .eq('is_active', true);
-            
-          if (accessError) {
-            console.error("Error checking space access:", accessError);
-            // Don't fail completely, just log the error
-          } else {
-            hasAccess = accessData && accessData.length > 0;
-            console.log("Access check result:", hasAccess ? "Has access" : "No access", accessData);
-          }
-        } catch (accessCheckError) {
-          console.error("Exception checking space access:", accessCheckError);
-          // Continue as if no access - this is safer
-        }
-      }
+      set({ space: spaceData, loadingSpace: false, formData: { ...spaceData } });
 
-      if (!hasAccess) {
-        console.error("User does not have access to this space");
-        toast({ 
-          title: "Unauthorized", 
-          description: "You don't have permission to access this space.", 
-          variant: "destructive" 
-        });
-        set({ error: "Unauthorized", loading: false });
-        return;
-      }
-
-      console.log("Setting space data in store:", spaceData);
-      
-      set({
-        space: spaceData,
-        formData: {
-          name: spaceData.name,
-          description: spaceData.description,
-          about_description: spaceData.about_description,
-          cover_image: spaceData.cover_image,
-          icon_image: spaceData.icon_image,
-          is_private: spaceData.is_private ?? false,
-          // Subdomain is part of space, not formData directly for editing
-        },
-        loading: false,
-        error: null,
-      });
-      console.log("Settings data fetched successfully for:", spaceId);
+      await get().fetchPermissionsForSpace(spaceData.id, userId);
 
     } catch (error: any) {
-      console.error("Exception fetching space settings:", error);
-      toast({ 
-        title: "Error", 
-        description: `Failed to load settings: ${error.message || 'Unknown error'}`, 
-        variant: "destructive" 
-      });
-      set({ error: `Failed to load settings: ${error.message || 'Unknown error'}`, loading: false });
+      console.error("[SpaceSettingsStore] Error loading active space:", error);
+      set({ error: fetchError || error.message || "An unknown error occurred", loadingSpace: false, loadingPermissions: false, space: null, permissions: null });
+      toast({ title: "Error", description: fetchError || error.message, variant: "destructive" });
+    }
+  },
+  
+  fetchPermissionsForSpace: async (spaceId: string, userId: string) => {
+    if(!spaceId || !userId) return;
+
+    set({ loadingPermissions: true, error: null });
+    try {
+      const currentSpaceInStore = get().space;
+      let userIsOwner = false;
+      if (currentSpaceInStore && currentSpaceInStore.id === spaceId) {
+        userIsOwner = currentSpaceInStore.owner_id === userId;
+      } else {
+        const { data: ownerCheckData, error: ownerCheckError } = await supabase
+          .from('spaces')
+          .select('owner_id')
+          .eq('id', spaceId)
+          .single();
+        if (ownerCheckError) throw ownerCheckError;
+        userIsOwner = ownerCheckData?.owner_id === userId;
+      }
+
+      let userIsAdmin = false;
+      let userIsMember = false;
+
+      if (userIsOwner) {
+        userIsAdmin = true;
+        userIsMember = true;
+      } else {
+        const { data: accessData, error: accessError } = await supabase
+          .from('space_access')
+          .select('role, is_active')
+          .eq('space_id', spaceId)
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .single();
+
+        if (accessError && accessError.code !== 'PGRST116') {
+          throw accessError;
+        }
+        
+        if (accessData) {
+          const typedAccessData = accessData as unknown as Pick<SpaceAccessRow, 'role' | 'is_active'>;
+          userIsAdmin = typedAccessData.role === 'admin';
+          userIsMember = true;
+        }
+      }
+      
+      const calculatedPermissions: SpacePermissions = {
+        isOwner: userIsOwner,
+        isAdmin: userIsAdmin,
+        canEditSpace: userIsOwner || userIsAdmin,
+        canManageMembers: userIsOwner || userIsAdmin,
+        canCreateContent: userIsMember || userIsOwner || userIsAdmin,
+        canAccessSettings: userIsOwner,
+      };
+
+      set({ permissions: calculatedPermissions, loadingPermissions: false, error: null });
+
+    } catch (error: any) {
+      console.error("[SpaceSettingsStore] Error fetching permissions:", error);
+      const permissionError = `Failed to load permissions: ${error.message || 'Unknown error'}`;
+      set({ error: permissionError, loadingPermissions: false, permissions: null });
     }
   },
 
@@ -164,9 +219,10 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
     }));
   },
   
-  // Allow resetting the store, e.g., when user logs out or modal closes definitively
-  resetStore: () => set(initialState), 
-
+  resetStore: () => {
+    console.log("[SpaceSettingsStore] Resetting store to initial state.");
+    set(initialState);
+  },
 }));
 
 export default useSpaceSettingsStore; 

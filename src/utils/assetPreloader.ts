@@ -29,12 +29,20 @@ export function preloadImages(imageUrls: (string | null | undefined)[]): Promise
   return Promise.all(preloadPromises);
 }
 
+// Define a minimal interface for the space object for preloading assets
+interface SpaceAssetData {
+  cover_image?: string | null;
+  icon_image?: string | null;
+  // Add other potential image fields if they might be preloaded, e.g.:
+  // banner_image?: string | null;
+}
+
 /**
  * Preloads space assets (cover image, icon, etc.)
  * 
  * @param space Space data object containing image URLs
  */
-export function preloadSpaceAssets(space: any): void {
+export function preloadSpaceAssets(space: SpaceAssetData | null | undefined): void {
   if (!space) return;
   
   const imagesToPreload = [

@@ -1,0 +1,13 @@
+// Add focus/visibility revalidation to refresh space data when app regains focus
+const { isRevalidating, setInitialDataLoaded } = useFocusRevalidation({
+  onRevalidate: fetchInitialSpaceData,
+  enabled: !!subdomain && !!user,
+  debug: true, // Set to false in production
+});
+
+// Mark data as loaded when initial fetch completes to enable focus revalidation
+useEffect(() => {
+  if (space && !loadingSpace) {
+    setInitialDataLoaded();
+  }
+}, [space, loadingSpace, setInitialDataLoaded]); 

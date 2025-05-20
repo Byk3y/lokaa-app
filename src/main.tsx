@@ -3,12 +3,12 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import './utils/authModals'
-import { redirectToSpace } from './utils/spaceRedirect'
+// import { redirectToSpace } from './utils/spaceRedirect'
 
 // Immediate space redirection for authenticated users
 // Run before React app initialization
 // This ensures users with spaces don't see the Discover page at all
-(async function immediateSpaceRedirect() {
+/* (async function immediateSpaceRedirect() {
   console.log('🔍 Checking for immediate redirection opportunities');
   
   // Only run on Discover page or home page 
@@ -41,14 +41,15 @@ import { redirectToSpace } from './utils/spaceRedirect'
       });
       
       // Start the actual redirection - no navigate function means window.location.href will be used
-      const redirectionPromise = redirectToSpace().catch(err => {
+      const redirectionPromise = redirectToSpace().catch(async (err: unknown) => {
         console.error('❌ Error in redirectToSpace:', err);
+        // Returning false means no redirection happened - let the app continue loading
         return false;
       });
       
       // Race between redirection and timeout
       const redirected = await Promise.race([redirectionPromise, timeoutPromise])
-        .catch(err => {
+        .catch((err: unknown) => {
           console.warn('⚠️ Redirection failed with timeout or error:', err);
           return false;
         });
@@ -58,12 +59,12 @@ import { redirectToSpace } from './utils/spaceRedirect'
       } else {
         console.log('ℹ️ No redirection performed, continuing to load app');
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('❌ Error during immediate space redirection:', err);
       // Continue loading the app even if there's an error
     }
   }
-})();
+})(); */
 
 // Initialize React app
 ReactDOM.createRoot(document.getElementById('root')!).render(

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getFirstUserSpace, userHasSpaces } from "@/utils/userSpaceUtils";
 import { checkActiveSession } from "@/utils/directAuth";
 import Discover from "./Discover";
+import type { User } from "@supabase/supabase-js";
 
 export default function SmartLanding() {
   const navigate = useNavigate();
@@ -19,11 +20,11 @@ export default function SmartLanding() {
   const forceDiscover = searchParams.get('force') === 'discover';
   
   // Function to determine if user explicitly navigated to discover page
-  const isExplicitDiscoverNavigation = () => {
+  const isExplicitDiscoverNavigation = useCallback(() => {
     return location.pathname === '/discover' && 
            location.key !== 'default' && // Not the initial navigation
            document.referrer.includes(window.location.origin); // User came from the same origin
-  };
+  }, [location.pathname, location.key]);
 
   useEffect(() => {
     async function checkUserSpaces() {
@@ -72,7 +73,7 @@ export default function SmartLanding() {
           console.error("SmartLanding: Error checking session:", error);
           navigate('/', { replace: true });
         } finally {
-          if (isChecking) setIsChecking(false);
+          setIsChecking(false);
         }
         return;
       }
@@ -81,7 +82,7 @@ export default function SmartLanding() {
       await checkSpacesForUser(user);
     }
     
-    async function checkSpacesForUser(user: any) {
+    async function checkSpacesForUser(user: User) {
       console.log("SmartLanding: Checking spaces for user", user.email, user.id);
       
       try {
@@ -134,7 +135,7 @@ export default function SmartLanding() {
     }
     
     checkUserSpaces();
-  }, [user, navigate, location, forceDiscover]);
+  }, [user, navigate, location, forceDiscover, isExplicitDiscoverNavigation]);
 
   // Show loading indicator while checking
   if (isChecking) {

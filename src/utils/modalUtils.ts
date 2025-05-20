@@ -90,7 +90,7 @@ export function showDirectLoginModal(event?: React.MouseEvent) {
   document.body.appendChild(tempDiv.firstElementChild);
   
   // Now add the login function directly to window
-  // @ts-ignore
+  // @ts-expect-error Property 'handleDirectLogin' does not exist on type 'Window & typeof globalThis'.
   window.handleDirectLogin = async function() {
     console.log("Direct login handler called");
     
@@ -296,7 +296,7 @@ export function showDirectSignupModal(event?: React.MouseEvent) {
   document.body.appendChild(tempDiv.firstElementChild);
   
   // Now add the signup function directly to window
-  // @ts-ignore
+  // @ts-expect-error Property 'handleDirectSignup' does not exist on type 'Window & typeof globalThis'.
   window.handleDirectSignup = async function() {
     console.log("Direct signup handler called");
     
@@ -501,7 +501,7 @@ export function showDirectForgotPasswordModal(event?: React.MouseEvent) {
   document.body.appendChild(tempDiv.firstElementChild);
   
   // Now add the forgot password function directly to window
-  // @ts-ignore
+  // @ts-expect-error Property 'handleForgotPassword' does not exist on type 'Window & typeof globalThis'.
   window.handleForgotPassword = async function() {
     console.log("Forgot password handler called");
     
@@ -597,13 +597,49 @@ export function showDirectForgotPasswordModal(event?: React.MouseEvent) {
   document.addEventListener('keydown', escHandler);
 }
 
+// Make the modal functions available on the window object for global access
+// This is generally discouraged in favor of React context or component props,
+// but kept for now to maintain existing functionality across different parts of the app.
+window.showDirectLoginModal = showDirectLoginModal;
+window.showDirectSignupModal = showDirectSignupModal;
+window.showDirectForgotPasswordModal = showDirectForgotPasswordModal;
+
 // Expose the functions globally on window for use anywhere
 if (typeof window !== 'undefined') {
-  // @ts-ignore
-  window.showDirectLoginModal = showDirectLoginModal;
-  // @ts-ignore
-  window.showDirectSignupModal = showDirectSignupModal;
-  // @ts-ignore
-  window.showDirectForgotPasswordModal = showDirectForgotPasswordModal;
   console.log("Modal utilities exposed on window object");
+}
+
+export function showGlobalAlert(message: string, type: 'success' | 'error' | 'info' = 'info') {
+  const detail = { message, type };
+  document.dispatchEvent(new CustomEvent('global-alert', { detail }));
+}
+
+export function showOldStyleLoginModal(callback?: () => void) {
+  console.log("Attempting to show old style login modal");
+  // @ts-expect-error Potentially legacy function call
+  if (window.showLegacyLoginModal) {
+    // @ts-expect-error Potentially legacy function call
+    window.showLegacyLoginModal(callback);
+  } else if (window.showDirectLoginModal) {
+    // @ts-expect-error Potentially legacy function call
+    window.showDirectLoginModal(undefined, callback);
+  } else {
+    console.warn("No global login modal function found (showLegacyLoginModal or showDirectLoginModal)");
+    // Fallback to direct navigation or a more robust solution
+    // navigate('/login'); // Assuming navigate is available or passed in
+  }
+}
+
+export function showOldStyleSignupModal(callback?: () => void) {
+  console.log("Attempting to show old style signup modal");
+  // @ts-expect-error Potentially legacy function call
+  if (window.showLegacySignupModal) {
+    // @ts-expect-error Potentially legacy function call
+    window.showLegacySignupModal(callback);
+  } else if (window.showDirectSignupModal) {
+    // @ts-expect-error Potentially legacy function call
+    window.showDirectSignupModal(undefined, callback);
+  } else {
+    console.warn("No global signup modal function found (showLegacySignupModal or showDirectSignupModal)");
+  }
 } 

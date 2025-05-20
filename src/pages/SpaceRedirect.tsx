@@ -31,7 +31,19 @@ export default function SpaceRedirect() {
       return;
     }
     
-    // Set the flag to true to prevent future redirects
+    // If subdomain is not yet resolved or is the placeholder, wait for a re-render.
+    // If auth has loaded and subdomain is still undefined/null (not the placeholder), redirect to discover.
+    if (!subdomain || subdomain === ":subdomain") {
+      console.log(`SpaceRedirect: Subdomain ('${subdomain}') not yet resolved or is placeholder, waiting or redirecting...`);
+      if (subdomain === ":subdomain") {
+        return; // Wait for router to provide the actual subdomain
+      }
+      // If !subdomain (i.e., null/undefined) and auth has loaded, then it's an invalid path.
+      navigate('/discover', { replace: true });
+      return;
+    }
+
+    // Set the flag to true to prevent future redirects ONLY if we have a valid subdomain
     redirectAttempted.current = true;
     
     if (!subdomain) {
@@ -42,11 +54,18 @@ export default function SpaceRedirect() {
     
     // Handle profile URLs (starting with @)
     if (subdomain.startsWith('@')) {
-      const username = subdomain.substring(1);
-      
-      // Use React Router navigate instead of window.location to avoid potential loops
-      console.log(`SpaceRedirect: Detected profile URL @${username}, redirecting via router`);
-      navigate(`/@${username}`, { replace: true });
+      const profileUrl = subdomain.substring(1);
+      console.log('SpaceRedirect Profile Check: current location.pathname:', JSON.stringify(location.pathname));
+      console.log('SpaceRedirect Profile Check: constructed path:', JSON.stringify(`/profile/${profileUrl}`));
+      console.log('SpaceRedirect Profile Check: subdomain:', JSON.stringify(subdomain));
+
+      if (location.pathname === `/profile/${profileUrl}`) {
+        console.log('SpaceRedirect: Already on profile route, effect is returning (no navigation).');
+        return;
+      }
+
+      console.log(`SpaceRedirect: Detected profile URL @${profileUrl}, redirecting to /profile/${profileUrl} via router`);
+      navigate(`/profile/${profileUrl}`, { replace: true });
       return;
     }
     
@@ -63,8 +82,13 @@ export default function SpaceRedirect() {
       console.error('SpaceRedirect: Error during navigation:', err);
       setError('Navigation error. Please try refreshing the page.');
     }
-  }, [subdomain, user, loading, navigate]);
+  }, [subdomain, user, loading, navigate, location.pathname]);
   
+  if (subdomain && subdomain.startsWith('@') && location.pathname === `/profile/${subdomain.substring(1)}`) {
+    console.log('SpaceRedirect: Render check - on correct profile page, rendering null.');
+    return null;
+  }
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -89,4 +113,4 @@ export default function SpaceRedirect() {
       </div>
     </div>
   );
-} 
+}

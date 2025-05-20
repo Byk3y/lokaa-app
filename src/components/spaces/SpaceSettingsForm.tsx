@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -16,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Database } from "@/types/supabase";
 
 const spaceFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters long").max(50, "Name must be less than 50 characters long"),
@@ -32,7 +32,7 @@ const spaceFormSchema = z.object({
 type SpaceFormValues = z.infer<typeof spaceFormSchema>;
 
 interface SpaceSettingsFormProps {
-  space: any;
+  space: Database['public']['Tables']['spaces']['Row'];
 }
 
 const COLOR_OPTIONS = [
@@ -112,11 +112,11 @@ export default function SpaceSettingsForm({ space }: SpaceSettingsFormProps) {
         description: "Your space settings have been updated successfully.",
       });
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating space:', error);
       toast({
         title: "Error updating space",
-        description: error.message || "Something went wrong. Please try again.",
+        description: (error instanceof Error ? error.message : String(error)) || "Something went wrong. Please try again.",
         variant: "destructive"
       });
     } finally {

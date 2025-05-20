@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { BellRing, MessageCircle, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Upload, Lock, Check, Globe, Loader2, Trophy, GraduationCap, Camera } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSpace } from "@/contexts/SpaceContext";
+import { useSpacePermissions } from "@/hooks/useSpacePermissions";
 import SpaceSwitcher from "@/components/spaces/SpaceSwitcher";
 import { SpaceSidebar } from "@/components/layout/SpaceSidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import SpaceSettingsModal from "@/components/modals/SpaceSettingsModal";
 import useSpaceSettingsModal from "@/hooks/useSpaceSettingsModal";
-import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
+import useSpaceSettingsStore, { type SpaceSettingsData } from "@/hooks/useSpaceSettingsStore";
 import { checkSpaceAccessForUser } from '@/utils/debugTools';
 import spaceAccessFix from '@/utils/spaceAccessFix';
 import { fixSpaceAccessBySubdomain, directSpaceAccessCheck } from '@/utils/fixSpacesAccess';
@@ -31,6 +33,8 @@ import LeaderboardsTab from "@/components/space/LeaderboardsTab";
 import ClassroomTab from "@/components/space/ClassroomTab";
 import { getSpaceUrl, cacheSpaceData } from "@/utils/urlUtils";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
+
+const DEFAULT_COVER_IMAGE_URL = '/default-space-cover.jpg'; // Define a default
 
 // Initialize spaceAccessFix with the Supabase client
 spaceAccessFix.init(supabase);
@@ -104,17 +108,17 @@ interface SpaceProps {
 
 // Types for the space state must include about_description to fix linter error
 interface SpaceType {
-  id?: string;
-  name?: string;
-  subdomain?: string;
-  description?: string;
+  id: string;
+  name: string;
+  subdomain: string;
+  description: string;
   about_description?: string | null;
   icon_image?: string | null;
   cover_image?: string | null;
   primary_color?: string | null;
   is_private?: boolean;
   owner_id?: string;
-  pricing_type?: 'free' | 'paid';
+  pricing_type?: string;
   price_per_month?: number | null;
   initials?: string;
   created_at?: string;
@@ -128,13 +132,41 @@ interface SpaceType {
   } | null;
 }
 
+interface LocationState {
+  preserveSpace?: boolean;
+  activeTab?: string;
+  accessDenied?: boolean;
+}
+
+interface SpaceDebugTools {
+  checkAccess: () => Promise<unknown>;
+  directCheck: () => Promise<unknown>;
+  forceUpdateStore: () => void;
+  fixAccess: () => Promise<void>;
+  spaceInfo: {
+    subdomain: string | undefined;
+    space: SpaceType | null;
+    userId: string | undefined;
+    isOwner: boolean;
+  };
+}
+
+declare global {
+  interface Window {
+    spaceDebug?: SpaceDebugTools;
+  }
+}
+
 export default function Space({ initialTab }: SpaceProps) {
   const { subdomain, tab } = useParams<{ subdomain: string; tab?: string }>();
   const { user, signOut } = useAuth();
+  const { spaceData, loading: loadingSpaceData, error: spaceError, fetchSpaceData } = useSpace();
   const navigate = useNavigate();
   const location = useLocation();
-  const [loadingSpace, setLoadingSpace] = useState(true);
-  // Use the tab URL parameter if available, otherwise fall back to initialTab prop or default value
+  const { 
+    space: settingsStoreSpace,
+    fetchSpaceSettings,
+  } = useSpaceSettingsStore();
   const [activeTab, setActiveTab] = useState(tab || initialTab || "community");
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -154,12 +186,37 @@ export default function Space({ initialTab }: SpaceProps) {
   const [descriptionLength, setDescriptionLength] = useState(0);
   
   const openSpaceSettingsModal = useSpaceSettingsModal(state => state.open);
-  const { 
-    space, 
-    fetchSpaceSettings, 
-    loading: loadingSettings,
-    error: settingsError 
-  } = useSpaceSettingsStore();
+
+  // Get space permissions for current user
+  const {
+    isOwner,
+    isAdmin,
+    canEditSpace,
+    canManageMembers,
+    canCreateContent: permissionsCanCreateContent,
+    canAccessSettings,
+    loading: loadingPermissions
+  } = useSpacePermissions(settingsStoreSpace?.id || '');
+
+  // When a user is allowed through SpaceProtectedRoute, they should be able to create content
+  // This ensures all space members can create content
+  const canCreateContent = true; // Force to true since SpaceProtectedRoute already verified access
+
+  // Debug: log permissions when they're loaded
+  useEffect(() => {
+    if (!loadingPermissions && settingsStoreSpace?.id) {
+      console.log('Space permissions loaded:', {
+        spaceId: settingsStoreSpace.id,
+        isOwner,
+        isAdmin,
+        canEditSpace,
+        canManageMembers,
+        originalCanCreateContent: permissionsCanCreateContent,
+        forcedCanCreateContent: canCreateContent,
+        canAccessSettings
+      });
+    }
+  }, [loadingPermissions, settingsStoreSpace?.id, isOwner, isAdmin, canEditSpace, canManageMembers, permissionsCanCreateContent, canCreateContent, canAccessSettings]);
 
   // State for about_description
   const [aboutDescription, setAboutDescription] = useState("");
@@ -170,11 +227,17 @@ export default function Space({ initialTab }: SpaceProps) {
 
   // Initialize description text from space data
   useEffect(() => {
-    if (space?.description) {
-      setDescriptionText(space.description);
-      setDescriptionLength(space.description.length);
+    if (settingsStoreSpace?.description) {
+      setDescriptionText(settingsStoreSpace.description);
+      setDescriptionLength(settingsStoreSpace.description.length);
+    } else if (spaceData?.description) {
+      setDescriptionText(spaceData.description);
+      setDescriptionLength(spaceData.description.length);
+    } else {
+      setDescriptionText("");
+      setDescriptionLength(0);
     }
-  }, [space?.description]);
+  }, [settingsStoreSpace?.description, spaceData?.description]);
 
   // Handle description text change
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -186,20 +249,20 @@ export default function Space({ initialTab }: SpaceProps) {
   // Save description
   const saveDescription = async () => {
     try {
-      if (!space?.id) return;
+      if (!settingsStoreSpace?.id) return;
       
       // Call supabase to update the description
       const { error } = await supabase
         .from('spaces')
         .update({ description: descriptionText })
-        .eq('id', space.id);
+        .eq('id', settingsStoreSpace.id);
         
       if (error) throw error;
       
       // Update local state
-      useSpaceSettingsStore.setState({ 
-        space: { ...space, description: descriptionText } 
-      });
+      useSpaceSettingsStore.setState((state) => ({ 
+        space: state.space ? { ...state.space, description: descriptionText } : null 
+      }));
       
       // Mark description task as complete
       setSetupCompletion(prev => ({ ...prev, addDescription: true }));
@@ -224,26 +287,26 @@ export default function Space({ initialTab }: SpaceProps) {
   // Cancel editing
   const cancelDescription = () => {
     // Reset to original description
-    setDescriptionText(space?.description || "");
-    setDescriptionLength((space?.description || "").length);
+    setDescriptionText(settingsStoreSpace?.description || "");
+    setDescriptionLength((settingsStoreSpace?.description || "").length);
     setEditingDescription(false);
   };
 
   // Initialize aboutDescription from space data
   useEffect(() => {
-    if (space?.about_description) {
-      setAboutDescription(space.about_description);
-      setAboutCharCount(space.about_description.length);
+    if (settingsStoreSpace?.about_description) {
+      setAboutDescription(settingsStoreSpace.about_description);
+      setAboutCharCount(settingsStoreSpace.about_description.length);
       setAboutChanged(false);
     }
-  }, [space?.about_description]);
+  }, [settingsStoreSpace?.about_description]);
 
   // Handler for textarea changes
   const handleAboutChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setAboutDescription(val);
     setAboutCharCount(val.length);
-    setAboutChanged(val !== (space?.about_description || ""));
+    setAboutChanged(val !== (settingsStoreSpace?.about_description || ""));
   };
 
   // Save about description
@@ -251,7 +314,7 @@ export default function Space({ initialTab }: SpaceProps) {
     try {
       setSavingAbout(true);
       
-      if (!space?.id) return;
+      if (!settingsStoreSpace?.id) return;
       
       // First get the current settings
       const { data, error } = await supabase
@@ -259,19 +322,19 @@ export default function Space({ initialTab }: SpaceProps) {
         .update({ 
           about_description: aboutDescription 
         })
-        .eq('id', space.id)
+        .eq('id', settingsStoreSpace.id)
         .select('about_description');
       
       if (error) throw error;
       
-      if (space) {
+      if (settingsStoreSpace) {
         // Update space data in store with proper typing
-        useSpaceSettingsStore.setState({
-          space: {
-            ...space,
+        useSpaceSettingsStore.setState((state) => ({
+          space: state.space ? {
+            ...state.space,
             about_description: aboutDescription,
-          } as any // Use type assertion as a last resort
-        });
+          } : null
+        }));
       }
       
       setAboutChanged(false);
@@ -295,8 +358,8 @@ export default function Space({ initialTab }: SpaceProps) {
 
   // Cancel editing
   const handleCancelAbout = () => {
-    setAboutDescription(space?.about_description || "");
-    setAboutCharCount((space?.about_description || "").length);
+    setAboutDescription(settingsStoreSpace?.about_description || "");
+    setAboutCharCount((settingsStoreSpace?.about_description || "").length);
     setEditingAbout(false);
     setAboutChanged(false);
   };
@@ -350,10 +413,12 @@ export default function Space({ initialTab }: SpaceProps) {
   // Debug: Log visibility and focus events to troubleshoot unexpected reloads
   useEffect(() => {
     const onVisibility = () => {
-      console.log('[Space Debug] Document visibility changed:', document.visibilityState, 'at', new Date());
+      console.log('[Space Debug] Document visibility changed:', document.visibilityState, 'at', new Date().toLocaleString());
+      // Don't take any action on visibility change - just log for debugging
     };
     const onFocus = () => {
-      console.log('[Space Debug] Window focused at', new Date());
+      console.log('[Space Debug] Window focused at', new Date().toLocaleString());
+      // Don't take any action on focus - just log for debugging
     };
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('focus', onFocus);
@@ -365,12 +430,13 @@ export default function Space({ initialTab }: SpaceProps) {
 
   // ADDED: Cache and restore space data to make the component resilient to remounts
   useEffect(() => {
-    if (space && subdomain) {
+    // Only cache if we have valid data and it's not a visibility change event (visible state is ok)
+    if (settingsStoreSpace && subdomain && document.visibilityState !== 'hidden') {
       try {
         // Save to sessionStorage when we have space data
         const cacheKey = `space_data_${subdomain}`;
         sessionStorage.setItem(cacheKey, JSON.stringify({
-          space,
+          space: settingsStoreSpace,
           timestamp: new Date().getTime()
         }));
         console.log('[Space] Cached space data to sessionStorage');
@@ -378,110 +444,141 @@ export default function Space({ initialTab }: SpaceProps) {
         console.warn('[Space] Failed to cache space data:', err);
       }
     }
-  }, [space, subdomain]);
+  }, [settingsStoreSpace, subdomain]);
 
   // ADDED: Quick Recovery from Cache
   const [quickRecoveryAttempted, setQuickRecoveryAttempted] = useState(false);
-  useEffect(() => {
-    // Only attempt quick recovery once and only if we're in loading state
-    if (!quickRecoveryAttempted && loadingSpace && subdomain) {
-      setQuickRecoveryAttempted(true);
-      try {
-        const cacheKey = `space_data_${subdomain}`;
-        const cachedData = sessionStorage.getItem(cacheKey);
-        
-        if (cachedData) {
-          const parsed = JSON.parse(cachedData);
-          const cacheAge = new Date().getTime() - parsed.timestamp;
-          
-          // Use cache if it's less than 5 minutes old
-          if (cacheAge < 5 * 60 * 1000) {
-            console.log('[Space] Quick recovery from cache while fetching fresh data');
-            // Load from cache (don't setLoadingSpace to false yet - let the real fetch complete)
-            useSpaceSettingsStore.setState({ 
-              space: parsed.space,
-              loading: true // Keep loading true until the real data arrives
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('[Space] Failed to recover from cache:', err);
-      }
-    }
-  }, [loadingSpace, subdomain, quickRecoveryAttempted]);
+  const quickRecoveryAttemptedRef = useRef(quickRecoveryAttempted);
 
-  // Create a memoized fetch function with useCallback
+  useEffect(() => {
+    quickRecoveryAttemptedRef.current = quickRecoveryAttempted;
+  }, [quickRecoveryAttempted]);
+
+  // Fetch space data when component mounts or subdomain changes
   const fetchInitialSpaceData = useCallback(async () => {
-      if (!subdomain || !user) {
-      setLoadingSpace(false);
-        return;
-      }
-      
-      setLoadingSpace(true);
-    try {
-      // Use the existing supabase query method that was previously in this component
-      console.log("Fetching space by subdomain:", subdomain);
-      const { data: spaceData, error } = await supabase
-            .from("spaces")
-        .select("id, name, description, cover_image, icon_image, primary_color, member_count, pricing_type, price_per_month, subdomain, owner_id, is_private")
-            .eq("subdomain", subdomain)
-            .single();
-            
-      if (error) {
-        console.error("Error fetching space data:", error);
-        navigate('/discover');
-        return;
-      }
-      
-      if (spaceData) {
-        // Update the space in the store - don't specify about_description if it doesn't exist
-        useSpaceSettingsStore.setState({ 
-          space: {
-            id: spaceData.id,
-            name: spaceData.name,
-            description: spaceData.description,
-            about_description: null, // Set to null since it's not in the query
-            cover_image: spaceData.cover_image,
-            icon_image: spaceData.icon_image,
-            subdomain: spaceData.subdomain,
-            owner_id: spaceData.owner_id,
-            is_private: spaceData.is_private
-          }
-        });
-        
-        // Also load space settings with full fields including about_description
-        await fetchSpaceSettings(spaceData.id, user.id);
-        
-        // Update document title
-        document.title = `${spaceData.name} | Lokaa`;
-      } else {
-        // Space not found, redirect to discover
-        navigate('/discover');
-        }
-      } catch (error) {
-      console.error('Error fetching space:', error);
-      navigate('/discover');
-      } finally {
-        setLoadingSpace(false);
+    console.log(`[Space.tsx FID Start] loadingSpaceData: ${loadingSpaceData}, qRA: ${quickRecoveryAttemptedRef.current}, user: ${!!user}, subdomain: ${subdomain}`);
+
+    // Skip fetching if we're in a hidden tab (minimized)
+    if (document.visibilityState === 'hidden') {
+      console.log(`[Space.tsx FID Path 0 - Skipping due to hidden tab]`);
+      return;
     }
-  }, [subdomain, user, supabase, navigate, fetchSpaceSettings]);
+
+    if (!subdomain || !user) {
+      console.log(`[Space.tsx FID Path 1 - No user/subdomain]`);
+      return;
+    }
+
+    if (loadingSpaceData) { // Context is loading
+      console.log(`[Space.tsx FID Path 2 - Context loading]`);
+      console.log("[Space.tsx FID Path 2] Returning, wait for context.");
+      return;
+    }
+
+    if (spaceData && spaceData.subdomain === subdomain) { // Context has correct data
+      console.log(`[Space.tsx FID Path 3 - Data in context]`);
+      // Log spaceData from context before setting the store
+      console.log("[Space.tsx FID Path 3] spaceData from context before store update:", JSON.stringify(spaceData));
+      try {
+            const spaceToSet: SpaceSettingsData = {
+              id: spaceData.id,
+              name: spaceData.name,
+              description: spaceData.description,
+              about_description: spaceData.about_description === undefined ? null : spaceData.about_description,
+              cover_image: spaceData.cover_image || DEFAULT_COVER_IMAGE_URL,
+              icon_image: spaceData.icon_image || null,
+              subdomain: spaceData.subdomain,
+              owner_id: spaceData.owner_id,
+              is_private: spaceData.is_private ?? false, // Ensure boolean
+            };
+            useSpaceSettingsStore.setState({ 
+              space: spaceToSet
+            });
+        if (spaceData.id && user?.id) {
+           fetchSpaceSettings(spaceData.id, user.id);
+        }
+      } catch (e) { console.error("[Space.tsx FID Path 3] Error during settings store sync/fetch:", e); }
+      
+      if (!quickRecoveryAttemptedRef.current) {
+        console.log("[Space.tsx FID Path 3] Setting quickRecoveryAttempted to true.");
+        setQuickRecoveryAttempted(true);
+      }
+      console.log("[Space.tsx FID Path 3] Exiting.");
+      return;
+    }
+    
+    console.log(`[Space.tsx FID Path 4 - Must fetch]`);
+    
+    try {
+      const newSpaceData = await fetchSpaceData(subdomain);
+      
+      if (!newSpaceData) {
+        console.error('[Space.tsx FID Path 4] Failed to fetch newSpaceData from context.');
+        return;
+      }
+      
+      try {
+        const spaceToSetFromNew: SpaceSettingsData = {
+          id: newSpaceData.id,
+          name: newSpaceData.name,
+          description: newSpaceData.description,
+          about_description: newSpaceData.about_description === undefined ? null : newSpaceData.about_description,
+          cover_image: newSpaceData.cover_image || DEFAULT_COVER_IMAGE_URL,
+          icon_image: newSpaceData.icon_image || null,
+          subdomain: newSpaceData.subdomain,
+          owner_id: newSpaceData.owner_id,
+          is_private: newSpaceData.is_private ?? false, // Ensure boolean
+        };
+        useSpaceSettingsStore.setState({ 
+          space: spaceToSetFromNew
+        });
+         if (newSpaceData.id && user?.id) {
+            fetchSpaceSettings(newSpaceData.id, user.id);
+         }
+      } catch (e) { console.error("[Space.tsx FID Path 4] Error during settings store sync/fetch post-fetch:", e); }
+      
+      if (!quickRecoveryAttemptedRef.current) {
+        console.log("[Space.tsx FID Path 4] Setting quickRecoveryAttempted to true.");
+      setQuickRecoveryAttempted(true);
+      }
+    } catch (error) {
+      console.error('[Space.tsx FID Path 4] Error in try-catch block:', error);
+    } finally {
+      console.log(`[Space.tsx FID Path 4 Finally] fetchInitialSpaceData path 4 finished.`);
+    }
+  }, [subdomain, user, fetchSpaceData, fetchSpaceSettings, spaceData, loadingSpaceData, quickRecoveryAttemptedRef]); // Added quickRecoveryAttemptedRef to dependencies
 
   // Fetch space details AND trigger settings fetch
   useEffect(() => {
-    // Check if we're just changing tabs within the same space
-    const isTabChangeOnly = location.state && 
+    const currentPreserveSpaceState = location.state && 
       typeof location.state === 'object' && 
-      'preserveSpace' in location.state && 
-      location.state.preserveSpace === true;
+      'preserveSpace' in (location.state as LocationState) && 
+      (location.state as LocationState).preserveSpace === true;
     
-    // Skip data fetching if just changing tabs and space data is already loaded
-    if (isTabChangeOnly && space) {
-      console.log("Space component: Skipping data fetch for tab change");
-          return;
-        }
+    const isTabChangeOnly = currentPreserveSpaceState;
+
+    console.log("[Space.tsx useEffect for FID] location.state:", JSON.stringify(location.state));
+    console.log("[Space.tsx useEffect for FID] isTabChangeOnly evaluation:", isTabChangeOnly);
+    console.log("[Space.tsx useEffect for FID] spaceData present:", !!spaceData);
+    console.log("[Space.tsx useEffect for FID] settingsStoreSpace present:", !!settingsStoreSpace);
+
+    // If the settings store doesn't have space details yet, we must fetch/set them.
+    if (!settingsStoreSpace) {
+      console.log("[Space.tsx useEffect for FID] Settings store is empty, proceeding to call fetchInitialSpaceData.");
+      fetchInitialSpaceData();
+      return; // Exit early after initiating the fetch for store population
+    }
     
+    // If store is populated, then apply the optimization for tab changes.
+    if (isTabChangeOnly && spaceData) {
+      console.log("[Space.tsx useEffect for FID] Settings store populated. Skipping fetchInitialSpaceData due to isTabChangeOnly && spaceData.");
+      return;
+    }
+    
+    console.log("[Space.tsx useEffect for FID] Settings store populated. Proceeding to call fetchInitialSpaceData (not a tab change or spaceData missing).");
     fetchInitialSpaceData();
-  }, [subdomain, user, fetchSpaceSettings, navigate, location, space, fetchInitialSpaceData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [subdomain, user, location, fetchInitialSpaceData, spaceData]); // Removed settingsStoreSpace from dependencies
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -543,13 +640,10 @@ export default function Space({ initialTab }: SpaceProps) {
     };
   }, [profileDropdownOpen]);
 
-  // Determine if current user is the owner using the store's space data
-  const isOwner = user?.id === space?.owner_id;
-
   // Expose debug utils on window for easy access in console
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).spaceDebug = {
+      window.spaceDebug = {
         checkAccess: async () => {
           if (!user || !subdomain) return console.error('Missing user or subdomain');
           return await checkSpaceAccessForUser(user.id, subdomain);
@@ -558,9 +652,20 @@ export default function Space({ initialTab }: SpaceProps) {
           if (!subdomain) return console.error('Missing subdomain');
           return await directSpaceAccessCheck(subdomain);
         },
+        forceUpdateStore: () => {
+          if (!subdomain || !user?.id) return console.error('Missing subdomain or user ID for forceUpdateStore');
+          console.log(`Forcing update of space store for ${subdomain} and user ${user.id}`);
+          fetchInitialSpaceData();
+        },
+        fixAccess: async () => {
+          if (!subdomain || !user?.id) return console.error('Missing subdomain or user ID for fixAccess');
+          console.log(`Attempting to fix space access for ${subdomain} and user ${user.id}`);
+          await fixSpaceAccessBySubdomain(subdomain);
+          toast({ title: "Access Fix Attempted", description: "Please refresh and check access." });
+        },
         spaceInfo: {
           subdomain,
-          space,
+          space: spaceData,
           userId: user?.id,
           isOwner,
         },
@@ -572,10 +677,10 @@ export default function Space({ initialTab }: SpaceProps) {
     return () => {
       // Cleanup
       if (typeof window !== 'undefined') {
-        delete (window as any).spaceDebug;
+        delete window.spaceDebug;
       }
     };
-  }, [user, subdomain, space, isOwner]);
+  }, [user, subdomain, spaceData, isOwner, fetchInitialSpaceData]); // Added fetchInitialSpaceData
 
   // Use modern tab styles for navigation
   const renderTabButton = (tab: string, icon: React.ReactNode, label: string) => {
@@ -627,7 +732,7 @@ export default function Space({ initialTab }: SpaceProps) {
       state: { 
         preserveSpace: true, // Add state to indicate this is just a tab change
         activeTab: tab 
-      } 
+      } as LocationState // Added type assertion for state
     });
   };
 
@@ -674,11 +779,11 @@ export default function Space({ initialTab }: SpaceProps) {
 
   // Initialize space data from cached values if they exist
   useEffect(() => {
-    if (space && space.id) {
+    if (settingsStoreSpace && settingsStoreSpace.id) {
       // Check if cover image URLs are stored in localStorage in the 'local:' format
-      if (space.cover_image && typeof space.cover_image === 'string' && space.cover_image.startsWith('local:')) {
+      if (settingsStoreSpace.cover_image && typeof settingsStoreSpace.cover_image === 'string' && settingsStoreSpace.cover_image.startsWith('local:')) {
         // Extract key from the format 'local:space_cover_123'
-        const keyParts = space.cover_image.split(':');
+        const keyParts = settingsStoreSpace.cover_image.split(':');
         if (keyParts.length >= 2) {
           const localKey = keyParts[1];
           const storedCover = localStorage.getItem(localKey);
@@ -687,7 +792,7 @@ export default function Space({ initialTab }: SpaceProps) {
             console.log("Restoring cover image from localStorage:", localKey);
             
             // Update directly in the UI without updating the store
-            const coverElements = document.querySelectorAll(`[style*="background-image"][style*="${space.cover_image}"]`);
+            const coverElements = document.querySelectorAll(`[style*="background-image"][style*="${settingsStoreSpace.cover_image}"]`);
             coverElements.forEach(element => {
               (element as HTMLElement).style.backgroundImage = `url(${storedCover})`;
             });
@@ -695,7 +800,7 @@ export default function Space({ initialTab }: SpaceProps) {
         }
       }
     }
-  }, [space]);
+  }, [settingsStoreSpace]);
 
   // Update active tab when URL parameter changes
   useEffect(() => {
@@ -704,156 +809,152 @@ export default function Space({ initialTab }: SpaceProps) {
     }
   }, [tab]);
 
-  // While loading or auth is in process, show only a loading screen
-  if (loadingSpace || !user) {
+  // Log space from settings store before render
+  const { space: settingsStoreSpaceForRender } = useSpaceSettingsStore();
+  console.log("[Space.tsx Render] space from useSpaceSettingsStore:", JSON.stringify(settingsStoreSpaceForRender));
+  console.log("[Space.tsx Render] spaceData from useSpace context (for comparison):", JSON.stringify(spaceData));
+
+  // Memoize a generic space object for tabs that need it.
+  // This shape should be compatible with ClassroomTabProps and hopefully others.
+  const memoizedSpaceDataForTabs = useMemo(() => {
+    if (!spaceData && !settingsStoreSpace) return null;
+    const id = settingsStoreSpace?.id || spaceData?.id;
+    const name = settingsStoreSpace?.name || spaceData?.name;
+    const currentSubdomain = settingsStoreSpace?.subdomain || spaceData?.subdomain;
+    const currentDescription = settingsStoreSpace?.description ?? spaceData?.description;
+    const currentAboutDescription = settingsStoreSpace?.about_description ?? spaceData?.about_description;
+    const currentCoverImage = settingsStoreSpace?.cover_image ?? spaceData?.cover_image;
+    const currentIconImage = settingsStoreSpace?.icon_image ?? spaceData?.icon_image;
+    const currentOwnerId = settingsStoreSpace?.owner_id || spaceData?.owner_id;
+    const currentPrimaryColor = spaceData?.primary_color || null;
+    const currentPricingType = (spaceData?.pricing_type as ('free' | 'paid')) || 'free';
+    if (!id || !name) return null;
+    return {
+      id,
+      name,
+      subdomain: currentSubdomain,
+      description: currentDescription,
+      about_description: currentAboutDescription,
+      cover_image: currentCoverImage,
+      icon_image: currentIconImage,
+      primary_color: currentPrimaryColor,
+      owner_id: currentOwnerId,
+      pricing_type: currentPricingType,
+    };
+  }, [settingsStoreSpace, spaceData]);
+
+  // Main loading condition changed
+  if (loadingSpaceData || !user) { // Primary condition relies on context's loading and user auth
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="animate-spin h-10 w-10 rounded-full border-t-2 border-b-2 border-amber-600 mb-4"></div>
-          {quickRecoveryAttempted && <div className="text-sm text-gray-500">Reconnecting to your space...</div>}
+          {/* "Reconnecting..." message logic updated */}
+          {loadingSpaceData && quickRecoveryAttempted && <div className="text-sm text-gray-500">Reconnecting to your space...</div>}
         </div>
       </div>
     );
   }
 
-  // At this point, loadingSpace is false, and user exists.
-  // Now check if the settings data from the store is still loading.
-  if (loadingSettings) {
-    // Keep showing loading spinner while settings are being fetched
-    // This prevents flashing the "Not Found" page prematurely
+  // Handle error state
+  if (spaceError) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-10 w-10 rounded-full border-t-2 border-b-2 border-amber-600"></div>
-      </div>
-    );
-  }
-  
-  // After initial loading and settings loading are complete, if space data is still missing or there was an error, show Space Not Found / Error Recovery
-  // This condition is now more precise, only triggering after all loading is confirmed finished.
-  if (!space || settingsError) {
-    // Log the reason for showing the error page
-    console.error('Rendering Space Not Found/Error Recovery because:', { 
-      spaceExists: !!space, 
-      settingsError: settingsError 
-    });
-    
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto">
-          <h1 className="text-2xl font-bold mb-2">Space Not Found</h1>
-          <p className="text-gray-600 mb-4">The space you're looking for doesn't exist or you don't have access.</p>
-          <div className="flex flex-col gap-3 items-center">
-            <Button onClick={() => navigate("/discover")}>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Space</h2>
+          <p className="text-gray-700 mb-4">{spaceError.message || "Failed to load space data. Please try again."}</p>
+          <div className="flex justify-between">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/discover")}
+            >
               Go to Discover
             </Button>
             <Button 
-              variant="outline"
-              onClick={() => navigate("/create-space")}
-              className="mt-2"
+              onClick={() => fetchInitialSpaceData()}
             >
-              Create a Space
+              Try Again
             </Button>
-            <Button 
-              variant="link"
-              onClick={() => window.location.href = "/"}
-              className="text-gray-500"
-            >
-              Return to Home
-            </Button>
-            
-            {/* Recovery Button for Fixing Access */}
-            {subdomain && (
-              <Button 
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    toast({
-                      title: "Attempting recovery...",
-                      description: "Trying to fix access issues for this space.",
-                      variant: "default"
-                    });
-                    
-                    const success = await fixSpaceAccessBySubdomain(subdomain);
-                    
-                    if (success) {
-                      toast({
-                        title: "Recovery successful",
-                        description: "Space access has been fixed. Reloading page.",
-                        variant: "default"
-                      });
-                      // Reload the page after a short delay
-                      setTimeout(() => window.location.reload(), 1500);
-                    } else {
-                      toast({
-                        title: "Recovery failed",
-                        description: "Could not fix space access. Please contact support.",
-                        variant: "destructive"
-                      });
-                    }
-                  } catch (error) {
-                    console.error("Recovery error:", error);
-                    toast({
-                      title: "Recovery error",
-                      description: "An unexpected error occurred during recovery.",
-                      variant: "destructive"
-                    });
-                  }
-                }}
-                className="mt-4 border-amber-500 text-amber-600 hover:bg-amber-50"
-              >
-                Attempt Access Recovery
-              </Button>
-            )}
-            
-            {/* Error Recovery Options */}
-            <div className="w-full mt-6 pt-4 border-t border-gray-200">
-              <ErrorRecovery 
-                title="Advanced Troubleshooting"
-                description="If you're experiencing persistent issues, try these recovery options:"
-              />
-            </div>
-            
-            {/* Emergency Reset Button */}
-            {user?.email === 'francischukwuma706@gmail.com' && (
-              <div className="mt-6 pt-6 border-t border-gray-200 w-full">
-                <p className="text-sm text-gray-600 mb-3">
-                  Special option for test account:
-                </p>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    // Clear all storage that might cause redirection loops
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    
-                    // Force a redirect to discover
-                    setTimeout(() => {
-                      console.log("Emergency redirect to /discover");
-                      window.location.href = "/discover";
-                    }, 100);
-                  }}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  Emergency Reset
-                </Button>
-                <p className="text-xs text-gray-500 mt-2">
-                  This will clear all cached data and redirect you to the discover page.
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="mt-6 text-sm text-gray-500">
-            <p>If you continue to experience issues, try:</p>
-            <ul className="list-disc list-inside mt-2">
-              <li>Signing out and back in</li>
-              <li>Checking your internet connection</li>
-              <li>Contacting support at help@lokaa.com</li>
-            </ul>
           </div>
         </div>
       </div>
     );
   }
+
+  // Make sure we have space data
+  if (!spaceData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+          <h2 className="text-xl font-semibold text-amber-600 mb-4">Space Not Found</h2>
+          <p className="text-gray-700 mb-4">The space you're looking for doesn't exist or you don't have access to it.</p>
+          <Button 
+            onClick={() => navigate("/discover")}
+            className="w-full"
+          >
+            Discover Spaces
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Main content area
+  // This is a guess, the actual structure might be different.
+  // Looking for where ClassroomTab, FeedTab etc. are rendered.
+  const renderActiveTabContent = () => {
+    if (loadingSpaceData) { 
+      return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
+    // Check if data for tabs that need it is ready
+    if (!memoizedSpaceDataForTabs && (activeTab === 'classroom' || activeTab === 'calendar' || activeTab === 'leaderboard')) {
+        return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    } 
+    // Fallback for FeedTab and AboutTab if their specific data needs aren't met (e.g. spaceData for AboutTab onSpaceUpdate)
+    if ((activeTab === 'feed' || activeTab === 'community' || activeTab === 'about') && !spaceData && !settingsStoreSpace) {
+      return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
+
+    switch (activeTab) {
+      case "feed":
+      case "community":
+        // Restore original props for FeedTab
+        return <FeedTab user={user} isOwner={isOwner} isAdmin={isAdmin} />;
+      case "classroom":
+        return memoizedSpaceDataForTabs ? <ClassroomTab space={memoizedSpaceDataForTabs} /> : null;
+      case "calendar":
+        return memoizedSpaceDataForTabs ? <CalendarTab space={memoizedSpaceDataForTabs} /> : null;
+      case "members":
+        return <MembersTab />;
+      case "leaderboard":
+        return memoizedSpaceDataForTabs 
+          ? <LeaderboardsTab spaceId={memoizedSpaceDataForTabs.id} spaceName={memoizedSpaceDataForTabs.name} /> 
+          : null;
+      case "about":
+        // Restore original props/structure for AboutTab
+        return <AboutTab 
+                onSpaceUpdate={(updatedSpace: { about_description: string | null }) => {
+                    if (settingsStoreSpace) { 
+                        useSpaceSettingsStore.setState((state) => {
+                        const currentStoreSpace = state.space;
+                        if (!currentStoreSpace) return state;
+                        return {
+                            space: { ...currentStoreSpace, about_description: updatedSpace.about_description },
+                            formData: { ...state.formData, about_description: updatedSpace.about_description }
+                        };
+                        });
+                    }
+                    toast({
+                        title: "Space updated",
+                        description: "Your space details have been refreshed.",
+                    });
+                }}
+                />;
+      default:
+        // Restore original props for FeedTab
+        return <FeedTab user={user} isOwner={isOwner} isAdmin={isAdmin} />;
+    }
+  };
 
   return (
     <TooltipProvider>
@@ -880,24 +981,26 @@ export default function Space({ initialTab }: SpaceProps) {
           <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
             {/* Left - Space Logo and Name with Switch Button */}
             <div className="flex items-center">
+              {/*
               <div className="h-10 w-10 bg-[#26A69A] rounded-lg flex items-center justify-center text-white font-bold mr-3 shadow-sm relative overflow-hidden">
-                {space?.icon_image ? (
+                {settingsStoreSpace?.icon_image ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
                     className="absolute inset-0 w-full h-full bg-cover bg-center"
-                    style={{ backgroundImage: `url(${resolveImageUrl(space.icon_image)})` }}
+                    style={{ backgroundImage: `url(${resolveImageUrl(settingsStoreSpace.icon_image)})` }}
                   />
                 ) : (
-                <span>{space?.name?.charAt(0).toUpperCase()}</span>
+                <span>{settingsStoreSpace?.name?.charAt(0).toUpperCase()}</span>
                 )}
               </div>
+              */}
               <div className="flex flex-col justify-center">
                 <div className="flex items-center">
-                  <SpaceSwitcher 
+                  <SpaceSwitcher // This is from src/components/spaces/SpaceSwitcher.tsx
                     currentSpaceSubdomain={subdomain || ''} 
-                    currentSpaceName={space?.name}
+                    currentSpaceName={settingsStoreSpace?.name}
                     userId={user?.id || ''}
                   />
                 </div>
@@ -966,129 +1069,9 @@ export default function Space({ initialTab }: SpaceProps) {
           </div>
         </nav>
           
-        {/* Main Content */}
-        <main className="flex-grow py-6">
-          <div className="max-w-6xl mx-auto px-4">
-          {activeTab === "about" ? (
-            <AboutTab 
-              space={space as any} 
-              onSpaceUpdate={(updatedSpace) => {
-                console.log("Space updated with new data:", updatedSpace);
-                // Update the space in the store with type safety
-                useSpaceSettingsStore.setState((state) => ({
-                  space: {
-                    ...state.space,
-                    about_description: updatedSpace.about_description
-                  }
-                }));
-                toast({
-                  title: "Space updated",
-                  description: "Your space details have been refreshed.",
-                });
-              }}
-            />
-          ) : activeTab === "calendar" ? (
-            <CalendarTab space={space} />
-          ) : activeTab === "members" ? (
-            <MembersTab space={space} />
-          ) : activeTab === "leaderboard" ? (
-            <LeaderboardsTab space={space} />
-          ) : activeTab === "classroom" ? (
-            <ClassroomTab space={space} />
-          ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Left Content Area */}
-              <div className="md:col-span-2">
-                <FeedTab space={space} user={user} />
-              </div>
-              
-              {/* Right Sidebar */}
-              <div className="space-y-3">
-                {/* Cover Photo/Space Info - Adjusted layout */}
-                <motion.div 
-                  whileHover={{ boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)" }}
-                  className="bg-white rounded-lg overflow-hidden shadow-sm border border-[#E0F2F1] transition-all duration-300"
-                >
-                  {/* Cover Image Area */}
-                  <div 
-                    className="h-36 bg-[#F5F6F7] flex items-center justify-center relative cursor-pointer border border-[#E1E4E8] p-2"
-                    onClick={() => {
-                      if (isOwner && space) {
-                        openSpaceSettingsModal(space.id, space.subdomain);
-                      }
-                    }}
-                  >
-                    {space?.cover_image ? (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
-                        className="absolute inset-0 w-full h-full bg-cover bg-center"
-                        style={{ backgroundImage: `url(${resolveImageUrl(space.cover_image, '/default-space-cover.jpg')})` }}
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-[#A0AEC0]">
-                        <Camera className="h-8 w-8 opacity-40" />
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Space Info Content */}
-                  <div className="p-4">
-                    <h2 className="text-lg font-bold text-[#37474F] mb-1">{space?.name}</h2>
-                    {/* Display Subdomain URL */}
-                    <p className="text-sm text-[#78909C] mb-3">lokaa.com/{space?.subdomain || 'your-subdomain'}</p>
-                  </div>
-                </motion.div>
-                
-                {/* Space Stats */}
-                <div className="grid grid-cols-3 gap-3 border border-[#E0F2F1] rounded-lg overflow-hidden bg-white">
-                  <div className="text-center p-3 bg-white">
-                    <div className="text-xl font-bold text-[#26A69A]">1</div>
-                    <div className="text-xs text-[#78909C]">Members</div>
-                  </div>
-                  <div className="text-center p-3 bg-white">
-                    <div className="text-xl font-bold text-[#26A69A]">0</div>
-                    <div className="text-xs text-[#78909C]">Online</div>
-                  </div>
-                  <div className="text-center p-3 bg-white">
-                    <div className="text-xl font-bold text-[#26A69A]">1</div>
-                    <div className="text-xs text-[#78909C]">Admin</div>
-                  </div>
-                </div>
-                
-                {/* Settings Button - Opens settings modal */}
-                {isOwner && space ? (
-                  <Button 
-                    className="w-full py-3 bg-[#26A69A] hover:bg-[#1E8E7E] rounded-lg flex items-center justify-center font-medium text-white transition-colors text-base uppercase"
-                    onClick={() => openSpaceSettingsModal(space.id, space.subdomain)}
-                    disabled={loadingSettings}
-                  >
-                    {loadingSettings ? 
-                       <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : 
-                       <Settings className="h-5 w-5 mr-2" />
-                    }
-                    SETTINGS
-                  </Button>
-                ) : (
-                  // Optionally render a disabled button or nothing if not the owner
-                  <Button 
-                    className="w-full py-3 bg-gray-100 rounded-lg flex items-center justify-center font-medium text-gray-500 text-base uppercase border border-gray-200 cursor-not-allowed"
-                    disabled
-                  >
-                    <Settings className="h-5 w-5 mr-2" />
-                    SETTINGS
-                  </Button>
-                )}
-                
-                {/* Powered By */}
-                <div className="text-center text-[#78909C] text-xs py-2">
-                  powered by <span className="font-semibold text-[#37474F]">Lokaa</span>
-                </div>
-              </div>
-            </div>
-          )}
-          </div>
+        {/* Main Content Area - where tabs are rendered */}
+        <main className="flex-grow max-w-6xl mx-auto w-full px-4 py-6">
+          {renderActiveTabContent()}
         </main>
         
         {/* Render the SpaceSettingsModal - It will now use the store */}
