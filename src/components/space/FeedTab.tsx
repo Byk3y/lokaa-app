@@ -777,21 +777,20 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
               role="tab"
               aria-selected={selectedTab === "all"}
               onClick={() => handleTabSelect("all")}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === "all" 
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === "all" 
                   ? 'bg-gray-700 text-white' 
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               All
             </motion.button>
-            {/* Removed categories loading/error for brevity, assuming they load correctly */}
             {!categoriesLoading && !categoriesError && spaceCategories.map((category) => (
               <motion.button 
                   key={category.id}
                   role="tab"
                   aria-selected={selectedTab === category.id}
                   onClick={() => handleTabSelect(category.id)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === category.id
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === category.id
                     ? 'bg-gray-700 text-white' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
@@ -801,15 +800,14 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
               </motion.button>
             ))}
             
-            {/* Button to add category is now inside this scrollable container for better mobile UX */}
             {(effectiveIsOwner || effectiveIsAdmin) && (
               <motion.button 
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
-                className="ml-auto flex-shrink-0 flex items-center justify-center px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 whitespace-nowrap"
+                className="flex-shrink-0 flex items-center justify-center px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 whitespace-nowrap"
                 onClick={() => setIsCategoryModalOpen(true)}
               >
-                <Tag className="h-4 w-4 mr-1 sm:mr-1.5" /> {/* Using Tag icon from Skool */}
+                <Tag className="h-4 w-4 mr-1 sm:mr-1.5" />
                 Edit
               </motion.button>
             )}
