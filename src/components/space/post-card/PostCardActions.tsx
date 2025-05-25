@@ -39,15 +39,15 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
   const showNumbers = showCounts && (optimisticLikeCount > 0 || optimisticCommentCount > 0);
   
   return (
-    <div className="px-1 py-0.5 flex items-center justify-between border-t border-gray-100 mt-2">
-      <div className="flex items-center space-x-1">
+    <div className="px-1 py-1 sm:py-0.5 flex items-center justify-between border-t border-gray-100 mt-2">
+      <div className="flex items-center space-x-1 sm:space-x-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={onLikeClick}
           disabled={isLikingInProgress}
           className={cn(
-            "flex items-center h-8 sm:h-11 min-h-[44px] px-2 rounded-md text-sm font-medium",
+            "flex items-center justify-center h-11 w-11 min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-medium",
             hasLikedPost
               ? "text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700"
               : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -65,7 +65,7 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
           variant="ghost"
           size="sm"
           onClick={onCommentClick}
-          className="flex items-center h-8 sm:h-11 min-h-[44px] px-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          className="flex items-center justify-center h-11 w-11 min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
         >
           <MessageSquare size={16} className="mr-1.5" />
           {showNumbers && optimisticCommentCount > 0 && (
@@ -79,7 +79,7 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
           variant="ghost"
           size="sm"
           onClick={onShareClick}
-          className="flex items-center h-8 sm:h-11 min-h-[44px] px-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          className="flex items-center justify-center h-11 w-11 min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
         >
           <Share size={16} className="mr-1.5" />
         </Button>
@@ -92,7 +92,7 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
           onClick={onPinClick}
           disabled={isPinning}
           className={cn(
-            "flex items-center h-8 sm:h-11 min-h-[44px] px-2 rounded-md text-sm font-medium",
+            "flex items-center justify-center h-11 w-11 min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-medium",
             optimisticPinned
               ? "text-teal-600 bg-teal-50 hover:bg-teal-100 hover:text-teal-700"
               : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"

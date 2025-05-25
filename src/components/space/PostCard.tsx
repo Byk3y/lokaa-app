@@ -318,8 +318,8 @@ const PostCard = memo(function PostCard({
       />
       
       {/* Content Section with Image Preview */}
-      <div className="px-3 sm:px-4 flex-grow flex items-start">
-        <div className={cn("flex-grow flex flex-col", firstImageAttachment ? "mr-4" : "")}>
+      <div className="px-2 sm:px-4 flex-grow flex items-start overflow-hidden">
+        <div className={cn("flex-grow flex flex-col overflow-hidden", firstImageAttachment ? "mr-2 sm:mr-4" : "")}>
           <PostCardContent
             title={title}
             content={content}
@@ -339,12 +339,12 @@ const PostCard = memo(function PostCard({
         {/* Image Preview - Only show if no video and an image exists */}
         {!primaryVideoAttachment && firstImageAttachment && (
           <div 
-            className="ml-auto flex-shrink-0 w-[102px] h-[102px] rounded-md overflow-hidden border border-gray-200"
+            className="ml-auto flex-shrink-0 w-[90px] sm:w-[102px] h-[90px] sm:h-[102px] rounded-md overflow-hidden border border-gray-200"
           >
             <img 
               src={firstImageAttachment.url} 
               alt={firstImageAttachment.name || 'Image attachment'} 
-              className="w-full h-full object-cover max-w-full h-auto rounded-md"
+              className="w-full h-full object-cover max-w-full rounded-md"
             />
           </div>
         )}
