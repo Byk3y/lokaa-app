@@ -34,6 +34,9 @@ import Profile from "@/pages/Profile";
 import ProfileRouteHandler from "@/components/profile/ProfileRouteHandler"; // Import the new ProfileRouteHandler
 import SpaceJoinPage from "@/pages/SpaceJoinPage"; // Import the SpaceJoinPage component
 import SubdomainRouteHandler from "@/router/SubdomainRouteHandler"; // <--- IMPORT NEW HANDLER
+import { UserProfileProvider } from '@/contexts/UserProfileContext';
+import SpaceShellLayout from "@/components/layout/SpaceShellLayout";
+import SpaceTabContent from "@/components/space/SpaceTabContent";
 
 // Import our modal utility for authentication
 import "@/utils/authModals";
@@ -137,9 +140,8 @@ function AppRoutes() {
         <Route path="/" element={<LandingPageWrapper />} />
         <Route path="/auth/callback" element={<AuthRedirect />} />
         
-        {/* User Profile route - MOVED INSIDE ProtectedRoute below
-        <Route path="/@:slug" element={<ProfileRouteHandler />} /> 
-        */}
+        {/* Legacy @username format support */}
+        <Route path="/@:slug" element={<ProfileRouteHandler />} />
         
         {/* Fix for incorrect profile routes */}
         <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
@@ -172,7 +174,6 @@ function AppRoutes() {
         {/* Protected routes - require authentication */}
         <Route element={<ProtectedRoute />}>
           {/* User Profile route - MUST come before subdomain routes */}
-          {/* <Route path="/@:slug" element={<ProfileRouteHandler />} /> */}
           <Route path="/profile/:slug" element={<ProfileRouteHandler />} /> {/* Using :slug as the param name, maps to profile_url */}
 
           {/* Smart landing - redirects based on user's spaces */}
@@ -215,14 +216,18 @@ function AppRoutes() {
         
         {/* Protected space routes - require space membership */}
         <Route path="/:subdomain/space" element={<SpaceProtectedRoute />}>
-          <Route index element={<Space initialTab="community" />} />
-          <Route path="feed" element={<Space initialTab="community" />} />
-          <Route path="community" element={<Space initialTab="community" />} />
-          <Route path="about" element={<Space initialTab="about" />} />
-          <Route path="members" element={<Space initialTab="members" />} />
-          <Route path="classroom" element={<Space initialTab="classroom" />} />
-          <Route path="calendar" element={<Space initialTab="calendar" />} />
-          <Route path="leaderboard" element={<Space initialTab="leaderboard" />} />
+          {/* Replace all individual space tab routes with our new shell layout */}
+          <Route element={<SpaceShellLayout />}>
+            <Route index element={<SpaceTabContent />} />
+            <Route path="feed" element={<SpaceTabContent />} />
+            <Route path="community" element={<SpaceTabContent />} />
+            <Route path="about" element={<SpaceTabContent />} />
+            <Route path="members" element={<SpaceTabContent />} />
+            <Route path="classroom" element={<SpaceTabContent />} />
+            <Route path="calendar" element={<SpaceTabContent />} />
+            <Route path="leaderboard" element={<SpaceTabContent />} />
+          </Route>
+          {/* Keep the debug route separate as it's not a tab */}
           <Route path="debug" element={<SpaceDebugPage />} />
         </Route>
 
@@ -270,8 +275,10 @@ export default function App() {
               <ProfileImageProvider>
                 <SpaceProvider>
                   <MembershipProvider>
-                    <AppRoutes />
-                    <Toaster />
+                    <UserProfileProvider>
+                      <AppRoutes />
+                      <Toaster />
+                    </UserProfileProvider>
                   </MembershipProvider>
                 </SpaceProvider>
               </ProfileImageProvider>

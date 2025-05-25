@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { resolveImageUrl } from "@/utils/preloadAssets";
 
 // Constants for storage
 const STORAGE_BUCKET_NAME = 'media';
@@ -23,21 +24,6 @@ const MAX_ICON_SIZE_MB = 2;
 const MAX_COVER_SIZE_MB = 8;
 const MAX_ICON_SIZE_BYTES = MAX_ICON_SIZE_MB * 1024 * 1024;
 const MAX_COVER_SIZE_BYTES = MAX_COVER_SIZE_MB * 1024 * 1024;
-
-// Helper function to resolve image URLs that might be stored in localStorage
-const resolveImageUrl = (imageUrl: string | null, fallbackUrl: string = '/default-cover.jpg'): string => {
-  if (!imageUrl) return fallbackUrl;
-  
-  // If the URL starts with 'local:', retrieve from localStorage
-  if (imageUrl.startsWith('local:')) {
-    const storageKey = imageUrl.replace('local:', '');
-    const storedImage = localStorage.getItem(storageKey);
-    return storedImage || fallbackUrl;
-  }
-  
-  // Otherwise, use the URL directly
-  return imageUrl;
-};
 
 // Function to compress images before storing
 const compressImage = async (file: File, maxWidthHeight: number, quality: number = 0.7): Promise<Blob> => {
@@ -111,7 +97,7 @@ interface SpaceSettingsData {
 export default function SpaceSettingsModal() {
   const { user } = useAuth();
   const { isOpen, spaceId, close } = useSpaceSettingsModal();
-  const { space, loading, error, fetchSpaceSettings } = useSpaceSettingsStore();
+  const { space, loadingSpace, error, loadActiveSpace } = useSpaceSettingsStore();
   const [activeTab, setActiveTab] = useState("general");
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<SpaceSettingsData>>({});
@@ -123,10 +109,10 @@ export default function SpaceSettingsModal() {
   
   // Fetch space settings when the modal opens and spaceId changes
   useEffect(() => {
-    if (isOpen && spaceId && user) {
-      fetchSpaceSettings(spaceId, user.id);
+    if (isOpen && spaceId && user && user.id) {
+      loadActiveSpace({ spaceId }, user.id, true);
     }
-  }, [isOpen, spaceId, user, fetchSpaceSettings]);
+  }, [isOpen, spaceId, user, loadActiveSpace]);
   
   // Initialize form data from space once loaded
   useEffect(() => {
@@ -308,7 +294,7 @@ export default function SpaceSettingsModal() {
         });
         
         // Refresh space data
-        await fetchSpaceSettings(space.id, user?.id || '');
+        await loadActiveSpace({ spaceId }, user?.id || '');
         
       } catch (storageError) {
         console.warn("Supabase storage upload failed, using localStorage instead:", storageError);
@@ -341,7 +327,7 @@ export default function SpaceSettingsModal() {
         });
         
         // Refresh space data
-        await fetchSpaceSettings(space.id, user?.id || '');
+        await loadActiveSpace({ spaceId }, user?.id || '');
       }
         
       } catch (error: unknown) {
@@ -388,7 +374,7 @@ export default function SpaceSettingsModal() {
       toast({ title: "Success", description: "Settings updated successfully." });
       // Refresh space data
       if (user) {
-        fetchSpaceSettings(space.id, user.id);
+        await loadActiveSpace({ spaceId }, user.id, true);
       }
       
     } catch (error: unknown) {
@@ -403,7 +389,7 @@ export default function SpaceSettingsModal() {
     }
   };
   
-  if (loading) {
+  if (loadingSpace) {
     return (
       <Dialog open={isOpen} onOpenChange={close}>
         <DialogContent className="sm:max-w-[800px] max-h-[80vh]">
@@ -415,11 +401,18 @@ export default function SpaceSettingsModal() {
     );
   }
   
+  if (!isOpen) {
+    return null;
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={close}>
-      <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden max-h-[90vh]">
-        <DialogHeader className="p-6 pb-2">
-          <DialogTitle className="text-xl font-semibold">Space settings</DialogTitle>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
+      <DialogContent className="sm:max-w-[600px] p-0">
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-2xl font-semibold">Space Settings</DialogTitle>
+          <DialogDescription className="text-sm text-gray-500">
+            Manage your space general settings, appearance, privacy, and members.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="flex h-[600px]"> {/* Fixed height container for consistent sizing */}

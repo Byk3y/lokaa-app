@@ -1,10 +1,11 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Search, Bell, MessageSquare, Bookmark } from "lucide-react";
+import { Search, Bell, Bookmark } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SpacePreviewModal } from "@/components/modals/SpacePreviewModal";
 import { useSpacePreviewStore } from "@/stores/useSpacePreviewStore";
 import { useEffect } from "react";
+import ChatButton from "@/components/chat/ChatButton";
 
 export default function AppLayout() {
   const location = useLocation();
@@ -24,65 +25,54 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            {/* Left navigation */}
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <Link to="/" className="font-bold text-xl">Lokaa</Link>
-              </div>
-            </div>
-
-            {/* Center (shown when in community) */}
-            {isInCommunity && (
-              <div className="flex items-center justify-center flex-1 px-2 lg:ml-6 lg:justify-end">
-                <div className="max-w-lg w-full lg:max-w-xs">
-                  <Button variant="outline" size="sm" className="w-full pl-3 pr-10 py-2 flex items-center space-x-3">
-                    <Search className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-500">Search...</span>
-                  </Button>
-            </div>
+    <div className="min-h-screen flex flex-col">
+      {/* Top Nav */}
+      <header className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
+        <div className="container mx-auto flex items-center justify-between h-16 px-4">
+          <div className="flex items-center">
+            <Link to="/" className="text-xl font-bold text-primary">
+              Lokaa
+            </Link>
           </div>
-            )}
 
-            {/* Right navigation */}
-            <div className="flex items-center">
-              <Button variant="ghost" size="sm" className="mx-1">
-                <Bell className="h-5 w-5 text-gray-500" />
+          <div className="relative w-1/3 hidden md:block">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input 
+              type="text" 
+              placeholder="Search" 
+              className="w-full h-10 pl-10 pr-4 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm">
+              <Bell className="w-5 h-5" />
             </Button>
-              <Button variant="ghost" size="sm" className="mx-1">
-                <MessageSquare className="h-5 w-5 text-gray-500" />
+            <ChatButton />
+            <Button variant="ghost" size="sm">
+              <Bookmark className="w-5 h-5" />
             </Button>
-              <Button variant="ghost" size="sm" className="mx-1">
-                <Bookmark className="h-5 w-5 text-gray-500" />
-            </Button>
-              <div className="ml-3 relative">
-                <Avatar>
-              <AvatarImage src="https://github.com/shadcn.png" />
-              <AvatarFallback>CN</AvatarFallback>
+            
+            <Avatar className="h-8 w-8">
+              <AvatarFallback>U</AvatarFallback>
             </Avatar>
-              </div>
-            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      {/* Main Content */}
+      <main className="flex-1 mt-16">
         <Outlet />
       </main>
 
-      <SpacePreviewModal
-        open={isOpen}
-        onOpenChange={(currentOpenState) => {
-          console.log("Modal open change:", currentOpenState);
-          if (!currentOpenState) {
-            close();
-          }
+      {/* Space Preview Modal */}
+      <SpacePreviewModal 
+        open={isOpen} 
+        onOpenChange={(open) => {
+          if (!open) close();
         }}
-        spaceId={spaceId}
-        onJoin={handleJoinSpace}
+        spaceId={spaceId} 
+        onJoin={handleJoinSpace} 
       />
     </div>
   );

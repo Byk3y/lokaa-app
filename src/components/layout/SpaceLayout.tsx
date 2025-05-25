@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import { useEffect, useState, useRef, useLayoutEffect, ReactNode } from "react";
 import { Outlet, useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, User } from "@/contexts/AuthContext";
@@ -166,38 +166,41 @@ export function Header({ user, space }: { user: User | null; space: SpaceData | 
 // PrimaryNav component for space tabs
 function PrimaryNav({ tabs, activeTab }: { tabs: string[]; activeTab: string }) {
   const navigate = useNavigate();
-  const { subdomain } = useParams<{ subdomain?: string }>(); // Make subdomain optional for safety
+  const { subdomain } = useParams<{ subdomain?: string }>();
 
   const getIcon = (tab: string) => {
     switch(tab.toLowerCase()) {
-      case 'feed': return <MessageSquare className="h-4 w-4" />;
-      case 'classroom': return <GraduationCap className="h-4 w-4" />;
-      case 'calendar': return <Calendar className="h-4 w-4" />;
-      case 'members': return <Users className="h-4 w-4" />;
-      case 'leaderboards': return <Trophy className="h-4 w-4" />;
-      case 'about': return <BookOpen className="h-4 w-4" />;
-      default: return <MessageSquare className="h-4 w-4" />;
+      case 'feed': return <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />;
+      case 'classroom': return <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />;
+      case 'calendar': return <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />;
+      case 'members': return <Users className="h-4 w-4 sm:h-5 sm:w-5" />;
+      case 'leaderboards': return <Trophy className="h-4 w-4 sm:h-5 sm:w-5" />;
+      case 'about': return <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />;
+      default: return <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />;
     }
   };
 
   return (
-    <nav className="bg-white border-b sticky top-16 z-40"> {/* Assuming header height is around 4rem (top-16) */}
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex overflow-x-auto">
-          {tabs.map(tab => (
-            <button
-              key={tab}
-              onClick={() => navigate(`/space/${subdomain}/${tab.toLowerCase()}`)} // Corrected path construction
-              className={`flex items-center py-3 px-4 border-b-2 ${
-                activeTab.toLowerCase() === tab.toLowerCase()
-                  ? 'border-[#1A8A7E] text-[#1A8A7E]'
-                  : 'border-transparent text-[#4B5563] hover:text-[#1A8A7E]'
-              } transition-colors`}
-            >
-              <span className="mr-2">{getIcon(tab)}</span>
-              <span className="font-medium">{tab}</span>
-            </button>
-          ))}
+    <nav className="bg-slate-50 dark:bg-slate-850 sticky top-16 z-40">
+      <div className="max-w-6xl mx-auto px-2 sm:px-3">
+        <div className="flex overflow-x-auto space-x-1 sm:space-x-2">
+          {tabs.map(tab => {
+            const isActive = activeTab.toLowerCase() === tab.toLowerCase();
+            return (
+              <button
+                key={tab}
+                onClick={() => navigate(`/space/${subdomain}/${tab.toLowerCase()}`)}
+                className={`flex items-center py-2.5 px-4 transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-850 focus-visible:ring-gray-900 border-b-2
+                  ${isActive
+                    ? 'text-gray-900 dark:text-white border-gray-900 dark:border-white font-semibold'
+                    : 'text-gray-500 dark:text-gray-400 font-medium border-transparent hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <span className="mr-1.5 sm:mr-2">{getIcon(tab)}</span>
+                <span className="text-sm sm:text-base">{tab}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </nav>
@@ -388,161 +391,92 @@ function ErrorScreen({ error, onRetry }: { error: Error; onRetry?: () => void })
   );
 }
 
-// SpaceLayout component that provides context to child routes
-function SpaceLayout() {
-  const { subdomain } = useParams<{ subdomain: string }>();
-  const { user, loading: authLoading } = useAuth(); // Correctly get authLoading
+interface SpaceLayoutProps {
+  header: ReactNode;
+  nav: ReactNode;
+  children: ReactNode; // For the main content (active tab)
+}
+
+export default function SpaceLayout({
+  header,
+  nav,
+  children,
+}: SpaceLayoutProps) {
+  const { user, loading: authLoading } = useAuth();
+  const { 
+    space: storeSpace, 
+    loadingSpace: storeLoadingSpace, 
+    error: storeError, 
+    loadActiveSpace 
+  } = useSpaceSettingsStore();
+  
+  const { subdomain } = useParams<{ subdomain?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { spaceData, loading: spaceIsLoading, error: spaceError, fetchSpaceData } = useSpace(); // Correctly get spaceIsLoading and spaceError
+  
+  const openSettingsModal = useSpaceSettingsModal();
 
-  const [tasks, setTasks] = useState([
-    { id: "invitePeople", label: "Invite 3 people", completed: false },
-    { id: "addDescription", label: "Add group description", completed: false },
-    { id: "setCoverImage", label: "Set cover image", completed: false },
-    { id: "writeFirstPost", label: "Write your first post", completed: false }
-  ]);
-  const openSpaceSettingsModal = useSpaceSettingsModal((state) => state.open);
-  const { fetchSpaceSettings } = useSpaceSettingsStore();
-  const redirectRef = useRef<boolean>(false);
-
-  const isFeed = location.pathname.endsWith('/feed') ||
-                 location.pathname === `/space/${subdomain}` || // Handle base space path
-                 location.pathname.match(new RegExp(`^/space/${subdomain}$`)) || // More robust base path check
-                 location.pathname.includes('/compose');
-
-
+  // Effect to load space on mount or if subdomain changes
   useEffect(() => {
-    if (subdomain && !redirectRef.current) {
-      if (!authLoading && user) {
-        console.log(`[SpaceLayout] Auth complete, user found. Fetching data for ${subdomain}`);
-        fetchSpaceData(subdomain);
-      } else if (!authLoading && !user) {
-        console.warn(`[SpaceLayout] Auth complete, but no user. Not fetching space data for ${subdomain}. Error screen should appear.`);
-      } else {
-        console.log("[SpaceLayout] Auth in progress. Waiting to fetch space data.");
-      }
+    if (subdomain && user && user.id) {
+      // Only force reload if the store doesn't have this space or different space
+      const forceReload = !storeSpace || storeSpace.subdomain !== subdomain;
+      loadActiveSpace({ subdomain }, user.id, forceReload);
     }
-  }, [subdomain, fetchSpaceData, authLoading, user]);
+  }, [subdomain, user, loadActiveSpace, storeSpace]);
 
-  useEffect(() => {
-    if (spaceData) {
-      setTasks(prev => prev.map(task =>
-        task.id === "addDescription" ? { ...task, completed: !!spaceData.description } :
-        task.id === "setCoverImage" ? { ...task, completed: !!spaceData.cover_image } : task
-      ));
+  // Determine if content area should be full width or have a sidebar
+  // Example: Only show sidebar on certain tabs or if space data indicates it
+  const hasSidebar = location.pathname.includes('/about'); // Simplified, adjust as needed
+  
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  const [mainContentHeight, setMainContentHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    if (mainContentRef.current) {
+      setMainContentHeight(mainContentRef.current.offsetHeight);
     }
-  }, [spaceData]);
+  }, [children]); // Recalculate if children change
 
-  const handleError = (error: Error) => {
-    console.error("Caught error in SpaceLayout:", error);
-    toast({
-      title: "Something went wrong",
-      description: "An unexpected error occurred. Please try refreshing the page.",
-      variant: "destructive",
-    });
-  };
-
-  const handleTaskComplete = (taskId: string) => {
-    setTasks(prev => prev.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
-  };
-
-  const handleSettingsClick = () => {
-    if (spaceData && user) {
-      fetchSpaceSettings(spaceData.id, user.id);
-      openSpaceSettingsModal(spaceData.id, spaceData.subdomain || "");
-    }
-  };
-
-  const getActiveTab = () => {
-    const path = location.pathname;
-    if (path.includes('/compose')) return 'Feed';
-    // Check for /space/:subdomain exactly or /space/:subdomain/
-    if (path === `/space/${subdomain}` || path === `/space/${subdomain}/`) return 'Feed';
-    if (path.includes('/feed')) return 'Feed';
-    if (path.includes('/classroom')) return 'Classroom';
-    if (path.includes('/calendar')) return 'Calendar';
-    if (path.includes('/members')) return 'Members';
-    if (path.includes('/leaderboards')) return 'Leaderboards';
-    if (path.includes('/about')) return 'About';
-    return 'Feed';
-  };
-
-  // --- REVISED LOADING/ERROR HANDLING ---
-  if (authLoading) {
-    console.log("[SpaceLayout] Authentication in progress, showing loading screen.");
+  if (authLoading || (storeLoadingSpace && !storeSpace)) {
     return <LoadingScreen />;
   }
 
-  if (!user && subdomain) {
-    console.log("[SpaceLayout] No authenticated user but trying to access a subdomain. Showing auth error.");
-    return <ErrorScreen error={new Error("Authentication required to access this space. Please log in.")} onRetry={() => navigate('/auth/login', { state: { from: location } })} />;
+  if (storeError) {
+    return <ErrorScreen error={new Error(storeError)} onRetry={() => {
+      if (subdomain && user) loadActiveSpace({ subdomain }, user.id, true);
+    }} />;
   }
 
-  if (spaceIsLoading && !spaceData) {
-    console.log(`[SpaceLayout] User authenticated, space data for ${subdomain} is loading (no current spaceData).`);
-    return <LoadingScreen />;
+  // This could be a fallback if the store didn't load but there was no explicit error
+  // However, the Space.tsx page itself has more robust checks for storeSpace before rendering SpaceLayout
+  // So, this might be redundant here, or could be a very basic "not found" type of message.
+  /*
+  if (!storeSpace && !storeLoadingSpace) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <p>Space data not found.</p>
+        <Button onClick={() => navigate('/discover')}>Discover Spaces</Button>
+      </div>
+    );
   }
-
-  if (spaceError) {
-    console.log(`[SpaceLayout] Space context error for ${subdomain}: ${spaceError.message}`);
-    return <ErrorScreen error={spaceError} onRetry={() => fetchSpaceData(subdomain, true)} />;
-  }
-
-  if (user && !spaceData) {
-    console.log(`[SpaceLayout] User authenticated, space loading complete, no error, but no spaceData for ${subdomain}. Space not found or inaccessible.`);
-    return <ErrorScreen error={new Error(`The space '${subdomain}' could not be found or you don't have permission to access it.`)} onRetry={() => fetchSpaceData(subdomain, true)} />;
-  }
-
-  if (!spaceData) {
-    console.error("[SpaceLayout] Fallback: spaceData is null after all primary checks. This indicates an unexpected state.");
-    return <ErrorScreen error={new Error("An unexpected issue occurred while loading the space information.")} onRetry={() => fetchSpaceData(subdomain, true)} />;
-  }
-  // --- END REVISED LOADING/ERROR HANDLING ---
+  */
 
   return (
-    <ErrorBoundary
-      fallbackRender={({ error: boundaryError, resetErrorBoundary }: FallbackProps) => (
-        <ErrorScreen error={boundaryError} onRetry={resetErrorBoundary} />
-      )}
-      onError={handleError}
-      onReset={() => {
-        if (subdomain) {
-          fetchSpaceData(subdomain, true);
-        }
-      }}
-    >
-      <div className="flex flex-col min-h-screen bg-[#F5F6F7]">
-        <Header user={user} space={spaceData} />
-        <PrimaryNav tabs={['Feed', 'Classroom', 'Calendar', 'Members', 'Leaderboards', 'About']} activeTab={getActiveTab()} />
-        <main className="flex-grow py-6">
-          <div className="max-w-6xl mx-auto px-4">
-            <div className="flex gap-6">
-              <div className={`flex-1 space-y-6 ${!isFeed ? 'w-full' : ''}`}>
-                {isFeed && (
-                  <Composer onClick={() => navigate('compose')} user={user} />
-                )}
-                <Outlet />
-                {isFeed && (
-                  <OnboardingCard tasks={tasks} onTaskClick={handleTaskComplete} />
-                )}
-              </div>
-              {isFeed && (
-                <aside className="w-80 space-y-6">
-                  <CoverPhotoCard space={spaceData} />
-                  <StatsCard members={spaceData.member_count} />
-                  <SettingsButton onClick={handleSettingsClick} />
-                </aside>
-              )}
-            </div>
-          </div>
+    <ErrorBoundary FallbackComponent={ErrorScreen}>
+      <div className="min-h-screen flex flex-col bg-[#F5FAFA]">
+        {header}
+
+        {nav}
+        
+        {/* Main content area */}
+        <main className="flex-grow max-w-6xl w-full mx-auto px-4 py-6">
+          {children}
         </main>
-        <SpaceSettingsModal />
+
+        {/* Modals can be rendered here at the layout level if they are global or common */}
+        {/* Example: <SpaceSettingsModal /> if it wasn't already in Space.tsx */}
       </div>
     </ErrorBoundary>
   );
 }
-
-export default SpaceLayout;

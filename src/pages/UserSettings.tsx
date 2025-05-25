@@ -27,12 +27,15 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useLocation, useParams } from "react-router-dom";
 import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
+import MinimalUpDownChevronIcon from "@/components/MinimalUpDownChevronIcon";
 import { createPortal } from 'react-dom';
 import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import ProfileDropdown from "../components/common/ProfileDropdown";
 import SpaceSwitcher from "@/components/spaces/SpaceSwitcher";
+import { Space } from "@/types/space";
+import { useSpaceMembership } from "@/contexts/SpaceMembershipContext";
 
 // Lokaa brand color
 const BRAND_COLOR = "#00A389";
@@ -97,11 +100,18 @@ const countries = [
   "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo (Congo-Brazzaville)","Costa Rica","Croatia","Cuba","Cyprus","Czechia (Czech Republic)","Democratic Republic of the Congo","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Holy See","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar (formerly Burma)","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine State","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States of America","Uruguay","Uzbekistan","Vanuatu","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"
 ];
 
+// Interface for space member records from database
+interface SpaceMemberRecord {
+  space_id: string;
+  spaces: Space | null; // The nested space object
+}
+
 export default function UserSettings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { tab } = useParams<{ tab?: string }>();
+  const { refreshSpacesTrigger } = useSpaceMembership();
   
   // Initialize activeTab from URL param if available, otherwise use default
   const [activeTab, setActiveTab] = useState(() => {
@@ -164,6 +174,8 @@ export default function UserSettings() {
   const [profileUrl, setProfileUrl] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [spaceSearchQuery, setSpaceSearchQuery] = useState("");
+  const [userSpaces, setUserSpaces] = useState<Space[]>([]);
+  const [loadingSpaces, setLoadingSpaces] = useState(true);
 
   // Fetch user details from the users table
   useEffect(() => {
@@ -282,6 +294,66 @@ export default function UserSettings() {
     fetchUserDetails();
   }, [user, userDataLoaded]);
 
+  // Fetch user spaces
+  useEffect(() => {
+    const fetchUserSpaces = async () => {
+      if (!user || !user.id) {
+        setUserSpaces([]);
+        setLoadingSpaces(false);
+        return;
+      }
+
+      setLoadingSpaces(true);
+
+      try {
+        // Fetch spaces owned by the user
+        const { data: ownedSpaces, error: ownedError } = await supabase
+          .from('spaces')
+          .select('id, name, subdomain, owner_id, icon_image, member_count, description')
+          .eq('owner_id', user.id);
+
+        if (ownedError) {
+          console.error('Error fetching owned spaces:', ownedError);
+        }
+
+        // Fetch spaces the user has access to via space_members table
+        const { data: memberRecords, error: memberError } = await supabase
+          .from('space_members')
+          .select(`
+            space_id,
+            spaces:space_id(id, name, subdomain, owner_id, icon_image, member_count, description)
+          `)
+          .eq('user_id', user.id)
+          .returns<SpaceMemberRecord[]>();
+
+        if (memberError) {
+          console.error('Error fetching joined spaces:', memberError);
+        }
+
+        const ownedSpacesArray = ownedSpaces || [];
+        const joinedSpaces = memberRecords
+          ?.filter((record) => record.spaces !== null)
+          .map((record) => record.spaces as Space) || [];
+
+        // Combine and deduplicate spaces
+        const allSpacesMap = new Map<string, Space>();
+        
+        ownedSpacesArray.forEach(space => allSpacesMap.set(space.id, space));
+        joinedSpaces.forEach(space => allSpacesMap.set(space.id, space));
+        
+        const allSpaces = Array.from(allSpacesMap.values());
+        setUserSpaces(allSpaces);
+      } catch (error) {
+        console.error('Error fetching user spaces:', error);
+        setUserSpaces([]);
+      } finally {
+        setLoadingSpaces(false);
+      }
+    };
+
+    fetchUserSpaces();
+  }, [user, refreshSpacesTrigger]);
+
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(event) {
@@ -311,55 +383,6 @@ export default function UserSettings() {
     
     return "A";
   };
-
-  const spaces = [
-    {
-      id: "nextpath-ai",
-      name: "nextpath ai",
-      members: "1 member",
-      type: "Free",
-      logo: "NA",
-      color: "#F59E0B"
-    },
-    {
-      id: "ai-automation",
-      name: "AI Automation Society",
-      members: "51.2k members",
-      type: "Free",
-      logo: "AIS",
-      color: "#000000"
-    },
-    {
-      id: "skoolers",
-      name: "Skoolers",
-      members: "51.3k members",
-      type: "Free",
-      logo: <div className="bg-[#74B9FF] flex items-center justify-center w-full h-full rounded-[12px]">
-        <img src="https://placehold.co/40x40/74B9FF/FFF?text=🐱" alt="Skoolers logo" className="w-8 h-8" />
-      </div>,
-      color: "#74B9FF"
-    },
-    {
-      id: "automation-university",
-      name: "Automation University",
-      members: "3k members",
-      type: "Free",
-      logo: <div className="flex items-center justify-center w-full h-full rounded-[12px] overflow-hidden">
-        <img src="https://placehold.co/40x40/29086B/FFF?text=AU" alt="Automation University logo" className="w-full h-full object-cover" />
-      </div>,
-      color: "#29086B"
-    },
-    {
-      id: "ai-automations",
-      name: "AI Automations by Kia",
-      members: "3.6k members",
-      type: "Free",
-      logo: <div className="bg-black flex items-center justify-center w-full h-full rounded-[12px] overflow-hidden">
-        <img src="https://placehold.co/40x40/000000/74B9FF?text=AI" alt="AI Automations logo" className="w-8 h-8" />
-      </div>,
-      color: "#000000"
-    }
-  ];
 
   // Keep URL in sync with active tab
   useEffect(() => {
@@ -562,22 +585,22 @@ export default function UserSettings() {
                   <div className="py-2 bg-white">
                     {user ? (
                       <>
-                        {Array.isArray(spaces) && spaces.length > 0 ? (
-                          spaces
+                        {Array.isArray(userSpaces) && userSpaces.length > 0 ? (
+                          userSpaces
                             .filter(space => !spaceSearchQuery || space.name.toLowerCase().includes(spaceSearchQuery.toLowerCase()))
                             .map((space) => (
                               <button
                                 key={space.id}
-                                onClick={() => { navigate(`/space/${space.id}`); setSpaceSwitcherOpen(false); }}
+                                onClick={() => { navigate(`/${space.subdomain}/space/feed`); setSpaceSwitcherOpen(false); }}
                                 className="flex items-center px-4 py-2 w-full hover:bg-gray-50 rounded-lg transition group focus:ring-2 focus:ring-[#00A389]"
                               >
                                 <div className="w-9 h-9 rounded-lg flex items-center justify-center mr-3 overflow-hidden bg-gray-100 group-hover:ring-2 group-hover:ring-[#00A389]">
-                                  {typeof space.logo === 'string' ? (
-                                    <span className="text-base font-bold text-gray-600">
-                                      {space.logo}
-                                    </span>
+                                  {space.icon_image ? (
+                                    <img src={space.icon_image} alt={space.name} className="w-full h-full object-cover" />
                                   ) : (
-                                    space.logo
+                                    <span className="text-base font-bold text-gray-600">
+                                      {space.name.charAt(0).toUpperCase()}
+                                    </span>
                                   )}
                                 </div>
                                 <span className="text-sm font-medium">{space.name}</span>
@@ -585,7 +608,7 @@ export default function UserSettings() {
                             ))
                         ) : (
                           <div className="px-4 py-3 text-center text-gray-500 text-sm">
-                            No spaces available
+                            {loadingSpaces ? "Loading spaces..." : "No spaces available"}
                           </div>
                         )}
                       </>
@@ -756,50 +779,76 @@ export default function UserSettings() {
                 </p>
                 
                 <div className="bg-white rounded-[16px] px-6 border border-gray-100">
-                  <div>
-                    {spaces.map((space, index) => (
-                      <div key={space.id}>
-                        <div className="flex items-center justify-between py-4">
-                          <div className="flex items-center">
-                            <div 
-                              className="w-[48px] h-[48px] rounded-[12px] flex items-center justify-center text-lg font-bold text-white overflow-hidden"
-                              style={{ backgroundColor: typeof space.logo === 'string' ? space.color : 'transparent' }}
-                            >
-                              {typeof space.logo === 'string' ? space.logo : space.logo}
+                  {loadingSpaces ? (
+                    <div className="py-8 flex justify-center items-center">
+                      <div className="animate-spin h-8 w-8 rounded-full border-t-2 border-b-2 border-teal-500"></div>
+                    </div>
+                  ) : userSpaces.length > 0 ? (
+                    <div>
+                      {userSpaces.map((space, index) => (
+                        <div key={space.id}>
+                          <div className="flex items-center justify-between py-4">
+                            <div className="flex items-center">
+                              <div 
+                                className="w-[48px] h-[48px] rounded-[12px] flex items-center justify-center text-lg font-bold text-white overflow-hidden"
+                                style={{ backgroundColor: '#74B9FF' }} // Use a default color
+                              >
+                                {space.icon_image ? (
+                                  <img src={space.icon_image} alt={space.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>{space.name.charAt(0).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <div className="ml-4">
+                                <div className="font-medium text-[18px] text-[#111111]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                  {space.name}
+                                </div>
+                                <div className="text-[14px] text-[#666666] mt-1" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                  {space.member_count || 0} {(space.member_count || 0) === 1 ? 'member' : 'members'} • Free
+                                </div>
+                              </div>
                             </div>
-                            <div className="ml-4">
-                              <div className="font-medium text-[18px] text-[#111111]" style={{ fontFamily: 'Inter, sans-serif' }}>
-                                {space.name}
-                              </div>
-                              <div className="text-[14px] text-[#666666] mt-1" style={{ fontFamily: 'Inter, sans-serif' }}>
-                                {space.members} • {space.type}
-                              </div>
+                            
+                            <div className="flex items-center gap-3">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-[32px] px-3 uppercase bg-[#F2F2F2] border-[#E5E5E5] text-[#555555] text-[14px] rounded-md hover:bg-[#E6F7F1] hover:border-[#31C48D] hover:text-[#31C48D]"
+                                style={{ fontFamily: 'Inter, sans-serif' }}
+                                onClick={() => navigate(`/${space.subdomain}/space/settings`)}
+                              >
+                                Settings
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-gray-400 p-2 rounded-full hover:bg-[#E6F7F1] hover:text-[#31C48D]"
+                                onClick={() => navigate(`/${space.subdomain}/space/feed`)}
+                              >
+                                <Eye size={20} className="text-[#888888]" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-gray-400 p-2 rounded-full hover:bg-[#E6F7F1] hover:text-[#31C48D]">
+                                <PinIcon />
+                              </Button>
                             </div>
                           </div>
-                          
-                          <div className="flex items-center gap-3">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="h-[32px] px-3 uppercase bg-[#F2F2F2] border-[#E5E5E5] text-[#555555] text-[14px] rounded-md hover:bg-[#E6F7F1] hover:border-[#31C48D] hover:text-[#31C48D]"
-                              style={{ fontFamily: 'Inter, sans-serif' }}
-                            >
-                              Settings
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-gray-400 p-2 rounded-full hover:bg-[#E6F7F1] hover:text-[#31C48D]">
-                              <Eye size={20} className="text-[#888888]" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-gray-400 p-2 rounded-full hover:bg-[#E6F7F1] hover:text-[#31C48D]">
-                              <PinIcon />
-                            </Button>
-                          </div>
+                          {index < userSpaces.length - 1 && (
+                            <div className="h-[1px] bg-gray-200"></div>
+                          )}
                         </div>
-                        {index < spaces.length - 1 && (
-                          <div className="h-[1px] bg-gray-200"></div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-gray-500">
+                      <p className="mb-4">You don't have any spaces yet.</p>
+                      <Button 
+                        onClick={() => navigate('/create-space')}
+                        className="bg-teal-600 hover:bg-teal-700 text-white"
+                      >
+                        Create a Space
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -913,7 +962,7 @@ export default function UserSettings() {
                 {/* Expandable Sections */}
                 <div className="border-t border-gray-200 pt-2">
                   <button className="flex items-center w-full justify-between py-3 text-[16px] font-semibold text-gray-900" onClick={() => setShowSocial(v => !v)}>
-                    Social links {showSocial ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    Social links <MinimalUpDownChevronIcon size={20} color={showSocial ? "#00A389" : "#979BAA"} />
                   </button>
                   {showSocial && (
                     <div className="pb-3">
@@ -962,7 +1011,7 @@ export default function UserSettings() {
                     </div>
                   )}
                   <button className="flex items-center w-full justify-between py-3 text-[16px] font-semibold text-gray-900" onClick={() => setShowAdvanced(v => !v)}>
-                    Advanced {showAdvanced ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    Advanced <MinimalUpDownChevronIcon size={20} color={showAdvanced ? "#00A389" : "#979BAA"} />
                   </button>
                   {showAdvanced && (
                     <div className="pb-3 flex items-center justify-between">
@@ -1085,7 +1134,9 @@ export default function UserSettings() {
                     >
                       {timezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
                     </select>
-                    <ChevronDown size={24} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <MinimalUpDownChevronIcon size={24} color="#979BAA" />
+                    </div>
                   </div>
                 </div>
                 {/* Log out everywhere */}
@@ -1172,23 +1223,39 @@ export default function UserSettings() {
                   <h2 className="text-[18px] font-bold text-[#181818] mb-1">Who can message me?</h2>
                   <div className="text-[15px] text-gray-700 mb-4">Only members in the group you're in can message you. You choose what group users can message you from by turning your chat on/off below.</div>
                   <div className="space-y-3">
-                    {spaces.map((space) => (
-                      <div key={space.id} className="flex items-center justify-between bg-transparent">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-[10px] flex items-center justify-center text-lg font-bold text-white overflow-hidden" style={{ backgroundColor: typeof space.logo === 'string' ? space.color : 'transparent' }}>
-                            {typeof space.logo === 'string' ? space.logo : space.logo}
-                          </div>
-                          <span className="font-bold text-[17px] text-[#181818]">{space.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 font-bold text-[15px] cursor-default">
-                            <MessageSquare size={20} className="text-gray-400" />
-                            ON
-                            <ChevronDown size={18} className="text-gray-400" />
-                          </button>
-                        </div>
+                    {loadingSpaces ? (
+                      <div className="py-4 flex justify-center items-center">
+                        <div className="animate-spin h-6 w-6 rounded-full border-t-2 border-b-2 border-teal-500"></div>
                       </div>
-                    ))}
+                    ) : userSpaces.length > 0 ? (
+                      userSpaces.map((space) => (
+                        <div key={space.id} className="flex items-center justify-between bg-transparent">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-[10px] flex items-center justify-center text-lg font-bold text-white overflow-hidden" style={{ backgroundColor: '#74B9FF' }}>
+                              {space.icon_image ? (
+                                <img src={space.icon_image} alt={space.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{space.name.charAt(0).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <span className="font-bold text-[17px] text-[#181818]">{space.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 font-bold text-[15px] cursor-default">
+                              <MessageSquare size={20} className="text-gray-400" />
+                              ON
+                              <div className="flex items-center">
+                                <MinimalUpDownChevronIcon size={18} color="#979BAA" />
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-4 text-center text-gray-500">
+                        <p>You haven't joined any spaces yet.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 {/* Blocked users */}
@@ -1245,7 +1312,9 @@ export default function UserSettings() {
                       <option value="dark">Dark</option>
                       <option value="system">System</option>
                     </select>
-                    <ChevronDown size={24} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <MinimalUpDownChevronIcon size={24} color="#979BAA" />
+                    </div>
                   </div>
                 </div>
               </div>

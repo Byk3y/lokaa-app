@@ -1,7 +1,13 @@
-import { MoreVertical, Share, Download, File, FileText, ImageIcon, Link2, PlayCircle } from "lucide-react";
+import { MoreHorizontal, MoreVertical, Share, Download, File, FileText, ImageIcon, Link2, PlayCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import React, { useCallback, useMemo, memo } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -302,24 +308,42 @@ const PostCard = memo(function PostCard({
         ease: [0.25, 0.1, 0.25, 1.0],
       }}
       className={cn(
-        "relative flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow w-full max-w-full overflow-hidden",
-        optimisticPinned ? "ring-1 ring-teal-200" : "",
+        "relative flex flex-col bg-white sm:rounded-xl rounded-none border sm:border-gray-200 border-transparent shadow-sm hover:shadow-md transition-shadow w-full max-w-full overflow-hidden",
+        optimisticPinned ? "sm:border-l-4 sm:border-teal-500 border-l-transparent" : "sm:border-gray-200 border-transparent",
         className
       )}
       onClick={handleCardClick}
     >
       {/* Header Section */}
-      <PostCardHeader
-        author={author}
-        createdAt={createdAt}
-        editedAt={editedAt}
-        category={category}
-        isPinned={optimisticPinned}
-      />
+      <div className="relative">
+        <PostCardHeader
+          author={author}
+          createdAt={createdAt}
+          editedAt={editedAt}
+          category={category}
+          isPinned={optimisticPinned}
+        />
+        {isAdmin && (
+          <div className="absolute top-2 right-2 block sm:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal size={18} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handlePinToggle(e); }}>
+                  {optimisticPinned ? "Unpin Post" : "Pin Post"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+      </div>
       
       {/* Content Section with Image Preview */}
-      <div className="px-2 sm:px-4 flex-grow flex items-start overflow-hidden">
-        <div className={cn("flex-grow flex flex-col overflow-hidden", firstImageAttachment ? "mr-2 sm:mr-4" : "")}>
+      <div className="px-0 sm:px-4 flex-grow flex items-start overflow-hidden py-2">
+        <div className={cn("flex-grow flex flex-col overflow-hidden", firstImageAttachment ? "mr-0 sm:mr-4" : "")}>
           <PostCardContent
             title={title}
             content={content}

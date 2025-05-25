@@ -1,27 +1,30 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Copy, Edit, Clock, Calendar, MapPin, Link as LinkIcon, Twitter, Linkedin, Github } from "lucide-react";
-import { format } from "date-fns";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "@/hooks/use-toast";
-import ProfileImageUploader from "./ProfileImageUploader";
-import { Database } from "@/types/supabase";
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { 
+  MapPin, 
+  Calendar, 
+  Pencil, 
+  Link as LinkIcon, 
+  Twitter, 
+  Facebook, 
+  Linkedin, 
+  Instagram, 
+  Globe, 
+  Github
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
+import ProfileImageUploader from './ProfileImageUploader';
+import FollowButton from './FollowButton';
+import FollowStats from './FollowStats';
 
 interface ProfileHeaderProps {
-  profileData: Database['public']['Tables']['users']['Row'];
+  profileData: any;
   isCurrentUser: boolean;
 }
-
-// Helper to get social icon
-const getSocialIcon = (platform: string) => {
-  const lcPlatform = platform.toLowerCase();
-  if (lcPlatform.includes('twitter')) return <Twitter className="h-5 w-5" />;
-  if (lcPlatform.includes('linkedin')) return <Linkedin className="h-5 w-5" />;
-  if (lcPlatform.includes('github')) return <Github className="h-5 w-5" />;
-  return <LinkIcon className="h-5 w-5" />;
-};
 
 export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHeaderProps) {
   const navigate = useNavigate();
@@ -65,6 +68,9 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
     // If needed, update the profileData or state in parent component
   };
 
+  // Check if we need to render social links
+  const hasSocialLinks = userData.socialLinks && Object.values(userData.socialLinks).some(link => !!link);
+  
   return (
     <div className="w-full flex flex-col items-center text-center">
       {/* Avatar */}
@@ -86,12 +92,42 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
 
       {/* User name */}
       <h2 className="text-2xl font-semibold">{userData.fullName}</h2>
-      {userData.username && <p className="text-sm text-gray-500">@{userData.username}</p>}
+      {userData.username && <p className="text-sm text-gray-500 mb-1">@{userData.username}</p>}
+
+      {/* Follow Stats */}
+      {profileData.id && (
+        <div className="mt-2 mb-3">
+          <FollowStats 
+            userId={profileData.id} 
+            showLabels={true}
+            size="md"
+          />
+        </div>
+      )}
 
       {/* Role badge */}
       {userData.role === 'creator' && (
         <Badge variant="secondary" className="mt-2 bg-amber-100 text-amber-800">Creator</Badge>
       )}
+
+      {/* Follow Button / Edit Profile */}
+      <div className="mt-4 mb-2">
+        {isCurrentUser ? (
+          <Button 
+            variant="outline" 
+            className="border-gray-300" 
+            onClick={handleEditProfile}
+          >
+            <Pencil className="h-4 w-4 mr-1.5" /> Edit Profile
+          </Button>
+        ) : (
+          <FollowButton 
+            userId={profileData.id} 
+            size="md" 
+            variant="default"
+          />
+        )}
+      </div>
 
       {/* Location */}
       {userData.location && (
@@ -107,41 +143,57 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
         <span className="text-sm">Member since {memberSince}</span>
       </div>
 
-      {/* Social Links - increased margin top for spacing */}
-      {userData.socialLinks && Object.keys(userData.socialLinks).length > 0 && (
-        <div className="flex gap-3 mt-4">
-          {Object.entries(userData.socialLinks).map(([platform, link]) => {
-            // Basic validation for link
-            if (typeof link === 'string' && link.trim() !== '') {
-              return (
-                <a 
-                  key={platform} 
-                  href={link.startsWith('http') ? link : `https://${link}`} // Ensure link has protocol
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  aria-label={`Visit ${userData.fullName}\'s ${platform} profile`}
-                  className="text-gray-500 hover:text-primary transition-colors"
-                >
-                  {getSocialIcon(platform)}
-                </a>
-              );
-            }
-            return null;
-          })}
+      {/* Social Links */}
+      {hasSocialLinks && (
+        <div className="flex items-center justify-center gap-3 mt-4">
+          {userData.socialLinks?.twitter && (
+            <Link to={ensureHttpPrefix(userData.socialLinks.twitter)} target="_blank" className="text-gray-500 hover:text-blue-400 transition-colors">
+              <Twitter className="h-5 w-5" />
+            </Link>
+          )}
+          {userData.socialLinks?.facebook && (
+            <Link to={ensureHttpPrefix(userData.socialLinks.facebook)} target="_blank" className="text-gray-500 hover:text-blue-600 transition-colors">
+              <Facebook className="h-5 w-5" />
+            </Link>
+          )}
+          {userData.socialLinks?.linkedin && (
+            <Link to={ensureHttpPrefix(userData.socialLinks.linkedin)} target="_blank" className="text-gray-500 hover:text-blue-700 transition-colors">
+              <Linkedin className="h-5 w-5" />
+            </Link>
+          )}
+          {userData.socialLinks?.instagram && (
+            <Link to={ensureHttpPrefix(userData.socialLinks.instagram)} target="_blank" className="text-gray-500 hover:text-pink-600 transition-colors">
+              <Instagram className="h-5 w-5" />
+            </Link>
+          )}
+          {userData.socialLinks?.github && (
+            <Link to={ensureHttpPrefix(userData.socialLinks.github)} target="_blank" className="text-gray-500 hover:text-gray-800 transition-colors">
+              <Github className="h-5 w-5" />
+            </Link>
+          )}
+          {userData.socialLinks?.website && (
+            <Link to={ensureHttpPrefix(userData.socialLinks.website)} target="_blank" className="text-gray-500 hover:text-teal-600 transition-colors">
+              <Globe className="h-5 w-5" />
+            </Link>
+          )}
         </div>
       )}
-
-      {/* Action buttons */}
-      <div className="flex gap-2 mt-6">
-        {isCurrentUser && (
-          <Button variant="default" className="bg-blue-500 hover:bg-blue-600" onClick={handleEditProfile}>
-            <Edit className="h-4 w-4 mr-1" /> Edit
-          </Button>
-        )}
-        <Button variant="outline" onClick={handleCopyLink}>
-          <Copy className="h-4 w-4 mr-1" />
-        </Button>
-      </div>
+      
+      {/* Copy Profile Link */}
+      <Button 
+        variant="ghost" 
+        className="text-gray-500 text-sm mt-3" 
+        onClick={handleCopyLink}
+      >
+        <LinkIcon className="h-4 w-4 mr-1.5" />
+        Copy profile link
+      </Button>
     </div>
   );
+}
+
+// Helper function to ensure URLs have http/https prefix
+function ensureHttpPrefix(url: string): string {
+  if (!url) return '';
+  return url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
 }

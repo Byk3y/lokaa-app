@@ -19,6 +19,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useSpaceMembership } from '@/contexts/SpaceMembershipContext'; // Import the context hook
+import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 
 // Define the space interface
 interface Space {
@@ -62,6 +63,15 @@ export default function SpaceSwitcher({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const navigate = useNavigate();
   const { refreshSpacesTrigger } = useSpaceMembership(); // Use the context hook
+  // Get the current space from the store to ensure we have the latest icon
+  const { space: storeSpace } = useSpaceSettingsStore();
+  
+  // Debug log to track icon usage
+  console.log("SpaceSwitcher props check:", { 
+    currentSpaceSubdomain, 
+    currentSpaceName,
+    hideTriggerLabel
+  });
 
   // Fetch all spaces the user has access to
   useEffect(() => {
@@ -209,7 +219,21 @@ export default function SpaceSwitcher({
   const currentSpaceDetails = spaces.find(space => space.subdomain === currentSpaceSubdomain);
   const displayName = currentSpaceName || currentSpaceDetails?.name || currentSpaceSubdomain;
   const formattedDisplayName = capitalizeWords(displayName);
-  const currentIcon = currentSpaceDetails?.icon_image;
+  
+  // Prioritize icon from the store for the current space to ensure freshness
+  const currentIcon = storeSpace?.subdomain === currentSpaceSubdomain 
+    ? storeSpace?.icon_image 
+    : currentSpaceDetails?.icon_image;
+  
+  // Debug log to see if we're getting the icon
+  console.log("SpaceSwitcher icon check:", {
+    currentSpaceSubdomain,
+    currentIcon,
+    storeSpaceIcon: storeSpace?.icon_image,
+    storeSpaceSubdomain: storeSpace?.subdomain,
+    fetchedSpaces: spaces.length,
+    currentSpaceDetails
+  });
 
   return (
     <TooltipProvider>

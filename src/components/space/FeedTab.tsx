@@ -751,12 +751,12 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
   const userAvatarForModal = currentUser?.user_metadata?.avatar_url;
   
   return (
-    <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4 px-2 sm:px-4 pt-3.5 pb-3">
+    <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4 sm:px-4 sm:py-3">
       {/* Main Feed Content */}
       <div className="flex-grow space-y-3 sm:space-y-4">
         {/* Composer Area - Mobile Optimized */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm sm:shadow rounded-lg p-3 sm:p-4">
-          <div className="flex items-center space-x-2 sm:space-x-3">
+        <div className="bg-white dark:bg-gray-800 shadow-sm sm:shadow px-0 pb-3 rounded-none sm:rounded-lg sm:p-4">
+          <div className="flex items-center space-x-2 sm:space-x-3 px-3 sm:px-0">
             <Avatar className="h-10 w-10 sm:h-11 sm:w-11">
               <AvatarImage src={currentUser?.user_metadata?.avatar_url || undefined} />
               <AvatarFallback>{currentUser?.email?.[0]?.toUpperCase()}</AvatarFallback>
@@ -772,7 +772,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
           </div>
         
           {/* Category Tabs - Mobile Optimized */}
-          <div className="pt-2 sm:pt-3 flex items-center space-x-2 overflow-x-auto pb-1" role="tablist">
+          <div className="mt-2 sm:mt-4 pt-1 sm:pt-3 flex items-center space-x-2 overflow-x-auto pb-1 px-3 sm:px-0" role="tablist">
             <motion.button 
               role="tab"
               aria-selected={selectedTab === "all"}

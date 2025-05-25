@@ -10,7 +10,7 @@ import { useSpaceCategories } from "@/hooks/useSpaceCategories";
 import { supabase } from "@/lib/supabase";
 import * as Dialog from '@radix-ui/react-dialog';
 import { Cross2Icon } from '@radix-ui/react-icons';
-import type { Attachment } from "@/features/posts/components/CreatePostModal";
+import type { Attachment } from "@/features/posts/types";
 
 // Category creation modal component
 const CreateCategoryModal = ({ isOpen, onClose, spaceId, userId, onCategoryCreated }: { 

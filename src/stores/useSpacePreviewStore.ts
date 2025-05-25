@@ -1,15 +1,14 @@
-import { create } from 'zustand';
+/**
+ * @deprecated This store has been moved to the spaces feature module.
+ * Import from '@/features/spaces' instead.
+ */
 
-interface SpacePreviewStore {
-  isOpen: boolean;
-  spaceId: string | null;
-  open: (spaceId: string) => void;
-  close: () => void;
-}
+import { useSpacePreviewStore as FeatureStore } from '@/features/spaces';
 
-export const useSpacePreviewStore = create<SpacePreviewStore>((set) => ({
-  isOpen: false,
-  spaceId: null,
-  open: (spaceId) => set({ isOpen: true, spaceId }),
-  close: () => set({ isOpen: false })
-})); 
+/**
+ * Re-export the space preview store from the spaces feature module.
+ * This is provided for backward compatibility during the migration period.
+ * 
+ * @deprecated Use useSpacePreviewStore from '@/features/spaces' instead
+ */
+export const useSpacePreviewStore = FeatureStore; 

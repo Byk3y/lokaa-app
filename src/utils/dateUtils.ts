@@ -11,6 +11,12 @@ export function formatJoinedDate(dateString: string): string {
   try {
     const date = new Date(dateString);
     
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn("Invalid date in formatJoinedDate:", dateString);
+      return 'Unknown date';
+    }
+    
     // Return formatted date: "Apr 29, 2025"
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -35,6 +41,12 @@ export function formatDate(
 ): string {
   try {
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn("Invalid date in formatDate:", dateString);
+      return 'Invalid date';
+    }
     
     switch (format) {
       case 'short':
@@ -82,27 +94,38 @@ export function formatDate(
  * @returns Relative time string
  */
 function getRelativeTimeString(date: Date): string {
-  const now = new Date();
-  const diffInMs = now.getTime() - date.getTime();
-  const diffInSecs = Math.floor(diffInMs / 1000);
-  const diffInMins = Math.floor(diffInSecs / 60);
-  const diffInHours = Math.floor(diffInMins / 60);
-  const diffInDays = Math.floor(diffInHours / 24);
-  
-  if (diffInSecs < 60) {
-    return 'Just now';
-  } else if (diffInMins < 60) {
-    return `${diffInMins} minute${diffInMins > 1 ? 's' : ''} ago`;
-  } else if (diffInHours < 24) {
-    return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-  } else if (diffInDays < 7) {
-    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-  } else {
-    // For older dates, return the formatted date
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: now.getFullYear() !== date.getFullYear() ? 'numeric' : undefined
-    });
+  try {
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn("Invalid date in getRelativeTimeString:", date);
+      return 'Unknown time';
+    }
+    
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInSecs = Math.floor(diffInMs / 1000);
+    const diffInMins = Math.floor(diffInSecs / 60);
+    const diffInHours = Math.floor(diffInMins / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+    
+    if (diffInSecs < 60) {
+      return 'Just now';
+    } else if (diffInMins < 60) {
+      return `${diffInMins} minute${diffInMins > 1 ? 's' : ''} ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    } else {
+      // For older dates, return the formatted date
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: now.getFullYear() !== date.getFullYear() ? 'numeric' : undefined
+      });
+    }
+  } catch (error) {
+    console.error('Error in getRelativeTimeString:', error);
+    return 'Unknown time';
   }
 } 

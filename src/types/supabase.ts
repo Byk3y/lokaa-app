@@ -30,6 +30,193 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_conversations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_group: boolean
+          last_message_at: string | null
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_group?: boolean
+          last_message_at?: string | null
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_group?: boolean
+          last_message_at?: string | null
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_conversations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          attachment_type: string | null
+          attachment_url: string | null
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_deleted: boolean
+          is_edited: boolean
+          read_by_ids: string[] | null
+          sender_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          attachment_type?: string | null
+          attachment_url?: string | null
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          is_edited?: boolean
+          read_by_ids?: string[] | null
+          sender_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          attachment_type?: string | null
+          attachment_url?: string | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          is_edited?: boolean
+          read_by_ids?: string[] | null
+          sender_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "user_conversations"
+            referencedColumns: ["conversation_id"]
+          },
+          {
+            foreignKeyName: "chat_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_participants: {
+        Row: {
+          conversation_id: string
+          id: string
+          is_admin: boolean
+          joined_at: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          is_admin?: boolean
+          joined_at?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          is_admin?: boolean
+          joined_at?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "user_conversations"
+            referencedColumns: ["conversation_id"]
+          },
+          {
+            foreignKeyName: "chat_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comment_likes: {
+        Row: {
+          comment_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "post_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comment_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_enrollments: {
         Row: {
           course_id: string
@@ -319,6 +506,38 @@ export type Database = {
           },
         ]
       }
+      poll_votes: {
+        Row: {
+          created_at: string | null
+          id: string
+          option_index: number
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          option_index: number
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          option_index?: number
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poll_votes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_comments: {
         Row: {
           content: string
@@ -416,9 +635,16 @@ export type Database = {
           comment_count: number | null
           content: string
           created_at: string | null
+          edited_at: string | null
           id: string
+          is_pinned: boolean | null
           like_count: number | null
           media_urls: Json | null
+          pin_category: string | null
+          pin_position: number | null
+          pinned_at: string | null
+          pinned_by: string | null
+          poll_data: Json | null
           space_id: string
           title: string | null
           updated_at: string | null
@@ -429,9 +655,16 @@ export type Database = {
           comment_count?: number | null
           content: string
           created_at?: string | null
+          edited_at?: string | null
           id?: string
+          is_pinned?: boolean | null
           like_count?: number | null
           media_urls?: Json | null
+          pin_category?: string | null
+          pin_position?: number | null
+          pinned_at?: string | null
+          pinned_by?: string | null
+          poll_data?: Json | null
           space_id: string
           title?: string | null
           updated_at?: string | null
@@ -442,9 +675,16 @@ export type Database = {
           comment_count?: number | null
           content?: string
           created_at?: string | null
+          edited_at?: string | null
           id?: string
+          is_pinned?: boolean | null
           like_count?: number | null
           media_urls?: Json | null
+          pin_category?: string | null
+          pin_position?: number | null
+          pinned_at?: string | null
+          pinned_by?: string | null
+          poll_data?: Json | null
           space_id?: string
           title?: string | null
           updated_at?: string | null
@@ -807,6 +1047,10 @@ export type Database = {
           cover_image: string | null
           created_at: string
           description: string | null
+          feature_7_day_trial_enabled: boolean | null
+          feature_calendar_enabled: boolean | null
+          feature_classroom_enabled: boolean | null
+          feature_map_enabled: boolean | null
           icon_image: string | null
           id: string
           is_private: boolean
@@ -816,7 +1060,9 @@ export type Database = {
           price_per_month: number | null
           pricing_type: Database["public"]["Enums"]["pricing_type"]
           primary_color: string | null
+          rules_list: Json | null
           subdomain: string
+          support_email: string | null
           updated_at: string
         }
         Insert: {
@@ -824,6 +1070,10 @@ export type Database = {
           cover_image?: string | null
           created_at?: string
           description?: string | null
+          feature_7_day_trial_enabled?: boolean | null
+          feature_calendar_enabled?: boolean | null
+          feature_classroom_enabled?: boolean | null
+          feature_map_enabled?: boolean | null
           icon_image?: string | null
           id?: string
           is_private?: boolean
@@ -833,7 +1083,9 @@ export type Database = {
           price_per_month?: number | null
           pricing_type?: Database["public"]["Enums"]["pricing_type"]
           primary_color?: string | null
+          rules_list?: Json | null
           subdomain: string
+          support_email?: string | null
           updated_at?: string
         }
         Update: {
@@ -841,6 +1093,10 @@ export type Database = {
           cover_image?: string | null
           created_at?: string
           description?: string | null
+          feature_7_day_trial_enabled?: boolean | null
+          feature_calendar_enabled?: boolean | null
+          feature_classroom_enabled?: boolean | null
+          feature_map_enabled?: boolean | null
           icon_image?: string | null
           id?: string
           is_private?: boolean
@@ -850,7 +1106,9 @@ export type Database = {
           price_per_month?: number | null
           pricing_type?: Database["public"]["Enums"]["pricing_type"]
           primary_color?: string | null
+          rules_list?: Json | null
           subdomain?: string
+          support_email?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -921,6 +1179,42 @@ export type Database = {
           {
             foreignKeyName: "user_badges_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_follows_following_id_fkey"
+            columns: ["following_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -1031,6 +1325,70 @@ export type Database = {
           },
         ]
       }
+      user_conversations: {
+        Row: {
+          conversation_id: string | null
+          conversation_name: string | null
+          created_at: string | null
+          is_admin: boolean | null
+          is_group: boolean | null
+          last_message_at: string | null
+          last_read_at: string | null
+          latest_message_content: string | null
+          latest_message_id: string | null
+          latest_message_sender: string | null
+          latest_message_time: string | null
+          other_participants: Json | null
+          unread_count: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_sender_id_fkey"
+            columns: ["latest_message_sender"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_unread_counts: {
+        Row: {
+          conversation_id: string | null
+          unread_count: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "user_conversations"
+            referencedColumns: ["conversation_id"]
+          },
+          {
+            foreignKeyName: "chat_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       about_page_get_space: {
@@ -1052,6 +1410,10 @@ export type Database = {
       check_space_access_safely: {
         Args: { space_id: string; user_id: string }
         Returns: boolean
+      }
+      check_user_poll_vote: {
+        Args: { post_id_param: string; user_id_param: string }
+        Returns: Json
       }
       create_space_safely: {
         Args: { space_name: string; space_subdomain: string; owner_id: string }
@@ -1078,6 +1440,43 @@ export type Database = {
           fixed: boolean
         }[]
       }
+      get_or_create_direct_conversation: {
+        Args: { user1_id: string; user2_id: string }
+        Returns: string
+      }
+      get_pinned_posts_by_category: {
+        Args: { space_id_param: string; category_param?: string }
+        Returns: {
+          id: string
+          content: string
+          title: string
+          user_id: string
+          space_id: string
+          created_at: string
+          updated_at: string
+          is_pinned: boolean
+          pinned_at: string
+          pinned_by: string
+          pin_position: number
+          pin_category: string
+          like_count: number
+          comment_count: number
+          author_name: string
+          author_avatar: string
+        }[]
+      }
+      get_poll_results: {
+        Args: { post_id_param: string }
+        Returns: {
+          option_index: number
+          option_text: string
+          vote_count: number
+        }[]
+      }
+      get_post_with_user_data: {
+        Args: { post_id_param: string; current_user_id_param?: string }
+        Returns: Json[]
+      }
       get_public_spaces: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1085,6 +1484,10 @@ export type Database = {
           cover_image: string | null
           created_at: string
           description: string | null
+          feature_7_day_trial_enabled: boolean | null
+          feature_calendar_enabled: boolean | null
+          feature_classroom_enabled: boolean | null
+          feature_map_enabled: boolean | null
           icon_image: string | null
           id: string
           is_private: boolean
@@ -1094,7 +1497,9 @@ export type Database = {
           price_per_month: number | null
           pricing_type: Database["public"]["Enums"]["pricing_type"]
           primary_color: string | null
+          rules_list: Json | null
           subdomain: string
+          support_email: string | null
           updated_at: string
         }[]
       }
@@ -1105,6 +1510,10 @@ export type Database = {
           cover_image: string | null
           created_at: string
           description: string | null
+          feature_7_day_trial_enabled: boolean | null
+          feature_calendar_enabled: boolean | null
+          feature_classroom_enabled: boolean | null
+          feature_map_enabled: boolean | null
           icon_image: string | null
           id: string
           is_private: boolean
@@ -1114,7 +1523,9 @@ export type Database = {
           price_per_month: number | null
           pricing_type: Database["public"]["Enums"]["pricing_type"]
           primary_color: string | null
+          rules_list: Json | null
           subdomain: string
+          support_email: string | null
           updated_at: string
         }[]
       }
@@ -1126,9 +1537,29 @@ export type Database = {
         Args: { space_id_to_check: string; user_id_to_check: string }
         Returns: boolean
       }
+      is_space_admin: {
+        Args: { user_id_to_check: string; space_id_to_check: string }
+        Returns: boolean
+      }
+      is_user_in_conversation_for_rls: {
+        Args: { user_id_check: string; conversation_id_check: string }
+        Returns: boolean
+      }
       join_space_directly: {
         Args: { user_id_param: string; space_id_param: string }
         Returns: Json
+      }
+      mark_conversation_as_read: {
+        Args: { p_user_id: string; p_conversation_id: string }
+        Returns: undefined
+      }
+      pin_post: {
+        Args: { post_id: string; category?: string }
+        Returns: Json
+      }
+      pin_post_frontend: {
+        Args: { post_id: string; category_name: string }
+        Returns: undefined
       }
       public_join_space: {
         Args: { p_space_id: string }
@@ -1146,6 +1577,10 @@ export type Database = {
         }
         Returns: string
       }
+      reorder_pinned_posts: {
+        Args: { post_ids: string[]; positions: number[] }
+        Returns: undefined
+      }
       space_by_subdomain: {
         Args: { target_subdomain: string }
         Returns: {
@@ -1153,6 +1588,10 @@ export type Database = {
           cover_image: string | null
           created_at: string
           description: string | null
+          feature_7_day_trial_enabled: boolean | null
+          feature_calendar_enabled: boolean | null
+          feature_classroom_enabled: boolean | null
+          feature_map_enabled: boolean | null
           icon_image: string | null
           id: string
           is_private: boolean
@@ -1162,13 +1601,31 @@ export type Database = {
           price_per_month: number | null
           pricing_type: Database["public"]["Enums"]["pricing_type"]
           primary_color: string | null
+          rules_list: Json | null
           subdomain: string
+          support_email: string | null
           updated_at: string
         }[]
+      }
+      toggle_post_pin: {
+        Args: { post_id: string; pin_action?: string; category?: string }
+        Returns: Json
+      }
+      unpin_post: {
+        Args: { post_id: string }
+        Returns: Json
+      }
+      unpin_post_frontend: {
+        Args: { post_id: string }
+        Returns: undefined
       }
       update_member_activity: {
         Args: { p_user_id: string; p_space_id: string }
         Returns: boolean
+      }
+      update_pin_positions: {
+        Args: { post_ids: string[]; category?: string }
+        Returns: Json
       }
       update_space_setup: {
         Args: { p_space_id: string; p_task: string; p_completed: boolean }
@@ -1182,12 +1639,20 @@ export type Database = {
           updated_at: string | null
         }[]
       }
+      update_user_activity_scores: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       user_activity_by_month: {
         Args: { user_id_input: string; start_date: string }
         Returns: {
           month: string
           contributions: number
         }[]
+      }
+      vote_on_poll: {
+        Args: { post_id_param: string; option_index_param: number }
+        Returns: Json
       }
     }
     Enums: {

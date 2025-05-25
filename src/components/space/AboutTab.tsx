@@ -15,9 +15,13 @@ import { useNavigate } from "react-router-dom";
 import { useSpace } from "@/contexts/SpaceContext";
 import { useMembership } from "@/contexts/MembershipContext";
 import { Database } from "@/types/supabase";
+import useSpaceDescriptionManager from "@/hooks/useSpaceDescriptionManager";
+import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
+import { resolveImageUrl } from "@/utils/preloadAssets";
+import SpaceInfoSidebar from "./SpaceInfoSidebar";
 
 interface AboutTabProps {
-  onSpaceUpdate?: (updatedSpace: Database['public']['Tables']['spaces']['Row'] | null) => void;
+  // onSpaceUpdate?: (updatedSpace: Database['public']['Tables']['spaces']['Row'] | null) => void; // Removed
 }
 
 interface MediaItem {
@@ -44,11 +48,16 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
-  const { spaceData, loading, error, fetchSpaceData } = useSpace();
+export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Removed onSpaceUpdate from props
+  const { spaceData, loading, error, fetchSpaceData } = useSpace(); // Keep for now, evaluate if storeSpace can replace entirely
   const { user } = useAuth();
   const navigate = useNavigate();
-  const openSpaceSettingsModal = useSpaceSettingsModal(state => state.open);
+  const { open: openSettingsModal } = useSpaceSettingsModal();
+  const { 
+    space: storeSpace, 
+    loadActiveSpace, 
+    permissions: storePermissions 
+  } = useSpaceSettingsStore();
   
   // Use MembershipContext instead of direct Supabase calls
   const { 
@@ -57,6 +66,18 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
     loading: membershipLoading, 
     joinSpace 
   } = useMembership();
+  
+  // useSpaceDescriptionManager for main space description
+  const {
+    editingDescription,
+    setEditingDescription,
+    descriptionText,
+    descriptionLength,
+    handleDescriptionChange,
+    saveDescription,
+    cancelDescription,
+    isSavingDescription,
+  } = useSpaceDescriptionManager();
   
   // State for UI components
   const [showMediaModal, setShowMediaModal] = useState(false);
@@ -77,24 +98,22 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
   // State for joining a space
   const [joiningSpace, setJoiningSpace] = useState(false);
   
-  // About description state
-  const [aboutDescription, setAboutDescription] = useState(spaceData?.about_description || "");
-  const [aboutCharCount, setAboutCharCount] = useState((spaceData?.about_description || "").length);
+  // Permissions from store
+  const canEditSpace = storePermissions?.canEditSpace ?? false;
+  
+  // About description state - now initialized from storeSpace
+  const [aboutDescription, setAboutDescription] = useState(storeSpace?.about_description || "");
+  const [aboutCharCount, setAboutCharCount] = useState((storeSpace?.about_description || "").length);
   const [editingAbout, setEditingAbout] = useState(false);
   const [aboutChanged, setAboutChanged] = useState(false);
   const [savingAbout, setSavingAbout] = useState(false);
   
-  // Update aboutDescription when spaceData.about_description changes
+  // Update aboutDescription when storeSpace.about_description changes
   useEffect(() => {
-    setAboutDescription(spaceData?.about_description || "");
-    setAboutCharCount((spaceData?.about_description || "").length);
-    setAboutChanged(false);
-  }, [spaceData?.about_description]);
-  
-  // Description state
-  const [description, setDescription] = useState("");
-  const [characterCount, setCharacterCount] = useState(0);
-  const [isEditing, setIsEditing] = useState(false);
+    setAboutDescription(storeSpace?.about_description || "");
+    setAboutCharCount((storeSpace?.about_description || "").length);
+    setAboutChanged(false); // Reset changed status when underlying data changes
+  }, [storeSpace?.about_description]);
   
   // Add state for owner information
   const [ownerData, setOwnerData] = useState<{
@@ -102,7 +121,56 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
     email: string | null;
     username: string | null;
     display_name: string | null;
+    avatar_url: string | null;
   } | null>(null);
+  
+  const fetchOwnerData = async () => {
+    if (!spaceData?.owner_id) return;
+    
+    try {
+      console.log("Fetching owner data for ID:", spaceData?.owner_id);
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, display_name, avatar_url')
+        .eq('id', spaceData?.owner_id)
+        .single();
+        
+      if (error) {
+        console.error("Error fetching owner data:", error);
+        return;
+      }
+      
+      if (data) {
+        console.log("Owner data retrieved:", data);
+        // Type assertion to handle the data properly
+        const userData = data as unknown as {
+          id: string;
+          email: string | null;
+          display_name: string | null;
+          avatar_url: string | null;
+        };
+        
+        // Only use the display_name if it exists
+        setOwnerData({
+          id: userData.id,
+          email: userData.email,
+          username: null,
+          display_name: userData.display_name,
+          avatar_url: userData.avatar_url
+        });
+      }
+    } catch (err) {
+      console.error("Exception fetching owner data:", err);
+    }
+  };
+  
+  useEffect(() => {
+    fetchOwnerData();
+  }, [spaceData?.owner_id]);
+  
+  const sidebarOwnerProps = ownerData 
+    ? { ownerDisplayName: ownerData.display_name, ownerAvatarUrl: ownerData.avatar_url } 
+    : { ownerDisplayName: undefined, ownerAvatarUrl: undefined };
   
   // Function to handle joining the space
   const handleJoinSpace = async () => {
@@ -149,12 +217,12 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
     const val = e.target.value;
     setAboutDescription(val);
     setAboutCharCount(val.length);
-    setAboutChanged(val !== (spaceData?.about_description || ""));
+    setAboutChanged(val !== (storeSpace?.about_description || "")); // Compare with storeSpace
   };
   
   // Save about description
   const handleSaveAbout = async () => {
-    if (!aboutChanged || !aboutDescription.trim() || !spaceData?.id) return;
+    if (!aboutChanged || !aboutDescription.trim() || !storeSpace?.id || !user) return; // Use storeSpace.id and check user
     
     setSavingAbout(true);
     try {
@@ -164,7 +232,7 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
       const { error } = await supabase
         .from('spaces')
         .update(updateData)
-        .eq('id', spaceData?.id);
+        .eq('id', storeSpace.id); // Use storeSpace.id
       
       if (error) throw error;
       
@@ -176,19 +244,12 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
       setEditingAbout(false);
       setAboutChanged(false);
       
-      if (onSpaceUpdate) {
-        const { data } = await supabase
-          .from('spaces')
-          .select('*')
-          .eq('id', spaceData?.id)
-          .single();
-        onSpaceUpdate(data);
-        
-        // Also refresh the space data in the context
-        if (spaceData?.subdomain) {
-          fetchSpaceData(spaceData?.subdomain, true);
+      // Refresh data using loadActiveSpace from the store
+      if (storeSpace?.subdomain && user?.id) {
+        loadActiveSpace({ subdomain: storeSpace.subdomain }, user.id, true);
         }
-      }
+      // Removed onSpaceUpdate call and manual fetchSpaceData
+      
     } catch (err) {
       console.error('Error saving about description:', err);
       toast({
@@ -203,8 +264,8 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
   
   // Cancel about editing
   const handleCancelAbout = () => {
-    setAboutDescription(spaceData?.about_description || "");
-    setAboutCharCount((spaceData?.about_description || "").length);
+    setAboutDescription(storeSpace?.about_description || ""); // Reset from storeSpace
+    setAboutCharCount((storeSpace?.about_description || "").length); // Reset from storeSpace
     setEditingAbout(false);
     setAboutChanged(false);
   };
@@ -277,49 +338,6 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
       localStorage.removeItem(`space_media_${spaceData?.id}`);
     }
   }, [mediaItems, spaceData?.id]);
-  
-  // Update the owner data fetching useEffect
-  useEffect(() => {
-    const fetchOwnerData = async () => {
-      if (!spaceData?.owner_id) return;
-      
-      try {
-        console.log("Fetching owner data for ID:", spaceData?.owner_id);
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, email, display_name')
-          .eq('id', spaceData?.owner_id)
-          .single();
-          
-        if (error) {
-          console.error("Error fetching owner data:", error);
-          return;
-        }
-        
-        if (data) {
-          console.log("Owner data retrieved:", data);
-          // Type assertion to handle the data properly
-          const userData = data as unknown as {
-            id: string;
-            email: string | null;
-            display_name: string | null;
-          };
-          
-          // Only use the display_name if it exists
-          setOwnerData({
-            id: userData.id,
-            email: userData.email,
-            username: null,
-            display_name: userData.display_name
-          });
-        }
-      } catch (err) {
-        console.error("Exception fetching owner data:", err);
-      }
-    };
-    
-    fetchOwnerData();
-  }, [spaceData?.owner_id]);
   
   const handleUploadImage = () => {
     // Open the media modal instead of settings
@@ -750,12 +768,12 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
   
   // Settings button handler
   const handleOpenSettings = () => {
-    if (spaceData?.id && spaceData?.subdomain) {
-      openSpaceSettingsModal(spaceData?.id, spaceData?.subdomain);
+    if (storeSpace?.id && storeSpace?.subdomain) {
+      openSettingsModal(storeSpace.id, storeSpace.subdomain);
     } else {
       toast({
         title: "Error",
-        description: "Space information is missing",
+        description: "Space information is missing or not loaded yet.",
         variant: "destructive"
       });
     }
@@ -769,66 +787,6 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
 
   // Get the active media item
   const activeMedia = activeMediaIndex !== null ? mediaItems[activeMediaIndex] : null;
-
-  // Handle description changes
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const text = e.target.value;
-    setDescription(text);
-    setCharacterCount(text.length);
-  };
-  
-  // Save description
-  const saveDescription = async () => {
-    try {
-      if (!spaceData?.id) return;
-      
-      // Call supabase to update the description
-      const { error } = await supabase
-        .from('spaces')
-        .update({ description })
-        .eq('id', spaceData?.id);
-        
-      if (error) throw error;
-      
-      // Exit edit mode
-      setIsEditing(false);
-      
-      toast({
-        title: "Description saved",
-        description: "Your space description has been updated.",
-      });
-      
-      // Refresh space data in the context
-      if (spaceData?.subdomain) {
-        fetchSpaceData(spaceData?.subdomain, true);
-      }
-    } catch (error) {
-      console.error("Error saving description:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save description. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-  
-  // Cancel editing
-  const cancelDescription = () => {
-    setDescription("");
-    setCharacterCount(0);
-    setIsEditing(false);
-  };
-
-  // Add effect to fetch space data if needed
-  useEffect(() => {
-    // If we don't have space data yet, fetch it using the subdomain from the URL
-    if (!spaceData && !loading) {
-      const subdomain = window.location.hostname.split('.')[0];
-      if (subdomain && subdomain !== 'localhost' && subdomain !== 'www') {
-        fetchSpaceData(subdomain);
-      }
-    }
-  }, [spaceData, loading, fetchSpaceData]);
 
   // Render join button if not a member
   const renderJoinButton = () => {
@@ -901,151 +859,12 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
   }
 
   return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Main Content Area */}
+        <div className="flex-1 space-y-8">
+          {/* About Description Section */}
     <div className="w-full bg-[#F5FAFA] p-6 rounded-xl">
-      {/* Media Upload Modal */}
-      <Dialog open={showMediaModal} onOpenChange={isUploading ? undefined : setShowMediaModal}>
-        <DialogContent className="sm:max-w-md p-0 gap-0 rounded-xl overflow-hidden border-0">
-          <DialogClose 
-            className={`absolute right-3 top-3 p-1 rounded-full ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`}
-            onClick={handleCloseModal}
-            disabled={isUploading}
-          >
-            <X className="h-4 w-4 text-gray-500" />
-          </DialogClose>
-          
-          <div className="p-6">
-            <DialogTitle className="text-xl font-semibold mb-4">Add media</DialogTitle>
-            
-            {storageError && (
-              <Alert variant="warning" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{storageError}</AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="space-y-4">
-              <div>
-                <p className="mb-2">Upload an image (1400 x 790 recommended, max {MAX_FILE_SIZE_MB}MB).</p>
-                <input 
-                  type="file" 
-                  id="media-file-input" 
-                  ref={fileInputRef}
-                  accept="image/*" 
-                  onChange={handleFileInputChange}
-                  className="hidden" 
-                />
-                <Button 
-                  variant="outline" 
-                  onClick={handleImageUploadClick}
-                  className={`w-full rounded-lg border-gray-300 py-6 uppercase tracking-wide ${selectedFileName ? 'bg-gray-50' : ''}`}
-                  disabled={isUploading}
-                >
-                  {selectedFileName ? (
-                    <>
-                      <FileText className="h-4 w-4 mr-2" />
-                      CHANGE IMAGE
-                    </>
-                  ) : (
-                    "UPLOAD IMAGE"
-                  )}
-                </Button>
-                
-                {selectedFileName && (
-                  <div className="mt-2 text-sm flex items-center text-gray-600">
-                    <FileText className="h-3 w-3 mr-1" /> 
-                    <span className="truncate">{selectedFileName}</span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="text-center my-2">
-                <p>Or, add a YouTube video link.</p>
-              </div>
-              
-              <Input
-                type="text"
-                placeholder="YouTube Link"
-                value={mediaLink}
-                onChange={(e) => setMediaLink(e.target.value)}
-                className="w-full p-3 rounded-lg"
-                disabled={isUploading}
-              />
-              
-              {isUploading && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-600">Uploading{uploadProgress === 100 ? ' complete' : '...'}</span>
-                    <span className="text-sm text-gray-600">{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        uploadProgress === 100 ? 'bg-green-500' : 'bg-[#26A69A]'
-                      }`}
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex justify-end items-center p-4 bg-gray-50 border-t border-gray-100 rounded-b-xl">
-            <Button 
-              variant="ghost" 
-              onClick={handleCloseModal}
-              className="uppercase mr-2 font-medium text-gray-500 hover:text-gray-700"
-              disabled={isUploading}
-            >
-              CANCEL
-            </Button>
-            
-            <Button 
-              onClick={handleAddMedia}
-              className={`${
-                isUploading ? 'bg-gray-400' : 'bg-amber-400 hover:bg-amber-500'
-              } uppercase text-black font-medium px-8`}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {uploadProgress === 100 ? 'FINISHING...' : 'UPLOADING...'}
-                </>
-              ) : 'ADD'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="sm:max-w-md p-6 gap-6 rounded-xl">
-          <DialogTitle className="text-xl font-semibold mb-2">Delete media?</DialogTitle>
-          <p className="text-gray-700">Are you sure you want to delete? You can't undo this.</p>
-          
-          <DialogFooter className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={cancelDelete}
-              className="text-gray-500 font-medium"
-            >
-              CANCEL
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              className="bg-amber-400 hover:bg-amber-500 text-black font-medium"
-            >
-              DELETE
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <div className="flex flex-col md:flex-row gap-8 items-start">
-        {/* Left column - Main content */}
-        <div className="flex-1">
           <h1 className="text-2xl font-bold mb-4 text-[#37474F]">{spaceData?.name}</h1>
           
           {/* Main media area */}
@@ -1189,7 +1008,7 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
             </div>
             <div className="ml-auto">
               <span className="text-sm text-gray-700">
-                By {ownerData?.display_name || spaceData?.owner?.display_name || 'Space Creator'}
+                  By {(ownerData as any)?.display_name || spaceData?.owner?.display_name || 'Space Creator'}
               </span>
             </div>
           </div>
@@ -1198,7 +1017,7 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-[#37474F] mb-3">About this space</h2>
             
-            {isOwner && !editingAbout && (
+              {canEditSpace && !editingAbout && (
               <div className="flex justify-end mb-2">
                 <Button size="sm" variant="outline" onClick={() => setEditingAbout(true)}>
                   Edit
@@ -1234,95 +1053,179 @@ export default function AboutTab({ onSpaceUpdate }: AboutTabProps) {
             ) : (
               <div className="border rounded-lg p-4 bg-gray-50 min-h-[150px]">
                 <p className="whitespace-pre-line text-gray-700">
-                  {spaceData?.about_description || <span className="text-gray-400">No description yet.</span>}
+                    {aboutDescription || <span className="text-gray-400">No description yet.</span>}
                 </p>
               </div>
             )}
+            </div>
           </div>
         </div>
         
-        {/* Right column - Sidebar */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="md:w-80 bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB] rounded-xl p-5 shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)] self-start max-h-[calc(100vh-120px)] overflow-auto"
-        >
-          {/* Cover image uploader */}
-          <motion.div 
-            whileHover={{ 
-              boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)",
-              scale: 1.02
-            }}
-            className="bg-[#26A69A] aspect-video rounded-xl flex items-center justify-center text-white cursor-pointer mb-3 shadow-md transition-all duration-300"
+        {/* Sidebar Area - Now using SpaceInfoSidebar */}
+        {storeSpace && (
+          <div className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
+            <SpaceInfoSidebar
+              spaceName={storeSpace.name}
+              spaceIcon={storeSpace.icon_image}
+              coverImage={storeSpace.cover_image}
+              isPrivate={storeSpace.is_private}
+              memberCount={storeSpace.member_count}
+              ownerDisplayName={sidebarOwnerProps.ownerDisplayName}
+              ownerAvatarUrl={sidebarOwnerProps.ownerAvatarUrl}
+              canAccessSettings={storePermissions?.canAccessSettings}
+              subdomain={storeSpace.subdomain}
+              spaceId={storeSpace.id}
+            />
+          </div>
+        )}
+        {!storeSpace && !loading && (
+          <div className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
+            <p>Loading space details for sidebar...</p>
+          </div>
+        )}
+
+      </div>
+
+      {/* Media Upload Modal */}
+      <Dialog open={showMediaModal} onOpenChange={isUploading ? undefined : setShowMediaModal}>
+        <DialogContent className="sm:max-w-md p-0 gap-0 rounded-xl overflow-hidden border-0">
+          <DialogClose 
+            className={`absolute right-3 top-3 p-1 rounded-full ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`}
+            onClick={handleCloseModal}
+            disabled={isUploading}
           >
-            {spaceData?.cover_image ? (
-              <img 
-                src={spaceData?.cover_image} 
-                alt={`${spaceData?.name} cover`}
-                className="w-full h-full object-cover rounded-xl"
-              />
+            <X className="h-4 w-4 text-gray-500" />
+          </DialogClose>
+          
+          <div className="p-6">
+            <DialogTitle className="text-xl font-semibold mb-4">Add media</DialogTitle>
+            
+            {storageError && (
+              <Alert variant="warning" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{storageError}</AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2">Upload an image (1400 x 790 recommended, max {MAX_FILE_SIZE_MB}MB).</p>
+                <input 
+                  type="file" 
+                  id="media-file-input" 
+                  ref={fileInputRef}
+                  accept="image/*" 
+                  onChange={handleFileInputChange}
+                  className="hidden" 
+                />
+                <Button 
+                  variant="outline" 
+                  onClick={handleImageUploadClick}
+                  className={`w-full rounded-lg border-gray-300 py-6 uppercase tracking-wide ${selectedFileName ? 'bg-gray-50' : ''}`}
+                  disabled={isUploading}
+                >
+                  {selectedFileName ? (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      CHANGE IMAGE
+                    </>
             ) : (
-              <div className="flex flex-col items-center">
-                <Upload size={24} className="mb-1" />
-                <p className="text-sm font-medium">Upload cover photo</p>
+                    "UPLOAD IMAGE"
+                  )}
+                </Button>
+                
+                {selectedFileName && (
+                  <div className="mt-2 text-sm flex items-center text-gray-600">
+                    <FileText className="h-3 w-3 mr-1" /> 
+                    <span className="truncate">{selectedFileName}</span>
               </div>
             )}
-          </motion.div>
-          
-          {/* Space info */}
-          <div className="bg-white rounded-xl border border-[#E0F2F1] p-4 mb-3 shadow-sm overflow-hidden">
-            <h3 className="font-semibold text-[#37474F] mb-1">{spaceData?.name}</h3>
-            <p className="text-sm text-[#78909C] mb-3">
-              lokaa.com/{spaceData?.subdomain || 'space'}
-            </p>
-            
-            <Separator className="my-3 bg-[#E0F2F1]" />
-            
-            <p className="text-sm text-[#37474F] mb-4 whitespace-pre-wrap">
-              {spaceData?.description || "Add your group description here by clicking the \"Settings\" button."}
-            </p>
-            
-            {/* Statistics */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="text-center p-2 bg-[#F5FAFA] rounded-lg shadow-sm">
-                <div className="text-lg font-semibold text-[#26A69A]">{spaceData?.member_count || 1}</div>
-                <div className="text-xs text-[#78909C]">Member{spaceData?.member_count !== 1 ? 's' : ''}</div>
               </div>
-              <div className="text-center p-2 bg-[#F5FAFA] rounded-lg shadow-sm">
-                <div className="text-lg font-semibold text-[#26A69A]">0</div>
-                <div className="text-xs text-[#78909C]">Online</div>
+              
+              <div className="text-center my-2">
+                <p>Or, add a YouTube video link.</p>
               </div>
-              <div className="text-center p-2 bg-[#F5FAFA] rounded-lg shadow-sm">
-                <div className="text-lg font-semibold text-[#26A69A]">1</div>
-                <div className="text-xs text-[#78909C]">Admin</div>
+              
+              <Input
+                type="text"
+                placeholder="YouTube Link"
+                value={mediaLink}
+                onChange={(e) => setMediaLink(e.target.value)}
+                className="w-full p-3 rounded-lg"
+                disabled={isUploading}
+              />
+            
+              {isUploading && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Uploading{uploadProgress === 100 ? ' complete' : '...'}</span>
+                    <span className="text-sm text-gray-600">{uploadProgress}%</span>
               </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        uploadProgress === 100 ? 'bg-green-500' : 'bg-[#26A69A]'
+                      }`}
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+              </div>
+              </div>
+              )}
             </div>
           </div>
           
-          {/* Settings/Join button section */}
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
+          <div className="flex justify-end items-center p-4 bg-gray-50 border-t border-gray-100 rounded-b-xl">
+            <Button 
+              variant="ghost" 
+              onClick={handleCloseModal}
+              className="uppercase mr-2 font-medium text-gray-500 hover:text-gray-700"
+              disabled={isUploading}
           >
-            {isOwner ? (
-              // Show settings button for owners
+              CANCEL
+            </Button>
+            
               <Button 
-                onClick={handleOpenSettings}
-                className="w-full justify-center font-medium text-white bg-[#26A69A] hover:bg-[#FF6F61] rounded-xl transition-colors duration-300"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                SETTINGS
+              onClick={handleAddMedia}
+              className={`${
+                isUploading ? 'bg-gray-400' : 'bg-amber-400 hover:bg-amber-500'
+              } uppercase text-black font-medium px-8`}
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {uploadProgress === 100 ? 'FINISHING...' : 'UPLOADING...'}
+                </>
+              ) : 'ADD'}
               </Button>
-            ) : renderJoinButton()}
-          </motion.div>
-          
-          {/* Powered by */}
-          <div className="text-center text-xs text-[#78909C] mt-3">
-            powered by <span className="text-[#37474F]">Lokaa</span>
           </div>
-        </motion.div>
-      </div>
+        </DialogContent>
+      </Dialog>
+          
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="sm:max-w-md p-6 gap-6 rounded-xl">
+          <DialogTitle className="text-xl font-semibold mb-2">Delete media?</DialogTitle>
+          <p className="text-gray-700">Are you sure you want to delete? You can't undo this.</p>
+          
+          <DialogFooter className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={cancelDelete}
+              className="text-gray-500 font-medium"
+            >
+              CANCEL
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              className="bg-amber-400 hover:bg-amber-500 text-black font-medium"
+            >
+              DELETE
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

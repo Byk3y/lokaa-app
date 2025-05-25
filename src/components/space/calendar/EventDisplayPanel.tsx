@@ -1,4 +1,6 @@
 import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Edit2, Trash2 } from 'lucide-react';
 import type { SpaceEvent } from '@/types/calendar';
 import { EventItemCard } from './EventItemCard'; // Will be created next
 
@@ -26,16 +28,68 @@ export const EventDisplayPanel: React.FC<EventDisplayPanelProps> = ({
   const endOfSelectedDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999);
 
   const eventsForSelectedDate = allEvents.filter(event => {
-    const eventDate = new Date(event.start_time);
-    return eventDate.getFullYear() === selectedDate.getFullYear() &&
-           eventDate.getMonth() === selectedDate.getMonth() &&
-           eventDate.getDate() === selectedDate.getDate();
-  }).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    try {
+      const eventDate = new Date(event.start_time);
+      // Check if the date is valid
+      if (isNaN(eventDate.getTime())) {
+        console.warn("Invalid event date in filter:", event.start_time);
+        return false;
+      }
+      
+      return eventDate.getFullYear() === selectedDate.getFullYear() &&
+            eventDate.getMonth() === selectedDate.getMonth() &&
+            eventDate.getDate() === selectedDate.getDate();
+    } catch (error) {
+      console.error("Error parsing event date:", error);
+      return false;
+    }
+  }).sort((a, b) => {
+    try {
+      const dateA = new Date(a.start_time);
+      const dateB = new Date(b.start_time);
+      
+      // Validate dates
+      if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+        return 0;
+      }
+      
+      return dateA.getTime() - dateB.getTime();
+    } catch (error) {
+      console.error("Error sorting events:", error);
+      return 0;
+    }
+  });
 
   const upcomingEvents = allEvents.filter(event => {
-    const eventStartDate = new Date(event.start_time);
-    return eventStartDate.getTime() > endOfSelectedDay.getTime();
-  }).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    try {
+      const eventStartDate = new Date(event.start_time);
+      // Check if the date is valid
+      if (isNaN(eventStartDate.getTime()) || isNaN(endOfSelectedDay.getTime())) {
+        console.warn("Invalid date in upcoming events filter:", event.start_time);
+        return false;
+      }
+      
+      return eventStartDate.getTime() > endOfSelectedDay.getTime();
+    } catch (error) {
+      console.error("Error filtering upcoming events:", error);
+      return false;
+    }
+  }).sort((a, b) => {
+    try {
+      const dateA = new Date(a.start_time);
+      const dateB = new Date(b.start_time);
+      
+      // Validate dates
+      if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+        return 0;
+      }
+      
+      return dateA.getTime() - dateB.getTime();
+    } catch (error) {
+      console.error("Error sorting upcoming events:", error);
+      return 0;
+    }
+  });
 
   return (
     <div className="flex flex-col h-full">

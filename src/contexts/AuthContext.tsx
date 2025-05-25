@@ -467,6 +467,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: { session }, error } = await supabase.auth.getSession();
       const currentUser = session?.user as User | null;
 
+      // Reset userWantsDiscover flag on fresh login to ensure space redirection works properly
+      // This ensures a user with spaces always gets redirected to their space after login
+      if (currentUser && session) {
+        console.log('[AuthContext/getInitialSession] New session detected, clearing userWantsDiscover flag');
+        sessionStorage.removeItem('userWantsDiscover');
+      }
+
       // --- START MODIFICATION FOR /discover ---
       if (location.pathname === '/discover') {
         console.log('[AuthContext/getInitialSession] Currently on /discover.');
@@ -717,11 +724,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Check if user explicitly wants to stay on the discover page
                 const userWantsDiscover = sessionStorage.getItem('userWantsDiscover') === 'true';
                 
-                // If on discover page and user explicitly navigated there via the space switcher, stay there
+                // If on discover page and user explicitly navigated there via the space switcher, check if they actually have spaces
                 if (currentPath === '/discover' && userWantsDiscover) {
-                  console.log('[AuthContext] SIGNED_IN: On /discover page with userWantsDiscover flag. No redirect.');
-                  sessionStorage.removeItem('userWantsDiscover'); // Clear the flag after using it
-                  didNavigateInHandler = false;
+                  console.log('[AuthContext] SIGNED_IN: On /discover with userWantsDiscover flag. Checking for spaces to determine correct redirect.');
+                  
+                  // Clear the flag immediately to prevent it from causing repeated issues
+                  sessionStorage.removeItem('userWantsDiscover');
+                  
+                  // We'll navigate to /app to check for spaces, which will redirect back to /discover if none exist
+                  // but will go to user's space if they have one
+                  console.log(`[AuthContext] SIGNED_IN: Redirecting to /app to verify space access.`);
+                  setTimeout(() => navigate('/app', { replace: true }), 50);
+                  didNavigateInHandler = true;
                 }
                 // Otherwise, if on a generic auth path, /app, or initial discover page (no switcher flag)
                 // and not already on /app, navigate to /app.
@@ -937,32 +951,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
       
-      // Clear sessionStorage items
+    // Clear sessionStorage items
     const sessionItemsToClear = [
         'selectedSpaceId', 
         'spaceData', 
         'redirect_after_login', 
-        'coming_from_space_switcher'
+        'coming_from_space_switcher',
+        'userWantsDiscover',
+        'active_tab_' // Prefix for active tab storage
       ];
     sessionItemsToClear.forEach(item => {
         try {
-          sessionStorage.removeItem(item);
+          // For prefix items, remove all matching items
+          if (item.endsWith('_')) {
+            Object.keys(sessionStorage)
+              .filter(key => key.startsWith(item))
+              .forEach(matchingKey => {
+                console.log(`Removing session storage item with prefix ${item}:`, matchingKey);
+                sessionStorage.removeItem(matchingKey);
+              });
+          } else {
+            sessionStorage.removeItem(item);
+          }
         } catch (e) {
           console.warn(`Failed to remove ${item} from sessionStorage:`, e);
         }
       });
       
     // Clear any Supabase keys in localStorage (important for Safari and general cleanup)
-      try {
+    try {
         Object.keys(localStorage)
         .filter(key => key.startsWith('sb-')) // Catches all Supabase-related keys
           .forEach(key => {
           console.log(`Removing Supabase localStorage key: ${key}`);
             localStorage.removeItem(key);
           });
-      } catch (e) {
+    } catch (e) {
         console.warn('Failed to clear Supabase local storage items:', e);
-      }
+    }
+
+    // Also try to clear any items in sessionStorage that might be prefixed with sb-
+    try {
+        Object.keys(sessionStorage)
+        .filter(key => key.startsWith('sb-'))
+          .forEach(key => {
+          console.log(`Removing Supabase sessionStorage key: ${key}`);
+            sessionStorage.removeItem(key);
+          });
+    } catch (e) {
+        console.warn('Failed to clear Supabase session storage items:', e);
+    }
     // --- END MODIFICATION ---
     
     try {
