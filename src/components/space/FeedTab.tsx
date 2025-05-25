@@ -1004,7 +1004,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
 
       {/* Sidebar */}
       {currentSpaceData && (
-        <div className="w-[273px] flex-shrink-0">
+        <div className="hidden sm:block w-[273px] flex-shrink-0">
           <SpaceInfoSidebar 
             spaceName={currentSpaceData.name || 'Space'}
             spaceDescription={currentSpaceData.description || undefined}
