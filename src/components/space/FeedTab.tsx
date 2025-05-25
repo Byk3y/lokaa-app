@@ -751,7 +751,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
   const userAvatarForModal = currentUser?.user_metadata?.avatar_url;
   
   return (
-    <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4 px-2 sm:px-4 py-3">
+    <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4 px-2 sm:px-4 pt-3.5 pb-3">
       {/* Main Feed Content */}
       <div className="flex-grow space-y-3 sm:space-y-4">
         {/* Composer Area - Mobile Optimized */}
@@ -772,7 +772,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
           </div>
         
           {/* Category Tabs - Mobile Optimized */}
-          <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 flex items-center space-x-2 overflow-x-auto pb-1" role="tablist">
+          <div className="pt-2 sm:pt-3 flex items-center space-x-2 overflow-x-auto pb-1" role="tablist">
             <motion.button 
               role="tab"
               aria-selected={selectedTab === "all"}
