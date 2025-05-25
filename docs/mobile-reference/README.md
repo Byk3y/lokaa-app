@@ -1,0 +1,1 @@
+Put mobile reference screenshots in this folder. Use filenames like feed-lokaa-current-YYYY-MM-DD.png or feed-skool-reference.png. 
