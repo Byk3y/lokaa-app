@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
 type ProfileImageContextType = {
   profileImageUrl: string | null;
@@ -23,7 +23,7 @@ export function ProfileImageProvider({ children }: { children: React.ReactNode }
     refreshProfileImage();
 
     // Listen for auth state changes to update the profile image
-    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+    const { data: authListener } = getSupabaseClient().auth.onAuthStateChange((event) => {
       if (event === 'USER_UPDATED' || event === 'SIGNED_IN') {
         refreshProfileImage();
       } else if (event === 'SIGNED_OUT') {
@@ -47,7 +47,7 @@ export function ProfileImageProvider({ children }: { children: React.ReactNode }
   // Function to fetch the latest profile image from Supabase
   const refreshProfileImage = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSupabaseClient().auth.getUser();
       if (user?.user_metadata?.avatar_url) {
         setProfileImageUrl(user.user_metadata.avatar_url);
       }

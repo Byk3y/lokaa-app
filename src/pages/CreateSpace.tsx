@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SpaceRedirectData } from "@/utils/spaceRedirect";
 
 export default function CreateSpace() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -44,7 +44,7 @@ export default function CreateSpace() {
         .replace(/\s+/g, "-");
       
       // Check if space with this slug already exists
-      const { data: existingSpace } = await supabase
+      const { data: existingSpace } = await getSupabaseClient()
         .from("spaces")
         .select("id")
         .eq("subdomain", slug)
@@ -61,7 +61,7 @@ export default function CreateSpace() {
       }
       
       // Create the space record with modern styling info
-      const { data: newSpace, error } = await supabase
+      const { data: newSpace, error } = await getSupabaseClient()
         .from("spaces")
         .insert({
           name: groupName,
@@ -83,14 +83,14 @@ export default function CreateSpace() {
         throw error;
       }
 
-      // Explicitly create a space_access record for the owner (as a backup)
+      // Explicitly create a space_members record for the owner (as a backup)
       // This should be handled by the database trigger, but we add this for extra reliability
-      const { error: accessError } = await supabase
-        .from("space_access")
+      const { error: accessError } = await getSupabaseClient()
+        .from("space_members")
         .insert({
           space_id: newSpace.id,
           user_id: user.id,
-          is_active: true,
+          status: 'active',
           role: "admin"
         })
         .select()

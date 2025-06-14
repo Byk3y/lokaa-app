@@ -1,7 +1,7 @@
 /**
  * Error recovery utilities for database and space access issues
  */
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { AuthError, PostgrestError } from '@supabase/supabase-js';
 
 // Define a more specific type for the diagnosis details, matching ErrorRecovery.tsx
@@ -24,7 +24,7 @@ export async function diagnoseDbConnection(): Promise<{
     console.log('Diagnosing database connection...');
     
     // 1. Try a simple query to check if the database is accessible
-    const { data: pingData, error: pingError } = await supabase
+    const { data: pingData, error: pingError } = await getSupabaseClient()
       .from('spaces')
       .select('count(*)', { count: 'exact', head: true });
       
@@ -38,7 +38,7 @@ export async function diagnoseDbConnection(): Promise<{
     }
     
     // 2. Check authentication status
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const { data: { session }, error: authError } = await getSupabaseClient().auth.getSession();
     
     if (authError) {
       console.error('Auth session check failed:', authError);
@@ -105,7 +105,7 @@ export function resetClientState(): void {
 export function performEmergencyReset(): void {
   try {
     // 1. Sign out the user
-    supabase.auth.signOut();
+    getSupabaseClient().auth.signOut();
     
     // 2. Clear localStorage
     localStorage.clear();

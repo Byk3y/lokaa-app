@@ -7,7 +7,7 @@ import { useSpaceEvents } from "@/hooks/useSpaceEvents";
 import type { SpaceEvent } from "@/types/calendar";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 interface CalendarTabProps {
   space: {
@@ -18,7 +18,7 @@ interface CalendarTabProps {
 }
 
 export default function CalendarTab({ space }: CalendarTabProps) {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const isUserAdminOrOwner = user?.id === space.owner_id;
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -76,6 +76,23 @@ export default function CalendarTab({ space }: CalendarTabProps) {
       console.error("Failed to save event:", error);
     }
   };
+
+  // Show temporary message if there are connection issues
+  if (eventsError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center h-full">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+            <h3 className="font-medium text-yellow-800">Calendar Temporarily Unavailable</h3>
+          </div>
+          <p className="text-sm text-yellow-700">
+            We're still recovering from the recent service disruption. Calendar features will be restored soon.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col md:flex-row h-full bg-gray-50 gap-6 p-6">

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useMembership } from "@/contexts/MembershipContext";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { updateLastJoinedSpace } from "@/utils/userSpaceUtils";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 export default function SpaceJoinPage() {
   const { spaceId } = useParams<{ spaceId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const { joinSpace } = useMembership();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export default function SpaceJoinPage() {
         setError(null);
 
         // First fetch the space details to get the subdomain
-        const { data: spaceData, error: spaceError } = await supabase
+        const { data: spaceData, error: spaceError } = await getSupabaseClient()
           .from("spaces")
           .select("id, name, subdomain")
           .eq("id", spaceId)
@@ -74,7 +74,7 @@ export default function SpaceJoinPage() {
             description: `You are now a member of ${spaceData.name}. Redirecting...`,
           });
           
-          navigate(`/${spaceData.subdomain}/space/feed`, { replace: true });
+          navigate(`/${spaceData.subdomain}/space`, { replace: true });
         } else {
           // If joinSpace from context returns false, it implies an issue (e.g., RPC error, success:false from RPC).
           // It should have already shown a specific error toast.

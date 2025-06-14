@@ -3,7 +3,7 @@ import { DisplayMember } from '@/components/space/MembersTab';
 import { MemberRole } from '@/types/members';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +29,8 @@ interface LeadershipDisplayProps {
   spaceOwnerId?: string;
   onChangeRole: (member: DisplayMember, newRole: MemberRole) => void;
   onRemoveMember: (member: DisplayMember) => void;
+  onMemberClick?: (member: DisplayMember) => void;
+  onChatClick?: (member: DisplayMember) => void;
 }
 
 // const pentagonClipPath = "polygon(50% 0%, 100% 40%, 90% 100%, 10% 100%, 0% 40%)"; // Replaced by SVG clip path
@@ -48,17 +50,15 @@ const AdminOwnerCard: React.FC<{
   spaceOwnerId?: string;
   onChangeRole: (member: DisplayMember, newRole: MemberRole) => void;
   onRemoveMember: (member: DisplayMember) => void;
-}> = ({ member, currentUserId, currentUserRoleInSpace, spaceOwnerId, onChangeRole, onRemoveMember }) => {
+  onClick?: (member: DisplayMember) => void;
+  onChatClick?: (member: DisplayMember) => void;
+}> = ({ member, currentUserId, currentUserRoleInSpace, spaceOwnerId, onChangeRole, onRemoveMember, onClick, onChatClick }) => {
   const canPerformActions = currentUserRoleInSpace === 'owner' || (currentUserRoleInSpace === 'admin' && member.role !== 'owner');
   const isSelf = member.user_id === currentUserId;
   const isOwner = member.user_id === spaceOwnerId; // Determine if this card is for the owner
 
-  return (
-    <div className={`
-      flex flex-col items-center p-6 bg-card rounded-xl shadow-lg w-full max-w-[280px] 
-      border ${isOwner ? 'border-primary/60' : 'border-border/50'} 
-      space-y-3 transition-all duration-200 ease-in-out hover:shadow-xl hover:scale-[1.03]
-    `}>
+  const cardContent = (
+    <>
       <Avatar className="w-24 h-24 mb-2 ring-1 ring-border ring-offset-2 ring-offset-background">
         <AvatarImage src={member.avatar_url || undefined} alt={member.full_name || 'User'} />
         <AvatarFallback className="text-3xl">{getInitials(member.full_name || 'U')}</AvatarFallback>
@@ -69,11 +69,31 @@ const AdminOwnerCard: React.FC<{
         <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
       </div>
       
+      {/* Chat button for non-self members */}
+      {!isSelf && onChatClick && (
+        <Button
+          onClick={(e) => {
+            e.stopPropagation();
+            onChatClick(member);
+          }}
+          size="sm"
+          className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2 rounded-lg transition-colors"
+        >
+          <MessageSquare size={16} />
+          <span>Chat</span>
+        </Button>
+      )}
+      
       {canPerformActions && member.user_id !== spaceOwnerId && !isSelf && (
         <div className="pt-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()} // Prevent triggering card click
+              >
                 <MoreHorizontal className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
@@ -102,6 +122,46 @@ const AdminOwnerCard: React.FC<{
       {isSelf && <p className="text-xs text-muted-foreground">(This is you)</p>}
       {/* If no actions and not self, ensure card maintains some height or add a placeholder for alignment */}
       {!(canPerformActions && member.user_id !== spaceOwnerId && !isSelf) && !isSelf && <div className="h-[36px]"></div>} 
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <div
+        onClick={(e) => {
+          // Only trigger onClick if the click didn't come from a button
+          if (!e.target?.closest('button')) {
+            onClick(member);
+          }
+        }}
+        className={`
+          flex flex-col items-center p-6 bg-card rounded-2xl shadow-md w-full max-w-[280px] 
+          border ${isOwner ? 'border-primary/50' : 'border-transparent'} 
+          space-y-3 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1
+          cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
+        `}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick(member);
+          }
+        }}
+        aria-label={`View profile of ${member.full_name || 'member'}`}
+      >
+        {cardContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`
+      flex flex-col items-center p-6 bg-card rounded-2xl shadow-md w-full max-w-[280px] 
+      border ${isOwner ? 'border-primary/50' : 'border-transparent'} 
+      space-y-3 transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1
+    `}>
+      {cardContent}
     </div>
   );
 };
@@ -114,6 +174,8 @@ export const LeadershipDisplay: React.FC<LeadershipDisplayProps> = ({
   spaceOwnerId,
   onChangeRole,
   onRemoveMember,
+  onMemberClick,
+  onChatClick,
 }) => {
   const allLeaders = owner ? [owner, ...admins] : admins;
 
@@ -135,6 +197,8 @@ export const LeadershipDisplay: React.FC<LeadershipDisplayProps> = ({
             spaceOwnerId={spaceOwnerId}
             onChangeRole={onChangeRole}
             onRemoveMember={onRemoveMember}
+            onClick={onMemberClick}
+            onChatClick={onChatClick}
           />
         ))}
       </div>

@@ -1,24 +1,25 @@
 import { useEffect, useState, useRef, useLayoutEffect, ReactNode } from "react";
 import { Outlet, useParams, useNavigate, Link, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth, User } from "@/contexts/AuthContext";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { User } from '@/contexts/AuthContext';
 import { useSpace, SpaceData } from "@/contexts/SpaceContext";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Settings, Camera, Users, MessageSquare, Calendar, Trophy, BookOpen, GraduationCap } from "lucide-react";
+import { Loader2, Settings, Camera } from "lucide-react";
 import SpaceSwitcher from "@/components/spaces/SpaceSwitcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { motion } from "framer-motion";
+
 import useSpaceSettingsModal from "@/hooks/useSpaceSettingsModal";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
 import SpaceSettingsModal from "@/components/modals/SpaceSettingsModal";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
+import BottomNav from "@/components/mobile/BottomNav";
+import { getSpaceTabIcon, FeedIcon } from "@/components/ui/nav-icons";
 
 // Header component for space
-export function Header({ user, space }: { user: User | null; space: SpaceData | null }) {
+export function Header({ user, space, children }: { user: User | null; space: SpaceData | null; children?: ReactNode }) {
   // Try to get the current space name even when not directly set
   const [contextSpace, setContextSpace] = useState<{name: string; subdomain?: string; id?: string} | null>(null);
   const [isContextLoaded, setIsContextLoaded] = useState(false);
@@ -103,7 +104,7 @@ export function Header({ user, space }: { user: User | null; space: SpaceData | 
 
   return (
     <header className="bg-white border-b py-3 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
+      <div className="max-w-6xl mx-auto flex items-center justify-between pl-8 pr-4">
         {/* Left - Space Logo and Name with Switch Button */}
         <div className="flex items-center">
           <div className="h-10 w-10 bg-[#1A8A7E] rounded-lg flex items-center justify-center text-white font-bold mr-3 shadow-sm relative overflow-hidden">
@@ -122,7 +123,7 @@ export function Header({ user, space }: { user: User | null; space: SpaceData | 
               {contextSpace ? (
                 <div className="flex items-center">
                   <span className="text-gray-800 font-bold text-xl mr-1">
-                    {displayName}
+                    {displayName || 'Profile'}
                   </span>
                   
                   {/* SpaceSwitcher with only the dropdown icon */}
@@ -134,7 +135,7 @@ export function Header({ user, space }: { user: User | null; space: SpaceData | 
                   />
                 </div>
               ) : (
-                <span className="font-bold text-xl text-gray-800 tracking-tight">Spaces</span>
+                <span className="font-bold text-xl text-gray-800 tracking-tight">Profile</span>
               )}
             </div>
           </div>
@@ -142,8 +143,13 @@ export function Header({ user, space }: { user: User | null; space: SpaceData | 
 
         {/* Right - User profile and actions */}
         <div className="flex items-center space-x-6">
+          {/* Render children if provided, otherwise show default buttons */}
+          {children ? (
+            children
+          ) : (
+            <>
           <button className="text-[#4B5563] hover:text-[#1A8A7E] transition-colors">
-            <MessageSquare className="h-5 w-5" />
+            <FeedIcon className="h-5 w-5" />
           </button>
 
           <div className="relative">
@@ -157,6 +163,8 @@ export function Header({ user, space }: { user: User | null; space: SpaceData | 
               </Avatar>
             )}
           </div>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -169,28 +177,21 @@ function PrimaryNav({ tabs, activeTab }: { tabs: string[]; activeTab: string }) 
   const { subdomain } = useParams<{ subdomain?: string }>();
 
   const getIcon = (tab: string) => {
-    switch(tab.toLowerCase()) {
-      case 'feed': return <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />;
-      case 'classroom': return <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />;
-      case 'calendar': return <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />;
-      case 'members': return <Users className="h-4 w-4 sm:h-5 sm:w-5" />;
-      case 'leaderboards': return <Trophy className="h-4 w-4 sm:h-5 sm:w-5" />;
-      case 'about': return <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />;
-      default: return <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />;
-    }
+    return getSpaceTabIcon(tab, "h-4 w-4 sm:h-5 sm:w-5");
   };
 
   return (
     <nav className="bg-slate-50 dark:bg-slate-850 sticky top-16 z-40">
-      <div className="max-w-6xl mx-auto px-2 sm:px-3">
-        <div className="flex overflow-x-auto space-x-1 sm:space-x-2">
-          {tabs.map(tab => {
+      <div className="max-w-6xl mx-auto pl-8 pr-4">
+        <div className="flex overflow-x-auto">
+          {tabs.map((tab, index) => {
             const isActive = activeTab.toLowerCase() === tab.toLowerCase();
+            const isFirst = index === 0;
             return (
               <button
                 key={tab}
                 onClick={() => navigate(`/space/${subdomain}/${tab.toLowerCase()}`)}
-                className={`flex items-center py-2.5 px-4 transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-850 focus-visible:ring-gray-900 border-b-2
+                className={`flex items-center py-2.5 ${isFirst ? 'pr-4' : 'px-4 ml-1 sm:ml-2'} transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-850 focus-visible:ring-gray-900 border-b-2
                   ${isActive
                     ? 'text-gray-900 dark:text-white border-gray-900 dark:border-white font-semibold'
                     : 'text-gray-500 dark:text-gray-400 font-medium border-transparent hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600'
@@ -209,89 +210,32 @@ function PrimaryNav({ tabs, activeTab }: { tabs: string[]; activeTab: string }) 
 
 // Composer component
 function Composer({ onClick, user }: { onClick: () => void; user: User | null }) {
+  const { userDetails } = useOptimizedAuth();
+  
+  // FIXED: Get avatar URL from multiple sources with proper fallback chain
+  const avatarUrl = user?.user_metadata?.avatar_url || 
+                    userDetails?.avatar_url || 
+                    '';
+  
   return (
-    <div className="bg-white rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-[#E1E4E8] overflow-hidden">
-      <div className="px-5 py-4 flex items-center">
-        <Avatar className="h-12 w-12 rounded-lg overflow-hidden mr-5 border-2 border-[#E0F2F1]">
+    <div className="w-full">
+      <div
+        onClick={onClick}
+        className="mb-1 text-gray-500 text-sm font-medium cursor-pointer hover:text-gray-700 transition-colors px-1"
+      >
+        Write something...
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-0 sm:px-3 py-2 sm:py-3 flex items-center gap-3">
+        <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
           <AvatarImage
-            src={user?.user_metadata?.avatar_url}
+            src={avatarUrl}
             alt="Profile"
           />
-          <AvatarFallback className="bg-[#1A8A7E] text-white text-lg">
+          <AvatarFallback className="bg-gray-200 text-gray-600 font-semibold">
             {user?.email?.charAt(0).toUpperCase() || "U"}
           </AvatarFallback>
         </Avatar>
-
-        <div className="flex-grow">
-          <input
-            type="text"
-            placeholder="Write something..."
-            onClick={onClick}
-            className="w-full px-4 py-2.5 bg-gray-50 rounded-xl border border-[#E1E4E8] focus:outline-none focus:ring-0 focus:border-[#1A8A7E] focus:border-2 text-[#37474F] placeholder-[#9CA3AF] transition-all cursor-pointer"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// OnboardingCard component
-function OnboardingCard({ tasks, onTaskClick }: {
-  tasks: { id: string; label: string; completed: boolean }[];
-  onTaskClick: (id: string) => void
-}) {
-  const completedTasks = tasks.filter(task => task.completed).length;
-  const progressValue = (completedTasks / tasks.length) * 100;
-
-  return (
-    <div className="bg-[#F5F6F7] rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden p-6">
-      <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-base font-semibold text-[#111827]">Set up your group</h2>
-          <span className="text-sm font-medium text-[#4B5563]\">{completedTasks}/{tasks.length} Complete</span>
-        </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger className="w-full">
-              <Progress
-                value={progressValue}
-                className="h-2 rounded-full shadow-sm bg-[#E1E4E8] [&>*]:bg-[#1A8A7E]"
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Complete all steps to launch your space faster!</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      <div className="space-y-4">
-        {tasks.map(task => (
-          <div
-            key={task.id}
-            className="flex items-center"
-          >
-            <motion.div
-              className={`h-6 w-6 rounded-full border flex items-center justify-center mr-3 transition-all ${
-                task.completed ? 'bg-[#1A8A7E] border-[#1A8A7E]' : 'border-[#E1E4E8] bg-transparent'
-              }`}
-            >
-              {task.completed && (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M5 12L10 17L19 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
-            </motion.div>
-            <button
-              onClick={() => onTaskClick(task.id)}
-              className={`${
-                task.completed ? 'line-through' : ''
-              } text-sm font-medium flex items-center text-[#111827]`}
-            >
-              {task.label}
-            </button>
-          </div>
-        ))}
+        {/* You can add more composer actions here if needed */}
       </div>
     </div>
   );
@@ -393,16 +337,17 @@ function ErrorScreen({ error, onRetry }: { error: Error; onRetry?: () => void })
 
 interface SpaceLayoutProps {
   header: ReactNode;
-  nav: ReactNode;
+  nav?: ReactNode; // Make nav optional
   children: ReactNode; // For the main content (active tab)
 }
 
+// Layout component that provides the overall structure for a space
 export default function SpaceLayout({
   header,
   nav,
   children,
 }: SpaceLayoutProps) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useOptimizedAuth();
   const { 
     space: storeSpace, 
     loadingSpace: storeLoadingSpace, 
@@ -438,44 +383,34 @@ export default function SpaceLayout({
     }
   }, [children]); // Recalculate if children change
 
-  if (authLoading || (storeLoadingSpace && !storeSpace)) {
-    return <LoadingScreen />;
-  }
-
+  // FIXED: Trust SpaceProtectedRoute - don't show loading screen since access and space data are already verified
+  // SpaceProtectedRoute ensures space data is available before rendering SpaceShellLayout -> SpaceLayout
+  // Only show error state if there's an actual error
   if (storeError) {
     return <ErrorScreen error={new Error(storeError)} onRetry={() => {
       if (subdomain && user) loadActiveSpace({ subdomain }, user.id, true);
     }} />;
   }
 
-  // This could be a fallback if the store didn't load but there was no explicit error
-  // However, the Space.tsx page itself has more robust checks for storeSpace before rendering SpaceLayout
-  // So, this might be redundant here, or could be a very basic "not found" type of message.
-  /*
-  if (!storeSpace && !storeLoadingSpace) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <p>Space data not found.</p>
-        <Button onClick={() => navigate('/discover')}>Discover Spaces</Button>
-      </div>
-    );
-  }
-  */
-
   return (
     <ErrorBoundary FallbackComponent={ErrorScreen}>
       <div className="min-h-screen flex flex-col bg-[#F5FAFA]">
         {header}
 
+        {/* Desktop Navigation - sticky */}
+        {nav && (
+          <div className="hidden lg:block sticky top-[var(--header-height)] z-40">
         {nav}
+          </div>
+        )}
         
         {/* Main content area */}
-        <main className="flex-grow max-w-6xl w-full mx-auto px-4 py-6">
+        <main className="flex-grow max-w-6xl w-full mx-auto">
           {children}
         </main>
 
-        {/* Modals can be rendered here at the layout level if they are global or common */}
-        {/* Example: <SpaceSettingsModal /> if it wasn't already in Space.tsx */}
+        {/* Bottom Navigation - Mobile Only */}
+        <BottomNav />
       </div>
     </ErrorBoundary>
   );

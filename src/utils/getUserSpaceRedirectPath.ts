@@ -25,7 +25,7 @@ export async function getUserSpaceRedirectPath(
 
   try {
     // First, get the IDs of spaces the user is a member of
-    const { data: memberSpaceIdsData, error: memberSpaceIdsError } = await supabase
+    const { data: memberSpaceIdsData, error: memberSpaceIdsError } = await getSupabaseClient()
       .from('space_members')
       .select('space_id')
       .eq('user_id', userId);
@@ -43,7 +43,7 @@ export async function getUserSpaceRedirectPath(
     }
 
     // Now, fetch the details of those spaces
-    const { data: spacesData, error: spacesError } = await supabase
+    const { data: spacesData, error: spacesError } = await getSupabaseClient()
       .from('spaces')
       .select('slug, id, name, created_at')
       .in('id', spaceIds) // Use the array of IDs here

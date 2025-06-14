@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
 /**
  * Direct login function that bypasses React context
@@ -9,10 +9,10 @@ export async function directLogin(email: string, password: string) {
     console.log("Direct login attempt for:", email);
     
     // Clear any existing auth state to prevent conflicts
-    await supabase.auth.signOut();
+    await getSupabaseClient().auth.signOut();
     
     // Attempt login with provided credentials
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
       email,
       password
     });
@@ -25,7 +25,7 @@ export async function directLogin(email: string, password: string) {
     console.log("Direct login successful, user:", data.user?.email);
     
     // Store the session data for immediate use
-    localStorage.setItem('supabase.auth.token', JSON.stringify(data.session));
+    localStorage.setItem('getSupabaseClient().auth.token', JSON.stringify(data.session));
     
     // Give a moment for the auth state to be processed
     return new Promise((resolve) => {
@@ -75,7 +75,7 @@ export const checkActiveSession = async (): Promise<boolean> => {
     });
     
     // Run the actual session check
-    const sessionPromise = supabase.auth.getSession();
+    const sessionPromise = getSupabaseClient().auth.getSession();
     
     // Race between the session check and timeout
     const { data, error } = await Promise.race([sessionPromise, timeoutPromise]);
@@ -126,7 +126,7 @@ export const checkActiveSession = async (): Promise<boolean> => {
  */
 export async function getCurrentUserId(): Promise<string | null> {
   try {
-    const { data, error } = await supabase.auth.getSession();
+    const { data, error } = await getSupabaseClient().auth.getSession();
     if (error || !data.session) {
       return null;
     }
@@ -151,7 +151,7 @@ interface DirectSpaceData {
  */
 export async function getDirectUserSpaces(userId: string): Promise<DirectSpaceData[]> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from('spaces')
       .select('id, name, subdomain, created_at')
       .eq('owner_id', userId)

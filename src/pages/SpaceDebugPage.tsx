@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { useSpace } from '@/contexts/SpaceContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSpace } from '@/hooks/useSpace';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -60,7 +60,7 @@ interface FixResult {
 export default function SpaceDebugPage() {
   const { spaceSubdomain } = useParams<{ spaceSubdomain: string }>();
   const { spaceData, loading: spaceLoading } = useSpace();
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [diagnostic, setDiagnostic] = useState<DiagnosticResult | null>(null);
   const [fixResult, setFixResult] = useState<FixResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -82,7 +82,7 @@ export default function SpaceDebugPage() {
 
     try {
       // Destructure with new names and cast the entire RPC response object
-      const { data: rpcResponseData, error: rpcError } = await supabase.rpc(
+      const { data: rpcResponseData, error: rpcError } = await getSupabaseClient().rpc(
         'debug_space_members',
         { space_id_param: spaceData.id }
       ) as unknown as { data: DiagnosticResult | null; error: PostgrestError | null };
@@ -122,7 +122,7 @@ export default function SpaceDebugPage() {
 
     try {
       // Rename variables and cast the entire RPC response object
-      const { data: fixRpcResponseData, error: fixRpcError } = await supabase.rpc(
+      const { data: fixRpcResponseData, error: fixRpcError } = await getSupabaseClient().rpc(
         'fix_space_members',
         { space_id_param: spaceData.id }
       ) as unknown as { data: FixResult | null; error: PostgrestError | null };

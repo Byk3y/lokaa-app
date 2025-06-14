@@ -1,0 +1,98 @@
+/**
+ * Authentication Recovery Utility
+ * Helps recover from authentication issues after service outages
+ */
+
+import { getSupabaseClient } from '@/integrations/supabase/client';
+
+interface AuthRecoveryOptions {
+  clearCache?: boolean;
+  forceRefresh?: boolean;
+  resetSession?: boolean;
+}
+
+export class AuthRecovery {
+  /**
+   * Attempts to recover authentication state after an outage
+   */
+  static async recoverAuth(options: AuthRecoveryOptions = {}): Promise<boolean> {
+    const { clearCache = true, forceRefresh = true, resetSession = false } = options;
+    
+    try {
+      console.log('🔄 [AuthRecovery] Starting authentication recovery...');
+      
+      // Step 1: Clear localStorage cache if requested
+      if (clearCache) {
+        console.log('🧹 [AuthRecovery] Clearing authentication cache...');
+        localStorage.removeItem('getSupabaseClient().auth.token');
+        localStorage.removeItem('lokaa-auth-cache');
+        localStorage.removeItem('lokaa-space-cache');
+      }
+      
+      // Step 2: Reset session if requested
+      if (resetSession) {
+        console.log('🔄 [AuthRecovery] Resetting session...');
+        await getSupabaseClient().auth.signOut();
+      }
+      
+      // Step 3: Force refresh session
+      if (forceRefresh) {
+        console.log('🔄 [AuthRecovery] Refreshing session...');
+        const { data: { session }, error } = await getSupabaseClient().auth.getSession();
+        
+        if (error) {
+          console.error('❌ [AuthRecovery] Failed to refresh session:', error);
+          return false;
+        }
+        
+        console.log('✅ [AuthRecovery] Session refreshed successfully');
+      }
+      
+      // Step 4: Test basic API connectivity
+      console.log('🔍 [AuthRecovery] Testing API connectivity...');
+      const { data, error } = await getSupabaseClient()
+        .from('spaces')
+        .select('id')
+        .limit(1);
+      
+      if (error) {
+        console.error('❌ [AuthRecovery] API connectivity test failed:', error);
+        return false;
+      }
+      
+      console.log('✅ [AuthRecovery] Authentication recovery completed successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ [AuthRecovery] Recovery failed:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Checks if the current error suggests an authentication recovery is needed
+   */
+  static isAuthError(error: any): boolean {
+    if (!error) return false;
+    
+    const errorMessage = error.message?.toLowerCase() || '';
+    const errorCode = error.code || error.status;
+    
+    return (
+      errorCode === 401 ||
+      errorCode === 403 ||
+      errorMessage.includes('unauthorized') ||
+      errorMessage.includes('invalid jwt') ||
+      errorMessage.includes('session not found') ||
+      errorMessage.includes('auth session missing')
+    );
+  }
+  
+  /**
+   * Forces a page refresh to clear all client-side state
+   */
+  static forceRefresh(): void {
+    console.log('🔄 [AuthRecovery] Forcing page refresh to clear state...');
+    window.location.reload();
+  }
+} 

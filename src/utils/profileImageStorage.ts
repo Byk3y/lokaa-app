@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 
 /**
  * Uploads a profile image to Supabase Storage and updates user metadata
@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 export async function uploadProfileImage(file: File): Promise<string | null> {
   try {
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSupabaseClient().auth.getUser();
     if (!user) {
       console.error("User not authenticated");
       return null;
@@ -34,7 +34,7 @@ export async function uploadProfileImage(file: File): Promise<string | null> {
     }
     
     // Upload file to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { data, error } = await getSupabaseClient().storage
       .from('profiles')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -48,12 +48,12 @@ export async function uploadProfileImage(file: File): Promise<string | null> {
     }
     
     // Get the public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = getSupabaseClient().storage
       .from('profiles')
       .getPublicUrl(filePath);
     
     // Update user metadata with the new avatar URL
-    const { error: updateError } = await supabase.auth.updateUser({
+    const { error: updateError } = await getSupabaseClient().auth.updateUser({
       data: { 
         avatar_url: publicUrl,
         avatar_path: filePath // Store path for future reference
@@ -80,7 +80,7 @@ export async function deleteOldProfileImage(filePath: string): Promise<void> {
   try {
     if (!filePath) return;
     
-    const { error } = await supabase.storage
+    const { error } = await getSupabaseClient().storage
       .from('profiles')
       .remove([filePath]);
       
@@ -98,7 +98,7 @@ export async function deleteOldProfileImage(filePath: string): Promise<void> {
  */
 export async function getProfileImageUrl(): Promise<string | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSupabaseClient().auth.getUser();
     if (!user) return null;
     
     return user.user_metadata?.avatar_url || null;

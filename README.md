@@ -229,3 +229,39 @@ The feature is built with:
 - Custom triggers to handle auto-unpinning logic
 - React Beautiful DND for drag-and-drop reordering
 - Optimistic UI updates for a smooth user experience
+
+# Slug-based Post URLs
+
+## Overview
+
+The platform now uses slug-based URLs for posts. Instead of using post IDs in URLs, we now use a readable slug derived from the post title. This improves SEO, user experience, and makes URLs more shareable.
+
+## Features
+
+- All post URLs now follow the pattern: `/:spaceSlug/space/:postSlug`
+- Post creation automatically generates a slug from the title
+- When a post is created, users are immediately taken to the slug URL
+  - On desktop: Opens modal and updates browser URL
+  - On mobile: Navigates to full page view with slug URL
+- Legacy URLs (`/spaces/:spaceId/posts/:postId` and `/space/:subdomain/posts/:postId`) are automatically redirected to the new slug format
+- Editing a post title updates the slug and URL
+
+## Implementation
+
+- Slugs are generated in the database using PostgreSQL triggers
+- `generateSlug()` and `getUniqueSlug()` utilities ensure slugs are URL-friendly and unique within a space
+- `getPostUrl()` utility returns the correct slug-based URL format
+- Post creation flow has been updated to navigate to the slug URL immediately after saving
+- SEO improvements with canonical URL tags pointing to the slug URL
+
+## Testing
+
+You can run tests with:
+
+```bash
+npm run test
+```
+
+## Manual Testing
+
+Follow the checklist in `PR_CHECKLIST.md` to verify the slug behavior.

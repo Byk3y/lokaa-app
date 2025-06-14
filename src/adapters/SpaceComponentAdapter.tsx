@@ -1,6 +1,6 @@
 import React from 'react';
-import { useSpace, SpaceData } from '@/contexts/SpaceContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useSpace, SpaceData } from '@/hooks/useSpace';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 /**
  * SpaceComponentAdapter wraps existing components that expect space prop data
@@ -18,7 +18,7 @@ export function SpaceComponentAdapter({
   includeUser = false
 }: SpaceComponentAdapterProps) {
   const { spaceData, loading, error } = useSpace();
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   
   if (loading) {
     return <div className="p-4 text-center">Loading space data...</div>;

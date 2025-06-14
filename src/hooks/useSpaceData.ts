@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
 export interface SpaceMedia {
   id: string;
@@ -57,7 +57,10 @@ interface RawSpaceRow {
   // Add any other direct fields from the 'spaces' table from your Supabase schema
 }
 
-export function useSpaceData(spaceId: string | null) {
+/**
+ * FIXED: Converted to const export for React Fast Refresh compatibility
+ */
+export const useSpaceData = (spaceId: string | null) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [spaceData, setSpaceData] = useState<SpaceData | null>(null);
@@ -74,7 +77,7 @@ export function useSpaceData(spaceId: string | null) {
         setError(null);
         
         // Get space details
-        const { data: spaceData, error: spaceError } = await supabase
+        const { data: spaceData, error: spaceError } = await getSupabaseClient()
           .from('spaces')
           .select('*')
           .eq('id', spaceId)
@@ -97,20 +100,20 @@ export function useSpaceData(spaceId: string | null) {
         }
         
         // Get member count
-        const { count: memberCount } = await supabase
-          .from('space_access')
+        const { count: memberCount } = await getSupabaseClient()
+          .from('space_members')
           .select('*', { count: 'exact', head: true })
           .eq('space_id', spaceId)
-          .eq('is_active', true);
+          .eq('status', 'active');
           
         // Get admin count (default to 1 if query fails)
         let adminCount = 1;
         try {
-          const { count } = await supabase
-            .from('space_access')
+          const { count } = await getSupabaseClient()
+            .from('space_members')
             .select('*', { count: 'exact', head: true })
             .eq('space_id', spaceId)
-            .eq('is_active', true)
+            .eq('status', 'active')
             .eq('role', 'admin');
             
           if (count !== null) {

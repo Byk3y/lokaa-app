@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import { toast } from '@/hooks/use-toast';
 
@@ -112,7 +112,7 @@ const MembershipContext = createContext<MembershipContextValue | null>(null);
 
 // Provider component
 export function MembershipProvider({ children }: { children: ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useOptimizedAuth();
   const { spaceData, loading: spaceContextLoading } = useSpace();
   const [membershipState, setMembershipState] = useState<MembershipState>({
     isMember: false,
@@ -178,7 +178,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
           return;
         }
         
-        const { data: memberData, error: dbError } = await supabase
+        const { data: memberData, error: dbError } = await getSupabaseClient()
           .from('space_members')
           .select('role, status')
           .eq('user_id', user.id)
@@ -245,7 +245,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
     }
     setMembershipState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const { data, error } = await supabase.rpc<
+      const { data, error } = await getSupabaseClient().rpc<
         'public_join_space',
         { Args: { p_space_id: string }; Returns: Record<string, JsonValue>; }
       >('public_join_space', { p_space_id: spaceId });
@@ -286,7 +286,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
       return false;
     }
     try {
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('space_members')
         .delete()
         .match({ user_id: user.id, space_id: spaceId });
@@ -322,14 +322,14 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         return false;
       }
       if (membershipState.isAdmin && !membershipState.isOwner) {
-        const { data: targetUser } = await supabase.from('space_members').select('role').eq('user_id', userId).eq('space_id', spaceId).single();
+        const { data: targetUser } = await getSupabaseClient().from('space_members').select('role').eq('user_id', userId).eq('space_id', spaceId).single();
         const memberRole = targetUser?.role as MemberRole | undefined;
         if (memberRole && (memberRole === 'admin' || memberRole === 'owner')) {
           toast({ title: "Permission denied", description: "Admins cannot modify other admins or owner.", variant: "destructive" });
           return false;
         }
       }
-      const { error } = await supabase.from('space_members').update({ role }).eq('user_id', userId).eq('space_id', spaceId);
+      const { error } = await getSupabaseClient().from('space_members').update({ role }).eq('user_id', userId).eq('space_id', spaceId);
       if (error) throw error;
       if (userId === user.id) {
         const isAdmin = role === 'admin';
@@ -344,7 +344,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
       }
       toast({ title: "Role updated", description: `Member role updated to ${role}.` });
       // Record history (optional, can be trigger-based)
-      // try { ... supabase.from('membership_history').insert ... } catch {}
+      // try { ... getSupabaseClient().from('membership_history').insert ... } catch {}
       return true;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -371,14 +371,14 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         return false;
       }
       if (membershipState.isAdmin && !membershipState.isOwner) {
-        const { data: targetUser, error: fetchError } = await supabase.from('space_members').select('role').eq('user_id', userIdOfMemberToRemove).eq('space_id', spaceId).single();
+        const { data: targetUser, error: fetchError } = await getSupabaseClient().from('space_members').select('role').eq('user_id', userIdOfMemberToRemove).eq('space_id', spaceId).single();
         if (fetchError) throw fetchError;
         if (targetUser?.role === 'admin') {
           toast({ title: "Permission Denied", description: "Admins cannot remove other admins.", variant: "destructive" });
           return false;
         }
       }
-      const { error: updateError } = await supabase.from('space_members').update({ status: 'banned' as MemberStatus }).eq('user_id', userIdOfMemberToRemove).eq('space_id', spaceId);
+      const { error: updateError } = await getSupabaseClient().from('space_members').update({ status: 'banned' as MemberStatus }).eq('user_id', userIdOfMemberToRemove).eq('space_id', spaceId);
       if (updateError) throw updateError;
       toast({ title: "Member Removed", description: "The member has been removed (banned)." });
       // Cache invalidation for member lists would happen in components using fetchMembers/directFetchMembers
@@ -478,10 +478,10 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useMembership() {
+export const useMembership = () => {
   const context = useContext(MembershipContext);
   if (!context) {
     throw new Error('useMembership must be used within a MembershipProvider');
   }
   return context;
-}
+};

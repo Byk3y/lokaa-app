@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { directLogin } from '@/utils/directAuth';
 import { AuthResponse } from '@supabase/supabase-js';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
 interface StandaloneLoginModalProps {
   onClose: () => void;
+  disableBackdrop?: boolean;
 }
 
 // Define the expected response type from directLogin
@@ -15,7 +17,7 @@ interface LoginResult {
   redirectPath?: string;
 }
 
-export default function StandaloneLoginModal({ onClose }: StandaloneLoginModalProps) {
+export default function StandaloneLoginModal({ onClose, disableBackdrop = false }: StandaloneLoginModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,29 +58,156 @@ export default function StandaloneLoginModal({ onClose }: StandaloneLoginModalPr
     return () => document.removeEventListener('keydown', handleEscapeKey);
   }, [onClose]);
 
+  // Auto-close modal when authentication succeeds
+  useEffect(() => {
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        // FIXED: More robust check to prevent double navigation
+        setTimeout(() => {
+          const currentPath = window.location.pathname;
+          const isOnSpacePage = currentPath.includes('/space');
+          const isNavigating = window.location.href !== window.location.origin + currentPath;
+          
+          // Only close if not already on a space page and not currently navigating
+          if (!isOnSpacePage && !isNavigating) {
+            console.log('🔒 [StandaloneLoginModal] Closing modal after successful auth');
+            onClose();
+          } else {
+            console.log('🔒 [StandaloneLoginModal] Skipping modal close - navigation in progress or on space page');
+          }
+        }, 200); // Increased delay to ensure navigation completes
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [onClose]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     
     try {
-      console.log(`Login attempt with email: ${email}`);
       const result = await directLogin(email, password) as LoginResult;
       
       if (!result.success) {
         setError(result.error || "Login failed");
         setLoading(false);
+      } else {
+        // FIXED: Don't call onClose() immediately - let onAuthStateChange handle it
+        // This prevents double navigation by allowing fast path to complete first
+        console.log('🔒 [StandaloneLoginModal] Login successful, letting auth state change handle modal close');
+        setLoading(false);
       }
-      // No need to handle success - directLogin will redirect
-      // The redirectPath is available in result.redirectPath if needed
       
-    } catch (err: unknown) {
-      console.error("Login exception:", err);
-      const message = err instanceof Error ? err.message : "An unexpected error occurred";
-      setError(message);
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
       setLoading(false);
     }
   };
+
+  const modalContent = (
+    <div 
+      className={`w-full max-w-[400px] bg-white rounded-xl shadow-xl overflow-hidden transform transition-all duration-300 ${isVisible ? 'translate-y-0' : 'translate-y-8'}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="relative">
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10"
+          aria-label="Close login modal"
+        >
+          <X size={20} />
+        </button>
+        
+        <div className="p-8">
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <h1 className="text-3xl font-bold text-teal-600">Lokaa</h1>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
+            Log in to Lokaa
+          </h2>
+          
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <input 
+                type="email" 
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full h-12 px-4 text-base rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+                autoFocus
+              />
+            </div>
+            
+            <div>
+              <input 
+                type="password" 
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full h-12 px-4 text-base rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            
+            <div className="text-left">
+              <a 
+                href="/forgot-password"
+                className="text-blue-600 hover:underline text-sm font-medium"
+              >
+                Forgot password?
+              </a>
+            </div>
+            
+            <button 
+              type="submit" 
+              className={`w-full h-12 text-white font-medium rounded-full text-sm uppercase tracking-wide mt-4 transition-colors
+                ${email && password 
+                  ? 'bg-teal-600 hover:bg-teal-700' 
+                  : 'bg-gray-300 cursor-not-allowed'}`}
+              disabled={loading || !email || !password}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 
+                  Logging in...
+                </span>
+              ) : (
+                "LOG IN"
+              )}
+            </button>
+            
+            <div className="text-center text-base mt-8">
+              Don't have an account?{" "}
+              <a 
+                href="/signup"
+                className="text-blue-600 hover:underline font-medium"
+              >
+                Sign up for free
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Return with or without backdrop based on prop
+  if (disableBackdrop) {
+    return modalContent;
+  }
 
   return (
     <div 
@@ -90,99 +219,7 @@ export default function StandaloneLoginModal({ onClose }: StandaloneLoginModalPr
         }
       }}
     >
-      <div 
-        className={`w-full max-w-[400px] bg-white rounded-xl shadow-xl overflow-hidden transform transition-all duration-300 ${isVisible ? 'translate-y-0' : 'translate-y-8'}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative">
-          <button 
-            onClick={onClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10"
-            aria-label="Close login modal"
-          >
-            <X size={20} />
-          </button>
-          
-          <div className="p-8">
-            {/* Logo */}
-            <div className="flex justify-center mb-6">
-              <h1 className="text-3xl font-bold text-teal-600">Lokaa</h1>
-            </div>
-            
-            <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
-              Log in to Lokaa
-            </h2>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
-                {error}
-              </div>
-            )}
-            
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <input 
-                  type="email" 
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 px-4 text-base rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                  autoFocus
-                />
-              </div>
-              
-              <div>
-                <input 
-                  type="password" 
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-12 px-4 text-base rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              <div className="text-left">
-                <a 
-                  href="/forgot-password"
-                  className="text-blue-600 hover:underline text-sm font-medium"
-                >
-                  Forgot password?
-                </a>
-              </div>
-              
-              <button 
-                type="submit" 
-                className={`w-full h-12 text-white font-medium rounded-full text-sm uppercase tracking-wide mt-4 transition-colors
-                  ${email && password 
-                    ? 'bg-teal-600 hover:bg-teal-700' 
-                    : 'bg-gray-300 cursor-not-allowed'}`}
-                disabled={loading || !email || !password}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 
-                    Logging in...
-                  </span>
-                ) : (
-                  "LOG IN"
-                )}
-              </button>
-              
-              <div className="text-center text-base mt-8">
-                Don't have an account?{" "}
-                <a 
-                  href="/signup"
-                  className="text-blue-600 hover:underline font-medium"
-                >
-                  Sign up for free
-                </a>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      {modalContent}
     </div>
   );
 } 

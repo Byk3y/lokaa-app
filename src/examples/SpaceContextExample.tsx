@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Loader2, RefreshCw } from 'lucide-react';
-import { useSpace } from '@/contexts/SpaceContext';
+import { useSpace } from '@/hooks/useSpace';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 

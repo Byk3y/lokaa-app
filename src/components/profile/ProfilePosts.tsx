@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
@@ -18,7 +18,7 @@ export default function ProfilePosts({ userId }: ProfilePostsProps) {
     const fetchPosts = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase
+        const { data, error } = await getSupabaseClient()
           .from('posts')
           .select('*')
           .eq('user_id', userId)

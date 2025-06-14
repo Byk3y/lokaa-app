@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { isEqual } from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,6 +30,9 @@ export interface SpaceSettingsData {
   feature_7_day_trial_enabled?: boolean;
   rules_list?: RuleItem[] | null;
   support_email?: string | null;
+  intro_media_type?: 'image' | 'video' | 'none' | null;
+  intro_media_url?: string | null;
+  intro_media_thumbnail_url?: string | null;
 }
 
 interface SpacePermissions {
@@ -79,6 +82,11 @@ interface SpaceAccessRow {
   is_active: boolean;
 }
 
+interface SpaceMemberRow {
+  role: string;
+  status: string;
+}
+
 const initialState: Pick<SpaceSettingsState, 'space' | 'permissions' | 'formData' | 'loadingSpace' | 'loadingPermissions' | 'error' | 'isOpen' | 'isSubmitting' | 'isDirty'> = {
   space: null,
   permissions: null,
@@ -91,8 +99,27 @@ const initialState: Pick<SpaceSettingsState, 'space' | 'permissions' | 'formData
   isDirty: false,
 };
 
-const spaceCache = new Map<string, { data: SpaceSettingsData, timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Add navigation state tracking
+interface NavigationState {
+  lastRouteChange: number;
+  isNavigatingBetweenRoutes: boolean;
+  lastActiveSpace: string | null;
+}
+
+const navigationState: NavigationState = {
+  lastRouteChange: Date.now(),
+  isNavigatingBetweenRoutes: false,
+  lastActiveSpace: null
+};
+
+// Enhanced cache with route-aware persistence
+const enhancedSpaceCache = new Map<string, { 
+  data: SpaceSettingsData, 
+  timestamp: number,
+  routeTransitionData?: { fromRoute: string; toRoute: string; preserveUntil: number; }
+}>();
 
 const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
   ...initialState,
@@ -112,74 +139,202 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
 
     const cacheKey = identifier.subdomain || identifier.spaceId!;
     
+    // MOBILE OPTIMIZATION: Always check cache first and use it immediately
     if (!force) {
-      const cached = spaceCache.get(cacheKey);
-      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-        const originalSpaceData = cached.data;
-        set({ 
-          space: originalSpaceData, 
-          loadingSpace: false, 
-          error: null,
-          formData: { ...originalSpaceData },
-          isDirty: false
-        });
-        if (get().space && (!get().permissions || force || get().permissions === null)) {
-           await get().fetchPermissionsForSpace(get().space!.id, userId);
+      const cached = enhancedSpaceCache.get(cacheKey);
+      const now = Date.now();
+      
+      if (cached) {
+        const cacheAge = now - cached.timestamp;
+        const isRecentCache = cacheAge < CACHE_TTL;
+        const isReasonablyFresh = cacheAge < 15 * 60 * 1000; // 15 minutes
+        
+        // MOBILE FIX: Use cached data more aggressively to prevent loading states
+        if (isRecentCache || isReasonablyFresh) {
+          console.log(`🚀 [Mobile Optimized] Using cached space data for ${cacheKey} (age: ${Math.round(cacheAge / 1000)}s)`);
+          
+          // CRITICAL: Set data immediately WITHOUT triggering loading state
+          const originalSpaceData = cached.data;
+          set({ 
+            space: originalSpaceData, 
+            loadingSpace: false, 
+            error: null,
+            formData: { ...originalSpaceData },
+            isDirty: false
+          });
+          
+          // Load permissions in background if needed
+          if (!get().permissions || get().permissions === null) {
+            get().fetchPermissionsForSpace(originalSpaceData.id, userId);
+          }
+          
+          // Background refresh only if cache is older than 2 minutes
+          if (cacheAge > 2 * 60 * 1000) {
+            console.log(`🔄 [Mobile] Background refresh for ${cacheKey}`);
+            setTimeout(() => {
+              get().loadActiveSpace(identifier, userId, true);
+            }, 500); // Slightly longer delay for mobile
+          }
+          
+          return;
         }
-        return;
       }
     }
 
-    set({ loadingSpace: true, loadingPermissions: true, error: null, space: null, permissions: null, formData: {}, isDirty: false });
+    // CRITICAL FIX: NEVER clear existing space data while loading - keep existing data visible!
+    const existingSpace = get().space;
+    const existingPermissions = get().permissions;
+    
+    // PHASE 1 FIX: Only set loading state if we don't have matching space data
+    const shouldPreserveSpace = existingSpace && 
+                               identifier.subdomain && 
+                               existingSpace.subdomain === identifier.subdomain;
+    
+    if (shouldPreserveSpace) {
+      console.log(`🔒 [Phase1] Preserving existing space data for ${identifier.subdomain} during refresh`);
+      // Only set loading state, KEEP existing space data visible
+      set({ 
+        loadingSpace: true, 
+        loadingPermissions: !existingPermissions,
+        error: null 
+        // CRITICAL: Don't touch space data - keep it visible
+      });
+    } else {
+      // Only set loading state, KEEP existing data
+      set({ 
+        loadingSpace: true, 
+        loadingPermissions: !existingPermissions, 
+        error: null 
+        // CRITICAL: Don't set space: null here as it causes loading flashes
+      });
+    }
+
+    // Track that we're starting a fresh load
+    navigationState.lastActiveSpace = cacheKey;
 
     let spaceData: SpaceSettingsData | null = null;
     let fetchError: string | null = null;
 
     try {
-      let query = supabase.from('spaces').select('id, name, description, about_description, cover_image, icon_image, subdomain, owner_id, is_private, pricing_type, price_per_month, member_count, created_at, updated_at, feature_classroom_enabled, feature_calendar_enabled, feature_map_enabled, feature_7_day_trial_enabled, rules_list, support_email');
-      
+      // If we have a subdomain, query by that
       if (identifier.subdomain) {
-        query = query.eq('subdomain', identifier.subdomain);
-      } else if (identifier.spaceId) {
-        query = query.eq('id', identifier.spaceId);
-      }
-      
-      const { data: fetchedSpace, error: spaceFetchError } = await query.single();
+        const { data, error } = await getSupabaseClient()
+          .from('spaces')
+          .select('*')
+          .eq('subdomain', identifier.subdomain)
+          .single();
 
-      if (spaceFetchError) {
-        fetchError = `Failed to fetch space: ${spaceFetchError.message}`;
-        if (spaceFetchError.code === 'PGRST116') {
-          fetchError = "Space not found.";
+        if (error) {
+          console.error('Error fetching space by subdomain:', error);
+          fetchError = error.message;
+        } else {
+          spaceData = data as SpaceSettingsData;
         }
-        throw new Error(fetchError);
+      } 
+      // If we have a space ID, query by that
+      else if (identifier.spaceId) {
+        const { data, error } = await getSupabaseClient()
+          .from('spaces')
+          .select('*')
+          .eq('id', identifier.spaceId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching space by ID:', error);
+          fetchError = error.message;
+        } else {
+          spaceData = data as SpaceSettingsData;
+        }
       }
 
-      if (!fetchedSpace) {
-        fetchError = "Space not found or no data returned.";
-        throw new Error(fetchError);
+      // CRITICAL FIX: Only update if we got valid data!
+      if (spaceData) {
+        // Update the store with the fetched data
+        set({ 
+          space: spaceData, 
+          loadingSpace: false, 
+          error: null,
+          formData: { ...spaceData },
+          isDirty: false
+        });
+        
+        // Update the cache
+        enhancedSpaceCache.set(cacheKey, { 
+          data: spaceData, 
+          timestamp: Date.now(),
+        });
+        
+        // Also check if there's a previous route transition
+        const now = Date.now();
+        const routeEntries = Object.values(enhancedSpaceCache).filter(entry => 
+          entry.routeTransitionData && entry.routeTransitionData.preserveUntil > now
+        );
+        
+        if (routeEntries.length > 3) {
+          // Clean up excess route transitions to prevent memory leaks
+          routeEntries.sort((a, b) => 
+            (a.routeTransitionData?.preserveUntil || 0) - (b.routeTransitionData?.preserveUntil || 0)
+          );
+          
+          routeEntries.slice(0, routeEntries.length - 3).forEach(entry => {
+            if (entry.routeTransitionData) {
+              entry.routeTransitionData = undefined;
+            }
+          });
+        }
+        
+        // Save enhanced space details for quick access and fallback sidebar data
+        try {
+          localStorage.setItem('lastActiveSpace', JSON.stringify({
+            id: spaceData.id,
+            name: spaceData.name,
+            subdomain: spaceData.subdomain,
+            description: spaceData.description,
+            icon_image: spaceData.icon_image,
+            cover_image: spaceData.cover_image,
+            is_private: spaceData.is_private,
+            timestamp: Date.now()
+          }));
+          
+          // Set owner flag for ultra-fast ownership checking
+          if (spaceData.owner_id === userId) {
+            localStorage.setItem(`user_owns_space_${spaceData.subdomain}`, 'true');
+          }
+        } catch (e) {
+          // Ignore storage errors
+        }
+        
+        // Load permissions after space data is loaded
+        get().fetchPermissionsForSpace(spaceData.id, userId);
+      } else if (fetchError) {
+        // PHASE 1 FIX: Enhanced error handling to preserve space data
+        if (!existingSpace || (identifier.subdomain && existingSpace.subdomain !== identifier.subdomain)) {
+          console.error(`Failed to load space: ${fetchError}`);
+          set({ 
+            loadingSpace: false, 
+            error: fetchError,
+            space: null, // Only clear if we have no valid existing data
+          });
+        } else {
+          // PHASE 1 FIX: Keep existing data on error if it matches what we're trying to load
+          console.log(`🔒 [Phase1] Failed to refresh space: ${fetchError}, but preserving existing space data for ${identifier.subdomain}`);
+          set({ 
+            loadingSpace: false, 
+            error: null, // Clear error since we have valid existing data
+            // Keeping existing space data intact
+          });
+        }
       }
-      
-      spaceData = fetchedSpace as unknown as SpaceSettingsData;
-
-      // Default rules population
-      if (!spaceData.rules_list || spaceData.rules_list.length === 0) {
-        spaceData.rules_list = [
-          { id: uuidv4(), text: "Be positive" },
-          { id: uuidv4(), text: "No self-promotion" },
-          { id: uuidv4(), text: "Make an effort" },
-        ];
+    } catch (err) {
+      console.error('Error in loadActiveSpace:', err);
+      // PHASE 1 FIX: Enhanced catastrophic error handling to preserve space data
+      if (!existingSpace || (identifier.subdomain && existingSpace.subdomain !== identifier.subdomain)) {
+        set({ loadingSpace: false, error: 'Failed to load space', space: null });
+      } else {
+        // PHASE 1 FIX: Keep existing data on catastrophic error if it matches
+        console.log(`🔒 [Phase1] Catastrophic error but preserving existing space data for ${identifier.subdomain}`);
+        set({ loadingSpace: false, error: null }); // Clear error since we have valid data
       }
-
-      spaceCache.set(cacheKey, { data: spaceData, timestamp: Date.now() });
-      
-      set({ space: spaceData, loadingSpace: false, formData: { ...spaceData }, isDirty: false });
-
-      await get().fetchPermissionsForSpace(spaceData.id, userId);
-
-    } catch (error: any) {
-      console.error("[SpaceSettingsStore] Error loading active space:", error);
-      set({ error: fetchError || error.message || "An unknown error occurred", loadingSpace: false, loadingPermissions: false, space: null, permissions: null, formData: {}, isDirty: false });
-      toast({ title: "Error", description: fetchError || error.message, variant: "destructive" });
     }
   },
   
@@ -196,7 +351,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       if (currentSpaceInStore && currentSpaceInStore.id === spaceId) {
         userIsOwner = currentSpaceInStore.owner_id === userId;
       } else {
-        const { data: ownerCheckData, error: ownerCheckError } = await supabase
+        const { data: ownerCheckData, error: ownerCheckError } = await getSupabaseClient()
           .from('spaces')
           .select('owner_id')
           .eq('id', spaceId)
@@ -212,12 +367,12 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         userIsAdmin = true;
         userIsMember = true;
       } else {
-        const { data: accessData, error: accessError } = await supabase
-          .from('space_access')
-          .select('role, is_active')
+        const { data: accessData, error: accessError } = await getSupabaseClient()
+          .from('space_members')
+          .select('role, status')
           .eq('space_id', spaceId)
           .eq('user_id', userId)
-          .eq('is_active', true)
+          .eq('status', 'active')
           .single();
 
         if (accessError && accessError.code !== 'PGRST116') {
@@ -225,7 +380,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         }
         
         if (accessData) {
-          const typedAccessData = accessData as unknown as Pick<SpaceAccessRow, 'role' | 'is_active'>;
+          const typedAccessData = accessData as unknown as Pick<SpaceMemberRow, 'role' | 'status'>;
           userIsAdmin = typedAccessData.role === 'admin';
           userIsMember = true;
         }
@@ -309,145 +464,173 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
   },
 
   saveSpaceSettings: async () => {
-    const { space, formData } = get();
-    if (!space || !space.id) {
-      toast({ title: "Error", description: "No active space to save.", variant: "destructive" });
-      return { success: false, error: "No active space to save." };
+    const { space, formData, permissions } = get();
+    if (!space || !permissions?.canEditSpace) {
+      return { success: false, error: "No space loaded or insufficient permissions." };
     }
 
-    set({ isSubmitting: true, error: null });
+    set({ isSubmitting: true });
 
+    const originalSpaceData = space; // The clean data loaded from DB
+    const currentFormData = formData;   // The potentially modified data in the form
+
+    // Determine what actually changed
     const changedFields: Partial<SpaceSettingsData> = {};
-    let hasChanges = false;
-    for (const key in formData) {
-      if (Object.prototype.hasOwnProperty.call(formData, key)) {
-        const formValue = formData[key as keyof SpaceSettingsData];
-        const originalValue = space[key as keyof SpaceSettingsData];
-        if (!isEqual(formValue, originalValue)) {
-          if (formValue === null && originalValue === undefined && 
-              ['description', 'about_description', 'cover_image', 'icon_image', 'price_per_month'].includes(key)) {
-             (changedFields as any)[key] = formValue;
-             hasChanges = true;
-          } else if (formValue !== originalValue) {
-            (changedFields as any)[key] = formValue;
-            hasChanges = true;
+    (Object.keys(currentFormData) as Array<keyof SpaceSettingsData>).forEach(key => {
+      if (!isEqual(currentFormData[key], originalSpaceData[key])) {
+        // Ensure that rules_list is handled correctly, especially if it can be null
+        if (key === 'rules_list') {
+          if (currentFormData.rules_list === null && originalSpaceData.rules_list && originalSpaceData.rules_list.length > 0) {
+            (changedFields as any)[key] = null; // Explicitly setting to null
+          } else if (currentFormData.rules_list && !isEqual(currentFormData.rules_list, originalSpaceData.rules_list)) {
+            (changedFields as any)[key] = currentFormData[key];
+          } else if (!currentFormData.rules_list && originalSpaceData.rules_list) {
+            // If current is empty/null but original was not, this is a change (clearing rules)
+             (changedFields as any)[key] = []; // or null, depending on DB constraints
           }
+        } else {
+          // Use 'as any' to bypass the 'never' type error, assuming the logic correctly maps types.
+          (changedFields as any)[key] = currentFormData[key];
+        }
+      }
+    });
+
+    // If rules_list was initially null/undefined and became an empty array, isEqual might consider it unchanged.
+    // Explicitly check if rules_list was touched to become an empty array from a non-empty state or vice-versa.
+    if (originalSpaceData.rules_list && currentFormData.rules_list?.length === 0 && originalSpaceData.rules_list.length > 0) {
+        if (!changedFields.rules_list) changedFields.rules_list = [];
+    }
+    // if currentFormData.rules_list is null and original was not, it might be missed by isEqual if original was empty array
+    if (currentFormData.rules_list === null && originalSpaceData.rules_list ) {
+        if(!changedFields.rules_list) changedFields.rules_list = null as any;
+    }
+
+
+    if (Object.keys(changedFields).length === 0) {
+      set({ isSubmitting: false, isDirty: false });
+      toast({ title: "No changes to save." });
+      return { success: true };
+    }
+
+    // Ensure all necessary fields are present if they are not optional in DB but optional in type
+    // For example, if 'name' cannot be null in DB
+    if (changedFields.name === null || changedFields.name === '') {
+        set({ isSubmitting: false, error: "Space name cannot be empty." });
+        toast({ title: "Validation Error", description: "Space name cannot be empty.", variant: "destructive" });
+        return { success: false, error: "Space name cannot be empty." };
+    }
+     if (changedFields.subdomain === null || changedFields.subdomain === '') {
+        set({ isSubmitting: false, error: "Subdomain cannot be empty." });
+        toast({ title: "Validation Error", description: "Subdomain cannot be empty.", variant: "destructive" });
+        return { success: false, error: "Subdomain cannot be empty." };
+    }
+
+    // Prepare a payload with stricter typing for Supabase
+    const updatePayload: { [K in keyof Partial<SpaceSettingsData>]: Partial<SpaceSettingsData>[K] } = { ...changedFields };
+
+    if (updatePayload.hasOwnProperty('pricing_type')) {
+      const pt = updatePayload.pricing_type;
+      if (pt !== 'free' && pt !== 'paid') {
+        updatePayload.pricing_type = null;
+      } 
+      if (updatePayload.pricing_type === 'free' || updatePayload.pricing_type === null) {
+        updatePayload.price_per_month = null;
+      } else if (updatePayload.pricing_type === 'paid') {
+        const ppmForm = currentFormData.price_per_month;
+        const ppmNum = typeof ppmForm === 'string' ? parseFloat(ppmForm) : ppmForm;
+        if (typeof ppmNum === 'number' && !isNaN(ppmNum) && ppmNum > 0) {
+          updatePayload.price_per_month = ppmNum;
+        } else {
+          updatePayload.price_per_month = null; // Or handle as an error if price is required for 'paid'
         }
       }
     }
-
-    if (changedFields.id) delete changedFields.id;
-    delete changedFields.owner_id;
-    delete changedFields.member_count;
-    delete changedFields.created_at;
-    delete changedFields.updated_at;
-
-    if (!hasChanges || Object.keys(changedFields).length === 0) {
-      toast({ title: "No Changes", description: "There were no changes to save." });
-      set({ isSubmitting: false });
-      return { success: true };
+    // Ensure intro_media_url is null if type is none
+    if (updatePayload.intro_media_type === 'none') {
+      updatePayload.intro_media_url = null;
+      updatePayload.intro_media_thumbnail_url = null;
     }
+
+    // Remove any fields that are undefined, as Supabase might not like them
+    Object.keys(updatePayload).forEach(key => {
+      if (updatePayload[key as keyof typeof updatePayload] === undefined) {
+        delete updatePayload[key as keyof typeof updatePayload];
+      }
+    });
 
     try {
-      // Create a new object for the Supabase update with strictly typed fields
-      const finalUpdatePayload: {
-        name?: string;
-        description?: string | null;
-        about_description?: string | null;
-        cover_image?: string | null;
-        icon_image?: string | null;
-        subdomain?: string;
-        is_private?: boolean;
-        pricing_type?: 'free' | 'paid' | null;
-        price_per_month?: number | null;    
-        feature_classroom_enabled?: boolean;
-        feature_calendar_enabled?: boolean;
-        feature_map_enabled?: boolean;
-        feature_7_day_trial_enabled?: boolean;
-        rules_list?: any;
-        support_email?: string | null;
-      } = {};
+      // Use the sanitized and more strictly typed updatePayload
+      const { data: updatedSpace, error } = await getSupabaseClient()
+        .from('spaces')
+        .update(updatePayload as any) // Use 'as any' if TS still complains about the dynamic payload
+        .eq('id', space.id)
+        .select('id, name, description, about_description, cover_image, icon_image, subdomain, owner_id, is_private, pricing_type, price_per_month, member_count, created_at, updated_at, feature_classroom_enabled, feature_calendar_enabled, feature_map_enabled, feature_7_day_trial_enabled, rules_list, support_email, intro_media_type, intro_media_url, intro_media_thumbnail_url') 
+        .single();
 
-      for (const key in changedFields) {
-        if (Object.prototype.hasOwnProperty.call(changedFields, key)) {
-          const k = key as keyof SpaceSettingsData;
-          
-          if (k === 'pricing_type') {
-            const ptValue = changedFields[k];
-            if (ptValue === 'free' || ptValue === 'paid') {
-              finalUpdatePayload.pricing_type = ptValue;
-            } else {
-              finalUpdatePayload.pricing_type = null;
-            }
-          } else if (k === 'price_per_month') {
-            const ppmValue = changedFields[k];
-            if (typeof ppmValue === 'number') {
-              finalUpdatePayload.price_per_month = !isNaN(ppmValue) ? ppmValue : null;
-            } else if (typeof ppmValue === 'string') {
-              if ((ppmValue as string).trim() !== '') {
-                const parsed = parseFloat(ppmValue as string);
-                finalUpdatePayload.price_per_month = !isNaN(parsed) ? parsed : null;
-              } else {
-                finalUpdatePayload.price_per_month = null;
-              }
-            } else {
-              finalUpdatePayload.price_per_month = null;
-            }
-          } else if (k === 'rules_list') {
-            finalUpdatePayload.rules_list = changedFields[k] as any;
-          } else if (k !== 'id' && k !== 'owner_id' && k !== 'member_count' && k !== 'created_at' && k !== 'updated_at') {
-            if (k in finalUpdatePayload) {
-                 (finalUpdatePayload as any)[k] = changedFields[k];
-            } else {
-                 (finalUpdatePayload as any)[k] = changedFields[k];
-            }
-          }
-        }
-      }
-      
-      // If pricing_type is set to 'free', ensure price_per_month is null
-      if (finalUpdatePayload.pricing_type === 'free') {
-        finalUpdatePayload.price_per_month = null;
+      if (error) {
+        console.error("Error updating space settings:", error);
+        throw error;
       }
 
-      // If there are no relevant changes in finalUpdatePayload after filtering
-      if (Object.keys(finalUpdatePayload).length === 0) {
-        toast({ title: "No Effective Changes", description: "No changes to save after processing." });
-        set({ isSubmitting: false });
+      if (updatedSpace) {
+        const newSpaceData = updatedSpace as unknown as SpaceSettingsData;
+        enhancedSpaceCache.set(newSpaceData.subdomain, { data: newSpaceData, timestamp: Date.now() });
+        enhancedSpaceCache.set(newSpaceData.id, { data: newSpaceData, timestamp: Date.now() });
+
+        set({
+          space: newSpaceData,
+          formData: { ...newSpaceData },
+          isSubmitting: false,
+          isDirty: false,
+          error: null,
+        });
+        toast({ title: "Success!", description: "Space settings saved." });
         return { success: true };
       }
+      return { success: false, error: "Failed to update space, no data returned." };
 
-      const { error: updateError } = await supabase
-        .from('spaces')
-        .update(finalUpdatePayload) // Use the strictly typed payload
-        .eq('id', space.id);
-
-      if (updateError) throw updateError;
-
-      const updatedSpaceData = { ...space, ...changedFields };
-      spaceCache.set(updatedSpaceData.subdomain, { data: updatedSpaceData, timestamp: Date.now() });
-      if (space.id) spaceCache.set(space.id, { data: updatedSpaceData, timestamp: Date.now() });
-
-      set({
-        space: updatedSpaceData,
-        formData: { ...updatedSpaceData }, 
-        isSubmitting: false,
-        isDirty: false, 
-        error: null,
-      });
-      return { success: true };
     } catch (error: any) {
-      console.error("[SpaceSettingsStore] Error saving space settings:", error);
-      set({ error: error.message || "Could not save settings.", isSubmitting: false });
-      toast({ title: "Save Error", description: error.message, variant: "destructive" });
-      return { success: false, error: error.message };
-    }
+      console.error("Error in saveSpaceSettings:", error);
+      const errorMessage = error.message || "An unknown error occurred while saving.";
+      set({ isSubmitting: false, error: errorMessage });
+      toast({ title: "Save Error", description: errorMessage, variant: "destructive" });
+      return { success: false, error: errorMessage };
+    } 
   },
   
   resetStore: () => {
     set(initialState);
   },
 }));
+
+// Navigation tracker - call this whenever route changes occur
+export const trackRouteChange = (fromRoute: string, toRoute: string) => {
+  navigationState.lastRouteChange = Date.now();
+  navigationState.isNavigatingBetweenRoutes = true;
+  
+  console.log(`🧭 Route change tracked: ${fromRoute} → ${toRoute}`);
+  
+  // Reset navigation flag after a short delay
+  setTimeout(() => {
+    navigationState.isNavigatingBetweenRoutes = false;
+  }, 1000);
+};
+
+// Cleanup function for cache maintenance
+export const cleanupSpaceCache = () => {
+  const now = Date.now();
+  const maxAge = 30 * 60 * 1000; // 30 minutes
+  
+  for (const [key, entry] of enhancedSpaceCache.entries()) {
+    if (now - entry.timestamp > maxAge) {
+      enhancedSpaceCache.delete(key);
+      console.log(`🧹 Cleaned up stale cache entry: ${key}`);
+    }
+  }
+};
+
+// Auto cleanup every 5 minutes
+setInterval(cleanupSpaceCache, 5 * 60 * 1000);
 
 export default useSpaceSettingsStore; 
 

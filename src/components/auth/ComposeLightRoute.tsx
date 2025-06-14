@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import React from "react";
 import ComposeLightPostPage from "@/pages/ComposeLightPostPage";
 
@@ -9,7 +9,7 @@ import ComposeLightPostPage from "@/pages/ComposeLightPostPage";
  * It only guards against non-authenticated users
  */
 export default function ComposeLightRoute() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const location = useLocation();
 
   // If not authenticated, redirect to login

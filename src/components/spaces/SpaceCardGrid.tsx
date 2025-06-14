@@ -68,6 +68,7 @@ export default function SpaceCardGrid({ spaces, isLoading }: SpaceCardGridProps)
                   description: space.description,
                   about_description: space.about_description,
                   cover_image: space.cover_image,
+                  icon_image: space.icon_image,
                   member_count: space.member_count,
                   subdomain: space.subdomain,
                   is_private: !!space.is_private,

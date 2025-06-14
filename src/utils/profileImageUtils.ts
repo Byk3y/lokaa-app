@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 
 /**
  * Uploads a profile image to Supabase Storage and updates the user's metadata
@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const uploadProfileImage = async (file: File | Blob): Promise<string | null> => {
   try {
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSupabaseClient().auth.getUser();
     if (!user) {
       console.error("No authenticated user found");
       return null;
@@ -19,7 +19,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     const filePath = `profiles/${user.id}/${fileName}`;
     
     // Upload the file to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { data, error } = await getSupabaseClient().storage
       .from('avatars')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -33,7 +33,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     }
     
     // Get the public URL for the uploaded image
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = getSupabaseClient().storage
       .from('avatars')
       .getPublicUrl(filePath);
     
@@ -43,7 +43,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     }
     
     // Update user metadata with the new avatar URL
-    const { error: updateError } = await supabase.auth.updateUser({
+    const { error: updateError } = await getSupabaseClient().auth.updateUser({
       data: { 
         avatar_url: publicUrl,
         avatar_path: filePath,
@@ -52,7 +52,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     });
     
     // NEW: Update the users table with the avatar_url
-    const { error: dbUpdateError } = await supabase
+    const { error: dbUpdateError } = await getSupabaseClient()
       .from('users')
       .update({ avatar_url: publicUrl })
       .eq('id', user.id);
@@ -73,7 +73,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
  */
 export const getProfileImageUrl = async (): Promise<string | null> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSupabaseClient().auth.getUser();
     
     if (!user) {
       return null;
@@ -93,7 +93,7 @@ export const getProfileImageUrl = async (): Promise<string | null> => {
  */
 export const deleteProfileImage = async (imageUrl?: string): Promise<boolean> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSupabaseClient().auth.getUser();
     
     if (!user) {
       return false;
@@ -111,7 +111,7 @@ export const deleteProfileImage = async (imageUrl?: string): Promise<boolean> =>
       if (!url) return false;
       
       try {
-        // URL format: https://[project-ref].supabase.co/storage/v1/object/public/avatars/profiles/[user-id]/[filename]
+        // URL format: https://[project-ref].getSupabaseClient().co/storage/v1/object/public/avatars/profiles/[user-id]/[filename]
         const urlObj = new URL(url);
         const pathSegments = urlObj.pathname.split('/');
         const avatarsIndex = pathSegments.findIndex(segment => segment === 'avatars');
@@ -131,7 +131,7 @@ export const deleteProfileImage = async (imageUrl?: string): Promise<boolean> =>
     }
     
     // Delete the file
-    const { error } = await supabase.storage
+    const { error } = await getSupabaseClient().storage
       .from('avatars')
       .remove([filePath]);
     
@@ -141,7 +141,7 @@ export const deleteProfileImage = async (imageUrl?: string): Promise<boolean> =>
     }
     
     // Update user metadata to remove the avatar URL
-    const { error: updateError } = await supabase.auth.updateUser({
+    const { error: updateError } = await getSupabaseClient().auth.updateUser({
       data: { 
         avatar_url: null,
         avatar_path: null,

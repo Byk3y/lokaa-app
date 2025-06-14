@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { 
   Home, Compass, Plus, BookOpen, Calendar, Users, 
   CreditCard, BarChart2, RefreshCw, Smartphone, ChevronDown
@@ -19,7 +19,7 @@ import { userHasSpaces, getUserSpaceCounts } from "@/utils/userSpaceUtils";
 export default function DashboardSidebar() {
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { user, userDetails, signOut } = useAuth();
+  const { user, userDetails, signOut } = useOptimizedAuth();
   const [hasSpaces, setHasSpaces] = useState(false);
   const [spaceCounts, setSpaceCounts] = useState({ ownedCount: 0, joinedCount: 0, totalCount: 0 });
   const [userSpaces, setUserSpaces] = useState<Space[]>([]);
@@ -92,7 +92,7 @@ export default function DashboardSidebar() {
             <div className="flex items-center space-x-2">
               {/* User circles */}
               <div className="flex -space-x-2">
-                <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold text-lg">
+                <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center text-white font-semibold text-lg">
                   {getUserInitial()}
                 </div>
                 <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-lg">
@@ -116,7 +116,7 @@ export default function DashboardSidebar() {
           <div className="flex-1 overflow-y-auto py-4 px-3">
             {/* Getting Started section */}
             <Link to="/app" className="block mb-3">
-              <div className="flex items-center bg-purple-600 text-white rounded-md px-3 py-2 mb-2">
+              <div className="flex items-center bg-teal-600 text-white rounded-md px-3 py-2 mb-2">
                 <span className="mr-2">✨</span>
                 <span className="font-medium">Getting Started</span>
               </div>

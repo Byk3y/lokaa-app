@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Crown, Shield, MoreHorizontal, UserX, Link as LinkIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useAuth } from '@/contexts/AuthContext'; // To get current user for action checks
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth'; // To get current user for action checks
 
 // Re-define DisplayMember here or import if it's moved to a shared types file
 // For now, defining it to match MembersTab.tsx for clarity
@@ -39,6 +39,7 @@ interface AdminOwnerMemberCardProps {
   spaceOwnerId: string | undefined;
   onChangeRole: (memberToUpdate: DisplayMember, newRole: MemberRole) => Promise<void>;
   onRemoveMember: (memberToUpdate: DisplayMember) => Promise<void>;
+  onClick?: (member: DisplayMember) => void;
 }
 
 const getInitials = (name: string | null) => {
@@ -97,6 +98,7 @@ export const AdminOwnerMemberCard: React.FC<AdminOwnerMemberCardProps> = ({
   spaceOwnerId,
   onChangeRole,
   onRemoveMember,
+  onClick,
 }) => {
 
   const isCurrentUserViewingSelf = member.user_id === currentUserId;
@@ -104,8 +106,8 @@ export const AdminOwnerMemberCard: React.FC<AdminOwnerMemberCardProps> = ({
   const canDemoteAdmin = currentUserRoleInSpace === 'owner' && member.role === 'admin';
   const canPromoteToAdmin = currentUserRoleInSpace === 'owner' && member.role === 'member'; // Though this card is for admin/owner
 
-  return (
-    <div className="bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col justify-between h-full">
+  const cardContent = (
+    <>
       <div>
         <div className="flex items-start space-x-3 mb-3">
           <Avatar className="h-12 w-12 flex-shrink-0">
@@ -122,6 +124,7 @@ export const AdminOwnerMemberCard: React.FC<AdminOwnerMemberCardProps> = ({
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-xs text-teal-600 hover:text-teal-700 flex items-center hover:underline truncate"
+                onClick={(e) => e.stopPropagation()} // Prevent triggering card click
               >
                 <LinkIcon size={12} className="mr-1 flex-shrink-0" />
                 View Profile
@@ -142,7 +145,12 @@ export const AdminOwnerMemberCard: React.FC<AdminOwnerMemberCardProps> = ({
         <div className="mt-3 self-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0"
+                onClick={(e) => e.stopPropagation()} // Prevent triggering card click
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -177,6 +185,25 @@ export const AdminOwnerMemberCard: React.FC<AdminOwnerMemberCardProps> = ({
           </DropdownMenu>
         </div>
       )}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        onClick={() => onClick(member)}
+        className="bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col justify-between h-full w-full text-left hover:shadow-md hover:bg-gray-50 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        type="button"
+        aria-label={`View profile of ${member.full_name || 'member'}`}
+      >
+        {cardContent}
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col justify-between h-full">
+      {cardContent}
     </div>
   );
 }; 

@@ -16,6 +16,7 @@ interface PostCardActionsProps {
   onCommentClick: (e: React.MouseEvent) => void;
   onShareClick: (e: React.MouseEvent) => void;
   onPinClick: (e: React.MouseEvent) => void;
+  isPostDetailsModalOpen?: boolean;
 }
 
 /**
@@ -34,6 +35,7 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
   onCommentClick,
   onShareClick,
   onPinClick,
+  isPostDetailsModalOpen = false,
 }) => {
   // Helper to determine if we should show count numbers
   const showNumbers = showCounts && (optimisticLikeCount > 0 || optimisticCommentCount > 0);
@@ -85,7 +87,7 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
         </Button>
       </div>
 
-      {isAdmin && (
+      {isAdmin && !isPostDetailsModalOpen && (
         <Button
           variant="ghost"
           size="sm"
@@ -103,4 +105,4 @@ export const PostCardActions: React.FC<PostCardActionsProps> = ({
       )}
     </div>
   );
-}; 
+};

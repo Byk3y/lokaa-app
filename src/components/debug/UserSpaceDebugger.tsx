@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Space } from '../../types/space';
 import { Database } from '../../types/supabase';
@@ -15,7 +15,7 @@ type DebugResult = {
 };
 
 export const UserSpaceDebugger = () => {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DebugResult | null>(null);
   const [spaceId, setSpaceId] = useState('');

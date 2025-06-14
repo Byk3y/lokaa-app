@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { updateLastJoinedSpace } from "@/utils/userSpaceUtils";
 
 // Define a more specific type for setJoinedSpaces if possible,
@@ -14,7 +14,7 @@ type Space = {
 };
 
 export default function useJoinSpace(setJoinedSpaces: (updater: (prevSpaces: Space[]) => Space[]) => void) {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
 
   const handleJoinSpace = async (spaceId: string) => {
@@ -27,7 +27,7 @@ export default function useJoinSpace(setJoinedSpaces: (updater: (prevSpaces: Spa
 
     try {
       // Call the centralized RPC to handle joining logic
-      const { data: rpcData, error: rpcError } = await supabase.rpc<
+      const { data: rpcData, error: rpcError } = await getSupabaseClient().rpc<
         'public_join_space',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { Args: { space_id_param: string }; Returns: any }
@@ -65,7 +65,7 @@ export default function useJoinSpace(setJoinedSpaces: (updater: (prevSpaces: Spa
         });
 
         // Update last_joined_space_id in the users table
-        const { error: userUpdateError } = await supabase
+        const { error: userUpdateError } = await getSupabaseClient()
           .from('users')
           .update({ last_joined_space_id: spaceId })
           .eq('id', user.id);
@@ -84,8 +84,7 @@ export default function useJoinSpace(setJoinedSpaces: (updater: (prevSpaces: Spa
         if (spaceName && subdomain) {
           await updateLastJoinedSpace(
             effectiveSpaceId,
-            spaceName,
-            subdomain
+            user.id
           );
           
           const joinedSpaceData: Space = {
@@ -97,7 +96,7 @@ export default function useJoinSpace(setJoinedSpaces: (updater: (prevSpaces: Spa
         } else {
             // If RPC didn't return all space details, fetch them.
             console.warn("[useJoinSpace] RPC response did not include full space details. Fetching separately.");
-            const { data: fetchedSpaceData, error: fetchError } = await supabase
+            const { data: fetchedSpaceData, error: fetchError } = await getSupabaseClient()
                 .from('spaces')
                 .select('id, name, subdomain')
                 .eq('id', effectiveSpaceId)
@@ -109,8 +108,7 @@ export default function useJoinSpace(setJoinedSpaces: (updater: (prevSpaces: Spa
             } else if (fetchedSpaceData) {
                 await updateLastJoinedSpace(
                     fetchedSpaceData.id,
-                    fetchedSpaceData.name,
-                    fetchedSpaceData.subdomain
+                    user.id
                 );
                 setJoinedSpaces((prevSpaces) => [...prevSpaces, fetchedSpaceData as Space]);
             }

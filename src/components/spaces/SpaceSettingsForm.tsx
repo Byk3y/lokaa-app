@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Loader2, AlertCircle } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,7 +47,7 @@ const COLOR_OPTIONS = [
 ];
 
 export default function SpaceSettingsForm({ space }: SpaceSettingsFormProps) {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [loading, setLoading] = useState(false);
   const [subdomainChanged, setSubdomainChanged] = useState(false);
 
@@ -74,7 +74,7 @@ export default function SpaceSettingsForm({ space }: SpaceSettingsFormProps) {
     try {
       // Check if subdomain is already taken (only if changed)
       if (data.subdomain !== space.subdomain) {
-        const { data: existingSpace, error: checkError } = await supabase
+        const { data: existingSpace, error: checkError } = await getSupabaseClient()
           .from('spaces')
           .select('id')
           .eq('subdomain', data.subdomain)
@@ -100,7 +100,7 @@ export default function SpaceSettingsForm({ space }: SpaceSettingsFormProps) {
         updated_at: new Date().toISOString(),
       };
       
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('spaces')
         .update(updatedSpace)
         .eq('id', space.id);

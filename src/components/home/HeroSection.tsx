@@ -1,10 +1,10 @@
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
 export default function HeroSection() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
 
   return (
     <div className="bg-lokaa-50 px-6 lg:px-8 py-24 md:py-32">

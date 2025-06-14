@@ -3,8 +3,8 @@
  * Provides boolean flags for various permission levels based on user role
  */
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { useOptimizedAuth } from '@/contexts/AuthContext';
 
 /**
  * Permission result object returned by the hook
@@ -30,26 +30,23 @@ interface SpacePermissionsResult {
   refresh: () => void;
 }
 
-// Define an interface for the space_access table row
-interface SpaceAccessRow {
+// Define an interface for the space_members table row
+interface SpaceMemberRow {
   id: string;
   space_id: string;
   user_id: string;
-  role: 'owner' | 'admin' | 'member' | string; // Allow string for flexibility from DB
-  is_active: boolean;
-  // Add other fields from space_access if needed
+  role: 'admin' | 'member' | string; 
+  status: 'active' | 'cancelling' | 'churned' | 'banned' | string;
 }
 
 // Cache for storing permission results by spaceId and userId
 const permissionsCache = new Map<string, SpacePermissionsResult>();
 
 /**
- * Hook that determines user permissions within a specific space
- * @param spaceId - The ID of the space to check permissions for
- * @returns Object containing boolean permission flags and loading/error states
+ * FIXED: Converted to const export for React Fast Refresh compatibility
  */
-export function useSpacePermissions(spaceId: string): SpacePermissionsResult {
-  const { user } = useAuth();
+export const useSpacePermissions = (spaceId: string): SpacePermissionsResult => {
+  const { user } = useOptimizedAuth();
   const [isOwner, setIsOwner] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isMember, setIsMember] = useState<boolean>(false);
@@ -98,11 +95,11 @@ export function useSpacePermissions(spaceId: string): SpacePermissionsResult {
 
       try {
         // First check if user is the owner
-        const { data: spaceData, error: spaceError } = await supabase
+        const { data: spaceData, error: spaceError } = await getSupabaseClient()
           .from('spaces')
           .select('owner_id')
           .eq('id', spaceId)
-          .single();
+          .maybeSingle();
 
         if (spaceError) throw spaceError;
 
@@ -114,15 +111,15 @@ export function useSpacePermissions(spaceId: string): SpacePermissionsResult {
           setIsAdmin(true);
           setIsMember(true);
         } else {
-          // If not owner, check space_access for role and membership
+          // If not owner, check space_members for role and membership
           try {
-            const { data, error: accessError } = await supabase
-              .from('space_access')
+            const { data, error: accessError } = await getSupabaseClient()
+              .from('space_members')
               .select('*')
               .eq('space_id', spaceId)
               .eq('user_id', user.id)
-              .eq('is_active', true)
-              .single();
+              .eq('status', 'active')
+              .maybeSingle();
 
             if (accessError) {
               if (accessError.code === 'PGRST116') {
@@ -134,11 +131,11 @@ export function useSpacePermissions(spaceId: string): SpacePermissionsResult {
               }
             } else if (data) {
               // Using any type to work around TypeScript limitations with dynamic data
-              const accessData = data as SpaceAccessRow | null;
+              const memberData = data as SpaceMemberRow | null;
               // Check if role is admin
-              const userIsAdmin = accessData && accessData.role === 'admin';
+              const userIsAdmin = memberData && memberData.role === 'admin';
               setIsAdmin(userIsAdmin);
-              // If they have active access, they're a member
+              // If they have active membership, they're a member
               setIsMember(true);
             } else {
               setIsAdmin(false);

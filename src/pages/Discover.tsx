@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, Bell, MessageSquare, ChevronDown, User, Plus, Compass, LogOut, Settings, X, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { Search, Bell, MessageSquare, ChevronDown, User, Plus, Compass, LogOut, Settings, X, Loader2, Menu } from "lucide-react";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useProfileImage } from "@/contexts/ProfileImageContext";
 import { SpaceCard } from "@/components/spaces/SpaceCard";
 import { DiscoverSpaceCard } from "@/components/discover/DiscoverSpaceCard";
@@ -13,20 +13,19 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { Button } from "@/components/ui/button";
 import LoadingIndicator from "@/components/LoadingIndicator";
-import authDebug from '@/utils/authDebug';
 import { motion, AnimatePresence } from "framer-motion";
 import MinimalUpDownChevronIcon from "@/components/MinimalUpDownChevronIcon";
 import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import SpaceSwitcher from "@/components/spaces/SpaceSwitcher";
 import DiscoverSpaceCardSkeleton from "@/components/discover/DiscoverSpaceCardSkeleton";
+import MobileSpaceDrawer from "@/components/mobile/MobileSpaceDrawer";
+import BottomNav from "@/components/mobile/BottomNav";
+import ChatButton from "@/components/chat/ChatButton";
+import HeaderActions from "@/components/common/HeaderActions";
 import "../pages/UserSettingsStyles.css";
-
-declare global {
-  interface Window {
-    authDebug?: typeof authDebug;
-  }
-}
+import { useBatchMemberCounts } from "@/hooks/useBatchMemberCounts";
+import { aggressiveDiscoverOverride } from '@/utils/smartSpaceRedirect';
 
 const categories = [
   { id: 'all', label: 'All', icon: '🌟' },
@@ -96,16 +95,20 @@ const showDirectLoginModal = (e: React.MouseEvent, callback?: () => void) => {
       setLoading(true);
       setError(null);
       try {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        console.log('🔥 [MODAL FIX] Login attempt starting...');
+        const { data, error: signInError } = await getSupabaseClient().auth.signInWithPassword({ email, password });
         if (signInError) {
+          console.log('🔥 [MODAL FIX] Login failed:', signInError.message);
           setError(signInError.message);
           setLoading(false);
           return;
         }
         if (data.session) {
+          console.log('🔥 [MODAL FIX] Login successful, closing modal immediately');
           handleClose();
         }
       } catch (err) {
+        console.error('🔥 [MODAL FIX] Login exception:', err);
         setError('An unexpected error occurred. Please try again.');
         setLoading(false);
       }
@@ -115,6 +118,38 @@ const showDirectLoginModal = (e: React.MouseEvent, callback?: () => void) => {
       const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') handleClose(); };
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    // 🔥 [MODAL FIX] Auto-close modal when authentication succeeds
+    React.useEffect(() => {
+      const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event, session) => {
+        console.log('🔥 [MODAL FIX] Auth state change in modal:', event, !!session);
+        if (event === 'SIGNED_IN' && session) {
+          console.log('🔥 [MODAL FIX] User signed in, auto-closing modal');
+          
+          // Close this modal immediately
+          setIsOpen(false);
+          
+          // Also close the modal container after animation
+          setTimeout(() => {
+            console.log('🔥 [MODAL FIX] Removing modal container from DOM');
+            handleClose();
+            
+            // Force close any other auth modals that might be open
+            const containers = document.querySelectorAll('#login-modal-container');
+            containers.forEach(container => {
+              if (container.parentNode) {
+                container.parentNode.removeChild(container);
+              }
+            });
+          }, 300);
+        }
+      });
+
+      return () => {
+        console.log('🔥 [MODAL FIX] Cleaning up auth subscription');
+        subscription.unsubscribe();
+      };
     }, []);
     
     React.useEffect(() => {
@@ -185,7 +220,41 @@ function UserProfileCard({ user, isCurrentUser }) {
 }
 
 export default function Discover() {
-  const { user, signOut, routingInProgress } = useAuth();
+  // EMERGENCY CIRCUIT BREAKER: Prevent API storms
+  const requestTrackerRef = useRef(new Map<string, number>());
+  const activeRequestsRef = useRef(0);
+  const MAX_CONCURRENT_REQUESTS = 5;
+  const REQUEST_THROTTLE_MS = 100;
+  
+  const throttledRequest = useCallback(async (
+    requestKey: string,
+    requestFn: () => Promise<any>
+  ): Promise<any | null> => {
+    const now = Date.now();
+    const lastRequest = requestTrackerRef.current.get(requestKey);
+    
+    // Throttle identical requests
+    if (lastRequest && now - lastRequest < REQUEST_THROTTLE_MS) {
+      console.warn(`🚨 [Discover] Request ${requestKey} throttled`);
+      return null;
+    }
+    
+    // Circuit breaker for concurrent requests
+    if (activeRequestsRef.current >= MAX_CONCURRENT_REQUESTS) {
+      console.warn(`🚨 [Discover] Circuit breaker: too many concurrent requests (${activeRequestsRef.current})`);
+      return null;
+    }
+    
+    try {
+      activeRequestsRef.current++;
+      requestTrackerRef.current.set(requestKey, now);
+      return await requestFn();
+    } finally {
+      activeRequestsRef.current--;
+    }
+  }, []);
+
+  const { user, signOut, routingInProgress } = useOptimizedAuth();
   const { profileImageUrl, refreshProfileImage } = useProfileImage();
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -205,6 +274,16 @@ export default function Discover() {
   const [retryCount, setRetryCount] = useState(0);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const [spaceSearchQuery, setSpaceSearchQuery] = useState("");
+  const [spaceDrawerOpen, setSpaceDrawerOpen] = useState(false);
+  const [userProfileCardOpen, setUserProfileCardOpen] = useState(false);
+  const [authEnhancementComplete, setAuthEnhancementComplete] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  
+  // Get spaceIds for batch fetching member counts
+  const spaceIds = spaces.map(space => space.id);
+  
+  // Use the batch member counts hook for efficient fetching
+  const { counts: memberCounts, loading: memberCountsLoading } = useBatchMemberCounts(spaceIds);
 
   const getUserInitials = () => {
     if (!user) return "A";
@@ -233,15 +312,9 @@ export default function Discover() {
   }, []);
 
   useEffect(() => {
-    authDebug.init(supabase);
-    if (typeof window !== 'undefined') {
-      window.authDebug = authDebug;
-      console.log('Auth debugging tools available: window.authDebug.checkSession()');
-    }
+    // Auth debugging removed for production
     return () => {
-      if (typeof window !== 'undefined') {
-        delete window.authDebug;
-      }
+      // Cleanup logic if needed
     };
   }, []);
 
@@ -279,9 +352,10 @@ export default function Discover() {
         let fetchedSpaces: DatabaseSpace[] = [];
         
         try {
-          console.log('Trying to fetch spaces via RPC function');
+          console.log('Fetching public spaces using RPC function');
+          
           const { data: rpcData, error: rpcError } = await createFetch(async () => {
-            return await supabase.rpc('get_public_spaces');
+            return await getSupabaseClient().rpc('get_public_spaces');
           });
           
           if (rpcError) {
@@ -299,7 +373,7 @@ export default function Discover() {
           
           try {
             const { data: queryData, error: queryError } = await createFetch(async () => {
-              return await supabase
+              return await getSupabaseClient()
                 .from('spaces')
                 .select('*')
                 .eq('is_private', false)
@@ -319,7 +393,7 @@ export default function Discover() {
               console.log('No spaces found via fallback query, trying unrestricted query');
               
               const { data: lastResortData, error: lastResortError } = await createFetch(async () => {
-                return await supabase
+                return await getSupabaseClient()
                   .from('spaces')
                   .select('*')
                   .order('created_at', { ascending: false });
@@ -352,6 +426,7 @@ export default function Discover() {
         console.log('Processing fetched spaces:', fetchedSpaces.length);
         const processedSpaces = [];
         
+        // Process spaces with default member count - the real counts will be updated later
         for (const space of fetchedSpaces) {
           try {
             if (!space || !space.id || !space.name) {
@@ -359,29 +434,10 @@ export default function Discover() {
               continue;
             }
             
-            let memberCount = space.member_count || 1;
-            try {
-              if (!space.member_count) {
-                console.log(`Fetching member count for space ${space.id}`);
-                const { data: memberData, error: memberError } = await supabase
-                  .from('space_access')
-                  .select('id', { count: 'exact' })
-                  .eq('space_id', space.id)
-                  .eq('is_active', true);
-                  
-                if (memberError) {
-                  console.warn(`Error fetching member count for space ${space.id}:`, memberError);
-                } else {
-                  memberCount = (memberData?.length || 0) + 1;
-                }
-              }
-            } catch (memberCountError) {
-              console.warn(`Exception getting member count for space ${space.id}:`, memberCountError);
-            }
-            
+            // Use the existing member_count as a fallback value, to be updated by the hook
             const extendedSpace = {
               ...space,
-              member_count: memberCount,
+              member_count: space.member_count || 0,
               post_count: 0,
               tags: generateTags(space),
             };
@@ -429,6 +485,18 @@ export default function Discover() {
     return () => clearTimeout(fetchTimeoutId);
   }, [user?.id, createFetch, retryCount]);
 
+  // Effect to update spaces with real member counts from the hook
+  useEffect(() => {
+    if (!memberCountsLoading && Object.keys(memberCounts).length > 0) {
+      setSpaces(currentSpaces => 
+        currentSpaces.map(space => ({
+          ...space,
+          member_count: memberCounts[space.id]?.totalMembers || space.member_count || 0
+        }))
+      );
+    }
+  }, [memberCounts, memberCountsLoading]);
+
   useEffect(() => {
     let filtered = [...spaces];
     
@@ -455,19 +523,21 @@ export default function Discover() {
 
   const handleSignOut = async () => {
     try {
-      console.log('Discover: Starting sign out process');
+      // Starting sign out process
+      setIsLoggingOut(true);
       await signOut();
       
-      console.log('Discover: Adding fallback redirect for Safari');
+              // Adding fallback redirect for Safari
       setTimeout(() => {
         const currentPath = window.location.pathname;
         if (currentPath.includes('/discover')) {
-          console.log('Discover: Still on discover page after signOut, forcing hard redirect');
+          // Still on discover page after signOut, forcing hard redirect
           window.location.replace(`/?from=discover&t=${Date.now()}`);
         }
       }, 1000);
     } catch (error) {
       console.error('Discover: Sign out error:', error);
+      setIsLoggingOut(false);
       window.location.replace('/');
     }
   };
@@ -529,22 +599,74 @@ export default function Discover() {
     }
   };
 
-  if (routingInProgress) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50">
-        <LoadingIndicator size="large" nonBlocking={false} />
-        <p className="mt-4 text-gray-600">Loading your spaces...</p>
-      </div>
-    );
-  }
+  // 🚀 PERFORMANCE: Progressive Authentication Enhancement (Background)
+  // This runs in the background without blocking the UI
+  useEffect(() => {
+    const enhanceWithAuth = async () => {
+      // CRITICAL: Only run for authenticated users with valid session, and only once
+      // Don't run immediately after logout when user state may be stale
+      if (user?.id && !authEnhancementComplete && user.email) {
+        console.log('🚀 [Discover] Progressive auth enhancement starting...');
+        
+        try {
+          // SAFETY: Add a small delay to ensure user state is stable after auth changes
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Double-check user is still authenticated after delay
+          if (!user?.id || !user.email) {
+            console.log('🚀 [Discover] User state became invalid, skipping enhancement');
+            setAuthEnhancementComplete(true);
+            return;
+          }
+          
+          // Background check: Should user be redirected to their space?
+          const result = await aggressiveDiscoverOverride(user.id, navigate);
+          
+          if (result.redirected) {
+            console.log(`🚀 [Discover] Background redirect applied: ${result.strategy}`);
+            // User was redirected, component will unmount
+            return;
+          } else {
+            console.log(`🚀 [Discover] User legitimately belongs on discover: ${result.strategy}`);
+            setAuthEnhancementComplete(true);
+          }
+        } catch (error) {
+          console.warn('🚀 [Discover] Background auth enhancement failed (non-critical):', error);
+          // Continue with public experience if enhancement fails
+          setAuthEnhancementComplete(true);
+        }
+      } else if (!user) {
+        // For non-authenticated users, mark enhancement as complete immediately
+        setAuthEnhancementComplete(true);
+      }
+    };
+    
+    // Run enhancement in background without blocking UI
+    enhanceWithAuth();
+  }, [user?.id, user?.email, navigate, authEnhancementComplete]);
+
+  // 🚀 PUBLIC PAGE: No routing progress blocking needed
+  // The page renders immediately for all users (public or authenticated)
+  // Authentication enhancement happens in background without blocking UI
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       <header className="sticky top-0 bg-white border-b border-gray-100 z-50">
         <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 flex items-center justify-between h-16">
           <div className="flex items-center">
+            {/* Mobile hamburger menu */}
+            <Button
+              variant="ghost"
+              className="sm:hidden text-gray-600 mr-2 p-2"
+              onClick={() => setSpaceDrawerOpen(true)}
+              aria-label="Toggle space drawer"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            
             <h1 className="text-4xl font-bold leading-none hidden md:block" style={{ color: '#00A389' }}>Lokaa</h1>
-            <div className="ml-2">
+            {/* Wrap SpaceSwitcher to hide on mobile */}
+            <div className="ml-2 hidden sm:block">
               <SpaceSwitcher 
                 userId={user?.id || ""}
                 currentSpaceName="Discover"
@@ -555,21 +677,21 @@ export default function Discover() {
           </div>
           
           <div className="flex items-center space-x-4">
-            {user ? (
+            {user && !isLoggingOut ? (
               <>
-                <button className="relative p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100">
-                  <MessageSquare size={20} />
-                  <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">1</span>
-                </button>
-                
-                <button className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100">
-                  <Bell size={20} />
-                </button>
-                
-                <div className="relative">
-                  <ProfileDropdown user={user} variant="animation" size="md" className="ml-4" />
+                {/* Mobile Actions */}
+                <div className="sm:hidden">
+                  <ChatButton variant="icon" className="text-gray-600 hover:text-gray-900" />
                 </div>
+                
+                {/* Desktop Actions */}
+                <HeaderActions className="hidden sm:flex" />
               </>
+            ) : isLoggingOut ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+                <span className="text-sm text-gray-600">Signing out...</span>
+              </div>
             ) : (
               <div className="flex space-x-3">
                 <Link 
@@ -594,14 +716,22 @@ export default function Discover() {
         </div>
       </header>
 
-      <main>
-        <section className="relative pt-10 pb-6 bg-white">
+      {/* Mobile Space Drawer */}
+      <MobileSpaceDrawer 
+        isOpen={spaceDrawerOpen}
+        onClose={() => setSpaceDrawerOpen(false)}
+        currentSpaceSubdomain="_discover_"
+        userId={user?.id || ''}
+      />
+
+      <main className="pb-16 sm:pb-0">
+        <section className="relative pt-4 sm:pt-10 pb-3 sm:pb-6 bg-white">
           <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-8 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 sm:mb-8 text-center">
               Discover spaces
             </h1>
             
-            <div className="relative max-w-2xl mx-auto mb-8">
+            <div className="relative max-w-2xl mx-auto mb-4 sm:mb-8">
               <form onSubmit={handleSearch}>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -642,7 +772,7 @@ export default function Discover() {
             
             <div className="absolute right-6 md:right-10 lg:right-16 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
             
-            <div className="overflow-x-auto hide-scrollbar py-3">
+            <div className="overflow-x-auto hide-scrollbar py-1 sm:py-3">
               <div className="flex items-center space-x-3 min-w-max">
                 <button
                   onClick={() => setActiveCategory('all')}
@@ -763,6 +893,9 @@ export default function Discover() {
           </div>
         </section>
       </main>
+      
+      {/* Bottom Navigation */}
+      <BottomNav />
     </div>
   );
 }

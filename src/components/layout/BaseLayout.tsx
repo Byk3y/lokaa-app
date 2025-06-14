@@ -3,11 +3,11 @@ import TopNav from "./TopNav";
 import { Home, Users, Plus, Search } from "lucide-react";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 export default function BaseLayout() {
   const navigate = useNavigate();
-  const { user: authUser } = useAuth();
+  const { user: authUser } = useOptimizedAuth();
 
   function getInitials(name: string | null | undefined): string {
     if (!name) return 'U';

@@ -17,6 +17,10 @@ const LeaderboardMemberItem: React.FC<LeaderboardMemberItemProps> = ({ user, isC
     let rowStyle = isCurrentUser ? 'bg-primary/10 border-l-4 border-primary shadow-md' : 'hover:bg-muted/50';
     let avatarBorderStyle = isCurrentUser ? 'border-primary/60' : 'border-transparent';
     
+    // CRITICAL FIX: Add null safety check for points data
+    const safePointsInSpace = user.pointsInSpace ?? 0;
+    const safeLevelName = user.levelInfo?.name ?? 'Unknown Level';
+    
     if (!isCurrentUser) { // Apply podium styles only if not the current user, or current user highlight will take over
         if (rank === 1) {
             rankIcon = <Trophy className="h-5 w-5 text-yellow-500" />;
@@ -72,12 +76,12 @@ const LeaderboardMemberItem: React.FC<LeaderboardMemberItemProps> = ({ user, isC
                             {user.fullName || 'Anonymous User'} 
                             {isCurrentUser && <span className='ml-1.5 text-xs font-normal bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full align-middle'>You</span>}
                         </p>
-                        <p className={`text-xs ${isCurrentUser ? 'text-primary/90' : rank <=3 ? 'opacity-80':'text-muted-foreground'}`}>{user.levelInfo.name}</p>
+                        <p className={`text-xs ${isCurrentUser ? 'text-primary/90' : rank <=3 ? 'opacity-80':'text-muted-foreground'}`}>{safeLevelName}</p>
                     </div>
                 </div>
             </TableCell>
             <TableCell className={`text-right font-bold text-lg py-4 pr-6 ${isCurrentUser ? 'text-primary' : rankCellStyle ? rankCellStyle : 'text-foreground'}`}>
-                {user.pointsInSpace.toLocaleString()}
+                {safePointsInSpace.toLocaleString()}
                 <span className="text-xs font-normal ml-1 opacity-70">pts</span>
             </TableCell>
         </TableRow>

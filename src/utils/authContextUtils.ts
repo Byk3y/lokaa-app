@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client'; // Ensure this path is correct
+import { getSupabaseClient } from '@/integrations/supabase/client'; // Ensure this path is correct
 import { PostgrestError } from '@supabase/supabase-js'; // ADDED IMPORT
 
 /**
@@ -53,7 +53,7 @@ export async function getUserPreferredSpace(userId: string): Promise<{ subdomain
 
   // Priority 2: Check for spaces directly owned by the user
   try {
-    const { data: ownedSpaces, error: ownedSpacesError } = await supabase
+    const { data: ownedSpaces, error: ownedSpacesError } = await getSupabaseClient()
       .from('spaces')
       .select('id, name, subdomain')
       .eq('owner_id', userId)
@@ -85,7 +85,7 @@ export async function getUserPreferredSpace(userId: string): Promise<{ subdomain
 
   // Priority 3: Check for space memberships for the user
   try {
-    const { data: accessSpaces, error: accessSpacesError } = await supabase
+    const { data: accessSpaces, error: accessSpacesError } = await getSupabaseClient()
       .from('space_members')
       .select(`
         space_id,

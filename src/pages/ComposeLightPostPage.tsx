@@ -4,13 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 export default function ComposeLightPostPage() {
   // Extract spaceId from the URL directly
   const spaceId = window.location.pathname.split('/')[2];
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [spaceName, setSpaceName] = useState("");
@@ -23,7 +23,7 @@ export default function ComposeLightPostPage() {
       if (!spaceId) return;
       
       try {
-        const { data, error } = await supabase
+        const { data, error } = await getSupabaseClient()
           .from("spaces")
           .select("name, subdomain")
           .eq("id", spaceId)
@@ -50,8 +50,8 @@ export default function ComposeLightPostPage() {
   // Direct navigation to feed
   const navigateToFeed = () => {
     const url = spaceSubdomain 
-      ? `/${spaceSubdomain}/space/feed` 
-      : `/s/${spaceId}/feed`;
+      ? `/${spaceSubdomain}/space` 
+      : `/s/${spaceId}/space`;
     
     // Direct URL replacement
     window.location.replace(url);
@@ -73,7 +73,7 @@ export default function ComposeLightPostPage() {
     
     try {
       // Create the post
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseClient()
         .from("posts")
         .insert({
           user_id: user?.id,
@@ -94,7 +94,7 @@ export default function ComposeLightPostPage() {
       
       // Insert into user_activity_log after post creation
       if (data && data.id) {
-        await supabase.from('user_activity_log').insert({
+        await getSupabaseClient().from('user_activity_log').insert({
           user_id: user.id,
           type: 'post',
           ref_id: data.id,

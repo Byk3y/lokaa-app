@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, UserX, Shield, Link as LinkIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useAuth } from '@/contexts/AuthContext'; // To get current user for action checks
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth'; // To get current user for action checks
 
 // Matching DisplayMember type from MembersTab.tsx
 type DisplayMember = {

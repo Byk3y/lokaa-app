@@ -1,7 +1,8 @@
-import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useOptimizedAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { checkActiveSession } from "@/utils/directAuth";
+
 import { useEffect, useState } from "react";
 
 interface PublicRouteProps {
@@ -10,16 +11,27 @@ interface PublicRouteProps {
   forcePublic?: boolean;
 }
 
-export default function PublicRoute({ component, redirectTo = "/discover", forcePublic = false }: PublicRouteProps) {
-  const { user, loading } = useAuth();
+export default function PublicRoute({ component, redirectTo = "/app", forcePublic = false }: PublicRouteProps) {
+  const { user, loading } = useOptimizedAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isCheckingActiveSession, setIsCheckingActiveSession] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [isDirectNavigation, setIsDirectNavigation] = useState(false);
+  const [hasSpaces, setHasSpaces] = useState<boolean | null>(null);
+  const [isBackNavigation, setIsBackNavigation] = useState(false);
 
-  // Check if this is a direct navigation to the root URL
+  
+
+
+  // ✅ CRITICAL FIX: Detect back button navigation to prevent flash
   useEffect(() => {
     const checkNavigationType = () => {
+      // Check if this is back button navigation by looking at navigation history
+      const isBack = window.history.state && 
+                    location.pathname === "/" && 
+                    document.referrer.includes(window.location.origin);
+      
       // Consider it a direct navigation if we're on the root path and either:
       // 1. There's no referrer (typed URL/bookmark/external link)
       // 2. The referrer is from a different origin
@@ -30,14 +42,88 @@ export default function PublicRoute({ component, redirectTo = "/discover", force
       console.log('PublicRoute: Navigation check:', {
         pathname: location.pathname,
         referrer: document.referrer,
-        isDirect
+        isDirect,
+        isBack,
+        historyState: window.history.state
       });
       
       setIsDirectNavigation(isDirect);
+      setIsBackNavigation(isBack);
     };
     
     checkNavigationType();
   }, [location.pathname]);
+
+  // 🚀 [Phase 2] ENHANCED: More aggressive cached space detection for direct navigation
+  useEffect(() => {
+    if (user && location.pathname === "/" && !forcePublic) {
+
+      // Check for cached space data with multiple fallbacks
+      const checkCachedSpaces = () => {
+        try {
+          // Primary cache sources
+          const cacheKeys = ['lastActiveSpace', 'lastVisitedSpace', 'lastJoinedSpace'];
+          
+          for (const key of cacheKeys) {
+            const cachedData = localStorage.getItem(key);
+            if (!cachedData) continue;
+            
+            const space = JSON.parse(cachedData);
+            if (!space || !space.subdomain) continue;
+            
+            // 🚀 [Phase 2] More lenient validation for instant navigation
+            const isValid = !space.timestamp || (Date.now() - space.timestamp) < (10 * 60 * 1000); // 10 minutes
+            if (isValid) {
+              console.log(`🚀 [Phase 2] PublicRoute found cached space: ${space.name}, enabling direct navigation`);
+              setHasSpaces(true);
+              return;
+            }
+          }
+          
+          // 🚀 [Phase 2] FALLBACK: Check membership data
+          const membershipSources = ['userSpaces', 'spaceMemberships', 'ownedSpaces', 'joinedSpaces'];
+          for (const source of membershipSources) {
+            const membershipData = localStorage.getItem(source);
+            if (!membershipData) continue;
+            
+            try {
+              const spaces = JSON.parse(membershipData);
+              if (Array.isArray(spaces) && spaces.length > 0) {
+                const validSpace = spaces.find(s => s && s.subdomain);
+                if (validSpace) {
+                  console.log(`🚀 [Phase 2] PublicRoute found membership data in ${source}, enabling direct navigation`);
+                  setHasSpaces(true);
+                  return;
+                }
+              }
+            } catch (e) {
+              console.warn(`🚀 [Phase 2] Error parsing ${source}:`, e);
+            }
+          }
+          
+          // 🚀 [Phase 2] LAST RESORT: Check for any space-related data
+          const spaceKeys = Object.keys(localStorage).filter(key => 
+            key.includes('space') && !key.includes('check') && !key.includes('session')
+          );
+          
+          if (spaceKeys.length > 0) {
+            console.log(`🚀 [Phase 2] PublicRoute found space-related data keys: ${spaceKeys.join(', ')}`);
+            setHasSpaces(true);
+            return;
+          }
+          
+          // No valid space data found
+          console.log('🚀 [Phase 2] PublicRoute: No space data found, user needs space detection');
+          setHasSpaces(false);
+        } catch (error) {
+          console.warn('🚀 [Phase 2] PublicRoute: Error checking cached spaces:', error);
+          setHasSpaces(false);
+        }
+      };
+      
+      checkCachedSpaces();
+    }
+  }, [user, location.pathname, forcePublic]);
 
   // Extra session check for root path to prevent auto-login bypass
   useEffect(() => {
@@ -59,7 +145,7 @@ export default function PublicRoute({ component, redirectTo = "/discover", force
     verifySession();
   }, [location.pathname, user]);
 
-  console.log('PublicRoute Debug:', {
+  console.log('🔥 [CRITICAL FIX] PublicRoute Debug:', {
     user: user ? `logged in as ${user.email}` : 'not logged in',
     loading,
     redirectTo,
@@ -68,31 +154,79 @@ export default function PublicRoute({ component, redirectTo = "/discover", force
     hasActiveSession,
     isCheckingActiveSession,
     isDirectNavigation,
-    component: component ? 'provided' : 'missing'
+    hasSpaces,
+    component: component ? 'provided' : 'missing',
+    raceCondition: hasActiveSession && !user && !loading ? 'DETECTED' : 'none'
   });
 
-  // Show loading indicator while checking auth status
+  // 🔥 [CRITICAL FIX] Enhanced loading states to prevent race conditions
   if (loading || isCheckingActiveSession) {
-    console.log('PublicRoute: Still loading auth state...');
+    console.log('🔥 [CRITICAL FIX] PublicRoute: Auth loading, preventing premature redirects...');
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600 mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">
+            {isCheckingActiveSession ? 'Verifying session...' : 'Loading authentication...'}
+          </p>
+        </div>
       </div>
     );
   }
 
-  // If direct navigation to root, show landing page regardless of auth state
-  if (isDirectNavigation && location.pathname === "/") {
-    console.log('PublicRoute: Direct navigation to root, showing landing page');
+  // 🔥 [CRITICAL FIX] Additional safety check for session/user race condition
+  if (hasActiveSession && !user && !loading) {
+    console.log('🔥 [CRITICAL FIX] PublicRoute: Session detected but user not loaded yet, waiting...');
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-teal-600 mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Completing authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+
+
+  // 🔥 [CRITICAL FIX] Only navigate if auth is completely loaded
+  if (user && !forcePublic && !loading && hasSpaces === true) {
+    console.log('🚀 [Phase 2] PublicRoute: User has cached spaces and auth complete, triggering direct navigation flow');
+    return <Navigate to={redirectTo} replace state={{ from: location, directSpaceNavigation: true, skipApp: true }} />;
+  }
+
+  // 🔥 [CRITICAL FIX] Only navigate if auth is completely loaded
+  if (user && !forcePublic && !loading && hasSpaces === false) {
+    console.log('🚀 [Phase 2] PublicRoute: User authenticated and auth complete but no cached spaces, using QuickSpaceRedirect flow');
+    return <Navigate to={redirectTo} replace state={{ from: location, needsSpaceDetection: true, useQuickRedirect: true }} />;
+  }
+
+  // If direct navigation to root, show landing page only if user is NOT logged in
+  if (isDirectNavigation && location.pathname === "/" && !user) {
+    console.log('PublicRoute: Direct navigation to root by unauthenticated user, showing landing page');
     return <>{component}</>;
   }
 
-  // If user is authenticated or we have an active session at the root path, redirect appropriately
-  // But only for non-direct navigations or non-root paths
-  if ((user || (location.pathname === "/" && hasActiveSession)) && !forcePublic && !isDirectNavigation) {
-    console.log('PublicRoute: User is authenticated, redirecting to:', redirectTo);
+  // ✅ CRITICAL FIX: Handle back button navigation gracefully
+  // If user navigated back to root, respect their choice and show landing page
+  if (isBackNavigation && user && !forcePublic && !loading) {
+    console.log('🚀 [Phase 2] PublicRoute: Back navigation detected, showing landing page (user can navigate manually)');
+    // Don't auto-redirect on back navigation - let user choose where to go
+    return <>{component}</>;
+  }
+
+  // 🔥 [CRITICAL FIX] Only redirect if we have BOTH user AND complete auth loading
+  if (user && !forcePublic && !loading && !isBackNavigation) {
+    console.log('🚀 [Phase 2] PublicRoute: User is authenticated and auth loading complete, triggering smart redirect system:', redirectTo);
     // Use replace to prevent flashing of content
-    return <Navigate to={redirectTo} replace state={{ from: location }} />;
+    return <Navigate to={redirectTo} replace state={{ from: location, smartRedirect: true }} />;
+  }
+
+  // 🔥 [CRITICAL FIX] Do NOT redirect on session alone - wait for user object
+  // This prevents the infinite loop between PublicRoute and ProtectedRoute
+  if (location.pathname === "/" && hasActiveSession && !forcePublic && !isDirectNavigation && user && !loading) {
+    console.log('🚀 [Phase 2] PublicRoute: Active session detected with complete user, triggering smart redirect system:', redirectTo);
+    return <Navigate to={redirectTo} replace state={{ from: location, sessionDetected: true }} />;
   }
 
   // If there's an active session but forcePublic is true, don't redirect but warn about it

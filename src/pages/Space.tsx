@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { BellRing, MessageCircle, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Upload, Lock, Check, Globe, Loader2, Trophy, GraduationCap, Camera } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import SpaceSwitcher from "@/components/spaces/SpaceSwitcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -30,11 +30,18 @@ import ProfileDropdown from "@/components/common/ProfileDropdown";
 import SpaceLayout from "@/components/layout/SpaceLayout";
 import SpaceHeader from "@/components/layout/SpaceHeader";
 import SpaceNav from "@/components/layout/SpaceNav";
+import { env } from '@/core/config/env';
+import SpaceFallback from "@/components/space/SpaceFallback";
 
 const DEFAULT_COVER_IMAGE_URL = '/default-space-cover.jpg'; // Define a default
 
-// Initialize spaceAccessFix with the Supabase client
-spaceAccessFix.init(supabase);
+    // Initialize spaceAccessFix with the Supabase client
+    spaceAccessFix.init(getSupabaseClient());
+
+// Debug logging for space loading
+const logSpaceDebug = (message: string, data?: any) => {
+  console.log(`🏠 [Space] ${message}`, data || '');
+};
 
 interface SpaceDetails {
   id: string;
@@ -133,7 +140,7 @@ declare global {
 
 export default function Space({ initialTab }: SpaceProps) {
   const { subdomain, tab: tabFromParams } = useParams<{ subdomain: string; tab?: string }>();
-  const { user, signOut, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading } = useOptimizedAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -153,6 +160,79 @@ export default function Space({ initialTab }: SpaceProps) {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [notificationShown, setNotificationShown] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  
+  // Add debugging for space loading state
+  useEffect(() => {
+    logSpaceDebug('Space component render state:', {
+      subdomain,
+      user: user?.id,
+      authLoading,
+      storeSpace: storeSpace?.name,
+      storeLoadingSpace,
+      storeError,
+      activeTab
+    });
+  }, [subdomain, user, authLoading, storeSpace, storeLoadingSpace, storeError, activeTab]);
+  
+  // Error boundary simulation
+  useEffect(() => {
+    const handleError = (error: ErrorEvent) => {
+      logSpaceDebug('JavaScript error caught:', {
+        message: error.message,
+        filename: error.filename,
+        lineno: error.lineno,
+        colno: error.colno
+      });
+      setRenderError(`JavaScript Error: ${error.message}`);
+    };
+    
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      logSpaceDebug('Unhandled promise rejection:', {
+        reason: event.reason
+      });
+      setRenderError(`Promise Rejection: ${event.reason}`);
+    };
+    
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+  
+  // If there's a render error, show debug info
+  if (renderError) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Space Loading Error</h1>
+          <p className="text-gray-700 mb-4">{renderError}</p>
+          <div className="bg-gray-100 p-4 rounded text-sm">
+            <pre>{JSON.stringify({
+              subdomain,
+              user: user?.id,
+              authLoading,
+              storeSpace: storeSpace?.name,
+              storeLoadingSpace,
+              storeError: storeError
+            }, null, 2)}</pre>
+          </div>
+          <Button 
+            onClick={() => {
+              setRenderError(null);
+              window.location.reload();
+            }}
+            className="mt-4"
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
   
   // Simplified permissions access from store
   const isOwner = storePermissions?.isOwner ?? false;
@@ -255,12 +335,7 @@ export default function Space({ initialTab }: SpaceProps) {
   // SessionStorage caching for quick recovery can be handled by the store if needed, or removed if store's caching is sufficient.
   // For now, removing direct sessionStorage interaction from component.
 
-  // REMOVED: fetchInitialSpaceData and related useEffects as loadActiveSpace from store handles this.
-  // const [quickRecoveryAttempted, setQuickRecoveryAttempted] = useState(false);
-  // const quickRecoveryAttemptedRef = useRef(quickRecoveryAttempted);
-  // useEffect(() => { quickRecoveryAttemptedRef.current = quickRecoveryAttempted; }, [quickRecoveryAttempted]);
-  // const fetchInitialSpaceData = useCallback(async () => { ... }, [subdomain, user, fetchSpaceData, fetchSpaceSettings, spaceData, loadingSpaceData, quickRecoveryAttemptedRef]);
-  // useEffect(() => { ... fetchInitialSpaceData(); ... }, [subdomain, user, location, fetchInitialSpaceData, spaceData]);
+  // Space data fetching handled by store
 
 
   const handleSignOut = async () => {
@@ -295,7 +370,8 @@ export default function Space({ initialTab }: SpaceProps) {
   }, [profileDropdownOpen]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && subdomain && user) {
+    // Only expose debug utilities in development mode
+    if (env.isDevelopment && typeof window !== 'undefined' && subdomain && user) {
       const currentSubdomain = subdomain; // Capture for closure
       const currentUserId = user.id; // Capture for closure
       window.spaceDebug = {
@@ -325,7 +401,7 @@ export default function Space({ initialTab }: SpaceProps) {
       };
     }
     return () => {
-      if (typeof window !== 'undefined') delete window.spaceDebug;
+      if (env.isDevelopment && typeof window !== 'undefined') delete window.spaceDebug;
     };
   }, [user, subdomain, storeSpace, storePermissions, loadActiveSpace]);
 
@@ -377,54 +453,39 @@ export default function Space({ initialTab }: SpaceProps) {
     };
   }, [storeSpace]);
 
-  // Main loading condition updated to use store's loading states
-  if (authLoading || (!user && !storeError)) { // If auth is loading, or no user and no specific space error yet
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-10 w-10 rounded-full border-t-2 border-b-2 border-amber-600"></div>
-      </div>
-    );
+  // FIXED: Remove loading states since SpaceProtectedRoute + SpaceShellLayout handle loading
+  // Space.tsx should not be rendered in current architecture, but if it is, don't show duplicate loading
+  if (authLoading || (!user && !storeError)) {
+    return null; // Let SpaceProtectedRoute handle loading
   }
   
-  if (storeLoadingSpace || (!storeSpace && !storeError && user)) { // If space is loading, or no space data yet but user exists (initial load)
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin h-10 w-10 rounded-full border-t-2 border-b-2 border-amber-600 mb-4"></div>
-                  {/* Consider a more specific message if needed, e.g., based on quickRecoveryAttempted-like logic from store */}
-                  <div className="text-sm text-gray-500">Loading your space...</div>
-        </div>
-      </div>
-    );
+  // FIXED: Remove loading states - trust the current architecture
+  if ((!storeSpace && storeLoadingSpace && !storeError && user)) {
+    return null; // Let SpaceProtectedRoute handle loading
   }
-
 
   if (storeError) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Space</h2>
-          <p className="text-gray-700 mb-4">{storeError || "Failed to load space data. Please try again."}</p>
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => navigate("/discover")}>Go to Discover</Button>
-            <Button onClick={() => {
-              if (subdomain && user) loadActiveSpace({ subdomain }, user.id, true);
-            }}>Try Again</Button>
-          </div>
-        </div>
-      </div>
+      <SpaceFallback 
+        type="error" 
+        spaceName={subdomain}
+        error={storeError}
+        onRetry={() => {
+          if (subdomain && user) loadActiveSpace({ subdomain }, user.id, true);
+        }}
+      />
     );
   }
 
   if (!storeSpace && !storeLoadingSpace && user) { // If not loading, no error, but still no space data (e.g. space not found for user)
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
-          <h2 className="text-xl font-semibold text-amber-600 mb-4">Space Not Found</h2>
-          <p className="text-gray-700 mb-4">The space '{subdomain}' doesn't exist or you may not have access.</p>
-          <Button onClick={() => navigate("/discover")} className="w-full">Discover Spaces</Button>
-        </div>
-      </div>
+      <SpaceFallback 
+        type="not-found" 
+        spaceName={subdomain}
+        onRetry={() => {
+          if (subdomain && user) loadActiveSpace({ subdomain }, user.id, true);
+        }}
+      />
     );
   }
 
@@ -433,32 +494,29 @@ export default function Space({ initialTab }: SpaceProps) {
     // This case might redirect to login or show a public version if applicable.
     // For now, assuming space access requires a user.
     return (
-         <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
-          <h2 className="text-xl font-semibold text-amber-600 mb-4">Access Denied</h2>
-          <p className="text-gray-700 mb-4">You need to be logged in to access this space.</p>
-          <Button onClick={() => navigate("/auth/signin")} className="w-full">Sign In</Button>
-        </div>
-      </div>
+      <SpaceFallback 
+        type="error" 
+        spaceName={subdomain}
+        error="You need to be logged in to access this space"
+      />
     );
   }
 
   // Ensure storeSpace is not null before proceeding to render dependent components
   if (!storeSpace) {
       // This should ideally be caught by loading/error states, but as a fallback:
-      return <div className="min-h-screen flex items-center justify-center">Critical error: Space data unavailable.</div>;
+      return (
+        <SpaceFallback 
+          type="error" 
+          spaceName={subdomain}
+          error="Critical error: Space data unavailable"
+        />
+      );
   }
 
-
   const renderActiveTabContent = () => {
-    // Ensure permissions are loaded before rendering tabs that depend on them heavily for UI variations
-    if (storeLoadingPermissions && (activeTab === 'feed' || activeTab === 'community' || activeTab === 'about')) { // Example tabs needing permissions
-        return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading permissions...</span></div>;
-    }
-    // Add check for formData before rendering tabs that depend on feature flags
-    if (!storeSpace || !formData) { // Check if storeSpace or formData is not yet available
-        return <div className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading space data...</span></div>;
-    } 
+    // FIXED: Remove loading states - trust that SpaceProtectedRoute has ensured space data is available
+    // If we're being rendered, the data should be ready
     
     // Fallback if storeSpace is somehow null here (should be caught by earlier checks)
     if (!storeSpace) {

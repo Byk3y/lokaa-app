@@ -1,5 +1,5 @@
 import { Session, User, PostgrestError } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 // Fetch user details from the users table
@@ -7,7 +7,7 @@ export const fetchUserDetails = async (userId: string | undefined) => {
   if (!userId) return null;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from('users')
       .select('*')
       .eq('id', userId)
@@ -28,7 +28,7 @@ export const fetchUserDetails = async (userId: string | undefined) => {
 // Handle sign in with email and password
 export const handleSignIn = async (email: string, password: string) => {
   try {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await getSupabaseClient().auth.signInWithPassword({ email, password });
     
     if (error) {
       toast({
@@ -59,7 +59,7 @@ export const handleSignIn = async (email: string, password: string) => {
 export const handleSignUp = async (email: string, password: string, username: string, firstName: string, lastName: string) => {
   try {
     // Check if a profile URL exists for this username
-    const { data: profileData, error: profileError } = await supabase
+    const { data: profileData, error: profileError } = await getSupabaseClient()
       .from('users')
       .select('profile_url')
       .eq('profile_url', username)
@@ -94,7 +94,7 @@ export const handleSignUp = async (email: string, password: string, username: st
 // Handle sign out
 export const handleSignOut = async () => {
   try {
-    await supabase.auth.signOut();
+    await getSupabaseClient().auth.signOut();
     toast({
       title: "Signed out",
       description: "You have been signed out successfully.",

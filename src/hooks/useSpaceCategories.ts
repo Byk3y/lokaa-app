@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase'; // Assuming supabase client is exported from here
+import { getSupabaseClient } from '@/integrations/supabase/client'; // Assuming supabase client is exported from here
 import { PostgrestError } from '@supabase/supabase-js';
 
 export interface SpaceCategory {
@@ -20,7 +20,10 @@ interface UseSpaceCategoriesReturn {
   refreshCategories: () => Promise<void>;
 }
 
-export function useSpaceCategories(spaceId: string | undefined): UseSpaceCategoriesReturn {
+/**
+ * FIXED: Converted to const export for React Fast Refresh compatibility
+ */
+export const useSpaceCategories = (spaceId: string | undefined): UseSpaceCategoriesReturn => {
   const [categories, setCategories] = useState<SpaceCategory[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<PostgrestError | null>(null);
@@ -37,12 +40,12 @@ export function useSpaceCategories(spaceId: string | undefined): UseSpaceCategor
 
     try {
       // Explicitly type `data` as `SpaceCategory[] | null`
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await getSupabaseClient()
         .from('space_categories')
         .select('*')
         .eq('space_id', spaceId)
         .eq('is_archived', false)
-        .order('name', { ascending: true });
+        .order('created_at', { ascending: true });
 
       if (fetchError) {
         console.error('Error fetching space categories:', fetchError);
@@ -56,10 +59,24 @@ export function useSpaceCategories(spaceId: string | undefined): UseSpaceCategor
           !cat.name.includes("Attempt")
         ) : [];
         
-        console.log('Fetched categories for space:', spaceId, 'Original:', data, 'Filtered:', filteredData);
+        // Sort categories with "General Discussion" first, then by creation order
+        const sortedData = filteredData.sort((a, b) => {
+          // Check if either category is "General Discussion"
+          const aIsGeneral = a.name.toLowerCase() === 'general discussion';
+          const bIsGeneral = b.name.toLowerCase() === 'general discussion';
+          
+          // If a is General Discussion and b is not, a comes first
+          if (aIsGeneral && !bIsGeneral) return -1;
+          // If b is General Discussion and a is not, b comes first
+          if (bIsGeneral && !aIsGeneral) return 1;
+          // If both or neither are General Discussion, maintain creation order
+          return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+        });
+        
+        console.log('📋 Categories ordered for space:', spaceId, 'Sorted:', sortedData.map(c => c.name));
         
         // Ensure the fetched data conforms to SpaceCategory[] before setting state
-        setCategories(filteredData as SpaceCategory[] || []);
+        setCategories(sortedData as SpaceCategory[] || []);
       }
     } catch (e: unknown) {
       // Safely handle the error, ensuring it's an instance of Error or PostgrestError before accessing specific properties

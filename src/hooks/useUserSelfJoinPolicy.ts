@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 // Define the response type, similar to useJoinSpaceViaHook.ts
@@ -17,7 +17,7 @@ export function useJoinSpaceViaHook() { // Note: Hook name might be different if
     setError(null);
     
     try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc<
+      const { data: rpcData, error: rpcError } = await getSupabaseClient().rpc<
         'public_join_space',
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { Args: { space_id_param: string }; Returns: any } // Typed RPC

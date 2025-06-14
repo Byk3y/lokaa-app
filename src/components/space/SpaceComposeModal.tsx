@@ -4,15 +4,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { loadPostDraft, savePostDraft, clearPostDraft } from "@/utils/draftRecovery";
 import { useSpace } from "@/components/layout/SpaceLayout";
 import { useNavigate } from "react-router-dom";
 
 export default function SpaceComposeModal() {
   const { space } = useSpace();
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   
   const [title, setTitle] = useState("");
@@ -64,7 +64,7 @@ export default function SpaceComposeModal() {
     
     try {
       // Create the post
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseClient()
         .from("posts")
         .insert({
           user_id: user.id,
@@ -88,7 +88,7 @@ export default function SpaceComposeModal() {
       
       // Insert into user_activity_log after post creation
       if (data && data.id) {
-        await supabase.from('user_activity_log').insert({
+        await getSupabaseClient().from('user_activity_log').insert({
           user_id: user.id,
           type: 'post',
           ref_id: data.id,

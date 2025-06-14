@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
@@ -36,7 +36,7 @@ export default function ProfileComments({ userId }: ProfileCommentsProps) {
         // Cast to 'any' because 'comments' table is missing from generated types
         // TODO: Regenerate Supabase types to include the 'comments' table
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const supabaseAny = supabase as any;
+        const supabaseAny = getSupabaseClient() as any;
         // Await and cast to the expected shape
         const response = await supabaseAny.from('comments')
           .select('*, posts(id, content)')

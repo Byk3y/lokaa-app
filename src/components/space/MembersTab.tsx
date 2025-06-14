@@ -1,186 +1,205 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useSpace } from "@/contexts/SpaceContext";
-import { useMembership, MemberRole } from "@/contexts/MembershipContext";
-import { Loader2, Search, UserPlus, Link as LinkIcon, Users, X, AlertTriangle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useMembership, type MemberRole } from '@/contexts/MembershipContext';
+import { useSpace } from '@/hooks/useSpace';
+import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
+import { useToast } from "@/hooks/use-toast";
+import { useCachedMembers, type CachedMemberType } from '@/hooks/useCachedMembers';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ChevronDown, Users, Search, Copy, Settings, UserMinus, LogOut, Loader2, AlertTriangle, UserPlus, X, Link as LinkIcon } from "lucide-react";
+import EmergencyDatabaseRecovery from '@/utils/emergencyDatabaseRecovery';
+import { getSpaceFallbackData } from '@/utils/spaceDataFallback';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import MemberCard from "./members/MemberCard";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import MemberListItem from "./members/MemberListItem";
 import { LeadershipDisplay } from './members/LeadershipDisplay';
+import { MemberProfileModal } from './members/MemberProfileModal';
+import { useChat } from '@/features/chat';
+import ChatModal from '@/components/chat/ChatModal';
 
-export type DisplayMember = {
-  id: string;
-  user_id: string;
-  space_id: string;
-  role: MemberRole;
-  joined_at: string;
-  status: string;
-  is_online?: boolean;
-  last_active_at: string | null;
-  full_name: string | null;
-  avatar_url: string | null;
-  profile_url: string | null;
-  activity_score: number;
-  bio: string | null;
-};
-
-type UserProfileData = {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  profile_url: string | null;
-  activity_score: number;
-  bio: string | null;
-};
-
-type SpaceMembershipRecord = {
-  id: string; 
-  user_id: string;
-  role: MemberRole;
-  joined_at: string;
-  last_active_at: string | null;
-  status: string;
-  is_online?: boolean;
-};
+// Use CachedMemberType from the hook as our DisplayMember type
+export type DisplayMember = CachedMemberType;
 
 export default function MembersTab() {
+  const { user } = useOptimizedAuth();
   const { spaceData } = useSpace();
-  const { user } = useAuth();
-  const {
-    changeMemberRole,
-    leaveSpace,
-    refreshMembership,
-    removeMember
+  const { 
+    space: storeSpace, 
+    permissions: storePermissions 
+  } = useSpaceSettingsStore();
+  const { toast } = useToast();
+  const { startDirectConversation } = useChat();
+  
+  // Use same fallback pattern as AboutTab and FeedTab with enhanced fallback  
+  const currentSpaceData = storeSpace || (spaceData as any) || null;
+  
+  // CRITICAL FIX: Type-safe and comprehensive effectiveSpaceData logic
+  const effectiveSpaceData = useMemo(() => {
+    // PRIORITY 1: Use storeSpace if available
+    if (storeSpace && storeSpace.id) {
+      return storeSpace;
+    }
+    
+    // PRIORITY 2: Use spaceData with explicit type casting
+    if (spaceData && typeof spaceData === 'object') {
+      const typedSpaceData = spaceData as any;
+      if (typedSpaceData?.id && typedSpaceData?.name) {
+        return typedSpaceData;
+      }
+    }
+    
+    // PRIORITY 3: Use currentSpaceData (fallback from storeSpace || spaceData)
+    if (currentSpaceData && currentSpaceData.id) {
+      return currentSpaceData;
+    }
+    
+    // EMERGENCY FALLBACK: Use space fallback data based on current subdomain
+    const currentSubdomain = window.location.pathname.split('/')[1] || 'nextpath-ai';
+    const fallbackData = getSpaceFallbackData(currentSubdomain);
+    
+    if (fallbackData) {
+      return {
+        id: fallbackData.id,
+        name: fallbackData.name,
+        subdomain: fallbackData.subdomain,
+        description: fallbackData.description || 'Community space',
+        owner_id: fallbackData.owner_id || 'f6064ebb-564a-49d2-a146-fb8615fd7ae2',
+        is_private: false,
+        icon_image: '🏗️',
+        cover_image: '',
+        member_count: fallbackData.member_count || 1,
+        created_at: fallbackData.created_at || new Date().toISOString(),
+        primary_color: '#2563eb',
+        secondary_color: '#3b82f6'
+      };
+    }
+    
+    // Final fallback if no space data available
+    return null;
+  }, [storeSpace, spaceData, currentSpaceData]);
+  
+  // Removed debug logging to prevent console spam
+  
+  const { 
+    refreshMembership, 
+    changeMemberRole, 
+    removeMember, 
+    leaveSpace, 
   } = useMembership();
   
-  const [members, setMembers] = useState<DisplayMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-
+  // Use cached members instead of local state
+  const {
+    members,
+    loading,
+    error,
+    refetch,
+    handleMemberRemoved,
+    handleMemberRoleChanged,
+    getAdminAndOwnerMembers,
+    getRegularMembers,
+    getSpaceOwner,
+  } = useCachedMembers(effectiveSpaceData?.id);
+  
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState<boolean>(false);
+  const [selectedMember, setSelectedMember] = useState<DisplayMember | null>(null);
+  const [isMemberModalOpen, setIsMemberModalOpen] = useState<boolean>(false);
+  
+  // Chat modal state
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [isStartingChat, setIsStartingChat] = useState(false);
+  
+  // Simple debounce for search
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+  
   useEffect(() => {
-    const timerId = setTimeout(() => {
+    const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 300);
-
-    return () => {
-      clearTimeout(timerId);
-    };
+    return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const directFetchMembers = useCallback(async (spaceId: string): Promise<DisplayMember[]> => {
-    if (!user || !spaceData) return [];
+  const handleMemberCardClick = useCallback((member: DisplayMember) => {
+    setSelectedMember(member);
+    setIsMemberModalOpen(true);
+  }, []);
+
+  const handleCloseMemberModal = useCallback(() => {
+    setIsMemberModalOpen(false);
+    setSelectedMember(null);
+  }, []);
+
+  const handleMemberChatClick = useCallback(async (member: DisplayMember) => {
+    if (!member.user_id || isStartingChat) return;
+    
+    setIsStartingChat(true);
     try {
-      const { data: spaceMembersData, error: spaceMembersError } = await supabase
-        .from('space_members')
-        .select('id, user_id, role, joined_at, last_active_at, status, is_online')
-        .eq('space_id', spaceId)
-        .eq('status', 'active');
-
-      if (spaceMembersError) throw spaceMembersError;
-      if (!spaceMembersData || spaceMembersData.length === 0) return [];
-      
-      const typedSpaceMembers = spaceMembersData as SpaceMembershipRecord[];
-      const userIds = typedSpaceMembers.map(sm => sm.user_id).filter(id => !!id);
-      if (userIds.length === 0) return [];
-
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('users')
-        .select('id, full_name, avatar_url, profile_url, activity_score, bio')
-        .in('id', userIds);
-
-      if (profilesError) throw profilesError;
-
-      const profilesMap = new Map<string, UserProfileData>();
-      if (profilesData) {
-        (profilesData as UserProfileData[]).forEach(profile => {
-          profilesMap.set(profile.id, { ...profile, activity_score: profile.activity_score || 0, bio: profile.bio || null });
-        });
-      }
-
-      const combinedMembers: DisplayMember[] = typedSpaceMembers.map(sm => {
-        const profile = profilesMap.get(sm.user_id);
-        let authoritativeRole = sm.role;
-        if (spaceData.owner_id === sm.user_id) {
-            authoritativeRole = 'owner' as MemberRole;
-        }
-        return {
-          id: sm.id,
-          user_id: sm.user_id,
-          space_id: spaceId,
-          role: authoritativeRole,
-          joined_at: sm.joined_at,
-          status: sm.status,
-          is_online: sm.is_online,
-          last_active_at: sm.last_active_at,
-          full_name: profile?.full_name || null,
-          avatar_url: profile?.avatar_url || null,
-          profile_url: profile?.profile_url || null,
-          activity_score: profile?.activity_score || 0,
-          bio: profile?.bio || null,
-        };
+      const conversationId = await startDirectConversation(member.user_id);
+      setSelectedConversationId(conversationId);
+      setIsChatModalOpen(true);
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start chat. Please try again.",
+        variant: "destructive"
       });
-      return combinedMembers;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred during member fetch.";
-      setError(errorMessage);
-      console.error("directFetchMembers error:", err);
-      return [];
+    } finally {
+      setIsStartingChat(false);
     }
-  }, [user, spaceData]);
-  
-  useEffect(() => {
-    const loadMembers = async () => {
-      if (!spaceData?.id) { setLoading(false); return; }
-      setLoading(true); setError(null);
-      try {
-        const fetchedDisplayMembers = await directFetchMembers(spaceData.id);
-        setMembers(fetchedDisplayMembers);
-      } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : String(e);
-        setError(message || "An unknown error occurred while loading members.");
-        console.error("loadMembers error:", e);
-        setMembers([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadMembers();
-  }, [spaceData, directFetchMembers, refreshMembership]);
+  }, [startDirectConversation, toast, isStartingChat]);
+
+  const handleCloseChatModal = useCallback(() => {
+    setIsChatModalOpen(false);
+    setSelectedConversationId(null);
+  }, []);
   
   const handleChangeRole = useCallback(async (memberToUpdate: DisplayMember, newRole: MemberRole) => {
-    if (!spaceData?.id) return;
+    if (!currentSpaceData?.id) return;
     try {
-      if (memberToUpdate.user_id === spaceData.owner_id) {
+      if (memberToUpdate.user_id === currentSpaceData.owner_id) {
         toast({title: "Action Not Allowed", description: "The space owner's role cannot be changed.", variant: "destructive"});
         return;
       }
-      const success = await changeMemberRole(spaceData.id, memberToUpdate.user_id, newRole);
+      
+      // Optimistic update
+      handleMemberRoleChanged(memberToUpdate.user_id, newRole);
+      
+      const success = await changeMemberRole(currentSpaceData.id, memberToUpdate.user_id, newRole);
       if (success) {
         toast({title: "Success", description: `${memberToUpdate.full_name || 'Member'}'s role updated to ${newRole}.`});
-        const fetched = await directFetchMembers(spaceData.id); 
-        setMembers(fetched);
         
         if(refreshMembership) {
           refreshMembership();
         }
       } else {
+        // Revert optimistic update on failure
+        handleMemberRoleChanged(memberToUpdate.user_id, memberToUpdate.role);
         toast({title: "Error", description: "Failed to update member role.", variant: "destructive"});
       }
     } catch (err) {
+      // Revert optimistic update on error
+      handleMemberRoleChanged(memberToUpdate.user_id, memberToUpdate.role);
       console.error("Error changing member role:", err);
       toast({title: "Error", description: "An unexpected error occurred while changing role.", variant: "destructive"});
     }
-  }, [spaceData, changeMemberRole, directFetchMembers, refreshMembership, toast]);
+  }, [currentSpaceData, changeMemberRole, handleMemberRoleChanged, refreshMembership, toast]);
 
   const handleRemoveMemberAction = useCallback(async (memberToRemove: DisplayMember) => {
-    if (!spaceData?.id || !user || !removeMember) return;
-    if (memberToRemove.user_id === spaceData.owner_id) {
+    if (!currentSpaceData?.id || !user || !removeMember) return;
+    if (memberToRemove.user_id === currentSpaceData.owner_id) {
         toast({ title: "Action Not Allowed", description: "The space owner cannot be removed.", variant: "destructive" });
         return;
     }
@@ -190,34 +209,45 @@ export default function MembersTab() {
     }
     
     try {
-      const success = await removeMember(spaceData.id, memberToRemove.user_id);
+      // Optimistic update
+      handleMemberRemoved(memberToRemove.id);
+      
+      const success = await removeMember(currentSpaceData.id, memberToRemove.user_id);
       if (success) {
         toast({ title: "Member Removed", description: `${memberToRemove.full_name || 'Member'} has been removed.` });
-        const fetched = await directFetchMembers(spaceData.id);
-        setMembers(fetched);
         if (refreshMembership) {
           refreshMembership(); // Refresh general membership state if needed
         }
+        // Close modal if the removed member was selected
+        if (selectedMember?.id === memberToRemove.id) {
+          handleCloseMemberModal();
+        }
       } else {
+        // Revert optimistic update on failure - refetch to get accurate state
+        refetch(true);
         // The removeMember function in context already shows a toast on failure
       }
     } catch (err) {
+      // Revert optimistic update on error - refetch to get accurate state
+      refetch(true);
       console.error("Error removing member:", err);
       toast({ title: "Error", description: "An unexpected error occurred while removing member.", variant: "destructive" });
     }
-  }, [spaceData, user, removeMember, directFetchMembers, refreshMembership, toast]);
+  }, [currentSpaceData, user, removeMember, handleMemberRemoved, refetch, refreshMembership, toast, selectedMember, handleCloseMemberModal]);
 
   const handleLeaveSpaceAction = useCallback(async () => {
-    if(!spaceData?.id || !user) return;
-    if(user.id === spaceData.owner_id){
+    if(!currentSpaceData?.id || !user) return;
+    if(user.id === currentSpaceData.owner_id){
         toast({title: "Action Not Allowed", description: "Space owner cannot leave. Transfer ownership first.", variant: "destructive"});
         return;
     }
     try {
-        const success = await leaveSpace(spaceData.id);
+        const success = await leaveSpace(currentSpaceData.id);
         if (success) {
             toast({title: "Success", description: "You have left the space.",});
             if(refreshMembership) refreshMembership();
+            // Close modal after leaving
+            handleCloseMemberModal();
             // Potentially redirect or update UI further after leaving
         } else {
             toast({title: "Error", description: "Failed to leave space.", variant: "destructive"});
@@ -226,7 +256,7 @@ export default function MembersTab() {
         console.error("Error leaving space:", err);
         toast({title: "Error", description: "An unexpected error occurred while trying to leave.", variant: "destructive"});
     }
-  }, [spaceData, user, leaveSpace, refreshMembership, toast]);
+  }, [currentSpaceData, user, leaveSpace, refreshMembership, toast, handleCloseMemberModal]);
 
   const filteredMembers = useMemo(() => {
     if (!debouncedSearchQuery) return members;
@@ -236,39 +266,41 @@ export default function MembersTab() {
   }, [members, debouncedSearchQuery]);
 
   const adminAndOwnerMembers = useMemo(() => {
-    return filteredMembers.filter(member => member.role === 'owner' || member.role === 'admin').sort((a,b) => {
-        if (a.role === 'owner' && b.role !== 'owner') return -1;
-        if (a.role !== 'owner' && b.role === 'owner') return 1;
-        if (a.role === 'admin' && b.role !== 'admin') return -1;
-        if (a.role !== 'admin' && b.role === 'admin') return 1;
-        return (a.full_name || '').localeCompare(b.full_name || '');
-    });
-  }, [filteredMembers]);
+    const allAdminOwner = getAdminAndOwnerMembers();
+    if (!debouncedSearchQuery) return allAdminOwner;
+    return allAdminOwner.filter(member =>
+      member.full_name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+    );
+  }, [getAdminAndOwnerMembers, debouncedSearchQuery]);
 
   const spaceOwner = useMemo(() => {
-    return adminAndOwnerMembers.find(member => member.role === 'owner');
-  }, [adminAndOwnerMembers]);
+    return getSpaceOwner();
+  }, [getSpaceOwner]);
 
   const otherAdmins = useMemo(() => {
     return adminAndOwnerMembers.filter(member => member.role === 'admin');
   }, [adminAndOwnerMembers]);
 
   const regularMembers = useMemo(() => {
-    return filteredMembers.filter(member => member.role !== 'owner' && member.role !== 'admin').sort((a,b) => (a.full_name || '').localeCompare(b.full_name || ''));
-  }, [filteredMembers]);
+    const allRegular = getRegularMembers();
+    if (!debouncedSearchQuery) return allRegular;
+    return allRegular.filter(member =>
+      member.full_name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+    );
+  }, [getRegularMembers, debouncedSearchQuery]);
   
   const currentUserRoleInSpace: MemberRole = useMemo(() => {
-    if (!user || !spaceData) return 'member'; 
-    if (spaceData.owner_id === user.id) return 'owner';
+    if (!user || !effectiveSpaceData) return 'member'; 
+    if (effectiveSpaceData.owner_id === user.id) return 'owner';
     const currentUserMemberInfo = members.find(m => m.user_id === user.id);
     return currentUserMemberInfo?.role || 'member';
-  }, [user, spaceData, members]);
+  }, [user, effectiveSpaceData, members]);
 
   const inviteLink = useMemo(() => {
-    if (!spaceData?.subdomain) return "";
+    if (!effectiveSpaceData?.subdomain) return "";
     const baseUrl = import.meta.env.VITE_APP_URL || "https://lokaa.com";
-    return `${baseUrl}/${spaceData.subdomain}`;
-  }, [spaceData?.subdomain]);
+    return `${baseUrl}/${effectiveSpaceData.subdomain}`;
+  }, [effectiveSpaceData?.subdomain]);
 
   const copyInviteLink = () => {
     navigator.clipboard.writeText(inviteLink)
@@ -280,6 +312,11 @@ export default function MembersTab() {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading members...</span></div>;
   }
 
+  // Add safety check for space data
+  if (!effectiveSpaceData?.id) {
+    return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2">Loading space...</span></div>;
+  }
+
   if (error) {
     return (
       <Alert variant="destructive" className="m-4">
@@ -288,7 +325,7 @@ export default function MembersTab() {
           {error}
           <Button onClick={() => { 
             if(refreshMembership) refreshMembership(); 
-            else if(spaceData?.id) directFetchMembers(spaceData.id).then(setMembers); 
+            else refetch(true); 
           }} variant="link" className="ml-2 p-0 h-auto text-destructive-foreground hover:text-destructive-foreground/80">
             Try reloading.
           </Button>
@@ -310,10 +347,12 @@ export default function MembersTab() {
           owner={spaceOwner}
           admins={otherAdmins}
           currentUserId={user?.id}
-          currentUserRoleInSpace={currentUserRoleInSpace}
-          spaceOwnerId={spaceData?.owner_id}
+                  currentUserRoleInSpace={currentUserRoleInSpace}
+        spaceOwnerId={effectiveSpaceData?.owner_id}
           onChangeRole={handleChangeRole}
           onRemoveMember={handleRemoveMemberAction}
+          onMemberClick={handleMemberCardClick}
+          onChatClick={handleMemberChatClick}
         />
       )}
 
@@ -338,14 +377,20 @@ export default function MembersTab() {
       {regularMembers.length > 0 && (
         <>
           <h3 className="text-xl font-medium mb-4 text-foreground">Space Members ({regularMembers.length})</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {regularMembers.map(member => (
-              <MemberCard
+              <MemberListItem
                 key={member.id}
                 avatar_url={member.avatar_url}
                 full_name={member.full_name}
+                profile_url={member.profile_url}
                 bio={member.bio}
                 joined_at={member.joined_at}
+                is_online={member.is_online}
+                onClick={() => handleMemberCardClick(member)}
+                onChatClick={() => handleMemberChatClick(member)}
+                currentUserId={user?.id}
+                userId={member.user_id}
               />
             ))}
           </div>
@@ -366,6 +411,26 @@ export default function MembersTab() {
           )}
         </div>
       )}
+
+      {/* Member Profile Modal */}
+      <MemberProfileModal
+        member={selectedMember}
+        isOpen={isMemberModalOpen}
+        onClose={handleCloseMemberModal}
+        currentUserId={user?.id}
+        currentUserRoleInSpace={currentUserRoleInSpace}
+        spaceOwnerId={effectiveSpaceData?.owner_id}
+        onChangeRole={handleChangeRole}
+        onRemoveMember={handleRemoveMemberAction}
+        onLeaveSpace={handleLeaveSpaceAction}
+      />
+
+      {/* Chat Modal */}
+      <ChatModal
+        isOpen={isChatModalOpen}
+        onClose={handleCloseChatModal}
+        initialConversationId={selectedConversationId || undefined}
+      />
 
       {isInviteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">

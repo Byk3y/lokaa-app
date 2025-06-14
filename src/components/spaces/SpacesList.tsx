@@ -56,7 +56,7 @@ export default function SpacesList({ spaces, loading }: SpacesListProps) {
           className="block group"
         >
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-            <div className="h-40 bg-gradient-to-r from-blue-500 to-purple-500 relative">
+            <div className="h-40 bg-gradient-to-r from-teal-500 to-emerald-500 relative">
               {space.cover_image ? (
                 <img 
                   src={space.cover_image} 
@@ -74,9 +74,31 @@ export default function SpacesList({ spaces, loading }: SpacesListProps) {
               )}
             </div>
             <div className="p-4">
-              <h3 className="text-lg font-semibold group-hover:text-blue-600 transition-colors">
-                {space.name}
-              </h3>
+              <div className="flex items-center gap-3 mb-2">
+                {space.icon_image ? (
+                  <div className="h-10 w-10 rounded-md overflow-hidden">
+                    <img 
+                      src={space.icon_image} 
+                      alt={`${space.name} icon`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement?.classList.add('bg-gradient-to-r', 'from-blue-500', 'to-indigo-600', 'flex', 'items-center', 'justify-center', 'text-white', 'text-sm', 'font-medium');
+                        const initialsSpan = document.createElement('span');
+                        initialsSpan.textContent = space.name.substring(0, 2).toUpperCase();
+                        e.currentTarget.parentElement?.appendChild(initialsSpan);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-10 w-10 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-medium">
+                    {space.name.substring(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <h3 className="text-lg font-semibold group-hover:text-blue-600 transition-colors">
+                  {space.name}
+                </h3>
+              </div>
               <p className="text-gray-600 text-sm mt-1">{space.description}</p>
               <div className="flex items-center mt-4 text-sm text-gray-500">
                 <div className="flex items-center">

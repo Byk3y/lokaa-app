@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Lock, Globe } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -14,7 +14,7 @@ interface SpacePrivacySettingsProps {
 }
 
 export default function SpacePrivacySettings({ spaceId }: SpacePrivacySettingsProps) {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [isPrivate, setIsPrivate] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,7 +28,7 @@ export default function SpacePrivacySettings({ spaceId }: SpacePrivacySettingsPr
       
       try {
         // Use the * wildcard to select all fields to avoid TypeScript issues
-        const { data, error } = await supabase
+        const { data, error } = await getSupabaseClient()
           .from('spaces')
           .select('*')
           .eq('id', spaceId)
@@ -62,7 +62,7 @@ export default function SpacePrivacySettings({ spaceId }: SpacePrivacySettingsPr
       // Use type assertion to bypass TypeScript errors
       const updateData: Partial<Database['public']['Tables']['spaces']['Row']> = { is_private: isPrivate };
       
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('spaces')
         .update(updateData)
         .eq('id', spaceId);

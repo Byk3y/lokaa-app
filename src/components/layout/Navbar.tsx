@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, userDetails, signOut } = useAuth();
+  const { user, userDetails, signOut } = useOptimizedAuth();
   const location = useLocation();
   const navigate = useNavigate();
 

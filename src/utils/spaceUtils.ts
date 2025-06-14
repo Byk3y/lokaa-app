@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Space } from '../types/space';
 
 /**
@@ -14,7 +14,7 @@ export const fetchUserSpaces = async (userId: string): Promise<Space[]> => {
   }
   try {
     // 1. Fetch spaces owned by the user
-    const { data: ownedSpacesData, error: ownedError } = await supabase
+    const { data: ownedSpacesData, error: ownedError } = await getSupabaseClient()
       .from('spaces')
       .select('*') // Assuming Space type matches all columns from spaces table
       .eq('owner_id', userId);
@@ -26,7 +26,7 @@ export const fetchUserSpaces = async (userId: string): Promise<Space[]> => {
     const ownedSpaces: Space[] = ownedSpacesData || [];
 
     // 2. Fetch spaces where the user is an active member (excluding already fetched owned spaces)
-    const { data: memberRecords, error: memberError } = await supabase
+    const { data: memberRecords, error: memberError } = await getSupabaseClient()
       .from('space_members')
       .select('space_id, spaces:space_id (*)') // Fetches all columns from the related 'spaces' table
       .eq('user_id', userId)

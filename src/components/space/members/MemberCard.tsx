@@ -7,6 +7,7 @@ export interface MemberCardProps {
   full_name: string | null;
   bio: string | null;
   joined_at: string;
+  onClick?: () => void;
 }
 
 const MemberCard: React.FC<MemberCardProps> = ({
@@ -14,6 +15,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
   full_name,
   bio,
   joined_at,
+  onClick,
 }) => {
   const getInitials = (name: string | null): string => {
     if (!name) return '?';
@@ -24,8 +26,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
 
   const formattedJoinDate = joined_at ? format(new Date(joined_at), 'MMM d, yyyy') : 'N/A';
 
-  return (
-    <div className="bg-card border border-border rounded-lg p-4 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow duration-200 w-full max-w-xs mx-auto">
+  const cardContent = (
+    <>
       <Avatar className="w-20 h-20 mb-3">
         <AvatarImage src={avatar_url || undefined} alt={full_name || 'Member'} />
         <AvatarFallback>{getInitials(full_name)}</AvatarFallback>
@@ -35,6 +37,25 @@ const MemberCard: React.FC<MemberCardProps> = ({
         {bio || <span className="italic">No bio provided.</span>}
       </p>
       <p className="text-xs text-muted-foreground">Joined: {formattedJoinDate}</p>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button 
+        onClick={onClick}
+        className="bg-card border border-border rounded-lg p-4 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-all duration-200 w-full max-w-xs mx-auto cursor-pointer hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        type="button"
+        aria-label={`View profile of ${full_name || 'member'}`}
+      >
+        {cardContent}
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-4 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow duration-200 w-full max-w-xs mx-auto">
+      {cardContent}
     </div>
   );
 };

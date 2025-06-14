@@ -12,8 +12,8 @@ import { Loader2, Upload, Star, Users, Link, Layers, Shield, UserPlus, Settings,
 import { toast } from "@/hooks/use-toast";
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import useSpaceSettingsModal from '@/hooks/useSpaceSettingsModal';
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { resolveImageUrl } from "@/utils/preloadAssets";
@@ -95,7 +95,7 @@ interface SpaceSettingsData {
 }
 
 export default function SpaceSettingsModal() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const { isOpen, spaceId, close } = useSpaceSettingsModal();
   const { space, loadingSpace, error, loadActiveSpace } = useSpaceSettingsStore();
   const [activeTab, setActiveTab] = useState("general");
@@ -143,7 +143,7 @@ export default function SpaceSettingsModal() {
   const checkStorageAccess = async () => {
     try {
       console.log("Checking Supabase storage bucket access...");
-      const { data, error } = await supabase.storage.getBucket(STORAGE_BUCKET_NAME);
+      const { data, error } = await getSupabaseClient().storage.getBucket(STORAGE_BUCKET_NAME);
     
       if (error) {
         console.error("Storage access error:", error);
@@ -247,7 +247,7 @@ export default function SpaceSettingsModal() {
         const filePath = `spaces/${space.id}/${type}/${uuidv4()}-${file.name.replace(/\s+/g, '-')}`;
         console.log("Uploading compressed image to path:", filePath);
         
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { data: uploadData, error: uploadError } = await getSupabaseClient().storage
           .from(STORAGE_BUCKET_NAME)
           .upload(filePath, compressedFile, {
             cacheControl: '3600',
@@ -262,7 +262,7 @@ export default function SpaceSettingsModal() {
         console.log("Upload successful:", uploadData);
         
         // Get public URL
-        const { data: urlData } = supabase.storage
+        const { data: urlData } = getSupabaseClient().storage
           .from(STORAGE_BUCKET_NAME)
           .getPublicUrl(filePath);
         
@@ -276,7 +276,7 @@ export default function SpaceSettingsModal() {
         }));
         
         // Update space in database
-        const { error: updateError } = await supabase
+        const { error: updateError } = await getSupabaseClient()
           .from('spaces')
           .update({ 
             [type === 'icon' ? 'icon_image' : 'cover_image']: publicUrl 
@@ -309,7 +309,7 @@ export default function SpaceSettingsModal() {
         }));
         
         // Update space in database with local reference
-        const { error: updateError } = await supabase
+        const { error: updateError } = await getSupabaseClient()
           .from('spaces')
           .update({ 
             [type === 'icon' ? 'icon_image' : 'cover_image']: localUrl 
@@ -364,7 +364,7 @@ export default function SpaceSettingsModal() {
       
       console.log("Sending update data to server:", updateData);
 
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('spaces')
         .update(updateData)
         .eq('id', space.id);

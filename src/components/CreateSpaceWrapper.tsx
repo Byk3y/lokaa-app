@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoadingIndicator from './LoadingIndicator';
 import { checkActiveSession } from '../utils/directAuth';
-import { useAuth } from '../contexts/AuthContext';
+import { useOptimizedAuth } from '../contexts/AuthContext';
 
 interface CreateSpaceWrapperProps {
   children: React.ReactNode;
@@ -10,7 +10,7 @@ interface CreateSpaceWrapperProps {
 
 const CreateSpaceWrapper: React.FC<CreateSpaceWrapperProps> = ({ children }) => {
   const navigate = useNavigate();
-  const { session, user } = useAuth();
+  const { session, user } = useOptimizedAuth();
   const [isChecking, setIsChecking] = useState(true);
   const [authCheckAttempted, setAuthCheckAttempted] = useState(false);
 

@@ -4,7 +4,7 @@ import {
   getProfileImageUrl, 
   deleteProfileImage 
 } from '@/utils/profileImageUtils';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
 /**
  * Hook for managing profile images
@@ -41,7 +41,7 @@ export function useProfileImage() {
     };
 
     // Set up auth state change listener to update image when user changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(() => {
       loadProfileImage();
     });
 

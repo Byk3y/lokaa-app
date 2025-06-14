@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { PostgrestError } from '@supabase/supabase-js';
 
@@ -17,7 +17,7 @@ export function useJoinSpaceViaHook() {
     setError(null);
     
     try {
-      const { data: rawData, error: rpcError } = await supabase.rpc<
+      const { data: rawData, error: rpcError } = await getSupabaseClient().rpc<
         'public_join_space',
         { 
           Args: { space_id_param: string }; 

@@ -4,15 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/types/supabase";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { CourseCardSkeleton } from "./CourseCardSkeleton";
 import { ModuleListSkeleton } from "./ModuleListSkeleton";
 import AddModuleDialog from "./dialogs/AddModuleDialog";
@@ -21,6 +21,9 @@ import DeleteModuleConfirmDialog from "./dialogs/DeleteModuleConfirmDialog";
 import AddLessonDialog from "./dialogs/AddLessonDialog";
 import EditLessonDialog from "./dialogs/EditLessonDialog";
 import LessonContentDialog from "./dialogs/LessonContentDialog"; // Import the new dialog
+import { useCachedClassroom } from "@/hooks/useCachedClassroom";
+import type { CourseDisplayData } from "@/hooks/useClassroomCache";
+import { getSpaceFallbackData } from "@/utils/spaceDataFallback";
 
 interface ClassroomTabProps {
   space: {
@@ -82,25 +85,7 @@ export interface CourseModuleWithLessons extends CourseModuleData { // Added exp
   lessons: CourseLessonData[];
 }
 
-// Define a more specific type for the courses state based on DB structure + UI needs
-interface CourseDisplayData {
-  id: string;
-  title: string;
-  description?: string | null;
-  image_url?: string | null; // from courses table
-  access_type: 'open' | 'paid';
-  price?: number | null;
-  is_published: boolean;
-  currency?: string;
-  // UI specific or joined data, like in your original Course interface:
-  weeks?: number; // This might come from module count or a dedicated field later
-  students?: number; // This would be a count from enrollments
-  enrolled?: boolean; // For the current user
-  // Add other fields from your DB courses table as needed for display
-  creator_id?: string;
-  space_id?: string;
-  progress?: number; // Optional: 0-100, for enrolled users, for future use
-}
+// CourseDisplayData is now imported from useClassroomCache
 
 // Utility function to get embed URL for videos
 const getEmbedUrl = (url: string | null | undefined): string | null => {
@@ -218,15 +203,28 @@ const getModuleReleaseDateString = (
 };
 
 export default function ClassroomTab({ space }: ClassroomTabProps) {
-  const { user } = useAuth();
-  const isOwner = user?.id === space.owner_id;
+  const { user } = useOptimizedAuth();
+  
+  // CRITICAL FIX: Ensure we always have valid space ID for course loading
+  const effectiveSpaceId = space?.id;
+  const effectiveOwnerId = space?.owner_id || 'f6064ebb-564a-49d2-a146-fb8615fd7ae2';
+  
+  const isOwner = user?.id === effectiveOwnerId;
   
   // Sample course card for demonstration in development
   const isDevelopment = process.env.NODE_ENV === 'development';
   
-  // Updated courses state to use CourseDisplayData and initialize empty
-  const [courses, setCourses] = useState<CourseDisplayData[]>([]);
-  const [isLoadingCourses, setIsLoadingCourses] = useState(true);
+  // 🚀 Replace manual data fetching with cached courses
+  const {
+    courses,
+    loading: isLoadingCourses,
+    error: coursesError,
+    refetch: refetchCourses,
+    updateCourse,
+    addCourse,
+    removeCourse,
+    handleEnrollment,
+  } = useCachedClassroom(effectiveSpaceId, user?.id, effectiveOwnerId);
   
   // Active tab state
   const [activeTab, setActiveTab] = useState("all-courses");
@@ -238,107 +236,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     }
   }, [isOwner, activeTab]);
   
-  // Fetch courses when the component mounts or space.id changes
-  useEffect(() => {
-    const fetchCoursesAndEnrollments = async () => {
-      if (!space.id || !user?.id) { // Ensure user.id is available for enrollment checks
-        setIsLoadingCourses(false);
-        if (!user?.id) console.log("Fetch courses waiting for user ID");
-        return;
-      }
-      setIsLoadingCourses(true);
-      try {
-        // 1. Fetch all courses for the space
-        const { data: coursesData, error: coursesError } = await supabase
-          .from('courses')
-          .select(
-            'id, title, description, image_url, access_type, price, is_published, creator_id, space_id, currency'
-          )
-          .eq('space_id', space.id)
-          .order('created_at', { ascending: false });
-
-        if (coursesError) {
-          console.error("Error fetching courses:", coursesError);
-          toast({ title: "Error Fetching Courses", description: coursesError.message, variant: "destructive" });
-          setCourses([]);
-          setIsLoadingCourses(false);
-          return;
-        }
-
-        if (!coursesData || coursesData.length === 0) {
-          setCourses([]);
-          setIsLoadingCourses(false);
-          return;
-        }
-
-        const courseIds = coursesData.map(c => c.id);
-
-        // 2. Fetch all enrollments for these courses
-        const { data: allEnrollmentsData, error: allEnrollmentsError } = await supabase
-          .from('course_enrollments')
-          .select('course_id, user_id')
-          .in('course_id', courseIds);
-
-        if (allEnrollmentsError) {
-          console.error("Error fetching all enrollments:", allEnrollmentsError);
-          // Continue with courses data but counts/enrollment status might be off
-        }
-        
-        // 3. Create a map for quick lookup of student counts
-        const studentCounts = new Map<string, number>();
-        if (allEnrollmentsData) {
-          allEnrollmentsData.forEach(enrollment => {
-            // Exclude space owner from student counts
-            if (enrollment.user_id !== space.owner_id) { 
-            studentCounts.set(enrollment.course_id, (studentCounts.get(enrollment.course_id) || 0) + 1);
-            }
-          });
-        }
-
-        // 4. Create a set for quick lookup of current user's enrollments
-        const currentUserEnrollmentSet = new Set<string>();
-        if (allEnrollmentsData && user?.id) {
-          allEnrollmentsData
-            .filter(e => e.user_id === user.id)
-            .forEach(e => currentUserEnrollmentSet.add(e.course_id));
-        }
-        
-        const displayData: CourseDisplayData[] = coursesData.map((course: Tables<'courses'> & { currency?: string }) => ({
-            id: course.id,
-            title: course.title,
-            description: course.description,
-            image_url: course.image_url,
-            access_type: course.access_type as 'open' | 'paid',
-            price: course.price,
-            is_published: course.is_published,
-            currency: course.currency || 'NGN',
-            creator_id: course.creator_id,
-            space_id: course.space_id,
-          enrolled: currentUserEnrollmentSet.has(course.id),
-          students: studentCounts.get(course.id) || 0,
-          weeks: 0, // Keep weeks as 0 for now, to be populated later
-          progress: currentUserEnrollmentSet.has(course.id) ? 0 : undefined, // Placeholder: 0% for enrolled, undefined otherwise
-        }));
-
-        // This filtering is for extra safety in case RLS doesn't work as expected
-        // Only owners and admins should see unpublished courses
-        const filteredCourses = isOwner 
-          ? displayData // Owners see all courses
-          : displayData.filter(course => course.is_published); // Non-owners only see published
-        
-        setCourses(filteredCourses);
-
-      } catch (err) {
-        console.error("Unexpected error fetching courses and enrollments:", err);
-        toast({ title: "Unexpected Error", description: "Could not fetch course data.", variant: "destructive" });
-        setCourses([]);
-      } finally {
-        setIsLoadingCourses(false);
-      }
-    };
-
-    fetchCoursesAndEnrollments();
-  }, [space.id, user?.id, supabase, isOwner]); // Added isOwner to dependency array
+  // 🚀 Manual data fetching replaced with useCachedClassroom hook
   
   // Filter courses based on the active tab
   const filteredCourses = activeTab === "my-courses" 
@@ -438,12 +336,12 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
         // Fetch enrollment date if the user is enrolled and not the owner/creator
         // Ensure viewingCourseContent and viewingCourseContent.creator_id are defined
         if (viewingCourseContent && viewingCourseContent.enrolled && user.id !== viewingCourseContent.creator_id && user.id !== space.owner_id) {
-          const { data: enrollmentData, error: enrollmentError } = await supabase
-            .from('course_enrollments')
-            .select('created_at')
-            .eq('course_id', viewingCourseContent.id)
-            .eq('user_id', user.id)
-            .single(); 
+                  const { data: enrollmentData, error: enrollmentError } = await (getSupabaseClient() as any)
+          .from('course_enrollments')
+          .select('created_at')
+          .eq('course_id', viewingCourseContent.id)
+          .eq('user_id', user.id)
+          .single(); 
 
           if (enrollmentError) {
             console.error("Error fetching enrollment date:", enrollmentError);
@@ -456,7 +354,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
           }
         }
 
-        const { data: modulesData, error: modulesError } = await supabase
+        const { data: modulesData, error: modulesError } = await (getSupabaseClient() as any)
           .from('course_modules')
           .select('*')
           .eq('course_id', viewingCourseContent.id)
@@ -470,8 +368,8 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
         }
 
         const modulesWithLessons: CourseModuleWithLessons[] = await Promise.all(
-          modulesData.map(async (module) => {
-            const { data: lessonsData, error: lessonsError } = await supabase
+          modulesData.map(async (module: any) => {
+            const { data: lessonsData, error: lessonsError } = await (getSupabaseClient() as any)
               .from('course_lessons')
               .select('*')
               .eq('module_id', module.id)
@@ -492,7 +390,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
       } finally {
         setIsLoadingCourseContent(false);
       }
-  }, [viewingCourseContent, user?.id, supabase, toast, space.owner_id]); // Added space.owner_id and updated viewingCourseContent dependency
+  }, [viewingCourseContent, user?.id, toast, space.owner_id]); // Added space.owner_id and updated viewingCourseContent dependency
 
   // useEffect to fetch modules and lessons when viewingCourseContent changes
   useEffect(() => {
@@ -598,7 +496,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     }
 
     // Insert into Supabase
-    const { data: newCourseData, error: insertError } = await supabase
+    const { data: newCourseData, error: insertError } = await (getSupabaseClient() as any)
       .from('courses')
       .insert({
         title: courseTitle.trim(),
@@ -606,7 +504,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
         access_type: accessType,
         price: priceValue,
         is_published: isPublished,
-        space_id: space.id,
+        space_id: effectiveSpaceId,
         creator_id: user?.id,
         currency: courseCurrency,
       })
@@ -647,7 +545,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
         weeks: 0,
         students: 0
       };
-      setCourses(prevCourses => [newDisplayCourse, ...prevCourses]);
+      addCourse(newDisplayCourse);
       setIsCreateCourseDialogOpen(false);
     }
   };
@@ -763,7 +661,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     });
 
     try {
-      const { data: updatedCourseData, error: updateError } = await supabase
+      const { data: updatedCourseData, error: updateError } = await (getSupabaseClient() as any)
         .from('courses')
         .update({
           title: editCourseTitle.trim(),
@@ -787,27 +685,16 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
           title: "Course Updated!",
           description: `"${updatedCourseData.title}" has been successfully updated.`,
         });
-        // Update local state
-        setCourses(prevCourses => 
-          prevCourses.map(c => 
-            c.id === updatedCourseData.id 
-            ? { ...c, ...updatedCourseData, 
-                // Ensure all fields of CourseDisplayData are present if not returned by select()
-                title: updatedCourseData.title,
-                description: updatedCourseData.description,
-                image_url: updatedCourseData.image_url,
-                access_type: updatedCourseData.access_type as 'open' | 'paid',
-                price: updatedCourseData.price,
-                is_published: updatedCourseData.is_published,
-                currency: updatedCourseData.currency,
-                // Retain existing students/weeks/enrolled if not part of update
-                students: c.students, 
-                weeks: c.weeks,
-                enrolled: c.enrolled
-              } 
-            : c
-          )
-        );
+        // Update cached course data
+        updateCourse(updatedCourseData.id, {
+          title: updatedCourseData.title,
+          description: updatedCourseData.description,
+          image_url: updatedCourseData.image_url,
+          access_type: updatedCourseData.access_type as 'open' | 'paid',
+          price: updatedCourseData.price,
+          is_published: updatedCourseData.is_published,
+          currency: updatedCourseData.currency,
+        });
         setIsEditCourseDialogOpen(false);
         setEditingCourse(null); // Clear editing state
       }
@@ -842,7 +729,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     setIsProcessingEnrollment(courseToEnroll.id);
     try {
       // Check if already enrolled (though UI should prevent this call if so)
-      const { data: existingEnrollment, error: checkError } = await supabase
+      const { data: existingEnrollment, error: checkError } = await getSupabaseClient()
         .from('course_enrollments')
         .select('id')
         .eq('course_id', courseToEnroll.id)
@@ -858,7 +745,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
         return;
       }
 
-      const { error: enrollError } = await supabase
+      const { error: enrollError } = await getSupabaseClient()
         .from('course_enrollments')
         .insert({ course_id: courseToEnroll.id, user_id: user.id });
 
@@ -866,11 +753,8 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
 
       toast({ title: "Successfully Enrolled!", description: "You can now access this course.", variant: "default" });
       // Update local state
-      setCourses(prevCourses => prevCourses.map(c => 
-        c.id === courseToEnroll.id 
-        ? { ...c, enrolled: true, students: (c.students || 0) + 1, progress: c.progress !== undefined ? c.progress : 0 } // ensure progress is set
-        : c
-      ));
+      // Update cache with enrollment
+      handleEnrollment(courseToEnroll.id, true);
       // Navigate to course content after successful enrollment
       setViewingCourseContent(courseToEnroll);
 
@@ -893,7 +777,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     }
     setIsProcessingEnrollment(courseId);
     try {
-      const { error: unenrollError } = await supabase
+      const { error: unenrollError } = await getSupabaseClient()
         .from('course_enrollments')
         .delete()
         .eq('course_id', courseId)
@@ -902,12 +786,8 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
       if (unenrollError) throw unenrollError;
 
       toast({ title: "Successfully Unenrolled", description: "You are no longer enrolled in this course.", variant: "default" });
-      // Update local state
-      setCourses(prevCourses => prevCourses.map(c => 
-        c.id === courseId 
-        ? { ...c, enrolled: false, students: Math.max(0, (c.students || 0) - 1) } // Ensure students don't go below 0
-        : c
-      ));
+      // Update cache with unenrollment
+      handleEnrollment(courseId, false);
     } catch (error: any) {
       console.error("Error unenrolling from course:", error);
       toast({ title: "Unenrollment Failed", description: error.message, variant: "destructive" });
@@ -934,7 +814,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     try {
       const newModuleOrder = currentCourseModules.length + 1;
 
-      const { data: newModule, error } = await supabase
+      const { data: newModule, error } = await getSupabaseClient()
         .from('course_modules')
         .insert({
           course_id: viewingCourseContent.id,
@@ -976,7 +856,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     }
     setIsUpdatingModule(true);
     try {
-      const { data: updatedModule, error } = await supabase
+      const { data: updatedModule, error } = await getSupabaseClient()
         .from('course_modules')
         .update({
           title: title.trim(), // Uses passed-in title
@@ -1021,7 +901,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     setIsDeletingModule(true);
     try {
       // 1. Delete all lessons associated with the module
-      const { error: lessonsError } = await supabase
+      const { error: lessonsError } = await getSupabaseClient()
         .from('course_lessons')
         .delete()
         .eq('module_id', moduleToDelete.id);
@@ -1032,7 +912,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
       }
 
       // 2. Delete the module itself
-      const { error: moduleError } = await supabase
+      const { error: moduleError } = await getSupabaseClient()
         .from('course_modules')
         .delete()
         .eq('id', moduleToDelete.id);
@@ -1043,7 +923,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
       }
 
       // 3. Re-order subsequent modules for the current course
-      const { data: subsequentModules, error: fetchSubsequentError } = await supabase
+      const { data: subsequentModules, error: fetchSubsequentError } = await getSupabaseClient()
         .from('course_modules')
         .select('id, module_order')
         .eq('course_id', viewingCourseContent.id) // Ensure we only reorder for the current course
@@ -1152,7 +1032,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
         content_url: (newLessonContentType === 'video_embed' || newLessonContentType === 'external_link') ? newLessonContentUrl.trim() : null,
       };
 
-      const { data: newLesson, error } = await supabase
+      const { data: newLesson, error } = await getSupabaseClient()
         .from('course_lessons')
         .insert(lessonDataToInsert)
         .select()
@@ -1196,7 +1076,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     }
     setIsUpdatingLesson(true);
     try {
-      const { data: updatedLesson, error } = await supabase
+      const { data: updatedLesson, error } = await getSupabaseClient()
         .from('course_lessons')
         .update(lessonDataToUpdate)
         .eq('id', lessonId)

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -19,7 +19,7 @@ const ActivityBarChart: React.FC<ActivityBarChartProps> = ({ userId }) => {
       setError(null);
       try {
         const startOfYear = new Date(selectedYear, 0, 1).toISOString();
-        const { data, error } = await supabase.rpc('user_activity_by_month', {
+        const { data, error } = await getSupabaseClient().rpc('user_activity_by_month', {
           user_id_input: userId,
           start_date: startOfYear,
         });
@@ -58,19 +58,21 @@ const ActivityBarChart: React.FC<ActivityBarChartProps> = ({ userId }) => {
   const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   return (
-    <div className="bg-white rounded-2xl shadow border border-gray-100 p-6 mb-4 w-full max-w-xl">
-      <div className="flex items-start justify-between mb-2">
+    <div className="w-full">
+      <div className="flex items-start justify-between mb-4">
         <div>
           <div className="text-sm text-gray-500 font-medium mb-1">Activity</div>
-          <div className="text-4xl font-bold text-gray-900">{currentValue}</div>
-          <div className="text-sm mt-1">
-            <span className="text-green-600 font-semibold">+{change}%</span>
-            <span className="text-gray-400 ml-1">from last year</span>
+          <div className="text-3xl font-bold text-gray-900 flex items-center">
+            {currentValue}
+            <span className="ml-2 text-xs py-1 px-2 bg-blue-100 text-blue-700 rounded-full font-medium">
+              <span className="text-green-600 font-semibold">+{change}%</span>
+              <span className="text-gray-500 ml-1">from last year</span>
+            </span>
           </div>
         </div>
         <div>
           <select
-            className="bg-gray-100 rounded-lg px-3 py-1 text-sm text-gray-700 border-none focus:ring-2 focus:ring-blue-200"
+            className="bg-gray-100 rounded-lg px-3 py-1.5 text-sm text-gray-700 border-none focus:ring-2 focus:ring-blue-200 shadow-sm hover:bg-gray-200 transition-colors duration-150"
             value={selectedYear}
             onChange={e => setSelectedYear(Number(e.target.value))}
           >
@@ -81,34 +83,66 @@ const ActivityBarChart: React.FC<ActivityBarChartProps> = ({ userId }) => {
         </div>
       </div>
       {loading ? (
-        <div className="h-40 flex items-center justify-center text-gray-400">Loading...</div>
+        <div className="h-44 flex items-center justify-center text-gray-400">
+          <div className="animate-pulse flex flex-col items-center">
+            <div className="h-4 w-24 bg-gray-200 rounded mb-2"></div>
+            <div className="h-32 w-full bg-gray-100 rounded"></div>
+          </div>
+        </div>
       ) : error ? (
-        <div className="h-40 flex items-center justify-center text-red-400">{error}</div>
+        <div className="h-44 flex items-center justify-center text-red-400 bg-red-50 rounded-lg p-4">
+          <div>{error}</div>
+        </div>
       ) : (
-        <div className="relative mt-6 mb-2 h-40 flex items-end">
-          {/* Average label (move to top left above chart) */}
-          <span className="absolute left-0 top-0 bg-gray-900 text-white text-xs px-2 py-0.5 rounded shadow z-20" style={{ fontSize: '11px', transform: 'translateY(-120%)' }}>
-            Avg {average}
-          </span>
+        <div className="relative mt-6 mb-4 h-44 flex items-end bg-gradient-to-b from-blue-50/30 to-transparent rounded-lg p-4">
+          {/* Average label */}
+          <div className="absolute left-4 top-0 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-3 py-1 rounded-full shadow-sm z-20" style={{ transform: 'translateY(-50%)' }}>
+            Average: {average} contributions
+          </div>
           {/* Average line */}
-          <div className="absolute left-0 right-0 flex items-center" style={{ bottom: `${(average / Math.max(...activityData, 1)) * 100}%`, top: 'auto' }}>
-            <div className="w-full border-t border-dotted border-gray-300 relative"></div>
+          <div 
+            className="absolute left-0 right-0 flex items-center" 
+            style={{ 
+              bottom: `${(average / Math.max(...activityData, 1)) * 100}%`, 
+              top: 'auto' 
+            }}
+          >
+            <div className="w-full border-t border-dashed border-blue-300 relative">
+              <div className="absolute right-4 -top-3 bg-white text-blue-600 text-xs px-1 rounded shadow-sm border border-blue-200">
+                {average}
+              </div>
+            </div>
           </div>
           {/* Bars */}
-          <div className="flex w-full h-full items-end gap-2 z-10">
-            {activityData.map((val, i) => (
-              <div key={months[i]} className="flex flex-col items-center justify-end h-full">
-                <div
-                  className={`rounded-t-lg w-7 flex items-end justify-center relative transition-all duration-200 ${i === highlightIndex ? 'bg-blue-500' : 'bg-blue-100'}`}
-                  style={{ height: `${val * 2}px` }}
-                >
-                  {i === highlightIndex && val > 0 && (
-                    <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-0.5 rounded shadow" style={{ fontSize: '11px' }}>{val}</span>
-                  )}
+          <div className="flex w-full h-full items-end gap-2 z-10 pt-6">
+            {activityData.map((val, i) => {
+              const height = val > 0 ? Math.max(val * 2, 4) : 0; // Ensure minimum height for non-zero values
+              const isHighest = i === highlightIndex && val > 0;
+              
+              return (
+                <div key={months[i]} className="flex flex-col items-center justify-end h-full flex-1 group">
+                  <div
+                    className={`rounded-lg w-full flex items-end justify-center relative transition-all duration-300 transform ${
+                      isHighest 
+                        ? 'bg-gradient-to-t from-blue-500 to-blue-400 shadow-lg' 
+                        : 'bg-gradient-to-t from-blue-300 to-blue-200 group-hover:from-blue-400 group-hover:to-blue-300'
+                    } hover:shadow-md group-hover:scale-105`}
+                    style={{ height: `${height}px` }}
+                  >
+                    <span className={`absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded shadow transition-opacity duration-150 ${
+                      isHighest ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    }`}>
+                      {val}
+                    </span>
+                  </div>
+                  <span className={`text-xs mt-2 font-medium transition-colors duration-150 ${
+                    isHighest ? 'text-blue-600' : 'text-gray-500 group-hover:text-blue-500'
+                  }`}>
+                    {months[i]}
+                  </span>
                 </div>
-                <span className="text-xs text-gray-400 mt-2">{months[i]}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

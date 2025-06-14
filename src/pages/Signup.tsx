@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, X } from "lucide-react";
@@ -9,7 +9,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client"; // Direct import for checking response
+import { getSupabaseClient } from "@/integrations/supabase/client"; // Direct import for checking response
 
 const signupSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
@@ -21,7 +21,7 @@ const signupSchema = z.object({
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function Signup() {
-  const { signUp, user } = useAuth();
+  const { signUp, user } = useOptimizedAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const background = location.state?.background;

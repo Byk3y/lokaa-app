@@ -1,301 +1,352 @@
-import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
-import { useSpace } from '@/contexts/SpaceContext';
-import { toast } from '@/hooks/use-toast';
-import { redirectToSpace } from '@/utils/spaceRedirect';
-import { useEffect, useState, useCallback } from "react";
+/**
+ * 🚀 Quick Space Redirect - PHASE 3 Enhanced with State Management
+ * 
+ * Integrated with AuthFlowStateManager and NavigationCoordinator for
+ * better coordination and elimination of loading state conflicts.
+ */
 
-interface JoinedSpace {
-  id: string;
-  name: string | null;
-  subdomain: string | null;
-}
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useOptimizedAuth } from '@/contexts/AuthContext';
+import { executeFastPath } from '@/utils/simpleFastPath';
+import { Loader2 } from 'lucide-react';
+import { 
+  acquireFastPathLock, 
+  releaseFastPathLock, 
+  cleanupStaleCoordination,
+  isOtherComponentHandlingFastPath 
+} from '@/utils/fastPathCoordinator';
+import { authFlowStateManager } from '@/utils/authFlowStateManager';
+import { navigationCoordinator } from '@/utils/navigationCoordinator';
 
 export default function QuickSpaceRedirect() {
+  const { user, loading, fastPathEnabled, lastFastPathResult } = useOptimizedAuth();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
-  const { fetchSpaceData } = useSpace();
-  const location = useLocation();
-  const [isRedirecting, setIsRedirecting] = useState(true);
-  const [redirectMessage, setRedirectMessage] = useState("Initializing...");
-  const [redirectAttempts, setRedirectAttempts] = useState(0);
-  const [hasSpaces, setHasSpaces] = useState<boolean | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const executedRef = useRef(false);
+
+  // Helper function to clean up potentially stale cache
+  const cleanupStaleCache = () => {
+    try {
+      const cacheKeys = ['lastActiveSpace', 'lastVisitedSpace', 'lastJoinedSpace'];
+      cacheKeys.forEach(key => {
+        const cached = localStorage.getItem(key);
+        if (cached) {
+          try {
+            const data = JSON.parse(cached);
+            // Remove cache entries older than 1 hour
+            if (data.timestamp && (Date.now() - data.timestamp) > 3600000) {
+              console.log(`🧹 [QuickSpaceRedirect] Removing stale cache: ${key}`);
+              localStorage.removeItem(key);
+            }
+          } catch {
+            // Invalid JSON, remove it
+            localStorage.removeItem(key);
+          }
+        }
+      });
+    } catch (error) {
+      console.warn('Cache cleanup failed:', error);
+    }
+  };
 
   useEffect(() => {
-    // If the current path is /discover, do not perform any redirects.
-    if (location.pathname === '/discover') {
-      console.log('QuickSpaceRedirect: Currently on /discover page. All automatic redirections are skipped.');
-      setIsRedirecting(false);
+    console.log('🎯 [Phase 3] QuickSpaceRedirect mounted');
+    
+    // 🚀 [Phase 3] Update auth flow stage
+    authFlowStateManager.updateStage('fast-path', { source: 'QuickSpaceRedirect' });
+    
+    // Clean up any stale cache that might cause bad redirects
+    cleanupStaleCache();
+    
+    // 🚦 COORDINATION: Clean up stale coordination data
+    cleanupStaleCoordination();
+    
+    // SAFETY: Set up timeout protection (8 seconds max - reduced for better UX)
+    timeoutRef.current = setTimeout(() => {
+      if (!executedRef.current) {
+        console.warn('🎯 [Phase 3] QuickSpaceRedirect timeout, falling back to discover');
+        authFlowStateManager.completeFlow({
+          success: false,
+          stage: 'error',
+          error: 'Timeout'
+        });
+        setError('Loading took too long. Taking you to discover...');
+        setTimeout(() => {
+          // 🚀 [Phase 3] Use NavigationCoordinator
+          navigationCoordinator.requestNavigation(
+            '/discover',
+            '/app',
+            'QuickSpaceRedirect-timeout',
+            { state: { timeout: true } }
+          );
+        }, 1000);
+      }
+    }, 8000);
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [navigate]);
+
+  useEffect(() => {
+    // If no user and not loading, redirect to landing page
+    if (!user && !loading) {
+      console.log('🎯 [Phase 3] QuickSpaceRedirect no user, redirecting to landing');
+      authFlowStateManager.completeFlow({
+        success: false,
+        stage: 'error',
+        error: 'No user'
+      });
+      executedRef.current = true;
+      
+      // 🚀 [Phase 3] Use NavigationCoordinator
+      navigationCoordinator.requestNavigation(
+        '/',
+        '/app',
+        'QuickSpaceRedirect-nouser'
+      );
       return;
     }
 
-    // Only run on landing pages
-    const landingPaths = ['/', '/app', '/discover'];
-    if (!landingPaths.includes(location.pathname)) {
-      console.log('QuickSpaceRedirect: Not on a landing page, skipping redirect:', location.pathname);
-      setIsRedirecting(false);
-      return;
-    }
-    
-    // Skip if still loading
-    if (authLoading) return;
-    
-    // Debug: Log what's happening when the component mounts
-    console.log("DEBUG: QuickSpaceRedirect mounted", { 
-      referrer: document.referrer,
-      localStorage: localStorage.getItem('lastLocationWasDiscover'),
-      sessionStorage: sessionStorage.getItem('lastLocationWasDiscover')
-    });
-    
-    // Check if the URL contains a specific space about page path
-    // This would indicate the user is trying to view a specific space's about page
-    const isAboutPagePath = /\/[^/]+\/about/.test(window.location.pathname);
-    
-    // If the path is for a specific space's about page, don't redirect
-    if (isAboutPagePath) {
-      console.log("DEBUG: URL is for a specific space about page, not redirecting");
-      setIsRedirecting(false);
-      return;
-    }
-    
-    // Store if the user was on the discover page
-    const wasOnDiscoverPage = 
-      document.referrer.includes('/discover') || 
-      localStorage.getItem('lastLocationWasDiscover') === 'true' ||
-      sessionStorage.getItem('lastLocationWasDiscover') === 'true';
-    
-    // Store this for the next time
-    if (location.pathname.includes('/discover')) {
-      console.log("DEBUG: Currently on discover page, storing for next navigation");
-      try {
-        localStorage.setItem('lastLocationWasDiscover', 'true');
-        sessionStorage.setItem('lastLocationWasDiscover', 'true');
-      } catch (e) {
-        console.warn("Failed to store location info:", e);
-      }
-    } else {
-      // Clear if not on discover anymore
-      localStorage.removeItem('lastLocationWasDiscover');
-      sessionStorage.removeItem('lastLocationWasDiscover');
-    }
-    
-    // If coming from discover, return to discover immediately
-    if (wasOnDiscoverPage) {
-      console.log("DEBUG: Was on discover page, returning immediately");
-      setRedirectMessage("Returning to discover page...");
-      // Set flag to indicate user wants to view discover page
-      sessionStorage.setItem('userWantsDiscover', 'true');
-      navigate('/discover', { replace: true });
-      return;
-    }
-    
-    const handleRedirection = async () => {
-      if (!user) {
-        console.log("QuickSpaceRedirect: No user found, redirecting to login");
-        navigate('/login', { replace: true });
-        setIsRedirecting(false);
+    // 🚦 COORDINATION: Check if another component is already handling fast path
+    if (user && !redirecting && !error && !executedRef.current) {
+
+      
+      // Check if AuthContext or another component is already executing
+      if (isOtherComponentHandlingFastPath('QuickSpaceRedirect')) {
+        console.log('🚦 [Phase 3] QuickSpaceRedirect - another component handling fast path');
+        authFlowStateManager.completeFlow({
+          success: false,
+          stage: 'error',
+          error: 'Another component handling'
+        });
+        executedRef.current = true;
+        
+        // 🚀 [Phase 3] Use NavigationCoordinator for fallback
+        navigationCoordinator.requestNavigation(
+          '/discover',
+          '/app',
+          'QuickSpaceRedirect-conflict'
+        );
         return;
       }
       
-      try {
-        console.log("QuickSpaceRedirect: Checking if user has any spaces");
+      console.log('🎯 [Phase 3] QuickSpaceRedirect executing coordinated fast path...');
+      
+      setRedirecting(true);
+      executedRef.current = true;
+      
+      const performCoordinatedFastPathRedirect = async () => {
+        // 🚦 STEP 1: Acquire execution lock
+        const lockResult = acquireFastPathLock('QuickSpaceRedirect');
         
-        // First, quickly check if the user has any spaces at all
-        const { count, error: countError } = await supabase
-          .from('space_access')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('is_active', true);
-          
-        if (countError) {
-          console.error("Error checking if user has spaces:", countError);
-        } else if (count === 0) {
-          // User has no spaces, redirect to discover page
-          console.log("QuickSpaceRedirect: User has no spaces, redirecting to discover");
-          setHasSpaces(false);
-          setRedirectMessage("Taking you to discover page...");
-          // Set flag to indicate user wants to view discover page
-          sessionStorage.setItem('userWantsDiscover', 'true');
-          navigate('/discover', { replace: true });
-          return;
-        } else {
-          // User has at least one space, continue with normal flow
-          setHasSpaces(true);
-          setRedirectMessage("Taking you to your space...");
-        }
-        
-        // Track last redirect time for repeat visitors
-        const now = new Date().toISOString();
-        try {
-          localStorage.setItem('lastRedirectAttempt', now);
-        } catch (e) {
-          console.warn("Failed to save redirect timestamp:", e);
-        }
-        
-        // Add a small delay for more reliable behavior
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // PRIORITY 1: Check for recently joined space first
-        try {
-          const lastJoinedSpaceJson = localStorage.getItem('lastJoinedSpace');
-          if (lastJoinedSpaceJson) {
-            const lastJoinedSpace = JSON.parse(lastJoinedSpaceJson);
-            if (lastJoinedSpace && lastJoinedSpace.subdomain) {
-              console.log("Found last joined space:", lastJoinedSpace.name);
-              
-              // Verify the space exists and user has access
-              const { data: accessCheck } = await supabase
-                .from('space_access')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('space_id', lastJoinedSpace.id)
-                .eq('is_active', true)
-                .maybeSingle();
-                
-              if (accessCheck) {
-                console.log("User has active access to last joined space");
-                setRedirectMessage(`Taking you to ${lastJoinedSpace.name || 'your space'}...`);
-                
-                // Prefetch the space data to ensure it's in cache
-                await fetchSpaceData(lastJoinedSpace.subdomain);
-                
-                navigate(`/${lastJoinedSpace.subdomain}/space/feed`, { replace: true });
-                return;
-              } else {
-                console.log("User no longer has access to last joined space");
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Error checking last joined space:", e);
-        }
-        
-        // PRIORITY 2: Try finding the user's most recent active space
-        const { data: activeSpaces, error: spacesError } = await supabase
-          .from('space_access')
-          .select(`
-            id,
-            space_id,
-            spaces:space_id (id, name, subdomain)
-          `)
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .limit(5);
-        
-        if (spacesError) {
-          console.error("Error fetching active spaces:", spacesError);
-        } else if (activeSpaces && activeSpaces.length > 0) {
-          // Find the first valid space with a subdomain
-          const validSpace = activeSpaces.find(record => 
-            record.spaces && 
-            (record.spaces as JoinedSpace).subdomain
-          );
-          
-          if (validSpace) {
-            const space = validSpace.spaces as JoinedSpace;
-            setRedirectMessage(`Taking you to ${space.name || 'your space'}...`);
-            
-            // Update lastVisitedSpace in localStorage
-            try {
-              localStorage.setItem('lastVisitedSpace', JSON.stringify({
-                id: space.id,
-                subdomain: space.subdomain,
-                name: space.name
-              }));
-            } catch (e) {
-              console.warn("Failed to save last visited space:", e);
-            }
-            
-            // Prefetch the space data to ensure it's in cache
-            await fetchSpaceData(space.subdomain);
-            
-            // Use the new URL format
-            const spaceUrl = `/${space.subdomain}/space/feed`;
-            navigate(spaceUrl, { replace: true });
-            return;
-          }
-        }
-        
-        // If no active spaces found, fall back to standard redirect
-        if (redirectAttempts === 0) {
-          const redirected = await redirectToSpace(navigate, true);
-          
-          if (redirected) {
-            console.log("QuickSpaceRedirect: Successfully redirected to user space");
-            return;
-          }
-        }
-        
-        // Last resort - check all spaces including those not active
-        if (redirectAttempts > 0) {
-          console.log("QuickSpaceRedirect: Checking all user spaces as fallback");
-          const { data: allSpaces } = await supabase
-            .from('spaces')
-            .select('id, name, subdomain')
-            .eq('owner_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-            
-          if (allSpaces && allSpaces.length > 0) {
-            const space = allSpaces[0];
-            setRedirectMessage(`Found your space! Taking you to ${space.name || 'your space'}...`);
-            
-            // Prefetch the space data to ensure it's in cache
-            await fetchSpaceData(space.subdomain);
-            
-            navigate(`/${space.subdomain}/space/feed`, { replace: true });
-            return;
-          }
-        }
-        
-        // If we reach here, no spaces were found or redirection failed
-        console.log("QuickSpaceRedirect: No spaces found, redirecting to discover");
-        setRedirectMessage("No spaces found, taking you to discover page...");
-        
-        // Set flag to indicate user wants to view discover page
-        sessionStorage.setItem('userWantsDiscover', 'true');
-        
-        setTimeout(() => {
-          navigate('/discover', { replace: true });
-          setIsRedirecting(false);
-        }, 1000);
-      } catch (error) {
-        console.error("QuickSpaceRedirect: Error during redirection:", error);
-        
-        // If this is the first attempt, try once more with a different approach
-        if (redirectAttempts === 0) {
-          setRedirectMessage("Trying alternative redirection method...");
-          setRedirectAttempts(prev => prev + 1);
-        } else {
-          // If we've already tried multiple approaches, give up and go to discover
-          setRedirectMessage("Encountered an error, taking you to discover page...");
-          toast({
-            title: "Navigation error",
-            description: "We couldn't find your space. You've been redirected to the discover page.",
-            variant: "destructive"
+        if (!lockResult.acquired) {
+          console.log(`🚦 [Phase 3] QuickSpaceRedirect lock failed, ${lockResult.conflictingComponent} is active`);
+          authFlowStateManager.completeFlow({
+            success: false,
+            stage: 'error',
+            error: 'Lock acquisition failed'
           });
           
-          // Set flag to indicate user wants to view discover page
-          sessionStorage.setItem('userWantsDiscover', 'true');
-          
-          setTimeout(() => {
-            navigate('/discover', { replace: true });
-            setIsRedirecting(false);
-          }, 1000);
+          // 🚀 [Phase 3] Use NavigationCoordinator
+          navigationCoordinator.requestNavigation(
+            '/discover',
+            '/app',
+            'QuickSpaceRedirect-lockfailed'
+          );
+          return;
         }
-      }
-    };
+        
+        const executionId = lockResult.executionId!;
+        console.log(`🚦 [Phase 3] QuickSpaceRedirect lock acquired: ${executionId.substr(-9)}`);
+        
+        try {
+          // 🚀 [Phase 3] Update to fast-path execution stage
+          authFlowStateManager.updateStage('fast-path', { 
+            source: 'QuickSpaceRedirect'
+          });
+          
+          console.log('🚀 [Phase 3] QuickSpaceRedirect starting fast path execution...');
+          const result = await executeFastPath(user.id, navigate, '/app');
+          
+          console.log(`🎯 [Phase 3] QuickSpaceRedirect fast path completed: ${result.strategy} in ${result.timing}ms`);
+          
+          // 🚦 STEP 2: Release lock with success result
+          const success = result.strategy !== 'error';
+          releaseFastPathLock(executionId, {
+            success,
+            redirectedTo: result.redirectUrl,
+            strategy: result.strategy
+          });
+          
+          // 🚀 [Phase 3] Complete auth flow with result
+          authFlowStateManager.completeFlow({
+            success,
+            stage: success ? 'complete' : 'error',
+            redirectPath: result.redirectUrl,
+            executionTime: result.timing,
+            source: result.strategy
+          });
+          
+          // Clear timeout since we got a result
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+          }
+          
+          // Handle various result scenarios
+          if (result.strategy === 'db-no-spaces' || result.strategy === 'cache-no-spaces') {
+            console.log('🎯 [Phase 3] QuickSpaceRedirect user has no spaces, redirecting to discover');
+            
+            // 🚀 [Phase 3] Use NavigationCoordinator
+            navigationCoordinator.requestNavigation(
+              '/discover',
+              '/app',
+              'QuickSpaceRedirect-nospaces'
+            );
+          } else if (result.strategy === 'error') {
+            console.error('🎯 [Phase 3] QuickSpaceRedirect fast path failed, falling back to discover');
+            
+            // 🚀 [Phase 3] Use NavigationCoordinator
+            navigationCoordinator.requestNavigation(
+              '/discover',
+              '/app',
+              'QuickSpaceRedirect-error'
+            );
+          } else if (result.strategy === 'already-on-destination') {
+            console.log('🎯 [Phase 3] QuickSpaceRedirect already on destination, redirecting to discover');
+            
+            // 🚀 [Phase 3] Use NavigationCoordinator
+            navigationCoordinator.requestNavigation(
+              '/discover',
+              '/app',
+              'QuickSpaceRedirect-alreadythere'
+            );
+          }
+          // For successful redirects (cache-has-spaces, db-has-spaces), navigation is already handled
+          
+        } catch (error) {
+          console.error('🎯 [Phase 3] QuickSpaceRedirect fast path execution failed:', error);
+          
+          // 🚦 STEP 2: Release lock with failure result
+          releaseFastPathLock(executionId, {
+            success: false,
+            strategy: 'error'
+          });
+          
+          // 🚀 [Phase 3] Complete auth flow with error
+          authFlowStateManager.completeFlow({
+            success: false,
+            stage: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          
+          // Clear timeout
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+          }
+          
+          setError('Failed to load your spaces. Redirecting to discover...');
+          
+          // Fallback to discover page after a brief delay
+          setTimeout(() => {
+            // 🚀 [Phase 3] Use NavigationCoordinator
+            navigationCoordinator.requestNavigation(
+              '/discover',
+              '/app',
+              'QuickSpaceRedirect-exception'
+            );
+          }, 2000);
+        }
+      };
+      
+      performCoordinatedFastPathRedirect();
+    }
     
-    handleRedirection();
-  }, [user, authLoading, navigate, redirectAttempts, fetchSpaceData, location.pathname]);
+    // ENHANCED: Show loading state while still waiting for auth
+    if (loading && !user) {
+      console.log('🎯 [Phase 3] QuickSpaceRedirect waiting for auth completion...');
+    }
+  }, [user, loading, redirecting, error, navigate]);
 
+  // Show error state if something went wrong
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center" data-component="QuickSpaceRedirect">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">
+            {error}
+          </p>
+          <button 
+            onClick={cleanupStaleCache}
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Simple loading UI - show minimal content since redirect should be very fast
+  // Check if mobile
+  const isMobile = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // Use mobile enhanced loading screen with dynamic import
+    const MobileEnhancedLoadingScreen = React.lazy(() => import('@/components/loading/MobileEnhancedLoadingScreen'));
+    const message = user ? 'Loading your space...' : 'Authenticating...';
+    const submessage = redirecting ? 'Finding your best space...' : 'Getting ready...';
+    
+    return (
+      <React.Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50" data-component="QuickSpaceRedirect">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-teal-600 mb-4" />
+            <div className="text-lg font-medium text-gray-900 mb-2">{message}</div>
+            <div className="text-sm text-gray-500">{submessage}</div>
+          </div>
+        </div>
+      }>
+        <MobileEnhancedLoadingScreen 
+          message={message} 
+          submessage={submessage}
+          showProgress={true} 
+        />
+      </React.Suspense>
+    );
+  }
+  
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="text-center">
-        <Loader2 className="w-12 h-12 animate-spin mx-auto text-teal-600" />
-        <p className="mt-4 text-lg text-gray-600">{redirectMessage}</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50" data-component="QuickSpaceRedirect">
+      <div className="flex flex-col items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600 mb-4" />
+        <div className="text-lg font-medium text-gray-900 mb-2">
+          {user ? 'Loading your space...' : 'Authenticating...'}
+        </div>
+        <div className="text-sm text-gray-500 text-center max-w-md">
+          {redirecting ? 'Finding your best space...' : 'Getting ready...'}
+          {lastFastPathResult && (
+            <div className="mt-2 text-xs text-gray-400">
+              Completed in {lastFastPathResult.timing}ms using {lastFastPathResult.strategy}
+            </div>
+          )}
+        </div>
+        {redirecting && (
+          <div className="mt-3 text-xs text-gray-400">
+            This should only take a moment
+          </div>
+        )}
+        {loading && user && (
+          <div className="mt-2 text-xs text-gray-400">
+            Authentication complete, preparing redirect...
+          </div>
+        )}
       </div>
     </div>
   );

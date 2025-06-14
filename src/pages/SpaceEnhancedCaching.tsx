@@ -133,7 +133,7 @@ export function createEnhancedSpaceDataFetcher(
       try {
         // Use existing Supabase query method
         console.log("Fetching space by subdomain:", subdomain);
-        const { data: spaceData, error } = await supabase
+        const { data: spaceData, error } = await getSupabaseClient()
           .from("spaces")
           .select("id, name, description, cover_image, icon_image, primary_color, member_count, pricing_type, price_per_month, subdomain, owner_id, is_private")
           .eq("subdomain", subdomain)

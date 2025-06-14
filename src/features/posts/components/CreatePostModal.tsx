@@ -24,8 +24,11 @@ import { useSpaceHasPosts } from '../hooks/useSpaceHasPosts';
 import { POST_TEMPLATES } from '../types';
 
 // Import types
-import type { PostCardProps } from '@/components/space/PostCard';
+import type { PostCardProps } from '@/features/posts/types/postCard';
 import type { CreatePostModalProps } from '../types';
+
+// Import test utilities (development only)
+import { logImplementationStatus } from '../utils/uploadTestUtils';
 
 /**
  * Main modal component for creating and editing posts
@@ -77,6 +80,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [selectedContentGifUrls, setSelectedContentGifUrls] = useState<string[]>(
     editMode && post?.content_gif_url ? [post.content_gif_url] : []
   );
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
   
   const {
     attachments,
@@ -88,6 +92,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     isVideoPlayerModalOpen,
     setIsVideoPlayerModalOpen,
     selectedVideo,
+    uploadingFiles,
     resetAttachments,
     triggerFileSelector,
     handleFileSelected,
@@ -128,6 +133,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   
   const {
     showGiphySearch,
+    setShowGiphySearch,
     giphySearchTerm,
     setGiphySearchTerm,
     activeGifCategory,
@@ -164,7 +170,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     editMode,
     post,
     onPostCreated,
-    onPostUpdated
+    onPostUpdated,
+    openPostModal: (newPost) => {
+      if (editMode) return; // Don't open modal for edits
+      
+      // Use the post data to set up the modal
+      if (onPostCreated) {
+        // First call the onPostCreated callback to refresh the feed
+        onPostCreated();
+      }
+      
+      // Don't auto-open the modal - let URL-based navigation handle it
+      // The navigateToPost function in usePostSubmission will handle this
+    }
   });
   
   const { isEmptySpace, loading: checkingPosts } = useSpaceHasPosts(spaceId);
@@ -174,20 +192,64 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       setShowFunPostIdeas(isEmptySpace && !checkingPosts);
     }
   }, [isEmptySpace, checkingPosts, editMode, setShowFunPostIdeas]);
+
+  // Log implementation status when modal opens (development only)
+  useEffect(() => {
+    if (isOpen && process.env.NODE_ENV === 'development') {
+      logImplementationStatus();
+    }
+  }, [isOpen]);
   
   // Define updated styles for toolbar icons and buttons
   const toolbarButtonClass = "inline-flex items-center justify-center text-gray-500 hover:text-teal-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-teal-400 dark:hover:bg-gray-800 transition-colors rounded-full p-2.5";
   const activeToolbarButtonClass = "inline-flex items-center justify-center text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-gray-700 rounded-full p-2.5";
   const submitButtonText = isSubmitting 
     ? (editMode ? "Updating..." : "Posting...") 
+    : uploadingFiles.size > 0
+    ? "Uploading files..."
     : (editMode ? "Update Post" : "Post");
   
   const handleRemoveContentGif = (indexToRemove: number) => {
     setSelectedContentGifUrls(prevUrls => prevUrls.filter((_, index) => index !== indexToRemove));
   };
 
+  // Check if there's any content to warn about losing
+  const hasContent = () => {
+    return title.trim() !== '' || 
+           content.trim() !== '' || 
+           attachments.length > 0 || 
+           selectedContentGifUrls.length > 0 ||
+           pollOptions.some(option => option.text.trim() !== '');
+  };
+
+  // Handle close with confirmation if there's content
+  const handleCloseAttempt = () => {
+    if (hasContent() && !editMode) {
+      setShowCloseConfirmation(true);
+    } else {
+      handleActualClose();
+    }
+  };
+
+  // Actually close the modal
+  const handleActualClose = () => {
+    setShowCloseConfirmation(false);
+    onClose();
+    resetAttachments();
+    setSelectedContentGifUrls([]);
+    if (!editMode) {
+      setTitle('');
+      setContent('');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
+    
+    // Prevent submission while files are uploading
+    if (uploadingFiles.size > 0) {
+      return;
+    }
     
     const response = await submitPost({
       title,
@@ -260,11 +322,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   return (
     <>
       <TooltipProvider>
-      <Dialog.Root open={isOpen} onOpenChange={onClose}>
+      <Dialog.Root open={isOpen} onOpenChange={handleCloseAttempt}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-overlayShow z-40" />
-          <Dialog.Content className="fixed inset-0 z-50 flex items-start justify-center p-4">
-            <div className="w-full max-w-sm sm:max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white pt-5 px-6 pb-6 shadow-xl focus:outline-none dark:bg-gray-800 dark:text-white data-[state=open]:animate-contentShow overflow-visible">
+          <Dialog.Content className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-sm sm:max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white pt-5 px-6 pb-6 shadow-xl focus:outline-none dark:bg-gray-800 dark:text-white data-[state=open]:animate-contentShow overflow-visible">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -277,6 +338,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <Dialog.Title className="sr-only">
                 {editMode ? "Edit Post" : `Create Post in ${spaceName}`}
               </Dialog.Title>
+              <Dialog.Description className="sr-only">
+                {editMode ? `Edit your post in ${spaceName}` : `Create a new post in ${spaceName}. Add a title, content, media attachments, and categorize your post.`}
+              </Dialog.Description>
             
               <div className="space-y-5">
                 <div>
@@ -319,31 +383,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     autoCapitalize="sentences"
                     className="block w-full rounded-md py-2 px-3 text-sm sm:text-base font-normal font-sans normal-case leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white"
                   />
-                  
-                  {selectedContentGifUrls.length > 0 && (
-                    <div className="mt-4 overflow-x-auto scrollbar-none scroll-smooth">
-                      <div className="flex space-x-2 w-max">
-                        {selectedContentGifUrls.map((url, idx) => (
-                          <div key={idx} className="relative flex-shrink-0">
-                            <img 
-                              src={url} 
-                              alt={`Selected GIF ${idx + 1}`}
-                              width={210} 
-                              height={210} 
-                              className="w-[210px] h-[210px] rounded-md object-cover" 
-                            />
-                <button 
-                              onClick={() => handleRemoveContentGif(idx)} 
-                              className="absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full p-1 hover:bg-opacity-80 transition-opacity"
-                              aria-label={`Remove GIF ${idx + 1}`}
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
-                          </div>
-                        ))}
-                      </div>
-              </div>
-            )}
 
                   <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
                     Please keep posts respectful and relevant to the space.
@@ -364,28 +403,56 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   <div className="mt-4">
                     <div className="flex space-x-3 overflow-x-auto w-full py-2 scrollbar-none scroll-smooth">
                       {/* 1. Content GIFs (from selectedContentGifUrls) */}
-                      {selectedContentGifUrls.map((url, idx) => (
-                        <div key={`content-gif-${idx}`} className="relative w-[210px] min-w-[210px] h-[210px] rounded-lg border bg-white dark:bg-gray-800 shadow-sm group overflow-hidden flex-shrink-0">
-                          <img 
-                            src={url} 
-                            alt={`Selected GIF ${idx + 1}`}
-                            className="w-full h-full object-cover" 
-                          />
-                          <button
-                            onClick={() => handleRemoveContentGif(idx)} 
-                            className="absolute top-1.5 right-1.5 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70 transition-opacity z-10"
-                            aria-label={`Remove GIF ${idx + 1}`}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                          </button>
-                        </div>
-                      ))}
+                      {selectedContentGifUrls.map((url, idx) => {
+                        // Convert Giphy page URLs to direct media URLs
+                        let displayUrl = url;
+                        if (url.includes('giphy.com/gifs/')) {
+                          const gifId = url.split('-').pop();
+                          if (gifId) {
+                            displayUrl = `https://media.giphy.com/media/${gifId}/giphy.gif`;
+                          }
+                        }
+                        
+                        return (
+                          <div key={`content-gif-${idx}`} className="relative w-[210px] min-w-[210px] h-[210px] rounded-lg border bg-white dark:bg-gray-800 shadow-sm group overflow-hidden flex-shrink-0">
+                            <img 
+                              src={displayUrl} 
+                              alt={`Selected GIF ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={() => {
+                                // Show placeholder if both fail
+                                displayUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEwIiBoZWlnaHQ9IjIxMCIgdmlld0JveD0iMCAwIDIxMCAyMTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMTAiIGhlaWdodD0iMjEwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik05MCA3NUMxMDcuNjczIDc1IDEyMiA4OS4zMjcgMTIyIDEwN0MxMjIgMTI0LjY3MyAxMDcuNjczIDEzOSA5MCAxMzlDNzIuMzI3IDEzOSA1OCAxMjQuNjczIDU4IDEwN0M1OCA4OS4zMjcgNzIuMzI3IDc1IDkwIDc1WiIgZmlsbD0iIzlCOUI5QiIvPgo8cGF0aCBkPSJNODQgOTNIMTAyVjEyMUg4NFY5M1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMzUgNzVIMTUyVjEzOUgxMzVWNzVaIiBmaWxsPSIjOUI5QjlCIi8+PC9zdmc+';
+                              }}
+                            />
+                            <button
+                              onClick={() => handleRemoveContentGif(idx)} 
+                              className="absolute top-1.5 right-1.5 bg-black bg-opacity-50 text-white rounded-full p-1 hover:bg-opacity-70 transition-opacity z-10"
+                              aria-label={`Remove GIF ${idx + 1}`}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                          </div>
+                        );
+                      })}
 
                       {/* 2. Other Attachments (from useAttachments) */}
                       {attachments.map((att) => (
                         <div key={att.id} className="relative w-[210px] min-w-[210px] h-[210px] rounded-lg border bg-white dark:bg-gray-800 shadow-sm group overflow-hidden flex-shrink-0">
+                          {/* Upload Error State */}
+                          {att.type === 'file' && !att.url && (
+                            <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                              <div className="w-12 h-12 text-red-500 mb-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                </svg>
+                              </div>
+                              <p className="text-xs font-medium text-red-600 dark:text-red-400">Upload failed</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{att.name}</p>
+                            </div>
+                          )}
+                          
                           {/* Type: Uploaded Image (including GIFs) */}
-                          {att.type === 'file' && att.fileType?.startsWith('image/') && (
+                          {att.type === 'file' && att.fileType?.startsWith('image/') && att.url && (
                             <img src={att.url} alt={att.name || 'Image attachment'} className="w-full h-full object-cover" />
                           )}
 
@@ -471,6 +538,21 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                           )}
                           </div>
                       ))}
+                      
+                      {/* Upload Progress Indicators */}
+                      {Array.from(uploadingFiles).map((fileId) => (
+                        <div key={`uploading-${fileId}`} className="relative w-[210px] min-w-[210px] h-[210px] rounded-lg border bg-gray-50 dark:bg-gray-700 shadow-sm group overflow-hidden flex-shrink-0">
+                          <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                            <div className="w-12 h-12 text-teal-500 mb-2 animate-spin">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                              </svg>
+                            </div>
+                            <p className="text-xs font-medium text-teal-600 dark:text-teal-400">Uploading...</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Please wait</p>
+                          </div>
+                        </div>
+                      ))}
                         </div>
                   </div>
                 )}
@@ -534,12 +616,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <div className="relative">
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button
-                            className={toolbarButtonClass}
-                            onClick={toggleGiphySearch}
-                          >
-                            <span className="font-semibold text-gray-500 text-sm tracking-wider">GIF</span>
-                          </button>
+                                                  <button
+                          className={toolbarButtonClass}
+                          onClick={openGiphySearchForContent}
+                        >
+                          <span className="font-semibold text-gray-500 text-sm tracking-wider">GIF</span>
+                        </button>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Add GIF as attachment</p>
@@ -553,8 +635,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         fetchGifs={fetchGifsForSearch}
                         fetchGifsByCategory={fetchGifsForCategory}
                         onGifSelect={handleGifSelected}
-                        visible={showGiphySearch && !isContentGif}
+                        visible={showGiphySearch}
                         activeCategory={activeGifCategory}
+                        onClose={() => setShowGiphySearch(false)}
+                        standalone={false}
                       />
                     </div>
 
@@ -611,16 +695,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   <div className="ml-auto flex items-center space-x-3">
                     <button
                       type="button" 
-                      onClick={onClose} 
+                      onClick={handleCloseAttempt} 
                       className="rounded-md px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSubmit}
-                      disabled={!title.trim() && !content.trim()}
+                      disabled={(!title.trim() && !content.trim()) || isSubmitting || uploadingFiles.size > 0}
                       className={`rounded-md px-4 py-2.5 text-sm font-medium text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 transition-colors ${
-                        !title.trim() && !content.trim() 
+                        (!title.trim() && !content.trim()) || isSubmitting || uploadingFiles.size > 0
                         ? 'bg-teal-400 cursor-not-allowed opacity-70' 
                         : 'bg-teal-600 hover:bg-teal-700'
                       }`}
@@ -630,8 +714,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   </div>
                 </div>
               </div>
-
-            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
@@ -655,6 +737,38 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         videoId={selectedVideo.videoId}
         videoPlatform={selectedVideo.platform as 'youtube' | 'vimeo' | 'other' | undefined}
       />
+
+      {/* Close Confirmation Dialog */}
+      <Dialog.Root open={showCloseConfirmation} onOpenChange={setShowCloseConfirmation}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-overlayShow z-[100]" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] w-full max-w-md rounded-xl bg-white p-6 shadow-xl focus:outline-none dark:bg-gray-800 dark:text-white">
+            <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Discard post?
+            </Dialog.Title>
+            <Dialog.Description className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+              You have unsaved changes. Are you sure you want to discard your post?
+            </Dialog.Description>
+            
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowCloseConfirmation(false)}
+                className="rounded-md px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                onClick={handleActualClose}
+                className="rounded-md px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 transition-colors"
+              >
+                Discard post
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
       </TooltipProvider>
     </>
   );

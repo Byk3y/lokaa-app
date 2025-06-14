@@ -1,9 +1,8 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { useCreatorStatus } from "../../hooks/useCreatorStatus";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 
 interface AuthRedirectProps {
   requireAuth?: boolean;
@@ -16,17 +15,14 @@ interface AuthRedirectProps {
  * - requireAuth=false: Redirects authenticated users to dashboard
  */
 export default function AuthRedirect({ requireAuth = true, redirectTo = "/" }: AuthRedirectProps) {
-  const { user, loading } = useAuth();
+  const { user, loading } = useOptimizedAuth();
   const location = useLocation();
-  const { data: creatorCommunity, isLoading: isLoadingCreator } = useCreatorStatus();
   const navigate = useNavigate();
 
   console.log('AuthRedirect Debug:', {
     user: !!user,
     loading,
     requireAuth,
-    creatorCommunity,
-    isLoadingCreator,
     currentPath: location.pathname
   });
 
@@ -44,7 +40,7 @@ export default function AuthRedirect({ requireAuth = true, redirectTo = "/" }: A
         }
 
         // Exchange the code for a session
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        const { error } = await getSupabaseClient().auth.exchangeCodeForSession(code);
         
         if (error) {
           console.error("Error exchanging code for session:", error);
@@ -54,8 +50,9 @@ export default function AuthRedirect({ requireAuth = true, redirectTo = "/" }: A
 
         console.log("Successfully authenticated");
         
-        // Redirect to the discover page
-        navigate('/discover', { replace: true });
+        // FIXED: Redirect to /app for smart space detection instead of directly to discover
+        console.log('🚀 [AuthRedirect] Directing to /app for smart space redirection');
+        navigate('/app', { replace: true });
       } catch (err) {
         console.error("Error in auth redirect:", err);
         navigate('/login');

@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Bell, MessageSquare, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Trophy, GraduationCap } from "lucide-react";
 import { motion } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import SpaceSwitcher from "@/components/spaces/SpaceSwitcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import Confetti from 'react-confetti';
 import SpaceSettingsModal from "@/components/modals/SpaceSettingsModal";
 import { useSpace, SpaceProvider } from "@/contexts/SpaceContext";
 import SpaceLoadingSkeleton from "@/components/space/SpaceLoadingSkeleton";
-// import { preloadSpaceAssets } from "@/utils/spacePerformance"; // Commented out due to missing export
 import { Link } from "react-router-dom";
 import AboutTab from "@/components/space/AboutTab";
 import FeedTab from "@/components/space/FeedTab";
@@ -22,6 +21,7 @@ import MembersTab from "@/components/space/MembersTab";
 import LeaderboardsTab from "@/components/space/LeaderboardsTab";
 import ClassroomTab from "@/components/space/ClassroomTab";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
+
 
 // Helper function to resolve image URLs that might be stored in localStorage
 const resolveImageUrl = (imageUrl: string | null, fallbackUrl: string = '/default-cover.jpg'): string => {
@@ -60,7 +60,7 @@ export default function SpaceWrapper(_props: SpaceProps) { // Removed empty dest
  */
 function SpaceContent() {
   const { subdomain } = useParams<{ subdomain: string }>();
-  const { user, signOut } = useAuth();
+  const { user, signOut } = useOptimizedAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -99,7 +99,7 @@ function SpaceContent() {
         spaceData.icon_image
       ].filter(Boolean) as string[];
       
-      // preloadSpaceAssets(imagesToPreload); // Commented out due to missing export
+      // TODO: Implement image preloading when needed
     }
   }, [spaceData]);
 
@@ -205,7 +205,7 @@ function SpaceContent() {
   const renderTabButton = (tab: string, icon: React.ReactNode, label: string) => {
     const isActive = activeTab === tab;
     // Map 'community' tab to 'feed' URL path
-    // const url = `/${subdomain}/space/${tab === 'community' ? 'feed' : tab}`;
+
     // navigateToTab now handles navigation, so direct url construction might not be needed here for the button itself
     
     return (
@@ -373,7 +373,7 @@ function SpaceContent() {
         </nav>
           
         {/* Main Content */}
-        <main className="flex-grow py-6">
+        <main className="flex-grow py-2">
           <div className="max-w-6xl mx-auto px-4">
           {activeTab === "about" ? (
             <AboutTab 

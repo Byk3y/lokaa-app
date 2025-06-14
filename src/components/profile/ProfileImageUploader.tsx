@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, X, Check, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -232,7 +232,7 @@ export default function ProfileImageUploader({
   const uploadImage = async (blob: Blob) => {
     try {
       // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSupabaseClient().auth.getUser();
       if (!user) {
         toast({
           title: 'Authentication required',
@@ -247,7 +247,7 @@ export default function ProfileImageUploader({
       const filePath = `profiles/${user.id}/${fileName}`;
       
       // Upload the file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await getSupabaseClient().storage
         .from('avatars')
         .upload(filePath, blob, {
           cacheControl: '3600',
@@ -266,7 +266,7 @@ export default function ProfileImageUploader({
       }
       
       // Get the public URL of the uploaded image
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = getSupabaseClient().storage
         .from('avatars')
         .getPublicUrl(filePath);
       
@@ -280,7 +280,7 @@ export default function ProfileImageUploader({
       }
       
       // Update user metadata
-      const { error: metadataError } = await supabase.auth.updateUser({
+      const { error: metadataError } = await getSupabaseClient().auth.updateUser({
         data: { 
           avatar_url: publicUrl,
           avatar_path: filePath,
@@ -300,7 +300,7 @@ export default function ProfileImageUploader({
       }
       
       // Update the public.users table
-      const { error: dbUpdateError } = await supabase
+      const { error: dbUpdateError } = await getSupabaseClient()
         .from('users')
         .update({ avatar_url: publicUrl })
         .eq('id', user.id);

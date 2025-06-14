@@ -4,7 +4,7 @@ import { Users, Star, TrendingUp, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import JoinedSpacesSection from "@/components/dashboard/JoinedSpacesSection";
 import FeaturedSpaces from "@/components/dashboard/FeaturedSpaces";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import useSpacesData from "@/hooks/useSpacesData";
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import SpacesList from '../components/spaces/SpacesList';
@@ -13,7 +13,7 @@ import { Bell, Plus } from 'lucide-react';
 import { Space } from '../types/space';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,13 +47,12 @@ export default function Dashboard() {
     
     // Special handling for test account
     if (user.email === 'francischukwuma706@gmail.com') {
-      console.log('Dashboard: Test account detected, redirecting to discover page');
+      // Test account detected, redirecting
       navigate('/discover');
       return;
     }
 
     const loadSpaces = async () => {
-      console.log('Dashboard: Loading spaces for user');
       setLoading(true);
       
       try {
@@ -66,7 +65,7 @@ export default function Dashboard() {
           
           // If there are spaces, redirect to the first one
           if (window.location.pathname === '/dashboard') {
-            console.log('Dashboard: Redirecting to first space:', userSpaces[0].subdomain);
+            // Redirecting to user's first space
             navigate(`/space/${userSpaces[0].subdomain}`);
           }
         } else {

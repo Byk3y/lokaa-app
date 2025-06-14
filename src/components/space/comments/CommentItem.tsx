@@ -1,40 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ThumbsUp, Send } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client'; 
 import { toast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import UserProfileHoverCard from '@/components/profile/UserProfileHoverCard';
+import { Link } from 'react-router-dom';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
+// Types
 export interface CommentAuthor {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  profile_url?: string | null; // Add profile_url for linking to user profiles
+  profile_url?: string | null;
   activity_score?: number | null;
 }
 
 export interface CommentItemProps {
   id: string;
   content: string;
-  created_at: string; // ISO string format
-  author: CommentAuthor | null; // Author might be null if user is deleted or data is inconsistent
-  post_id?: string; // The post this comment belongs to
-  space_id?: string; // The space this comment belongs to
-  parent_comment_id?: string | null; // If this is a reply, the ID of the parent comment
-  reply_count?: number; // Number of replies
-  like_count?: number; // Number of likes
-  isLiked?: boolean; // Whether current user has liked this comment
-  onReplyAddedToParent?: (parentCommentId: string, newReply: FetchedCommentFromHook) => void; // Callback when reply is added TO THE PARENT LIST in PostDetailModal
-  currentUserId?: string | null; // The ID of the currently logged in user
+  created_at: string;
+  author: CommentAuthor | null;
+  post_id?: string;
+  space_id?: string;
+  parent_comment_id?: string | null;
+  reply_count?: number;
+  like_count?: number;
+  isLiked?: boolean;
+  onReplyAddedToParent?: (parentCommentId: string, newReply: FetchedCommentFromHook) => void;
+  currentUserId?: string | null;
   fetchRepliesHook: (commentId: string) => Promise<FetchedCommentFromHook[]>;
-  onSetReplyTarget: (comment: FetchedCommentFromHook) => void; // Added
-  onCommentLikeToggled?: (commentId: string, newLikedState: boolean, newLikeCount: number) => void; // Added
-  depth?: number; // For indentation of replies
+  onSetReplyTarget: (comment: FetchedCommentFromHook) => void;
+  onCommentLikeToggled?: (commentId: string, newLikedState: boolean, newLikeCount: number) => void;
+  depth?: number;
+  // New Skool-style fields
+  initial_replies?: FetchedCommentFromHook[];
+  remaining_reply_count?: number;
+  has_more_replies?: boolean;
 }
 
 interface FetchedCommentFromHook {
@@ -50,6 +52,10 @@ interface FetchedCommentFromHook {
   reply_count?: number;
   like_count?: number;
   isLiked?: boolean;
+  // New Skool-style fields
+  initial_replies?: FetchedCommentFromHook[];
+  remaining_reply_count?: number;
+  has_more_replies?: boolean;
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({ 
@@ -68,19 +74,28 @@ const CommentItem: React.FC<CommentItemProps> = ({
   fetchRepliesHook,
   onSetReplyTarget,
   onCommentLikeToggled,
-  depth = 0
+  depth = 0,
+  // New Skool-style props
+  initial_replies = [],
+  remaining_reply_count = 0,
+  has_more_replies = false
 }) => {
-  const { user: loggedInUser } = useAuth();
+  const { user: loggedInUser } = useOptimizedAuth();
   const userIdForActions = currentUserId || loggedInUser?.id;
 
   // State variables
   const [optimisticLikeCount, setOptimisticLikeCount] = useState(like_count);
   const [optimisticLiked, setOptimisticLiked] = useState(isLiked);
-  const [showReplies, setShowReplies] = useState(false);
-  const [loadedReplies, setLoadedReplies] = useState<FetchedCommentFromHook[]>([]);
-  const [isLoadingReplies, setIsLoadingReplies] = useState(false);
+  const [showMoreReplies, setShowMoreReplies] = useState(false);
+  const [additionalReplies, setAdditionalReplies] = useState<FetchedCommentFromHook[]>([]);
+  const [isLoadingMoreReplies, setIsLoadingMoreReplies] = useState(false);
   const [optimisticReplyCount, setOptimisticReplyCount] = useState(reply_count);
   const [isLiking, setIsLiking] = useState(false);
+
+  // For reply comments: use the old system (loadedReplies)
+  const [loadedReplies, setLoadedReplies] = useState<FetchedCommentFromHook[]>([]);
+  const [showReplies, setShowReplies] = useState(false);
+  const [isLoadingReplies, setIsLoadingReplies] = useState(false);
 
   // Update optimistic counts when props change
   useEffect(() => {
@@ -93,7 +108,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }, [like_count, isLiked]);
 
   const getInitials = (name: string | null): string => {
-    if (!name) return 'U'; // Unknown
+    if (!name) return 'U';
     const names = name.split(' ');
     if (names.length === 1) return names[0].charAt(0).toUpperCase();
     return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
@@ -101,62 +116,45 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
   const timeAgo = formatDistanceToNow(new Date(created_at), { addSuffix: true });
 
-  // Handle like toggle
   const handleLikeToggle = async () => {
-    if (!userIdForActions) {
-      toast({ title: "Please log in to like comments", variant: "default" });
-      return;
-    }
+    if (!userIdForActions || isLiking) return;
 
-    if (isLiking) return; // Prevent multiple clicks
+    const newLikedState = !optimisticLiked;
+    const newLikeCount = newLikedState ? optimisticLikeCount + 1 : optimisticLikeCount - 1;
+
+    // Only do optimistic updates and delegate the actual database call to the parent
+    setOptimisticLiked(newLikedState);
+    setOptimisticLikeCount(newLikeCount);
     setIsLiking(true);
 
-    // Optimistic update
-    const newLikedState = !optimisticLiked;
-    setOptimisticLiked(newLikedState);
-    setOptimisticLikeCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
-
     try {
-      if (newLikedState) {
-        // Add a like
-        const { error } = await supabase
-          .from('comment_likes')
-          .insert({
-            comment_id: id,
-            user_id: userIdForActions
-          });
-        
-        if (error) {
-          // If it's a unique violation, the user already liked this comment
-          if (error.code === '23505') {
-            // This is fine, just keep the optimistic update
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        // Remove a like
-        const { error } = await supabase
-          .from('comment_likes')
-          .delete()
-          .match({ comment_id: id, user_id: userIdForActions });
-        
-        if (error) {
-          throw error;
-        }
-      }
-      // Notify parent
+      // Use the callback from parent instead of making direct database calls
       if (onCommentLikeToggled) {
-        onCommentLikeToggled(id, newLikedState, newLikedState ? optimisticLikeCount + 1 : Math.max(0, optimisticLikeCount -1));
+        await onCommentLikeToggled(id, newLikedState, newLikeCount);
+      } else {
+        // Fallback to direct database call only if no callback is provided
+        if (newLikedState) {
+          const { error } = await getSupabaseClient()
+            .from('comment_likes')
+            .insert({ comment_id: id, user_id: userIdForActions });
+          if (error) throw error;
+        } else {
+          const { error } = await getSupabaseClient()
+            .from('comment_likes')
+            .delete()
+            .eq('comment_id', id)
+            .eq('user_id', userIdForActions);
+          if (error) throw error;
+        }
       }
-    } catch (error: any) {
-      // Revert optimistic update on error
+    } catch (error) {
+      console.error('Error toggling like:', error);
       setOptimisticLiked(!newLikedState);
-      setOptimisticLikeCount(prev => !newLikedState ? prev + 1 : Math.max(0, prev - 1));
-      toast({ 
-        title: "Error updating like", 
-        description: error.message, 
-        variant: "destructive" 
+      setOptimisticLikeCount(newLikedState ? optimisticLikeCount - 1 : optimisticLikeCount + 1);
+      toast({
+        title: "Error",
+        description: "Could not update like status",
+        variant: "destructive",
       });
     } finally {
       setIsLiking(false);
@@ -164,66 +162,56 @@ const CommentItem: React.FC<CommentItemProps> = ({
   };
 
   const handleReplyPress = () => {
-    // Construct a FetchedCommentFromHook object from the current comment's props
-    // This is what setReplyTarget in useComments expects
     const currentCommentData: FetchedCommentFromHook = {
       id,
       content,
       created_at,
       author,
-          post_id,
-          space_id,
+      post_id,
+      space_id,
       parent_comment_id,
-      reply_count: optimisticReplyCount, // Use optimistic count
-      like_count: optimisticLikeCount,   // Use optimistic count
+      reply_count: optimisticReplyCount,
+      like_count: optimisticLikeCount,
       isLiked: optimisticLiked,
-      // replies: loadedReplies, // Not needed for setting target, might be large
     };
     onSetReplyTarget(currentCommentData);
   };
 
-  // Effect to auto-fetch replies if count changes and replies are shown
-  useEffect(() => {
-    if (showReplies && optimisticReplyCount > loadedReplies.length) {
-      // Potentially a new reply was added while this section is open, or initial load failed to get all.
-      // Or, optimisticReplyCount increased due to an external event.
-      const fetchAndSetReplies = async () => {
-        setIsLoadingReplies(true);
-        try {
-          const fetched = await fetchRepliesHook(id);
-          setLoadedReplies(fetched);
-        } catch (error) {
-          console.error(`Error in CommentItem loading replies for ${id}:`, error);
-        } finally {
-          setIsLoadingReplies(false);
-        }
-      };
-      fetchAndSetReplies();
+  // Load additional replies for top-level comments (Skool-style)
+  const loadMoreReplies = async () => {
+    if (isLoadingMoreReplies) return;
+    
+    setIsLoadingMoreReplies(true);
+    try {
+      const excludeIds = initial_replies.map(reply => reply.id);
+      const fetched = await fetchRepliesHook(id);
+      
+      const additionalFetched = fetched.filter(reply => !excludeIds.includes(reply.id));
+      setAdditionalReplies(additionalFetched);
+      setShowMoreReplies(true);
+    } catch (error) {
+      console.error(`Error loading additional replies for ${id}:`, error);
+    } finally {
+      setIsLoadingMoreReplies(false);
     }
-  }, [optimisticReplyCount, showReplies, id, fetchRepliesHook, loadedReplies.length]);
-  
+  };
 
-  // Load replies for this comment using the hook
+  // Load replies for reply comments (legacy system)
   const toggleShowReplies = async () => {
-    if (!showReplies && loadedReplies.length === 0) { // Only fetch if not shown AND not already loaded
+    if (!showReplies && loadedReplies.length === 0) {
       setIsLoadingReplies(true);
       try {
         const fetched = await fetchRepliesHook(id);
         setLoadedReplies(fetched);
       } catch (error) {
-        // Error toast is handled by the hook
         console.error(`Error in CommentItem loading replies for ${id}:`, error);
       } finally {
         setIsLoadingReplies(false);
       }
     }
-    setShowReplies(!showReplies); // Toggle visibility regardless of fetch outcome if already loaded
+    setShowReplies(!showReplies);
   };
 
-  // Change from off-white to pure white with lighter border and shadow
-  const outerDivBaseClass = "bg-white p-3 rounded-lg border border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.05)]";
-
-  // Function to create profile link path
   const getProfileLink = (author: CommentAuthor | null) => {
     if (!author) return null;
     if (author.profile_url) return `/profile/${author.profile_url}`;
@@ -231,26 +219,25 @@ const CommentItem: React.FC<CommentItemProps> = ({
   };
 
   if (parent_comment_id) {
-    // It's a reply
+    // It's a reply - Skool-style clean indentation
     return (
-      // Adjust indentation to match Skool screenshot more precisely
-      <div className={`ml-7 border-l border-gray-100 pl-3 mt-1`}>
-        <div className={outerDivBaseClass}>
+      <div className="ml-11 pl-3 border-l border-gray-200">
+        <div className="py-3">
           <div className="flex items-start space-x-3">
             {author ? (
               <UserProfileHoverCard
                 userId={author.id}
-                userName={author.full_name || 'Anonymous User'}
+                userName={author.full_name || author.id.split('-')[0] || 'User'}
                 userAvatar={author.avatar_url}
                 userProfileUrl={author.profile_url || undefined}
                 activityScore={author.activity_score}
               >
                 <Link to={getProfileLink(author) || '#'} className={!getProfileLink(author) ? 'pointer-events-none' : ''}>
-                  <Avatar className="h-8 w-8 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all">
+                  <Avatar className="h-9 w-9 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all">
                     {author.avatar_url ? (
                       <AvatarImage src={author.avatar_url} alt={author.full_name || 'User'} />
                     ) : (
-                      <AvatarFallback className="text-sm bg-blue-100 text-blue-600">
+                      <AvatarFallback className="text-sm bg-blue-100 text-blue-600 font-medium">
                         {getInitials(author.full_name || null)}
                       </AvatarFallback>
                     )}
@@ -258,7 +245,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 </Link>
               </UserProfileHoverCard>
             ) : (
-              <Avatar className="h-8 w-8 flex-shrink-0">
+              <Avatar className="h-9 w-9 flex-shrink-0">
                 <AvatarFallback className="text-sm bg-gray-100 text-gray-600">
                   U
                 </AvatarFallback>
@@ -269,30 +256,29 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 {author ? (
                   <UserProfileHoverCard
                     userId={author.id}
-                    userName={author.full_name || 'Anonymous User'}
+                    userName={author.full_name || author.id.split('-')[0] || 'User'}
                     userAvatar={author.avatar_url}
                     userProfileUrl={author.profile_url || undefined}
                     activityScore={author.activity_score}
                   >
                     <Link 
                       to={getProfileLink(author) || '#'} 
-                      className={`text-sm font-semibold text-gray-800 hover:text-blue-600 hover:underline ${!getProfileLink(author) ? 'pointer-events-none' : ''}`}
+                      className={`font-semibold text-gray-900 hover:text-blue-600 hover:underline ${!getProfileLink(author) ? 'pointer-events-none' : ''}`}
                     >
-                      {author.full_name || 'Anonymous User'}
+                      {author.full_name || author.id.split('-')[0] || 'User'}
                     </Link>
                   </UserProfileHoverCard>
                 ) : (
-                  <span className="text-sm font-semibold text-gray-800">
-                    Anonymous User
+                  <span className="font-semibold text-gray-900">
+                    User
                   </span>
                 )}
-                <span className="text-xs text-gray-500">{timeAgo}</span>
+                <span className="text-sm text-gray-500">{timeAgo}</span>
               </div>
-              <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap break-words">
+              <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed">
                 {content}
               </p>
               
-              {/* Actions: Like and Reply - exactly match Skool button styling */}
               <div className="mt-2 flex items-center text-xs text-gray-500"> 
                 <button 
                   onClick={handleLikeToggle}
@@ -316,7 +302,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 </button>
               </div>
 
-              {/* Replies Section (View/Hide button) - style to match Skool */}
+              {/* Replies Section for nested replies (legacy system) */}
               {optimisticReplyCount > 0 && (
                 <div className="mt-2 mb-1">
                   <button 
@@ -331,7 +317,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 </div>
               )}
 
-              {/* Loaded Replies (Recursive Call) */}
               {showReplies && loadedReplies.length > 0 && (
                 <div className="mt-2 space-y-1">
                   {loadedReplies.map(reply => (
@@ -347,129 +332,154 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   ))}
                 </div>
               )}
-              {showReplies && loadedReplies.length === 0 && !isLoadingReplies && optimisticReplyCount > 0 &&(
-                 <div className="mt-2 text-xs text-gray-400">No replies found or failed to load.</div>
-              )}
             </div>
           </div>
         </div>
       </div>
     );
   } else {
-    // It's a top-level comment
+    // It's a top-level comment - Skool-style clean flat design
     return (
-      <div className="mb-4"> {/* More space between top-level comments */}
-        <div className={outerDivBaseClass}>
-          {/* Duplicated structure - consider refactoring into a sub-component if this gets too unwieldy */}
-          <div className="flex items-start space-x-3">
-            {author ? (
-              <UserProfileHoverCard
-                userId={author.id}
-                userName={author.full_name || 'Anonymous User'}
-                userAvatar={author.avatar_url}
-                userProfileUrl={author.profile_url || undefined}
-                activityScore={author.activity_score}
-              >
-                <Link to={getProfileLink(author) || '#'} className={!getProfileLink(author) ? 'pointer-events-none' : ''}>
-                  <Avatar className="h-8 w-8 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all">
-                    {author.avatar_url ? (
-                      <AvatarImage src={author.avatar_url} alt={author.full_name || 'User'} />
-                    ) : (
-                      <AvatarFallback className="text-sm bg-blue-100 text-blue-600">
-                        {getInitials(author.full_name || null)}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                </Link>
-              </UserProfileHoverCard>
-            ) : (
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarFallback className="text-sm bg-gray-100 text-gray-600">
-                  U
-                </AvatarFallback>
-              </Avatar>
-            )}
-            <div className="flex-grow">
-              <div className="flex items-center space-x-2">
-                {author ? (
-                  <UserProfileHoverCard
-                    userId={author.id}
-                    userName={author.full_name || 'Anonymous User'}
-                    userAvatar={author.avatar_url}
-                    userProfileUrl={author.profile_url || undefined}
-                    activityScore={author.activity_score}
-                  >
-                    <Link 
-                      to={getProfileLink(author) || '#'} 
-                      className={`text-sm font-semibold text-gray-800 hover:text-blue-600 hover:underline ${!getProfileLink(author) ? 'pointer-events-none' : ''}`}
-                    >
-                      {author.full_name || 'Anonymous User'}
-                    </Link>
-                  </UserProfileHoverCard>
-                ) : (
-                  <span className="text-sm font-semibold text-gray-800">
-                    Anonymous User
-                  </span>
-                )}
-                <span className="text-xs text-gray-500">{timeAgo}</span>
-              </div>
-              <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap break-words">
-                {content}
-              </p>
-              
-              <div className="mt-2 flex items-center text-xs text-gray-500">
-                <button 
-                  onClick={handleLikeToggle}
-                  className={`flex items-center mr-5 hover:text-blue-500 ${optimisticLiked ? 'text-blue-500' : ''}`}
-                  disabled={!userIdForActions || isLiking}
-                >
-                  {optimisticLikeCount > 0 ? (
-                    <>
-                      <span>{optimisticLikeCount}</span>
-                      <span className="ml-1">{optimisticLikeCount === 1 ? 'Like' : 'Likes'}</span>
-                    </>
+      <div className="py-4 border-b border-gray-100 last:border-b-0">
+        <div className="flex items-start space-x-4">
+          {author ? (
+            <UserProfileHoverCard
+              userId={author.id}
+              userName={author.full_name || author.id.split('-')[0] || 'User'}
+              userAvatar={author.avatar_url}
+              userProfileUrl={author.profile_url || undefined}
+              activityScore={author.activity_score}
+            >
+              <Link to={getProfileLink(author) || '#'} className={!getProfileLink(author) ? 'pointer-events-none' : ''}>
+                <Avatar className="h-11 w-11 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all">
+                  {author.avatar_url ? (
+                    <AvatarImage src={author.avatar_url} alt={author.full_name || 'User'} />
                   ) : (
-                    <span>Like</span>
+                    <AvatarFallback className="text-base bg-blue-100 text-blue-600 font-medium">
+                      {getInitials(author.full_name || null)}
+                    </AvatarFallback>
                   )}
-                </button>
-                <button 
-                  onClick={handleReplyPress}
-                  className="flex items-center mr-5 hover:text-blue-500"
+                </Avatar>
+              </Link>
+            </UserProfileHoverCard>
+          ) : (
+            <Avatar className="h-11 w-11 flex-shrink-0">
+              <AvatarFallback className="text-base bg-gray-100 text-gray-600 font-medium">
+                U
+              </AvatarFallback>
+            </Avatar>
+          )}
+          <div className="flex-grow">
+            <div className="flex items-center space-x-2">
+              {author ? (
+                <UserProfileHoverCard
+                  userId={author.id}
+                  userName={author.full_name || author.id.split('-')[0] || 'User'}
+                  userAvatar={author.avatar_url}
+                  userProfileUrl={author.profile_url || undefined}
+                  activityScore={author.activity_score}
                 >
-                  Reply
-                </button>
-                {optimisticReplyCount > 0 && (
-                  <button 
-                    onClick={toggleShowReplies}
-                    className="flex items-center hover:text-blue-500"
+                  <Link 
+                    to={getProfileLink(author) || '#'} 
+                    className={`font-semibold text-gray-900 hover:text-blue-600 hover:underline ${!getProfileLink(author) ? 'pointer-events-none' : ''}`}
                   >
-                    {showReplies 
-                      ? `Hide replies` 
-                      : `${optimisticReplyCount} ${optimisticReplyCount === 1 ? 'Reply' : 'Replies'}`}
-                    {isLoadingReplies && " (Loading...)"}
-                  </button>
-                )}
-              </div>
-
-              {showReplies && loadedReplies.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {loadedReplies.map(reply => (
-                    <CommentItem 
-                      key={reply.id} 
-                      {...reply} 
-                      currentUserId={userIdForActions}
-                      onReplyAddedToParent={onReplyAddedToParent}
-                      fetchRepliesHook={fetchRepliesHook}
-                      onSetReplyTarget={onSetReplyTarget}
-                      depth={(depth || 0) + 1}
-                    />
-                  ))}
-                </div>
+                    {author.full_name || author.id.split('-')[0] || 'User'}
+                  </Link>
+                </UserProfileHoverCard>
+              ) : (
+                <span className="font-semibold text-gray-900">
+                  User
+                </span>
               )}
-              {showReplies && loadedReplies.length === 0 && !isLoadingReplies && optimisticReplyCount > 0 &&(
-                 <div className="mt-2 text-xs text-gray-400">No replies found or failed to load.</div>
-              )}
+              <span className="text-sm text-gray-500">{timeAgo}</span>
             </div>
+            <p className="text-gray-800 mt-2 whitespace-pre-wrap break-words leading-relaxed">
+              {content}
+            </p>
+            
+            <div className="mt-3 flex items-center text-xs text-gray-500">
+              <button 
+                onClick={handleLikeToggle}
+                className={`flex items-center mr-5 hover:text-blue-500 ${optimisticLiked ? 'text-blue-500' : ''}`}
+                disabled={!userIdForActions || isLiking}
+              >
+                {optimisticLikeCount > 0 ? (
+                  <>
+                    <span>{optimisticLikeCount}</span>
+                    <span className="ml-1">{optimisticLikeCount === 1 ? 'Like' : 'Likes'}</span>
+                  </>
+                ) : (
+                  <span>Like</span>
+                )}
+              </button>
+              <button 
+                onClick={handleReplyPress}
+                className="flex items-center hover:text-blue-500"
+              >
+                Reply
+              </button>
+            </div>
+
+            {/* Display Initial Replies (Skool-style - always shown) */}
+            {initial_replies && initial_replies.length > 0 && (
+              <div className="mt-4 space-y-1">
+                {initial_replies.map(reply => (
+                  <CommentItem 
+                    key={reply.id} 
+                    {...reply} 
+                    currentUserId={userIdForActions}
+                    onReplyAddedToParent={onReplyAddedToParent}
+                    fetchRepliesHook={fetchRepliesHook}
+                    onSetReplyTarget={onSetReplyTarget}
+                    depth={(depth || 0) + 1}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Display Additional Replies (when "View more replies" is clicked) */}
+            {showMoreReplies && additionalReplies.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {additionalReplies.map(reply => (
+                  <CommentItem 
+                    key={reply.id} 
+                    {...reply} 
+                    currentUserId={userIdForActions}
+                    onReplyAddedToParent={onReplyAddedToParent}
+                    fetchRepliesHook={fetchRepliesHook}
+                    onSetReplyTarget={onSetReplyTarget}
+                    depth={(depth || 0) + 1}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* View More Replies Button (Skool-style) */}
+            {has_more_replies && !showMoreReplies && (
+              <div className="mt-3">
+                <button 
+                  onClick={loadMoreReplies}
+                  className="text-xs text-blue-600 hover:underline font-medium"
+                  disabled={isLoadingMoreReplies}
+                >
+                  {isLoadingMoreReplies 
+                    ? "Loading..." 
+                    : `View ${remaining_reply_count} more ${remaining_reply_count === 1 ? 'reply' : 'replies'}`}
+                </button>
+              </div>
+            )}
+
+            {/* Hide More Replies Button */}
+            {showMoreReplies && additionalReplies.length > 0 && (
+              <div className="mt-2">
+                <button 
+                  onClick={() => setShowMoreReplies(false)}
+                  className="text-xs text-blue-600 hover:underline font-medium"
+                >
+                  Hide additional replies
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -477,4 +487,4 @@ const CommentItem: React.FC<CommentItemProps> = ({
   }
 };
 
-export default CommentItem; 
+export default CommentItem;

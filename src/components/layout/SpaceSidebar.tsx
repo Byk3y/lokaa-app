@@ -4,10 +4,10 @@ import { Plus, Compass } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Separator } from "@/components/ui/separator";
 import useSpacesData from "@/hooks/useSpacesData";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 import { SpaceData } from "@/contexts/SpaceContext";
 
@@ -15,7 +15,7 @@ export function SpaceSidebar() {
   const { joinedSpaces, loading } = useSpacesData();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userDetails } = useAuth();
+  const { user, userDetails } = useOptimizedAuth();
   const [ownedSpaces, setOwnedSpaces] = useState<SpaceData[]>([]);
   const [loadingOwned, setLoadingOwned] = useState(false);
 
@@ -31,7 +31,7 @@ export function SpaceSidebar() {
       
       setLoadingOwned(true);
       try {
-        const { data, error } = await supabase
+        const { data, error } = await getSupabaseClient()
           .from('spaces')
           .select('*')
           .eq('owner_id', user.id);

@@ -1,7 +1,7 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import SpaceCardPreview from "@/components/spaces/SpaceCardPreview";
-import { useSpaceData } from "@/hooks/useSpaceData";
-import { Loader2 } from "lucide-react";
+import { useSpaceAboutData, SpaceAboutData } from "@/hooks/useSpaceAboutData";
+import { Loader2, X } from "lucide-react";
 
 interface SpacePreviewModalProps {
   open: boolean;
@@ -16,34 +16,67 @@ export function SpacePreviewModal({
   spaceId, 
   onJoin 
 }: SpacePreviewModalProps) {
-  const { spaceData, loading, error } = useSpaceData(spaceId);
+  const { spaceAboutData, loading, error } = useSpaceAboutData({ spaceId });
   
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl p-0 overflow-hidden max-h-[80vh] w-[90vw] rounded-xl">
-        {loading ? (
-          <div className="flex items-center justify-center p-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : error ? (
-          <div className="p-6 text-center text-red-500">
-            <p>Failed to load space information</p>
-            <p className="text-sm">{error}</p>
-          </div>
-        ) : spaceData ? (
-          <SpaceCardPreview 
-            space={spaceData} 
-            onJoin={() => {
-              onOpenChange(false);
-              onJoin(spaceData.id);
-            }} 
-          />
-        ) : (
-          <div className="p-6 text-center text-gray-500">
-            <p>Space not found</p>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+    <>
+      {/* Custom close button above modal */}
+      {open && (
+        <button
+          onClick={() => onOpenChange(false)}
+          aria-label="Close preview"
+          style={{
+            position: 'fixed',
+            top: 24,
+            right: 32,
+            zIndex: 10050,
+            background: 'rgba(255,255,255,0.95)',
+            border: 'none',
+            borderRadius: '50%',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            width: 40,
+            height: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'background 0.2s',
+          }}
+        >
+          <X size={22} color="#222" />
+        </button>
+      )}
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl p-0 overflow-hidden max-h-[80vh] w-[90vw] rounded-xl" hideCloseButton={true}>
+          <DialogHeader className="sr-only">
+            <DialogTitle>{spaceAboutData?.name || 'Space Preview'}</DialogTitle>
+          </DialogHeader>
+          {loading ? (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="p-6 text-center text-red-500">
+              <p>Failed to load space information</p>
+              <p className="text-sm">{error}</p>
+            </div>
+          ) : spaceAboutData ? (
+            <SpaceCardPreview 
+              space={spaceAboutData} 
+              onJoin={() => {
+                onOpenChange(false);
+                if (spaceAboutData) {
+                  onJoin(spaceAboutData.id);
+                }
+              }} 
+            />
+          ) : (
+            <div className="p-6 text-center text-gray-500">
+              <p>Space not found</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 } 

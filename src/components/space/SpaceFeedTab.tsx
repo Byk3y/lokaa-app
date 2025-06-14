@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import PostCard from "./PostCard";
 import { useNavigate } from "react-router-dom";
 import { useSpace } from "@/contexts/SpaceContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { useSpaceCategories } from "@/hooks/useSpaceCategories";
-import { supabase } from "@/lib/supabase";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useCachedCategories } from "@/hooks/useCachedCategories";
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Cross2Icon } from '@radix-ui/react-icons';
 import type { Attachment } from "@/features/posts/types";
@@ -48,7 +48,7 @@ const CreateCategoryModal = ({ isOpen, onClose, spaceId, userId, onCategoryCreat
     setError('');
 
     try {
-      const { data, error: insertError } = await supabase
+      const { data, error: insertError } = await getSupabaseClient()
         .from('space_categories')
         .insert({
           name: categoryName.trim(),
@@ -190,7 +190,7 @@ interface FeedPost {
 
 export default function SpaceFeedTab() {
   const { spaceData } = useSpace();
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [selectedTab, setSelectedTab] = useState("all");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -202,7 +202,7 @@ export default function SpaceFeedTab() {
   });
   
   // Get categories from the hook
-  const { categories, refreshCategories } = useSpaceCategories(spaceData?.id);
+  const { categories, refreshCategories } = useCachedCategories(spaceData?.id);
   
   // Add sample posts when writeFirstPost is completed
   useEffect(() => {

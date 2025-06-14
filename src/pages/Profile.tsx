@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { X } from "lucide-react";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { X, Bell, MessageSquare, Search, Plus, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 import { useUserProfile } from "@/contexts/UserProfileContext";
@@ -11,20 +11,244 @@ import ActivityBarChart from '@/components/profile/ActivityBarChart';
 import OwnedSpacesList from '@/components/profile/OwnedSpacesList';
 import MembershipSpacesList from '@/components/profile/MembershipSpacesList';
 import FollowersModal from '@/components/profile/FollowersModal';
-import { SpaceData } from '@/contexts/SpaceContext';
-import { Header } from '@/components/layout/SpaceLayout';
 import Rewards from '@/components/profile/ProfileRewards';
+import BottomNav from "@/components/mobile/BottomNav";
+import ChatButton from '@/components/chat/ChatButton';
+import ProfileDropdown from "@/components/common/ProfileDropdown";
+import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
+import SpaceContextBanner from '@/components/profile/SpaceContextBanner';
+import { Space } from "@/types/space";
+
+// Modified Header component for Profile page to show Lokaa logo instead of space
+function ProfileHeader({ user }: { user: any }) {
+  const navigate = useNavigate();
+  const { user: currentUser } = useOptimizedAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [spaceSwitcherOpen, setSpaceSwitcherOpen] = useState(false);
+  const [userSpaces, setUserSpaces] = useState<Space[]>([]);
+  const [spaceSearchQuery, setSpaceSearchQuery] = useState("");
+  const [loadingSpaces, setLoadingSpaces] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Fetch user spaces when needed
+  useEffect(() => {
+    const fetchUserSpaces = async () => {
+      if (!currentUser) return;
+      
+      setLoadingSpaces(true);
+      try {
+        const { data: spaceMemberships, error } = await getSupabaseClient()
+          .from('space_members')
+          .select(`
+            space_id,
+            spaces:spaces!inner(
+              id,
+              name,
+              subdomain,
+              icon_image
+            )
+          `)
+          .eq('user_id', currentUser.id);
+
+        if (error) {
+          console.error('Error fetching user spaces:', error);
+          return;
+        }
+
+        const spaces = spaceMemberships
+          ?.map(membership => membership.spaces)
+          .filter(space => space !== null) as Space[] || [];
+        
+        setUserSpaces(spaces);
+      } catch (error) {
+        console.error('Error fetching user spaces:', error);
+      } finally {
+        setLoadingSpaces(false);
+      }
+    };
+
+    if (spaceSwitcherOpen && userSpaces.length === 0 && !loadingSpaces) {
+      fetchUserSpaces();
+    }
+  }, [spaceSwitcherOpen, currentUser, userSpaces.length, loadingSpaces]);
+
+  // Handle click outside for dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setSpaceSwitcherOpen(false);
+      }
+    }
+
+    if (spaceSwitcherOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [spaceSwitcherOpen]);
+  
+  return (
+    <>
+      <header className="bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center">
+            {/* Space Switcher Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <div className="flex items-center cursor-pointer" onClick={() => setSpaceSwitcherOpen(!spaceSwitcherOpen)}>
+                <h1 className="text-4xl font-bold leading-none text-[#14b8a6]">Lokaa</h1>
+                <span className="ml-2"><ModernDropdownTrigger open={spaceSwitcherOpen} /></span>
+              </div>
+              
+              {/* Dropdown menu */}
+              {spaceSwitcherOpen && (
+                <div
+                  className="absolute top-14 left-0 bg-white rounded-2xl shadow-2xl w-[300px] z-20 border border-gray-100 max-h-[80vh] overflow-y-auto transition-all duration-200"
+                  style={{ minWidth: 240, opacity: spaceSwitcherOpen ? 1 : 0, transform: spaceSwitcherOpen ? 'translateY(0)' : 'translateY(-8px)' }}
+                >
+                  {/* Search bar */}
+                  <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <input
+                        type="text"
+                        placeholder="Search spaces"
+                        value={spaceSearchQuery}
+                        onChange={(e) => setSpaceSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="p-4 flex flex-col gap-2 border-b border-gray-100 bg-white">
+                    <button 
+                      onClick={() => {navigate('/create-space'); setSpaceSwitcherOpen(false);}}
+                      className="flex items-center px-3 py-2 rounded-lg hover:bg-[#E6F7F1] text-gray-800 font-medium transition"
+                    >
+                      <Plus className="h-5 w-5 text-gray-500 mr-3" />
+                      Create a space
+                    </button>
+                    <button
+                      onClick={() => {navigate('/discover'); setSpaceSwitcherOpen(false);}}
+                      className="flex items-center px-3 py-2 rounded-lg hover:bg-[#E6F7F1] text-gray-800 font-medium transition"
+                    >
+                      <Compass className="h-5 w-5 text-gray-500 mr-3" />
+                      Discover spaces
+                    </button>
+                  </div>
+
+                  {/* User spaces */}
+                  <div className="py-2 bg-white">
+                    {currentUser ? (
+                      <>
+                        {Array.isArray(userSpaces) && userSpaces.length > 0 ? (
+                          userSpaces
+                            .filter(space => !spaceSearchQuery || space.name.toLowerCase().includes(spaceSearchQuery.toLowerCase()))
+                            .map((space) => (
+                              <button
+                                key={space.id}
+                                onClick={() => { navigate(`/${space.subdomain}/space`); setSpaceSwitcherOpen(false); }}
+                                className="flex items-center px-4 py-2 w-full hover:bg-gray-50 rounded-lg transition group focus:ring-2 focus:ring-[#00A389]"
+                              >
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center mr-3 overflow-hidden bg-gray-100 group-hover:ring-2 group-hover:ring-[#00A389]">
+                                  {space.icon_image ? (
+                                    <img src={space.icon_image} alt={space.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-base font-bold text-gray-600">
+                                      {space.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-sm font-medium">{space.name}</span>
+                              </button>
+                            ))
+                        ) : (
+                          <div className="px-4 py-3 text-center text-gray-500 text-sm">
+                            {loadingSpaces ? "Loading spaces..." : "No spaces available"}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="px-4 py-4">
+                        <button 
+                          onClick={() => navigate('/login')}
+                          className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 text-gray-800 text-sm font-medium mb-2"
+                        >
+                          Sign in
+                        </button>
+                        <button
+                          onClick={() => navigate('/signup')}
+                          className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 text-gray-800 text-sm font-medium"
+                        >
+                          Sign up
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            {/* Modern Icon Buttons with elevated design */}
+            <div className="flex items-center space-x-3">
+              {/* Chat Button */}
+              <div className="relative">
+                <ChatButton 
+                  variant="icon" 
+                  className="h-10 w-10 bg-white/80 backdrop-blur-sm hover:bg-white border border-gray-200/70 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl hover:scale-105 [&_svg]:w-5 [&_svg]:h-5 [&_button]:h-10 [&_button]:w-10 [&_button]:rounded-xl [&_button]:shadow-lg [&_button]:border-gray-200/70"
+                />
+              </div>
+              
+              {/* Bell Icon */}
+        <Button
+          variant="ghost"
+                size="sm" 
+                className="relative h-10 w-10 p-0 bg-white/80 backdrop-blur-sm hover:bg-white border border-gray-200/70 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl hover:scale-105"
+        >
+                <Bell size={20} className="text-gray-700 hover:text-gray-900 transition-colors duration-200" />
+        </Button>
+      </div>
+      
+            <div className="ml-3">
+              <ProfileDropdown variant="default" size="md" />
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 fixed left-0 right-0 z-40 top-16">
+          <div className="px-4 space-y-3 py-4">
+            <div className="flex items-center w-full justify-start text-gray-700 hover:bg-gray-50 px-4 py-3 rounded-xl transition-all duration-200 border border-gray-100 bg-white">
+              <MessageSquare className="h-6 w-6 mr-4 text-gray-600" />
+              <span className="font-medium">Messages</span>
+            </div>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-700 hover:bg-gray-50 px-4 py-3 rounded-xl transition-all duration-200 border border-gray-100 bg-white"
+              aria-label="Notifications"
+            >
+              <Bell className="h-6 w-6 mr-4 text-gray-600" />
+              <span className="font-medium">Notifications</span>
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 // Profile component
 export default function Profile() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
-  const [space, setSpace] = useState<SpaceData | null>(null);
+  const { user } = useOptimizedAuth();
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
-  const spaceLoadAttempted = useRef(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   
   // Use our context
   const { 
@@ -38,137 +262,48 @@ export default function Profile() {
     pointsToNextLevel
   } = useUserProfile();
 
+  console.log('Profile component: Rendering with slug:', slug);
+
   // Fetch profile data when slug changes
   useEffect(() => {
     if (slug) {
-      fetchProfileBySlug(slug);
-      // Reset space loading flag when slug changes
-      spaceLoadAttempted.current = false;
+      console.log(`Profile component: Fetching profile for slug: ${slug}`);
+      fetchProfileBySlug(slug)
+        .then(() => {
+          console.log(`Profile component: Finished initial fetch for ${slug}`);
+          setIsInitialLoading(false);
+        })
+        .catch(err => {
+          console.error(`Profile component: Error fetching profile for ${slug}:`, err);
+          setIsInitialLoading(false);
+        });
+    } else {
+      console.error('Profile component: No slug provided');
+      setIsInitialLoading(false);
     }
   }, [slug, fetchProfileBySlug]);
 
-  // Debug logging for slug parameter - only in development
+  // Debug logging for component state
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Profile component: Current slug param:', {
-        slug,
-        pathname: location.pathname,
-        urlStructure: location.pathname.split('/')
-      });
-    }
-  }, [slug, location.pathname]);
+    console.log('Profile component: State update', {
+      hasProfile: !!profile,
+      isLoading,
+      error,
+      isCurrentUser,
+      slug
+    });
+  }, [profile, isLoading, error, isCurrentUser, slug]);
 
-  // Function to fetch header space context - wrapped in useCallback
-  const fetchHeaderSpaceContext = useCallback(async (profileData: any) => {
-    if (!profileData || spaceLoadAttempted.current) return null;
-    
-    // Only log in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Profile: Starting header space context fetch for user:', profileData.id);
-    }
-    
-    spaceLoadAttempted.current = true;
-    
-    let headerSpace: SpaceData | null = null;
-
-    try {
-      // Attempt 0: First try to get the space the user navigated from (stored in sessionStorage)
-      const lastNavigatedFromSpace = sessionStorage.getItem('navigatedFromSpace');
-      if (lastNavigatedFromSpace) {
-        try {
-          const parsedSpace = JSON.parse(lastNavigatedFromSpace);
-          
-          // Only attempt to verify space if we have a valid ID
-          if (parsedSpace && parsedSpace.id && parsedSpace.id !== 'undefined') {
-            // Verify the space still exists and user has access
-            const { data: spaceData, error: spaceError } = await supabase
-              .from('spaces')
-              .select('*')
-              .eq('id', parsedSpace.id)
-              .single();
-              
-            if (!spaceError && spaceData) {
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`Profile: Successfully verified navigated-from space: ${spaceData.name}`);
-              }
-              headerSpace = spaceData as SpaceData;
-            }
-          } else if (parsedSpace && parsedSpace.subdomain) {
-            // Try to look up by subdomain instead
-            const { data: spaceData, error: spaceError } = await supabase
-              .from('spaces')
-              .select('*')
-              .eq('subdomain', parsedSpace.subdomain)
-              .single();
-              
-            if (!spaceError && spaceData) {
-              headerSpace = spaceData as SpaceData;
-            }
-          }
-        } catch (e) {
-          console.error('Profile: Error parsing navigated-from space:', e);
-        }
-      }
-
-      // Attempt 1: If no space from navigation context, try last_joined_space_id
-      if (!headerSpace && profileData?.last_joined_space_id) {
-        const { data, error } = await supabase
-          .from('spaces')
-          .select('*')
-          .eq('id', profileData.last_joined_space_id)
-          .single();
-        if (!error && data) {
-          headerSpace = data as SpaceData;
-        }
-      }
-
-      // Attempt 2: If still no space, try first owned space of the profile user
-      if (!headerSpace && profileData) {
-        const { data: ownedSpaceData, error: ownedError } = await supabase
-          .from('spaces')
-          .select('*')
-          .eq('owner_id', profileData.id)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .single();
-
-        if (!ownedError && ownedSpaceData) {
-          headerSpace = ownedSpaceData as SpaceData;
-        }
-      }
-      
-      return headerSpace;
-    } catch (err) {
-      console.error('Profile: Error in fetchHeaderSpaceContext:', err);
-      return null;
-    }
-  }, []);
-
-  // Effect to set space when profile changes - with proper dependency handling
+  // Check for any issues with the profile URL
   useEffect(() => {
-    let isMounted = true;
-    
-    if (profile && !spaceLoadAttempted.current) {
-      fetchHeaderSpaceContext(profile).then(headerSpace => {
-        if (!isMounted) return;
-        
-        if (headerSpace) {
-          setSpace(headerSpace);
-        } else if (space !== null) {
-          setSpace(null);
-        }
-      });
-    } else if (!profile && space !== null) {
-      setSpace(null);
+    if (!isLoading && error) {
+      console.error(`Profile component: Error loading profile: ${error}`);
     }
     
-    return () => {
-      isMounted = false;
-    };
-  }, [profile, fetchHeaderSpaceContext]);
-
-  // Determine if we're in the initial loading state
-  const isInitialLoading = isLoading && !profile;
+    if (!isLoading && !error && !profile && !isInitialLoading) {
+      console.error('Profile component: No profile data loaded but no error reported');
+    }
+  }, [isLoading, error, profile, isInitialLoading]);
 
   // Show loading state only for initial load, not for refreshes
   if (isInitialLoading) {
@@ -205,38 +340,74 @@ export default function Profile() {
   const progressToNextLevel = calculateProgress(activityScore);
   const points = pointsToNextLevel(activityScore);
 
-  // Ensure stable rendering even during transitions
   return (
-    <div className="min-h-screen bg-[#F9FAFB]" key={`profile-${profile.id}`}>
-      {/* Use the same header as the space page */}
-      <Header user={user} space={space} />
-      <div className="max-w-6xl mx-auto py-10 px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Profile Card (Sidebar) */}
-        <div className="md:col-span-1">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100">
+      {/* Header area with potential space context */}
+      <ProfileHeader user={user} />
+      
+      {/* Main profile content */}
+      <div className="container max-w-6xl mx-auto px-4 py-8 flex-1">
+        {/* Space Context Banner */}
+        <SpaceContextBanner />
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-24">
+          {/* Left sidebar */}
+          <div className="lg:col-span-1">
+            <div className="flex flex-col space-y-8">
+              {/* Profile card */}
+              <div className="bg-white rounded-xl shadow-[0_20px_50px_rgba(8,_112,_184,_0.07)] overflow-hidden transition-all duration-300 hover:shadow-[0_20px_50px_rgba(8,_112,_184,_0.13)]">
           <ProfileCard 
-            profileData={profile} 
-            isCurrentUser={isCurrentUser} 
-            onShowFollowers={() => setShowFollowersModal(true)} 
-            onShowFollowing={() => setShowFollowingModal(true)}
-            level={userLevel}
-            pointsToNext={points}
-            progress={progressToNextLevel}
+                  id={profile.id}
+                  name={profile.full_name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim()}
+                  avatar={profile.avatar_url}
+                  role={profile.role || 'member'}
+                  profileUrl={profile.profile_url ? `/profile/${profile.profile_url}` : undefined}
+                  bio={profile.bio || undefined}
+                  username={profile.profile_url ? `@${profile.profile_url}` : undefined}
+                  followers={profile.followers || 0}
+                  following={profile.following || 0}
+                  contributions={activityScore || 0}
+                  joinDate={profile.created_at}
+                  showMessageButton={!isCurrentUser}
+                  social_links={profile.social_links}
           />
         </div>
-        {/* Main Content */}
-        <div className="md:col-span-2 flex flex-col gap-y-6">
-          {/* Activity Bar Chart */}
-          <ActivityBarChart userId={profile.id} />
+            </div>
+          </div>
           
-          {/* Owned Spaces */}
+          {/* Main content area */}
+          <div className="flex flex-col gap-8">
+            {/* Activity chart */}
+            <div className="bg-white rounded-xl shadow-[0_10px_40px_rgba(0,_0,_0,_0.06)] p-6 transform transition-all duration-300 hover:translate-y-[-5px]">
+              <h3 className="text-lg font-medium mb-3 text-gray-800">Activity Score</h3>
+          <ActivityBarChart userId={profile.id} />
+            </div>
+          
+            {/* Owned Spaces card (only if user owns spaces) */}
+            {profile.role === 'creator' && (
+              <div className="bg-white rounded-xl shadow-[0_10px_40px_rgba(0,_0,_0,_0.06)] p-6 transform transition-all duration-300 hover:translate-y-[-5px]">
+                <h3 className="text-lg font-medium mb-4 text-gray-800">Owned Spaces</h3>
           <OwnedSpacesList userId={profile.id} />
+              </div>
+            )}
 
-          {/* Membership Spaces */}
+            {/* Memberships card */}
+            <div className="bg-white rounded-xl shadow-[0_10px_40px_rgba(0,_0,_0,_0.06)] p-6 transform transition-all duration-300 hover:translate-y-[-5px]">
+              <h3 className="text-lg font-medium mb-4 text-gray-800">Memberships</h3>
           <MembershipSpacesList userId={profile.id} />
+            </div>
 
-          {/* Rewards Section */}
-          <Rewards userId={profile.id} activityScore={profile.activity_score ?? 0} />
+            {/* Rewards section */}
+            <div className="bg-white rounded-xl shadow-[0_10px_40px_rgba(0,_0,_0,_0.06)] p-6 transform transition-all duration-300 hover:translate-y-[-5px]">
+              <h3 className="text-lg font-medium mb-4 text-gray-800">Rewards & Badges</h3>
+              <Rewards userId={profile.id} activityScore={activityScore} />
+            </div>
+          </div>
         </div>
+      </div>
+      
+      {/* Mobile bottom navigation */}
+      <div className="lg:hidden">
+        <BottomNav />
       </div>
       
       {/* Followers/Following Modals */}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import CreateYourSpace from './CreateYourSpace';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { toast } from '@/hooks/use-toast';

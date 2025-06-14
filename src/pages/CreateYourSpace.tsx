@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import LoadingIndicator from "@/components/LoadingIndicator";
 
 export default function CreateYourSpace() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const [spaceName, setSpaceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +75,7 @@ export default function CreateYourSpace() {
       
       // Check if space with this slug already exists
       console.log("Checking if space with slug already exists:", slug);
-      const { data: existingSpace, error: checkError } = await supabase
+      const { data: existingSpace, error: checkError } = await getSupabaseClient()
         .from("spaces")
         .select("id")
         .eq("subdomain", slug)
@@ -105,7 +105,7 @@ export default function CreateYourSpace() {
         console.log("[CreateSpace] Attempting to create space with admin function");
         
         // Use the admin_create_space function which bypasses RLS
-        const { data, error: funcError } = await supabase.rpc(
+        const { data, error: funcError } = await getSupabaseClient().rpc(
           'admin_create_space',
           {
             space_name: spaceName,
@@ -133,7 +133,7 @@ export default function CreateYourSpace() {
           console.log("[CreateSpace] Attempting standard insert");
           
           // Standard direct insert
-          const { data, error: insertError } = await supabase
+          const { data, error: insertError } = await getSupabaseClient()
             .from("spaces")
             .insert({
               name: spaceName,
@@ -160,7 +160,7 @@ export default function CreateYourSpace() {
           // Third attempt - even more minimal approach
           try {
             // Doing a raw insert with absolutely minimal fields
-            const { data, error: insertError } = await supabase
+            const { data, error: insertError } = await getSupabaseClient()
               .from("spaces")
               .insert({
                 name: spaceName,

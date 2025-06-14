@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,7 @@ const StorageDebugger = () => {
     try {
       setBucketError('');
       // Get bucket info
-      const { data: bucketData, error: bucketErrorRes } = await supabase
+      const { data: bucketData, error: bucketErrorRes } = await getSupabaseClient()
         .storage
         .getBucket('media');
 
@@ -36,7 +36,7 @@ const StorageDebugger = () => {
       setBucketInfo(bucketData);
 
       // List files in bucket
-      const { data: filesData, error: filesError } = await supabase
+      const { data: filesData, error: filesError } = await getSupabaseClient()
         .storage
         .from('media')
         .list();
@@ -53,7 +53,7 @@ const StorageDebugger = () => {
   const checkSession = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await getSupabaseClient().auth.getSession();
       if (error) throw error;
       if (data.session) {
         setSession(data.session);
@@ -78,7 +78,7 @@ const StorageDebugger = () => {
       const placeholderFile = new Blob([''], { type: 'text/plain' });
       const file = new File([placeholderFile], '.placeholder', { type: 'text/plain' });
       
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseClient()
         .storage
         .from('media')
         .upload(`${directoryName}/.placeholder`, file);
@@ -106,7 +106,7 @@ const StorageDebugger = () => {
       const testFile = new Blob([testContent], { type: 'text/plain' });
       const file = new File([testFile], `test-${Date.now()}.txt`, { type: 'text/plain' });
       
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseClient()
         .storage
         .from('media')
         .upload(`${directoryName}/${file.name}`, file);
@@ -135,7 +135,7 @@ const StorageDebugger = () => {
     try {
       setUploadStatus('Uploading file...');
       
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseClient()
         .storage
         .from('media')
         .upload(`${directoryName}/${selectedFile.name}`, selectedFile);
@@ -163,7 +163,7 @@ const StorageDebugger = () => {
     try {
       setDeleteStatus('Deleting file...');
       
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseClient()
         .storage
         .from('media')
         .remove([deleteFileName]);
@@ -186,7 +186,7 @@ const StorageDebugger = () => {
 
       // Test 1: List files
       try {
-        const { data, error } = await supabase.storage.from('media').list();
+        const { data, error } = await getSupabaseClient().storage.from('media').list();
         if (error) throw error;
         results.push('✅ Can list files');
       } catch (error: unknown) {
@@ -200,7 +200,7 @@ const StorageDebugger = () => {
         const testFile = new Blob([testContent], { type: 'text/plain' });
         const file = new File([testFile], `permission-test-${Date.now()}.txt`, { type: 'text/plain' });
         
-        const { data, error } = await supabase
+        const { data, error } = await getSupabaseClient()
           .storage
           .from('media')
           .upload(`permission-tests/${file.name}`, file);
@@ -210,7 +210,7 @@ const StorageDebugger = () => {
         
         // If upload succeeded, try to delete the file
         try {
-          const { error: deleteError } = await supabase
+          const { error: deleteError } = await getSupabaseClient()
             .storage
             .from('media')
             .remove([`permission-tests/${file.name}`]);

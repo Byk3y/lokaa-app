@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Home, Search, User, PlusCircle } from "lucide-react";
 
 export default function NotFound() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut } = useOptimizedAuth();
 
   const handleSignOut = async () => {
     try {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { getSupabaseClient } from "@/integrations/supabase/client";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 // Temporarily using string for tableName due to Supabase generated type mismatches
 // type TableName = "spaces" | "comments" | "posts" | "users" | 
@@ -22,7 +22,7 @@ interface SchemaDebugData {
 }
 
 export default function SchemaDebugger() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [schemaData, setSchemaData] = useState<SchemaDebugData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export default function SchemaDebugger() {
         setError(null);
         
         // First, let's try to get a sample record to see the columns
-        const { data: sampleData, error: sampleError } = await supabase
+        const { data: sampleData, error: sampleError } = await getSupabaseClient()
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .from(tableName as any) // tableName is now string, Supabase will handle if valid
           .select('*')
@@ -93,7 +93,7 @@ export default function SchemaDebugger() {
   const runRawQuery = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseClient()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from(tableName as any)
         .select('*')

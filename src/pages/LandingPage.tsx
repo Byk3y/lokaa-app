@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from "@/contexts/AuthContext";
 import PublicRoute from "@/components/auth/PublicRoute";
 import { Search, Menu, ChevronDown, ChevronUp, Plus, Compass, Apple, Play, X } from "lucide-react";
 import CategoriesFilter from "@/components/spaces/CategoriesFilter";
@@ -9,6 +9,7 @@ import useSpacesData from "@/hooks/useSpacesData";
 import DottedBackground from "@/components/ui/DottedBackground";
 import { SpacePreviewModal } from "@/components/modals/SpacePreviewModal";
 import { useSpacePreviewStore } from "@/stores/useSpacePreviewStore";
+import { useModal } from '@/shared/components/modals/hooks/useModal';
 
 // Categories for the discovery section - refined selection for desktop view
 const categories = [
@@ -27,10 +28,17 @@ const categories = [
 ];
 
 export default function LandingPage() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [navMenuOpen, setNavMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  
+  // 🔥 [MODAL FIX] Use modal system for signup and login with close handlers
+  const { openSignupModal, openLoginModal } = useModal();
+  
+  // 🔥 [MODAL FIX] Track processed modal state to prevent repeated opening
+  const processedModalState = useRef<string | null>(null);
+  const modalOpenTimeout = useRef<NodeJS.Timeout | null>(null);
   
   // Use our spaces data hook, but add safety measures
   const { 
@@ -42,22 +50,71 @@ export default function LandingPage() {
     setSearchQuery = () => {} 
   } = useSpacesData() || {};
   
-  // Check for showAuthModal state and display the appropriate modal
+  // 🚀 [Phase 1] CRITICAL FIX: Redirect authenticated users immediately
   useEffect(() => {
-    if (location.state?.showAuthModal) {
-      const modalType = location.state.showAuthModal;
-      console.log('LandingPage: Showing auth modal:', modalType);
-      setTimeout(() => {
-        if (modalType === 'login') {
-          window.showDirectLoginModal();
-        } else if (modalType === 'signup') {
-          window.showDirectSignupModal();
-        } else if (modalType === 'forgot') {
-          window.showDirectForgotPasswordModal();
-        }
-      }, 100);
+    if (user) {
+      console.log('🚀 [Phase 1] User is authenticated on landing page, redirecting to /app');
+      navigate('/app', { replace: true });
     }
-  }, [location.state]);
+  }, [user, navigate]);
+  
+  // Handle auth routes directly from URL path
+  useEffect(() => {
+    const currentPath = location.pathname;
+    
+    // Determine modal type from URL path
+    let modalType: string | null = null;
+    if (currentPath === '/login') {
+      modalType = 'login';
+    } else if (currentPath === '/signup') {
+      modalType = 'signup';
+    } else if (currentPath === '/forgot-password') {
+      modalType = 'forgot';
+    }
+
+    if (modalType) {
+      // Prevent repeated processing of same modal type
+      if (processedModalState.current === modalType) {
+        return;
+      }
+
+      // Set the processed state immediately to prevent loops
+      processedModalState.current = modalType;
+
+        if (modalType === 'login') {
+        openLoginModal();
+        } else if (modalType === 'signup') {
+        openSignupModal();
+      }
+    } else {
+      // Clear modal states when not on auth routes
+      processedModalState.current = null;
+    }
+
+    // Redirect authenticated users
+    if (user && (currentPath === '/login' || currentPath === '/signup')) {
+      navigate('/app');
+    }
+  }, [user, location, navigate, openLoginModal, openSignupModal]);
+
+  // Reset the processed state when component unmounts or user changes
+  useEffect(() => {
+    processedModalState.current = null;
+  }, [user]);
+
+  // Clear processed state when location changes away from auth routes
+  useEffect(() => {
+    const currentPath = location.pathname;
+    if (currentPath !== '/login' && currentPath !== '/signup' && currentPath !== '/forgot-password') {
+      processedModalState.current = null;
+    }
+  }, [location.pathname]);
+
+  // Modal close handlers for auth routes
+  const handleCloseAuthModal = useCallback(() => {
+    processedModalState.current = null;
+    navigate('/');
+  }, [navigate]);
   
   const toggleNavMenu = () => {
     setNavMenuOpen(!navMenuOpen);
@@ -76,51 +133,15 @@ export default function LandingPage() {
     };
   }, []);
 
-  // Helper function to render sign-in button
-  const renderSignInButton = (isMobile = false) => {
-    const handleSignIn = (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Call the global function we exposed from Discover.tsx
-      if (typeof window.showDirectLoginModal === 'function') {
-        console.log("LandingPage: calling showDirectLoginModal");
-        window.showDirectLoginModal(e);
-      } else {
-        console.error("LandingPage: showDirectLoginModal function not found on window");
-        // Fallback to /login if the function isn't available
-        window.location.href = '/login';
-      }
-    };
-    
-    // Return a button instead of a Link
-    return (
-      <button 
-        onClick={handleSignIn}
-        className={isMobile 
-          ? "bg-teal-600 hover:bg-teal-700 text-white px-4 py-1.5 rounded-full font-medium transition-colors text-sm"
-          : "bg-teal-600 hover:bg-teal-700 text-white px-5 py-1.5 rounded-full font-medium transition-colors text-sm"
-        }
-      >
-        Sign In
-      </button>
-    );
-  };
+  // Direct sign-in handler
+  const handleDirectSignIn = useCallback(() => {
+    navigate('/login');
+  }, [navigate]);
 
-  // Helper function to handle "Launch your own space" button
-  const handleLaunchSpace = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Show signup modal instead of navigating
-    if (typeof window.showDirectSignupModal === 'function') {
-      window.showDirectSignupModal(e);
-    } else {
-      console.error("LandingPage: showDirectSignupModal function not found on window");
-      // Fallback to direct navigation if function isn't available
-      window.location.href = '/signup';
-    }
-  };
+  // Direct signup handler
+  const handleDirectSignUp = useCallback(() => {
+    openSignupModal();
+  }, [openSignupModal]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +179,12 @@ export default function LandingPage() {
                 Go to My Spaces
               </Link>
             ) : (
-              renderSignInButton(true)
+              <button 
+                onClick={handleDirectSignIn}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-1.5 rounded-full font-medium transition-colors text-sm"
+              >
+                Sign In
+              </button>
             )}
           </div>
           
@@ -191,7 +217,12 @@ export default function LandingPage() {
                 Go to My Spaces
               </Link>
             ) : (
-              renderSignInButton(false)
+              <button 
+                onClick={handleDirectSignIn}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-1.5 rounded-full font-medium transition-colors text-sm"
+              >
+                Sign In
+              </button>
             )}
           </div>
         </div>
@@ -287,7 +318,7 @@ export default function LandingPage() {
               </Link>
             ) : (
               <button
-                onClick={handleLaunchSpace}
+                onClick={handleDirectSignUp}
                 className="px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-medium text-lg transition-colors w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
               >
                 Launch your own space
@@ -328,7 +359,7 @@ export default function LandingPage() {
               <div className="text-center py-8">
                 <p className="text-lg text-gray-600">No spaces found that match your criteria.</p>
                 <button
-                  onClick={handleLaunchSpace} 
+                  onClick={handleDirectSignUp} 
                   className="inline-block mt-4 px-5 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
                 >
                   Create a new space
@@ -387,11 +418,18 @@ function SpaceModalWithStore() {
 }
 
 export function LandingPageWrapper() {
-  console.log("Rendering LandingPageWrapper with PublicRoute");
+  console.log("🎯 LandingPageWrapper: Component is being rendered!");
+  console.log("🎯 LandingPageWrapper: Current window.location:", {
+    href: window.location.href,
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash
+  });
+  
   return (
     <PublicRoute 
       component={<LandingPage />} 
-      redirectTo="/discover"
+      redirectTo="/app"
       forcePublic={false} 
     />
   );

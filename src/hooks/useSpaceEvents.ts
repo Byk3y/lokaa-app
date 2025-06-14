@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { SpaceEvent, NewSpaceEventData, UpdateSpaceEventData } from '@/types/calendar';
 import type { Database, TablesInsert, TablesUpdate } from '@/types/supabase'; // Correctly import TablesInsert/Update
-import { useAuth } from '@/contexts/AuthContext';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 // Helper to get the start and end of a given month for querying
 const getMonthDateRange = (dateInMonth: Date) => {
@@ -14,7 +14,7 @@ const getMonthDateRange = (dateInMonth: Date) => {
 };
 
 export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDisplay: Date) => {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [events, setEvents] = useState<SpaceEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<any>(null); // Consider a more specific error type
@@ -34,7 +34,7 @@ export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDispl
     const firstDayOfCurrentMonth = new Date(year, month, 1, 0, 0, 0, 0).toISOString();
 
     try {
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await getSupabaseClient()
         .from('space_events') // This should now be recognized by TypeScript
         .select('*')
         .eq('space_id', spaceId)
@@ -71,7 +71,7 @@ export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDispl
     };
 
     setLoading(true);
-    const { data: newEvent, error: insertError } = await supabase
+    const { data: newEvent, error: insertError } = await getSupabaseClient()
       .from('space_events')
       .insert(fullEventData)
       .select()
@@ -92,7 +92,7 @@ export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDispl
   const updateEvent = async (eventId: string, eventData: UpdateSpaceEventData): Promise<SpaceEvent> => {
     setLoading(true);
     // Use TablesUpdate for correct typing. Ensure eventData matches this shape.
-    const { data: updatedEvent, error: updateError } = await supabase
+    const { data: updatedEvent, error: updateError } = await getSupabaseClient()
       .from('space_events')
       .update(eventData as TablesUpdate<'space_events'>) // Cast eventData if UpdateSpaceEventData is slightly different
       .eq('id', eventId)
@@ -113,7 +113,7 @@ export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDispl
 
   const deleteEvent = async (eventId: string): Promise<void> => {
     setLoading(true);
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await getSupabaseClient()
       .from('space_events')
       .delete()
       .eq('id', eventId);

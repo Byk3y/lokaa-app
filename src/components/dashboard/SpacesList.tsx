@@ -51,7 +51,7 @@ function SpaceCard({ space }: SpaceCardProps) {
               style={{ backgroundImage: `url(${space.cover_image || "/default-space-cover.jpg"})` }}
             />
           ) : (
-            <div className="h-full w-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+            <div className="h-full w-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
               <span className="text-white font-medium text-lg">
                 {space.name.substring(0, 1).toUpperCase()}
               </span>

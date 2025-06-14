@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SpaceCard } from "@/components/spaces/SpaceCard";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
-import { Database } from "@/types/supabase";
 
 interface ProfileSpacesProps {
   userId: string;
@@ -12,8 +11,8 @@ interface ProfileSpacesProps {
 }
 
 export default function ProfileSpaces({ userId, isCreator }: ProfileSpacesProps) {
-  const [createdSpaces, setCreatedSpaces] = useState<Database['public']['Tables']['spaces']['Row'][]>([]);
-  const [joinedSpaces, setJoinedSpaces] = useState<Database['public']['Tables']['spaces']['Row'][]>([]);
+  const [createdSpaces, setCreatedSpaces] = useState<any[]>([]);
+  const [joinedSpaces, setJoinedSpaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,7 +22,7 @@ export default function ProfileSpaces({ userId, isCreator }: ProfileSpacesProps)
         
         // Fetch spaces created by user if they're a creator
         if (isCreator) {
-          const { data: ownedData, error: ownedError } = await supabase
+          const { data: ownedData, error: ownedError } = await getSupabaseClient()
             .from('spaces')
             .select('*')
             .eq('owner_id', userId);
@@ -33,18 +32,18 @@ export default function ProfileSpaces({ userId, isCreator }: ProfileSpacesProps)
         }
         
         // Fetch spaces joined by user
-        const { data: accessRecords, error: accessError } = await supabase
-          .from('space_access')
+        const { data: memberRecords, error: memberError } = await getSupabaseClient()
+          .from('space_members')
           .select('space_id')
           .eq('user_id', userId)
-          .eq('is_active', true);
+          .eq('status', 'active');
           
-        if (accessError) throw accessError;
+        if (memberError) throw memberError;
         
-        if (accessRecords && accessRecords.length > 0) {
-          const spaceIds = accessRecords.map(access => access.space_id);
+        if (memberRecords && memberRecords.length > 0) {
+          const spaceIds = memberRecords.map(member => member.space_id);
           
-          const { data: spacesData, error: spacesError } = await supabase
+          const { data: spacesData, error: spacesError } = await getSupabaseClient()
             .from('spaces')
             .select('*')
             .in('id', spaceIds);

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "./styles/grid-background.css";
 @tailwind base;
 @tailwind components;
@@ -58,16 +58,138 @@
   
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    font-family: 'Inter', sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1, "kern" 1;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-variant-numeric: tabular-nums;
+    padding-top: env(safe-area-inset-top);
   }
   
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', sans-serif;
+  /* Typography Hierarchy */
+  h1 { @apply text-heading-xl font-bold text-gray-900; }
+  h2 { @apply text-heading-lg font-semibold text-gray-900; }
+  h3 { @apply text-heading-md font-semibold text-gray-900; }
+  h4 { @apply text-heading-sm font-medium text-gray-900; }
+  h5 { @apply text-heading-xs font-medium text-gray-900; }
+  h6 { @apply text-body-lg font-medium text-gray-900; }
+  
+  p { @apply text-body-md text-gray-700; }
+  
+  /* Consistent link styling */
+  a { 
+    @apply text-primary hover:text-primary/80 transition-colors duration-200;
+    text-decoration: none;
+  }
+  
+  a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+  
+  /* Form elements */
+  input, textarea, select {
+    font-feature-settings: "tnum" 1;
   }
 }
 
 @layer components {
+  /* Typography Components */
+  .typography-display {
+    @apply text-display-lg font-bold text-gray-900;
+  }
+  
+  .typography-hero {
+    @apply text-display-md font-bold text-gray-900;
+  }
+  
+  .typography-page-title {
+    @apply text-heading-xl font-bold text-gray-900;
+  }
+  
+  .typography-section-title {
+    @apply text-heading-lg font-semibold text-gray-900;
+  }
+  
+  .typography-card-title {
+    @apply text-heading-sm font-semibold text-gray-900;
+  }
+  
+  .typography-body {
+    @apply text-body-md text-gray-700 leading-relaxed;
+  }
+  
+  .typography-body-large {
+    @apply text-body-lg text-gray-700 leading-relaxed;
+  }
+  
+  .typography-small {
+    @apply text-body-sm text-gray-600;
+  }
+  
+  .typography-caption {
+    @apply text-caption-lg text-gray-500;
+  }
+  
+  /* Post-specific typography */
+  .post-title {
+    @apply text-heading-sm font-semibold text-gray-900 tracking-tight leading-tight capitalize;
+  }
+  
+  .post-content {
+    @apply text-body-md text-gray-700 leading-relaxed;
+  }
+  
+  .post-meta {
+    @apply text-body-sm text-gray-500 font-medium;
+  }
+  
+  .post-author {
+    @apply text-body-sm font-medium text-gray-900;
+  }
+  
+  .post-time {
+    @apply text-body-sm text-gray-500;
+  }
+  
+  /* Button typography */
+  .btn-text-lg {
+    @apply text-body-md font-medium;
+  }
+  
+  .btn-text-md {
+    @apply text-body-sm font-medium;
+  }
+  
+  .btn-text-sm {
+    @apply text-caption-lg font-medium;
+  }
+  
+  /* Navigation typography */
+  .nav-link {
+    @apply text-body-sm font-medium text-gray-700 hover:text-gray-900 transition-colors;
+  }
+  
+  .nav-link-active {
+    @apply text-body-sm font-semibold text-primary;
+  }
+  
+  /* Form typography */
+  .form-label {
+    @apply text-body-sm font-medium text-gray-900;
+  }
+  
+  .form-help {
+    @apply text-caption-lg text-gray-500;
+  }
+  
+  .form-error {
+    @apply text-caption-lg text-red-600 font-medium;
+  }
+  
+  /* Existing button styles */
   .btn-primary {
     @apply bg-gradient-to-r from-teal-600 to-teal-700 text-white font-medium py-3 px-6 rounded-full hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50;
   }
@@ -105,5 +227,24 @@
     touch-action: pan-x;
     will-change: scroll-position;
     overscroll-behavior-x: contain;
+  }
+  
+  /* Custom shadow utility for top shadow */
+  .shadow-t-lg {
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Custom height utility for 60px height */
+  .h-15 {
+    height: 60px;
+  }
+  
+  /* Typography utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .text-pretty {
+    text-wrap: pretty;
   }
 }

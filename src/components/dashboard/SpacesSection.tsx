@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, PlusCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import useSpacesData from "@/hooks/useSpacesData";
 
 interface SpacesSectionProps {
@@ -12,7 +12,7 @@ interface SpacesSectionProps {
 const SpacesSection = ({ closeMobileSidebar }: SpacesSectionProps) => {
   const [spacesExpanded, setSpacesExpanded] = useState(true);
   const toggleSpaces = () => setSpacesExpanded(!spacesExpanded);
-  const { userDetails } = useAuth();
+  const { userDetails } = useOptimizedAuth();
   const { joinedSpaces = [], loading = false } = useSpacesData() || {};
 
   const isCreator = userDetails?.role === 'creator';

@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 
 // Valid table names from the Database type
 type TableName = "spaces" | "comments" | "posts" | "users" | 
@@ -13,7 +13,7 @@ type TableName = "spaces" | "comments" | "posts" | "users" |
 export async function examineTableStructure(tableName: TableName) {
   try {
     // First, let's try to get a sample record to see the columns
-    const { data: sampleData, error: sampleError } = await supabase
+    const { data: sampleData, error: sampleError } = await getSupabaseClient()
       .from(tableName)
       .select('*')
       .limit(1);

@@ -1,17 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { getFirstUserSpace, userHasSpaces } from "@/utils/userSpaceUtils";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { checkActiveSession } from "@/utils/directAuth";
+import EmergencyDatabaseRecovery from '@/utils/emergencyDatabaseRecovery';
 import Discover from "./Discover";
 import type { User } from "@supabase/supabase-js";
 
 export default function SmartLanding() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const [isChecking, setIsChecking] = useState(true);
   const [showDiscover, setShowDiscover] = useState(false);
   
@@ -30,7 +30,7 @@ export default function SmartLanding() {
     async function checkUserSpaces() {
       // If forceDiscover is true, skip routing and show Discover
       if (forceDiscover) {
-        console.log("SmartLanding: Force discover flag detected, showing Discover page");
+        // Force discover flag detected
         setShowDiscover(true);
         setIsChecking(false);
         return;
@@ -38,7 +38,7 @@ export default function SmartLanding() {
       
       // Check if user explicitly navigated to discover page
       if (isExplicitDiscoverNavigation()) {
-        console.log("SmartLanding: User explicitly navigated to discover page");
+        // User explicitly navigated to discover
         setShowDiscover(true);
         setIsChecking(false);
         return;
@@ -54,7 +54,7 @@ export default function SmartLanding() {
           if (hasActiveSession) {
             console.log("SmartLanding: Active session found but no user in context");
             // Get current session to retrieve user ID
-            const { data } = await supabase.auth.getSession();
+            const { data } = await getSupabaseClient().auth.getSession();
             
             if (data.session?.user) {
               console.log("SmartLanding: Retrieved user from session:", data.session.user.email);
@@ -94,32 +94,38 @@ export default function SmartLanding() {
           return;
         }
         
-        // Get the first space data including the subdomain
-        console.log("SmartLanding: Fetching first space for user", user.id);
-        const space = await getFirstUserSpace(user.id);
-        console.log("SmartLanding: getFirstUserSpace result:", space);
+        // 🚨 PHASE 8: Use emergency recovery instead of direct database calls
+        console.log("SmartLanding: Using emergency recovery to find user spaces");
         
-        // Double-check with direct database query for debugging
-        console.log("SmartLanding: Performing direct database check");
-        const { data: directSpaces, error: directError } = await supabase
-          .from('spaces')
-          .select('id, subdomain, name')
-          .or(`owner_id.eq.${user.id},id.in.(${
-            supabase.from('space_access')
-              .select('space_id')
-              .eq('user_id', user.id)
-              .eq('is_active', true)
-          })`)
-          .limit(10);
+        const recoveryResult = await EmergencyDatabaseRecovery.safeSpaceQuery(
+          user.id,
+          {
+            retryAttempts: 2,
+            fallbackToPublic: false,
+            useCache: true
+          }
+        );
+
+        if (recoveryResult.success && recoveryResult.data && recoveryResult.data.length > 0) {
+          // Find a space where the user has access
+          for (const space of recoveryResult.data) {
+            const membershipCheck = await EmergencyDatabaseRecovery.safeMembershipCheck(
+              space.id,
+              user.id
+            );
+            
+            if (membershipCheck.isMember || membershipCheck.isOwner) {
+              console.log("SmartLanding: Found user space:", space.name, space.subdomain);
+              const path = `/space/${space.subdomain}`;
+              console.log("SmartLanding: Navigation path:", path);
+              navigate(path, { replace: true });
+              return;
+            }
+          }
           
-        console.log("SmartLanding: Direct DB check result:", directSpaces, directError);
-        
-        if (space) {
-          // User has a space, navigate to it using subdomain
-          console.log("SmartLanding: Navigating to space with subdomain:", space.subdomain);
-          const path = `/space/${space.subdomain}`;
-          console.log("SmartLanding: Navigation path:", path);
-          navigate(path, { replace: true });
+          // If no membership found, show discover
+          console.log("SmartLanding: User has no accessible spaces, showing discover");
+          setShowDiscover(true);
         } else {
           // User has no spaces, show discover page
           console.log("SmartLanding: No spaces found for user, showing discover");

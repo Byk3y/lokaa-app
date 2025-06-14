@@ -1,6 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface VideoPlayerModalProps {
   isOpen: boolean;
@@ -45,7 +46,20 @@ export const VideoPlayerModal = ({
     <Dialog.Root open={isOpen} onOpenChange={onClose}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/70 data-[state=open]:animate-overlayShow z-[60]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 w-[90vw] max-w-6xl h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black shadow-lg data-[state=open]:animate-contentShow focus:outline-none z-[60] flex items-center justify-center">
+        <Dialog.Content 
+          className="fixed left-1/2 top-1/2 w-[90vw] max-w-6xl h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black shadow-lg data-[state=open]:animate-contentShow focus:outline-none z-[60] flex items-center justify-center"
+          aria-describedby="video-player-description"
+        >
+          <Dialog.Title>
+            <VisuallyHidden>
+              Video Player - {videoPlatform === 'youtube' ? 'YouTube' : videoPlatform === 'vimeo' ? 'Vimeo' : 'Video'} Content
+            </VisuallyHidden>
+          </Dialog.Title>
+          <Dialog.Description id="video-player-description">
+            <VisuallyHidden>
+              Playing {videoPlatform === 'youtube' ? 'YouTube' : videoPlatform === 'vimeo' ? 'Vimeo' : ''} video in full screen modal. Use Escape key or close button to exit.
+            </VisuallyHidden>
+          </Dialog.Description>
           <div className="relative w-full h-full flex items-center justify-center">
             {hasPrevious && onPrevious && (
               <button 

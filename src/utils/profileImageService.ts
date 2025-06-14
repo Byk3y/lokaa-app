@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 
 /**
  * Uploads a profile image to Supabase Storage and updates user metadata
@@ -12,7 +12,7 @@ export async function uploadProfileImage(
 ): Promise<string | null> {
   try {
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSupabaseClient().auth.getUser();
     
     if (!user) {
       console.error("No authenticated user found");
@@ -24,7 +24,7 @@ export async function uploadProfileImage(
     const filePath = `profiles/${user.id}/${fileName}`;
     
     // Upload the file to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await getSupabaseClient().storage
       .from('avatars')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -38,7 +38,7 @@ export async function uploadProfileImage(
     }
     
     // Get the public URL of the uploaded image
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = getSupabaseClient().storage
       .from('avatars')
       .getPublicUrl(filePath);
     
@@ -48,7 +48,7 @@ export async function uploadProfileImage(
     }
     
     // Update user metadata with new avatar URL
-    const { error: updateError } = await supabase.auth.updateUser({
+    const { error: updateError } = await getSupabaseClient().auth.updateUser({
       data: { 
         avatar_url: publicUrl,
         // Store the last update timestamp
@@ -81,7 +81,7 @@ export async function deleteProfileImage(url: string): Promise<boolean> {
     const filePath = pathParts.slice(pathParts.indexOf('avatars') + 1).join('/');
     
     // Delete the file from Supabase Storage
-    const { error } = await supabase.storage
+    const { error } = await getSupabaseClient().storage
       .from('avatars')
       .remove([filePath]);
     
@@ -104,7 +104,7 @@ export async function deleteProfileImage(url: string): Promise<boolean> {
  */
 export async function getProfileImageUrl(): Promise<string | null> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSupabaseClient().auth.getUser();
     
     if (!user) {
       return null;

@@ -1,115 +1,135 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useCreatorStatus } from "../../hooks/useCreatorStatus";
-import { Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import React, { memo, useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useOptimizedAuth } from "@/contexts/AuthContext";
+import { useComponentLoading } from "@/utils/authFlowStateManager";
 
-export default function ProtectedRoute() {
-  const { user, loading } = useAuth();
+
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+// 🚀 PERFORMANCE: Memoized component to prevent unnecessary re-renders
+const ProtectedRoute = memo(({ children }: ProtectedRouteProps) => {
+  const { user, loading, routingInProgress } = useOptimizedAuth();
   const location = useLocation();
-  const { data: creatorCommunity, isLoading: isLoadingCreator } = useCreatorStatus();
-  const [authRetries, setAuthRetries] = useState(0);
-  const [showRecoveryLink, setShowRecoveryLink] = useState(false);
-  const { toast } = useToast();
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [wasAuthenticated, setWasAuthenticated] = useState(false);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('ProtectedRoute Debug:', {
-      user: !!user,
-      userId: user?.id,
-      loading,
-      creatorCommunity,
-      isLoadingCreator,
-      currentPath: location.pathname,
-      authRetries
-    });
-  }, [user, loading, creatorCommunity, isLoadingCreator, location.pathname, authRetries]);
+  // 🚀 [Phase 3] Use AuthFlowStateManager for coordinated loading state
+  const { shouldShowLoading, authStage, blockComponent, unblockComponent } = useComponentLoading('ProtectedRoute');
 
-  // Handle long loading times
+  // Track authentication state to prevent loading flashes during navigation
   useEffect(() => {
-    let timeoutId: number;
+    if (user && !wasAuthenticated) {
+      setWasAuthenticated(true);
+      // Block ProtectedRoute loading when user authentication is confirmed
+      if (authStage === 'complete' || authStage === 'redirecting') {
+        blockComponent();
+      }
+    }
+  }, [user, wasAuthenticated, authStage, blockComponent]);
+
+  // 🚀 [Phase 3] Enhanced fast path detection and component blocking
+  useEffect(() => {
+    const isOnSpacePage = location.pathname.includes('/space') && location.pathname !== '/app';
+    const isOnFastPathRoute = isOnSpacePage || location.pathname.includes('/discover');
     
-    if (loading && authRetries < 2) {
-      // Set a timeout to retry auth or show recovery options
-      timeoutId = window.setTimeout(() => {
-        console.log('Auth is taking too long, incrementing retry counter');
-        setAuthRetries(prev => prev + 1);
-      }, 5000); // 5 seconds
-      
-      return () => {
-        window.clearTimeout(timeoutId);
-      };
+    if (user && isOnFastPathRoute) {
+      // Fast path likely completed - block loading UI
+      blockComponent();
+      console.log('🚀 [Phase 3] ProtectedRoute blocked - fast path detected');
     }
     
-    // If we've retried too many times, offer recovery options
-    if (authRetries >= 2 && loading) {
-      console.log('Auth is still loading after retries, showing recovery options');
-      setShowRecoveryLink(true);
-      
-      toast({
-        title: "Authentication is taking longer than expected",
-        description: "We're having trouble verifying your login. Try the recovery options if this persists.",
-        duration: 10000, // 10 seconds
-        action: (
-          <a 
-            href="/fix" 
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4"
-          >
-            Fix Issues
-          </a>
-        ),
-      });
+    // Unblock when navigating away from fast path routes
+    if (!user || (!isOnFastPathRoute && authStage === 'initializing')) {
+      unblockComponent();
     }
-  }, [loading, authRetries, toast]);
+  }, [user, location.pathname, authStage, blockComponent, unblockComponent]);
 
-  // Reset retries if user becomes authenticated and not loading
+  // 🔧 SAFETY: Prevent permanent loading states
   useEffect(() => {
-    if (user && !loading) {
-      setAuthRetries(0);
-      setShowRecoveryLink(false);
+    if (loading || routingInProgress) {
+      const timeout = setTimeout(() => {
+        console.warn('⚠️ [ProtectedRoute] Loading state timeout, forcing render');
+        setLoadingTimeout(true);
+        blockComponent(); // Block after timeout
+      }, 1000); // ENHANCED: Reduced to 1000ms for faster recovery
+
+      return () => clearTimeout(timeout);
+    } else {
+      setLoadingTimeout(false);
     }
-  }, [user, loading]);
+  }, [loading, routingInProgress, blockComponent]);
 
-  // If the user is not authenticated, redirect to login
-  if (!user && !loading) {
-    console.log('ProtectedRoute: User not authenticated, redirecting to login');
-    return <Navigate to="/login" state={{ from: location, background: location }} replace />;
-  }
+  // 🚀 [Phase 3] Enhanced skip logic using AuthFlowStateManager
+  const isOnSpacePage = location.pathname.includes('/space') && location.pathname !== '/app';
+  const isOnPublicPage = ['/discover', '/create', '/create-space'].some(page => 
+    location.pathname === '/' ? page === '/' : location.pathname.startsWith(page)
+  );
+  
+  // Multiple conditions to skip loading states
+  const fastPathInProgress = authStage === 'fast-path' || authStage === 'redirecting';
+  const cacheCheckInProgress = authStage === 'checking-cache';
+  const fastPathLikelySucceeded = user && isOnSpacePage && !loading;
+  const isAuthenticatedUserOnPublicPage = user && isOnPublicPage && wasAuthenticated;
+  const isAlreadyAuthenticatedUser = wasAuthenticated && user && !loading;
+  
+  const shouldSkipLoading = !shouldShowLoading || // AuthFlowStateManager decision
+                          fastPathInProgress ||
+                          cacheCheckInProgress ||
+                          fastPathLikelySucceeded || 
+                          isAuthenticatedUserOnPublicPage || 
+                          isAlreadyAuthenticatedUser || 
+                          loadingTimeout;
 
-  // Show loading state with recovery link if taking too long
-  if (loading) {
+  // 🚀 [Phase 3] Enhanced loading decision with AuthFlowStateManager coordination
+  if ((loading || routingInProgress) && !shouldSkipLoading) {
+    console.log(`🔐 [Phase 3] ProtectedRoute showing loading - authStage: ${authStage}, shouldShowLoading: ${shouldShowLoading}`);
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-          <div className="flex items-center justify-center mb-4">
-            <Loader2 className="h-8 w-8 animate-spin text-teal-600 mr-2" />
-            <h2 className="text-xl font-semibold text-gray-800">
-              Verifying your session...
-            </h2>
-          </div>
-          <p className="text-gray-600 text-center mb-6">
-            Please wait while we verify your authentication status.
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">
+            {authStage === 'slow-path' ? 'Loading your spaces...' :
+             routingInProgress ? 'Redirecting...' : 
+             'Verifying your session...'}
           </p>
-          
-          {showRecoveryLink && (
-            <div className="border-t border-gray-200 pt-4 mt-4 text-center">
-              <p className="text-amber-600 mb-2">
-                This is taking longer than expected.
-              </p>
-              <a 
-                href="/fix" 
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-teal-600 text-white hover:bg-teal-700 h-10 py-2 px-4"
-              >
-                Access Recovery Tools
-              </a>
-            </div>
-          )}
         </div>
       </div>
     );
   }
 
-  // User is authenticated - allow access to protected routes
-  return <Outlet />;
-}
+
+
+  // ✅ CRITICAL FIX: Only redirect when authentication is completely finished
+  // This prevents the race condition where we redirect before session restoration completes
+  if (!user && !loading && !routingInProgress) {
+    console.log('🔥 [CRITICAL FIX] ProtectedRoute: Authentication complete, no user found, redirecting to landing page', {
+      loading,
+      routingInProgress,
+      authStage,
+      currentPath: location.pathname,
+      preventInfiniteLoop: 'This redirect only happens when auth is completely finished'
+    });
+    return <Navigate to="/" replace />;
+  }
+
+  console.log('✅ [Phase 3] ProtectedRoute rendering children:', {
+    user: user ? 'authenticated' : 'not authenticated',
+    userId: user?.id,
+    loading,
+    routingInProgress,
+    currentPath: location.pathname,
+    timeout: loadingTimeout,
+    authStage,
+    shouldShowLoading,
+    skipReason: shouldSkipLoading ? 'optimized' : 'none'
+  });
+
+  // User is authenticated, render children
+  return <>{children}</>;
+});
+
+ProtectedRoute.displayName = 'ProtectedRoute';
+
+export default ProtectedRoute;

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,7 +42,7 @@ const settingsNavItems = [
 
 export default function SpaceSettings() {
   const { subdomain } = useParams<{ subdomain: string }>();
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const [space, setSpace] = useState<SpaceSettingsData | null>(null);
   const [formData, setFormData] = useState<Partial<SpaceSettingsData>>({});
@@ -62,7 +62,7 @@ export default function SpaceSettings() {
       setLoading(true);
       try {
         // Use type assertion to work around TypeScript issues
-        const { data, error } = await supabase
+        const { data, error } = await getSupabaseClient()
           .from('spaces')
           .select('id, name, description, cover_image, primary_color, subdomain, owner_id, is_private') // Select specific columns
           .eq('subdomain', subdomain)
@@ -146,7 +146,7 @@ export default function SpaceSettings() {
         is_private: formData.is_private,
       };
 
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('spaces')
         .update(updateData)
         .eq('id', space.id);

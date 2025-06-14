@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Loader2 } from "lucide-react";
 import { parseProfileUrl } from "@/utils/profileRedirect";
 
@@ -12,7 +12,7 @@ import { parseProfileUrl } from "@/utils/profileRedirect";
  */
 export default function SpaceRedirect() {
   const { subdomain } = useParams<{ subdomain: string }>();
-  const { user, loading } = useAuth();
+  const { user, loading } = useOptimizedAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectAttempted = useRef(false);
@@ -27,7 +27,15 @@ export default function SpaceRedirect() {
     
     // Skip if auth is still loading
     if (loading) {
-      console.log('SpaceRedirect: Auth is still loading, waiting...');
+      return;
+    }
+    
+    // Check for malformed URLs that could cause routing issues
+    const currentPath = location.pathname;
+    if (currentPath.includes('/space/space')) {
+      console.warn('SpaceRedirect: Detected malformed URL with /space/space duplication:', currentPath);
+      const correctedPath = currentPath.replace(/\/space\/space/g, '/space');
+      navigate(correctedPath, { replace: true });
       return;
     }
     
@@ -40,6 +48,13 @@ export default function SpaceRedirect() {
       }
       // If !subdomain (i.e., null/undefined) and auth has loaded, then it's an invalid path.
       navigate('/discover', { replace: true });
+      return;
+    }
+
+    // Validate subdomain format to prevent problematic routing
+    if (subdomain && (subdomain === 'space' || subdomain.includes('/') || subdomain.length < 1)) {
+      console.warn('SpaceRedirect: Invalid subdomain format detected:', subdomain);
+      setError('Invalid URL format');
       return;
     }
 
@@ -72,8 +87,8 @@ export default function SpaceRedirect() {
     // Regular space routing
     try {
       if (user) {
-        console.log(`SpaceRedirect: Redirecting to space feed: /${subdomain}/space/feed`);
-        navigate(`/${subdomain}/space/feed`, { replace: true });
+        console.log(`SpaceRedirect: Redirecting to space root: /${subdomain}/space`);
+        navigate(`/${subdomain}/space`, { replace: true });
       } else {
         console.log(`SpaceRedirect: Redirecting to space about: /${subdomain}/about`);
         navigate(`/${subdomain}/about`, { replace: true });
@@ -113,4 +128,23 @@ export default function SpaceRedirect() {
       </div>
     </div>
   );
+}
+
+/**
+ * Wrapper component that validates subdomain before proceeding with SpaceRedirect
+ * This prevents the /:subdomain route from matching empty paths like "/"
+ */
+export function SpaceRedirectWithValidation() {
+  const { subdomain } = useParams<{ subdomain: string }>();
+  const navigate = useNavigate();
+  
+  // If subdomain is empty, undefined, or just whitespace, redirect to root
+  if (!subdomain || subdomain.trim() === '') {
+    console.log('SpaceRedirectWithValidation: Empty subdomain detected, redirecting to /');
+    navigate('/', { replace: true });
+    return null;
+  }
+  
+  // If subdomain is valid, proceed with normal SpaceRedirect
+  return <SpaceRedirect />;
 }

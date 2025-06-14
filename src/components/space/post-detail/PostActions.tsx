@@ -1,0 +1,75 @@
+import React from 'react';
+import { Share } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { LikeButton, CommentButton } from "@/components/ui/post-icons";
+
+interface PostActionsProps {
+  hasLiked: boolean;
+  likeCount: number;
+  commentCount: number;
+  isLiking?: boolean;
+  onLikeToggle: () => void;
+  onCommentClick: () => void;
+}
+
+/**
+ * Component displaying post action buttons (like, comment, share)
+ */
+export default function PostActions({ 
+  hasLiked, 
+  likeCount, 
+  commentCount, 
+  isLiking = false,
+  onLikeToggle,
+  onCommentClick
+}: PostActionsProps) {
+  return (
+    <div className="flex items-center justify-between py-3 px-6 border-t border-b border-gray-200">
+      <div className="flex items-center space-x-2">
+        <Button 
+          variant="ghost"
+          onClick={onLikeToggle}
+          disabled={isLiking}
+          className={cn(
+            "flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+            hasLiked ? "text-green-600 bg-green-50 hover:bg-green-100" : "text-gray-600 hover:bg-gray-100",
+            isLiking && "opacity-60 cursor-not-allowed"
+          )}
+        >
+          <LikeButton
+            isLiked={hasLiked}
+            count={0}
+            onClick={() => {}}
+            showCount={false}
+            className="pointer-events-none"
+          />
+          <span>{hasLiked ? 'Liked' : 'Like'}</span>
+          {likeCount > 0 && <span className="ml-1 text-gray-500">{likeCount}</span>}
+        </Button>
+        
+        <Button 
+          variant="ghost"
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          onClick={onCommentClick}
+        >
+          <CommentButton
+            count={0}
+            showCount={false}
+            className="pointer-events-none"
+          />
+          <span>Comment</span>
+          {commentCount > 0 && <span className="ml-1 text-gray-500">{commentCount}</span>}
+        </Button>
+      </div>
+          
+      <Button 
+        variant="ghost" 
+        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+      >
+        <Share size={18} />
+        <span>Share</span>
+      </Button>
+    </div>
+  );
+} 

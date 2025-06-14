@@ -1,35 +1,29 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { toast } from '@/hooks/use-toast';
+import EmergencyDatabaseRecovery from '@/utils/emergencyDatabaseRecovery';
+import { AuthRecovery } from '@/utils/authRecovery';
 
 // Interface for database space objects
 export interface DatabaseSpace {
   id: string;
   name: string;
-  description: string;
-  owner_id: string;
+  description: string | null;
   subdomain: string;
-  cover_image: string;
-  primary_color: string;
+  cover_image: string | null;
+  icon_image: string | null;
+  owner_id: string;
+  primary_color: string | null;
+  member_count: number | null;
+  pricing_type: 'free' | 'paid' | string;
+  price_per_month: number | null;
   created_at: string;
   updated_at: string;
-  pricing_type: 'free' | 'paid';
-  price_per_month: number | null;
-  member_count?: number;
-  post_count?: number;
-  instructor?: string;
-  // Additional fields for our frontend
-  ranking?: number;
-  tags?: string[];
-  // Fields from the join
-  profiles?: {
-    name?: string;
-    avatar_url?: string;
-  };
-  // Added fields
-  about_description?: string | null;
+  about_description: string | null;
   is_private: boolean;
+  tags?: string[];
+  post_count?: number;
 }
 
 // Processed space type after mapping
@@ -38,6 +32,7 @@ export interface Space {
   name: string;
   description: string;
   cover_image: string;
+  icon_image?: string | null;
   owner_id: string;
   primary_color: string;
   subdomain: string;
@@ -46,38 +41,217 @@ export interface Space {
   price_per_month: number | null;
   created_at: string;
   updated_at: string;
+  members: number;
+  posts: number;
+  createdAt: string;
+  updatedAt: string;
   tags?: string[];
-  ranking?: number;
-  instructor?: string;
-  post_count?: number;
-  // These legacy fields are for compatibility
-  members?: number;
-  posts?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  // Add missing fields that are used in SpaceCard
   about_description?: string | null;
   is_private: boolean;
+  ranking?: number;
   owner?: {
-    name?: string;
-    avatar_url?: string;
+    name: string;
+    avatar_url?: string | null;
   };
 }
 
+function generateTags(space: DatabaseSpace): string[] {
+  const tags: string[] = [];
+  
+  if (space.name) {
+    const name = space.name.toLowerCase();
+    if (name.includes('tech') || name.includes('dev') || name.includes('code')) tags.push('tech');
+    if (name.includes('music')) tags.push('music');
+    if (name.includes('art') || name.includes('design')) tags.push('hobbies');
+    if (name.includes('fitness') || name.includes('health')) tags.push('health');
+    if (name.includes('money') || name.includes('finance') || name.includes('business')) tags.push('money');
+    if (name.includes('sport')) tags.push('sports');
+  }
+  
+  return tags.length > 0 ? tags : ['general'];
+}
+
 export default function useSpacesData(initialCategory = 'all') {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
+  
+  // FIXED: Simplified state management without complex optimization layers
   const [joinedSpaces, setJoinedSpaces] = useState<Space[]>([]);
   const [joinedSpacesLoading, setJoinedSpacesLoading] = useState(false);
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [filteredSpaces, setFilteredSpaces] = useState<Space[]>([]);
   const [trendingSpaces, setTrendingSpaces] = useState<Space[]>([]);
   const [featuredSpaces, setFeaturedSpaces] = useState<Space[]>([]);
   const [categorySpaces, setCategorySpaces] = useState<{ [key: string]: Space[] }>({});
-  const [loading, setLoading] = useState(true);
-  const [spaces, setSpaces] = useState<Space[]>([]);
-  const [filteredSpaces, setFilteredSpaces] = useState<Space[]>([]);
+  const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch joined spaces
+  // FIXED: Simple direct database fetch with emergency recovery ONLY for 406 errors
+  const fetchSpaces = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('[useSpacesData] Fetching spaces with direct query');
+      
+      // RECOVERY FIX: Try direct table query first (more reliable after outages)
+      const { data: directData, error: directError } = await getSupabaseClient()
+        .from('spaces')
+        .select('*')
+        .or('is_private.is.false,is_private.is.null')
+        .order('created_at', { ascending: false });
+      
+      if (!directError && directData && Array.isArray(directData) && directData.length > 0) {
+        console.log(`✅ [useSpacesData] Direct table query successful: ${directData.length} spaces`);
+        
+        const processedSpaces = directData.map((space: any, index: number): Space => ({
+          id: space.id,
+          name: space.name,
+          description: space.description || '',
+          subdomain: space.subdomain,
+          icon_image: space.icon_image,
+          cover_image: space.cover_image || '',
+          owner_id: space.owner_id,
+          member_count: space.member_count || 0,
+          is_private: space.is_private,
+          created_at: space.created_at,
+          primary_color: space.primary_color || '#1A8A7E',
+          pricing_type: (space.pricing_type as 'free' | 'paid') || 'free',
+          price_per_month: space.price_per_month,
+          updated_at: space.updated_at || space.created_at,
+          ranking: index + 1,
+          members: space.member_count || 0,
+          posts: 0,
+          createdAt: space.created_at,
+          updatedAt: space.updated_at || space.created_at,
+          tags: generateTags(space),
+          about_description: space.about_description,
+        }));
+        
+        setSpaces(processedSpaces);
+        return;
+      }
+
+      // FALLBACK: Try RPC call if direct query fails
+      console.log('⚠️ [useSpacesData] Direct query failed, trying RPC fallback');
+      const { data: rpcData, error: rpcError } = await getSupabaseClient().rpc('get_public_spaces');
+      
+      if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+        console.log(`✅ [useSpacesData] RPC fallback successful: ${rpcData.length} spaces`);
+        
+        const processedSpaces = rpcData.map((space: any, index: number): Space => ({
+          id: space.id,
+          name: space.name,
+          description: space.description || '',
+          subdomain: space.subdomain,
+          icon_image: space.icon_image,
+          cover_image: space.cover_image || '',
+          owner_id: space.owner_id,
+          member_count: space.member_count || 0,
+          is_private: space.is_private,
+          created_at: space.created_at,
+          primary_color: '#1A8A7E',
+          pricing_type: 'free' as const,
+          price_per_month: null,
+          updated_at: space.created_at,
+          ranking: index + 1,
+          members: space.member_count || 0,
+          posts: 0,
+          createdAt: space.created_at,
+          updatedAt: space.created_at,
+          tags: generateTags(space),
+        }));
+        
+        setSpaces(processedSpaces);
+        return;
+      }
+
+      // FIXED: Only use emergency recovery if we get actual 406/policy errors
+      if (EmergencyDatabaseRecovery.isPolicyError(directError) || EmergencyDatabaseRecovery.isPolicyError(rpcError)) {
+        console.log('🚨 [useSpacesData] Policy error detected, using emergency recovery');
+        
+        const recoveryResult = await EmergencyDatabaseRecovery.safeSpaceQuery(
+          user?.id || 'anonymous',
+          {
+            retryAttempts: 2,
+            fallbackToPublic: true,
+            useCache: true
+          }
+        );
+
+        if (recoveryResult.success && recoveryResult.data) {
+          const processedSpaces = recoveryResult.data.map((space: any, index: number): Space => ({
+            id: space.id,
+            name: space.name,
+            description: space.description || '',
+            subdomain: space.subdomain,
+            icon_image: space.icon_image,
+            cover_image: space.cover_image || '',
+            owner_id: space.owner_id,
+            member_count: space.member_count || 0,
+            is_private: space.is_private,
+            created_at: space.created_at,
+            primary_color: '#1A8A7E',
+            pricing_type: 'free' as const,
+            price_per_month: null,
+            updated_at: space.created_at,
+            ranking: index + 1,
+            members: space.member_count || 0,
+            posts: 0,
+            createdAt: space.created_at,
+            updatedAt: space.created_at,
+            tags: generateTags(space),
+          }));
+          
+          setSpaces(processedSpaces);
+          return;
+        }
+      }
+
+      // If we get here, it's a real error
+      throw directError || rpcError || new Error('Failed to fetch spaces');
+
+    } catch (err) {
+      console.error('[useSpacesData] Error fetching spaces:', err);
+      
+      // Check if this is an authentication error that might need recovery
+      if (AuthRecovery.isAuthError(err)) {
+        console.log('🔄 [useSpacesData] Detected auth error, attempting recovery...');
+        
+        try {
+          const recovered = await AuthRecovery.recoverAuth({
+            clearCache: true,
+            forceRefresh: true,
+            resetSession: false
+          });
+          
+          if (recovered) {
+            console.log('✅ [useSpacesData] Auth recovery successful, retrying fetch...');
+            // Don't retry immediately to avoid infinite loops
+            setTimeout(() => {
+              fetchSpaces();
+            }, 1000);
+            return;
+          }
+        } catch (recoveryError) {
+          console.error('❌ [useSpacesData] Auth recovery failed:', recoveryError);
+        }
+      }
+      
+      setError(err instanceof Error ? err.message : 'Failed to fetch spaces');
+      setSpaces([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  // FIXED: Simple fetch on mount
+  useEffect(() => {
+    fetchSpaces();
+  }, [fetchSpaces]);
+
+  // FIXED: Simple joined spaces fetch
   useEffect(() => {
     const fetchJoinedSpaces = async () => {
       if (!user) {
@@ -85,79 +259,59 @@ export default function useSpacesData(initialCategory = 'all') {
         return;
       }
       
-      try {
       setJoinedSpacesLoading(true);
-        console.log("Fetching joined spaces for user:", user.id);
-        
-        // First try to fetch directly from spaces table based on ownership
-        const { data: ownedSpaces, error: ownedError } = await supabase
-          .from('spaces')
-          .select('*')
-          .eq('owner_id', user.id);
-          
-        if (ownedError) {
-          console.error("Error fetching owned spaces:", ownedError);
-        } else {
-          console.log("Found owned spaces:", ownedSpaces?.length || 0);
-        }
-        
-        // Also fetch joined spaces from space_access table
-        const { data: accessData, error: accessError } = await supabase
-          .from('space_access')
+      
+      try {
+        // Simple direct query first
+        const { data: memberData, error: memberError } = await getSupabaseClient()
+          .from('space_members')
           .select(`
+            space_id,
             spaces:space_id(*)
           `)
           .eq('user_id', user.id)
-          .eq('is_active', true);
-        
-        if (accessError) {
-          console.error("Error fetching space access:", accessError);
-        } else {
-          console.log("Found space access records:", accessData?.length || 0);
-        }
+          .eq('status', 'active');
 
-        // Combine both owned and accessed spaces
-        const ownedSpacesArray = ownedSpaces || [];
-        const accessedSpaces = accessData
-          ?.filter(item => item.spaces) // Filter out any null values
-          .map(item => item.spaces as DatabaseSpace) || [];
+        if (!memberError && memberData) {
+          const userSpaces = memberData
+            .filter(record => record.spaces)
+            .map(record => mapDatabaseSpaceToSpace(record.spaces as DatabaseSpace));
           
-        // Merge and deduplicate by space ID
-        const spaceMap = new Map();
-        
-        // Add owned spaces first
-        ownedSpacesArray.forEach(space => {
-          spaceMap.set(space.id, mapDatabaseSpaceToSpace(space));
-        });
-        
-        // Add accessed spaces if not already included
-        accessedSpaces.forEach(space => {
-          if (!spaceMap.has(space.id)) {
-            spaceMap.set(space.id, mapDatabaseSpaceToSpace(space));
+          setJoinedSpaces(userSpaces);
+        } else if (EmergencyDatabaseRecovery.isPolicyError(memberError)) {
+          // Only use recovery for policy errors
+          console.log('🚨 [useSpacesData] Using emergency recovery for joined spaces');
+          const recoveryResult = await EmergencyDatabaseRecovery.safeSpaceQuery(
+            user.id,
+            { retryAttempts: 2, fallbackToPublic: false, useCache: true }
+          );
+          
+          if (recoveryResult.success && recoveryResult.data) {
+            const userSpaces = [];
+            for (const space of recoveryResult.data) {
+              const membershipCheck = await EmergencyDatabaseRecovery.safeMembershipCheck(space.id, user.id);
+              if (membershipCheck.isMember || membershipCheck.isOwner) {
+                userSpaces.push(mapDatabaseSpaceToSpace(space));
+              }
+            }
+            setJoinedSpaces(userSpaces);
+          } else {
+            setJoinedSpaces([]);
           }
-        });
+        } else {
+          throw memberError || new Error('Failed to fetch joined spaces');
+        }
         
-        // Convert map to array
-        const joinedSpacesArray = Array.from(spaceMap.values());
-        console.log("Combined spaces found:", joinedSpacesArray.length);
-        
-        setJoinedSpaces(joinedSpacesArray);
       } catch (error) {
-        console.error('Error fetching joined spaces:', error);
+        console.error('[useSpacesData] Error fetching joined spaces:', error);
         setJoinedSpaces([]);
       } finally {
         setJoinedSpacesLoading(false);
       }
     };
 
-    // Clear joined spaces when user logs out
-    if (!user) {
-      setJoinedSpaces([]);
-      setJoinedSpacesLoading(false);
-    } else {
     fetchJoinedSpaces();
-    }
-  }, [user]); // Only depend on user to prevent unnecessary refetches
+  }, [user]);
 
   // Helper function to map database space to interface
   function mapDatabaseSpaceToSpace(dbSpace: DatabaseSpace): Space {
@@ -166,11 +320,12 @@ export default function useSpacesData(initialCategory = 'all') {
       name: dbSpace.name,
       description: dbSpace.description || "",
       cover_image: dbSpace.cover_image || "",
+      icon_image: dbSpace.icon_image || null,
       owner_id: dbSpace.owner_id || "",
       primary_color: dbSpace.primary_color || "",
       subdomain: dbSpace.subdomain,
       member_count: dbSpace.member_count || 1,
-      pricing_type: dbSpace.pricing_type || 'free',
+      pricing_type: dbSpace.pricing_type as 'free' | 'paid' || 'free',
       price_per_month: dbSpace.price_per_month || null,
       created_at: dbSpace.created_at || new Date().toISOString(),
       updated_at: dbSpace.updated_at || new Date().toISOString(),
@@ -182,66 +337,11 @@ export default function useSpacesData(initialCategory = 'all') {
       about_description: dbSpace.about_description || null,
       is_private: dbSpace.is_private || false,
       owner: {
-        name: "Space Owner", // Default value
+        name: "Space Owner",
         avatar_url: null
       }
     };
   }
-
-  // Fetch spaces from Supabase
-  useEffect(() => {
-    async function fetchSpaces() {
-      console.log("Fetching all spaces");
-        setLoading(true);
-        
-      try {
-        // Attempt to fetch spaces from database
-        const { data: spacesData, error: spacesError } = await supabase
-          .from('spaces')
-          .select('*');
-        
-        if (spacesError) {
-          console.error('Error fetching spaces:', spacesError);
-          throw spacesError;
-        }
-        
-        if (!spacesData || spacesData.length === 0) {
-          console.log('No spaces found in database');
-          
-          // Set empty arrays when no spaces found
-          setSpaces([]);
-          setFilteredSpaces([]);
-        } else {
-          console.log('Fetched spaces from database:', spacesData.length);
-          
-          // Process the spaces
-          const processedSpaces = spacesData.map((space: DatabaseSpace, index) => ({
-            ...mapDatabaseSpaceToSpace(space),
-            ranking: index + 1
-          }));
-          
-          setSpaces(processedSpaces);
-          setFilteredSpaces(processedSpaces);
-        }
-      } catch (error) {
-        console.error('Error in fetchSpaces:', error);
-        
-        // Set empty arrays on error
-        setSpaces([]);
-        setFilteredSpaces([]);
-        
-        toast({
-          title: "Error",
-          description: "Failed to fetch spaces. Please try again later.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchSpaces();
-  }, []);
 
   // Set trending, featured and category spaces
   useEffect(() => {
@@ -320,54 +420,7 @@ export default function useSpacesData(initialCategory = 'all') {
     activeCategory,
     setActiveCategory,
     searchQuery,
-    setSearchQuery
+    setSearchQuery,
+    error
   };
-}
-
-// Helper function to generate tags based on space name
-function generateTags(space: DatabaseSpace): string[] {
-  // Get tags that match our actual category IDs
-  const name = space.name?.toLowerCase() || '';
-  const description = space.description?.toLowerCase() || '';
-  
-  // Assign specific tags based on space name/content
-  if (name.includes('calligraphy') || name.includes('art') || name.includes('design') || 
-      description.includes('calligraphy') || description.includes('art') || description.includes('design')) {
-    return ['hobbies', 'self-improvement'];
-  } else if (name.includes('pickleball') || name.includes('sport') || name.includes('fitness') || 
-             description.includes('sport') || description.includes('fitness') || description.includes('workout')) {
-    return ['sports', 'health'];
-  } else if (name.includes('founder') || name.includes('business') || name.includes('financial') || 
-             name.includes('crypto') || name.includes('investing') || 
-             description.includes('founder') || description.includes('business') || 
-             description.includes('financial') || description.includes('crypto') || 
-             description.includes('investing')) {
-    return ['money', 'personal-dev'];
-  } else if (name.includes('marketing') || name.includes('tech') || name.includes('coding') || 
-             description.includes('marketing') || description.includes('tech') || 
-             description.includes('coding') || description.includes('programming')) {
-    return ['tech', 'money'];
-  } else if (name.includes('hormone') || name.includes('health') || name.includes('wellness') || 
-             description.includes('health') || description.includes('wellness') || 
-             description.includes('nutrition')) {
-    return ['health', 'self-improvement'];
-  } else if (name.includes('photo') || name.includes('photography') || 
-             description.includes('photo') || description.includes('photography')) {
-    return ['hobbies', 'tech'];
-  } else if (name.includes('automation') || description.includes('automation')) {
-    return ['tech', 'self-improvement'];
-  } else if (name.includes('music') || description.includes('music') || 
-             name.includes('instrument') || description.includes('instrument')) {
-    return ['music', 'hobbies'];
-  } else if (name.includes('relationship') || description.includes('relationship') || 
-             name.includes('dating') || description.includes('dating')) {
-    return ['relationships', 'self-improvement'];
-  } else if (name.includes('spiritual') || description.includes('spiritual') || 
-             name.includes('meditation') || description.includes('meditation')) {
-    return ['spirituality', 'self-improvement'];
-  }
-  
-  // Default tags for unknown spaces - changed from 'global' to more specific tags
-  // that will help improve discoverability
-  return ['personal-dev', 'self-improvement'];
 }

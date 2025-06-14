@@ -7,8 +7,9 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 /**
  * Hook for enhanced space data caching
  * Helps optimize space component performance by adding robust caching
+ * FIXED: Converted to const export for React Fast Refresh compatibility
  */
-export function useSpaceCache(subdomain: string | undefined) {
+export const useSpaceCache = (subdomain: string | undefined) => {
   const [quickRecoveryAttempted, setQuickRecoveryAttempted] = useState(false);
   
   /**

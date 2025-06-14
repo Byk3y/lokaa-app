@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { SpaceCard } from "@/components/spaces/SpaceCard";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { useBatchMemberCounts } from "@/hooks/useBatchMemberCounts";
 
 // Define an interface for the space objects with member_count
 interface SpaceWithMemberCount {
@@ -20,6 +21,12 @@ export default function Spaces() {
   const [spaces, setSpaces] = useState<SpaceWithMemberCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Get space IDs for batch fetching
+  const spaceIds = spaces.map(space => space.id);
+  
+  // Use the batch member counts hook
+  const { counts: memberCounts, loading: memberCountsLoading } = useBatchMemberCounts(spaceIds);
 
   useEffect(() => {
     async function fetchSpaces() {
@@ -28,31 +35,21 @@ export default function Spaces() {
         setError(null);
 
         // Fetch spaces from Supabase
-        const { data, error } = await supabase
+        const { data, error } = await getSupabaseClient()
           .from('spaces')
-          .select('id, name, description, cover_image, subdomain, owner_id, is_private')
+          .select('id, name, description, cover_image, subdomain, owner_id, is_private, member_count')
           .order('created_at', { ascending: false })
           .limit(12);
 
         if (error) throw error;
 
-        // Get member counts for each space
-        const spacesWithMemberCounts = await Promise.all(
-          data.map(async (space) => {
-            const { count } = await supabase
-              .from('space_access')
-              .select('id', { count: 'exact', head: true })
-              .eq('space_id', space.id)
-              .eq('is_active', true);
-
-            return {
+        // Set initial spaces with default member count
+        const spacesWithDefaultCount = data.map(space => ({
               ...space,
-              member_count: count || 1,
-            };
-          })
-        );
+          member_count: space.member_count || 0,
+        }));
 
-        setSpaces(spacesWithMemberCounts as SpaceWithMemberCount[]);
+        setSpaces(spacesWithDefaultCount as SpaceWithMemberCount[]);
       } catch (err: unknown) {
         console.error("Error fetching spaces:", err);
         const message = err instanceof Error ? err.message : "Failed to load spaces";
@@ -64,6 +61,18 @@ export default function Spaces() {
 
     fetchSpaces();
   }, []);
+  
+  // Update spaces with accurate member counts when the batch counts are loaded
+  useEffect(() => {
+    if (!memberCountsLoading && Object.keys(memberCounts).length > 0) {
+      setSpaces(currentSpaces => 
+        currentSpaces.map(space => ({
+          ...space,
+          member_count: memberCounts[space.id]?.totalMembers || space.member_count || 0
+        }))
+      );
+    }
+  }, [memberCounts, memberCountsLoading]);
 
   return (
     <div className="container mx-auto px-4 py-8">

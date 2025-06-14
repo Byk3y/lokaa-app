@@ -1,8 +1,12 @@
+// Load polyfills first
+import './polyfills'
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
-import './utils/authModals'
+// Legacy modal import removed - now handled by modern system with bridge
+// import './utils/authModals' // REMOVED
 // import { redirectToSpace } from './utils/spaceRedirect'
 
 // Immediate space redirection for authenticated users

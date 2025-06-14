@@ -1,0 +1,71 @@
+/* Custom styles for Giphy grid items - Skool-inspired design */
+.gif-grid-container {
+  min-height: 200px;
+}
+
+.giphy-grid-item {
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.giphy-grid-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 20px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Override Giphy Grid styling */
+.giphy-grid {
+  width: 100% !important;
+}
+
+.giphy-gif-img {
+  border-radius: 12px;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Custom scrollbar styling */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 6px;
+}
+
+.scrollbar-track-gray-100::-webkit-scrollbar-track {
+  background-color: #f3f4f6;
+  border-radius: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background-color: #f3f4f6;
+  border-radius: 6px;
+}
+
+/* Ensure proper modal positioning */
+.gif-search-modal {
+  backdrop-filter: blur(4px);
+}
+
+/* GIF item loading state */
+.giphy-grid-item img {
+  background-color: #f3f4f6;
+}
+
+/* Focus styles for accessibility */
+.giphy-grid-item:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+} 

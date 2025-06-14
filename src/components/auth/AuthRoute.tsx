@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Loader2 } from "lucide-react";
 
 interface AuthRouteProps {
@@ -7,7 +7,7 @@ interface AuthRouteProps {
 }
 
 export default function AuthRoute({ children }: AuthRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading } = useOptimizedAuth();
   const location = useLocation();
 
   // Show loading indicator while authentication state is being determined

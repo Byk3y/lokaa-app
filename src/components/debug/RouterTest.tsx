@@ -1,12 +1,12 @@
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useOptimizedAuth } from '../../contexts/AuthContext';
 
 export function RouterTest() {
   const location = useLocation();
   const params = useParams();
   const navigate = useNavigate();
-  const { user, loading, userDetails } = useAuth();
+  const { user, loading, userDetails } = useOptimizedAuth();
   const renderCount = useRef(0);
   const prevPathname = useRef(location.pathname);
   

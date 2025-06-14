@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Globe, Lock, Users, Tag, Upload, X, Play, Plus, AlertCircle, Loader2, GripHorizontal, ArrowUpDown, Settings, FileText, Check } from "lucide-react";
+import { Globe, Lock, Users, Tag, Upload, X, Play, Plus, AlertCircle, Loader2, GripHorizontal, ArrowUpDown, Settings, FileText, Check, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
@@ -7,50 +7,46 @@ import { Dialog, DialogContent, DialogTitle, DialogClose, DialogFooter } from "@
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from 'uuid';
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import useSpaceSettingsModal from "@/hooks/useSpaceSettingsModal";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useNavigate } from "react-router-dom";
 import { useSpace } from "@/contexts/SpaceContext";
 import { useMembership } from "@/contexts/MembershipContext";
-import { Database } from "@/types/supabase";
+import type { Database } from "@/integrations/supabase/types";
 import useSpaceDescriptionManager from "@/hooks/useSpaceDescriptionManager";
-import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
+import useSpaceSettingsStore, { SpaceSettingsData } from "@/hooks/useSpaceSettingsStore";
 import { resolveImageUrl } from "@/utils/preloadAssets";
+import SpaceIntroDisplay from "@/components/space/SpaceIntroDisplay";
 import SpaceInfoSidebar from "./SpaceInfoSidebar";
+import MediaGallery from "./MediaGallery";
+import { useQuery } from "@tanstack/react-query";
+import { 
+  MediaItem, 
+  STORAGE_BUCKET_NAME, 
+  MAX_FILE_SIZE_MB, 
+  MAX_FILE_SIZE_BYTES,
+  fileToBase64, 
+  uploadFileToStorage, 
+  deleteFileFromStorage,
+  extractVideoId,
+  getVideoThumbnail,
+  fetchSpaceMediaFromSupabase,
+  addMediaToSupabase,
+  reorderSpaceMediaInSupabase,
+  deleteMediaFromSupabase
+} from "@/utils/mediaStorageUtils";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface AboutTabProps {
   // onSpaceUpdate?: (updatedSpace: Database['public']['Tables']['spaces']['Row'] | null) => void; // Removed
+  _key?: string; // Added dummy prop to avoid empty interface warning
 }
 
-interface MediaItem {
-  type: 'image' | 'video';
-  url: string;
-  thumbnail?: string;
-  videoId?: string;
-  id: string; // Unique identifier
-  storagePath?: string; // Path in Supabase storage
-}
-
-// Constants for storage
-export const STORAGE_BUCKET_NAME = 'media';
-const MAX_FILE_SIZE_MB = 10;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-
-// Helper to convert file to base64 for fallback storage
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
-
-export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Removed onSpaceUpdate from props
+export default function AboutTab(props: AboutTabProps) { // Use props instead of empty object pattern
   const { spaceData, loading, error, fetchSpaceData } = useSpace(); // Keep for now, evaluate if storeSpace can replace entirely
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const { open: openSettingsModal } = useSpaceSettingsModal();
   const { 
@@ -59,13 +55,123 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
     permissions: storePermissions 
   } = useSpaceSettingsStore();
   
+  // FIXED: Use same fallback pattern as MembersTab and FeedTab
+  const currentSpaceData = storeSpace || spaceData;
+  
+  // Add state for member counts - same as FeedTab
+  const [adminCount, setAdminCount] = useState<number>(0);
+  const [onlineCount, setOnlineCount] = useState<number>(0);
+  const [activeMemberCount, setActiveMemberCount] = useState<number>(0);
+  
   // Use MembershipContext instead of direct Supabase calls
   const { 
     isMember, 
-    isOwner, 
     loading: membershipLoading, 
     joinSpace 
   } = useMembership();
+  
+  // Admin count with React Query
+  const { data: adminCountData } = useQuery({
+    queryKey: ['adminCount', currentSpaceData?.id],
+    queryFn: async () => {
+      if (!currentSpaceData?.id) return 0;
+      
+      const { count, error } = await getSupabaseClient()
+        .from('space_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('space_id', currentSpaceData.id)
+        .eq('role', 'admin'); // Query only for 'admin' role
+        
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!currentSpaceData?.id,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000,
+  });
+  
+  // Online count with React Query
+  const { data: onlineCountData, refetch: refetchOnlineCount } = useQuery({
+    queryKey: ['onlineCount', currentSpaceData?.id],
+    queryFn: async () => {
+      if (!currentSpaceData?.id) return 0;
+      
+      const { count, error } = await getSupabaseClient()
+        .from('space_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('space_id', currentSpaceData.id)
+        .eq('is_online', true);
+        
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!currentSpaceData?.id,
+    staleTime: 30 * 1000, // 30 seconds (online status changes more frequently)
+    gcTime: 5 * 60 * 1000,
+  });
+  
+  // Active member count with React Query
+  const { data: activeMemberCountData } = useQuery({
+    queryKey: ['activeMemberCount', currentSpaceData?.id],
+    queryFn: async () => {
+      if (!currentSpaceData?.id) return 0;
+      
+      const { count, error } = await getSupabaseClient()
+        .from('space_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('space_id', currentSpaceData.id)
+        .eq('status', 'active');
+        
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!currentSpaceData?.id,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000,
+  });
+  
+  // Update state from React Query data
+  useEffect(() => {
+    if (adminCountData !== undefined) setAdminCount(adminCountData);
+  }, [adminCountData]);
+  
+  useEffect(() => {
+    if (onlineCountData !== undefined) setOnlineCount(onlineCountData);
+  }, [onlineCountData]);
+  
+  useEffect(() => {
+    if (activeMemberCountData !== undefined) setActiveMemberCount(activeMemberCountData);
+  }, [activeMemberCountData]);
+  
+  // Set up real-time subscription for online status changes
+  useEffect(() => {
+    if (!currentSpaceData?.id) return;
+    
+    // Set up subscription for online status changes
+    const subscription = getSupabaseClient()
+      .channel(`space_members_online:${currentSpaceData.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'space_members',
+        filter: `space_id=eq.${currentSpaceData.id}`
+      }, () => {
+        // When any space member updates their status, refetch the online count
+        refetchOnlineCount();
+      })
+      .subscribe();
+    
+    // Set up refresh interval for online counts (every 60 seconds)
+    const intervalId = setInterval(() => {
+      refetchOnlineCount();
+    }, 60000);
+    
+    // Clean up subscription and interval on unmount
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(intervalId);
+    };
+  }, [currentSpaceData?.id, refetchOnlineCount]);
   
   // useSpaceDescriptionManager for main space description
   const {
@@ -94,6 +200,42 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
   const dragNode = useRef<HTMLDivElement | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  
+  // Limit for media items
+  const MAX_MEDIA_ITEMS = 4;
+  
+  // Media items with React Query
+  const { 
+    data: mediaItemsData, 
+    isLoading: mediaLoading,
+    refetch: refetchMedia
+  } = useQuery({
+    queryKey: ['spaceMedia', currentSpaceData?.id],
+    queryFn: async () => {
+      if (!currentSpaceData?.id) return [];
+      return fetchSpaceMediaFromSupabase(currentSpaceData.id);
+    },
+    enabled: !!currentSpaceData?.id,
+    staleTime: 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000,
+  });
+  
+  // Update media items state when query data changes
+  useEffect(() => {
+    if (mediaItemsData) {
+      setMediaItems(mediaItemsData);
+    }
+  }, [mediaItemsData]);
+  
+  // Set active media index if null but we have media items
+  useEffect(() => {
+    if (mediaItems.length > 0 && activeMediaIndex === null) {
+      setActiveMediaIndex(0);
+    } else if (mediaItems.length === 0) {
+      setActiveMediaIndex(null);
+    }
+  }, [mediaItems, activeMediaIndex]);
   
   // State for joining a space
   const [joiningSpace, setJoiningSpace] = useState(false);
@@ -101,76 +243,45 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
   // Permissions from store
   const canEditSpace = storePermissions?.canEditSpace ?? false;
   
-  // About description state - now initialized from storeSpace
-  const [aboutDescription, setAboutDescription] = useState(storeSpace?.about_description || "");
-  const [aboutCharCount, setAboutCharCount] = useState((storeSpace?.about_description || "").length);
+  // About description state - now initialized from currentSpaceData
+  const [aboutDescription, setAboutDescription] = useState(currentSpaceData?.about_description || "");
+  const [aboutCharCount, setAboutCharCount] = useState((currentSpaceData?.about_description || "").length);
   const [editingAbout, setEditingAbout] = useState(false);
   const [aboutChanged, setAboutChanged] = useState(false);
   const [savingAbout, setSavingAbout] = useState(false);
   
-  // Update aboutDescription when storeSpace.about_description changes
+  // Update aboutDescription when currentSpaceData.about_description changes
   useEffect(() => {
-    setAboutDescription(storeSpace?.about_description || "");
-    setAboutCharCount((storeSpace?.about_description || "").length);
+    setAboutDescription(currentSpaceData?.about_description || "");
+    setAboutCharCount((currentSpaceData?.about_description || "").length);
     setAboutChanged(false); // Reset changed status when underlying data changes
-  }, [storeSpace?.about_description]);
+  }, [currentSpaceData?.about_description]);
   
-  // Add state for owner information
-  const [ownerData, setOwnerData] = useState<{
-    id: string;
-    email: string | null;
-    username: string | null;
-    display_name: string | null;
-    avatar_url: string | null;
-  } | null>(null);
-  
-  const fetchOwnerData = async () => {
-    if (!spaceData?.owner_id) return;
-    
-    try {
-      console.log("Fetching owner data for ID:", spaceData?.owner_id);
-      const { data, error } = await supabase
+  // Fetch owner details with React Query
+  const { data: ownerData, isLoading: ownerLoading } = useQuery({
+    queryKey: ['owner', currentSpaceData?.owner_id],
+    queryFn: async () => {
+      if (!currentSpaceData?.owner_id) return null;
+      
+      const { data, error } = await getSupabaseClient()
         .from('users')
-        .select('id, email, display_name, avatar_url')
-        .eq('id', spaceData?.owner_id)
+        .select('id, full_name, avatar_url')
+        .eq('id', currentSpaceData.owner_id)
         .single();
         
-      if (error) {
-        console.error("Error fetching owner data:", error);
-        return;
-      }
-      
-      if (data) {
-        console.log("Owner data retrieved:", data);
-        // Type assertion to handle the data properly
-        const userData = data as unknown as {
-          id: string;
-          email: string | null;
-          display_name: string | null;
-          avatar_url: string | null;
-        };
-        
-        // Only use the display_name if it exists
-        setOwnerData({
-          id: userData.id,
-          email: userData.email,
-          username: null,
-          display_name: userData.display_name,
-          avatar_url: userData.avatar_url
-        });
-      }
-    } catch (err) {
-      console.error("Exception fetching owner data:", err);
-    }
-  };
+      if (error) throw error;
+      return data as {
+        id: string;
+        full_name: string | null;
+        avatar_url: string | null;
+      } | null;
+    },
+    enabled: !!currentSpaceData?.owner_id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache longer
+  });
   
-  useEffect(() => {
-    fetchOwnerData();
-  }, [spaceData?.owner_id]);
-  
-  const sidebarOwnerProps = ownerData 
-    ? { ownerDisplayName: ownerData.display_name, ownerAvatarUrl: ownerData.avatar_url } 
-    : { ownerDisplayName: undefined, ownerAvatarUrl: undefined };
+  const isSpaceOwner = currentSpaceData?.owner_id === user?.id;
   
   // Function to handle joining the space
   const handleJoinSpace = async () => {
@@ -179,7 +290,7 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
       return;
     }
     
-    if (!spaceData?.id) {
+    if (!currentSpaceData?.id) {
       toast({
         title: "Error",
         description: "Space information is missing",
@@ -192,14 +303,14 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
     
     try {
       // Use the joinSpace function from MembershipContext
-      const success = await joinSpace(spaceData.id);
+      const success = await joinSpace(currentSpaceData.id);
       
-      if (success) {
-        toast({
-          title: "Joined space",
-          description: `You've successfully joined ${spaceData.name}.`,
-        });
-      }
+              if (success) {
+          toast({
+            title: "Joined space",
+            description: `You've successfully joined ${currentSpaceData.name}.`,
+          });
+        }
     } catch (err) {
       console.error("Error joining space:", err);
       toast({
@@ -217,22 +328,22 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
     const val = e.target.value;
     setAboutDescription(val);
     setAboutCharCount(val.length);
-    setAboutChanged(val !== (storeSpace?.about_description || "")); // Compare with storeSpace
+    setAboutChanged(val !== (currentSpaceData?.about_description || "")); // Compare with currentSpaceData
   };
   
   // Save about description
   const handleSaveAbout = async () => {
-    if (!aboutChanged || !aboutDescription.trim() || !storeSpace?.id || !user) return; // Use storeSpace.id and check user
+    if (!aboutChanged || !aboutDescription.trim() || !currentSpaceData?.id || !user) return; // Use currentSpaceData.id and check user
     
     setSavingAbout(true);
     try {
       // Create an update object with proper type assertion
       const updateData: Partial<Database['public']['Tables']['spaces']['Row']> = { about_description: aboutDescription.trim() };
       
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('spaces')
         .update(updateData)
-        .eq('id', storeSpace.id); // Use storeSpace.id
+        .eq('id', currentSpaceData.id); // Use currentSpaceData.id
       
       if (error) throw error;
       
@@ -245,8 +356,8 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
       setAboutChanged(false);
       
       // Refresh data using loadActiveSpace from the store
-      if (storeSpace?.subdomain && user?.id) {
-        loadActiveSpace({ subdomain: storeSpace.subdomain }, user.id, true);
+      if (currentSpaceData?.subdomain && user?.id) {
+        loadActiveSpace({ subdomain: currentSpaceData.subdomain }, user.id, true);
         }
       // Removed onSpaceUpdate call and manual fetchSpaceData
       
@@ -264,8 +375,8 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
   
   // Cancel about editing
   const handleCancelAbout = () => {
-    setAboutDescription(storeSpace?.about_description || ""); // Reset from storeSpace
-    setAboutCharCount((storeSpace?.about_description || "").length); // Reset from storeSpace
+    setAboutDescription(currentSpaceData?.about_description || ""); // Reset from currentSpaceData
+    setAboutCharCount((currentSpaceData?.about_description || "").length); // Reset from currentSpaceData
     setEditingAbout(false);
     setAboutChanged(false);
   };
@@ -274,21 +385,17 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
   useEffect(() => {
     const checkStorageBucket = async () => {
       try {
-        console.log('Starting storage bucket check...');
-        
         // First check if user is logged in
-        const { data: session } = await supabase.auth.getSession();
+        const { data: session } = await getSupabaseClient().auth.getSession();
         const isLoggedIn = !!session.session;
         
         if (!isLoggedIn) {
-          console.log('User not logged in - skipping storage check');
           setStorageError('Sign in required for permanent storage. Using local storage only.');
           return;
         }
 
         // Simplified bucket check - just try to list files
-        console.log('Testing storage access by listing files...');
-        const { data, error } = await supabase.storage
+        const { data, error } = await getSupabaseClient().storage
           .from(STORAGE_BUCKET_NAME)
           .list('');
         
@@ -298,9 +405,7 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
           return;
         }
         
-        console.log('Storage bucket accessible, files:', data);
         setStorageError(null);
-        console.log('Storage check complete - using Supabase storage');
         
       } catch (err) {
         console.error('Failed to check storage bucket:', err);
@@ -310,34 +415,6 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
     
     checkStorageBucket();
   }, []);
-  
-  // Load saved media items from localStorage on component mount
-  useEffect(() => {
-    if (!spaceData?.id) return;
-    
-    const savedMedia = localStorage.getItem(`space_media_${spaceData?.id}`);
-    if (savedMedia) {
-      try {
-        const parsedMedia = JSON.parse(savedMedia);
-        setMediaItems(parsedMedia);
-        // Always set the first item as active
-        if (parsedMedia.length > 0) {
-          setActiveMediaIndex(0);
-        }
-      } catch (e) {
-        console.error("Failed to parse saved media", e);
-      }
-    }
-  }, [spaceData?.id]);
-  
-  // Save media items to localStorage whenever they change
-  useEffect(() => {
-    if (mediaItems.length > 0 && spaceData?.id) {
-      localStorage.setItem(`space_media_${spaceData?.id}`, JSON.stringify(mediaItems));
-    } else if (spaceData?.id) {
-      localStorage.removeItem(`space_media_${spaceData?.id}`);
-    }
-  }, [mediaItems, spaceData?.id]);
   
   const handleUploadImage = () => {
     // Open the media modal instead of settings
@@ -370,411 +447,236 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
     return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
   };
   
-  // Update the uploadImageToStorage function to use Supabase when available
+  // Handle file upload to storage
   const uploadImageToStorage = async (file: File): Promise<{ url: string, path: string } | null> => {
-    if (!file) return null;
-    
-    // Check file size
+    try {
+      // Validate file
+      if (!file || !file.type.startsWith('image/')) {
+        toast({ title: "Invalid file", description: "Please select a valid image file.", variant: "destructive" });
+        return null;
+      }
+      
     if (file.size > MAX_FILE_SIZE_BYTES) {
       toast({
         title: "File too large",
-        description: `File size must be less than ${MAX_FILE_SIZE_MB}MB.`,
+          description: `Maximum file size is ${MAX_FILE_SIZE_MB}MB. Please select a smaller file.`, 
         variant: "destructive"
       });
       return null;
     }
     
+      // First check if storage is available
+      if (!user) {
+        toast({ title: "Sign in required", description: "You must be signed in to upload images.", variant: "destructive" });
+        return null;
+      }
+      
+      // Upload to Supabase Storage
+      if (!storageError && storeSpace?.id) {
     setIsUploading(true);
-    setUploadProgress(0);
-    
-    try {
-      console.log('Processing file upload:', file.name, file.type, file.size);
-      
-      // Simulate progress for better UX
-      setUploadProgress(25);
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Check if we have storage access before trying to upload
-      if (!storageError && user?.id) {
-        try {
-          // We have storage access, try to upload to Supabase
-          // Use simpler path format: spaces/[filename]
-          const filePath = `spaces/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-          
-          setUploadProgress(40);
-          console.log('Attempting Supabase upload to:', filePath);
-          
-          // Upload to Supabase storage
-          const { data, error } = await supabase.storage
+        // Get filetype and generate a unique path
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `${currentSpaceData.id}/${fileName}`;
+        
+        // Upload the file
+          const { data, error } = await getSupabaseClient().storage
             .from(STORAGE_BUCKET_NAME)
             .upload(filePath, file, {
               cacheControl: '3600',
-              upsert: true
-            });
-          
-          if (error) {
-            console.error('Supabase storage upload failed:', error);
-            throw error; // This will be caught by the outer try/catch
-          }
-          
-          setUploadProgress(90);
-          
-          // Get the public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from(STORAGE_BUCKET_NAME)
-            .getPublicUrl(filePath);
-          
-          console.log('File uploaded to Supabase storage:', publicUrl);
-          
-          setUploadProgress(100);
-          
-          // Return the public URL and storage path
-          return {
-            url: publicUrl,
-            path: filePath
-          };
-        } catch (uploadError) {
-          console.error('Error during Supabase upload, falling back to base64:', uploadError);
-          // Fall through to base64 encoding
-        }
-      }
-      
-      // Fall back to base64 if we don't have storage access or upload failed
-      console.log('Using base64 encoding for local storage');
-      setUploadProgress(60);
-      const base64Data = await fileToBase64(file);
-      setUploadProgress(90);
-      console.log('File converted to base64');
-      setUploadProgress(100);
-      
-      // Return base64 as the image source
-      return { 
-        url: base64Data, 
-        path: '' // Empty path as we're not using storage
-      };
-    } catch (error: unknown) {
-      console.error('Error uploading image:', error instanceof Error ? error.message : String(error));
+            upsert: false
+          });
+        
+        setIsUploading(false);
+        
+        if (error) {
       toast({
-        title: "Upload error",
-        description: (error instanceof Error ? error.message : String(error)) || "Something went wrong",
+            title: "Upload failed", 
+            description: error.message, 
         variant: "destructive"
       });
       return null;
-    } finally {
-      // Keep the uploading state for a moment to show the 100% progress
-      setTimeout(() => {
-        setIsUploading(false);
-        setUploadProgress(0);
-      }, 500);
-    }
-  };
-  
-  const handleAddMedia = async () => {
-    try {
-      if (mediaLink) {
-        // Handle video links
-        const videoId = extractVideoId(mediaLink);
-        if (videoId) {
-          // It's a YouTube video
-          const newMedia: MediaItem = {
-            id: uuidv4(),
-            type: 'video',
-            url: `https://www.youtube.com/embed/${videoId}`,
-            thumbnail: getVideoThumbnail(videoId),
-            videoId
-          };
-          
-          const newMediaItems = [...mediaItems, newMedia];
-          setMediaItems(newMediaItems);
-          // Set this as the active item
-          setActiveMediaIndex(newMediaItems.length - 1);
-          
-          toast({
-            title: "Video added successfully",
-            description: "Your YouTube video has been added and will persist across sessions.",
-            variant: "default"
-          });
-          
-          setShowMediaModal(false);
-          setMediaLink("");
+        }
+        
+        // Get the public URL of the uploaded file
+        const { data: { publicUrl } } = getSupabaseClient().storage
+          .from(STORAGE_BUCKET_NAME)
+          .getPublicUrl(data.path);
+        
+        return { url: publicUrl, path: data.path };
         } else {
-          // Not a valid YouTube URL
+        // Fallback to base64 storage if Supabase storage is not available
+        setIsUploading(true);
+        const base64 = await fileToBase64(file);
+        setIsUploading(false);
+        return { url: base64, path: '' };
+      }
+    } catch (error) {
+      setIsUploading(false);
           toast({
-            title: "Invalid URL",
-            description: "Please enter a valid YouTube video URL.",
+        title: "Upload failed", 
+        description: error instanceof Error ? error.message : "An unexpected error occurred", 
             variant: "destructive"
           });
-        }
-      } else if (fileInputRef.current?.files?.length) {
-        // Handle image file upload
-        const file = fileInputRef.current.files[0];
-        console.log("Uploading file:", file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-        
-        // Upload to Supabase or fall back to temporary URL
-        const uploadResult = await uploadImageToStorage(file);
-        
-        if (!uploadResult) {
-          console.error("Upload failed or was cancelled");
-          setSelectedFileName(null); // Reset selected filename on failure
-          return; // Error already displayed in toast
-        }
-        
-        // Create a new media item with the URL from storage or object URL
-        const newMedia: MediaItem = {
-          id: uuidv4(),
-          type: 'image',
-          url: uploadResult.url,
-          storagePath: uploadResult.path
-        };
-        
-        const newMediaItems = [...mediaItems, newMedia];
-        setMediaItems(newMediaItems);
-        // Set this as the active item
-        setActiveMediaIndex(newMediaItems.length - 1);
-        
-        toast({
-          title: "Image added",
-          description: "Your image has been uploaded successfully.",
-        });
-        
-        setShowMediaModal(false);
-        setMediaLink("");
-        setSelectedFileName(null); // Reset selected filename after upload
-        
-        // Reset file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      } else {
-        toast({
-          title: "No media selected",
-          description: "Please upload an image or add a video link.",
-          variant: "destructive"
-        });
-      }
-    } catch (error: unknown) {
-      console.error('Error adding media:', error);
-      toast({
-        title: "Operation failed",
-        description: (error instanceof Error ? error.message : String(error)) || "Something went wrong",
-        variant: "destructive"
-      });
-      setSelectedFileName(null); // Reset selected filename on error
+      return null;
     }
   };
   
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // This will be triggered when a file is selected
-    if (e.target.files?.length) {
-      const file = e.target.files[0];
-      console.log("File selected:", file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+  // Handle file selection in the upload input
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) {
+      setSelectedFileName(null);
+      return;
+    }
+    
+    const file = files[0];
       
-      // Set the selected filename
-      setSelectedFileName(file.name);
-      
-      // Validate file size early
+    // Validate file size
       if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({
           title: "File too large",
-          description: `File size must be less than ${MAX_FILE_SIZE_MB}MB.`,
+        description: `Maximum file size is ${MAX_FILE_SIZE_MB}MB. Please select a smaller file.`, 
           variant: "destructive"
         });
-        // Reset file input and filename
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
           setSelectedFileName(null);
-        }
+      e.target.value = ''; // Clear the input
+      return;
       }
-    } else {
-      setSelectedFileName(null);
-    }
-  };
-  
-  const handleImageUploadClick = () => {
-    // Trigger file input click
-    fileInputRef.current?.click();
-  };
-  
-  const handleRemoveMedia = async (index: number) => {
-    setMediaToDelete(index);
-    setShowDeleteConfirm(true);
-  };
-  
-  const confirmDelete = async () => {
-    if (mediaToDelete === null) return;
     
+    setSelectedFileName(file.name);
+  };
+  
+  // Handle confirmation of media deletion
+  const confirmDelete = async () => {
+    if (mediaToDelete === null || !storeSpace?.id) return;
+    setDeleting(true);
+    try {
     const index = mediaToDelete;
     const mediaItem = mediaItems[index];
-    
-    // If it's stored in Supabase and we have a path, try to delete it
-    if (mediaItem.type === 'image' && mediaItem.storagePath && !storageError) {
-      try {
-        const { error } = await supabase.storage
-          .from(STORAGE_BUCKET_NAME)
-          .remove([mediaItem.storagePath]);
-        
-        if (error) {
-          console.error('Failed to delete file from storage:', error);
-        }
-      } catch (err) {
-        console.error('Error during file deletion:', err);
+      if (!mediaItem) {
+        toast({ title: "Delete failed", description: "Media item not found.", variant: "destructive" });
+        setDeleting(false);
+        return;
       }
+      await deleteMediaFromSupabase(mediaItem.id, mediaItem.storagePath);
+      // Use React Query's refetch instead of manual fetch
+      refetchMedia();
+    setShowDeleteConfirm(false);
+    setMediaToDelete(null);
+      toast({ title: "Media deleted", description: "The selected media has been removed." });
+    } catch (err) {
+      console.error('Error deleting media:', err);
+      toast({ title: "Delete failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setDeleting(false);
     }
-    
-    setMediaItems(prev => {
-      const updated = [...prev];
-      updated.splice(index, 1);
-      
-      // Update active index if necessary
-      if (activeMediaIndex === index) {
-        setActiveMediaIndex(updated.length > 0 ? 0 : null);
-      } else if (activeMediaIndex !== null && index < activeMediaIndex) {
-        setActiveMediaIndex(activeMediaIndex - 1);
-      }
-      
-      return updated;
-    });
-    
-    // Close the confirmation dialog
-    setShowDeleteConfirm(false);
-    setMediaToDelete(null);
-    
-    toast({
-      title: "Media deleted",
-      description: "The selected media has been removed.",
-    });
-  };
-  
-  const cancelDelete = () => {
-    setShowDeleteConfirm(false);
-    setMediaToDelete(null);
-  };
-  
-  const handleThumbnailClick = (index: number) => {
-    setActiveMediaIndex(index);
-  };
-  
-  // Reorder the items and update the state
-  const handleReorder = () => {
-    // Exit if invalid indices
-    if (dragItem.current === null || dragOverItem.current === null) return;
-    
-    // Create a new copy of the array
-    const _mediaItems = [...mediaItems];
-    
-    // Get the dragged item content
-    const draggedItemContent = _mediaItems[dragItem.current];
-    
-    // Remove from old position
-    _mediaItems.splice(dragItem.current, 1);
-    
-    // Add at new position
-    _mediaItems.splice(dragOverItem.current, 0, draggedItemContent);
-    
-    // Reset references
-    dragItem.current = null;
-    dragOverItem.current = null;
-    
-    // Update the media items array
-    setMediaItems(_mediaItems);
-    
-    // Always set the first item as active
-    setActiveMediaIndex(0);
-    
-    // Wait a moment before removing dragging state for animation
-    setTimeout(() => {
-      setDragging(false);
-    }, 50);
-    
-    // Show success message
-    toast({
-      title: "Order updated",
-      description: "Your media items have been reordered successfully.",
-    });
   };
 
-  // Handle starting to drag
+  // Start drag
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    console.log("Drag started on item:", index);
-    
-    // Store the dragged node reference
+    // Set ref values for current drag item
+    dragItem.current = index;
     dragNode.current = e.currentTarget;
     
-    // Remember which item we're dragging
-    dragItem.current = index;
-    
-    // Add dragging styles
-    setTimeout(() => {
+    // Set dragging state for UI updates
       setDragging(true);
-    }, 0);
     
-    // Add dragging class to the element
-    e.currentTarget.classList.add('dragging');
+    // Add dragstart events
+    e.dataTransfer.setData("text/plain", index.toString());
+    e.dataTransfer.effectAllowed = "move";
     
-    // Required for Firefox
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
-  };
-
-  // Handle dropping
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    console.log("Drop event occurred, reordering items");
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Remove dragging class from the dragged element
+    // Add a class for CSS styling during drag
     if (dragNode.current) {
-      dragNode.current.classList.remove('dragging');
-      dragNode.current = null;
+      dragNode.current.classList.add("dragging");
     }
-    
-    // Reorder the items
-    handleReorder();
   };
 
-  // Handle item being dragged over
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+  // Handle drop
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
     
-    // Exit early if the drag is over the same item or no item is being dragged
-    if (dragItem.current === null || dragItem.current === index) return;
-    
-    // Update the target position
+    // Set the target item index
     dragOverItem.current = index;
     
-    console.log(`Dragging item ${dragItem.current} over item ${index}`);
+    // Call handleDragEnd to perform the reordering
+    handleDragEnd();
   };
 
-  // Handle drag end
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    console.log("Drag ended");
+  // Handle drag over
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
     
-    // Remove dragging class
-    if (dragNode.current) {
-      dragNode.current.classList.remove('dragging');
+    // Update dragOverItem to current hover index
+    // Only if it's a new item (prevent excessive updates)
+    if (dragOverItem.current !== index) {
+    dragOverItem.current = index;
+    }
+  };
+  
+  // End drag
+  const handleDragEnd = async () => {
+    setDragging(false);
+    
+    // Only perform reordering if both items are valid and storeSpace exists
+    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current || !storeSpace?.id) {
+      dragItem.current = null;
+      dragOverItem.current = null;
+      return;
     }
     
-    // Reset state if reordering wasn't performed (for example, dragged outside of valid area)
-    if (dragging) {
-      setDragging(false);
+    try {
+      // Re-order the array
+      const _items = [...mediaItems];
+      const itemToReorder = _items.splice(dragItem.current, 1)[0];
+      _items.splice(dragOverItem.current, 0, itemToReorder);
+      
+      // Set the new order property for each item
+      const reorderedItems = _items.map((item, index) => ({
+        ...item,
+        order: index
+      }));
+    
+      // Update state first for responsive UI
+      setMediaItems(reorderedItems);
+      setActiveMediaIndex(dragOverItem.current);
+      
+      // Then save to Supabase - pass just the IDs in the correct order
+      await reorderSpaceMediaInSupabase(currentSpaceData.id, reorderedItems.map(item => item.id));
+      
+      // Refresh data to ensure consistency
+      refetchMedia();
+      
+      toast({ 
+        title: "Media reordered", 
+        description: "The order of your media has been updated.", 
+        variant: "default" 
+      });
+    } catch (error) {
+      console.error('Error reordering media:', error);
+      toast({ 
+        title: "Reordering failed", 
+        description: "There was a problem updating the order. Please try again.", 
+        variant: "destructive" 
+      });
+      
+      // Refresh to restore original order
+      refetchMedia();
     }
     
-    // Reset references
-    dragNode.current = null;
+    // Reset drag references
     dragItem.current = null;
     dragOverItem.current = null;
   };
   
   // Settings button handler
   const handleOpenSettings = () => {
-    if (storeSpace?.id && storeSpace?.subdomain) {
-      openSettingsModal(storeSpace.id, storeSpace.subdomain);
-    } else {
-      toast({
-        title: "Error",
-        description: "Space information is missing or not loaded yet.",
-        variant: "destructive"
+          if (currentSpaceData && user?.id) {
+          const storeActions = useSpaceSettingsStore.getState();
+          storeActions.loadActiveSpace({ subdomain: currentSpaceData.subdomain, spaceId: currentSpaceData.id }, user.id, true).then(() => {
+            const storeActions = useSpaceSettingsStore.getState();
+            storeActions.openModal();
       });
     }
   };
@@ -824,26 +726,110 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
     return null;
   };
 
-  // Show loading state if data is being fetched
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-teal-600 mb-4" />
-          <p className="text-lg font-medium text-gray-700">Loading space information...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Show error state if there was a problem
-  if (error || !spaceData) {
+  // Handle reordering media items
+  const handleReorderMedia = (fromIndex: number, toIndex: number) => {
+    const newMediaItems = [...mediaItems];
+    const [movedItem] = newMediaItems.splice(fromIndex, 1);
+    newMediaItems.splice(toIndex, 0, movedItem);
+    setMediaItems(newMediaItems);
+    
+    // Update active index if necessary
+    if (activeMediaIndex === fromIndex) {
+      setActiveMediaIndex(toIndex);
+    } else if (
+      (activeMediaIndex > fromIndex && activeMediaIndex <= toIndex) ||
+      (activeMediaIndex < fromIndex && activeMediaIndex >= toIndex)
+    ) {
+      // Adjust active index based on the item movement direction
+      const adjustment = activeMediaIndex > fromIndex ? -1 : 1;
+      setActiveMediaIndex(activeMediaIndex + adjustment);
+    }
+    
+    toast({
+      title: "Media reordered",
+      description: "The order of your media gallery has been updated.",
+    });
+  };
+
+  // Handle deleting media items
+  const handleRemoveMedia = (index: number) => {
+    setMediaToDelete(index);
+    setShowDeleteConfirm(true);
+  };
+
+  // Add media to Supabase
+  const handleAddMedia = async () => {
+    try {
+      if (!storeSpace?.id) return;
+      if (mediaItems.length >= MAX_MEDIA_ITEMS) {
+        toast({ title: "Limit reached", description: `You can only add up to ${MAX_MEDIA_ITEMS} media items.`, variant: "destructive" });
+        return;
+      }
+      if (mediaLink) {
+        // Handle video links
+        const videoId = extractVideoId(mediaLink);
+        if (videoId) {
+          const newMedia: Omit<MediaItem, 'id'> & { order: number } = {
+            type: 'video',
+            url: `https://www.youtube.com/embed/${videoId}`,
+            thumbnail: getVideoThumbnail(videoId),
+            videoId,
+            order: mediaItems.length
+          };
+          const inserted = await addMediaToSupabase(currentSpaceData.id, newMedia);
+          if (inserted) {
+            // Use React Query's refetch instead of manual fetch
+            refetchMedia();
+            toast({ title: "Video added successfully", description: "Your YouTube video has been added.", variant: "default" });
+          }
+          setShowMediaModal(false);
+          setMediaLink("");
+        } else {
+          toast({ title: "Invalid URL", description: "Please enter a valid YouTube video URL.", variant: "destructive" });
+        }
+      } else if (fileInputRef.current?.files?.length) {
+        const file = fileInputRef.current.files[0];
+        const uploadResult = await uploadImageToStorage(file);
+        if (!uploadResult) {
+          setSelectedFileName(null);
+          return;
+        }
+        const newMedia: Omit<MediaItem, 'id'> & { order: number } = {
+          type: 'image',
+          url: uploadResult.url,
+          storagePath: uploadResult.path,
+          order: mediaItems.length
+        };
+        const inserted = await addMediaToSupabase(currentSpaceData.id, newMedia);
+        if (inserted) {
+          // Use React Query's refetch instead of manual fetch
+          refetchMedia();
+          toast({ title: "Image added", description: "Your image has been uploaded successfully." });
+        }
+        setShowMediaModal(false);
+        setMediaLink("");
+        setSelectedFileName(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } else {
+        toast({ title: "No media selected", description: "Please upload an image or add a video link.", variant: "destructive" });
+      }
+    } catch (error: unknown) {
+      console.error('Error adding media:', error);
+      toast({ title: "Operation failed", description: (error instanceof Error ? error.message : String(error)) || "Something went wrong", variant: "destructive" });
+      setSelectedFileName(null);
+    }
+  };
+
+  // FIXED: Trust SpaceProtectedRoute - don't show loading screen since access is already verified
+  // SpaceProtectedRoute ensures space data is available before rendering tabs
+  // Only show error state if there was a critical error AND no fallback data
+  if (error && !currentSpaceData) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Alert variant="destructive" className="max-w-lg">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {error ? `Error loading space: ${error.message}` : "Space data not available"}
+            {`Error loading space: ${error.message}`}
           </AlertDescription>
           <Button 
             variant="outline" 
@@ -858,374 +844,332 @@ export default function AboutTab({ /* onSpaceUpdate */ }: AboutTabProps) { // Re
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Main Content Area */}
-        <div className="flex-1 space-y-8">
-          {/* About Description Section */}
-    <div className="w-full bg-[#F5FAFA] p-6 rounded-xl">
-          <h1 className="text-2xl font-bold mb-4 text-[#37474F]">{spaceData?.name}</h1>
-          
-          {/* Main media area */}
-          {mediaItems.length > 0 && activeMedia ? (
-            <div className="mb-6">
-              {/* Main active media display */}
-              <div className="mb-4">
-                {activeMedia.type === 'video' ? (
-                  <div className="rounded-xl overflow-hidden aspect-video shadow-lg">
-                    <iframe 
-                      src={activeMedia.url} 
-                      className="w-full h-full"
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                      allowFullScreen
-                    ></iframe>
-                  </div>
-                ) : (
-                  <div className="rounded-xl overflow-hidden aspect-video shadow-lg">
-                    <img 
-                      src={activeMedia.url} 
-                      alt="Uploaded content"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-              </div>
-              
-              {/* Thumbnails row */}
-              <div className="flex overflow-x-auto pb-2 space-x-2 border border-gray-200 rounded-lg p-2"
-                   onDragOver={(e) => e.preventDefault()}
-                   onDrop={handleDrop}>
-                {mediaItems.map((item, index) => (
-                  <div 
-                    key={item.id} 
-                    className={`
-                      relative group flex-shrink-0 w-[90px] h-[56px] cursor-grab 
-                      rounded-md overflow-hidden
-                      ${activeMediaIndex === index ? 'ring-2 ring-[#26A69A]' : ''}
-                      ${dragging && dragItem.current === index ? 'opacity-50 border-2 border-dashed' : ''}
-                      ${dragging && dragOverItem.current === index ? 'border-2 border-amber-400' : ''}
-                      transition-all duration-150
-                    `}
-                    onClick={() => handleThumbnailClick(index)}
-                    draggable={true}
-                    onDragStart={(e) => handleDragStart(e, index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragEnd={handleDragEnd}
-                  >
-                    {item.type === 'video' ? (
-                      <>
-                        <img 
-                          src={item.thumbnail} 
-                          alt="Video thumbnail" 
-                          className="w-full h-full object-cover"
-                          draggable={false} 
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40">
-                          <Play className="h-5 w-5 text-white" />
-                        </div>
-                      </>
-                    ) : (
-                      <img 
-                        src={item.url} 
-                        alt="Thumbnail" 
-                        className="w-full h-full object-cover"
-                        draggable={false}
-                      />
-                    )}
-                    
-                    {/* Drag handle icon */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                      <div className="bg-black bg-opacity-50 rounded-full p-1">
-                        <ArrowUpDown className="h-4 w-4 text-white" />
-                      </div>
-                    </div>
-                    
-                    {/* Delete button (X) */}
-                    <button
-                      className="absolute top-1 right-1 bg-black bg-opacity-60 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveMedia(index);
-                      }}
-                      aria-label="Delete media"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-                
-                {/* Add button */}
-                <div 
-                  className="flex-shrink-0 w-[90px] h-[56px] flex items-center justify-center bg-[#E0F2F1] border-2 border-dashed border-[#26A69A] rounded-md cursor-pointer hover:bg-[#B2DFDB] transition-colors duration-200"
-                  onClick={handleUploadImage}
-                >
-                  <Plus className="h-5 w-5 text-[#26A69A]" />
-                </div>
-              </div>
-              
-              {mediaItems.length > 1 && (
-                <div className="flex items-center gap-2 mt-2">
-                  <ArrowUpDown className="h-4 w-4 text-gray-500" />
-                  <p className="text-xs text-gray-500">
-                    Drag thumbnails to rearrange them. The first thumbnail will be displayed in the main view.
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* Upload area */
-            <motion.div 
-              whileHover={{ boxShadow: "0 6px 12px rgba(0, 0, 0, 0.15)" }}
-              className="bg-[#E0F2F1] rounded-xl flex flex-col items-center justify-center cursor-pointer mb-6 border-2 border-dashed border-[#26A69A] transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08)]"
-              style={{ height: "396px" }}
-              onClick={handleUploadImage}
-            >
-              <div className="p-6 rounded-full bg-[#B2DFDB] mb-3">
-                <Upload className="h-8 w-8 text-[#26A69A]" />
-              </div>
-              <p className="text-[#26A69A] font-medium mb-1">Upload images / videos</p>
-              <p className="text-[#78909C] text-sm">Click to browse or drag and drop</p>
-            </motion.div>
-          )}
+  // Early return if no space data is available from either source
+  if (!currentSpaceData) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  // Add debug logging
+  console.log('🔧 [AboutTab] Data sources - storeSpace:', storeSpace ? 'available' : 'null', 'spaceData:', spaceData ? 'available' : 'null', 'currentSpaceData:', currentSpaceData?.id);
+  
+  // Ensure the component re-renders when currentSpaceData or its relevant properties change.
 
-          {/* Public/Member/Free metadata - similar to screenshot */}
-          <div className="flex items-center mb-6">
-            <div className="flex items-center">
-              <Globe className="h-4 w-4 mr-1 text-gray-700" /> 
-              <span className="text-sm text-gray-700">Public</span>
-            </div>
-            <div className="mx-3 text-gray-300">•</div>
-            <div className="flex items-center">
-              <Users className="h-4 w-4 mr-1 text-gray-700" /> 
-              <span className="text-sm text-gray-700">{spaceData?.member_count || 1} member{spaceData?.member_count !== 1 ? 's' : ''}</span>
-            </div>
-            <div className="mx-3 text-gray-300">•</div>
-            <div className="flex items-center">
-              <Tag className="h-4 w-4 mr-1 text-gray-700" /> 
-              <span className="text-sm text-gray-700">{spaceData?.pricing_type === 'free' ? 'Free' : 'Paid'}</span>
-            </div>
-            <div className="ml-auto">
-              <span className="text-sm text-gray-700">
-                  By {(ownerData as any)?.display_name || spaceData?.owner?.display_name || 'Space Creator'}
-              </span>
-            </div>
-          </div>
-          
-          {/* About this space section with description box */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-[#37474F] mb-3">About this space</h2>
-            
-              {canEditSpace && !editingAbout && (
-              <div className="flex justify-end mb-2">
-                <Button size="sm" variant="outline" onClick={() => setEditingAbout(true)}>
-                  Edit
-                </Button>
+  return (
+    <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4 p-2 md:p-3 bg-gray-50 dark:bg-gray-900 min-h-full">
+      <motion.div 
+        className="flex-grow space-y-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        {/* FIXED: Removed loading state - SpaceProtectedRoute ensures space data is available */}
+        {/* Display media gallery or intro display */}
+        {currentSpaceData && (
+          <>
+            {mediaLoading ? (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden p-8 mb-6">
+                <div className="w-full flex flex-col items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <span className="mt-2 text-sm text-gray-500">Loading media gallery...</span>
+                </div>
               </div>
-            )}
-            
-            {editingAbout ? (
-              <div className="border rounded-lg overflow-hidden">
-                <textarea
-                  placeholder="Add a description about your space..."
-                  className="w-full min-h-[200px] text-base focus:outline-none resize-none px-4 py-4"
-                  value={aboutDescription}
-                  onChange={handleAboutChange}
-                  maxLength={1000}
-                />
-                <div className="flex items-center justify-between px-4 py-2 bg-white text-xs text-gray-400">
-                  <span>{aboutCharCount} / 1000</span>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" onClick={handleCancelAbout} disabled={savingAbout}>
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleSaveAbout}
-                      disabled={!aboutChanged || !aboutDescription.trim() || savingAbout}
-                      className="bg-amber-300 hover:bg-amber-400 text-black font-semibold px-6"
-                    >
-                      {savingAbout ? "Saving..." : "Save"}
-                    </Button>
-                  </div>
+            ) : mediaItems.length > 0 ? (
+              <div className="mb-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+                  <MediaGallery
+                    mediaItems={mediaItems}
+                    readOnly={!canEditSpace}
+                    activeIndex={activeMediaIndex ?? 0}
+                    onActiveChange={setActiveMediaIndex}
+                    onDelete={canEditSpace ? handleRemoveMedia : undefined}
+                    onReorder={canEditSpace ? handleReorderMedia : undefined}
+                    ownerData={ownerData}
+                    showOwner={true}
+                  />
+                  {canEditSpace && mediaItems.length < MAX_MEDIA_ITEMS && (
+                    <div className="flex justify-center p-4 border-t">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowMediaModal(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Media
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
-              <div className="border rounded-lg p-4 bg-gray-50 min-h-[150px]">
-                <p className="whitespace-pre-line text-gray-700">
-                    {aboutDescription || <span className="text-gray-400">No description yet.</span>}
-                </p>
+            <div className="mb-6">
+            <SpaceIntroDisplay 
+              name={currentSpaceData.name}
+              introMediaType={currentSpaceData.intro_media_type as "image" | "video" | "none"}
+              introMediaUrl={currentSpaceData.intro_media_url as string}
+              coverPhotoUrl={currentSpaceData.cover_image}
+              spaceIconUrl={currentSpaceData.icon_image}
+              className="shadow-md"
+            />
+                
+                {/* Show thumbnails with the + button if there are no media items yet */}
+                {canEditSpace && (
+                  <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                    <div className="flex flex-wrap gap-2">
+                      <div 
+                        className="w-16 h-16 rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+                        onClick={() => setShowMediaModal(true)}
+                      >
+                        <Plus className="w-6 h-6 text-gray-400 hover:text-teal-500" />
+                      </div>
+                    </div>
+          </div>
+        )}
               </div>
             )}
+
+            {/* Add the space header information below the media section */}
+            <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 mb-4">
+              <Globe className="h-5 w-5" />
+              <span className="font-medium">Public Space</span>
+              <span className="mx-2">•</span>
+              <span>{activeMemberCount || 0} members</span>
+              <span className="mx-2">•</span>
+              <span>Free to Join</span>
+            </div>
+
+        {/* Existing About Section Title and Edit Button */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">About This Space</h2>
+          {canEditSpace && !editingAbout && (
+            <Button variant="outline" size="sm" onClick={() => setEditingAbout(true)}>
+              <Settings className="w-4 h-4 mr-2" /> Edit About
+            </Button>
+          )}
+        </div>
+
+        {/* Existing About Description Editor/Display */}
+        {editingAbout && canEditSpace ? (
+          <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+            <textarea
+              value={aboutDescription}
+              onChange={handleAboutChange}
+              placeholder="Tell everyone about your space..."
+              className="w-full p-3 min-h-[150px] focus:ring-0 border-0 focus:outline-none resize-none bg-transparent dark:text-gray-200"
+              maxLength={2000} // Example max length
+            />
+            <div className="flex justify-between items-center p-3 border-t dark:border-gray-700">
+              <span className="text-xs text-gray-500 dark:text-gray-400">{aboutCharCount}/2000</span>
+              <div className="space-x-2">
+                <Button variant="ghost" size="sm" onClick={handleCancelAbout} disabled={savingAbout}>Cancel</Button>
+                <Button size="sm" onClick={handleSaveAbout} disabled={!aboutChanged || savingAbout || !aboutDescription.trim()}>
+                  {savingAbout ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Save
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+                <div className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-200 whitespace-pre-line">
+            {currentSpaceData.about_description ? (
+              <p>{currentSpaceData.about_description}</p>
+            ) : (
+              <div className="text-center py-8">
+                {canEditSpace ? (
+                  // Admin/Owner empty state
+                  <div className="max-w-md mx-auto">
+                    <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FileText className="h-6 w-6 text-teal-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      Tell your story
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                      Help members understand what your space is about and what they can expect to find here.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setEditingAbout(true)}
+                      className="inline-flex items-center"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Add description
+                    </Button>
+                  </div>
+                ) : (
+                  // Member view - simpler message
+                  <p className="italic text-gray-500 dark:text-gray-400">
+                    The space creator hasn't added a detailed description yet.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+            </div>
         
-        {/* Sidebar Area - Now using SpaceInfoSidebar */}
-        {storeSpace && (
-          <div className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
-            <SpaceInfoSidebar
-              spaceName={storeSpace.name}
-              spaceIcon={storeSpace.icon_image}
-              coverImage={storeSpace.cover_image}
-              isPrivate={storeSpace.is_private}
-              memberCount={storeSpace.member_count}
-              ownerDisplayName={sidebarOwnerProps.ownerDisplayName}
-              ownerAvatarUrl={sidebarOwnerProps.ownerAvatarUrl}
-              canAccessSettings={storePermissions?.canAccessSettings}
-              subdomain={storeSpace.subdomain}
-              spaceId={storeSpace.id}
-            />
-          </div>
-        )}
-        {!storeSpace && !loading && (
-          <div className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
-            <p>Loading space details for sidebar...</p>
-          </div>
-        )}
-
-      </div>
-
-      {/* Media Upload Modal */}
-      <Dialog open={showMediaModal} onOpenChange={isUploading ? undefined : setShowMediaModal}>
-        <DialogContent className="sm:max-w-md p-0 gap-0 rounded-xl overflow-hidden border-0">
-          <DialogClose 
-            className={`absolute right-3 top-3 p-1 rounded-full ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`}
-            onClick={handleCloseModal}
-            disabled={isUploading}
-          >
-            <X className="h-4 w-4 text-gray-500" />
-          </DialogClose>
-          
-          <div className="p-6">
-            <DialogTitle className="text-xl font-semibold mb-4">Add media</DialogTitle>
+        <Separator className="my-6" />
+        
+        {/* Media Modal */}
+        {showMediaModal && (
+          <Dialog open={showMediaModal} onOpenChange={handleCloseModal}>
+            <DialogContent className="sm:max-w-md">
+              <DialogTitle>Add Media</DialogTitle>
+              
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="col-span-4">
+                    <p className="text-sm text-gray-500 mb-2">
+                      Add a YouTube video link or upload an image (max {MAX_FILE_SIZE_MB}MB)
+                    </p>
             
             {storageError && (
-              <Alert variant="warning" className="mb-4">
+                      <Alert variant="warning" className="mb-3">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{storageError}</AlertDescription>
+                        <AlertDescription className="text-xs">
+                          {storageError}
+                        </AlertDescription>
+              </Alert>
+            )}
+                
+                        {mediaItems.length >= MAX_MEDIA_ITEMS && (
+                          <Alert variant="destructive" className="mb-3">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription className="text-xs">
+                              You can only add up to {MAX_MEDIA_ITEMS} media items.
+                        </AlertDescription>
               </Alert>
             )}
             
-            <div className="space-y-4">
-              <div>
-                <p className="mb-2">Upload an image (1400 x 790 recommended, max {MAX_FILE_SIZE_MB}MB).</p>
+                    <div className="grid gap-2">
+                      <Input
+                        placeholder="Enter YouTube URL"
+                        value={mediaLink}
+                        onChange={(e) => setMediaLink(e.target.value)}
+                            disabled={isUploading || mediaItems.length >= MAX_MEDIA_ITEMS}
+                      />
+                      
+                      <div className="text-center my-2">
+                        <span className="text-gray-500 text-sm">OR</span>
+                      </div>
+                      
                 <input 
                   type="file" 
-                  id="media-file-input" 
-                  ref={fileInputRef}
                   accept="image/*" 
-                  onChange={handleFileInputChange}
+                        ref={fileInputRef}
+                            onChange={handleFileSelected}
                   className="hidden" 
+                            disabled={isUploading || mediaItems.length >= MAX_MEDIA_ITEMS}
                 />
+                      
                 <Button 
                   variant="outline" 
-                  onClick={handleImageUploadClick}
-                  className={`w-full rounded-lg border-gray-300 py-6 uppercase tracking-wide ${selectedFileName ? 'bg-gray-50' : ''}`}
-                  disabled={isUploading}
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading || mediaItems.length >= MAX_MEDIA_ITEMS}
+                        className="w-full"
                 >
                   {selectedFileName ? (
+                          <span className="truncate max-w-[200px]">{selectedFileName}</span>
+                        ) : (
                     <>
-                      <FileText className="h-4 w-4 mr-2" />
-                      CHANGE IMAGE
+                            <Upload className="mr-2 h-4 w-4" /> Upload Image
                     </>
-            ) : (
-                    "UPLOAD IMAGE"
                   )}
                 </Button>
-                
-                {selectedFileName && (
-                  <div className="mt-2 text-sm flex items-center text-gray-600">
-                    <FileText className="h-3 w-3 mr-1" /> 
-                    <span className="truncate">{selectedFileName}</span>
-              </div>
-            )}
-              </div>
-              
-              <div className="text-center my-2">
-                <p>Or, add a YouTube video link.</p>
-              </div>
-              
-              <Input
-                type="text"
-                placeholder="YouTube Link"
-                value={mediaLink}
-                onChange={(e) => setMediaLink(e.target.value)}
-                className="w-full p-3 rounded-lg"
-                disabled={isUploading}
-              />
             
               {isUploading && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-600">Uploading{uploadProgress === 100 ? ' complete' : '...'}</span>
-                    <span className="text-sm text-gray-600">{uploadProgress}%</span>
-              </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        uploadProgress === 100 ? 'bg-green-500' : 'bg-[#26A69A]'
-                      }`}
+                        <div className="mt-2">
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-teal-500 transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
               </div>
+                          <p className="text-xs text-center mt-1 text-gray-500">
+                            {uploadProgress < 100
+                              ? `Uploading... ${uploadProgress}%`
+                              : 'Processing...'}
+                          </p>
               </div>
               )}
+                    </div>
+                  </div>
             </div>
           </div>
           
-          <div className="flex justify-end items-center p-4 bg-gray-50 border-t border-gray-100 rounded-b-xl">
-            <Button 
-              variant="ghost" 
-              onClick={handleCloseModal}
-              className="uppercase mr-2 font-medium text-gray-500 hover:text-gray-700"
-              disabled={isUploading}
-          >
-              CANCEL
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" disabled={isUploading}>
+                    Cancel
             </Button>
-            
-              <Button 
-              onClick={handleAddMedia}
-              className={`${
-                isUploading ? 'bg-gray-400' : 'bg-amber-400 hover:bg-amber-500'
-              } uppercase text-black font-medium px-8`}
-              disabled={isUploading}
-            >
+                </DialogClose>
+                    <Button onClick={() => {
+                      if (selectedFileName || mediaLink) {
+                        handleAddMedia();
+                      }
+                    }} disabled={(!selectedFileName && !mediaLink) || isUploading || mediaItems.length >= MAX_MEDIA_ITEMS}>
               {isUploading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {uploadProgress === 100 ? 'FINISHING...' : 'UPLOADING...'}
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
                 </>
-              ) : 'ADD'}
+                  ) : (
+                    'Add Media'
+                  )}
               </Button>
-          </div>
+              </DialogFooter>
         </DialogContent>
       </Dialog>
+        )}
           
       {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="sm:max-w-md p-6 gap-6 rounded-xl">
-          <DialogTitle className="text-xl font-semibold mb-2">Delete media?</DialogTitle>
-          <p className="text-gray-700">Are you sure you want to delete? You can't undo this.</p>
-          
-          <DialogFooter className="flex justify-end gap-2 mt-4">
-            <Button
-              variant="outline"
-              onClick={cancelDelete}
-              className="text-gray-500 font-medium"
-            >
-              CANCEL
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              className="bg-amber-400 hover:bg-amber-500 text-black font-medium"
-            >
-              DELETE
-            </Button>
+        {showDeleteConfirm && (
+              <Dialog open={showDeleteConfirm} onOpenChange={(open) => {
+                setShowDeleteConfirm(open);
+                if (!open) setMediaToDelete(null);
+              }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogTitle>Delete Media</DialogTitle>
+              <p className="py-4">Are you sure you want to delete this media? This cannot be undone.</p>
+              <DialogFooter>
+                    <Button variant="outline" onClick={() => { setShowDeleteConfirm(false); setMediaToDelete(null); }} disabled={deleting}>Cancel</Button>
+                    <Button variant="destructive" onClick={confirmDelete} autoFocus disabled={deleting}>
+                      {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Delete
+                    </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+            )}
+
+          </>
+        )}
+
+      </motion.div>
+
+      {/* Sidebar */}
+      {currentSpaceData && (
+        <div className="hidden sm:block w-[273px] flex-shrink-0">
+          <SpaceInfoSidebar 
+            spaceName={currentSpaceData.name}
+            spaceIcon={currentSpaceData.icon_image}
+            spaceDescription={currentSpaceData.description} // This is the short description
+            coverImage={currentSpaceData.cover_image}
+            isPrivate={currentSpaceData.is_private}
+            memberCount={activeMemberCount} // Use the real-time count from direct query
+            adminCount={adminCount} // Use the real-time count from direct query
+            onlineCount={onlineCount} // Use the real-time count from direct query
+            canAccessSettings={storePermissions?.canAccessSettings} // This prop is used by SpaceInfoSidebar
+            subdomain={currentSpaceData.subdomain}
+            spaceId={currentSpaceData.id}
+            isOwner={isSpaceOwner} // Pass the derived isSpaceOwner
+            isMember={isMember} // Pass the membership status
+          />
+        </div>
+      )}
     </div>
   );
 } 

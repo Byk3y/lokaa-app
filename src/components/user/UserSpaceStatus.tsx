@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { userHasSpaces, getUserSpaceCounts } from '@/utils/userSpaceUtils';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react';
  * Can be used to check if a user has spaces and show appropriate UI
  */
 export default function UserSpaceStatus() {
-  const { user } = useAuth();
+  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [hasSpaces, setHasSpaces] = useState(false);

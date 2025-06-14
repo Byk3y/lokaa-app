@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { MemberStats, MemberStatus, SpaceMember, UseMembersParams } from '@/types/members';
 import { formatJoinedDate } from '@/utils/dateUtils';
 
@@ -9,13 +9,13 @@ import { formatJoinedDate } from '@/utils/dateUtils';
  * Currently using mock data with the structure matching our desired SpaceMember interface
  * Once the database schema is fully implemented, the mock data can be replaced with real queries
  */
-export function useSpaceMembers({
+export const useSpaceMembers = ({
   spaceId,
   status = 'active',
   searchQuery = '',
   limit = 50,
   page = 1
-}: UseMembersParams) {
+}: UseMembersParams) => {
   const [members, setMembers] = useState<SpaceMember[]>([]);
   const [stats, setStats] = useState<MemberStats>({
     totalMembers: 0,
@@ -153,7 +153,7 @@ export function useSpaceMembers({
         // To replace the mock implementation, uncomment this code:
         /*
         // Get members with join to users
-        const { data, error: membersError } = await supabase
+        const { data, error: membersError } = await getSupabaseClient()
           .from('space_members')
           .select(`
             id,
@@ -267,7 +267,7 @@ export function useSpaceMembers({
       
       // PROD IMPLEMENTATION (uncomment when DB schema is ready)
       /*
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('space_members')
         .update({ 
           last_active_at: new Date().toISOString(),
@@ -302,7 +302,7 @@ export function useSpaceMembers({
       
       // PROD IMPLEMENTATION (uncomment when DB schema is ready)
       /*
-      const { error } = await supabase
+      const { error } = await getSupabaseClient()
         .from('space_members')
         .update({ status: newStatus })
         .eq('id', memberId);
