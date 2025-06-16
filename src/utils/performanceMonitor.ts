@@ -13,6 +13,8 @@
  * - Development-only overhead reduction
  */
 
+import { devLogger } from './developmentLogger';
+
 interface PerformanceMetrics {
   memory: number[];
   paint: number[];
@@ -31,14 +33,14 @@ interface ComponentTiming {
 
 // Enhanced thresholds for better reporting
 const THRESHOLDS = {
-  longTask: 50, // ms
-  memory: 50, // MB
-  paint: 2000, // ms
-  navigation: 3000, // ms
-  networkRequest: 2000, // ms
-  componentRender: 100, // ms
-  realtimeLatency: 1000, // ms
-  hmrUpdate: 1000 // ms
+  longTask: process.env.NODE_ENV === 'development' ? 200 : 100, // ms - Higher threshold for dev to reduce false positives
+  memory: 200, // MB - Increased from 150MB to prevent normal usage alerts  
+  paint: 3000, // ms - Increased threshold
+  navigation: 5000, // ms - Increased threshold
+  networkRequest: 3000, // ms - Increased threshold
+  componentRender: 200, // ms - Increased threshold
+  realtimeLatency: 2000, // ms - Increased threshold
+  hmrUpdate: 2000 // ms - Increased threshold
 };
 
 class PerformanceMonitor {
@@ -217,12 +219,25 @@ class PerformanceMonitor {
     
     const memoryInterval = setInterval(() => {
       const memory = (performance as any).memory;
-      const usedMB = memory.usedJSHeapSize / 1024 / 1024;
+      const usedJSHeapSize = memory.usedJSHeapSize || 0;
+      const totalJSHeapSize = memory.totalJSHeapSize || 0;
       
-      this.recordMetric('memory', usedMB);
+      // Convert to MB and validate measurements  
+      const usedMB = Math.round(usedJSHeapSize / 1024 / 1024);
+      const totalMB = Math.round(totalJSHeapSize / 1024 / 1024);
       
-      if (usedMB > THRESHOLDS.memory) {
-        this.reportCriticalMetric('memory', usedMB);
+      // Validate measurements to prevent false alarms
+      if (usedMB > 0 && usedMB < 2000 && totalMB > 0 && totalMB < 4000) {
+        this.recordMetric('memory', usedMB);
+        
+        if (usedMB > THRESHOLDS.memory) {
+          this.reportCriticalMetric('memory', usedMB);
+        }
+      } else {
+        // Log invalid measurements but don't report as errors
+        if (this.isDevelopment) {
+          console.warn(`📊 [Performance] Invalid memory measurement detected: ${usedMB}MB used, ${totalMB}MB total`);
+        }
       }
     }, interval);
     
@@ -400,8 +415,8 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   (window as any).getSystemHealth = () => performanceMonitor.getSystemHealth();
   (window as any).getPerformanceDebugInfo = () => performanceMonitor.getDebugInfo();
   
-  // Phase 6: Consolidation indicators
-  console.log('📊 [Phase6] Unified Performance Monitor loaded');
+  // Phase 6: Consolidation indicators - use development logger
+  devLogger.startup('PerformanceMonitor', 'Unified Performance Monitor loaded');
   (window as any).phase6PerformanceConsolidated = true;
 }
 

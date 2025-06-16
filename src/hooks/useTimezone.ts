@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { globalCache } from '@/utils/globalCacheCoordinator';
 
 // Helper type for JSON data
 type JsonObject = Record<string, unknown>;
@@ -21,6 +22,10 @@ interface ChatParticipant {
   last_read_at?: string;
   // Add other chat participant fields as needed
 }
+
+// Cache for timezone data to prevent duplicate API calls
+const timezoneCache = new Map<string, { timezone: string; timestamp: number }>();
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 export function useTimezone() {
   const { user } = useOptimizedAuth();
@@ -43,16 +48,24 @@ export function useTimezone() {
     if (!user?.id) return;
 
     try {
-      // Get current user data
-      const { data: userData, error: userError } = await getSupabaseClient()
-        .from('users')
-        .select('social_links')
-        .eq('id', user.id)
-        .single();
+      // Use cached data first to avoid duplicate query
+      const cacheKey = `user-social-links:${user.id}`;
       
-      if (userError) {
-        throw userError;
-      }
+      const userData = await globalCache.get(
+        cacheKey,
+        async () => {
+          const { data, error } = await getSupabaseClient()
+            .from('users')
+            .select('social_links')
+            .eq('id', user.id)
+            .single();
+          
+          if (error) throw error;
+          return data;
+        },
+        'timezone-hook',
+        { maxAge: 5 * 60 * 1000 } // 5 minutes cache
+      );
 
       // Parse existing social_links or create new object
       const currentSocialLinks = userData?.social_links 
@@ -77,6 +90,10 @@ export function useTimezone() {
 
       if (error) throw error;
       
+      // Update cache
+      globalCache.warm(cacheKey, { social_links: updatedSocialLinks });
+      timezoneCache.set(user.id, { timezone, timestamp: Date.now() });
+      
       setUserTimezone(timezone);
       
       // Refresh user's online status
@@ -97,13 +114,31 @@ export function useTimezone() {
 
     try {
       setLoading(true);
-      const { data, error } = await getSupabaseClient()
-        .from('users')
-        .select('social_links')
-        .eq('id', user.id)
-        .single();
+      
+      // Check local cache first
+      const cached = timezoneCache.get(user.id);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setUserTimezone(cached.timezone);
+        setLoading(false);
+        return;
+      }
 
-      if (error) throw error;
+      const cacheKey = `user-social-links:${user.id}`;
+      const data = await globalCache.get(
+        cacheKey,
+        async () => {
+          const { data, error } = await getSupabaseClient()
+            .from('users')
+            .select('social_links')
+            .eq('id', user.id)
+            .single();
+
+          if (error) throw error;
+          return data;
+        },
+        'timezone-hook',
+        { maxAge: 5 * 60 * 1000 } // 5 minutes cache
+      );
 
       // Parse social_links to get timezone
       let timezone: string | undefined;
@@ -118,6 +153,7 @@ export function useTimezone() {
       
       if (timezone) {
         setUserTimezone(timezone);
+        timezoneCache.set(user.id, { timezone, timestamp: Date.now() });
       } else {
         // Otherwise detect and save their timezone
         const detectedTimezone = detectTimezone();

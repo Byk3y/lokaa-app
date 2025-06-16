@@ -654,6 +654,6 @@ if (typeof window !== 'undefined') {
   if (process.env.NODE_ENV === 'development') {
     (window as any).persistentCache = persistentCache;
     (window as any).cacheInstances = cacheInstances;
-    console.log('🔧 Cache debugging tools available: window.persistentCache, window.cacheInstances');
+    // Cache debugging tools available (logging moved to development logger)
   }
 } 

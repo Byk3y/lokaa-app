@@ -229,11 +229,16 @@ if (typeof window !== 'undefined') {
   }, 3000);
 }
 
-// Development helper - auto-run validation
+// Development helper - auto-run validation (mobile devices only)
 if (typeof window !== 'undefined' && import.meta.env?.DEV) {
-  // Run validation after a short delay to ensure all systems are loaded
-  setTimeout(() => {
-    console.log('🔧 Auto-running mobile validation...');
-    MobileConsoleValidator.logValidation();
-  }, 2000);
+  // Only auto-run on mobile devices to avoid desktop console spam
+  import('./mobileDetection').then(({ isMobile }) => {
+    if (isMobile()) {
+      // Run validation after a short delay to ensure all systems are loaded
+      setTimeout(() => {
+        console.log('🔧 Auto-running mobile validation...');
+        MobileConsoleValidator.logValidation();
+      }, 2000);
+    }
+  });
 } 

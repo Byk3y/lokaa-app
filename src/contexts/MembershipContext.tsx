@@ -3,6 +3,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import { toast } from '@/hooks/use-toast';
+import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
 
 // Type definitions
 export type MemberRole = 'owner' | 'admin' | 'member';
@@ -322,7 +323,13 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         return false;
       }
       if (membershipState.isAdmin && !membershipState.isOwner) {
-        const { data: targetUser } = await getSupabaseClient().from('space_members').select('role').eq('user_id', userId).eq('space_id', spaceId).single();
+        // CRITICAL FIX: Use bridge instead of direct call to prevent mobile blocking
+        const result = await supabaseIndexedDBBridge.getSpaceMembers(spaceId, { 
+          userId, 
+          forceNetwork: false 
+        });
+        
+        const targetUser = result.data?.find((member: any) => member.user_id === userId);
         const memberRole = targetUser?.role as MemberRole | undefined;
         if (memberRole && (memberRole === 'admin' || memberRole === 'owner')) {
           toast({ title: "Permission denied", description: "Admins cannot modify other admins or owner.", variant: "destructive" });
@@ -371,8 +378,14 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         return false;
       }
       if (membershipState.isAdmin && !membershipState.isOwner) {
-        const { data: targetUser, error: fetchError } = await getSupabaseClient().from('space_members').select('role').eq('user_id', userIdOfMemberToRemove).eq('space_id', spaceId).single();
-        if (fetchError) throw fetchError;
+        // CRITICAL FIX: Use bridge instead of direct call to prevent mobile blocking
+        const result = await supabaseIndexedDBBridge.getSpaceMembers(spaceId, { 
+          userId: userIdOfMemberToRemove, 
+          forceNetwork: false 
+        });
+        
+        const targetUser = result.data?.find((member: any) => member.user_id === userIdOfMemberToRemove);
+        if (result.error) throw result.error;
         if (targetUser?.role === 'admin') {
           toast({ title: "Permission Denied", description: "Admins cannot remove other admins.", variant: "destructive" });
           return false;
@@ -397,34 +410,28 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
     const { status: filterStatus = 'active', searchQuery = '', limit = 50, page = 1 } = options;
     if (!user) return [];
     try {
-      let query = supabase
-        .from('space_members')
-        .select(`
-          id, user_id, space_id, role, joined_at, status, is_online, last_active_at,
-          users (id, full_name, username, avatar_url)
-        `)
-        .eq('space_id', spaceId);
+      // CRITICAL FIX: Use bridge instead of direct call to prevent mobile blocking
+      const result = await supabaseIndexedDBBridge.getSpaceMembers(spaceId, {
+        status: options.status || 'active',
+        forceNetwork: false // Allow cache-first on mobile
+      });
+      
+      if (result.error) throw result.error;
+      const spaceMembersData = result.data || [];
 
-      if (options.status) {
-        query = query.eq('status', options.status);
-      } else {
-        query = query.eq('status', 'active'); // Default to active
-      }
-      query = query.order('joined_at', { ascending: false }).range((page - 1) * limit, page * limit - 1);
-      const { data: spaceMembersData, error: dbError } = await query;
-      if (dbError) throw dbError;
-
-      const transformedMembers: SpaceMember[] = (spaceMembersData || []).map((sm: RawFetchedSpaceMember) => {
+      const transformedMembers: SpaceMember[] = spaceMembersData.map((sm: any) => {
         let authoritativeRole = sm.role as MemberRole;
         if (spaceData && sm.user_id === spaceData.owner_id) {
           authoritativeRole = 'owner';
         }
         
-        const isValidUser = sm.users && !('error' in sm.users && sm.users.error !== undefined);
-        const userDetails = isValidUser ? (sm.users as UserRecord) : null;
+        // Handle user data from bridge response
+        const userDetails = sm.users || null;
 
         return {
-          id: sm.id, user_id: sm.user_id, space_id: sm.space_id,
+          id: sm.id, 
+          user_id: sm.user_id, 
+          space_id: sm.space_id,
           role: authoritativeRole,
           joined_at: sm.joined_at || new Date().toISOString(),
           status: sm.status as MemberStatus,
@@ -436,12 +443,18 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         };
       });
       
-      return searchQuery
+      // Apply search filtering and pagination on client side
+      let filteredMembers = searchQuery
         ? transformedMembers.filter(member => 
             member.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             member.username?.toLowerCase().includes(searchQuery.toLowerCase())
           )
         : transformedMembers;
+
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      return filteredMembers.slice(startIndex, endIndex);
     } catch (err) {
       console.error('[MembershipContext] Error fetching space members:', err);
       toast({ title: "Error Fetching Members", description: err instanceof Error ? err.message : "Could not retrieve list.", variant: "destructive"});

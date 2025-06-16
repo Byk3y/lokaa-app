@@ -309,7 +309,7 @@ function benchmarkComparison(): void {
 (window as any).quickPerformanceTest = quickPerformanceTest;
 (window as any).benchmarkComparison = benchmarkComparison;
 
-console.log('🔧 Performance Test Utilities Loaded');
+// Startup logging moved to development logger
 console.log('   - window.startPerformanceTest()  // 30-second comprehensive test');
 console.log('   - window.quickPerformanceTest()  // 10-second quick validation');
 console.log('   - window.benchmarkComparison()   // Show before/after comparison');

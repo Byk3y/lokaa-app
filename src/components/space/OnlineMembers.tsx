@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { usePresence } from '@/hooks/usePresence';
 import { useTimezone } from '@/hooks/useTimezone';
-import { useMemberCounts } from '@/hooks/useMemberCounts';
+import { useOptimizedMemberCounts } from '@/hooks/useOptimizedMemberCounts';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { SpaceMember } from '@/types/members';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -41,7 +41,7 @@ export function OnlineMembers({
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Use our member counts hook for count information
-  const { totalMembers, onlineMembers: onlineMemberCount, loading: countsLoading } = useMemberCounts(spaceId);
+  const { totalMembers, onlineMembers: onlineMemberCount, loading: countsLoading } = useOptimizedMemberCounts(spaceId);
   
   const fetchMembers = async (force = false) => {
     if (!spaceId) return;

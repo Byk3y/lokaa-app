@@ -7,6 +7,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { safelyNavigateToProfile } from '@/utils/profileRedirect';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { navigateToProfileWithContext, getCurrentSpaceContext } from '@/utils/spaceContextUtils';
+import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
 
 interface CustomMenuItem {
   label: string;
@@ -48,20 +49,20 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user: currentUser, signOut, userDetails } = useOptimizedAuth();
+  const { user: currentUser, signOut } = useOptimizedAuth();
   const [profileSlug, setProfileSlug] = useState<string | null>(null);
   
-  // Get user's profile URL from database
+  // Get user's profile URL from database - PROTECTED with IndexedDB bridge
   useEffect(() => {
     async function fetchProfileUrl() {
       if (!currentUser) return;
       
       try {
-        const { data, error } = await getSupabaseClient()
-          .from('users')
-          .select('profile_url')
-          .eq('id', currentUser.id)
-          .single();
+        // Use Supabase-IndexedDB bridge for mobile browser blocking protection
+        const { data, error, fromCache } = await supabaseIndexedDBBridge.getUserProfile(
+          currentUser.id, 
+          ['profile_url']
+        );
           
         if (error) {
           console.error('Error fetching profile URL:', error);
@@ -70,6 +71,10 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         
         if (data && data.profile_url) {
           setProfileSlug(data.profile_url);
+          
+          if (fromCache) {
+            console.log('🔧 [ProfileDropdown] Using cached profile_url data');
+          }
         }
       } catch (err) {
         console.error('Exception fetching profile URL:', err);
@@ -133,17 +138,17 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   // Get profile data for display
   const [userName, setUserName] = useState<string | null>(null);
   
-  // Fetch user's full name from the public.users table
+  // Fetch user's full name from the public.users table - PROTECTED with IndexedDB bridge
   useEffect(() => {
     async function fetchUserName() {
       if (!currentUser) return;
       
       try {
-        const { data, error } = await getSupabaseClient()
-          .from('users')
-          .select('full_name')
-          .eq('id', currentUser.id)
-          .single();
+        // Use Supabase-IndexedDB bridge for mobile browser blocking protection
+        const { data, error, fromCache } = await supabaseIndexedDBBridge.getUserProfile(
+          currentUser.id, 
+          ['full_name']
+        );
           
         if (error) {
           console.error('Error fetching user name:', error);
@@ -152,6 +157,10 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         
         if (data && data.full_name) {
           setUserName(data.full_name);
+          
+          if (fromCache) {
+            console.log('🔧 [ProfileDropdown] Using cached full_name data');
+          }
         }
       } catch (err) {
         console.error('Exception fetching user name:', err);
@@ -173,7 +182,6 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   
   // FIXED: Get avatar URL from multiple sources with proper fallback chain
   const avatarUrl = currentUser?.user_metadata?.avatar_url || 
-                    userDetails?.avatar_url || 
                     user?.user_metadata?.avatar_url || 
                     '';
   

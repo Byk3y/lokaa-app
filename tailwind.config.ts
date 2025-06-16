@@ -23,6 +23,22 @@ export default {
       },
     },
     extend: {
+      height: {
+        // Mobile viewport height utilities for keyboard handling
+        'screen-dynamic': '100dvh', // Dynamic viewport height
+        'screen-small': '100svh',   // Small viewport height
+        'screen-large': '100lvh',   // Large viewport height
+      },
+      minHeight: {
+        'screen-dynamic': '100dvh',
+        'screen-small': '100svh',
+        'screen-large': '100lvh',
+      },
+      maxHeight: {
+        'screen-dynamic': '100dvh',
+        'screen-small': '100svh',
+        'screen-large': '100lvh',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

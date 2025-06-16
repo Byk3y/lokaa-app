@@ -3,7 +3,7 @@
  * Tests the fixes implemented to resolve auth flow performance regressions
  */
 
-console.log('🔧 Phase 5B Performance Fix Validation Loaded');
+// Startup logging moved to development logger
 
 interface PerformanceTestResult {
   name: string;

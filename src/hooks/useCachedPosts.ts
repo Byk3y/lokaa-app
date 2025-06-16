@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { usePostsCache } from './usePostsCache';
 import type { CachedPostType } from './usePostsCache';
 import type { PostCardProps } from '@/features/posts/types/postCard';
+import { devLogger } from '../utils/developmentLogger';
 
 // Re-export the type for convenience
 export type { CachedPostType };
@@ -126,6 +127,80 @@ export function useCachedPosts(spaceId: string | undefined): UseCachedPostsRetur
 
   // Map CachedPostType to PostCardProps
   const mapPostToCardProps = (post: CachedPostType): PostCardProps => {
+    // Helper function to detect media type and file type from URL
+    const detectMediaInfo = (url: string): { type: 'file' | 'link' | 'video'; fileType?: string; videoPlatform?: 'youtube' | 'vimeo' | 'other'; videoId?: string | null; thumbnailUrl?: string | null; directUrl?: string } => {
+      if (!url || typeof url !== 'string') return { type: 'file' };
+      
+      const lowercaseUrl = url.toLowerCase();
+      
+      // Check for video patterns
+      if (lowercaseUrl.includes('youtube.com') || lowercaseUrl.includes('youtu.be')) {
+        const videoId = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/)?.[1] || null;
+        return {
+          type: 'video',
+          videoPlatform: 'youtube',
+          videoId,
+          thumbnailUrl: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null
+        };
+      }
+      
+      if (lowercaseUrl.includes('vimeo.com')) {
+        const videoId = url.match(/vimeo\.com\/(\d+)/)?.[1] || null;
+        return {
+          type: 'video',
+          videoPlatform: 'vimeo',
+          videoId
+        };
+      }
+      
+      if (lowercaseUrl.includes('.mp4') || lowercaseUrl.includes('.webm') || lowercaseUrl.includes('.mov') || lowercaseUrl.includes('.avi')) {
+        return {
+          type: 'video',
+          videoPlatform: 'other'
+        };
+      }
+      
+      // Check for GIF patterns - including Giphy URLs
+      if (lowercaseUrl.includes('.gif')) {
+        return { type: 'file', fileType: 'image/gif' };
+      }
+      if (lowercaseUrl.includes('giphy.com')) {
+        // Extract Giphy ID and convert to direct GIF URL
+        const giphyId = url.match(/giphy\.com\/gifs\/[^\/]*-([a-zA-Z0-9]+)$/)?.[1];
+        if (giphyId) {
+          // Convert to direct GIF URL
+          const directGifUrl = `https://media.giphy.com/media/${giphyId}/giphy.gif`;
+          return { 
+            type: 'file', 
+            fileType: 'image/gif',
+            // Store the direct URL for actual display
+            directUrl: directGifUrl
+          };
+        }
+        return { type: 'file', fileType: 'image/gif' };
+      }
+      if (lowercaseUrl.includes('imgur.com')) {
+        return { type: 'file', fileType: 'image/gif' };
+      }
+      
+      // Check for other image patterns - treat as files with image MIME types
+      if (lowercaseUrl.includes('.jpg') || lowercaseUrl.includes('.jpeg')) {
+        return { type: 'file', fileType: 'image/jpeg' };
+      }
+      if (lowercaseUrl.includes('.png')) {
+        return { type: 'file', fileType: 'image/png' };
+      }
+      if (lowercaseUrl.includes('.webp')) {
+        return { type: 'file', fileType: 'image/webp' };
+      }
+      if (lowercaseUrl.includes('.svg')) {
+        return { type: 'file', fileType: 'image/svg+xml' };
+      }
+      
+      // Default to file
+      return { type: 'file' };
+    };
+
     return {
       id: post.id,
       spaceId: post.space_id,
@@ -148,11 +223,63 @@ export function useCachedPosts(spaceId: string | undefined): UseCachedPostsRetur
       } : null,
       likes: post.like_count || 0,
       comments: post.comment_count || 0,
-      media_urls: post.media_urls?.filter(url => url && typeof url === 'string').map((url, index) => ({ 
-        id: `${post.id}-${index}`, 
-        url, 
-        type: 'image' as const 
-      })) || null,
+      media_urls: post.media_urls?.map((mediaItem: any, index) => {
+        // Handle different media_urls formats from database
+        let url: string;
+        let existingType: 'file' | 'link' | 'video' | undefined;
+        let existingFileType: string | undefined;
+        
+        // Use development logger for controlled logging
+        devLogger.log('MediaProcessing', `Processing media item ${index} for post "${post.title}"`, mediaItem);
+        
+        if (typeof mediaItem === 'string') {
+          // Legacy format: simple string URL
+          url = mediaItem;
+        } else if (mediaItem && typeof mediaItem === 'object') {
+          // New format: object with url property
+          if ((mediaItem as any).url) {
+            if (typeof (mediaItem as any).url === 'string') {
+              // Direct URL string
+              url = (mediaItem as any).url;
+            } else if ((mediaItem as any).url.url) {
+              // Nested URL (like Giphy objects)
+              url = (mediaItem as any).url.url;
+            } else {
+              devLogger.warn('MediaProcessing', 'Invalid media URL structure', mediaItem);
+              return null;
+            }
+          } else {
+            devLogger.warn('MediaProcessing', 'Media item missing URL', mediaItem);
+            return null;
+          }
+          
+          // Extract existing type information if available
+          existingType = (mediaItem as any).type;
+          existingFileType = (mediaItem as any).fileType;
+        } else {
+          devLogger.warn('MediaProcessing', 'Invalid media item', mediaItem);
+          return null;
+        }
+        
+        // Detect media info from URL if not already provided
+        const mediaInfo = detectMediaInfo(url);
+        
+        const result = {
+          id: `${post.id}-${index}`, 
+          url, 
+          type: (existingType || mediaInfo.type) as 'file' | 'link' | 'video',
+          ...(existingFileType && { fileType: existingFileType }),
+          ...(mediaInfo.fileType && !existingFileType && { fileType: mediaInfo.fileType }),
+          ...(mediaInfo.videoPlatform && { videoPlatform: mediaInfo.videoPlatform }),
+          ...(mediaInfo.videoId && { videoId: mediaInfo.videoId }),
+          ...(mediaInfo.thumbnailUrl && { thumbnailUrl: mediaInfo.thumbnailUrl }),
+          ...(mediaInfo.directUrl && { directUrl: mediaInfo.directUrl })
+        };
+        
+        // Log final result using development logger
+        devLogger.log('MediaProcessing', 'Final media result', result);
+        return result;
+      }).filter(Boolean) || null,
       isPinned: post.is_pinned || false,
       pinCategory: post.pin_category,
       isAdmin: false, // Will be set by the component
@@ -180,4 +307,4 @@ export function useCachedPosts(spaceId: string | undefined): UseCachedPostsRetur
     handlePinToggled,
     mapPostToCardProps,
   };
-} 
+}

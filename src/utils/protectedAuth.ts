@@ -1,0 +1,76 @@
+/**
+ * Protected Auth Utilities
+ * 
+ * Mobile-safe wrappers for Supabase auth calls that use IndexedDB bridge
+ * to prevent "Fetch API cannot load" errors on mobile browsers.
+ */
+
+import { supabaseIndexedDBBridge } from './supabaseIndexedDBBridge';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+
+/**
+ * Mobile-safe replacement for getSupabaseClient().auth.getUser()
+ * Uses IndexedDB bridge to handle mobile browser blocking
+ */
+export async function getProtectedCurrentUser(options: {
+  forceNetwork?: boolean;
+} = {}) {
+  try {
+    return await supabaseIndexedDBBridge.getCurrentUser(options);
+  } catch (error) {
+    console.warn('Protected auth fallback to direct call:', error);
+    
+    // Final fallback to direct call
+    try {
+      return await getSupabaseClient().auth.getUser();
+    } catch (directError) {
+      return { data: { user: null }, error: directError, fromCache: false };
+    }
+  }
+}
+
+/**
+ * Mobile-safe wrapper for presence updates
+ * Uses IndexedDB bridge to handle mobile browser blocking
+ */
+export async function updateProtectedPresence(
+  userId: string, 
+  isOnline: boolean, 
+  options: {
+    forceNetwork?: boolean;
+  } = {}
+) {
+  try {
+    return await supabaseIndexedDBBridge.updateGlobalPresence(userId, isOnline, options);
+  } catch (error) {
+    console.warn('Protected presence update failed:', error);
+    return { data: null, error, fromCache: false };
+  }
+}
+
+/**
+ * Check if we're in a mobile browser that might block network requests
+ */
+export function isMobileBrowser(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+/**
+ * Check if user returned from mobile background recently (within 30 seconds)
+ */
+export function didJustReturnFromBackground(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const lastVisibilityChange = (window as any).__lastVisibilityChange;
+  return lastVisibilityChange && (Date.now() - lastVisibilityChange) < 30000;
+}
+
+/**
+ * Determine if we should use cache-first approach
+ * Always returns boolean - true for mobile browsers (potential for blocking)
+ */
+export function shouldUseCacheFirst(): boolean {
+  // Mobile browsers have potential for network blocking when returning from background
+  // So we enable cache-first behavior for all mobile browsers as a safety measure
+  return isMobileBrowser();
+} 

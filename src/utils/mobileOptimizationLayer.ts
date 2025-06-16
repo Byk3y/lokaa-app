@@ -1,3 +1,6 @@
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { devLogger } from './developmentLogger';
+
 /**
  * 🚀 Mobile Optimization Layer (Phase 6)
  * 
@@ -153,7 +156,6 @@ class MobileOptimizationLayer {
   private setupSupabaseKeepAlive(): void {
     this.keepAliveInterval = setInterval(async () => {
       try {
-        const { supabase } = await import('@/integrations/supabase/client');
         await getSupabaseClient().from('posts').select('id', { count: 'exact', head: true }).limit(1);
         
         if (import.meta.env.DEV) {
@@ -384,7 +386,7 @@ if (typeof window !== 'undefined') {
   if (import.meta.env.DEV) {
     (window as any).mobileOptimizationLayer = layer;
     (window as any).getMobileOptimizationSummary = () => layer.getOptimizationSummary();
-    console.log('📱 [Phase6] Mobile Optimization Layer loaded');
+    devLogger.startup('MobileOptimization', 'Mobile Optimization Layer loaded');
     (window as any).phase6MobileConsolidated = true;
   }
 

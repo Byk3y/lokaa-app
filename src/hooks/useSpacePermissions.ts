@@ -165,7 +165,7 @@ export const useSpacePermissions = (spaceId: string): SpacePermissionsResult => 
   const canEditSpace = isOwner || isAdmin;
   const canManageMembers = isOwner || isAdmin;
   const canCreateContent = isMember; // Changed: Any member can create content
-  const canAccessSettings = isOwner;
+  const canAccessSettings = isOwner || isAdmin;
 
   // Prepare result object
   const result: SpacePermissionsResult = {

@@ -182,7 +182,7 @@ class ErrorHandlingSystem {
     }
 
     // Classify by error code (Supabase errors)
-    if (error?.code) {
+    if (error?.code && typeof error.code === 'string') {
       if (error.code === 'PGRST301' || error.code === 'PGRST116') {
         type = ErrorType.DATABASE;
         if (error.code === 'PGRST116') {
@@ -335,6 +335,7 @@ class ErrorHandlingSystem {
    * 📝 Log error for debugging and analytics
    */
   public logError(error: AppError): void {
+    // Add to error log
     this.errorLog.push(error);
     
     // Keep only last 100 errors
@@ -342,26 +343,35 @@ class ErrorHandlingSystem {
       this.errorLog = this.errorLog.slice(-100);
     }
 
-    // Console logging with appropriate level
+    // Console logging with clear, readable format
     const logMethod = error.severity === ErrorSeverity.CRITICAL ? 'error' : 
                      error.severity === ErrorSeverity.HIGH ? 'error' : 
                      error.severity === ErrorSeverity.MEDIUM ? 'warn' : 'log';
     
-    console[logMethod](`🚨 [ErrorHandling] ${error.type}:`, {
-      message: error.message,
+    // Format error message for better visibility
+    const errorMessage = error.message || 'Unknown error occurred';
+    const contextInfo = error.context?.component ? ` in ${error.context.component}` : '';
+    const operationInfo = error.context?.operation ? ` during ${error.context.operation}` : '';
+    
+    console[logMethod](`🚨 [ErrorHandling] ${error.type}: ${errorMessage}${contextInfo}${operationInfo}`, {
+      severity: error.severity,
       userMessage: error.userMessage,
-      context: error.context,
-      severity: error.severity
+      ...(error.context && Object.keys(error.context).length > 0 && { context: error.context }),
+      ...(error.stackTrace && { stackTrace: error.stackTrace }),
+      timestamp: new Date(error.timestamp).toISOString()
     });
 
-    // Show user notification for significant errors
-    if (error.severity !== ErrorSeverity.LOW && !error.context.silent) {
-      toast({
-        title: error.severity === ErrorSeverity.CRITICAL ? 'Critical Error' : 'Error',
-        description: error.userMessage,
-        variant: 'destructive',
-        duration: error.severity === ErrorSeverity.CRITICAL ? 0 : 5000
-      });
+    // Show user notification for significant errors (async to avoid render-phase updates)
+    if (error.severity !== ErrorSeverity.LOW && !error.context?.silent) {
+      // Use setTimeout to avoid calling toast during render phase
+      setTimeout(() => {
+        toast({
+          title: error.severity === ErrorSeverity.CRITICAL ? 'Critical Error' : 'Error',
+          description: error.userMessage,
+          variant: 'destructive',
+          duration: error.severity === ErrorSeverity.CRITICAL ? 0 : 5000
+        });
+      }, 0);
     }
   }
 

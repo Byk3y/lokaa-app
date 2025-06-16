@@ -14,10 +14,13 @@ import { extractVideoInfo } from '@/shared/utils/media-utils';
 import { CategoryTag } from '@/components/ui/category-tag';
 import { usePostDetail } from '@/hooks/usePostDetail';
 import { LikeButton, CommentButton } from "@/components/ui/post-icons";
+import { devLogger } from '../../utils/developmentLogger';
 
 // Optimized media detection helper function
-const getFirstMedia = (mediaUrls?: Array<{ url: string; type?: string; fileType?: string }> | null): { url: string; type: 'video' | 'gif' | 'image'; thumbnailUrl?: string } | null => {
-  if (!mediaUrls || mediaUrls.length === 0) return null;
+const getFirstMedia = (mediaUrls?: Array<{ url: string; type?: string; fileType?: string; videoPlatform?: string; videoId?: string | null; thumbnailUrl?: string | null; directUrl?: string }> | null): { url: string; type: 'video' | 'gif' | 'image'; thumbnailUrl?: string } | null => {
+  if (!mediaUrls || mediaUrls.length === 0) {
+    return null;
+  }
   
   for (const media of mediaUrls) {
     // Add null/undefined check for media.url
@@ -27,38 +30,53 @@ const getFirstMedia = (mediaUrls?: Array<{ url: string; type?: string; fileType?
     
     // Check direct type property first (videos have type: "video")
     if (media.type === 'video') {
-      // Extract video info to get thumbnail
-      const videoInfo = extractVideoInfo(media.url);
-      return { 
+      // Use provided thumbnail URL if available, otherwise extract from URL
+      let thumbnailUrl = media.thumbnailUrl;
+      if (!thumbnailUrl) {
+        const videoInfo = extractVideoInfo(media.url);
+        thumbnailUrl = videoInfo.thumbnailUrl || undefined;
+      }
+      
+      const result = { 
         url: media.url, 
-        type: 'video',
-        thumbnailUrl: videoInfo.thumbnailUrl || undefined
+        type: 'video' as const,
+        thumbnailUrl
       };
+      return result;
     }
     
     // Check for file types
     if (media.type === 'file' && media.fileType) {
       if (media.fileType === 'image/gif') {
-        return { url: media.url, type: 'gif' };
+        const result = { 
+          url: media.directUrl || media.url, // Use directUrl if available (for Giphy)
+          type: 'gif' as const 
+        };
+        return result;
       }
       if (media.fileType.startsWith('image/')) {
-        return { url: media.url, type: 'image' };
+        const result = { url: media.url, type: 'image' as const };
+        return result;
       }
       if (media.fileType.startsWith('video/')) {
-        return { url: media.url, type: 'video' };
+        const result = { url: media.url, type: 'video' as const };
+        return result;
       }
     }
     
     // Fallback: check URL patterns - now safe to call toLowerCase()
     const lowercaseUrl = media.url.toLowerCase();
     if (lowercaseUrl.includes('.mp4') || lowercaseUrl.includes('.webm') || lowercaseUrl.includes('.mov')) {
-      return { url: media.url, type: 'video' };
+      const result = { url: media.url, type: 'video' as const };
+      return result;
     }
     if (lowercaseUrl.includes('.gif')) {
-      return { url: media.url, type: 'gif' };
+      const result = { url: media.url, type: 'gif' as const };
+      return result;
     }
     if (lowercaseUrl.includes('.jpg') || lowercaseUrl.includes('.jpeg') || lowercaseUrl.includes('.png') || lowercaseUrl.includes('.webp')) {
-      return { url: media.url, type: 'image' };
+      const result = { url: media.url, type: 'image' as const };
+      return result;
     }
   }
   
@@ -93,6 +111,7 @@ const PostCardMedia = memo(({ media, contentGifUrl, onClick }: {
             className="w-full h-full object-cover"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
+              console.log('🎬 [PostCardMedia] Video thumbnail failed to load:', displayMedia.thumbnailUrl || displayMedia.url);
               // Fallback to a simple placeholder if thumbnail fails
               target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyIiBoZWlnaHQ9IjEwMiIgdmlld0JveD0iMCAwIDEwMiAxMDIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDIiIGhlaWdodD0iMTAyIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik00MSAzNUw2MSA1MUw0MSA2N1YzNVoiIGZpbGw9IiM2QjdGODAiLz4KPC9zdmc+';
             }}
@@ -103,24 +122,24 @@ const PostCardMedia = memo(({ media, contentGifUrl, onClick }: {
             </div>
           </div>
         </div>
-      ) : (
+      ) : displayMedia.type === 'gif' ? (
         <img 
           src={displayMedia.url} 
-          alt={displayMedia.type === 'gif' ? 'GIF' : 'Image'}
+          alt="GIF"
           className="w-full h-full object-cover"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            // For Giphy URLs, try converting to direct media URL - with stronger type checking
-            if (displayMedia?.url && typeof displayMedia.url === 'string' && displayMedia.url.includes('giphy.com/gifs/')) {
-              const gifId = displayMedia.url.split('-').pop();
-              if (gifId) {
-                const directUrl = `https://media.giphy.com/media/${gifId}/giphy.gif`;
-                target.src = directUrl;
-                return;
-              }
-            }
-            // Fallback to placeholder
-            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyIiBoZWlnaHQ9IjEwMiIgdmlld0JveD0iMCAwIDEwMiAxMDIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDIiIGhlaWdodD0iMTAyIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik01MSAzNkM0Ni4wMjk0IDM2IDQyIDQwLjAyOTQgNDIgNDVWNjFDNDIgNjUuOTcwNiA0Ni4wMjk0IDcwIDUxIDcwQzU1Ljk3MDYgNzAgNjAgNjUuOTcwNiA2MCA2MVY0NUM2MCA0MC4wMjk0IDU1Ljk3MDYgMzYgNTEgMzZaIiBmaWxsPSIjOUI5QjlCIi8+CjxwYXRoIGQ9Ik00Ny41IDQ3SDU0LjVWNTlINDcuNVY0N1oiIGZpbGw9IndoaXRlIi8+PC9zdmc+';
+            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyIiBoZWlnaHQ9IjEwMiIgdmlld0JveD0iMCAwIDEwMiAxMDIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDIiIGhlaWdodD0iMTAyIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik00MSAzNUw2MSA1MUw0MSA2N1YzNVoiIGZpbGw9IiM2QjdGODAiLz4KPC9zdmc+';
+          }}
+        />
+      ) : (
+        <img 
+          src={displayMedia.url} 
+          alt="Image"
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyIiBoZWlnaHQ9IjEwMiIgdmlld0JveD0iMCAwIDEwMiAxMDIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDIiIGhlaWdodD0iMTAyIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik00MSAzNUw2MSA1MUw0MSA2N1YzNVoiIGZpbGw9IiM2QjdGODAiLz4KPC9zdmc+';
           }}
         />
       )}
@@ -217,8 +236,33 @@ const PostCard = memo(function PostCard({
 
   // Detect media for display
   const firstMedia = useMemo(() => {
-    return getFirstMedia(media_urls);
-  }, [media_urls]);
+    const result = getFirstMedia(media_urls);
+    
+    // Only warn if we have URLs that look like media but failed to process
+    if (media_urls && media_urls.length > 0 && !result) {
+      const hasActualMediaUrls = media_urls.some(media => {
+        if (!media?.url || typeof media.url !== 'string') return false;
+        const url = media.url.toLowerCase();
+        // Check if it looks like media (not documents, text files, etc.)
+        return url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || 
+               url.includes('.gif') || url.includes('.webp') || url.includes('.mp4') || 
+               url.includes('.webm') || url.includes('.mov') || url.includes('youtube') || 
+               url.includes('vimeo') || url.includes('giphy') || media.type === 'video' ||
+               (media.fileType && (media.fileType.startsWith('image/') || media.fileType.startsWith('video/')));
+      });
+      
+      // Only warn for actual media detection failures, not document files
+      if (hasActualMediaUrls) {
+        devLogger.warn('MediaDetection', `Media detection failed for post: ${title || id}`, {
+          media_urls_count: media_urls.length,
+          first_url: media_urls[0]?.url,
+          detected_media: result
+        });
+      }
+    }
+    
+    return result;
+  }, [media_urls, id, title]);
   const hasMedia = !!(firstMedia || content_gif_url);
 
   // Handle card click

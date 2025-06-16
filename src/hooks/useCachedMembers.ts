@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useMembersCache } from './useMembersCache';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useSpacePresence } from '@/hooks/useUnifiedPresence';
 import type { CachedMemberType } from './useMembersCache';
 import type { MemberRole } from '@/contexts/MembershipContext';
 
@@ -25,8 +26,9 @@ interface UseCachedMembersReturn {
   getSpaceOwner: () => CachedMemberType | undefined;
 }
 
-export function useCachedMembers(spaceId: string | undefined): UseCachedMembersReturn {
-  const { loading: authLoading } = useOptimizedAuth();
+export const useCachedMembers = (spaceId: string | undefined): UseCachedMembersReturn => {
+  const { user, loading: authLoading } = useOptimizedAuth();
+  const { onlineUsers } = useSpacePresence(spaceId || ''); // Get real-time online users
   const {
     fetchMembers,
     getMembers,
@@ -50,6 +52,14 @@ export function useCachedMembers(spaceId: string | undefined): UseCachedMembersR
   const members = Array.isArray(rawMembers) ? rawMembers : [];
   const loading = authLoading || (spaceId ? isLoading(spaceId) : !spaceId);
   const error = spaceId ? getError(spaceId) : null;
+
+  // Memoize members with real-time online status
+  const membersWithRealTimePresence = useMemo(() => {
+    return members.map(member => ({
+      ...member,
+      is_online: onlineUsers.includes(member.user_id) // Override with real-time presence
+    }));
+  }, [members, onlineUsers]);
 
   // Refetch function
   const refetch = async (forceRefresh = false) => {
@@ -84,7 +94,7 @@ export function useCachedMembers(spaceId: string | undefined): UseCachedMembersR
   };
 
   // Utility functions with safety checks
-  const getAdminAndOwnerMembers = (): CachedMemberType[] => {
+  const getAdminAndOwnerMembers = (members: CachedMemberType[]): CachedMemberType[] => {
     if (!Array.isArray(members)) return [];
     return members
       .filter(member => member && (member.role === 'owner' || member.role === 'admin'))
@@ -97,20 +107,20 @@ export function useCachedMembers(spaceId: string | undefined): UseCachedMembersR
       });
   };
 
-  const getRegularMembers = (): CachedMemberType[] => {
+  const getRegularMembers = (members: CachedMemberType[]): CachedMemberType[] => {
     if (!Array.isArray(members)) return [];
     return members
       .filter(member => member && member.role !== 'owner' && member.role !== 'admin')
       .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
   };
 
-  const getSpaceOwner = (): CachedMemberType | undefined => {
+  const getSpaceOwner = (members: CachedMemberType[]): CachedMemberType | undefined => {
     if (!Array.isArray(members)) return undefined;
     return members.find(member => member && member.role === 'owner');
   };
 
   return {
-    members,
+    members: membersWithRealTimePresence,
     loading,
     error,
     refetch,
@@ -118,8 +128,8 @@ export function useCachedMembers(spaceId: string | undefined): UseCachedMembersR
     handleMemberUpdated,
     handleMemberRemoved,
     handleMemberRoleChanged,
-    getAdminAndOwnerMembers,
-    getRegularMembers,
-    getSpaceOwner,
+    getAdminAndOwnerMembers: () => getAdminAndOwnerMembers(membersWithRealTimePresence),
+    getRegularMembers: () => getRegularMembers(membersWithRealTimePresence),
+    getSpaceOwner: () => getSpaceOwner(membersWithRealTimePresence),
   };
 } 

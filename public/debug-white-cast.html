@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White Cast Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .debug-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .overlay-found {
+            background: #dc3545;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .overlay-clear {
+            background: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 White Cast Debug Tool</h1>
+    
+    <div class="debug-panel">
+        <h2>Phase Implementation Tests</h2>
+        <p>Click each button to test different phase implementations and identify overlay sources:</p>
+        
+        <button class="test-button" onclick="testPhase8A()">Test Phase 8A</button>
+        <button class="test-button" onclick="testPhase8B()">Test Phase 8B</button>
+        <button class="test-button" onclick="testPhase8C()">Test Phase 8C</button>
+        <button class="test-button" onclick="testPerformanceMonitor()">Test Performance Monitor</button>
+        <button class="test-button" onclick="scanForOverlays()">Scan All Overlays</button>
+        <button class="test-button" onclick="clearAllOverlays()">Clear All Overlays</button>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Overlay Detection Results</h2>
+        <div id="overlay-status"></div>
+    </div>
+
+    <div class="debug-panel">
+        <h2>Debug Log</h2>
+        <div id="debug-log" class="log"></div>
+    </div>
+
+    <script>
+        let debugLog = document.getElementById('debug-log');
+        let overlayStatus = document.getElementById('overlay-status');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.textContent += `[${timestamp}] ${message}\n`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(`[WhiteCastDebug] ${message}`);
+        }
+
+        function updateOverlayStatus(overlays) {
+            if (overlays.length === 0) {
+                overlayStatus.innerHTML = '<div class="overlay-clear">✅ No suspicious overlays detected</div>';
+            } else {
+                overlayStatus.innerHTML = `<div class="overlay-found">⚠️ Found ${overlays.length} potential overlay(s)</div>`;
+                overlays.forEach((overlay, index) => {
+                    overlayStatus.innerHTML += `<div style="margin: 5px 0; padding: 8px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                        <strong>Overlay ${index + 1}:</strong><br>
+                        Element: ${overlay.tagName}<br>
+                        Classes: ${overlay.className}<br>
+                        Z-index: ${overlay.zIndex}<br>
+                        Background: ${overlay.background}<br>
+                        Position: ${overlay.position}
+                    </div>`;
+                });
+            }
+        }
+
+        function scanForOverlays() {
+            log('🔍 Scanning for overlays...');
+            
+            const suspiciousOverlays = [];
+            const allElements = document.querySelectorAll('*');
+            
+            allElements.forEach(el => {
+                const styles = window.getComputedStyle(el);
+                const position = styles.position;
+                const zIndex = styles.zIndex;
+                const background = styles.backgroundColor;
+                const backdropFilter = styles.backdropFilter;
+                
+                // Check for overlay characteristics
+                if (
+                    (position === 'fixed' || position === 'absolute') &&
+                    (zIndex && parseInt(zIndex) > 40) &&
+                    (
+                        background.includes('rgba') || 
+                        background.includes('hsla') ||
+                        backdropFilter !== 'none' ||
+                        el.className.includes('overlay') ||
+                        el.className.includes('backdrop') ||
+                        el.className.includes('modal') ||
+                        styles.opacity < 1
+                    )
+                ) {
+                    suspiciousOverlays.push({
+                        element: el,
+                        tagName: el.tagName,
+                        className: el.className,
+                        zIndex: zIndex,
+                        background: background,
+                        position: position,
+                        backdropFilter: backdropFilter
+                    });
+                }
+            });
+            
+            log(`Found ${suspiciousOverlays.length} suspicious overlays`);
+            updateOverlayStatus(suspiciousOverlays);
+            
+            return suspiciousOverlays;
+        }
+
+        function clearAllOverlays() {
+            log('🧹 Attempting to clear all overlays...');
+            
+            const overlays = scanForOverlays();
+            let removedCount = 0;
+            
+            overlays.forEach(overlay => {
+                try {
+                    // Try different removal strategies
+                    if (overlay.element.remove) {
+                        overlay.element.remove();
+                        removedCount++;
+                        log(`Removed overlay: ${overlay.tagName}.${overlay.className}`);
+                    } else {
+                        overlay.element.style.display = 'none';
+                        log(`Hidden overlay: ${overlay.tagName}.${overlay.className}`);
+                    }
+                } catch (error) {
+                    log(`Failed to remove overlay: ${error.message}`);
+                }
+            });
+            
+            log(`✅ Cleared ${removedCount} overlays`);
+            
+            // Also try common phase reset methods
+            tryPhaseResets();
+        }
+
+        function tryPhaseResets() {
+            log('🔄 Trying phase reset methods...');
+            
+            // Phase 8B reset
+            try {
+                if (window.phase8b && window.phase8b.resetAdaptations) {
+                    window.phase8b.resetAdaptations();
+                    log('✅ Phase 8B adaptations reset');
+                }
+            } catch (error) {
+                log(`Phase 8B reset failed: ${error.message}`);
+            }
+            
+            // Phase 8A reset
+            try {
+                if (window.phase8a && window.phase8a.clearHistory) {
+                    window.phase8a.clearHistory();
+                    log('✅ Phase 8A history cleared');
+                }
+            } catch (error) {
+                log(`Phase 8A reset failed: ${error.message}`);
+            }
+            
+            // Phase 8C cleanup
+            try {
+                if (window.phase8cIntegration && window.phase8cIntegration.cleanup) {
+                    window.phase8cIntegration.cleanup();
+                    log('✅ Phase 8C cleaned up');
+                }
+            } catch (error) {
+                log(`Phase 8C cleanup failed: ${error.message}`);
+            }
+        }
+
+        function testPhase8A() {
+            log('🤖 Testing Phase 8A...');
+            
+            try {
+                if (window.phase8a) {
+                    log('Phase 8A interface found');
+                    const status = window.phase8a.getStatus();
+                    log(`Phase 8A status: ${JSON.stringify(status)}`);
+                    
+                    // Check if running a test creates overlays
+                    const beforeOverlays = scanForOverlays().length;
+                    window.phase8a.runAllTests();
+                    
+                    setTimeout(() => {
+                        const afterOverlays = scanForOverlays().length;
+                        if (afterOverlays > beforeOverlays) {
+                            log(`⚠️ Phase 8A created ${afterOverlays - beforeOverlays} new overlays`);
+                        } else {
+                            log('✅ Phase 8A did not create new overlays');
+                        }
+                    }, 1000);
+                } else {
+                    log('❌ Phase 8A interface not found');
+                }
+            } catch (error) {
+                log(`❌ Phase 8A test failed: ${error.message}`);
+            }
+        }
+
+        function testPhase8B() {
+            log('🎯 Testing Phase 8B...');
+            
+            try {
+                if (window.phase8b) {
+                    log('Phase 8B interface found');
+                    const status = window.phase8b.getStatus();
+                    log(`Phase 8B status: ${JSON.stringify(status)}`);
+                    
+                    // Check active adaptations
+                    const adaptations = window.phase8b.getAdaptations();
+                    log(`Active adaptations: ${JSON.stringify(adaptations)}`);
+                    
+                    // Check if running a test creates overlays
+                    const beforeOverlays = scanForOverlays().length;
+                    window.phase8b.runTest();
+                    
+                    setTimeout(() => {
+                        const afterOverlays = scanForOverlays().length;
+                        if (afterOverlays > beforeOverlays) {
+                            log(`⚠️ Phase 8B created ${afterOverlays - beforeOverlays} new overlays`);
+                        } else {
+                            log('✅ Phase 8B did not create new overlays');
+                        }
+                    }, 1000);
+                } else {
+                    log('❌ Phase 8B interface not found');
+                }
+            } catch (error) {
+                log(`❌ Phase 8B test failed: ${error.message}`);
+            }
+        }
+
+        function testPhase8C() {
+            log('🚀 Testing Phase 8C...');
+            
+            try {
+                if (window.phase8cIntegration) {
+                    log('Phase 8C interface found');
+                    const status = window.phase8cIntegration.getStatus();
+                    log(`Phase 8C status: ${JSON.stringify(status)}`);
+                    
+                    // Check if running optimization creates overlays
+                    const beforeOverlays = scanForOverlays().length;
+                    window.phase8cIntegration.runOptimization();
+                    
+                    setTimeout(() => {
+                        const afterOverlays = scanForOverlays().length;
+                        if (afterOverlays > beforeOverlays) {
+                            log(`⚠️ Phase 8C created ${afterOverlays - beforeOverlays} new overlays`);
+                        } else {
+                            log('✅ Phase 8C did not create new overlays');
+                        }
+                    }, 1000);
+                } else {
+                    log('❌ Phase 8C interface not found');
+                }
+            } catch (error) {
+                log(`❌ Phase 8C test failed: ${error.message}`);
+            }
+        }
+
+        function testPerformanceMonitor() {
+            log('📊 Testing Performance Monitor...');
+            
+            try {
+                // Check if performance monitor creates any visual elements
+                const beforeOverlays = scanForOverlays().length;
+                
+                // Trigger performance monitoring
+                if (window.performanceMonitor) {
+                    log('Performance monitor found');
+                    const summary = window.performanceMonitor.getPerformanceSummary();
+                    log(`Performance summary: ${JSON.stringify(summary)}`);
+                } else {
+                    log('Performance monitor not found in global scope');
+                }
+                
+                setTimeout(() => {
+                    const afterOverlays = scanForOverlays().length;
+                    if (afterOverlays > beforeOverlays) {
+                        log(`⚠️ Performance Monitor created ${afterOverlays - beforeOverlays} new overlays`);
+                    } else {
+                        log('✅ Performance Monitor did not create new overlays');
+                    }
+                }, 1000);
+            } catch (error) {
+                log(`❌ Performance Monitor test failed: ${error.message}`);
+            }
+        }
+
+        // Auto-scan on load
+        window.addEventListener('load', () => {
+            log('🔍 White Cast Debug Tool loaded');
+            log('Performing initial overlay scan...');
+            scanForOverlays();
+        });
+
+        // Monitor for new overlays being added
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1) { // Element node
+                            const styles = window.getComputedStyle(node);
+                            if (styles.position === 'fixed' && parseInt(styles.zIndex) > 40) {
+                                log(`🚨 New overlay detected: ${node.tagName}.${node.className}`);
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    </script>
+</body>
+</html> 

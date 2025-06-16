@@ -193,8 +193,8 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
     setSelectedConversationId(null);
     setActiveConversationId(null);
     
-    // Force refresh conversations after closing the modal to get updated unread counts
-    refreshConversations();
+    // Real-time subscriptions will handle conversation updates automatically
+    // No need to force refresh here
   };
   
   const handlePopoverManuallyClosedByList = () => {

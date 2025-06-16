@@ -54,6 +54,10 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
   // Simple cache for basic performance
   const spaceCache = useRef<Map<string, SpaceData>>(new Map())
   const activeFetches = useRef<Map<string, Promise<SpaceData | null>>>(new Map())
+  
+  // ENHANCED: Add debouncing for navigation-triggered fetches
+  const fetchDebounceTimer = useRef<NodeJS.Timeout | null>(null)
+  const lastFetchSubdomain = useRef<string | null>(null)
 
   /**
    * FIXED: Simple fetch space data without complex caching logic
@@ -73,7 +77,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
     // CRITICAL FIX: Check if we're already fetching this space with timeout protection
     const existingFetch = activeFetches.current.get(subdomain);
     if (existingFetch && !force) {
-      console.log(`[Space] Already fetching ${subdomain}, returning existing promise with timeout protection`);
+      console.log(`🔒 [SpaceContext] Query already in progress for ${subdomain}, skipping duplicate`);
       
       // MOBILE FIX: Add timeout protection to prevent hanging promises
       const timeoutPromise = new Promise<SpaceData | null>((_, reject) => {
@@ -116,12 +120,13 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
       try {
         console.log(`[Space] Fetching space data for ${subdomain}`);
         
-        // OPTIMIZED: Reduced timeout for better performance
-        const QUERY_TIMEOUT = 4000; // Reduced to 4 seconds for better UX
+        // OPTIMIZED: Realistic timeout for database operations
+        const QUERY_TIMEOUT = 15000; // Increased to 15 seconds for reliable database operations
         
         console.log('🔍 [SpaceContext] Query timeout:', {
           timeout: QUERY_TIMEOUT,
-          subdomain
+          subdomain,
+          timestamp: new Date().toISOString()
         });
         
         console.log('[Space] Starting space fetch query at:', new Date().toISOString());
@@ -130,52 +135,102 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         let fetchedData = null;
         
         try {
-          const { data, error } = await Promise.race([
-            getSupabaseClient()
-              .from('spaces')
-              .select('*')
-              .eq('subdomain', subdomain)
-              .single(),
-            new Promise<never>((_, reject) => {
-              setTimeout(() => {
-                console.error('[Space] Database query timeout for:', subdomain, 'after', QUERY_TIMEOUT + 'ms at:', new Date().toISOString());
-                reject(new Error('Database query timeout'));
-              }, QUERY_TIMEOUT);
-            })
-          ]);
+          // ENHANCED: Better query structure with more resilient timeout handling
+          const queryPromise = getSupabaseClient()
+            .from('spaces')
+            .select('*')
+            .eq('subdomain', subdomain)
+            .single();
+            
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              console.error(`❌ [Space] Fetch timeout for ${subdomain} after ${QUERY_TIMEOUT}ms, falling back to cache`);
+              reject(new Error('Database query timeout'));
+            }, QUERY_TIMEOUT);
+          });
           
-          if (error) throw error;
+          const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+          
+          if (error) {
+            console.warn(`[Space] Database error for ${subdomain}:`, error.message);
+            throw error;
+          }
+          
           fetchedData = data;
+          console.log(`✅ [Space] Successfully fetched ${subdomain} from database`);
           
         } catch (error) {
-          console.error('[Space] Direct query failed, attempting fallback cache recovery...');
+          console.error(`[Space] Direct query failed for ${subdomain}, attempting fallback recovery...`, error);
           
-          // POSTS PATTERN: Try persistent cache fallback
-          try {
-            const persistentCacheKey = `space_fallback_${subdomain}`;
-            const cachedData = localStorage.getItem(persistentCacheKey);
-            if (cachedData) {
-              const parsed = JSON.parse(cachedData);
-              const cacheAge = Date.now() - parsed.timestamp;
-              const maxFallbackAge = 24 * 60 * 60 * 1000; // 24 hours
-              
-              if (cacheAge < maxFallbackAge) {
-                fetchedData = parsed.data;
-                console.log(`✅ [Space] Using fallback cache data (${Math.round(cacheAge / 60000)} minutes old)`);
+          // ENHANCED: Try multiple fallback strategies
+          const fallbackStrategies = [
+            // Strategy 1: Persistent localStorage cache
+            async () => {
+              const persistentCacheKey = `space_fallback_${subdomain}`;
+              const cachedData = localStorage.getItem(persistentCacheKey);
+              if (cachedData) {
+                const parsed = JSON.parse(cachedData);
+                const cacheAge = Date.now() - parsed.timestamp;
+                const maxFallbackAge = 24 * 60 * 60 * 1000; // 24 hours
+                
+                if (cacheAge < maxFallbackAge) {
+                  console.log(`✅ [Space] Using persistent cache fallback (${Math.round(cacheAge / 60000)} minutes old)`);
+                  return parsed.data;
+                }
               }
+              return null;
+            },
+            
+            // Strategy 2: Memory cache
+            async () => {
+              const memoryCache = spaceCache.current.get(subdomain);
+              if (memoryCache) {
+                console.log(`✅ [Space] Using memory cache fallback for ${subdomain}`);
+                return memoryCache;
+              }
+              return null;
+            },
+            
+            // Strategy 3: lastActiveSpace cache
+            async () => {
+              try {
+                const lastActiveData = localStorage.getItem('lastActiveSpace');
+                if (lastActiveData) {
+                  const parsed = JSON.parse(lastActiveData);
+                  if (parsed.subdomain === subdomain) {
+                    console.log(`✅ [Space] Using lastActiveSpace fallback for ${subdomain}`);
+                    return parsed;
+                  }
+                }
+              } catch (e) {
+                console.warn('[Space] Failed to read lastActiveSpace:', e);
+              }
+              return null;
+            },
+            
+            // Strategy 4: Hardcoded fallback system
+            async () => {
+              console.log(`[Space] Attempting hardcoded fallback for ${subdomain}`);
+              return await fetchSpaceWithFallback(subdomain, async () => {
+                throw error; // This will trigger the fallback system
+              });
             }
-          } catch (cacheError) {
-            console.warn('⚠️ [Space] Fallback cache read failed:', cacheError);
-          }
+          ];
           
-          // If no fallback available, use hardcoded fallback
-          if (!fetchedData) {
-            fetchedData = await fetchSpaceWithFallback(subdomain, async () => {
-              throw error; // This will trigger the fallback system
-            });
+          // Try each strategy until one succeeds
+          for (const strategy of fallbackStrategies) {
+            try {
+              const result = await strategy();
+              if (result) {
+                fetchedData = result;
+                break;
+              }
+            } catch (strategyError) {
+              console.warn(`[Space] Fallback strategy failed:`, strategyError);
+            }
           }
         }
-          
+        
         if (!fetchedData) {
           throw new Error(`Space not found: ${subdomain}`);
         }
@@ -274,24 +329,65 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
                             currentSubdomain !== 'profile';
     
     if (isSpaceRoute && isValidSubdomain) {
-      // Check if we need to fetch this space
+      // ENHANCED: More sophisticated check to prevent unnecessary fetches during navigation
       const needsNewData = !spaceData || spaceData.subdomain !== currentSubdomain;
+      const hasActiveRequest = activeFetches.current.has(currentSubdomain);
+      const hasCachedData = spaceCache.current.has(currentSubdomain);
       
-      if (needsNewData) {
-        console.log(`[SpaceContext] Auto-fetching space data for URL subdomain: ${currentSubdomain}`);
+      // IMPROVED: Only fetch if we actually need new data and don't have it cached
+      if (needsNewData && !hasActiveRequest) {
+        // If we have cached data, use it immediately to prevent loading states
+        if (hasCachedData) {
+          const cached = spaceCache.current.get(currentSubdomain)!;
+          console.log(`⚡ [SpaceContext] Using immediate cache for navigation to ${currentSubdomain}`);
+          setSpaceData(cached);
+          setError(null);
+          return; // Don't fetch again if we have valid cache
+        }
         
-        console.log(`[SpaceContext] Auto-fetch debug for ${currentSubdomain}:`, {
-          hasExistingData: !!spaceData,
-          existingSubdomain: spaceData?.subdomain,
-          authUser: !!authUser,
-          authLoading,
-          activeFetches: activeFetches.current.size,
-          cacheSize: spaceCache.current.size
-        });
+        // ENHANCED: Debounce rapid navigation changes
+        if (fetchDebounceTimer.current) {
+          clearTimeout(fetchDebounceTimer.current);
+        }
         
-        fetchSpaceData(currentSubdomain, false);
+        if (lastFetchSubdomain.current === currentSubdomain) {
+          console.log(`🔄 [SpaceContext] Debouncing duplicate fetch for ${currentSubdomain}`);
+          return;
+        }
+        
+        fetchDebounceTimer.current = setTimeout(() => {
+          console.log(`[SpaceContext] Auto-fetching space data for URL subdomain: ${currentSubdomain}`);
+          
+          console.log(`[SpaceContext] Auto-fetch debug for ${currentSubdomain}:`, {
+            hasExistingData: !!spaceData,
+            existingSubdomain: spaceData?.subdomain,
+            authUser: !!authUser,
+            authLoading,
+            activeFetches: activeFetches.current.size,
+            cacheSize: spaceCache.current.size,
+            needsNewData,
+            hasActiveRequest,
+            hasCachedData
+          });
+          
+          lastFetchSubdomain.current = currentSubdomain;
+          fetchSpaceData(currentSubdomain, false);
+        }, 100); // 100ms debounce for navigation
+        
+      } else if (needsNewData && hasActiveRequest) {
+        console.log(`⏳ [SpaceContext] Fetch already in progress for ${currentSubdomain}, waiting...`);
+      } else if (!needsNewData) {
+        console.log(`✅ [SpaceContext] Current space data already matches ${currentSubdomain}, no fetch needed`);
       }
     }
+    
+    // Cleanup function
+    return () => {
+      if (fetchDebounceTimer.current) {
+        clearTimeout(fetchDebounceTimer.current);
+        fetchDebounceTimer.current = null;
+      }
+    };
   }, [location.pathname, authUser, authLoading, spaceData, fetchSpaceData]);
 
   /**
@@ -329,4 +425,4 @@ export const useSpace = () => {
     throw new Error('useSpace must be used within a SpaceProvider')
   }
   return context
-} 
+}

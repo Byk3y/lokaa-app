@@ -1,10 +1,13 @@
+// HMR TEST COMMENT C: Test completed - Hook HMR optimized
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useOptimizedAuth } from "@/contexts/AuthContext";
 import { useSpace } from "@/contexts/SpaceContext";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
-import { useCachedPosts, type CachedPostType } from "@/hooks/useCachedPosts";
-import { useCachedCategories } from "@/hooks/useCachedCategories";
+import { useOptimizedCachedPosts } from "@/hooks/useOptimizedCachedPosts";
+import { useOptimizedCachedCategories } from "@/hooks/useOptimizedCachedCategories";
+import { useStableSpaceId } from "@/hooks/useStableSpaceId";
+import type { CachedPostType } from "@/hooks/useCachedPosts";
 import { useRealtimePosts } from "@/hooks/useRealtimePosts";
 import { useNewPostsState } from "@/hooks/useNewPostsState";
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -47,7 +50,6 @@ interface UseFeedLogicReturn {
   
   // UI State
   selectedTab: string;
-  showSetupGuide: boolean;
   
   // Modal states
   modalStates: {
@@ -125,11 +127,20 @@ export function useFeedLogic({
 }: FeedTabProps): UseFeedLogicReturn {
   
   // ============================================================================
-  // AUTHENTICATION & USER DATA
+  // SETUP & INITIALIZATION  
   // ============================================================================
   
-  const { user: authUser, loading: authLoading } = useOptimizedAuth();
-  const currentUser = authUser || userProp;
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Add ref to track permission changes and prevent excessive logging
+  const lastPermissionLog = useRef<string | null>(null);
+  
+  // Current user - prioritize prop, fallback to context
+  const { user: contextUser, loading: authLoading } = useOptimizedAuth();
+  const currentUser = userProp || contextUser;
+  
+  const { spaceData: contextSpaceData } = useSpace();
   
   // ============================================================================
   // SPACE DATA & PERMISSIONS
@@ -141,7 +152,6 @@ export function useFeedLogic({
     loadingSpace: storeLoadingSpace,
   } = useSpaceSettingsStore();
   
-  const { spaceData: contextSpaceData } = useSpace();
   const { subdomain } = useParams();
   
   // PHASE 1.5 FIX: Enhanced space data selection - only use storeSpace if it has valid name
@@ -160,155 +170,93 @@ export function useFeedLogic({
     return null;
   }, [storeSpace, contextSpaceData]);
   
-  // MOBILE FIX: Extract space ID with URL-based fallback for maximum resilience
-  const spaceId = useMemo(() => {
-    // PRIMARY: Use space data from SpaceContext if available (this is the working path)
-    // CRITICAL FIX: Handle case where contextSpaceData is wrapped in an array
-    const actualSpaceData = Array.isArray(contextSpaceData) ? contextSpaceData[0] : contextSpaceData;
-    
-    if (actualSpaceData?.id) {
-      console.log(`🔧 [useFeedLogic] Using SpaceContext space ID: ${actualSpaceData.id} for ${actualSpaceData.subdomain}`);
-      return actualSpaceData.id;
-    }
-    
-    // DEBUG: Log what's actually in contextSpaceData
-    if (contextSpaceData) {
-      console.log(`🔍 [useFeedLogic] SpaceContext data available but no ID:`, contextSpaceData);
-      console.log(`🔍 [useFeedLogic] SpaceContext data keys:`, Object.keys(contextSpaceData));
-      console.log(`🔍 [useFeedLogic] SpaceContext data values:`, Object.entries(contextSpaceData));
-      console.log(`🔍 [useFeedLogic] Actual space data after array check:`, actualSpaceData);
-    }
-    
-    // SECONDARY: Use space data from store if available
-    if (currentSpaceData?.id) {
-      console.log(`🔧 [useFeedLogic] Using store space ID: ${currentSpaceData.id} for ${currentSpaceData.subdomain}`);
-      return currentSpaceData.id;
-    }
-    
-    // TERTIARY: Extract from lastActiveSpace cache (this is what SpaceProtectedRoute uses)
-    if (subdomain) {
-      try {
-        const lastActiveSpace = localStorage.getItem('lastActiveSpace');
-        if (lastActiveSpace) {
-          const cached = JSON.parse(lastActiveSpace);
-          if (cached?.subdomain === subdomain && cached?.id) {
-            console.log(`🔧 [useFeedLogic] Using cached space ID for ${subdomain}: ${cached.id}`);
-            return cached.id;
-          }
-        }
-      } catch (e) {
-        console.warn('[useFeedLogic] Error reading lastActiveSpace cache:', e);
-      }
-    }
-    
-    // DEBUG: Log what data we have available
-    console.log(`🔍 [useFeedLogic] Space ID resolution debug for ${subdomain}:`, {
-      contextSpaceData: contextSpaceData ? { id: actualSpaceData?.id, subdomain: actualSpaceData?.subdomain, keys: Object.keys(contextSpaceData) } : null,
-      currentSpaceData: currentSpaceData ? { id: currentSpaceData.id, subdomain: currentSpaceData.subdomain } : null,
-      subdomain,
-      authLoading
-    });
-    
-    // REMOVED: Hardcoded fallback that only worked for specific spaces
-    // This was causing the fallback-id problem
-    
-    return undefined;
-  }, [contextSpaceData, currentSpaceData, subdomain]);
-  
-  // ENHANCED: If we have subdomain but no space ID, try to fetch it directly
-  const [directSpaceId, setDirectSpaceId] = useState<string | null>(null);
-  useEffect(() => {
-    // CRITICAL: Only attempt direct lookup if we don't have space ID from any source
-    if (!spaceId && subdomain && !authLoading) {
-      console.log(`🔧 [useFeedLogic] Attempting direct space ID lookup for ${subdomain}`);
-      
-      // Simple direct lookup with proper error handling and debugging
-      const fetchSpaceId = async () => {
-        try {
-          const supabase = getSupabaseClient();
-          const { data, error } = await getSupabaseClient()
-            .from('spaces')
-            .select('id, subdomain, name')
-            .eq('subdomain', subdomain)
-            .single();
-            
-          console.log(`🔍 [useFeedLogic] Direct lookup result for ${subdomain}:`, { data, error });
-          console.log(`🔍 [useFeedLogic] Direct lookup data details:`, data ? { 
-            dataType: typeof data, 
-            isArray: Array.isArray(data),
-            keys: data ? Object.keys(data) : 'no data',
-            values: data ? Object.entries(data) : 'no data'
-          } : 'no data');
-            
-          if (error) {
-            console.warn(`⚠️ [useFeedLogic] Direct lookup failed for ${subdomain}:`, error);
-            return;
-          }
-          
-          // CRITICAL FIX: Handle both single object and array responses
-          let spaceRecord = null;
-          
-          if (Array.isArray(data) && data.length > 0) {
-            // Query returned an array, use the first item
-            spaceRecord = data[0];
-            console.log(`🔧 [useFeedLogic] Query returned array, using first item for ${subdomain}:`, spaceRecord);
-          } else if (data && typeof data === 'object' && !Array.isArray(data)) {
-            // Query returned a single object
-            spaceRecord = data;
-            console.log(`🔧 [useFeedLogic] Query returned single object for ${subdomain}:`, spaceRecord);
-          }
-          
-          if (spaceRecord && spaceRecord.id) {
-            console.log(`✅ [useFeedLogic] Direct lookup found space ID for ${subdomain}: ${spaceRecord.id}`);
-            setDirectSpaceId(spaceRecord.id);
-          } else {
-            console.warn(`⚠️ [useFeedLogic] No valid space data returned for ${subdomain}:`, data);
-            // For nocode-architects, we know the ID from MCP verification
-            if (subdomain === 'nocode-architects') {
-              console.log(`🔧 [useFeedLogic] Using verified space ID for ${subdomain}`);
-              setDirectSpaceId('235e68d1-89df-4d2d-8945-e7756d60de20');
-            }
-          }
-        } catch (e) {
-          console.warn(`❌ [useFeedLogic] Direct space ID lookup failed for ${subdomain}:`, e);
-          // Don't set a fallback ID - let it remain undefined
-        }
-      };
-      
-      fetchSpaceId();
-    } else if (spaceId) {
-      // Clear direct space ID if we now have a space ID from another source
-      setDirectSpaceId(null);
-    }
-  }, [spaceId, subdomain, authLoading]);
-  
-  // Use direct space ID if available, but don't generate invalid fallbacks
-  const finalSpaceId = spaceId || directSpaceId;
-  
-  // ✅ SESSION-READY GATE: Prevent data fetching until auth is complete.
-  // This is the definitive fix for the race condition where data hooks
-  // would fire before the Supabase client had its session ready.
-  const readyToFetchSpaceId = authLoading ? undefined : finalSpaceId;
+  // 🔒 STABLE SPACE ID: Use the new stable space ID hook to prevent flickering during tab switches
+  const stableSpaceId = useStableSpaceId({
+    contextSpaceData,
+    currentSpaceData,
+    subdomain,
+    authLoading
+  });
+
+  // ✅ SESSION-READY GATE: Prevent data fetching until auth is complete and we have a stable space ID
+  const readyToFetchSpaceId = authLoading ? undefined : stableSpaceId;
   
   // ENHANCED: Debug logging for space ID resolution
   useEffect(() => {
-    console.log(`🔍 [useFeedLogic] Space ID resolution status for ${subdomain}:`, {
-      finalSpaceId,
+    console.log(`🔍 [useFeedLogic] Stable space ID status for ${subdomain}:`, {
+      stableSpaceId,
       readyToFetchSpaceId,
-      spaceId,
-      directSpaceId,
       contextSpaceData: contextSpaceData ? { id: contextSpaceData.id, subdomain: contextSpaceData.subdomain } : null,
       currentSpaceData: currentSpaceData ? { id: currentSpaceData.id, subdomain: currentSpaceData.subdomain } : null,
       authLoading
     });
-  }, [finalSpaceId, spaceId, directSpaceId, subdomain, contextSpaceData, currentSpaceData, authLoading, readyToFetchSpaceId]);
+  }, [stableSpaceId, subdomain, contextSpaceData, currentSpaceData, authLoading, readyToFetchSpaceId]);
   
-  // Effective permissions following the established pattern
-  const effectivePermissions: EffectivePermissions = useMemo(() => ({
-    effectiveIsOwner: storePermissions?.isOwner ?? isOwnerProp,
-    effectiveIsAdmin: storePermissions?.isAdmin ?? isAdminProp,
-    canAccessSettings: storePermissions?.canAccessSettings ?? false,
-  }), [storePermissions, isOwnerProp, isAdminProp]);
+  // FIXED: Enhanced permission resolution that prevents circular dependencies and race conditions
+  const effectivePermissions: EffectivePermissions = useMemo(() => {
+    // Priority-based permission resolution:
+    // 1. Use store permissions if fully loaded and available
+    // 2. Fall back to props only if store is explicitly null/undefined but props are available
+    // 3. Default to false for safety
+    
+    const isStoreLoaded = storePermissions !== null && storePermissions !== undefined;
+    const hasValidProps = (isOwnerProp !== undefined && isOwnerProp !== null) || 
+                         (isAdminProp !== undefined && isAdminProp !== null);
+    
+    // Use store if available, otherwise use props, otherwise default to false
+    const resolvedIsOwner = isStoreLoaded 
+      ? (storePermissions.isOwner ?? false)
+      : hasValidProps 
+        ? (isOwnerProp ?? false)
+        : false;
+        
+    const resolvedIsAdmin = isStoreLoaded 
+      ? (storePermissions.isAdmin ?? false) 
+      : hasValidProps 
+        ? (isAdminProp ?? false)
+        : false;
+    
+    const permissions = {
+      effectiveIsOwner: resolvedIsOwner,
+      effectiveIsAdmin: resolvedIsAdmin,
+      canAccessSettings: isStoreLoaded 
+        ? (storePermissions.canAccessSettings ?? false)
+        : (resolvedIsOwner || resolvedIsAdmin),
+    };
+
+    // SECURITY AUDIT: Ensure canAccessSettings is only true for owners or admins
+    if (permissions.canAccessSettings && !permissions.effectiveIsOwner && !permissions.effectiveIsAdmin) {
+      console.warn("⚠️ SECURITY AUDIT: canAccessSettings granted to regular member", {
+        canAccessSettings: permissions.canAccessSettings,
+        effectiveIsOwner: permissions.effectiveIsOwner,
+        effectiveIsAdmin: permissions.effectiveIsAdmin,
+        storePermissions,
+        isOwnerProp,
+        isAdminProp,
+        isStoreLoaded,
+        hasValidProps,
+        timestamp: new Date().toISOString()
+      });
+      // SECURITY FIX: Override canAccessSettings if user is not owner or admin
+      permissions.canAccessSettings = false;
+    }
+    
+    // Debug logging only when permissions actually change
+    const permKey = `${permissions.effectiveIsOwner}-${permissions.effectiveIsAdmin}-${permissions.canAccessSettings}`;
+    if (!lastPermissionLog.current || lastPermissionLog.current !== permKey) {
+      console.log(`🔧 [EffectivePermissions] Updated for ${stableSpaceId || 'unknown'}:`, {
+        effectiveIsOwner: permissions.effectiveIsOwner,
+        effectiveIsAdmin: permissions.effectiveIsAdmin,
+        canAccessSettings: permissions.canAccessSettings,
+        source: isStoreLoaded ? 'store' : hasValidProps ? 'props' : 'default',
+        isStoreLoaded,
+        hasValidProps
+      });
+      lastPermissionLog.current = permKey;
+    }
+
+    return permissions;
+  }, [storePermissions, isOwnerProp, isAdminProp, stableSpaceId]);
   
   // ============================================================================
   // POSTS & CATEGORIES DATA
@@ -332,38 +280,31 @@ export function useFeedLogic({
     handleCommentAdded: handleCachedCommentAdded,
     handlePinToggled: handleCachedPinToggled,
     mapPostToCardProps: mapCachedPostToCardProps,
-  } = useCachedPosts(readyToFetchSpaceId);
+  } = useOptimizedCachedPosts(readyToFetchSpaceId);
   
   const { 
     categories: spaceCategories, 
     isLoading: categoriesLoading, 
     error: categoriesError, 
     refreshCategories 
-  } = useCachedCategories(finalSpaceId);
+  } = useOptimizedCachedCategories(stableSpaceId);
   
   const pinnedPosts = cachedPinnedPosts;
   
   // ============================================================================
-  // UI STATE MANAGEMENT
+  // UI STATE MANAGEMENT (SIMPLIFIED)
   // ============================================================================
   
   const [selectedTab, setSelectedTab] = useState("all");
-  const [showSetupGuide, setShowSetupGuide] = useState(true);
-  const [setupGuideComplete, setSetupGuideComplete] = useState(false);
   
   // ============================================================================
   // MODAL STATE MANAGEMENT
   // ============================================================================
   
-  const location = useLocation();
-  const navigate = useNavigate();
-  
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedPostForModal, setSelectedPostForModal] = useState<PostCardProps | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
-  
-  // NEW: URL-based post detection state
   const [isLoadingUrlPost, setIsLoadingUrlPost] = useState(false);
   const [urlPostError, setUrlPostError] = useState<string | null>(null);
   
@@ -394,7 +335,7 @@ export function useFeedLogic({
     onLoadNewPosts: async (postIds: string[]) => {
       console.log(`🔄 [FeedLogic] Loading new posts: ${postIds.join(', ')}`);
       
-      if (!postIds.length || !finalSpaceId) return;
+      if (!postIds.length || !stableSpaceId) return;
       
       try {
         const supabase = getSupabaseClient();
@@ -424,7 +365,7 @@ export function useFeedLogic({
             )
           `)
           .in('id', postIds)
-          .eq('space_id', finalSpaceId)
+          .eq('space_id', stableSpaceId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -487,20 +428,6 @@ export function useFeedLogic({
   
   const [ownerDetails, setOwnerDetails] = useState<OwnerDetails | null>(null);
   const isAdminOrOwner = effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin;
-
-  // Setup guide management
-  useEffect(() => {
-    if (!finalSpaceId) return;
-    const dismissed = localStorage.getItem(`setupGuideDismissed_${finalSpaceId}`) === 'true';
-    setShowSetupGuide(isAdminOrOwner && !dismissed && !setupGuideComplete);
-  }, [finalSpaceId, isAdminOrOwner, setupGuideComplete]);
-
-  // Update notification time when new posts arrive
-  useEffect(() => {
-    if (newPostCount > 0) {
-      updateLastNotificationTime();
-    }
-  }, [newPostCount, updateLastNotificationTime]);
 
   // ============================================================================
   // COMPUTED VALUES (MEMOIZED)
@@ -700,7 +627,7 @@ export function useFeedLogic({
       selectedPost: selectedPostForModal?.slug
     });
     
-    if (postSlug && finalSpaceId) {
+    if (postSlug && stableSpaceId) {
       // Skip if we already have this post selected or if we're in a loading state
       if (selectedPostForModal?.slug === postSlug || isLoadingUrlPost) {
         console.log('[FeedLogic] Skipping - already selected or loading:', {
@@ -731,7 +658,7 @@ export function useFeedLogic({
               category:space_categories!posts_category_id_fkey(id, name, icon)
             `)
             .eq('slug', postSlug)
-            .eq('space_id', finalSpaceId)
+            .eq('space_id', stableSpaceId)
             .single();
 
           let postData = postDataRaw;
@@ -748,7 +675,7 @@ export function useFeedLogic({
                 category:space_categories!posts_category_id_fkey(id, name, icon)
               `)
               .eq('id', postSlug)
-              .eq('space_id', finalSpaceId)
+              .eq('space_id', stableSpaceId)
               .single();
 
             if (legacyError || !legacyPost) {
@@ -819,7 +746,7 @@ export function useFeedLogic({
       setIsPostModalOpen(false);
       setSelectedPostForModal(null);
     }
-  }, [location.search, finalSpaceId, isLoadingUrlPost, currentUser?.id]);
+  }, [location.search, stableSpaceId, isLoadingUrlPost, currentUser?.id]);
 
   // ============================================================================
   // UTILITY FUNCTIONS
@@ -859,7 +786,6 @@ export function useFeedLogic({
     
     // UI State
     selectedTab,
-    showSetupGuide,
     
     // Modal states
     modalStates: {

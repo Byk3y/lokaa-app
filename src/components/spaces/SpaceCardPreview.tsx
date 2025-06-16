@@ -10,7 +10,7 @@ import { useSpaceMembers } from "@/hooks/useSpaceMembers";
 import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { fetchSpaceMediaFromSupabase, MediaItem } from "@/utils/mediaStorageUtils";
-import { useMemberCounts } from "@/hooks/useMemberCounts"; // Import our new hook
+import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts"; // Import optimized hook
 
 interface SpaceCardPreviewProps {
   space: SpaceAboutData; // Use new type
@@ -28,7 +28,7 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
     onlineMembers, 
     adminMembers,
     loading: countsLoading 
-  } = useMemberCounts(spaceId);
+  } = useOptimizedMemberCounts(spaceId);
   
   // Keep previous state variables for compatibility with existing code 
   const [adminCount, setAdminCount] = useState<number>(0);

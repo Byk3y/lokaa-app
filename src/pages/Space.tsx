@@ -32,6 +32,7 @@ import SpaceHeader from "@/components/layout/SpaceHeader";
 import SpaceNav from "@/components/layout/SpaceNav";
 import { env } from '@/core/config/env';
 import SpaceFallback from "@/components/space/SpaceFallback";
+import { useAIUserJourney } from "@/hooks/useAIUserJourney";
 
 const DEFAULT_COVER_IMAGE_URL = '/default-space-cover.jpg'; // Define a default
 
@@ -161,6 +162,13 @@ export default function Space({ initialTab }: SpaceProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [notificationShown, setNotificationShown] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  
+  // AI User Journey Integration
+  const { renderJourneyComponent, triggerTestJourney, getJourneyStats } = useAIUserJourney(
+    storeSpace?.id,
+    storeSpace?.name,
+    storeSpace?.member_count || 0
+  );
   
   // Add debugging for space loading state
   useEffect(() => {
@@ -398,6 +406,16 @@ export default function Space({ initialTab }: SpaceProps) {
           userId: currentUserId,
           isOwner: storePermissions?.isOwner, // Use storePermissions
         },
+        // AI User Journey Testing
+        journey: {
+          triggerTest: triggerTestJourney,
+          getStats: getJourneyStats,
+          clearHistory: () => {
+            if (typeof window !== 'undefined' && (window as any).aiUserJourneyManager) {
+              (window as any).aiUserJourneyManager.clearHistory();
+            }
+          }
+        },
       };
     }
     return () => {
@@ -566,6 +584,9 @@ export default function Space({ initialTab }: SpaceProps) {
         
         {/* Render the SpaceSettingsModal - It will now use the store */}
         <NewSpaceSettingsModal />
+        
+        {/* AI User Journey Components */}
+        {renderJourneyComponent()}
         
       {/* Creation Success Notification - This can be moved into SpaceLayout or a dedicated Notification component later */}
         {notificationShown && (

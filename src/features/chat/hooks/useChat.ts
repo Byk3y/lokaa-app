@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { getProtectedCurrentUser } from '@/utils/protectedAuth';
 import { useChatStore } from '../store/chat-store';
 
 export function useChat() {
@@ -36,7 +37,7 @@ export function useChat() {
         console.log(`[useChat] Starting direct conversation with user: ${userId} (attempt ${attempt})`);
         
         // Get user with retry logic for auth issues
-        const { data: { user }, error: authError } = await getSupabaseClient().auth.getUser();
+        const { data: { user }, error: authError } = await getProtectedCurrentUser();
         
         if (authError) {
           console.warn(`[useChat] Auth error on attempt ${attempt}:`, authError);

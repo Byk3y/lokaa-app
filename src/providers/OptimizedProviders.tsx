@@ -181,8 +181,8 @@ export const OptimizedProviderTree = memo(function OptimizedProviderTree({
           mobileOptimizationLayer.initialize();
         }
 
-        // Initialize mobile validation for debugging (dev only)
-        if (import.meta.env?.DEV) {
+        // Initialize mobile validation for debugging (dev only, mobile devices only)
+        if (import.meta.env?.DEV && mobileOptimizationLayer.getCapabilities().isMobile) {
           await import('../utils/mobileConsoleValidation');
         }
 

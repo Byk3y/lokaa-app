@@ -11,7 +11,7 @@ import SpaceAboutDisplay from "@/components/space/SpaceAboutDisplay";
 import { useSpaceAboutStore } from "@/features/spaces/store/space-about-store";
 import { fetchSpaceMediaFromSupabase, MediaItem } from "@/utils/mediaStorageUtils";
 import { getSupabaseClient } from "@/integrations/supabase/client";
-import { useMemberCounts } from "@/hooks/useMemberCounts";
+import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts";
 
 // Main component that fetches space data and renders the content
 export default function SpaceAboutPage() {
@@ -40,7 +40,7 @@ export default function SpaceAboutPage() {
     onlineMembers, 
     adminMembers, 
     loading: countsLoading 
-  } = useMemberCounts(spaceAboutData?.id);
+  } = useOptimizedMemberCounts(spaceAboutData?.id);
   
   // Keep these for backward compatibility
   const [adminCount, setAdminCount] = useState<number>(0);

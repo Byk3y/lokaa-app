@@ -51,12 +51,25 @@ export default function MobileSpaceDrawer({
     isStale 
   } = useUserSpacesStore();
 
-  // Fetch user spaces when drawer opens or when refresh is triggered
+  // MOBILE OPTIMIZATION: Check if we have any cached spaces to avoid loading state
+  const hasCachedSpaces = spaces.length > 0;
+  const shouldShowLoading = loading && !hasCachedSpaces;
+
+  // ENHANCED: Fetch user spaces when drawer opens, but be smart about it
   useEffect(() => {
     if (isOpen && userId) {
-      fetchUserSpaces(userId);
+      // If we have cached spaces, don't show loading state while refreshing
+      if (hasCachedSpaces) {
+        // Background refresh without loading state
+        console.log('🔄 [MobileSpaceDrawer] Background refresh with cached data');
+        fetchUserSpaces(userId, false); // Don't force refresh if cache is fresh
+      } else {
+        // No cached data, fetch with loading state
+        console.log('🔄 [MobileSpaceDrawer] Initial fetch - no cached data');
+        fetchUserSpaces(userId, false);
+      }
     }
-  }, [isOpen, userId, fetchUserSpaces]);
+  }, [isOpen, userId, fetchUserSpaces, hasCachedSpaces]);
 
   // Handle membership store refresh trigger (when user joins/leaves spaces)
   useEffect(() => {
@@ -68,11 +81,11 @@ export default function MobileSpaceDrawer({
 
   // Background refresh if data is stale and drawer is open
   useEffect(() => {
-    if (isOpen && userId && isStale()) {
+    if (isOpen && userId && isStale() && hasCachedSpaces) {
       console.log('🔄 [MobileSpaceDrawer] Data is stale, triggering background refresh');
       fetchUserSpaces(userId);
     }
-  }, [isOpen, userId, isStale, fetchUserSpaces]);
+  }, [isOpen, userId, isStale, fetchUserSpaces, hasCachedSpaces]);
 
   const handleSpaceSelect = (subdomain: string) => {
     // Store the selected space information for other pages like Profile
@@ -172,7 +185,7 @@ export default function MobileSpaceDrawer({
           
           {/* Spaces List */}
           <div className="p-2 overflow-y-auto max-h-[60vh]">
-            {loading && spaces.length === 0 ? (
+            {shouldShowLoading ? (
               <div className="flex justify-center items-center py-4">
                 <LoadingIndicator size="small" />
               </div>

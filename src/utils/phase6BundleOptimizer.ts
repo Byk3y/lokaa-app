@@ -30,6 +30,7 @@ class Phase6BundleOptimizer {
   private metrics: OptimizationMetrics;
   private deprecatedSystems: Set<string> = new Set();
   private consolidatedSystems: Set<string> = new Set();
+  private loggedConsolidations: Set<string> = new Set();
 
   private constructor() {
     this.analysis = this.performBundleAnalysis();
@@ -124,8 +125,9 @@ class Phase6BundleOptimizer {
     this.consolidatedSystems.add(newSystemName);
     this.metrics.systemsConsolidated++;
     
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && !this.loggedConsolidations.has(systemName)) {
       console.log(`🔄 [BundleOptimizer] System consolidated: ${systemName} → ${newSystemName}`);
+      this.loggedConsolidations.add(systemName);
     }
   }
 
@@ -136,8 +138,9 @@ class Phase6BundleOptimizer {
     this.deprecatedSystems.add(systemName);
     this.metrics.deprecatedSystems++;
     
-    if (import.meta.env.DEV) {
-      console.log(`🚫 [BundleOptimizer] System deprecated: ${systemName}`);
+    if (import.meta.env.DEV && !this.loggedConsolidations.has(`deprecated-${systemName}`)) {
+      console.log(`🚫 [Phase6] System deprecated: ${systemName}`);
+      this.loggedConsolidations.add(`deprecated-${systemName}`);
     }
   }
 
@@ -308,6 +311,7 @@ class Phase6BundleOptimizer {
   public reset(): void {
     this.deprecatedSystems.clear();
     this.consolidatedSystems.clear();
+    this.loggedConsolidations.clear();
     this.metrics = {
       bundleSizeReduction: 0,
       loadTimeImprovement: 0,

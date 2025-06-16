@@ -3,6 +3,7 @@ import { toast } from '@/hooks/use-toast';
 import { POST_TEMPLATES } from '../types';
 import type { PostCardProps } from '@/features/posts/types/postCard';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { generateUUID } from '@/utils/uuid';
 
 interface SpaceCategory {
   id: string;
@@ -34,8 +35,8 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
   );
   const [showFunPostIdeas, setShowFunPostIdeas] = useState(false);
   const [pollOptions, setPollOptions] = useState<PollOption[]>([
-    { id: crypto.randomUUID(), text: '' },
-    { id: crypto.randomUUID(), text: '' }
+    { id: generateUUID(), text: '' },
+    { id: generateUUID(), text: '' }
   ]);
   const [showPollCreator, setShowPollCreator] = useState(false);
   
@@ -51,8 +52,8 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
         setTitle('');
         setContent('');
         setPollOptions([
-          { id: crypto.randomUUID(), text: '' },
-          { id: crypto.randomUUID(), text: '' }
+          { id: generateUUID(), text: '' },
+          { id: generateUUID(), text: '' }
         ]);
         setShowPollCreator(false);
       }
@@ -70,7 +71,7 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
           
         if (Array.isArray(pollData) && pollData.length > 0) {
           setPollOptions(pollData.map(text => ({
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             text
           })));
           setShowPollCreator(true);
@@ -192,7 +193,7 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
   // Add a new poll option
   const addPollOption = () => {
     if (pollOptions.length < 10) {
-      setPollOptions([...pollOptions, { id: crypto.randomUUID(), text: '' }]);
+      setPollOptions([...pollOptions, { id: generateUUID(), text: '' }]);
     } else {
       toast({
         title: "Maximum options reached",
@@ -216,13 +217,12 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
   
   // Toggle poll creator visibility
   const togglePollCreator = () => {
-    setShowPollCreator(prev => !prev);
-    
-    // Initialize with 2 empty options if enabling
-    if (!showPollCreator && pollOptions.length < 2) {
+    setShowPollCreator(!showPollCreator);
+    if (!showPollCreator) {
+      // Reset poll options when enabling
       setPollOptions([
-        { id: crypto.randomUUID(), text: '' },
-        { id: crypto.randomUUID(), text: '' }
+        { id: generateUUID(), text: '' },
+        { id: generateUUID(), text: '' }
       ]);
     }
   };

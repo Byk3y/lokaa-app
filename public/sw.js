@@ -174,7 +174,7 @@ self.addEventListener('fetch', (event) => {
   
   // RESEARCH FIX: Skip if URL should never be cached (check both pathname and full URL)
   if (NEVER_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname) || pattern.test(url.href))) {
-    console.log('🚫 [ServiceWorker] Bypassing cache for:', url.href);
+    // No logging in development to reduce console noise
     return;
   }
   

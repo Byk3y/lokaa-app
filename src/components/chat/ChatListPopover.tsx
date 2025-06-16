@@ -57,28 +57,45 @@ export default function ChatListPopover({
 
   // Memoized fetch function to prevent infinite rerenders
   const fetchConversationsIfNeeded = useCallback(() => {
-    const now = Date.now();
-    // Only fetch if it's been more than 10 seconds since last fetch and we have no conversations
-    // OR if it's been more than 30 seconds since last fetch (reduced frequency)
-    const timeSinceLastFetch = now - lastFetchRef.current;
-    const shouldFetch = ((conversations || []).length === 0 && timeSinceLastFetch > 10000) || 
-                       timeSinceLastFetch > 30000;
+    // Don't fetch if already loading
+    if (loadingConversations) {
+      console.log('[ChatListPopover] Skipping fetch - already loading');
+      return;
+    }
     
-    if (shouldFetch) {
-      console.log('[ChatListPopover] Fetching conversations');
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastFetchRef.current;
+    
+    // Only fetch if:
+    // 1. We have no conversations AND it's been more than 5 seconds since last fetch
+    // 2. OR it's been more than 2 minutes since last fetch (much longer interval)
+    const hasNoConversations = (conversations || []).length === 0;
+    const shouldFetchEmpty = hasNoConversations && timeSinceLastFetch > 5000;
+    const shouldFetchStale = timeSinceLastFetch > 120000; // 2 minutes instead of 30 seconds
+    
+    if (shouldFetchEmpty || shouldFetchStale) {
+      console.log('[ChatListPopover] Fetching conversations', { 
+        hasNoConversations, 
+        timeSinceLastFetch, 
+        reason: shouldFetchEmpty ? 'no-conversations' : 'stale-data' 
+      });
       fetchConversations();
       lastFetchRef.current = now;
     } else {
-      console.log('[ChatListPopover] Skipping fetch - too recent or conversations already loaded');
+      console.log('[ChatListPopover] Skipping fetch - too recent or conversations already loaded', {
+        hasNoConversations,
+        timeSinceLastFetch,
+        conversationCount: (conversations || []).length
+      });
     }
-  }, [(conversations || []).length, fetchConversations]);
+  }, [(conversations || []).length, fetchConversations, loadingConversations]);
 
   // Fetch conversations when popover opens (only if we don't have recent data)
   useEffect(() => {
-    if (internalIsOpen && user) {
+    if (internalIsOpen && user && !loadingConversations) {
       fetchConversationsIfNeeded();
     }
-  }, [internalIsOpen, user, fetchConversationsIfNeeded]);
+  }, [internalIsOpen, user, fetchConversationsIfNeeded, loadingConversations]);
 
   // Remove the automatic refresh on lastMessageUpdate to prevent double-loading
   // The real-time subscriptions in the store will handle updates automatically

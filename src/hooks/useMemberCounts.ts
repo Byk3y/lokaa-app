@@ -37,6 +37,7 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
   });
   
   const hasFetchedRef = useRef<boolean>(false);
+  const fetchingRef = useRef<boolean>(false);
 
   // Update online count from unified presence system
   useEffect(() => {
@@ -62,10 +63,22 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
       return;
     }
 
+    // Global deduplication to prevent duplicate queries across components
+    const lockKey = `memberCounts_${spaceId}`;
+    if ((window as any).__memberCountsLocks?.[lockKey]) {
+      console.log('🔒 [MemberCounts] Query already in progress globally, skipping duplicate');
+      return;
+    }
+
     let isMounted = true;
 
     const fetchMemberCounts = async () => {
       try {
+        // Set global lock
+        (window as any).__memberCountsLocks = (window as any).__memberCountsLocks || {};
+        (window as any).__memberCountsLocks[lockKey] = true;
+        
+        fetchingRef.current = true;
         setCounts(prev => ({ ...prev, loading: true, error: null }));
 
         // ENHANCED: Provide immediate fallback for known space
@@ -98,9 +111,9 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
               .eq('status', 'active'),
             new Promise<never>((_, reject) => {
               setTimeout(() => {
-                console.error('[MemberCounts] Query timeout for:', spaceId);
+                console.error(`❌ [MemberCounts] Query timeout for: ${spaceId}`);
                 reject(new Error('Query timeout'));
-              }, 8000); // Reduced timeout for faster fallback
+              }, 12000); // Increased to 12 seconds to match other caches
             })
           ]);
           
@@ -122,6 +135,8 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
             setCounts(fallbackState);
             memberCountsCache.set(spaceId, { data: fallbackState, timestamp: Date.now() });
             hasFetchedRef.current = true;
+            fetchingRef.current = false;
+            delete (window as any).__memberCountsLocks[lockKey];
             return;
           }
           
@@ -133,6 +148,8 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
             loading: false, 
             error: 'Query timeout - using cached data' 
           }));
+          fetchingRef.current = false;
+          delete (window as any).__memberCountsLocks[lockKey];
           return;
         }
 
@@ -147,6 +164,8 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
             loading: false, 
             error: error.message 
           }));
+          fetchingRef.current = false;
+          delete (window as any).__memberCountsLocks[lockKey];
           return;
         }
 
@@ -159,6 +178,8 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
             loading: false, 
             error: null 
           }));
+          fetchingRef.current = false;
+          delete (window as any).__memberCountsLocks[lockKey];
           return;
         }
 
@@ -192,6 +213,8 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
         const cacheData = { ...newCounts, onlineMembers: 0 }; // Don't cache online count
         memberCountsCache.set(spaceId, { data: cacheData, timestamp: Date.now() });
         hasFetchedRef.current = true;
+        fetchingRef.current = false;
+        delete (window as any).__memberCountsLocks[lockKey];
         
       } catch (error) {
         if (!isMounted) return;
@@ -204,6 +227,8 @@ export const useMemberCounts = (spaceId: string): MemberCounts => {
           loading: false, 
           error: error instanceof Error ? error.message : 'Unknown error' 
         }));
+        fetchingRef.current = false;
+        delete (window as any).__memberCountsLocks[lockKey];
       }
     };
 

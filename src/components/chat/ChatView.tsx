@@ -36,8 +36,10 @@ export default function ChatView({
   
   const [sending, setSending] = useState(false);
   const [currentConversation, setCurrentConversation] = useState(initialConversation);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isMobile = useMediaQuery("(max-width: 640px)");
   
   // Get messages and loading state from the centralized store
   const messages = getMessagesForConversation(currentConversation.conversation_id);
@@ -47,6 +49,33 @@ export default function ChatView({
   const isDirectConversation = !currentConversation.is_group;
   const otherParticipant = isDirectConversation && currentConversation.other_participants?.[0];
   const shouldShowConnectionContext = isDirectConversation && otherParticipant;
+
+  // Mobile keyboard detection
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const handleResize = () => {
+      // On mobile, when keyboard opens, the visual viewport height decreases
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const windowHeight = window.screen.height;
+      
+      // If viewport height is significantly smaller than screen height, keyboard is likely open
+      const keyboardThreshold = windowHeight * 0.75;
+      const keyboardIsOpen = viewportHeight < keyboardThreshold;
+      
+      setIsKeyboardOpen(keyboardIsOpen);
+    };
+
+    // Listen to visual viewport changes (better for keyboard detection)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    } else {
+      // Fallback for older browsers
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     setCurrentConversation(initialConversation);
@@ -78,8 +107,21 @@ export default function ChatView({
     }
   };
 
+  // Dynamic padding based on keyboard state and screen size
+  const getContainerPadding = () => {
+    if (isDesktop) return 'pb-0'; // No bottom nav on desktop
+    if (isKeyboardOpen) return 'pb-0'; // No bottom nav padding when keyboard is open
+    return 'pb-16'; // Bottom nav padding when keyboard is closed
+  };
+
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800 pb-16 sm:pb-0">
+    <div 
+      className={`flex flex-col bg-white dark:bg-gray-800 ${getContainerPadding()}`}
+      style={{
+        height: isMobile && isKeyboardOpen ? '100vh' : '100%',
+        maxHeight: isMobile ? '100vh' : 'none',
+      }}
+    >
       <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <ChatHeader 
           conversation={currentConversation}

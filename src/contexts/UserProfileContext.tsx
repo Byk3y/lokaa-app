@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { getProtectedCurrentUser } from '@/utils/protectedAuth';
 
 // Define the user profile data structure
 export interface UserProfile {
@@ -280,8 +281,8 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
           console.error('Error fetching contributions count:', contribError);
         }
 
-        // Check if this is the current user
-        const { data: { user } } = await getSupabaseClient().auth.getUser();
+        // Check if this is the current user - PROTECTED with IndexedDB bridge
+        const { data: { user } } = await getProtectedCurrentUser();
         const isCurrentUserProfile = user?.id === data.id;
         
         if (isCurrentUserProfile) {

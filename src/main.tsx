@@ -5,6 +5,9 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+
+// HMR OPTIMIZATION: Initialize HMR optimizer for development
+import './utils/hmrOptimizer'
 // Legacy modal import removed - now handled by modern system with bridge
 // import './utils/authModals' // REMOVED
 // import { redirectToSpace } from './utils/spaceRedirect'

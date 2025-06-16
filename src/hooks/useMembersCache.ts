@@ -247,13 +247,23 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
     });
     set({ cache: newCache });
 
+    // Apply query deduplication to prevent duplicate database calls
+    const lockKey = `members_${spaceId}`;
+    if ((window as any).__membersLocks?.[lockKey]) {
+      console.log('🔒 [MembersCache] Query already in progress, skipping duplicate');
+      return;
+    }
+    
+    (window as any).__membersLocks = (window as any).__membersLocks || {};
+    (window as any).__membersLocks[lockKey] = true;
+
     try {
       console.log('🔄 Fetching members from Supabase for space:', spaceId);
       
       const supabase = getSupabaseClient(); // GET SINGLETON CLIENT
       
-      // POSTS PATTERN: Reduced timeout since database is healthy but frontend client is slow
-      const TIMEOUT_MS = 5000; // Reduced from 15s to 5s since MCP shows DB is fast
+      // POSTS PATTERN: Increased timeout to allow for complex member queries with profile joins
+      const TIMEOUT_MS = 12000; // Increased from 5s to 12s for member+profile queries
       
       let memberData: any[] | null = null;
       let memberError: any = null;
@@ -308,6 +318,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
           lastFetched: Date.now(),
         });
         set({ cache: updatedCache });
+        delete (window as any).__membersLocks[lockKey];
         return;
       }
       
@@ -387,6 +398,9 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
         console.warn('⚠️ [MembersCache] Failed to save fallback cache:', cacheError);
       }
       
+      // Clean up lock
+      delete (window as any).__membersLocks[lockKey];
+      
     } catch (error) {
       console.error('[MembersCache] fetchMembers error:', error);
       
@@ -395,6 +409,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
         const finalCache = new Map(get().cache);
         finalCache.set(spaceId, { members: fallbackMembers, loading: false, error: null, lastFetched: Date.now() });
         set({ cache: finalCache });
+        delete (window as any).__membersLocks[lockKey];
         return;
       }
       
@@ -407,6 +422,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
         error: errorMessage,
       });
       set({ cache: errorCache });
+      delete (window as any).__membersLocks[lockKey];
     }
   },
 

@@ -119,8 +119,16 @@ class NavigationCoordinator {
         
         return true;
       } else {
-        console.error('🚫 [NavigationCoordinator] Navigate function not initialized');
+        console.error('🚫 [NavigationCoordinator] Navigate function not initialized - falling back to window.location');
         this.state.activeNavigation = null;
+        
+        // Fallback to window.location for critical navigation
+        if (typeof window !== 'undefined') {
+          console.log('🔄 [NavigationCoordinator] Using window.location fallback for:', to);
+          window.location.href = to;
+          return true;
+        }
+        
         return false;
       }
     } catch (error) {

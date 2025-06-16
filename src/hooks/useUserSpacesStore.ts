@@ -24,6 +24,7 @@ interface UserSpacesState {
 
 interface UserSpacesStore extends UserSpacesState {
   fetchUserSpaces: (userId: string, forceRefresh?: boolean) => Promise<void>;
+  preloadSpaces: (userId: string) => void;
   clearCache: () => void;
   invalidateCache: () => void;
   isStale: () => boolean;
@@ -34,6 +35,54 @@ const CACHE_TTL = 10 * 60 * 1000;
 
 // Stale threshold: Start background refresh after 5 minutes
 const STALE_THRESHOLD = 5 * 60 * 1000;
+
+// MOBILE OPTIMIZATION: localStorage cache key
+const STORAGE_KEY = 'user_spaces_cache';
+
+// MOBILE OPTIMIZATION: Load cached spaces from localStorage
+const loadCachedSpaces = (userId: string): UserSpacesState => {
+  try {
+    const cached = localStorage.getItem(`${STORAGE_KEY}_${userId}`);
+    if (cached) {
+      const parsedCache = JSON.parse(cached);
+      const now = Date.now();
+      const cacheAge = now - parsedCache.lastFetchTime;
+      
+      // Use cache if it's less than 30 minutes old (more generous for mobile)
+      if (cacheAge < 30 * 60 * 1000 && Array.isArray(parsedCache.spaces)) {
+        console.log(`🚀 [UserSpacesStore] Loaded ${parsedCache.spaces.length} spaces from localStorage cache`);
+        return {
+          spaces: parsedCache.spaces,
+          loading: false,
+          error: null,
+          lastFetchTime: parsedCache.lastFetchTime,
+          userId: userId,
+        };
+      }
+    }
+  } catch (error) {
+    console.warn('[UserSpacesStore] Error loading cached spaces:', error);
+  }
+  
+  return {
+    ...initialState,
+    userId,
+  };
+};
+
+// MOBILE OPTIMIZATION: Save spaces to localStorage
+const saveCachedSpaces = (userId: string, spaces: Space[], lastFetchTime: number) => {
+  try {
+    const cacheData = {
+      spaces,
+      lastFetchTime,
+      userId,
+    };
+    localStorage.setItem(`${STORAGE_KEY}_${userId}`, JSON.stringify(cacheData));
+  } catch (error) {
+    console.warn('[UserSpacesStore] Error saving spaces to cache:', error);
+  }
+};
 
 const initialState: UserSpacesState = {
   spaces: [],
@@ -50,6 +99,23 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
     const state = get();
     const now = Date.now();
     
+    // MOBILE OPTIMIZATION: If this is the first call for a user, try to load from cache
+    if (state.userId !== userId) {
+      const cachedState = loadCachedSpaces(userId);
+      set(cachedState);
+      
+      // If we have cached data and it's not too old, don't force a refresh
+      if (cachedState.spaces.length > 0 && !forceRefresh) {
+        const cacheAge = now - cachedState.lastFetchTime;
+        if (cacheAge < CACHE_TTL) {
+          console.log('🚀 [UserSpacesStore] Using fresh cached data, skipping fetch');
+          return;
+        }
+        // Cache is stale but exists, do background refresh
+        console.log('🔄 [UserSpacesStore] Cached data is stale, background refresh');
+      }
+    }
+    
     // If we have recent data for the same user and not forcing refresh, return early
     if (!forceRefresh && 
         state.userId === userId && 
@@ -59,11 +125,15 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
       return;
     }
 
-    // If this is a different user, reset state
-    if (state.userId !== userId) {
+    // Determine if we should show loading state
+    const currentState = get();
+    const hasExistingSpaces = currentState.spaces.length > 0;
+    
+    if (currentState.userId !== userId) {
+      // Different user, reset and show loading
       set({ ...initialState, userId, loading: true });
-    } else if (state.spaces.length === 0) {
-      // First load for this user
+    } else if (!hasExistingSpaces) {
+      // First load for this user, show loading
       set({ loading: true, error: null });
     } else {
       // Background refresh - don't show loading state
@@ -108,6 +178,9 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
       
       console.log(`✅ [UserSpacesStore] Fetched ${allSpaces.length} spaces for user`);
       
+      // MOBILE OPTIMIZATION: Save to localStorage cache
+      saveCachedSpaces(userId, allSpaces, now);
+      
       set({
         spaces: allSpaces,
         loading: false,
@@ -124,8 +197,39 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
     }
   },
 
+  preloadSpaces: (userId: string) => {
+    // MOBILE OPTIMIZATION: Preload spaces from cache immediately when user logs in
+    const state = get();
+    if (state.userId !== userId) {
+      const cachedState = loadCachedSpaces(userId);
+      if (cachedState.spaces.length > 0) {
+        console.log(`🚀 [UserSpacesStore] Preloaded ${cachedState.spaces.length} spaces from cache`);
+        set(cachedState);
+        
+        // Start background refresh if cache is stale
+        const now = Date.now();
+        const cacheAge = now - cachedState.lastFetchTime;
+        if (cacheAge > STALE_THRESHOLD) {
+          console.log('🔄 [UserSpacesStore] Preloaded cache is stale, starting background refresh');
+          // Use setTimeout to avoid blocking the login flow
+          setTimeout(() => {
+            get().fetchUserSpaces(userId);
+          }, 100);
+        }
+      }
+    }
+  },
+
   clearCache: () => {
     console.log('🗑️ [UserSpacesStore] Clearing spaces cache');
+    const state = get();
+    if (state.userId) {
+      try {
+        localStorage.removeItem(`${STORAGE_KEY}_${state.userId}`);
+      } catch (error) {
+        console.warn('[UserSpacesStore] Error clearing localStorage cache:', error);
+      }
+    }
     set(initialState);
   },
 

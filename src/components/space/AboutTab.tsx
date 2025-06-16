@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
-import { Globe, Lock, Users, Tag, Upload, X, Play, Plus, AlertCircle, Loader2, GripHorizontal, ArrowUpDown, Settings, FileText, Check, Edit } from "lucide-react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { Globe, Lock, Users, Tag, Upload, X, Play, Plus, AlertCircle, Loader2, GripHorizontal, ArrowUpDown, Settings, FileText, Check, Edit, Link as LinkIcon, Trash2, Eye, ExternalLink, Crown, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogTitle, DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseClient } from "@/integrations/supabase/client";
@@ -38,6 +39,7 @@ import {
   deleteMediaFromSupabase
 } from "@/utils/mediaStorageUtils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts";
 
 interface AboutTabProps {
   // onSpaceUpdate?: (updatedSpace: Database['public']['Tables']['spaces']['Row'] | null) => void; // Removed
@@ -58,11 +60,6 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
   // FIXED: Use same fallback pattern as MembersTab and FeedTab
   const currentSpaceData = storeSpace || spaceData;
   
-  // Add state for member counts - same as FeedTab
-  const [adminCount, setAdminCount] = useState<number>(0);
-  const [onlineCount, setOnlineCount] = useState<number>(0);
-  const [activeMemberCount, setActiveMemberCount] = useState<number>(0);
-  
   // Use MembershipContext instead of direct Supabase calls
   const { 
     isMember, 
@@ -70,108 +67,8 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
     joinSpace 
   } = useMembership();
   
-  // Admin count with React Query
-  const { data: adminCountData } = useQuery({
-    queryKey: ['adminCount', currentSpaceData?.id],
-    queryFn: async () => {
-      if (!currentSpaceData?.id) return 0;
-      
-      const { count, error } = await getSupabaseClient()
-        .from('space_members')
-        .select('id', { count: 'exact', head: true })
-        .eq('space_id', currentSpaceData.id)
-        .eq('role', 'admin'); // Query only for 'admin' role
-        
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!currentSpaceData?.id,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000,
-  });
-  
-  // Online count with React Query
-  const { data: onlineCountData, refetch: refetchOnlineCount } = useQuery({
-    queryKey: ['onlineCount', currentSpaceData?.id],
-    queryFn: async () => {
-      if (!currentSpaceData?.id) return 0;
-      
-      const { count, error } = await getSupabaseClient()
-        .from('space_members')
-        .select('id', { count: 'exact', head: true })
-        .eq('space_id', currentSpaceData.id)
-        .eq('is_online', true);
-        
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!currentSpaceData?.id,
-    staleTime: 30 * 1000, // 30 seconds (online status changes more frequently)
-    gcTime: 5 * 60 * 1000,
-  });
-  
-  // Active member count with React Query
-  const { data: activeMemberCountData } = useQuery({
-    queryKey: ['activeMemberCount', currentSpaceData?.id],
-    queryFn: async () => {
-      if (!currentSpaceData?.id) return 0;
-      
-      const { count, error } = await getSupabaseClient()
-        .from('space_members')
-        .select('id', { count: 'exact', head: true })
-        .eq('space_id', currentSpaceData.id)
-        .eq('status', 'active');
-        
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: !!currentSpaceData?.id,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000,
-  });
-  
-  // Update state from React Query data
-  useEffect(() => {
-    if (adminCountData !== undefined) setAdminCount(adminCountData);
-  }, [adminCountData]);
-  
-  useEffect(() => {
-    if (onlineCountData !== undefined) setOnlineCount(onlineCountData);
-  }, [onlineCountData]);
-  
-  useEffect(() => {
-    if (activeMemberCountData !== undefined) setActiveMemberCount(activeMemberCountData);
-  }, [activeMemberCountData]);
-  
-  // Set up real-time subscription for online status changes
-  useEffect(() => {
-    if (!currentSpaceData?.id) return;
-    
-    // Set up subscription for online status changes
-    const subscription = getSupabaseClient()
-      .channel(`space_members_online:${currentSpaceData.id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'space_members',
-        filter: `space_id=eq.${currentSpaceData.id}`
-      }, () => {
-        // When any space member updates their status, refetch the online count
-        refetchOnlineCount();
-      })
-      .subscribe();
-    
-    // Set up refresh interval for online counts (every 60 seconds)
-    const intervalId = setInterval(() => {
-      refetchOnlineCount();
-    }, 60000);
-    
-    // Clean up subscription and interval on unmount
-    return () => {
-      subscription.unsubscribe();
-      clearInterval(intervalId);
-    };
-  }, [currentSpaceData?.id, refetchOnlineCount]);
+  // FIXED: Use the same optimized member counts hook as FeedTab for unified presence system
+  const memberCounts = useOptimizedMemberCounts(currentSpaceData?.id || '');
   
   // useSpaceDescriptionManager for main space description
   const {
@@ -937,7 +834,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
               <Globe className="h-5 w-5" />
               <span className="font-medium">Public Space</span>
               <span className="mx-2">•</span>
-              <span>{activeMemberCount || 0} members</span>
+              <span>{memberCounts.totalMembers} members</span>
               <span className="mx-2">•</span>
               <span>Free to Join</span>
             </div>
@@ -1159,9 +1056,9 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
             spaceDescription={currentSpaceData.description} // This is the short description
             coverImage={currentSpaceData.cover_image}
             isPrivate={currentSpaceData.is_private}
-            memberCount={activeMemberCount} // Use the real-time count from direct query
-            adminCount={adminCount} // Use the real-time count from direct query
-            onlineCount={onlineCount} // Use the real-time count from direct query
+            memberCount={memberCounts.totalMembers} // Use the unified presence system counts
+            adminCount={memberCounts.adminMembers} // Use the unified presence system counts
+            onlineCount={memberCounts.onlineMembers} // Use the unified presence system counts
             canAccessSettings={storePermissions?.canAccessSettings} // This prop is used by SpaceInfoSidebar
             subdomain={currentSpaceData.subdomain}
             spaceId={currentSpaceData.id}

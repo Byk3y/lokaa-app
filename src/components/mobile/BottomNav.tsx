@@ -1,10 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageSquare, User, Bell } from 'lucide-react';
 import useSpaceSettingsStore, { trackRouteChange } from '@/hooks/useSpaceSettingsStore';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@/features/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileBackgroundDetection } from '@/hooks/useMobileLifecycle';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 export default function BottomNav() {
   const location = useLocation();
@@ -13,11 +14,40 @@ export default function BottomNav() {
   const { getUnreadCount } = useChat();
   const previousPathRef = useRef(location.pathname);
   const { returnedFromBackground } = useMobileBackgroundDetection();
+  const isMobile = useMediaQuery("(max-width: 640px)");
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   // Get unread message count
   const unreadCount = getUnreadCount();
 
   const pathname = location.pathname;
+  
+  // Mobile keyboard detection
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const handleResize = () => {
+      // On mobile, when keyboard opens, the visual viewport height decreases
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const windowHeight = window.screen.height;
+      
+      // If viewport height is significantly smaller than screen height, keyboard is likely open
+      const keyboardThreshold = windowHeight * 0.75;
+      const keyboardIsOpen = viewportHeight < keyboardThreshold;
+      
+      setIsKeyboardOpen(keyboardIsOpen);
+    };
+
+    // Listen to visual viewport changes (better for keyboard detection)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    } else {
+      // Fallback for older browsers
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, [isMobile]);
   
   // Track route changes for cache optimization
   useEffect(() => {
@@ -66,9 +96,21 @@ export default function BottomNav() {
     { path: '/notifications', label: 'Notifications', icon: Bell, onClick: () => handleNavigation('/notifications'), notification: true },
     { path: '/profile', label: 'Profile', icon: User, onClick: () => handleNavigation('/profile'), notification: true },
   ];
+
+  // Hide bottom nav when keyboard is open on mobile
+  if (isKeyboardOpen) {
+    return null;
+  }
   
   return (
-    <div className="fixed bottom-0 left-0 right-0 w-full z-50 sm:hidden bg-[#171E2E]/95 backdrop-blur-lg pb-[env(safe-area-inset-bottom)]">
+    <div 
+      className="fixed bottom-0 left-0 right-0 w-full z-50 sm:hidden bg-[#171E2E]/95 backdrop-blur-lg pb-[env(safe-area-inset-bottom)]"
+      style={{
+        // Use the actual screen height instead of viewport height to prevent movement
+        position: 'fixed',
+        bottom: 0,
+      }}
+    >
         <div className="flex justify-around items-center h-16">
           {navItems.map((item) => {
             const active = isActive(item.path);
@@ -105,18 +147,15 @@ export default function BottomNav() {
                   )}
                 </AnimatePresence>
               </div>
-              
-                <span
-                  className={`text-[11px] font-medium transition-colors ${
-                    active ? 'text-white' : 'text-gray-400'
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </button>
+              <span className={`text-[10px] font-medium transition-colors ${
+                active ? 'text-white' : 'text-gray-400'
+              }`}>
+                {item.label}
+              </span>
+            </button>
             );
           })}
-      </div>
+        </div>
     </div>
   );
 }

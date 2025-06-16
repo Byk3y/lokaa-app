@@ -6,7 +6,7 @@ import PostCard from "./PostCard";
 import { useNavigate } from "react-router-dom";
 import { useSpace } from "@/contexts/SpaceContext";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
-import { useCachedCategories } from "@/hooks/useCachedCategories";
+import { useOptimizedCachedCategories } from "@/hooks/useOptimizedCachedCategories";
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Cross2Icon } from '@radix-ui/react-icons';
@@ -202,7 +202,7 @@ export default function SpaceFeedTab() {
   });
   
   // Get categories from the hook
-  const { categories, refreshCategories } = useCachedCategories(spaceData?.id);
+  const { categories, refreshCategories } = useOptimizedCachedCategories(spaceData?.id);
   
   // Add sample posts when writeFirstPost is completed
   useEffect(() => {

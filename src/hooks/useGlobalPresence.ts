@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { createManagedInterval } from '@/utils/pageVisibilityManager';
+import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
 
 /**
  * Hook to track and update a user's online presence across all spaces
@@ -29,20 +30,14 @@ export const useGlobalPresence = () => {
           console.log('🌐 [GlobalPresence] Updating user online status');
         }
         
-        // Update all spaces where user is a member
-        const { error: updateError } = await getSupabaseClient()
-          .from('space_members')
-          .update({
-            is_online: isOnline,
-            last_active_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id)
-          .eq('status', 'active');
+        // Update all spaces where user is a member - PROTECTED with IndexedDB bridge
+        const result = await supabaseIndexedDBBridge.updateGlobalPresence(user.id, isOnline);
           
-        if (updateError) {
-          console.error('Error updating global presence:', updateError);
+        if (result.error && !result.fromCache) {
+          console.error('Error updating global presence:', result.error);
         } else {
-          console.log(`🌐 [GlobalPresence] User marked ${isOnline ? 'online' : 'offline'} across all spaces`);
+          const source = result.fromCache ? '(cached)' : '(network)';
+          console.log(`🌐 [GlobalPresence] User marked ${isOnline ? 'online' : 'offline'} across all spaces ${source}`);
         }
       } catch (error) {
         console.error('Error updating global presence:', error);

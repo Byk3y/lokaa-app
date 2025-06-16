@@ -3,7 +3,7 @@
  * Tests the additional fixes for auth subscription loops and user details caching
  */
 
-console.log('🔧 Phase 5B Performance Fix V2 Validation Loaded');
+// Startup logging moved to development logger
 
 interface PerformanceTestResult {
   name: string;

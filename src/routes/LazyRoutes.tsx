@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 export const Dashboard = lazy(() => import('@/pages/Dashboard'));
 export const Discover = lazy(() => import('@/pages/Discover'));
 export const Profile = lazy(() => import('@/pages/Profile'));
+export const ChatPage = lazy(() => import('@/pages/ChatPage'));
 
 // App layout and navigation
 export const AppLayout = lazy(() => import('@/components/layout/AppLayout'));
@@ -35,6 +36,7 @@ export const LandingPageWrapper = lazy(() => import('@/pages/LandingPage').then(
 // Admin and debug pages (rarely used - perfect for lazy loading)
 export const StorageDebugger = lazy(() => import('@/pages/StorageDebugger'));
 export const SpaceDebugPage = lazy(() => import('@/pages/SpaceDebugPage'));
+export const DebugPage = lazy(() => import('@/pages/DebugPage'));
 export const SupabaseExample = lazy(() => import('@/pages/SupabaseExample'));
 
 // Utility pages

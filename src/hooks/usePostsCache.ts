@@ -115,29 +115,25 @@ export const usePostsCache = create<PostsCacheState>((set, get) => ({
       (navigationTiming && navigationTiming.type === 'reload') // New API: reload type
     );
     
-    // CRITICAL: Only apply mobile workarounds for actual hard refreshes on space URLs
-    // If user navigated to base URL, this is normal navigation - don't apply delays
-    const isSpaceURL = window.location.pathname.includes('/space');
-    const shouldApplyMobileWorkarounds = false; // DISABLED: Mobile workarounds cause more problems than they solve
+    // CRITICAL: Always apply query deduplication to prevent duplicate database calls
+    // This prevents multiple components from triggering the same query simultaneously
+    const shouldApplyQueryDeduplication = true; // ENABLED: Prevents duplicate queries and timeouts
     
-    if (shouldApplyMobileWorkarounds) {
-      const lockKey = `posts_${spaceId}_${page}_${limit}`;
-      if ((window as any).__postsLocks?.[lockKey]) {
-        console.log('🔒 [PostsCache] Query already in progress, skipping duplicate');
-        return;
-      }
-      (window as any).__postsLocks = (window as any).__postsLocks || {};
-      (window as any).__postsLocks[lockKey] = true;
-      
-      try {
-        await executeActualFetch();
-      } finally {
-        delete (window as any).__postsLocks[lockKey];
-      }
+        // Apply query deduplication to prevent duplicate database calls
+    const lockKey = `posts_${spaceId}_${page}_${limit}`;
+    if ((window as any).__postsLocks?.[lockKey]) {
+      console.log('🔒 [PostsCache] Query already in progress, skipping duplicate');
       return;
     }
     
-    await executeActualFetch();
+    (window as any).__postsLocks = (window as any).__postsLocks || {};
+    (window as any).__postsLocks[lockKey] = true;
+    
+    try {
+      await executeActualFetch();
+    } finally {
+      delete (window as any).__postsLocks[lockKey];
+    }
     
     async function executeActualFetch() {
     // Set loading state
@@ -159,8 +155,8 @@ export const usePostsCache = create<PostsCacheState>((set, get) => ({
     try {
       console.log('🔄 Fetching posts from Supabase for space:', spaceId, `(page ${page}, limit ${limit})`);
       
-        // POST-OUTAGE FIX: Extended timeout for infrastructure recovery
-        const QUERY_TIMEOUT = 8000; // Restored to normal timeout since database is working fine
+        // POST-OUTAGE FIX: Realistic timeout for complex post queries
+        const QUERY_TIMEOUT = 15000; // Increased to 15 seconds for complex post queries with joins
         
         console.log('🔍 [PostsCache] DEBUG:', {
           userAgent: navigator.userAgent,
@@ -172,7 +168,7 @@ export const usePostsCache = create<PostsCacheState>((set, get) => ({
           const startTime = Date.now();
         setTimeout(() => {
             const elapsedTime = Date.now() - startTime;
-            console.error(`❌ [PostsCache] ${operation} timeout for space: ${spaceId} after ${elapsedTime}ms at:`, new Date().toISOString());
+            console.error(`❌ [PostsCache] ${operation} timeout for space: ${spaceId} after ${elapsedTime}ms`);
           reject(new Error(`${operation} timeout`));
         }, QUERY_TIMEOUT);
       });

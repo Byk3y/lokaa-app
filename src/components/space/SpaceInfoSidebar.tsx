@@ -7,7 +7,7 @@ import { resolveImageUrl } from "@/utils/preloadAssets";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore"; // Added new store
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth'; // Added for userId
 import { Separator } from "@/components/ui/separator";
-import { useMemberCounts } from "@/hooks/useMemberCounts"; // Import our new hook
+import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts"; // Import optimized hook
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { createManagedInterval } from '@/utils/pageVisibilityManager';
 import {
@@ -63,61 +63,44 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
 
 
   
-  // FIXED: Always call the hook unconditionally, but don't use hardcoded fallback
-  const effectiveSpaceId = spaceId; // Use actual space ID or undefined
+  // FIXED: Always use the database-centric presence system as single source of truth
+  const effectiveSpaceId = spaceId; 
   const { 
     totalMembers, 
-    onlineMembers, 
+    onlineMembers, // This now comes from database-centric presence system
     adminMembers, 
     loading: countsLoading 
-  } = useMemberCounts(effectiveSpaceId);
+  } = useOptimizedMemberCounts(effectiveSpaceId);
   
-  // FIXED: Simple fallback to prop values only when hook is loading or returns 0
+  // CRITICAL FIX: Always prioritize database-centric online count over props
+  // The unified presence system is now the authoritative source
   const displayMemberCount = totalMembers > 0 ? totalMembers : (propMemberCount || 0);
-  const displayOnlineCount = onlineMembers > 0 ? onlineMembers : (propOnlineCount || 0);
+  const displayOnlineCount = onlineMembers; // Trust the unified presence system completely
   const displayAdminCount = adminMembers > 0 ? adminMembers : (propAdminCount || 0);
   
-  // Member counts calculated and updated
-  
-  // Effect to check current user's online status and fix if needed
+  // Debug logging for troubleshooting
   useEffect(() => {
-    if (!effectiveSpaceId || !user?.id) return;
-    
-    // Update the user's online status using the improved safe function
-    const ensureUserOnline = async () => {
-      try {
-        const { data, error } = await (getSupabaseClient() as any).rpc('ensure_user_online_safe', {
-          p_space_id: effectiveSpaceId,
-          p_user_id: user.id
-        });
-        
-        if (error) {
-          console.warn('SpaceInfoSidebar heartbeat error:', error.message);
-          return;
-        }
-        
-        // data will be true if the user was successfully marked online
-        // Heartbeat successful
-      } catch (err) {
-        console.warn('SpaceInfoSidebar heartbeat exception:', err);
-      }
-    };
-    
-    // Call once on mount
-    ensureUserOnline();
-    
-    // Then set up a managed heartbeat to keep online status active (every 45 seconds)
-    const cleanup = createManagedInterval(
-      `space-heartbeat-${effectiveSpaceId}`,
-      ensureUserOnline,
-      45000,
-      'heartbeat'
-    );
-    
-    return cleanup;
-  }, [effectiveSpaceId, user?.id]);
+    if (effectiveSpaceId) {
+      console.log(`🔍 [SpaceInfoSidebar] Counts for space ${effectiveSpaceId}: online=${displayOnlineCount}, total=${displayMemberCount}, admin=${displayAdminCount}`);
+    }
+  }, [effectiveSpaceId, displayOnlineCount, displayMemberCount, displayAdminCount]);
   
 
+
+  // SECURITY AUDIT: Check for permission inconsistencies
+  React.useEffect(() => {
+    // Note: canAccessSettings should be true for both owners and admins
+    // This is just a debug log to track permission states
+    if (canAccessSettings) {
+      console.log("🔐 Settings access granted:", {
+        canAccessSettings,
+        isOwner,
+        userId: user?.id,
+        spaceId: effectiveSpaceId,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [canAccessSettings, isOwner, user?.id, effectiveSpaceId]);
 
   // Determine default button text based on context
   // Show "Invite Friends" if user is a member (includes owners, admins, and regular members)
@@ -125,6 +108,18 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   const finalActionButtonText = actionButtonText || defaultActionButtonText;
 
   const handleOpenSettings = async () => {
+    // SECURITY CHECK: Double-verify user has settings access (owner or admin)
+    if (!canAccessSettings) {
+      console.error("🚨 SECURITY VIOLATION: User without settings access attempted to open settings", {
+        userId: user?.id,
+        spaceId: effectiveSpaceId,
+        canAccessSettings,
+        isOwner,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     if (subdomain && effectiveSpaceId && user?.id) {
       // Ensure the store is loaded with the current space context before opening the modal
       await storeActions.loadActiveSpace({ subdomain, spaceId: effectiveSpaceId }, user.id, true);
@@ -254,7 +249,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
             </div>
             <Separator orientation="vertical" className="h-10 dark:bg-gray-600" />
             <div className="px-2">
-              <p className="text-xl font-semibold text-gray-900 dark:text-white">
+              <p className="text-xl font-semibold text-gray-900 dark:text-white" data-testid="online-count">
                 {displayOnlineCount}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Online</p>

@@ -17,34 +17,32 @@ const PWAInitializer = () => {
       try {
         console.log('🚀 [PWAInitializer] Initializing PWA features...');
 
-        // TEMPORARILY DISABLED: Service worker was interfering with Supabase auth
-        // Register service worker with development-friendly settings
-        console.log('⚠️ [PWAInitializer] Service worker registration temporarily disabled due to Supabase auth conflicts');
+        // Register service worker with Supabase-aware configuration
+        console.log('🔧 [PWAInitializer] Registering service worker with auth-safe configuration...');
         
-        // TODO: Re-enable after fixing service worker to properly handle Supabase requests
-        // const registered = await serviceWorkerManager.register();
+        const registered = await serviceWorkerManager.register();
         
-        // if (registered) {
-        //   console.log('✅ [PWAInitializer] Service worker registered successfully');
-        //   
-        //   // Set up event handlers
-        //   serviceWorkerManager.setHandlers({
-        //     onUpdateAvailable: () => {
-        //       console.log('🔄 [PWAInitializer] App update available');
-        //       // In development, just log. In production, you might show a toast
-        //       if (process.env.NODE_ENV === 'production') {
-        //         // Could show update notification here
-        //       }
-        //     },
-        //     onControllerChanged: () => {
-        //       console.log('🔄 [PWAInitializer] Service worker controller changed');
-        //       // Could reload page here if needed
-        //     }
-        //   });
-        //   
-        // } else {
-        //   console.log('⚠️ [PWAInitializer] Service worker registration failed or not supported');
-        // }
+        if (registered) {
+          console.log('✅ [PWAInitializer] Service worker registered successfully');
+          
+          // Set up event handlers
+          serviceWorkerManager.setHandlers({
+            onUpdateAvailable: () => {
+              console.log('🔄 [PWAInitializer] App update available');
+              // In development, just log. In production, you might show a toast
+              if (process.env.NODE_ENV === 'production') {
+                // Could show update notification here
+              }
+            },
+            onControllerChanged: () => {
+              console.log('🔄 [PWAInitializer] Service worker controller changed');
+              // Could reload page here if needed
+            }
+          });
+          
+        } else {
+          console.log('⚠️ [PWAInitializer] Service worker registration failed or not supported');
+        }
 
         // Development helpers
         if (process.env.NODE_ENV === 'development') {

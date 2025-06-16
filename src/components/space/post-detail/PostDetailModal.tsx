@@ -411,12 +411,50 @@ export default function PostDetailModal({
 
             {/* Media Gallery (videos, images, files) */}
             <div className="px-6 my-4">
-            <MediaGallery
-              media={post?.media_urls}
-              currentVideoIndex={currentVideoIndex}
-              setCurrentVideoIndex={setCurrentVideoIndex}
-              onVideoClick={handleVideoClick}
-            />
+            {(() => {
+              // Ensure media_urls are in the correct Attachment[] format
+              const convertedMedia: Attachment[] = (post.media_urls || []).map((mediaItem: any, index: number) => {
+                // Handle different formats
+                let url = '';
+                let type: 'file' | 'link' | 'video' = 'file';
+                let fileType = '';
+                let videoPlatform = '';
+                let videoId = '';
+                let thumbnailUrl = '';
+                
+                if (typeof mediaItem === 'string') {
+                  url = mediaItem;
+                } else if (mediaItem && typeof mediaItem === 'object') {
+                  url = mediaItem.directUrl || mediaItem.url || ''; // Use directUrl if available (for Giphy)
+                  type = mediaItem.type || 'file';
+                  fileType = mediaItem.fileType || '';
+                  videoPlatform = mediaItem.videoPlatform || '';
+                  videoId = mediaItem.videoId || '';
+                  thumbnailUrl = mediaItem.thumbnailUrl || '';
+                }
+                
+                return {
+                  id: `${post.id}-${index}`,
+                  url,
+                  type,
+                  fileType,
+                  videoPlatform,
+                  videoId,
+                  thumbnailUrl,
+                  name: `media-${index}`,
+                  fileSize: 0
+                };
+              }).filter(item => item.url);
+              
+              // Only log in development mode
+              if (process.env.NODE_ENV === 'development') {
+                console.log('🖼️ [PostDetailModal] Converted media for MediaGallery:', convertedMedia);
+              }
+              
+              return convertedMedia.length > 0 ? (
+                <MediaGallery media={convertedMedia} />
+              ) : null;
+            })()}
             </div>
 
             {/* Post Actions (like, comment, share) */}

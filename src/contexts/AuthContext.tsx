@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
+import { useUserSpacesStore } from '@/hooks/useUserSpacesStore'
 
 // Simple user interface
 export interface User extends SupabaseUser {}
@@ -24,6 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // MOBILE OPTIMIZATION: Get space preloading function
+  const preloadSpaces = useUserSpacesStore(state => state.preloadSpaces)
 
   useEffect(() => {
     // This effect runs only once on mount to set up the auth state listener.
@@ -33,6 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
+      
+      // MOBILE OPTIMIZATION: Preload spaces when user is authenticated
+      if (session?.user?.id) {
+        console.log('🚀 [AuthContext] Preloading spaces for authenticated user');
+        preloadSpaces(session.user.id);
+      }
 
       // Set up the listener for future auth events
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -40,6 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log(`[AuthContext] Auth state changed: ${_event}`, session)
           setSession(session)
           setUser(session?.user ?? null)
+          
+          // MOBILE OPTIMIZATION: Preload spaces on sign in
+          if (_event === 'SIGNED_IN' && session?.user?.id) {
+            console.log('🚀 [AuthContext] User signed in, preloading spaces');
+            preloadSpaces(session.user.id);
+          }
         }
       )
   
@@ -48,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscription.unsubscribe()
       }
     })
-  }, []) // Empty dependency array ensures this runs only once.
+  }, [preloadSpaces]) // Add preloadSpaces to dependencies
 
   const signOut = async () => {
     await supabase.auth.signOut()

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
-import { useCachedCategories } from '@/hooks/useCachedCategories';
+import { useOptimizedCachedCategories } from '@/hooks/useOptimizedCachedCategories';
 import type { SpaceCategory } from '@/hooks/useCategoriesCache';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ export default function CategoriesSettingsTab() {
     isLoading: categoriesLoading,
     error: categoriesError,
     refreshCategories
-  } = useCachedCategories(space?.id);
+  } = useOptimizedCachedCategories(space?.id);
 
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");

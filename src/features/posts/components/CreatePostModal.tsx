@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Paperclip, Link as LinkIcon, Video as VideoIcon, ImageIcon, Gift, Smile, BarChart, FileText, File } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { generateUUID } from '@/utils/uuid';
 
 // Import our components
 import { EmojiPickerModal } from './modals/EmojiPickerModal';
@@ -147,7 +148,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   } = useGiphySearch({
     onGifSelected: (gifUrl) => {
       const newAttachment = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         type: 'file' as const,
         url: gifUrl,
         name: 'GIF Image',

@@ -61,11 +61,15 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
       return;
     }
     
-    // Check if already loading
-    if (cached?.isLoading) {
-      console.log('🔒 [CategoriesCache] Already loading categories for space:', spaceId);
+    // Apply query deduplication to prevent duplicate database calls
+    const lockKey = `categories_${spaceId}`;
+    if ((window as any).__categoriesLocks?.[lockKey]) {
+      console.log('🔒 [CategoriesCache] Query already in progress, skipping duplicate');
       return;
     }
+    
+    (window as any).__categoriesLocks = (window as any).__categoriesLocks || {};
+    (window as any).__categoriesLocks[lockKey] = true;
 
     // Set loading state
     set(state => ({
@@ -100,7 +104,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
-          console.error(`🏷️ [CategoriesCache] Query timeout for space: ${spaceId} after ${QUERY_TIMEOUT}ms at:`, new Date().toISOString());
+          console.error(`❌ [CategoriesCache] Query timeout for space: ${spaceId} after ${QUERY_TIMEOUT}ms`);
           reject(new Error('Categories query timeout'));
         }, QUERY_TIMEOUT);
       });
@@ -169,6 +173,9 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
       } catch (cacheError) {
         console.warn('⚠️ [CategoriesCache] Failed to save fallback cache:', cacheError);
       }
+      
+      // Clean up lock
+      delete (window as any).__categoriesLocks[lockKey];
 
     } catch (error) {
       console.error('🏷️ [CategoriesCache] Error fetching categories:', error);
@@ -195,6 +202,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         }));
         
         console.log('✅ [CategoriesCache] Using hardcoded fallback categories for nocode-architects');
+        delete (window as any).__categoriesLocks[lockKey];
         return;
       }
       
@@ -236,6 +244,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         }));
         
         console.log('📦 [CategoriesCache] Successfully recovered from fallback cache');
+        delete (window as any).__categoriesLocks[lockKey];
         return; // Exit early with fallback data
       }
       
@@ -252,6 +261,9 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
           }
         }
       }));
+      
+      // Clean up lock
+      delete (window as any).__categoriesLocks[lockKey];
     }
   },
 

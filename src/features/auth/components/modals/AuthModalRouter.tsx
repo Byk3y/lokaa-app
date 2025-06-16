@@ -26,12 +26,23 @@ export default function AuthModalRouter() {
   const handleAuthModalClose = useCallback((modalId: string) => {
     originalCloseModal(modalId);
     
-    // If we're on an auth route, navigate back to home
-    const currentPath = location.pathname;
-    if (currentPath === '/login' || currentPath === '/signup' || currentPath === '/forgot-password') {
-      navigate('/');
+    // Only navigate if user is not authenticated AND not currently being redirected
+    if (!user) {
+      const currentPath = location.pathname;
+      if (currentPath === '/login' || currentPath === '/signup' || currentPath === '/forgot-password') {
+        navigate('/');
+      }
+    } else {
+      // User is authenticated - check if they're already on their destination
+      const currentPath = location.pathname;
+      const isOnDestination = currentPath.includes('/space') || currentPath === '/discover';
+      
+      if (!isOnDestination) {
+        // User is authenticated but not yet on destination - don't navigate, let auth flow complete
+        console.log('🔒 [AuthModalRouter] User authenticated but auth flow in progress, skipping navigation');
+      }
     }
-  }, [originalCloseModal, location.pathname, navigate]);
+  }, [originalCloseModal, location.pathname, navigate, user]);
 
   // Render auth modals with proper content
   const renderAuthModals = () => {

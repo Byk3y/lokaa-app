@@ -1,42 +1,36 @@
+// HMR TEST COMMENT A: Test completed - HMR optimizations active
 import React, { lazy, Suspense, useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { motion } from "framer-motion";
 import { Loader2, Tag, AlertTriangle, RefreshCw, MessageSquare, Users, Calendar, Search, Filter, Pin, Plus, ChevronDown } from "lucide-react";
+
+// HMR OPTIMIZATION: Group core UI and business logic imports
 import { Button } from "@/components/ui/button";
-import { getSupabaseClient } from "@/integrations/supabase/client";
 import { useToast } from '@/hooks/use-toast';
-
-// Import the business logic hook
 import { useFeedLogic } from "@/hooks/useFeedLogic";
+import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 
-// Import extracted types and utilities
-import type { 
-  FeedTabProps
-} from "@/types/feedTypes";
-
-// Re-export FetchedPostType for backward compatibility
+// HMR OPTIMIZATION: Group type and utility imports
+import type { FeedTabProps } from "@/types/feedTypes";
 export type { FetchedPostType } from "@/types/feedTypes";
-import { 
-  getCategoryDisplayName
-} from "@/utils/feedUtils";
+import { getCategoryDisplayName } from "@/utils/feedUtils";
 
-// Import components
+// HMR OPTIMIZATION: Group stable component imports (less likely to change)
 import SpaceInfoSidebar from "./SpaceInfoSidebar";
-import SimpleSetupGuide from "./SimpleSetupGuide";
-// Removed drag and drop imports - using LIFO chronological ordering instead
 import FeedHeader from "./FeedHeader";
 import PostCard from "./PostCard";
 import PostsPagination from './PostsPagination';
-
-// Import components normally for now - lazy loading can be added later with proper default exports
-import { CreatePostModal } from "@/features/posts/components/CreatePostModal";
-import PostDetailModal from "@/components/space/post-detail/PostDetailModal";
-import CreateCategoryModal from "@/components/space/CreateCategoryModal";
-
-// Real-time new posts system
 import { NewPostNotification } from "@/components/feed/NewPostNotification";
+
+// HMR OPTIMIZATION: Lazy load heavy/modal components to reduce initial bundle and HMR cascades
+const SimpleSpaceSetup = lazy(() => import("./SimpleSpaceSetup"));
+const CreatePostModal = lazy(() => import("@/features/posts/components/CreatePostModal").then(module => ({ default: module.CreatePostModal })));
+const PostDetailModal = lazy(() => import("@/components/space/post-detail/PostDetailModal"));
+const CreateCategoryModal = lazy(() => import("@/components/space/CreateCategoryModal"));
 
 export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
   
+  // 🧪 HMR TEST COMMENT: Testing HMR optimization effectiveness (Test 3A)
   // ============================================================================
   // BUSINESS LOGIC HOOK - All state and handlers extracted here
   // ============================================================================
@@ -62,7 +56,6 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
     
     // UI State
     selectedTab,
-    showSetupGuide,
     
     // Modal states
     modalStates,
@@ -121,13 +114,6 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
   // ============================================================================
   // FALLBACK SPACE DATA FOR SIDEBAR
   // ============================================================================
-  
-  // State for member counts when using fallback data
-  const [fallbackMemberCounts, setFallbackMemberCounts] = React.useState({
-    memberCount: 0,
-    adminCount: 0,
-    onlineCount: 0
-  });
   
   // Create fallback space data when currentSpaceData is null but we have access
   const fallbackSpaceData = React.useMemo(() => {
@@ -245,144 +231,9 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
     return null;
   }, [currentSpaceData]);
   
-  // Fetch member counts for fallback data
-  React.useEffect(() => {
-    if (!fallbackSpaceData || currentSpaceData) return; // Only fetch when using fallback
-    
-    const fetchFallbackMemberCounts = async () => {
-      try {
-        const spaceId = fallbackSpaceData.id;
-        
-        // Fetch all counts in parallel with timeouts
-        const timeoutPromise = (ms: number) => new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Query timeout')), ms)
-        );
-        
-        const [memberResult, adminResult, onlineResult] = await Promise.allSettled([
-          Promise.race([
-            getSupabaseClient()
-              .from('space_members')
-              .select('id', { count: 'exact', head: true })
-              .eq('space_id', spaceId)
-              .eq('status', 'active'),
-            timeoutPromise(3000)
-          ]),
-          Promise.race([
-            getSupabaseClient()
-              .from('space_members')
-              .select('id', { count: 'exact', head: true })
-              .eq('space_id', spaceId)
-              .eq('role', 'admin'),
-            timeoutPromise(3000)
-          ]),
-          Promise.race([
-            getSupabaseClient()
-              .from('space_members')
-              .select('id', { count: 'exact', head: true })
-              .eq('space_id', spaceId)
-              .eq('is_online', true),
-            timeoutPromise(3000)
-          ])
-        ]);
-        
-        const memberCount = memberResult.status === 'fulfilled' && 
-          memberResult.value && typeof memberResult.value === 'object' && 
-          'count' in memberResult.value && typeof memberResult.value.count === 'number'
-          ? memberResult.value.count : 0;
-        const adminCount = adminResult.status === 'fulfilled' && 
-          adminResult.value && typeof adminResult.value === 'object' && 
-          'count' in adminResult.value && typeof adminResult.value.count === 'number'
-          ? adminResult.value.count : 0;
-        const onlineCount = onlineResult.status === 'fulfilled' && 
-          onlineResult.value && typeof onlineResult.value === 'object' && 
-          'count' in onlineResult.value && typeof onlineResult.value.count === 'number'
-          ? onlineResult.value.count : 0;
-        
-        // ENHANCED: Use hardcoded fallback for known space when queries fail or timeout
-        if (spaceId === '235e68d1-89df-4d2d-8945-e7756d60de20') {
-          // For the known space, try to get real online count but fall back to known values
-          console.log('🔄 [FeedTab] Using enhanced fallback for known space (queries may have timed out)');
-          
-          // Attempt to get real online count with a quick query
-          try {
-            const { data: onlineData, error: onlineError } = await getSupabaseClient()
-              .from('space_members')
-              .select('user_id', { count: 'exact', head: true })
-              .eq('space_id', spaceId)
-              .eq('status', 'active')
-              .eq('is_online', true);
-              
-            const realOnlineCount = !onlineError && onlineData && typeof onlineData === 'object' && 'count' in onlineData 
-              ? (onlineData.count as number) : 2; // Fallback to last known count
-              
-            setFallbackMemberCounts({ 
-              memberCount: 6,  // Known member count
-              adminCount: 2,   // 1 owner + 1 admin
-              onlineCount: realOnlineCount   // Real online members or fallback
-            });
-            
-            console.log(`🔄 [FeedTab] Set online count for known space: ${realOnlineCount}`);
-          } catch (err) {
-            // If online query fails, use last known count
-            setFallbackMemberCounts({ 
-              memberCount: 6,  // Known member count
-              adminCount: 2,   // 1 owner + 1 admin
-              onlineCount: 2   // Last known online count
-            });
-            console.log('🔄 [FeedTab] Online query failed, using last known count: 2');
-          }
-        } else if (spaceId === '987e5232-68a8-4d1c-88be-e6f77a5e93fd') {
-          // For music-business space, use real query results or fallback
-          console.log('🔄 [FeedTab] Using fallback for music-business space');
-          setFallbackMemberCounts({ 
-            memberCount: typeof memberCount === 'number' && !isNaN(memberCount) ? memberCount : 2,
-            adminCount: typeof adminCount === 'number' && !isNaN(adminCount) ? adminCount : 1,
-            onlineCount: typeof onlineCount === 'number' && !isNaN(onlineCount) ? onlineCount : 1
-          });
-        } else {
-          // For other spaces, try to use query results but ensure safety
-          const safeMemberCount = typeof memberCount === 'number' && !isNaN(memberCount) ? memberCount : 0;
-          const safeAdminCount = typeof adminCount === 'number' && !isNaN(adminCount) ? adminCount : 0;
-          const safeOnlineCount = typeof onlineCount === 'number' && !isNaN(onlineCount) ? onlineCount : 0;
-          
-          setFallbackMemberCounts({ 
-            memberCount: safeMemberCount, 
-            adminCount: safeAdminCount, 
-            onlineCount: safeOnlineCount 
-          });
-          
-          console.log('🔄 [FeedTab] Set member counts for other space:', { 
-            memberCount: safeMemberCount, 
-            adminCount: safeAdminCount, 
-            onlineCount: safeOnlineCount 
-          });
-        }
-        
-      } catch (error) {
-        console.warn('Failed to fetch fallback member counts:', error);
-        
-        // ENHANCED: Always provide hardcoded fallback for known spaces
-        if (fallbackSpaceData.id === '235e68d1-89df-4d2d-8945-e7756d60de20') {
-          console.log('🔄 [FeedTab] Exception occurred, using hardcoded fallback for member counts');
-          setFallbackMemberCounts({ 
-            memberCount: 6,  // Known member count
-            adminCount: 2,   // 1 owner + 1 admin
-            onlineCount: 2   // Real online members (as of database check)
-          });
-        } else if (fallbackSpaceData.id === '987e5232-68a8-4d1c-88be-e6f77a5e93fd') {
-          console.log('🔄 [FeedTab] Exception occurred, using hardcoded fallback for music-business');
-          setFallbackMemberCounts({ 
-            memberCount: 2,  // Fallback member count
-            adminCount: 1,   // 1 owner
-            onlineCount: 1   // Fallback online count
-          });
-        }
-        // Keep default counts of 0 for unknown spaces
-      }
-    };
-    
-    fetchFallbackMemberCounts();
-  }, [fallbackSpaceData, currentSpaceData]);
+  // Use optimized member counts hook for real-time data
+  const spaceIdForCounts = currentSpaceData?.id || fallbackSpaceData?.id || '';
+  const memberCounts = useOptimizedMemberCounts(spaceIdForCounts);
   
   // PHASE 1.5 FIX: Ensure sidebarSpaceData ALWAYS provides space name
   const sidebarSpaceData = React.useMemo(() => {
@@ -578,20 +429,26 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
           </div>
         </div>
 
-        {/* Render SimpleSetupGuide here - only for admins */}
-        {currentSpaceData && showSetupGuide && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
+        {/* Render SimpleSpaceSetup here - only for admins/owners */}
+        {currentSpaceData && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
           <div className="mt-6 sm:px-0">
-            <SimpleSetupGuide 
-              spaceId={currentSpaceData?.id || ''}
-              spaceSubdomain={currentSpaceData?.subdomain || ''} 
-              onFocusPostEditor={() => {
-                if (postInputRef?.current) {
-                  postInputRef.current.focus();
-                } else {
-                  openCreatePostModal();
-                }
-              }} 
-            />
+            <Suspense fallback={<div className="p-4 text-center text-gray-500">Loading setup guide...</div>}>
+              <SimpleSpaceSetup 
+                spaceId={currentSpaceData.id}
+                spaceName={currentSpaceData.name}
+                spaceSubdomain={currentSpaceData.subdomain}
+                isOwner={effectivePermissions.effectiveIsOwner}
+                isAdmin={effectivePermissions.effectiveIsAdmin}
+                hasAnyPosts={fetchedPosts.length > 0 || pinnedPosts.length > 0}
+                onCreatePost={() => {
+                  if (postInputRef?.current) {
+                    postInputRef.current.focus();
+                  } else {
+                    openCreatePostModal();
+                  }
+                }} 
+              />
+            </Suspense>
           </div>
         )}
         
@@ -623,29 +480,9 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                 .map((post, index) => (
                   <PostCard
                     key={`pinned-${post.id}`}
-                    id={post.id}
-                    currentUserId={currentUser.id}
-                    spaceId={post.space_id}
-                    author={post.author ? { 
-                      id: post.author.id, 
-                      name: post.author.full_name || 'Anonymous', 
-                      avatar: post.author.avatar_url,
-                      profile_url: post.author.profile_url,
-                      activity_score: post.author.activity_score || 0
-                    } : { id: 'unknown', name: 'Anonymous', avatar: null } }
-                    content={post.content}
-                    title={post.title} 
-                    createdAt={new Date(post.created_at || Date.now())} 
-                    editedAt={post.edited_at}
-                    category={post.category}
-                    likes={post.like_count || 0}
-                    comments={post.comment_count || 0}
-                    media_urls={post.media_urls?.map((url, index) => ({ id: `${post.id}-${index}`, url, type: 'image' as const })) || []}
+                    {...mapPostToCardProps(post)}
                     isPinned={true}
-                    pinCategory={post.pin_category}
                     isAdmin={effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner}
-                    poll_data={post.poll_data}
-                    slug={post.slug}
                     onPostClick={handlePostCardClick}
                     onLikeToggled={handleLikeToggledInCard}
                     onPinToggled={handlePinToggled}
@@ -674,29 +511,9 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                 .map((post, index) => (
                   <PostCard
                     key={`pinned-${post.id}`}
-                    id={post.id}
-                    currentUserId={currentUser.id}
-                    spaceId={post.space_id}
-                    author={post.author ? { 
-                      id: post.author.id, 
-                      name: post.author.full_name || 'Anonymous', 
-                      avatar: post.author.avatar_url,
-                      profile_url: post.author.profile_url,
-                      activity_score: post.author.activity_score || 0
-                    } : { id: 'unknown', name: 'Anonymous', avatar: null } }
-                    content={post.content}
-                    title={post.title} 
-                    createdAt={new Date(post.created_at || Date.now())} 
-                    editedAt={post.edited_at}
-                    category={post.category}
-                    likes={post.like_count || 0}
-                    comments={post.comment_count || 0}
-                    media_urls={post.media_urls?.map((url, index) => ({ id: `${post.id}-${index}`, url, type: 'image' as const })) || []}
+                    {...mapPostToCardProps(post)}
                     isPinned={true}
-                    pinCategory={post.pin_category}
                     isAdmin={effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner}
-                    poll_data={post.poll_data}
-                    slug={post.slug}
                     onPostClick={handlePostCardClick}
                     onLikeToggled={handleLikeToggledInCard}
                     onPinToggled={handlePinToggled}
@@ -707,16 +524,22 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
         )}
         
         {/* Regular Posts List */}
-        {/* FIXED: Show loading only when genuinely loading OR instant access but no data indicators yet */}
-        {(postsLoading || (hasInstantAccess && !hasDataIndicators && !currentSpaceData)) && (
+        {/* SAFARI-AWARE FIX: Show loading only when genuinely loading AND no posts loaded yet */}
+        {((postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) || (hasInstantAccess && !hasDataIndicators && !currentSpaceData && fetchedPosts.length === 0 && pinnedPosts.length === 0)) && (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
             <p className="text-muted-foreground text-center">
               {(() => {
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+                // Fix: Only use user agent for mobile detection, not window width
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
                 const isHardRefresh = performance.navigation?.type === 1 || 
                                      (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
                 const hasCache = fetchedPosts.length > 0 || pinnedPosts.length > 0;
+                
+                if (isHardRefresh && isMobile && isSafari) {
+                  return 'Connecting to Safari...';
+                }
                 
                 if (isHardRefresh && isMobile) {
                   return 'Restoring connection...';
@@ -726,13 +549,27 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                   return 'Refreshing posts...';
                 }
                 
-                return isMobile ? 'Loading posts...' : 'Loading posts...';
+                if (isMobile && isSafari) {
+                  return 'Loading posts for Safari...';
+                }
+                
+                return 'Loading posts...';
               })()}
             </p>
             {(() => {
-              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+              // Fix: Only use user agent for mobile detection, not window width
+              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+              const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
               const isHardRefresh = performance.navigation?.type === 1 || 
                                    (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
+              
+              if (isHardRefresh && isMobile && isSafari) {
+                return (
+                  <p className="text-xs text-gray-400 mt-2 max-w-sm text-center">
+                    Safari mobile needs extra time to establish secure connections.
+                  </p>
+                );
+              }
               
               if (isHardRefresh && isMobile) {
                 return (
@@ -755,7 +592,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
               </p>
               <p className="text-sm text-red-500 mt-1">
                 {postsError.includes('timeout') 
-                  ? 'Your connection is slow. This can happen on mobile networks.' 
+                  ? 'Your connection is slow. Please try again.' 
                   : postsError
                 }
               </p>
@@ -836,53 +673,59 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
             spaceId={sidebarSpaceData.id || ''} 
             isOwner={effectivePermissions.effectiveIsOwner || false}
             isMember={!!currentUser} // If user is viewing feed, they're likely a member
-            memberCount={fallbackMemberCounts.memberCount}
-            adminCount={fallbackMemberCounts.adminCount}
-            onlineCount={fallbackMemberCounts.onlineCount}
+            memberCount={memberCounts.totalMembers}
+            adminCount={memberCounts.adminMembers}
+            onlineCount={memberCounts.onlineMembers}
           />
         </div>
       )}
       
       {/* Create Post Modal */}
       {modalStates.isCreatePostOpen && currentSpaceData && (
-        <CreatePostModal
-          isOpen={modalStates.isCreatePostOpen}
-          onClose={closeCreatePostModal}
-          spaceId={currentSpaceData.id}
-          currentUserId={currentUser?.id || ''} 
-          onPostCreated={handlePostCreated}
-          spaceName={currentSpaceData.name || 'Current Space'}
-          userName={currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || currentUser?.email || 'User'}
-          userAvatarUrl={currentUser?.user_metadata?.avatar_url}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading...</div></div>}>
+          <CreatePostModal
+            isOpen={modalStates.isCreatePostOpen}
+            onClose={closeCreatePostModal}
+            spaceId={currentSpaceData.id}
+            currentUserId={currentUser?.id || ''} 
+            onPostCreated={handlePostCreated}
+            spaceName={currentSpaceData.name || 'Current Space'}
+            userName={currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || currentUser?.email || 'User'}
+            userAvatarUrl={currentUser?.user_metadata?.avatar_url}
+          />
+        </Suspense>
       )}
       
       {/* Create Category Modal */}
       {currentSpaceData && (
-        <CreateCategoryModal
-          isOpen={modalStates.isCategoryOpen}
-          onClose={closeCategoryModal}
-          spaceId={currentSpaceData.id}
-          userId={currentUser.id}
-          onCategoryCreated={() => {
-            closeCategoryModal();
-            refreshCategories();
-          }}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading...</div></div>}>
+          <CreateCategoryModal
+            isOpen={modalStates.isCategoryOpen}
+            onClose={closeCategoryModal}
+            spaceId={currentSpaceData.id}
+            userId={currentUser.id}
+            onCategoryCreated={() => {
+              closeCategoryModal();
+              refreshCategories();
+            }}
+          />
+        </Suspense>
       )}
       
       {/* Post Detail Modal */}
       {modalStates.isPostDetailOpen && modalStates.selectedPostForModal && (
-        <PostDetailModal
-          isOpen={modalStates.isPostDetailOpen}
-          onClose={handleClosePostModal}
-          post={modalStates.selectedPostForModal}
-          onCommentAdded={handleCommentAddedInModal}
-          onPinToggled={handlePinToggled}
-          onPostUpdated={handlePostUpdated}
-          onPostDeleted={handlePostDeleted}
-          onLikeToggled={handleLikeToggledInCard}
-        />
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading...</div></div>}>
+          <PostDetailModal
+            isOpen={modalStates.isPostDetailOpen}
+            onClose={handleClosePostModal}
+            post={modalStates.selectedPostForModal}
+            onCommentAdded={handleCommentAddedInModal}
+            onPinToggled={handlePinToggled}
+            onPostUpdated={handlePostUpdated}
+            onPostDeleted={handlePostDeleted}
+            onLikeToggled={handleLikeToggledInCard}
+          />
+        </Suspense>
       )}
     </div>
   );

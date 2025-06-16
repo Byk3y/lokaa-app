@@ -62,20 +62,12 @@ export default function StandaloneLoginModal({ onClose, disableBackdrop = false 
   useEffect(() => {
     const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        // FIXED: More robust check to prevent double navigation
+        // FIXED: Close modal after successful authentication
+        // AuthModalRouter now handles navigation conflicts intelligently
         setTimeout(() => {
-          const currentPath = window.location.pathname;
-          const isOnSpacePage = currentPath.includes('/space');
-          const isNavigating = window.location.href !== window.location.origin + currentPath;
-          
-          // Only close if not already on a space page and not currently navigating
-          if (!isOnSpacePage && !isNavigating) {
-            console.log('🔒 [StandaloneLoginModal] Closing modal after successful auth');
-            onClose();
-          } else {
-            console.log('🔒 [StandaloneLoginModal] Skipping modal close - navigation in progress or on space page');
-          }
-        }, 200); // Increased delay to ensure navigation completes
+          console.log('🔒 [StandaloneLoginModal] Closing modal after successful auth');
+          onClose();
+        }, 800); // Moderate delay to let initial auth flow begin
       }
     });
 

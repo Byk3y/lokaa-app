@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { shouldEnableMobileFeatures } from './mobileDetection';
 
 /**
  * 🔋 Page Visibility Manager
@@ -33,9 +34,17 @@ class PageVisibilityManager {
 
   /**
    * Initialize the visibility manager
+   * Only activates on mobile devices to prevent unnecessary desktop tab switching logs
    */
   initialize(): void {
     if (this.initialized) return;
+
+    // Only enable page visibility management on mobile devices
+    if (!shouldEnableMobileFeatures()) {
+      console.log('🔋 [PageVisibilityManager] Desktop detected - page visibility management disabled');
+      this.initialized = true; // Mark as initialized but don't set up listeners
+      return;
+    }
 
     // Set initial visibility state
     this.isVisible = !document.hidden;
@@ -49,7 +58,7 @@ class PageVisibilityManager {
 
     this.initialized = true;
 
-    console.log('🔋 [PageVisibilityManager] Initialized - managing background activity');
+    console.log('🔋 [PageVisibilityManager] Initialized - managing background activity on mobile device');
     
     // Expose to window for debugging
     (window as any).pageVisibilityManager = this;

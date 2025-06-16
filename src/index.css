@@ -1,8 +1,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-@import "./styles/grid-background.css";
+/* HMR TEST COMMENT B: Test completed - CSS HMR optimized */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* HMR OPTIMIZATION: Inlined grid-background to reduce import chain cascades */
+/* 🧪 HMR TEST: CSS optimization test (Test 3B) */
+/* Grid background styles (previously imported from grid-background.css) */
+.grid-bg {
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.grid-bg-large {
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.03) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 2px, transparent 2px);
+  background-size: 40px 40px;
+}
+
+.grid-bg-dark {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
 
 @layer base {
   :root {

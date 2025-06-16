@@ -26,6 +26,8 @@ class SupabaseHealthMonitor {
   private recoveryAttempts = 0;
   private maxRecoveryAttempts = 3;
   private isRecovering = false;
+  private lastMobileBrowserBlocking = 0;
+  private consecutiveFailures = 0;
 
   private constructor() {}
 
@@ -59,6 +61,37 @@ class SupabaseHealthMonitor {
     if (typeof window !== 'undefined') {
       (window as any).checkSupabaseHealth = () => this.performHealthCheck();
       (window as any).recoverSupabaseClient = () => this.recoverClient();
+      
+      // Mobile browser blocking test utility
+      (window as any).testMobileBrowserBlocking = () => {
+        console.log('🧪 [Mobile Browser Blocking Test]');
+        console.log('================================');
+        console.log('Mobile Detection:', /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768);
+        console.log('Recent Background Activity:', this.hasRecentMobileBackgroundActivity());
+        console.log('Last Visibility Change:', (window as any).__lastVisibilityChange ? new Date((window as any).__lastVisibilityChange).toLocaleTimeString() : 'None');
+        console.log('Last Mobile Browser Blocking:', this.lastMobileBrowserBlocking ? new Date(this.lastMobileBrowserBlocking).toLocaleTimeString() : 'None');
+        console.log('Health Monitor Status:', {
+          isRecovering: this.isRecovering,
+          recoveryAttempts: this.recoveryAttempts,
+          consecutiveFailures: this.consecutiveFailures,
+          lastHealthy: this.lastHealthCheck?.isHealthy
+        });
+        
+        // Test manual blocking detection
+        const mockError = { error: 'Fetch API cannot load due to access control checks', latency: 1000 };
+        console.log('Would Detect Mobile Blocking:', this.isMobileBrowserBlocking(mockError));
+        
+        return {
+          mobileDetected: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768,
+          recentBackgroundActivity: this.hasRecentMobileBackgroundActivity(),
+          healthMonitorStatus: this.getHealthStatus()
+        };
+      };
+      
+      // Track page visibility changes for mobile background detection
+      document.addEventListener('visibilitychange', () => {
+        (window as any).__lastVisibilityChange = Date.now();
+      });
     }
   }
 
@@ -131,8 +164,23 @@ class SupabaseHealthMonitor {
       this.lastHealthCheck = result;
       console.warn(`🏥 [HealthMonitor] Health check failed (${latency}ms):`, result.error);
 
-      // Attempt recovery if not already recovering
+      // ENHANCED: Check mobile browser blocking coordination before attempting recovery
       if (!this.isRecovering && this.recoveryAttempts < this.maxRecoveryAttempts) {
+        // Check if this is mobile browser network blocking (Chrome/Safari)
+        if (this.isMobileBrowserBlocking(result)) {
+          console.log('🏥 [HealthMonitor] Mobile browser network blocking detected, implementing progressive recovery');
+          
+          // Start progressive recovery instead of aggressive recovery
+          this.handleMobileBrowserBlocking();
+          return result; // Skip normal recovery flow
+        }
+        
+        // Check if Phase 1 is handling mobile recovery
+        if (this.isPhase1HandlingSafariBlocking()) {
+          console.log('🏥 [HealthMonitor] Phase 1 handling mobile recovery, skipping health monitor recovery');
+          return result; // Skip health monitor recovery
+        }
+        
         this.attemptRecovery();
       }
 
@@ -306,6 +354,207 @@ class SupabaseHealthMonitor {
           attempts: this.recoveryAttempts 
         }
       }));
+    }
+  }
+
+  /**
+   * Check if this is mobile browser network blocking (Chrome/Safari/Firefox mobile)
+   */
+  private isMobileBrowserBlocking(result: { error?: string; latency?: number }): boolean {
+    if (typeof window === 'undefined') return false;
+    
+    // Check if we're on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                     window.innerWidth <= 768;
+    
+    if (!isMobile) return false;
+    
+    // Check for characteristic mobile browser blocking errors
+    const errorMessage = result.error?.toLowerCase() || '';
+    const isMobileBlockingError = 
+      errorMessage.includes('access control checks') ||
+      errorMessage.includes('load failed') ||
+      errorMessage.includes('network error') ||
+      errorMessage.includes('failed to fetch') ||
+      errorMessage.includes('cors error');
+    
+    // Check if user recently returned from background
+    const hasRecentBackgroundReturn = this.hasRecentMobileBackgroundActivity();
+    
+    const isBlocking = isMobileBlockingError && hasRecentBackgroundReturn;
+    
+    if (isBlocking) {
+      console.log('🏥 [HealthMonitor] Mobile browser blocking detected:', {
+        isMobile,
+        errorMessage: result.error,
+        hasRecentBackgroundReturn,
+        userAgent: navigator.userAgent.slice(0, 50) + '...'
+      });
+    }
+    
+    return isBlocking;
+  }
+
+  /**
+   * Check if there's recent mobile background activity
+   */
+  private hasRecentMobileBackgroundActivity(): boolean {
+    try {
+      // Check mobile session manager
+      const mobileSessionManager = (window as any).mobileSessionManager;
+      if (mobileSessionManager) {
+        const isReturning = mobileSessionManager.isReturningFromBackground();
+        if (isReturning) return true;
+      }
+      
+      // Check mobile lifecycle
+      const mobileLifecycle = (window as any).mobileLifecycleDebug;
+      if (mobileLifecycle) {
+        const state = mobileLifecycle.getState();
+        const timeSinceReturn = Date.now() - (state.lastReturnTime || 0);
+        if (timeSinceReturn < 30000) { // 30 seconds
+          return true;
+        }
+      }
+      
+      // Check page visibility changes (mobile backgrounding indicator)
+      const lastVisibilityChange = (window as any).__lastVisibilityChange || 0;
+      const timeSinceVisibilityChange = Date.now() - lastVisibilityChange;
+      if (timeSinceVisibilityChange < 30000) { // 30 seconds
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.warn('🏥 [HealthMonitor] Background activity check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Handle mobile browser blocking with progressive recovery
+   */
+  private handleMobileBrowserBlocking(): void {
+    console.log('🏥 [HealthMonitor] Starting mobile browser blocking recovery...');
+    
+    // Mark that we're handling this to prevent recovery loops
+    this.lastMobileBrowserBlocking = Date.now();
+    
+    // Set up progressive recovery attempts
+    const progressiveRetries = [
+      { delay: 2000, name: 'Initial wait (2s)' },      // Wait for browser to restore
+      { delay: 5000, name: 'Extended wait (5s)' },     // Browser needs more time
+      { delay: 10000, name: 'Final attempt (10s)' }    // Last chance before giving up
+    ];
+    
+    progressiveRetries.forEach((retry, index) => {
+      setTimeout(async () => {
+        try {
+          console.log(`🏥 [HealthMonitor] Mobile recovery attempt ${index + 1}: ${retry.name}`);
+          
+          // Test if mobile browser has restored network access
+          const testResult = await this.quickHealthCheck();
+          
+          if (testResult.healthy) {
+            console.log(`✅ [HealthMonitor] Mobile browser blocking resolved after ${retry.name}`);
+            this.lastMobileBrowserBlocking = 0; // Clear flag
+            this.consecutiveFailures = 0; // Reset failure count
+            return;
+          }
+          
+          // If this is the last attempt and still failing, allow normal recovery
+          if (index === progressiveRetries.length - 1) {
+            console.warn('🏥 [HealthMonitor] Mobile browser blocking persists, allowing normal recovery');
+            this.lastMobileBrowserBlocking = 0; // Clear flag so normal recovery can proceed
+          }
+          
+        } catch (error) {
+          console.warn(`🏥 [HealthMonitor] Mobile recovery attempt ${index + 1} failed:`, error);
+        }
+      }, retry.delay);
+    });
+  }
+
+  /**
+   * Quick health check for mobile recovery testing
+   */
+  private async quickHealthCheck(): Promise<{ healthy: boolean; error?: string }> {
+    try {
+      const startTime = performance.now();
+      
+      // Get the current client using the singleton pattern
+      const supabase = getSupabaseClient();
+      
+      if (!supabase) {
+        return { healthy: false, error: 'Supabase client not available' };
+      }
+      
+      // Use a very simple query that should work quickly
+      const { error } = await supabase
+        .from('spaces')
+        .select('id', { count: 'exact', head: true })
+        .limit(1);
+      
+      const latency = performance.now() - startTime;
+      
+      if (error) {
+        return { healthy: false, error: error.message };
+      }
+      
+      if (latency > 10000) { // 10 seconds is still too slow
+        return { healthy: false, error: 'Slow response' };
+      }
+      
+      return { healthy: true };
+      
+    } catch (error) {
+      return { 
+        healthy: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Check if Phase 1 is actively handling Safari mobile network blocking
+   */
+  private isPhase1HandlingSafariBlocking(): boolean {
+    if (typeof window === 'undefined') return false;
+    
+    const phase1Recovery = (window as any).phase1Recovery;
+    if (!phase1Recovery) return false;
+    
+    try {
+      const phase1State = phase1Recovery.getState();
+      const phase1Stats = phase1Recovery.getStats();
+      
+      // Check if Phase 1 is active and has recent Safari blocking activity
+      const isPhase1Active = phase1State.isActive;
+      const hasRecentBackgroundReturn = phase1State.backgroundReturnCount > 0 && 
+                                       (Date.now() - phase1State.lastRecoveryTime) < 30000; // 30 seconds
+      
+      // Check if this is Safari mobile
+      const isSafariMobile = /Safari/.test(navigator.userAgent) && 
+                            /Mobi|Android/i.test(navigator.userAgent);
+      
+      // If Phase 1 is handling mobile recovery and we're on Safari mobile
+      const isHandlingSafariBlocking = (isPhase1Active || hasRecentBackgroundReturn) && isSafariMobile;
+      
+      if (isHandlingSafariBlocking) {
+        console.log('🏥 [HealthMonitor] Phase 1 Safari blocking detected:', {
+          isPhase1Active,
+          hasRecentBackgroundReturn,
+          isSafariMobile,
+          backgroundReturnCount: phase1State.backgroundReturnCount,
+          timeSinceLastRecovery: Date.now() - phase1State.lastRecoveryTime
+        });
+      }
+      
+      return isHandlingSafariBlocking;
+      
+    } catch (error) {
+      console.warn('🏥 [HealthMonitor] Phase 1 coordination check failed:', error);
+      return false;
     }
   }
 

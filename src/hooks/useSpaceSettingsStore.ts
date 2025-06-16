@@ -392,7 +392,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         canEditSpace: userIsOwner || userIsAdmin,
         canManageMembers: userIsOwner || userIsAdmin,
         canCreateContent: userIsOwner || userIsAdmin || userIsMember,
-        canAccessSettings: userIsOwner || userIsAdmin,
+        canAccessSettings: userIsOwner || userIsAdmin, // CORRECTED: Both owners and admins can access settings
       };
       set({ permissions: calculatedPermissions, loadingPermissions: false });
     } catch (error: any) {
