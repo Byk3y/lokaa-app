@@ -3,7 +3,7 @@ import { useOutletContext, useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
-import { useTrustToken } from '@/hooks/useTrustToken';
+import { TrustToken } from "@/utils/simpleFastPath";
 import AboutTab from "@/components/space/AboutTab";
 import FeedTab from "@/components/space/FeedTab";
 import CalendarTab from "@/components/space/CalendarTab";
@@ -47,8 +47,74 @@ const SpaceTabContent = () => {
     loadingSpace: storeLoadingSpace,
   } = useSpaceSettingsStore();
   
-  // SIMPLIFIED: Trust token validation using extracted service
-  const { isValid: trustTokenValid, token: trustToken } = useTrustToken(subdomain, user?.id);
+  // REVOLUTIONARY: Memoized Trust Token Validation - prevents redundant validation in SpaceTabContent
+  const validateTrustTokenMemoized = useMemo(() => {
+    const cache = new Map<string, { result: TrustToken | null; timestamp: number }>();
+    const CACHE_TTL = 30000; // 30 seconds
+    
+    return (subdomain: string, userId: string): TrustToken | null => {
+      const cacheKey = `${subdomain}-${userId}`;
+      const cached = cache.get(cacheKey);
+      
+      // Check cache first
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.result;
+      }
+      
+      try {
+        // Quick sessionStorage check for trust token (using the correct storage key)
+        const trustTokenData = sessionStorage.getItem(`trust_token_${subdomain}`);
+        if (!trustTokenData) {
+          cache.set(cacheKey, { result: null, timestamp: Date.now() });
+          return null;
+        }
+        
+        const parsed = JSON.parse(trustTokenData);
+        
+        // Validate the trust token structure and expiration
+        if (!parsed.userId || !parsed.subdomain || !parsed.expiresAt) {
+          cache.set(cacheKey, { result: null, timestamp: Date.now() });
+          return null;
+        }
+        
+        // Check if token is valid and for the correct user/subdomain
+        const isValid = parsed.expiresAt > Date.now() && 
+                        parsed.subdomain === subdomain && 
+                        parsed.userId === userId;
+        
+        const token: TrustToken | null = isValid ? {
+          userId: parsed.userId,
+          subdomain: parsed.subdomain,
+          access: parsed.access || 'verified',
+          timestamp: parsed.timestamp || Date.now(),
+          source: parsed.source || 'database-verified',
+          signature: parsed.signature || '',
+          expiresAt: parsed.expiresAt
+        } : null;
+        
+        cache.set(cacheKey, { result: token, timestamp: Date.now() });
+        return token;
+      } catch (e) {
+        cache.set(cacheKey, { result: null, timestamp: Date.now() });
+        return null;
+      }
+    };
+  }, []); // Empty dependency array since this is a stable function
+
+  // REVOLUTIONARY: Ultra-fast trust token access with memoization
+  const trustToken = useMemo(() => {
+    if (!user || !subdomain) return null;
+    return validateTrustTokenMemoized(subdomain, user.id);
+  }, [user?.id, subdomain, validateTrustTokenMemoized]);
+  
+  // REVOLUTIONARY: Single trust token log to prevent spam
+  const trustTokenLoggedRef = useRef(false);
+  useEffect(() => {
+    if (trustToken && !trustTokenLoggedRef.current) {
+      trustTokenLoggedRef.current = true;
+      console.log('🔒 [SpaceTabContent] Trust token access confirmed');
+    }
+  }, [trustToken]);
   
   // REVOLUTIONARY: Ultra-aggressive cache access with memoization
   const hasInstantCacheAccess = useMemo(() => {
