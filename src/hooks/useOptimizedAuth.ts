@@ -1,13 +1,15 @@
 /**
  * @deprecated This hook has been moved to AuthContext.
- * Import directly from '@/contexts/AuthContext' instead.
+ * All components should import useOptimizedAuth directly from '@/contexts/AuthContext'.
+ * 
+ * This temporary compatibility layer prevents breaking existing imports.
+ * Please migrate your imports when possible.
  */
 
 import { useOptimizedAuth as AuthContextHook } from '@/contexts/AuthContext';
 
 /**
- * Re-export the auth hook from the AuthContext.
- * This is provided for backward compatibility during the migration period.
+ * Temporary re-export for backward compatibility.
  * 
  * @deprecated Use useOptimizedAuth from '@/contexts/AuthContext' instead
  */

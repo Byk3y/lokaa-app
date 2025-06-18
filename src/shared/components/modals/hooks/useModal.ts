@@ -41,12 +41,48 @@ export const useModal = () => {
     closeAllModals,
     
     // Auth-specific convenience functions (replace legacy window functions)
-    openLoginModal: () => openModal('auth-login', false),
-    openSignupModal: () => openModal('auth-signup', false),
-    openForgotPasswordModal: () => openModal('auth-forgot', false),
-    closeLoginModal: () => closeModal('auth-login'),
-    closeSignupModal: () => closeModal('auth-signup'),
-    closeForgotPasswordModal: () => closeModal('auth-forgot'),
+    openLoginModal: () => {
+      // Update URL to reflect modal state
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.history.pushState(null, '', '/login');
+      }
+      return openModal('auth-login', null, { title: 'Log in to Lokaa', size: 'sm' });
+    },
+    openSignupModal: () => {
+      // Update URL to reflect modal state
+      if (typeof window !== 'undefined' && window.location.pathname !== '/signup') {
+        window.history.pushState(null, '', '/signup');
+      }
+      return openModal('auth-signup', null, { title: 'Create your Lokaa account', size: 'sm' });
+    },
+    openForgotPasswordModal: () => {
+      // Update URL to reflect modal state
+      if (typeof window !== 'undefined' && window.location.pathname !== '/forgot-password') {
+        window.history.pushState(null, '', '/forgot-password');
+      }
+      return openModal('auth-forgot', null, { title: 'Reset Password', size: 'sm' });
+    },
+    closeLoginModal: () => {
+      // Reset URL back to home when closing auth modal
+      if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+        window.history.pushState(null, '', '/');
+      }
+      return closeModal('auth-login');
+    },
+    closeSignupModal: () => {
+      // Reset URL back to home when closing auth modal
+      if (typeof window !== 'undefined' && window.location.pathname === '/signup') {
+        window.history.pushState(null, '', '/');
+      }
+      return closeModal('auth-signup');
+    },
+    closeForgotPasswordModal: () => {
+      // Reset URL back to home when closing auth modal
+      if (typeof window !== 'undefined' && window.location.pathname === '/forgot-password') {
+        window.history.pushState(null, '', '/');
+      }
+      return closeModal('auth-forgot');
+    },
     
     // Modal state checks
     isLoginModalOpen: () => isModalOpen('auth-login'),

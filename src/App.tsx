@@ -1135,6 +1135,99 @@ export default function App() {
       };
     }
   }, []);
+
+  // Add Phase 8 visual overlay prevention (ENHANCED PROTECTION)
+  useEffect(() => {
+    // Prevent Phase 8 systems from creating visual overlays that block modals
+    if (import.meta.env.DEV) {
+      // Set comprehensive global flags to prevent Phase 8 interference
+      (window as any).__DISABLE_PHASE8_VISUALS__ = true;
+      (window as any).__DISABLE_PHASE_8__ = true;
+      (window as any).__ENABLE_REALTIME_DASHBOARD__ = false;
+      (window as any).__DISABLE_AI_OVERLAYS__ = true;
+      (window as any).__DISABLE_PHASE_8_VISUAL_OVERLAYS__ = true;
+      
+      // Add comprehensive CSS to prevent overlays and fix modal positioning
+      const style = document.createElement('style');
+      style.id = 'phase8-modal-protection';
+      style.textContent = `
+        /* PHASE 8 PROTECTION: Prevent visual overlays that block modals */
+        [class*="fixed"][class*="inset"][class*="backdrop-blur"]:not([data-modal]):not([role="dialog"]):not([data-allowed-overlay]) {
+          display: none !important;
+        }
+        
+        [data-phase8="true"],
+        .phase8-debug-overlay,
+        [class*="phase8"],
+        .fixed.inset-4.z-50.bg-background\\/95.backdrop-blur-sm {
+          display: none !important;
+        }
+        
+        /* MODAL POSITIONING FIX: Ensure modals appear correctly */
+        [role="dialog"], 
+        [data-modal="true"],
+        .modal-overlay {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          z-index: 9999 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        
+        /* Modal content positioning */
+        [role="dialog"] > div:first-child,
+        [data-modal="true"] > div:first-child {
+          position: relative !important;
+          max-height: 90vh !important;
+          max-width: 90vw !important;
+          margin: auto !important;
+        }
+        
+        /* Prevent Phase 8 from interfering with modal backdrop */
+        .modal-backdrop {
+          background: rgba(0, 0, 0, 0.5) !important;
+          backdrop-filter: blur(4px) !important;
+        }
+      `;
+      
+      if (!document.getElementById('phase8-modal-protection')) {
+        document.head.appendChild(style);
+      }
+      
+      // Active monitoring: Remove Phase 8 overlays that appear dynamically
+      const removePhase8Overlays = () => {
+        const overlays = document.querySelectorAll(
+          '[data-phase8], [class*="phase8"], .fixed.inset-4.z-50.bg-background\\/95, [class*="RealtimePerformance"]'
+        );
+        overlays.forEach(el => {
+          if (el.className.includes('backdrop-blur') || el.className.includes('bg-background/95')) {
+            console.log('🧹 [App] Removing Phase 8 overlay that could block modals:', el);
+            el.remove();
+          }
+        });
+      };
+      
+      // Run immediately and monitor for new overlays
+      removePhase8Overlays();
+      const observer = new MutationObserver(removePhase8Overlays);
+      observer.observe(document.body, { childList: true, subtree: true });
+      
+      // Override Phase 8 functions
+      if ((window as any).disableRealtimeDashboard) {
+        (window as any).disableRealtimeDashboard();
+      }
+      
+      console.log('🛡️ [App] Phase 8 modal protection active - overlays disabled, modal positioning fixed');
+      
+      return () => {
+        observer.disconnect();
+      };
+    }
+  }, []);
   
   // FIXED: Show loading screen while app initializes
   if (!appReady) {

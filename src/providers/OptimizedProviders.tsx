@@ -294,9 +294,9 @@ export function withPerformanceTracking<P extends object>(
 }
 
 /**
- * FIXED: Lightweight provider performance hook - const export for Fast Refresh compatibility
+ * FIXED: Lightweight provider performance hook - named function for Fast Refresh compatibility
  */
-export const useProviderPerformance = () => {
+export function useProviderPerformance() {
   const getProviderMetrics = useCallback(() => {
     // FIXED: Simplified metrics to reduce overhead
     const health = performanceMonitor.getSystemHealth();
@@ -316,7 +316,7 @@ export const useProviderPerformance = () => {
     getProviderMetrics,
     logPerformanceReport
   };
-};
+}
 
 /**
  * FIXED: Simplified development helper

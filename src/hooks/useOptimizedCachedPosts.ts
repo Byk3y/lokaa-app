@@ -176,7 +176,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
   useEffect(() => {
     return () => {
       if (spaceId) {
-        globalCache.unsubscribe(`posts:${spaceId}:1:30`, subscriberId);
+        globalCache.unsubscribe(`posts:${spaceId}:1:25`, subscriberId);
         globalCache.unsubscribe(`posts:${spaceId}:pinned`, subscriberId);
       }
     };
@@ -207,8 +207,29 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
         globalCache.invalidatePattern(`posts:${spaceId}`);
       }
 
+      // Get the actual total count from database even when using cache (with caching)
+      const countKey = `posts_count:${spaceId}`;
+      const totalCount = await globalCache.get(
+        countKey,
+        async () => {
+          const { count, error } = await getSupabaseClient()
+            .from('posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('space_id', spaceId)
+            .eq('is_pinned', false); // Only count regular posts for pagination
+            
+          if (error) {
+            devLogger.warn('CacheDebug', `Failed to get count`, { error });
+            return 0;
+          }
+          return count || 0;
+        },
+        subscriberId,
+        { maxAge: 60000 } // Cache count for 1 minute
+      );
+
       // Fetch regular posts
-      const postsData = await cacheQueries.posts(spaceId, subscriberId, page, 30);
+      const postsData = await cacheQueries.posts(spaceId, subscriberId, page, 25);
       
       // Fetch pinned posts separately (they don't paginate)
       const pinnedKey = `posts:${spaceId}:pinned`;
@@ -245,7 +266,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
       setPosts(enrichedPosts.filter(p => !p.is_pinned));
       setPinnedPosts(enrichedPinnedPosts.filter(p => p.is_pinned));
       setCurrentPage(page);
-      setTotalCount(enrichedPosts.length + enrichedPinnedPosts.length); // Simplified for now
+      setTotalCount(totalCount);
       setLoading(false);
 
       devLogger.log('CacheDebug', `Posts loaded successfully`, { 
@@ -282,7 +303,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
     const checkCacheAndFetch = async () => {
       try {
         // Check for cached regular posts
-        const regularKey = `posts:${spaceId}:1:30`;
+        const regularKey = `posts:${spaceId}:1:25`;
         const pinnedKey = `posts:${spaceId}:pinned`;
         
         const cachedRegular = globalCache.getCachedData<any[]>(regularKey);
@@ -295,12 +316,35 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
         if (cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned) && !shouldRefreshForTabSwitch) {
           devLogger.log('CacheDebug', `Using cached posts for space ${spaceId}`, { subscriberId });
           
+          // Get the actual total count from database even when using cache (with caching)
+          const countKey = `posts_count:${spaceId}`;
+          const totalCount = await globalCache.get(
+            countKey,
+            async () => {
+              const { count, error } = await getSupabaseClient()
+                .from('posts')
+                .select('*', { count: 'exact', head: true })
+                .eq('space_id', spaceId)
+                .eq('is_pinned', false); // Only count regular posts for pagination
+                
+              if (error) {
+                devLogger.warn('CacheDebug', `Failed to get count`, { error });
+                return 0;
+              }
+              return count || 0;
+            },
+            subscriberId,
+            { maxAge: 60000 } // Cache count for 1 minute
+          );
+          
           // Enrich cached posts with metadata
           const enrichedPosts = await enrichPostsWithMetadata(cachedRegular, spaceId, subscriberId);
           const enrichedPinnedPosts = await enrichPostsWithMetadata(cachedPinned, spaceId, subscriberId);
           
           setPosts(enrichedPosts.filter(p => !p.is_pinned));
           setPinnedPosts(enrichedPinnedPosts.filter(p => p.is_pinned));
+          setCurrentPage(1);
+          setTotalCount(totalCount); // Use actual total count from database
           setLoading(false);
           setError(null);
           
@@ -353,11 +397,14 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
       setPinnedPosts(prev => [post, ...prev]);
     } else {
       setPosts(prev => [post, ...prev]);
+      // Update total count for regular posts
+      setTotalCount(prev => prev + 1);
     }
     
     // Invalidate cache to ensure consistency
     if (spaceId) {
       globalCache.invalidatePattern(`posts:${spaceId}`);
+      globalCache.invalidate(`posts_count:${spaceId}`); // Invalidate count cache
     }
     
     devLogger.log('CacheDebug', `Post created`, { postId: post.id, subscriberId });
@@ -373,22 +420,31 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
     // Invalidate cache to ensure consistency
     if (spaceId) {
       globalCache.invalidatePattern(`posts:${spaceId}`);
+      // Note: Updates don't change count, so no need to invalidate count cache
     }
     
     devLogger.log('CacheDebug', `Post updated`, { postId, updates, subscriberId });
   }, [spaceId, subscriberId]);
 
   const handlePostDeleted = useCallback((postId: string) => {
+    const wasRegularPost = posts.some(post => post.id === postId);
+    
     setPosts(prev => prev.filter(post => post.id !== postId));
     setPinnedPosts(prev => prev.filter(post => post.id !== postId));
+    
+    // Update total count if it was a regular post
+    if (wasRegularPost) {
+      setTotalCount(prev => Math.max(0, prev - 1));
+    }
     
     // Invalidate cache to ensure consistency
     if (spaceId) {
       globalCache.invalidatePattern(`posts:${spaceId}`);
+      globalCache.invalidate(`posts_count:${spaceId}`); // Invalidate count cache
     }
     
     devLogger.log('CacheDebug', `Post deleted`, { postId, subscriberId });
-  }, [spaceId, subscriberId]);
+  }, [spaceId, subscriberId, posts]);
 
   const handleLikeToggled = useCallback((postId: string, newLikeCount: number) => {
     handlePostUpdated(postId, { like_count: newLikeCount });
@@ -405,13 +461,15 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
       pinned_at: isPinned ? new Date().toISOString() : null,
     };
 
-    // Move post between arrays
+    // Move post between arrays and update count
     if (isPinned) {
       const post = posts.find(p => p.id === postId);
       if (post) {
         const updatedPost = { ...post, ...updates };
         setPosts(prev => prev.filter(p => p.id !== postId));
         setPinnedPosts(prev => [...prev, updatedPost].sort((a, b) => (a.pin_position || 0) - (b.pin_position || 0)));
+        // Pinning a post reduces the regular post count
+        setTotalCount(prev => Math.max(0, prev - 1));
       }
     } else {
       const post = pinnedPosts.find(p => p.id === postId);
@@ -419,12 +477,15 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
         const updatedPost = { ...post, ...updates };
         setPinnedPosts(prev => prev.filter(p => p.id !== postId));
         setPosts(prev => [updatedPost, ...prev]);
+        // Unpinning a post increases the regular post count
+        setTotalCount(prev => prev + 1);
       }
     }
     
     // Invalidate cache to ensure consistency
     if (spaceId) {
       globalCache.invalidatePattern(`posts:${spaceId}`);
+      globalCache.invalidate(`posts_count:${spaceId}`); // Invalidate count cache
     }
     
     devLogger.log('CacheDebug', `Post pin toggled`, { postId, isPinned, subscriberId });
@@ -601,8 +662,8 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
     refetch,
     totalCount,
     currentPage,
-    totalPages: Math.ceil(totalCount / 30),
-    hasNextPage: currentPage * 30 < totalCount,
+    totalPages: Math.ceil(totalCount / 25),
+    hasNextPage: currentPage * 25 < totalCount,
     loadPage,
     handlePostCreated,
     handlePostUpdated,

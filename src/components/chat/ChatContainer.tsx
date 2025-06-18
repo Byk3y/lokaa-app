@@ -125,15 +125,15 @@ export default function ChatContainer({
         (() => {
           console.log('🗨️ [ChatContainer] Rendering ChatView with conversation:', legacySelectedConversation);
           return (
-            <ChatView
-              conversation={legacySelectedConversation}
-              onBack={handleBack}
-              onClose={isModal ? onClose : undefined}
-              onExpand={onExpand}
-              isExpanded={isExpanded}
-              isFullScreen={effectiveIsFullScreen}
-              onConversationUpdated={fetchConversations}
-            />
+        <ChatView
+          conversation={legacySelectedConversation}
+          onBack={handleBack}
+          onClose={isModal ? onClose : undefined}
+          onExpand={onExpand}
+          isExpanded={isExpanded}
+          isFullScreen={effectiveIsFullScreen}
+          onConversationUpdated={fetchConversations}
+        />
           );
         })()
       )}

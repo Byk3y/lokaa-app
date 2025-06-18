@@ -441,7 +441,7 @@ if (typeof window !== 'undefined') {
  */
 export const cacheQueries = {
   // Posts queries
-  posts: (spaceId: string, subscriberId: string, page = 1, limit = 30) => {
+  posts: (spaceId: string, subscriberId: string, page = 1, limit = 25) => {
     const key = `posts:${spaceId}:${page}:${limit}`;
     return globalCache.get(
       key,

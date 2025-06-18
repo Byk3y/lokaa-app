@@ -13,36 +13,31 @@ import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useModal } from '@/shared/components/modals/hooks/useModal';
 import SignupModal from './SignupModal';
 import ForgotPasswordModal from './ForgotPasswordModal';
-import StandaloneLoginModal from '@/components/auth/StandaloneLoginModal';
+import LoginModalContent from './LoginModalContent';
 import BaseModal from '@/shared/components/modals/BaseModal';
 
 export default function AuthModalRouter() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useOptimizedAuth();
-  const { modalEntries, closeModal: originalCloseModal } = useModal();
+  const { modalEntries, closeModal: originalCloseModal, closeLoginModal, closeSignupModal, closeForgotPasswordModal } = useModal();
 
-  // SMART close handler that navigates back to home for auth routes
+  // SMART close handler that uses specific modal close functions for proper URL management
   const handleAuthModalClose = useCallback((modalId: string) => {
-    originalCloseModal(modalId);
-    
-    // Only navigate if user is not authenticated AND not currently being redirected
-    if (!user) {
-      const currentPath = location.pathname;
-      if (currentPath === '/login' || currentPath === '/signup' || currentPath === '/forgot-password') {
-        navigate('/');
-      }
+    // Use specific close functions that handle URL resetting
+    if (modalId === 'auth-login') {
+      closeLoginModal();
+    } else if (modalId === 'auth-signup') {
+      closeSignupModal();
+    } else if (modalId === 'auth-forgot') {
+      closeForgotPasswordModal();
     } else {
-      // User is authenticated - check if they're already on their destination
-      const currentPath = location.pathname;
-      const isOnDestination = currentPath.includes('/space') || currentPath === '/discover';
-      
-      if (!isOnDestination) {
-        // User is authenticated but not yet on destination - don't navigate, let auth flow complete
-        console.log('🔒 [AuthModalRouter] User authenticated but auth flow in progress, skipping navigation');
-      }
+      // Fallback for any other modals
+      originalCloseModal(modalId);
     }
-  }, [originalCloseModal, location.pathname, navigate, user]);
+    
+    // No need for manual navigation since the specific close functions handle URL updates
+  }, [closeLoginModal, closeSignupModal, closeForgotPasswordModal, originalCloseModal]);
 
   // Render auth modals with proper content
   const renderAuthModals = () => {
@@ -60,17 +55,19 @@ export default function AuthModalRouter() {
 
       if (id === 'auth-login') {
         content = (
-          <StandaloneLoginModal
-            disableBackdrop={true}
-            onClose={() => handleAuthModalClose('auth-login')}
+          <LoginModalContent
+            onSuccess={() => handleAuthModalClose('auth-login')}
+            onError={(error) => {
+              // Keep modal open to show error
+              console.error('Login error:', error);
+            }}
           />
         );
         config = {
           ...config,
           size: 'sm',
           closable: true,
-          backdrop: true,
-          className: 'p-0 border-none shadow-none bg-transparent [&>div:first-child]:hidden'
+          backdrop: true
         };
       } else if (id === 'auth-signup') {
         content = (

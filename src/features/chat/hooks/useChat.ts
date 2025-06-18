@@ -198,7 +198,7 @@ export function useChat() {
           console.log(`[useChat] ⏳ Waiting ${delay}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           attempt++;
-          continue;
+            continue;
         }
         
         // ROCK SOLID: Aggressive cache clearing before refresh

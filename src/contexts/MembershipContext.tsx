@@ -492,10 +492,11 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useMembership = () => {
+// FIXED: Named function for Fast Refresh compatibility
+export function useMembership() {
   const context = useContext(MembershipContext);
   if (!context) {
     throw new Error('useMembership must be used within a MembershipProvider');
   }
   return context;
-};
+}

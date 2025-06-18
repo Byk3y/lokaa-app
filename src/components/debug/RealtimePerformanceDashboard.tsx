@@ -54,10 +54,17 @@ const RealtimePerformanceDashboard: React.FC = () => {
   const [refreshInterval, setRefreshInterval] = useState(1000);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  // 🚫 PREVENT WHITE CAST: Only show when explicitly enabled
+  const isDevelopment = import.meta.env.DEV;
+  const isExplicitlyEnabled = (window as any).__ENABLE_REALTIME_DASHBOARD__ === true;
+  const shouldRender = isDevelopment && isExplicitlyEnabled && isVisible;
+
   /**
    * Fetch real-time metrics
    */
   const fetchMetrics = useCallback(() => {
+    if (!shouldRender) return; // Don't fetch if not rendering
+    
     try {
       const debugInfo = unifiedRealtimeSystem.getDebugInfo();
       setMetrics(debugInfo as RealtimeMetrics);
@@ -84,6 +91,11 @@ const RealtimePerformanceDashboard: React.FC = () => {
       fetchMetrics();
     }
   }, [isVisible, fetchMetrics]);
+
+  // 🚫 CRITICAL FIX: Don't render anything unless debug mode is explicitly enabled
+  if (!shouldRender) {
+    return null;
+  }
 
   /**
    * Get connection quality color

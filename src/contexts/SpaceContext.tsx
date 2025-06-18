@@ -417,9 +417,9 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
 
 /**
  * Custom hook to use the space context
- * Fixed: Made this a const export to be compatible with React Fast Refresh
+ * FIXED: Named function for Fast Refresh compatibility
  */
-export const useSpace = () => {
+export function useSpace() {
   const context = useContext(SpaceContext)
   if (context === undefined) {
     throw new Error('useSpace must be used within a SpaceProvider')

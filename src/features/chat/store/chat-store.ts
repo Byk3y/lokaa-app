@@ -591,7 +591,7 @@ export const useChatStore = create<ChatStore>()(
           return {
             messages: updatedMessages,
             conversations: sortedConversations,
-            lastMessageUpdate: Date.now()
+          lastMessageUpdate: Date.now()
           };
         });
         
@@ -660,7 +660,7 @@ export const useChatStore = create<ChatStore>()(
             return {
               messages: updatedMessages,
               conversations: sortedConversations,
-              lastMessageUpdate: Date.now()
+            lastMessageUpdate: Date.now()
             };
           });
           

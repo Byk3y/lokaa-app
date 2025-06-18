@@ -135,8 +135,8 @@ export default function LandingPage() {
 
   // Direct sign-in handler
   const handleDirectSignIn = useCallback(() => {
-    navigate('/login');
-  }, [navigate]);
+    openLoginModal();
+  }, [openLoginModal]);
 
   // Direct signup handler
   const handleDirectSignUp = useCallback(() => {

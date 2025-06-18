@@ -473,6 +473,33 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
           onDismiss={handleDismissNotification}
         />
 
+        {/* Posts Content - Show skeletons during pagination loading, loading screen only when no data */}
+        {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground text-center">Loading posts...</p>
+          </div>
+        )}
+        
+        {!postsLoading && postsError && (
+          <div className="p-6 text-center mt-6 bg-red-50 border border-red-200 rounded-lg mx-4 sm:mx-0">
+            <div className="text-red-600 mb-3">
+              <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+              <p className="font-medium">Failed to load posts</p>
+              <p className="text-sm text-red-500 mt-1">{postsError}</p>
+            </div>
+            <Button 
+              onClick={() => refetchPosts(true)}
+              variant="outline"
+              size="sm"
+              className="border-red-300 text-red-600 hover:bg-red-50"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </div>
+        )}
+
         {/* Pinned Posts - Only visible to admins/owners */}
         {!postsLoading && !postsError && filteredPinnedPosts.length > 0 && selectedTab === "all" && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
           <div className="space-y-4 mt-6">
@@ -489,7 +516,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                   }
                   return 0;
                 })
-                .map((post, index) => (
+                .map((post) => (
                   <PostCard
                     key={`pinned-${post.id}`}
                     {...mapPostToCardProps(post)}
@@ -520,7 +547,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                   }
                   return 0;
                 })
-                .map((post, index) => (
+                .map((post) => (
                   <PostCard
                     key={`pinned-${post.id}`}
                     {...mapPostToCardProps(post)}
@@ -535,109 +562,11 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
           </div>
         )}
         
-        {/* Regular Posts List */}
-        {/* **REAPPEARING FIX**: Never show loading when posts exist - prevents Chat→Feed reappearing */}
-        {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground text-center">
-              {(() => {
-                // Fix: Only use user agent for mobile detection, not window width
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-                const isHardRefresh = performance.navigation?.type === 1 || 
-                                     (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
-                const hasCache = fetchedPosts.length > 0 || pinnedPosts.length > 0;
-                
-                if (isHardRefresh && isMobile && isSafari) {
-                  return 'Connecting to Safari...';
-                }
-                
-                if (isHardRefresh && isMobile) {
-                  return 'Restoring connection...';
-                }
-                
-                if (hasCache) {
-                  return 'Refreshing posts...';
-                }
-                
-                if (isMobile && isSafari) {
-                  return 'Loading posts for Safari...';
-                }
-                
-                return 'Loading posts...';
-              })()}
-            </p>
-            {(() => {
-              // Fix: Only use user agent for mobile detection, not window width
-              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-              const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-              const isHardRefresh = performance.navigation?.type === 1 || 
-                                   (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload';
-              
-              if (isHardRefresh && isMobile && isSafari) {
-                return (
-                  <p className="text-xs text-gray-400 mt-2 max-w-sm text-center">
-                    Safari mobile needs extra time to establish secure connections.
-                  </p>
-                );
-              }
-              
-              if (isHardRefresh && isMobile) {
-                return (
-                  <p className="text-xs text-gray-400 mt-2 max-w-sm text-center">
-                    Mobile browsers need extra time to reconnect after refresh.
-                  </p>
-                );
-              }
-              return null;
-            })()}
-          </div>
-        )}
-        
-        {!postsLoading && postsError && (
-          <div className="p-6 text-center mt-6 bg-red-50 border border-red-200 rounded-lg mx-4 sm:mx-0">
-            <div className="text-red-600 mb-3">
-              <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-              <p className="font-medium">
-                {postsError.includes('timeout') ? 'Network Timeout' : 'Failed to load posts'}
-              </p>
-              <p className="text-sm text-red-500 mt-1">
-                {postsError.includes('timeout') 
-                  ? 'Your connection is slow. Please try again.' 
-                  : postsError
-                }
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 justify-center">
-              <Button 
-                onClick={() => refetchPosts(true)}
-                variant="outline"
-                size="sm"
-                className="border-red-300 text-red-600 hover:bg-red-50"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Try Again
-              </Button>
-              {postsError.includes('timeout') && (
-                <Button 
-                  onClick={() => window.location.reload()}
-                  variant="outline"
-                  size="sm"
-                  className="border-blue-300 text-blue-600 hover:bg-blue-50"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Reload Page
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {/* Only show "No posts yet" when we're sure there are no posts and not loading and no instant access */}
+        {/* Regular Posts List with Skeleton Support */}
         {!postsLoading && !postsError && fetchedPosts.length === 0 && pinnedPosts.length === 0 && !hasInstantAccess && (
           <div className="p-4 text-center text-gray-500 mt-6 px-4 sm:px-0">No posts yet. Be the first to share something!</div>
         )}
+        
         {!postsLoading && !postsError && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
           <div className="space-y-4 mt-6">
             {(() => {
@@ -656,17 +585,32 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                 ));
             })()}
             
-            {/* Pagination Component - Only show when there are more than 30 posts */}
-            {totalCount > 30 && (
+            {/* Pagination Component - Only show when there are more than 25 posts IN THE CURRENT CATEGORY */}
+            {(() => {
+              // Calculate filtered count based on selected category
+              const filteredCount = selectedTab === "all" 
+                ? totalCount 
+                : postsToShow.filter(post => post.category?.id === selectedTab).length;
+              
+              return filteredCount > 25 && (
               <PostsPagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                totalCount={totalCount}
-                postsPerPage={30}
+                  totalCount={filteredCount}
+                  postsPerPage={25}
                 onPageChange={loadPage}
                 isLoading={postsLoading}
               />
-            )}
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Show minimal loading indicator during pagination */}
+        {postsLoading && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
+          <div className="flex justify-center items-center py-4 mt-6">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="ml-2 text-sm text-gray-600">Loading more posts...</span>
           </div>
         )}
       </div>

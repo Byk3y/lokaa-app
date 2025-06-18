@@ -112,8 +112,8 @@ const AdminOwnerCard: React.FC<{
             </>
           ) : (
             <>
-              <MessageSquare size={16} />
-              <span>Chat</span>
+          <MessageSquare size={16} />
+          <span>Chat</span>
             </>
           )}
         </Button>

@@ -213,17 +213,17 @@
     @apply text-caption-lg text-red-600 font-medium;
   }
   
-  /* Existing button styles */
+  /* Existing button styles with more subtle focus rings */
   .btn-primary {
-    @apply bg-gradient-to-r from-teal-600 to-teal-700 text-white font-medium py-3 px-6 rounded-full hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50;
+    @apply bg-gradient-to-r from-teal-600 to-teal-700 text-white font-medium py-3 px-6 rounded-full hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:ring-opacity-30;
   }
   
   .btn-secondary {
-    @apply bg-white text-teal-700 border border-teal-200 font-medium py-3 px-6 rounded-full hover:bg-teal-50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-50;
+    @apply bg-white text-teal-700 border border-teal-200 font-medium py-3 px-6 rounded-full hover:bg-teal-50 transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:ring-opacity-30;
   }
   
   .input-primary {
-    @apply bg-white border border-gray-300 rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition duration-200;
+    @apply bg-white border border-gray-300 rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-transparent transition duration-200;
   }
   
   .card-hoverable {

@@ -3,6 +3,31 @@
 
 console.log('🔍 Starting White Cast Debug Analysis...');
 
+// 🚫 QUICK FIX: Disable problematic dashboard
+function disableRealtimeDashboard() {
+    console.log('🚫 Disabling Realtime Dashboard...');
+    
+    // Remove the flag that enables the dashboard
+    delete window.__ENABLE_REALTIME_DASHBOARD__;
+    
+    // Find and remove any existing dashboard elements
+    const dashboards = document.querySelectorAll('[class*="fixed inset-4 z-50"]');
+    dashboards.forEach((dashboard, index) => {
+        console.log(`Removing dashboard ${index + 1}:`, dashboard);
+        dashboard.remove();
+    });
+    
+    console.log('✅ Realtime Dashboard disabled');
+    return dashboards.length;
+}
+
+// 🔧 Enable dashboard for debugging (only if needed)
+function enableRealtimeDashboard() {
+    console.log('🔧 Enabling Realtime Dashboard for debugging...');
+    window.__ENABLE_REALTIME_DASHBOARD__ = true;
+    console.log('✅ Realtime Dashboard enabled (refresh page to see)');
+}
+
 // Function to scan for overlays
 function scanForWhiteCastOverlays() {
     console.log('🔍 Scanning for potential white cast overlays...');
@@ -201,6 +226,11 @@ window.scanForWhiteCastOverlays = scanForWhiteCastOverlays;
 window.testPhaseImplementations = testPhaseImplementations;
 window.attemptWhiteCastFix = attemptWhiteCastFix;
 window.createWhiteCastDebugInterface = createWhiteCastDebugInterface;
+window.disableRealtimeDashboard = disableRealtimeDashboard;
+window.enableRealtimeDashboard = enableRealtimeDashboard;
+window.disableAllPhase8Systems = disableAllPhase8Systems;
+window.enableAllPhase8Systems = enableAllPhase8Systems;
+window.testPhase8Status = testPhase8Status;
 
 // Auto-run analysis
 console.log('🔍 Running initial analysis...');
@@ -209,16 +239,28 @@ testPhaseImplementations();
 
 console.log(`
 🔍 White Cast Debug Commands Available:
+
+⚡ PHASE 8 TESTING (NEW):
+- disableAllPhase8Systems() - DISABLE ALL Phase 8 AI systems temporarily
+- enableAllPhase8Systems() - Re-enable all Phase 8 systems  
+- testPhase8Status() - Check current Phase 8 system status
+
+🛠️ QUICK FIXES:
+- disableRealtimeDashboard() - Disable problematic dashboard
+- enableRealtimeDashboard() - Enable dashboard for debugging
+
+🔍 DIAGNOSTIC TOOLS:
 - scanForWhiteCastOverlays() - Scan for potential overlays
 - testPhaseImplementations() - Check phase implementation status  
 - attemptWhiteCastFix() - Try to fix the white cast
 - createWhiteCastDebugInterface() - Create visual debug panel
 
-💡 Usage:
-1. First run scanForWhiteCastOverlays() to identify suspicious elements
-2. Run testPhaseImplementations() to check phase status
-3. If overlays found, run attemptWhiteCastFix() to try removing them
-4. Use createWhiteCastDebugInterface() for a visual interface
+💡 TESTING PROCEDURE:
+1. 🧪 Run: disableAllPhase8Systems()
+2. 🔍 Navigate around your app (Feed → About → Members → etc.)
+3. ✅ If white cast is GONE: Phase 8 is the culprit
+4. ❌ If white cast PERSISTS: Issue is elsewhere
+5. 🔄 Run: enableAllPhase8Systems() when done testing
 `);
 
 // Create the visual interface automatically
@@ -391,7 +433,7 @@ window.checkMembershipStatus = async function(spaceId) {
 };
 
 // Check music business membership specifically
-window.checkMusicBusinessMembership = () => window.checkMembershipStatus('987e5232-68a8-4d1c-88be-e6f77a5e93fd');
+window.checkMusicBusinessMembership = () => window.checkMembershipStatus('987e5232-68a8-4d1c-88be-e6f77a5e93fd'); 
 
 /**
  * ROCK SOLID CHAT SYSTEM MONITORING & TESTING
@@ -892,4 +934,211 @@ window.chatSystemMonitor.startContinuousMonitoring(5)
 await window.chatSystemMonitor.emergencyRecovery('user1_id', 'user2_id')
 
 The chat system is now ROCK SOLID! 🎯
-`); 
+`);
+
+// 🚫 COMPREHENSIVE PHASE 8 CONTROL SCRIPT
+function disableAllPhase8Systems() {
+    console.log('🚫 DISABLING ALL PHASE 8 SYSTEMS...');
+    
+    const results = {
+        phase8a: false,
+        phase8b: false, 
+        phase8c: false,
+        dashboardsRemoved: 0,
+        overlaysRemoved: 0,
+        aiSystemsDisabled: 0
+    };
+    
+    try {
+        // 1. Disable Phase 8A (Content Intelligence)
+        if (window.phase8a) {
+            console.log('🚫 Disabling Phase 8A (Content Intelligence)...');
+            if (window.phase8a.disable) window.phase8a.disable();
+            if (window.phase8a.stop) window.phase8a.stop();
+            if (window.phase8a.cleanup) window.phase8a.cleanup();
+            window.__PHASE_8A_DISABLED__ = true;
+            results.phase8a = true;
+            results.aiSystemsDisabled++;
+        }
+        
+        // 2. Disable Phase 8B (Predictive UX)
+        if (window.phase8b) {
+            console.log('🚫 Disabling Phase 8B (Predictive UX)...');
+            if (window.phase8b.disable) window.phase8b.disable();
+            if (window.phase8b.stop) window.phase8b.stop();
+            if (window.phase8b.cleanup) window.phase8b.cleanup();
+            if (window.phase8b.resetAdaptations) window.phase8b.resetAdaptations();
+            window.__PHASE_8B_DISABLED__ = true;
+            results.phase8b = true;
+            results.aiSystemsDisabled++;
+        }
+        
+        // 3. Disable Phase 8C (Automated Optimization)
+        if (window.phase8cIntegration) {
+            console.log('🚫 Disabling Phase 8C (Automated Optimization)...');
+            if (window.phase8cIntegration.disable) window.phase8cIntegration.disable();
+            if (window.phase8cIntegration.stop) window.phase8cIntegration.stop();
+            if (window.phase8cIntegration.cleanup) window.phase8cIntegration.cleanup();
+            window.__PHASE_8C_DISABLED__ = true;
+            results.phase8c = true;
+            results.aiSystemsDisabled++;
+        }
+        
+        // 4. Disable all dashboard flags
+        console.log('🚫 Disabling all dashboard flags...');
+        delete window.__ENABLE_REALTIME_DASHBOARD__;
+        delete window.__ENABLE_PERFORMANCE_DASHBOARD__;
+        delete window.__ENABLE_AI_DASHBOARD__;
+        delete window.__ENABLE_DEBUG_DASHBOARD__;
+        
+        // 5. Remove any existing dashboard/overlay elements
+        console.log('🚫 Removing existing dashboards and overlays...');
+        const selectors = [
+            '[class*="fixed inset"]',
+            '[class*="fixed bottom-4 right-4"]',
+            '[class*="backdrop-blur"]',
+            '[id*="dashboard"]',
+            '[id*="debug"]',
+            '[class*="z-50"]'
+        ];
+        
+        selectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach((element, index) => {
+                const styles = window.getComputedStyle(element);
+                // Only remove if it looks like a dashboard/overlay
+                if (styles.position === 'fixed' && 
+                    (parseInt(styles.zIndex) > 40 || 
+                     styles.backdropFilter !== 'none' ||
+                     element.textContent.includes('Dashboard') ||
+                     element.textContent.includes('Performance') ||
+                     element.textContent.includes('Real-time'))) {
+                    console.log(`Removing element: ${selector}[${index}]`, element);
+                    element.remove();
+                    results.dashboardsRemoved++;
+                }
+            });
+        });
+        
+        // 6. Disable predictive UI components
+        console.log('🚫 Disabling predictive UI components...');
+        if (window.predictiveUIEngine) {
+            if (window.predictiveUIEngine.disable) window.predictiveUIEngine.disable();
+            window.__PREDICTIVE_UI_DISABLED__ = true;
+        }
+        
+        if (window.userBehaviorPredictor) {
+            if (window.userBehaviorPredictor.disable) window.userBehaviorPredictor.disable();
+            window.__BEHAVIOR_PREDICTOR_DISABLED__ = true;
+        }
+        
+        if (window.personalizationEngine) {
+            if (window.personalizationEngine.disable) window.personalizationEngine.disable();
+            window.__PERSONALIZATION_DISABLED__ = true;
+        }
+        
+        if (window.adaptiveInterfaceManager) {
+            if (window.adaptiveInterfaceManager.disable) window.adaptiveInterfaceManager.disable();
+            window.__ADAPTIVE_INTERFACE_DISABLED__ = true;
+        }
+        
+        // 7. Clear any AI-related styles that might cause overlays
+        console.log('🚫 Clearing AI-related styles...');
+        const style = document.createElement('style');
+        style.id = 'phase8-disable-styles';
+        style.textContent = `
+            /* Disable any AI-related overlays */
+            [class*="phase8"], 
+            [class*="ai-"], 
+            [class*="predictive-"],
+            [class*="adaptive-"] {
+                display: none !important;
+            }
+            
+            /* Remove any backdrop filters that might cause white cast */
+            [style*="backdrop-filter"] {
+                backdrop-filter: none !important;
+            }
+            
+            /* Ensure no AI overlays */
+            .fixed[class*="z-"] {
+                z-index: auto !important;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        console.log('✅ Phase 8 systems disabled:', results);
+        console.log('🔍 Navigate around and check if white cast is gone');
+        console.log('🔄 If white cast persists, the issue is NOT Phase 8');
+        
+        return results;
+        
+    } catch (error) {
+        console.error('❌ Error disabling Phase 8 systems:', error);
+        return results;
+    }
+}
+
+function enableAllPhase8Systems() {
+    console.log('🔄 RE-ENABLING ALL PHASE 8 SYSTEMS...');
+    
+    try {
+        // Remove disable flags
+        delete window.__PHASE_8A_DISABLED__;
+        delete window.__PHASE_8B_DISABLED__;
+        delete window.__PHASE_8C_DISABLED__;
+        delete window.__PREDICTIVE_UI_DISABLED__;
+        delete window.__BEHAVIOR_PREDICTOR_DISABLED__;
+        delete window.__PERSONALIZATION_DISABLED__;
+        delete window.__ADAPTIVE_INTERFACE_DISABLED__;
+        
+        // Remove disable styles
+        const disableStyles = document.getElementById('phase8-disable-styles');
+        if (disableStyles) disableStyles.remove();
+        
+        // Re-enable systems if they have enable methods
+        if (window.phase8a && window.phase8a.enable) window.phase8a.enable();
+        if (window.phase8b && window.phase8b.enable) window.phase8b.enable();
+        if (window.phase8cIntegration && window.phase8cIntegration.enable) window.phase8cIntegration.enable();
+        
+        console.log('✅ Phase 8 systems re-enabled');
+        console.log('🔄 Refresh the page to fully restore Phase 8 functionality');
+        
+    } catch (error) {
+        console.error('❌ Error re-enabling Phase 8 systems:', error);
+    }
+}
+
+function testPhase8Status() {
+    console.log('🔍 TESTING PHASE 8 STATUS...');
+    
+    const status = {
+        phase8a: {
+            exists: typeof window.phase8a !== 'undefined',
+            disabled: window.__PHASE_8A_DISABLED__ === true
+        },
+        phase8b: {
+            exists: typeof window.phase8b !== 'undefined',
+            disabled: window.__PHASE_8B_DISABLED__ === true
+        },
+        phase8c: {
+            exists: typeof window.phase8cIntegration !== 'undefined',
+            disabled: window.__PHASE_8C_DISABLED__ === true
+        },
+        dashboards: {
+            realtimeDashboardEnabled: window.__ENABLE_REALTIME_DASHBOARD__ === true,
+            performanceDashboardEnabled: window.__ENABLE_PERFORMANCE_DASHBOARD__ === true
+        },
+        predictiveComponents: {
+            predictiveUI: typeof window.predictiveUIEngine !== 'undefined',
+            behaviorPredictor: typeof window.userBehaviorPredictor !== 'undefined',
+            personalization: typeof window.personalizationEngine !== 'undefined',
+            adaptiveInterface: typeof window.adaptiveInterfaceManager !== 'undefined'
+        }
+    };
+    
+    console.log('Phase 8 Status:', status);
+    console.table(status);
+    
+    return status;
+} 

@@ -13,10 +13,10 @@ import type { ModalProps, ModalConfig } from './types/modal';
 
 // Size configuration
 const sizeClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',  
-  lg: 'max-w-lg',
-  xl: 'max-w-xl'
+  sm: 'max-w-sm w-full sm:w-96 min-w-80', // 384px on desktop, full width on mobile, min 320px
+  md: 'max-w-md w-full sm:w-auto min-w-80',  
+  lg: 'max-w-lg w-full sm:w-auto min-w-96',
+  xl: 'max-w-xl w-full sm:w-auto min-w-96'
 };
 
 // Position configuration
@@ -37,6 +37,31 @@ export default function BaseModal({
 }: BaseModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+
+
+
+  // Enhanced positioning protection against Phase 8 interference
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      // Ensure modal container is properly positioned after Phase 8 protection
+      const modalContainer = modalRef.current.closest('[role="dialog"]') as HTMLElement;
+      if (modalContainer) {
+        const computedStyle = getComputedStyle(modalContainer);
+        
+        // Verify modal has proper positioning (in case Phase 8 interference)
+        if (computedStyle.position !== 'fixed' || parseInt(computedStyle.zIndex) < 9999) {
+          console.log('🔧 [BaseModal] Applying positioning fix for modal:', config.id);
+          modalContainer.style.position = 'fixed';
+          modalContainer.style.top = '0';
+          modalContainer.style.left = '0';
+          modalContainer.style.right = '0';
+          modalContainer.style.bottom = '0';
+          modalContainer.style.zIndex = '10000';
+          modalContainer.style.display = 'flex';
+        }
+      }
+    }
+  }, [isOpen, config.id]);
 
   // Focus management
   useEffect(() => {
@@ -93,7 +118,7 @@ export default function BaseModal({
           // Base modal styles
           "relative bg-white rounded-xl shadow-2xl",
           "transform transition-all duration-300 ease-out",
-          "mx-4 w-full",
+          "mx-4",
           sizeClasses[config.size || 'md'],
           isOpen ? "scale-100 opacity-100" : "scale-95 opacity-0",
           config.className

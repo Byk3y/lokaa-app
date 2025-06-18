@@ -23,8 +23,8 @@ export function GlobalPresenceProvider({ children }: GlobalPresenceProviderProps
   );
 }
 
-// Hook to use the context (can be extended later)
-export const useGlobalPresenceContext = () => {
+// Hook to use the context (can be extended later) - FIXED: Named function for Fast Refresh compatibility
+export function useGlobalPresenceContext() {
   const context = useContext(GlobalPresenceContext);
   if (!context) {
     throw new Error('useGlobalPresenceContext must be used within a GlobalPresenceProvider');

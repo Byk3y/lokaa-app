@@ -87,7 +87,7 @@ declare global {
 export const usePostsCache = create<PostsCacheState>((set, get) => ({
   cache: new Map(),
 
-  fetchPosts: async (spaceId: string, forceRefresh = false, page = 1, limit = 30) => {
+  fetchPosts: async (spaceId: string, forceRefresh = false, page = 1, limit = 25) => {
     // CRITICAL FIX: Don't attempt to fetch with invalid space IDs
     if (!spaceId || spaceId.startsWith('fallback-') || spaceId === 'fallback-id') {
       console.warn(`⚠️ [PostsCache] Invalid space ID provided: ${spaceId} - skipping fetch to prevent database errors`);
@@ -177,10 +177,12 @@ export const usePostsCache = create<PostsCacheState>((set, get) => ({
       let postsData: any[] | null = null;
       
         // Use optimized query with shorter timeout for count
+        // CRITICAL FIX: Only count non-pinned posts for pagination since pinned posts don't paginate
         const countQuery = () => getSupabaseClient()
           .from('posts')
           .select('*', { count: 'exact', head: true })
-          .eq('space_id', spaceId);
+          .eq('space_id', spaceId)
+          .eq('is_pinned', false); // Only count regular posts for pagination
           
         const { count, error: countError } = await Promise.race([
           countQuery(),
@@ -189,7 +191,7 @@ export const usePostsCache = create<PostsCacheState>((set, get) => ({
           
         if (countError) throw countError;
         totalCount = count || 0;
-        console.log(`📊 Total posts count for space ${spaceId}:`, totalCount);
+        console.log(`📊 Total paginatable posts count for space ${spaceId}:`, totalCount);
         
         const offset = (page - 1) * limit;
         const postsQuery = getSupabaseClient()
@@ -275,11 +277,18 @@ export const usePostsCache = create<PostsCacheState>((set, get) => ({
       // Calculate pagination metadata
         const hasNextPage = page * limit < totalCount;
 
-        // Update cache with fetched data
+        // CRITICAL FIX: Preserve pinned posts across all pages
+        // Pinned posts should always be visible regardless of pagination
         const finalCache = new Map(get().cache);
+        const existingEntry = finalCache.get(spaceId);
+        
+        // If this is page 1, use the newly fetched pinned posts
+        // If this is page 2+, preserve existing pinned posts from page 1
+        const finalPinnedPosts = page === 1 ? processedPinnedPosts : (existingEntry?.pinnedPosts || processedPinnedPosts);
+        
         finalCache.set(spaceId, {
-          posts: processedPosts,
-          pinnedPosts: processedPinnedPosts,
+          posts: processedPosts, // Only regular posts for current page
+          pinnedPosts: finalPinnedPosts, // Always preserve pinned posts
         loading: false,
         error: null,
         lastFetched: Date.now(),
@@ -340,9 +349,14 @@ export const usePostsCache = create<PostsCacheState>((set, get) => ({
         // If we have fallback data, use it and soften the error message
         if (fallbackData) {
           const finalFallbackCache = new Map(get().cache);
+          const existingFallbackEntry = finalFallbackCache.get(spaceId);
+          
+          // CRITICAL FIX: Also preserve pinned posts in fallback recovery
+          const fallbackPinnedPosts = page === 1 ? (fallbackData.pinnedPosts || []) : (existingFallbackEntry?.pinnedPosts || fallbackData.pinnedPosts || []);
+          
           finalFallbackCache.set(spaceId, {
             posts: fallbackData.posts || [],
-            pinnedPosts: fallbackData.pinnedPosts || [],
+            pinnedPosts: fallbackPinnedPosts, // Preserve pinned posts in fallback too
             loading: false,
             error: null, // Clear error since we have fallback data
             lastFetched: Date.now(),
@@ -423,7 +437,7 @@ export const usePostsCache = create<PostsCacheState>((set, get) => ({
         totalCount: 1,
         currentPage: 1,
         hasNextPage: false,
-        postsPerPage: 30,
+        postsPerPage: 25,
       });
       set({ cache: newCache });
       return;
