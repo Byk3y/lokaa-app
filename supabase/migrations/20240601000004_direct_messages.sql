@@ -134,6 +134,18 @@ BEGIN
 END;
 $$;
 
+-- Create alias function that matches what the client code expects
+CREATE OR REPLACE FUNCTION get_or_create_direct_conversation(user1_id UUID, user2_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN get_or_create_conversation(user1_id, user2_id);
+END;
+$$;
+
 -- Update triggers
 CREATE OR REPLACE FUNCTION update_direct_messages_user_id()
 RETURNS TRIGGER AS $$

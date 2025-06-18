@@ -9,8 +9,10 @@
  * - Memory-efficient subscription management
  */
 
+import { createClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+
+type RealtimeChannel = any; // Type from Supabase
 
 interface RealtimeSubscription {
   id: string;
@@ -61,7 +63,7 @@ class UnifiedRealtimeManager {
       maxReconnectAttempts: 5,
       reconnectBaseDelay: 1000,
       heartbeatInterval: 30000,
-      batchDelay: 500,
+      batchDelay: 100,
       maxBatchSize: 10,
       connectionTimeout: 10000,
       enableBatching: true,
@@ -79,7 +81,7 @@ class UnifiedRealtimeManager {
   }
 
   /**
-   * Subscribe to realtime events
+   * Subscribe to realtime events for a specific table in a space
    */
   public subscribe(
     spaceId: string,
@@ -167,7 +169,7 @@ class UnifiedRealtimeManager {
     const startTime = performance.now();
     this.connectionStatus.set(channelKey, 'connecting');
 
-    const channel = supabase
+    const channel = getSupabaseClient()
       .channel(`unified_${channelKey}`)
       .subscribe((status) => {
         this.handleConnectionStatusChange(channelKey, status, startTime);
@@ -321,7 +323,7 @@ class UnifiedRealtimeManager {
         break;
 
       case 'CLOSED':
-        this.cleanup(channelKey);
+        this.cleanupChannel(channelKey);
         break;
     }
   }
@@ -407,14 +409,14 @@ class UnifiedRealtimeManager {
       this.channels.delete(channelKey);
     }
 
-    this.cleanup(channelKey);
+    this.cleanupChannel(channelKey);
     console.log(`🔔 [UnifiedRealtime] Channel removed: ${channelKey}`);
   }
 
   /**
    * Cleanup resources for a channel
    */
-  private cleanup(channelKey: string): void {
+  private cleanupChannel(channelKey: string): void {
     // Clear heartbeat timer
     const heartbeatTimer = this.heartbeatTimers.get(channelKey);
     if (heartbeatTimer) {

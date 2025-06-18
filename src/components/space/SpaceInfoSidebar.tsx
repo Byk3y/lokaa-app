@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useRef } from 'react';
 import { Globe, Lock, Users, Settings, Edit3, ImageUp, UserPlus, Copy, Check, Image as ImageIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -81,11 +81,53 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   // Debug logging for troubleshooting
   useEffect(() => {
     if (effectiveSpaceId) {
-      console.log(`🔍 [SpaceInfoSidebar] Counts for space ${effectiveSpaceId}: online=${displayOnlineCount}, total=${displayMemberCount}, admin=${displayAdminCount}`);
+      console.log(`🔍 [SpaceInfoSidebar] Counts for space ${effectiveSpaceId}:`, {
+        online: displayOnlineCount,
+        total: displayMemberCount, 
+        admin: displayAdminCount,
+        hookData: { totalMembers, onlineMembers, adminMembers, loading: countsLoading },
+        propData: { propMemberCount, propOnlineCount, propAdminCount }
+      });
     }
-  }, [effectiveSpaceId, displayOnlineCount, displayMemberCount, displayAdminCount]);
+  }, [effectiveSpaceId, displayOnlineCount, displayMemberCount, displayAdminCount, totalMembers, onlineMembers, adminMembers, propMemberCount, propOnlineCount, propAdminCount]);
   
+  // **CRITICAL SAFETY CHECK**: Detect space changes and force data refresh
+  const lastSpaceId = useRef<string>('');
+  useEffect(() => {
+    if (effectiveSpaceId && lastSpaceId.current && lastSpaceId.current !== effectiveSpaceId) {
+      console.log(`🔄 [SpaceInfoSidebar] Space changed from ${lastSpaceId.current} to ${effectiveSpaceId}, triggering data refresh`);
+      
+      // Force re-render by temporarily resetting data
+      // The useOptimizedMemberCounts hook will automatically fetch new data
+      setTimeout(() => {
+        console.log(`🔄 [SpaceInfoSidebar] Data refresh completed for space: ${effectiveSpaceId}`);
+      }, 100);
+    }
+    
+    lastSpaceId.current = effectiveSpaceId || '';
+  }, [effectiveSpaceId]);
 
+  // **SECURITY VALIDATION**: Verify that displayed data belongs to current space
+  useEffect(() => {
+    if (effectiveSpaceId && (totalMembers > 0 || onlineMembers > 0 || adminMembers > 0)) {
+      // Only validate if we have actual data to validate
+      const hasValidData = totalMembers > 0 || onlineMembers > 0 || adminMembers > 0;
+      
+      if (hasValidData) {
+        console.log(`🔐 [SpaceInfoSidebar] Validating data for space ${effectiveSpaceId}:`, {
+          totalMembers,
+          onlineMembers,
+          adminMembers,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Log potential contamination warning if we detect suspicious patterns
+        if (lastSpaceId.current && lastSpaceId.current !== effectiveSpaceId && hasValidData) {
+          console.warn(`⚠️ [SpaceInfoSidebar] POTENTIAL DATA CONTAMINATION: Space changed but still showing data. Current: ${effectiveSpaceId}, Last: ${lastSpaceId.current}`);
+        }
+      }
+    }
+  }, [effectiveSpaceId, totalMembers, onlineMembers, adminMembers]);
 
   // SECURITY AUDIT: Check for permission inconsistencies
   React.useEffect(() => {

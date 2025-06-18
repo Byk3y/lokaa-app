@@ -254,7 +254,7 @@ export default function Discover() {
     }
   }, []);
 
-  const { user, signOut, routingInProgress } = useOptimizedAuth();
+  const { user, signOut } = useOptimizedAuth();
   const { profileImageUrl, refreshProfileImage } = useProfileImage();
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -884,7 +884,7 @@ export default function Discover() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-8 justify-items-center">
                   {filteredSpaces.map((space) => (
                     <div key={space.id} className="w-[337px]">
-                      <DiscoverSpaceCard key={space.id} space={space} />
+                      <DiscoverSpaceCard space={space} />
                     </div>
                   ))}
                 </div>

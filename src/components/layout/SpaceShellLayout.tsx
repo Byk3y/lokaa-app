@@ -9,6 +9,7 @@ import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
 import { LocationState } from "@/pages/Space"; // Import the existing LocationState type
 import { warmSpaceCache } from "@/utils/cacheUtils"; // Import cache warming
 import { extractTabFromPathname, buildSpaceUrl, type SpaceTab, debugTabExtraction } from "@/utils/tabUtils";
+import { setCurrentSpaceForPresence } from "@/hooks/useUnifiedPresence";
 
 /**
  * SpaceShellLayout - A shell layout for space pages
@@ -115,6 +116,10 @@ export default function SpaceShellLayout() {
         name: storeSpace.name || '',
         subdomain: storeSpace.subdomain
       }, user.id);
+      
+      // CRITICAL FIX: Set current space for presence system
+      setCurrentSpaceForPresence(storeSpace.id);
+      console.log(`🌐 [SpaceShellLayout] Set current space for presence: ${storeSpace.id}`);
     }
   }, [storeSpace, subdomain, user?.id]);
 
@@ -187,6 +192,35 @@ export default function SpaceShellLayout() {
       state: { preserveSpace: true, activeTab: newTab } as LocationState,
     });
   };
+
+  // **FIX**: Listen for custom tab change events from bottom nav
+  useEffect(() => {
+    const handleCustomTabChange = (event: CustomEvent) => {
+      const { tabKey, subdomain: eventSubdomain, source } = event.detail;
+      
+      // Only handle events for the current space
+      if (eventSubdomain === subdomain && source === 'bottom-nav') {
+        console.log(`🔄 [SpaceShellLayout] Handling custom tab change from ${source}: ${tabKey}`);
+        
+        // Use the same tab change logic but skip the navigation since bottom nav handles URL
+        setActiveTab(tabKey as SpaceTab);
+        
+        // Store in session storage for persistence
+        try {
+          sessionStorage.setItem(`active_tab_${subdomain}`, tabKey);
+        } catch (err) {
+          console.warn('Failed to store active tab:', err);
+        }
+      }
+    };
+
+    // Add event listener for custom tab changes
+    window.addEventListener('spaceTabChange', handleCustomTabChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('spaceTabChange', handleCustomTabChange as EventListener);
+    };
+  }, [subdomain]);
 
   return (
     <SpaceLayout

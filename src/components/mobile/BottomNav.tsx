@@ -6,6 +6,7 @@ import { useChat } from '@/features/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileBackgroundDetection } from '@/hooks/useMobileLifecycle';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { extractTabFromPathname } from '@/utils/tabUtils';
 
 export default function BottomNav() {
   const location = useLocation();
@@ -60,7 +61,17 @@ export default function BottomNav() {
     }
   }, [location.pathname]);
   
+  // **ENHANCED**: Detect if we're currently in a space
+  const isInSpace = pathname.includes('/space') && space?.subdomain;
+  const currentTab = isInSpace ? extractTabFromPathname(pathname) : null;
+  
   const isActive = (path: string) => {
+    // Special handling for home button in spaces
+    if (path === '/' && isInSpace) {
+      // In a space, home button is active when on feed tab
+      return currentTab === 'feed' || (!currentTab && pathname.endsWith('/space'));
+    }
+    
     // Exact match for root, startsWith for others
     if (path === '/') {
         // Handle space-specific home vs generic home
@@ -70,17 +81,28 @@ export default function BottomNav() {
     return pathname.startsWith(path);
   };
   
+  // **SIMPLE FIX**: Use standard navigation with global tab component manager protection
   const handleHomeClick = () => {
     const fromRoute = location.pathname;
-    const targetRoute = space?.subdomain ? `/${space.subdomain}/space` : '/';
     
-    // Track this navigation explicitly for better cache behavior
-    trackRouteChange(fromRoute, targetRoute);
+    // Check if we have an active space
+    const hasActiveSpace = space?.subdomain;
     
-    if (space?.subdomain) {
-      navigate(`/${space.subdomain}/space`);
+    if (hasActiveSpace) {
+      const targetRoute = `/${space.subdomain}/space`;
+      
+      console.log('🔄 [BottomNav] Navigating to space feed:', { from: fromRoute, to: targetRoute });
+      
+      trackRouteChange(fromRoute, targetRoute);
+      
+      // **SOLUTION**: Use simple React Router navigation
+      // Global Tab Component Manager prevents tab component recreation
+      navigate(targetRoute);
     } else {
-      navigate('/');
+      // Default behavior when no active space
+      const targetRoute = '/';
+      trackRouteChange(fromRoute, targetRoute);
+      navigate(targetRoute);
     }
   };
 

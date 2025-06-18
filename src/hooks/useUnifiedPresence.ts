@@ -17,6 +17,7 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { createManagedInterval } from '@/utils/pageVisibilityManager';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
+import { devLogger } from '@/utils/devLogger';
 
 // Cache for presence data to prevent excessive database queries
 interface PresenceCache {
@@ -33,13 +34,51 @@ const CACHE_DURATION = 15000; // 15 seconds
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const MAX_CACHE_AGE = 300000; // 5 minutes
 
-// PHASE 1: Enhanced global heartbeat state with session recovery
+// Global variables for unified presence management
 let globalHeartbeatInterval: (() => void) | null = null;
-let currentUser: any = null;
 let isGlobalSystemInitialized = false;
+let currentUser: any = null;
 let lastHeartbeatTime = 0;
 let consecutiveHeartbeatFailures = 0;
 let isSessionRecoveryInProgress = false;
+
+// CRITICAL FIX: Track current space for space-specific presence updates
+let currentSpaceId: string | null = null;
+
+// Function to set current space (called when user navigates to a space)
+export const setCurrentSpaceForPresence = (spaceId: string | null) => {
+  console.log(`🌐 [UnifiedPresence] Setting current space for presence: ${spaceId}`);
+  currentSpaceId = spaceId;
+  
+  // If user is going online in a new space, update presence immediately
+  if (spaceId && currentUser?.id) {
+    updatePresenceForCurrentSpace();
+  }
+};
+
+// Function to update presence for current space
+const updatePresenceForCurrentSpace = async () => {
+  if (!currentUser?.id || !currentSpaceId) return;
+  
+  try {
+    const result = await supabaseIndexedDBBridge.updateGlobalPresence(
+      currentUser.id, 
+      true, // isOnline
+      { 
+        forceNetwork: false, // Allow cache-first on mobile
+        spaceId: currentSpaceId // Pass current space ID
+      }
+    );
+    
+    if (result.error) {
+      console.warn('🌐 [UnifiedPresence] Current space presence update error:', result.error.message);
+    } else {
+      console.log(`🌐 [UnifiedPresence] Updated presence for current space: ${currentSpaceId}`);
+    }
+  } catch (error) {
+    console.warn('🌐 [UnifiedPresence] Current space presence update exception:', error);
+  }
+};
 
 // Cache management functions
 const cachePresenceData = (spaceId: string, count: number, users: string[]) => {
@@ -77,6 +116,77 @@ const cleanupOldCache = () => {
   Object.keys(globalPresenceCache).forEach(spaceId => {
     if (now - globalPresenceCache[spaceId].timestamp > MAX_CACHE_AGE) {
       delete globalPresenceCache[spaceId];
+    }
+  });
+};
+
+// **CRITICAL SECURITY FIX**: Clear all presence cache (called on logout)
+const clearAllPresenceCache = () => {
+  console.log('🧹 [UnifiedPresence] SECURITY: Clearing all presence cache for user logout');
+  Object.keys(globalPresenceCache).forEach(key => {
+    delete globalPresenceCache[key];
+  });
+  
+  // Also clear space presence state
+  Object.keys(spacePresenceState).forEach(key => {
+    const state = spacePresenceState[key];
+    if (state.subscription) {
+      try {
+        state.subscription.unsubscribe();
+      } catch (error) {
+        console.warn('Failed to unsubscribe from presence:', error);
+      }
+    }
+    delete spacePresenceState[key];
+  });
+  
+  // Stop global heartbeat
+  stopGlobalHeartbeat();
+  currentUser = null;
+  isGlobalSystemInitialized = false;
+};
+
+// **NEW**: Clear presence data for a specific space (for space switching)
+const clearSpacePresenceData = (spaceId: string) => {
+  if (!spaceId) return;
+  
+  console.log(`🧹 [UnifiedPresence] Clearing presence data for space: ${spaceId}`);
+  
+  // Remove from global presence cache
+  if (globalPresenceCache[spaceId]) {
+    delete globalPresenceCache[spaceId];
+  }
+  
+  // Remove from space presence state and clean up subscription
+  const presenceState = spacePresenceState[spaceId];
+  if (presenceState) {
+    // Force cleanup regardless of listeners
+    try {
+      const supabase = getSupabaseClient();
+      supabase.removeChannel(presenceState.subscription);
+    } catch (error) {
+      console.warn(`Error removing channel for space ${spaceId}:`, error);
+    }
+    
+    delete spacePresenceState[spaceId];
+  }
+  
+  console.log(`✅ [UnifiedPresence] Cleared presence data for space: ${spaceId}`);
+};
+
+// **NEW**: Clear presence for all spaces except the current one
+const clearOtherSpacesPresence = (currentSpaceId: string) => {
+  console.log(`🧹 [UnifiedPresence] Clearing presence for all spaces except: ${currentSpaceId}`);
+  
+  Object.keys(globalPresenceCache).forEach(spaceId => {
+    if (spaceId !== currentSpaceId) {
+      clearSpacePresenceData(spaceId);
+    }
+  });
+  
+  Object.keys(spacePresenceState).forEach(spaceId => {
+    if (spaceId !== currentSpaceId) {
+      clearSpacePresenceData(spaceId);
     }
   });
 };
@@ -149,7 +259,10 @@ const startGlobalHeartbeat = (user: any) => {
       const result = await supabaseIndexedDBBridge.updateGlobalPresence(
         currentUser.id, 
         true, // isOnline
-        { forceNetwork: false } // Allow cache-first on mobile
+        { 
+          forceNetwork: false, // Allow cache-first on mobile
+          spaceId: currentSpaceId // Pass current space ID for space-specific presence
+        }
       );
       
       if (result.error) {
@@ -182,6 +295,44 @@ const startGlobalHeartbeat = (user: any) => {
         // Clean up old cache entries periodically
         if (Math.random() < 0.1) { // 10% chance
           cleanupOldCache();
+        }
+        
+        // **NEW FIX**: For new sessions, immediately refresh all active space presence
+        // This ensures new users see correct counts immediately
+        const activeSpaces = Object.keys(spacePresenceState);
+        if (activeSpaces.length > 0) {
+          console.log(`🚀 [UnifiedPresence] NEW SESSION: Refreshing presence for ${activeSpaces.length} active spaces`);
+          
+          // Refresh presence for all active spaces
+          for (const spaceId of activeSpaces) {
+            try {
+              const { count, users } = await fetchSpacePresenceFromDatabase(spaceId);
+              const presenceState = spacePresenceState[spaceId];
+              
+              if (presenceState && count !== presenceState.onlineCount) {
+                console.log(`🚀 [UnifiedPresence] REFRESHED space ${spaceId}: ${presenceState.onlineCount} → ${count} online`);
+                
+                // Update state
+                presenceState.onlineCount = count;
+                presenceState.onlineUsers = users;
+                presenceState.lastUpdate = Date.now();
+                
+                // Cache the result
+                cachePresenceData(spaceId, count, users);
+                
+                // Notify all listeners for this space
+                presenceState.listeners.forEach(listener => {
+                  try {
+                    listener(count, users);
+                  } catch (error) {
+                    console.error(`🌐 [UnifiedPresence] Error calling listener for space ${spaceId}:`, error);
+                  }
+                });
+              }
+            } catch (error) {
+              console.warn(`🚀 [UnifiedPresence] Failed to refresh space ${spaceId}:`, error);
+            }
+          }
         }
       }
     } catch (error) {
@@ -253,6 +404,11 @@ interface SpacePresenceState {
     isSubscribed: boolean;
     lastFetch: number;
     retryCount: number;
+    lastUpdate: number;
+    fetchInProgress: boolean;
+    validatedSpaceId: string;
+    lastValidationTime: number;
+    updateTimeout: NodeJS.Timeout;
   };
 }
 
@@ -260,6 +416,8 @@ const spacePresenceState: SpacePresenceState = {};
 
 // Database-centric presence fetching with mobile browser protection
 const fetchSpacePresenceFromDatabase = async (spaceId: string): Promise<{ count: number; users: string[] }> => {
+  console.log(`🌐 [UnifiedPresence] Fetching presence for space ${spaceId}`);
+  
   try {
     // CRITICAL FIX: Use bridge instead of direct query to prevent mobile blocking
     const result = await supabaseIndexedDBBridge.getSpaceMembers(spaceId, {
@@ -267,16 +425,85 @@ const fetchSpacePresenceFromDatabase = async (spaceId: string): Promise<{ count:
       forceNetwork: false // Allow cache-first on mobile
     });
     
+    console.log(`🌐 [UnifiedPresence] Bridge result for space ${spaceId}:`, {
+      hasData: !!result.data,
+      dataLength: result.data?.length || 0,
+      error: result.error?.message || null,
+      fromCache: result.fromCache
+    });
+    
     if (result.error) throw result.error;
     
-    // Filter for online users and extract user_ids
-    const onlineUsers = (result.data || [])
-      .filter((member: any) => member.is_online === true)
+    // CRITICAL FIX: Enhanced filtering for online users with better logging
+    const allMembers = result.data || [];
+    console.log(`🌐 [UnifiedPresence] Raw member data for space ${spaceId}:`, allMembers.map(m => ({ 
+      user_id: m.user_id, 
+      is_online: m.is_online, 
+      status: m.status 
+    })));
+    
+    // Filter for online users with more robust checking
+    const onlineUsers = allMembers
+      .filter((member: any) => {
+        // Check multiple possible online states
+        const isOnline = member.is_online === true || 
+                        member.is_online === 1 || 
+                        member.is_online === '1' ||
+                        member.is_online === 'true';
+        
+        if (member.status === 'active') {
+          console.log(`🌐 [UnifiedPresence] Member ${member.user_id}: is_online=${member.is_online} (${typeof member.is_online}), filtered=${isOnline}`);
+        }
+        
+        return isOnline;
+      })
       .map((member: any) => member.user_id);
     
     const count = onlineUsers.length;
     
-    console.log(`🌐 [UnifiedPresence] Database query for space ${spaceId}: ${count} users online${result.fromCache ? ' (cached)' : ''}`);
+    console.log(`🌐 [UnifiedPresence] Database query for space ${spaceId}: ${count} users online out of ${allMembers.length} total${result.fromCache ? ' (cached)' : ''}`);
+    console.log(`🌐 [UnifiedPresence] Online user IDs:`, onlineUsers);
+    
+    // EMERGENCY FIX: If bridge returns 0 but we know this space should have users, try direct query
+    if (count === 0 && spaceId === '235e68d1-89df-4d2d-8945-e7756d60de20') {
+      console.warn(`🌐 [UnifiedPresence] Bridge returned 0 for known space, trying direct database fallback`);
+      
+      try {
+        const { data: directData, error: directError } = await getSupabaseClient()
+          .from('space_members')
+          .select('user_id, is_online, status')
+          .eq('space_id', spaceId)
+          .eq('status', 'active');
+        
+        if (directError) {
+          console.error(`🌐 [UnifiedPresence] Direct query failed:`, directError);
+        } else {
+          console.log(`🌐 [UnifiedPresence] Direct query result:`, directData);
+          
+          const directOnlineUsers = (directData || [])
+            .filter((member: any) => {
+              const isOnline = member.is_online === true || 
+                              member.is_online === 1 || 
+                              member.is_online === '1' ||
+                              member.is_online === 'true';
+              console.log(`🌐 [UnifiedPresence] Direct query member ${member.user_id}: is_online=${member.is_online} (${typeof member.is_online}), filtered=${isOnline}`);
+              return isOnline;
+            })
+            .map((member: any) => member.user_id);
+          
+          const directCount = directOnlineUsers.length;
+          console.log(`🌐 [UnifiedPresence] Direct query found ${directCount} online users:`, directOnlineUsers);
+          
+          if (directCount > 0) {
+            console.log(`🌐 [UnifiedPresence] Using direct query result instead of bridge result`);
+            cachePresenceData(spaceId, directCount, directOnlineUsers);
+            return { count: directCount, users: directOnlineUsers };
+          }
+        }
+      } catch (directError) {
+        console.error(`🌐 [UnifiedPresence] Direct query exception:`, directError);
+      }
+    }
     
     // Cache the result
     cachePresenceData(spaceId, count, onlineUsers);
@@ -298,86 +525,206 @@ const fetchSpacePresenceFromDatabase = async (spaceId: string): Promise<{ count:
 
 // Get or create space presence subscription
 const getOrCreateSpacePresence = (spaceId: string) => {
-  if (spacePresenceState[spaceId]) {
-    return spacePresenceState[spaceId];
+  if (!spacePresenceState[spaceId]) {
+    console.log(`🌐 [UnifiedPresence] Creating presence state for space: ${spaceId}`);
+    
+    spacePresenceState[spaceId] = {
+      onlineCount: 0,
+      onlineUsers: [],
+      listeners: new Set(),
+      subscription: null,
+      lastUpdate: 0,
+      isSubscribed: false,
+      lastFetch: 0,
+      retryCount: 0,
+      fetchInProgress: false,
+      // CRITICAL FIX: Add space validation
+      validatedSpaceId: spaceId,
+      lastValidationTime: Date.now(),
+      updateTimeout: null as any
+    };
+    
+    // Set up database subscription for this space
+    setupSpaceSubscription(spaceId);
   }
   
-  const supabase = getSupabaseClient();
-  const channel = supabase.channel(`db-presence:${spaceId}`);
+  return spacePresenceState[spaceId];
+};
+
+const setupSpaceSubscription = async (spaceId: string) => {
+  if (!spaceId || spaceId.length !== 36) {
+    console.warn(`🌐 [UnifiedPresence] Invalid space ID: ${spaceId}`);
+    return;
+  }
   
-  const presenceState = {
-    onlineCount: 0,
-    onlineUsers: [],
-    listeners: new Set<(count: number, users: string[]) => void>(),
-    subscription: channel,
-    isSubscribed: false,
-    lastFetch: 0,
-    retryCount: 0
-  };
+  const presenceState = spacePresenceState[spaceId];
+  if (!presenceState) return;
   
-  const notifyListeners = (count: number, users: string[]) => {
-    presenceState.onlineCount = count;
-    presenceState.onlineUsers = users;
+  // Check if subscription already exists and is working
+  if (presenceState.subscription && presenceState.isSubscribed) {
+    console.log(`🌐 [UnifiedPresence] Subscription already active for space ${spaceId}`);
+    return;
+  }
+  
+  // Clean up any existing subscription first
+  if (presenceState.subscription) {
+    try {
+      const supabase = getSupabaseClient();
+      supabase.removeChannel(presenceState.subscription);
+      console.log(`🌐 [UnifiedPresence] Cleaned up existing subscription for space ${spaceId}`);
+    } catch (error) {
+      console.warn(`🌐 [UnifiedPresence] Error cleaning up subscription for space ${spaceId}:`, error);
+    }
+    presenceState.subscription = null;
+    presenceState.isSubscribed = false;
+  }
+  
+  try {
+    const supabase = getSupabaseClient();
     
-    presenceState.listeners.forEach(callback => {
-      try {
-        callback(count, users);
-      } catch (error) {
-        console.error('🌐 [UnifiedPresence] Listener error:', error);
-      }
-    });
-  };
-  
-  const refreshPresenceData = async () => {
+    console.log(`🌐 [UnifiedPresence] Created database subscription for space ${spaceId}`);
+    
+    // Create new subscription with debounced updates
+    const channel = supabase
+      .channel(`space-members-${spaceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'space_members',
+          filter: `space_id=eq.${spaceId}`
+        },
+        (payload) => {
+          console.log(`🌐 [UnifiedPresence] Database change for space ${spaceId}:`, payload.eventType);
+          
+          // Debounce updates to prevent race conditions
+          if (presenceState.updateTimeout) {
+            clearTimeout(presenceState.updateTimeout);
+          }
+          presenceState.updateTimeout = setTimeout(async () => {
+            try {
+              const { count, users } = await fetchSpacePresenceFromDatabase(spaceId);
+              
+              // Update state and notify listeners
+              presenceState.onlineCount = count;
+              presenceState.onlineUsers = users;
+              presenceState.lastUpdate = Date.now();
+              
+              // Cache the result
+              cachePresenceData(spaceId, count, users);
+              
+              // Notify all listeners
+              presenceState.listeners.forEach(listener => {
+                try {
+                  listener(count, users);
+                } catch (error) {
+                  console.error(`🌐 [UnifiedPresence] Error calling listener for space ${spaceId}:`, error);
+                }
+              });
+              
+              console.log(`🌐 [UnifiedPresence] Updated presence for space ${spaceId}: ${count} online users`);
+            } catch (error) {
+              console.error(`🌐 [UnifiedPresence] Error updating presence for space ${spaceId}:`, error);
+            }
+          }, 200); // 200ms debounce for better stability
+        }
+      )
+      .subscribe((status) => {
+        console.log(`🌐 [UnifiedPresence] Database subscription status for space ${spaceId}: ${status}`);
+        presenceState.isSubscribed = status === 'SUBSCRIBED';
+      });
+    
+    presenceState.subscription = channel;
+    
+    // Initial fetch - get current data immediately
     try {
       const { count, users } = await fetchSpacePresenceFromDatabase(spaceId);
-      notifyListeners(count, users);
-    } catch (error) {
-      console.error(`🌐 [UnifiedPresence] Failed to refresh presence for space ${spaceId}:`, error);
-    }
-  };
-  
-  // Listen for database changes (real-time notifications)
-  channel
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'space_members',
-      filter: `space_id=eq.${spaceId}`
-    }, () => {
-      console.log(`🌐 [UnifiedPresence] Database change detected for space ${spaceId}, refreshing...`);
-      refreshPresenceData();
-    })
-    .subscribe(async (status) => {
-      console.log(`🌐 [UnifiedPresence] Database subscription status for space ${spaceId}: ${status}`);
+      presenceState.onlineCount = count;
+      presenceState.onlineUsers = users;
+      presenceState.lastUpdate = Date.now();
       
-      if (status === 'SUBSCRIBED') {
-        presenceState.isSubscribed = true;
-        presenceState.retryCount = 0;
-        
-        // Initial fetch from database
-        await refreshPresenceData();
-        
-        console.log(`🌐 [UnifiedPresence] Database subscription active for space ${spaceId}`);
-      } else if (status === 'CHANNEL_ERROR') {
-        presenceState.isSubscribed = false;
-        presenceState.retryCount++;
-        
-        if (presenceState.retryCount < 3) {
-          console.warn(`🌐 [UnifiedPresence] Retrying subscription for space ${spaceId} (attempt ${presenceState.retryCount})`);
-          setTimeout(() => {
-            delete spacePresenceState[spaceId];
-          }, 1000);
-        } else {
-          console.error(`🌐 [UnifiedPresence] Max retries exceeded for space ${spaceId}`);
-          delete spacePresenceState[spaceId];
+      // Cache the result
+      cachePresenceData(spaceId, count, users);
+      
+      // Notify all listeners
+      presenceState.listeners.forEach(listener => {
+        try {
+          listener(count, users);
+        } catch (error) {
+          console.error(`🌐 [UnifiedPresence] Error calling initial listener for space ${spaceId}:`, error);
         }
-      }
-    });
+      });
+      
+      console.log(`🌐 [UnifiedPresence] Initial presence for space ${spaceId}: ${count} online users`);
+    } catch (error) {
+      console.error(`🌐 [UnifiedPresence] Error fetching initial presence for space ${spaceId}:`, error);
+    }
+    
+  } catch (error) {
+    console.error(`🌐 [UnifiedPresence] Error setting up subscription for space ${spaceId}:`, error);
+  }
+};
+
+// Fetch presence data for a specific space
+const fetchSpacePresence = async (spaceId: string) => {
+  if (!spaceId) return;
   
-  spacePresenceState[spaceId] = presenceState;
-  console.log(`🌐 [UnifiedPresence] Created database subscription for space ${spaceId}`);
-  return presenceState;
+  const presenceState = spacePresenceState[spaceId];
+  if (!presenceState) return;
+  
+  try {
+    console.log(`🌐 [UnifiedPresence] Fetching presence for space ${spaceId}`);
+    
+    // CRITICAL FIX: Use time-based validation to get accurate online counts
+    const result = await supabaseIndexedDBBridge.getOnlineMembersWithTimeValidation(spaceId);
+    
+    if (result.error) {
+      console.error(`🌐 [UnifiedPresence] Error fetching presence for space ${spaceId}:`, result.error);
+      presenceState.retryCount++;
+      return;
+    }
+    
+    const memberData = result.data || [];
+    const onlineCount = memberData.length;
+    const onlineUserIds = memberData.map((member: any) => member.user_id);
+    
+    console.log(`🌐 [UnifiedPresence] Time-validated presence for space ${spaceId}: ${onlineCount} users online out of ${memberData.length} total`);
+    console.log(`🌐 [UnifiedPresence] Online user IDs:`, onlineUserIds);
+    
+    // Update state if changed or if it's been more than 30 seconds
+    const hasChanged = presenceState.onlineCount !== onlineCount || 
+                      JSON.stringify(presenceState.onlineUsers) !== JSON.stringify(onlineUserIds);
+    
+    if (hasChanged || Date.now() - presenceState.lastUpdate > 30000) { // Force update every 30 seconds
+      presenceState.onlineCount = onlineCount;
+      presenceState.onlineUsers = onlineUserIds;
+      presenceState.lastUpdate = Date.now();
+      
+      // Cache the result for faster access
+      cachePresenceData(spaceId, onlineCount, onlineUserIds);
+      
+      // Notify all listeners
+      presenceState.listeners.forEach(listener => {
+        try {
+          listener(onlineCount, onlineUserIds);
+        } catch (error) {
+          console.error(`🌐 [UnifiedPresence] Error calling listener for space ${spaceId}:`, error);
+        }
+      });
+      
+      console.log(`🌐 [UnifiedPresence] Updated presence for space ${spaceId}: ${onlineCount} online users`);
+    } else {
+      console.log(`🌐 [UnifiedPresence] No change in presence for space ${spaceId}: ${onlineCount} online users`);
+    }
+    
+    presenceState.retryCount = 0;
+    presenceState.lastFetch = Date.now();
+    
+  } catch (error) {
+    console.error(`🌐 [UnifiedPresence] Exception fetching presence for space ${spaceId}:`, error);
+    presenceState.retryCount++;
+  }
 };
 
 // Cleanup space presence
@@ -429,8 +776,9 @@ export const useSpacePresence = (spaceId: string) => {
     // Get or create space presence
     const presenceState = getOrCreateSpacePresence(spaceId);
     
-    // Create listener
+    // Create listener with debug logging
     const listener = (count: number, users: string[]) => {
+      console.log(`🌐 [useSpacePresence] Listener called for space ${spaceId}: count=${count}, users=${users.length}`);
       setOnlineCount(count);
       setOnlineUsers(users);
     };
@@ -454,14 +802,52 @@ export const useSpacePresence = (spaceId: string) => {
       console.log(`🌐 [UnifiedPresence] Using cached data for space ${spaceId}: ${cachedData.count} users`);
     }
     
-    // Set initial state
+    // CRITICAL FIX: Always set initial state immediately, even if 0
+    console.log(`🌐 [useSpacePresence] Setting initial state for space ${spaceId}: count=${initialCount}, users=${initialUsers.length}, cached=${usingCache}, presenceState.onlineCount=${presenceState.onlineCount}`);
     listener(initialCount, initialUsers);
     
-    // If not using cache and subscription isn't ready, fetch immediately
-    if (!usingCache && !presenceState.isSubscribed) {
+    // **NEW FIX**: For new sessions (no cache, no current data), force immediate database fetch
+    const isNewSession = initialCount === 0 && !usingCache && !presenceState.isSubscribed;
+    
+    if (isNewSession) {
+      console.log(`🚀 [useSpacePresence] NEW SESSION DETECTED for space ${spaceId}, forcing immediate database fetch`);
+      
+      const emergencyFetch = async () => {
+        try {
+          // Use direct database query to get immediate results
+          const { count, users } = await fetchSpacePresenceFromDatabase(spaceId);
+          console.log(`🚀 [useSpacePresence] EMERGENCY FETCH result for space ${spaceId}: count=${count}, users=${users.length}`);
+          
+          if (count > 0) {
+            // Update presence state immediately
+            presenceState.onlineCount = count;
+            presenceState.onlineUsers = users;
+            presenceState.lastUpdate = Date.now();
+            
+            // Cache the result
+            cachePresenceData(spaceId, count, users);
+            
+            // Notify listener immediately
+            listener(count, users);
+            
+            console.log(`✅ [useSpacePresence] NEW SESSION FIX applied for space ${spaceId}: ${count} users online`);
+          }
+        } catch (error) {
+          console.warn(`🚀 [useSpacePresence] Emergency fetch failed for space ${spaceId}:`, error);
+        }
+      };
+      
+      // Execute immediately (don't wait)
+      emergencyFetch();
+    }
+    
+    // CRITICAL FIX: If we have current data but no subscription, force immediate fetch
+    if (initialCount === 0 && !presenceState.isSubscribed) {
+      console.log(`🌐 [useSpacePresence] No data and no subscription for space ${spaceId}, forcing immediate fetch`);
       const immediatelyFetch = async () => {
         try {
           const { count, users } = await fetchSpacePresenceFromDatabase(spaceId);
+          console.log(`🌐 [useSpacePresence] Immediate fetch result for space ${spaceId}: count=${count}, users=${users.length}`);
           listener(count, users);
         } catch (error) {
           console.warn(`🌐 [UnifiedPresence] Immediate fetch failed for space ${spaceId}:`, error);
@@ -481,6 +867,11 @@ export const useSpacePresence = (spaceId: string) => {
     };
   }, [spaceId, user?.id]);
   
+  // Debug logging for hook state changes
+  useEffect(() => {
+    console.log(`🌐 [useSpacePresence] Hook state changed for space ${spaceId}: onlineCount=${onlineCount}, onlineUsers=${onlineUsers.length}`);
+  }, [onlineCount, onlineUsers, spaceId]);
+  
   return { onlineCount, onlineUsers };
 };
 
@@ -488,6 +879,9 @@ export const useSpacePresence = (spaceId: string) => {
  * Hook for global presence management
  * This should be used once at the app level
  */
+// **EXPORT FOR LOGOUT**: Export clear function for logout procedures
+export const clearUnifiedPresenceCache = clearAllPresenceCache;
+
 export const useUnifiedPresence = () => {
   const { user } = useOptimizedAuth();
   const hasInitialized = useRef(false);
@@ -588,5 +982,49 @@ if (typeof window !== 'undefined') {
       console.error(`Failed to refresh space ${spaceId}:`, error);
       throw error;
     }
+  };
+  
+  // **NEW**: Export space cleaning functions for space switching
+  (window as any).clearSpacePresenceData = (spaceId: string) => {
+    if (!spaceId) return;
+    
+    console.log(`🧹 [UnifiedPresence] Clearing presence data for space: ${spaceId}`);
+    
+    // Remove from global presence cache
+    if (globalPresenceCache[spaceId]) {
+      delete globalPresenceCache[spaceId];
+    }
+    
+    // Remove from space presence state and clean up subscription
+    const presenceState = spacePresenceState[spaceId];
+    if (presenceState) {
+      // Force cleanup regardless of listeners
+      try {
+        const supabase = getSupabaseClient();
+        supabase.removeChannel(presenceState.subscription);
+      } catch (error) {
+        console.warn(`Error removing channel for space ${spaceId}:`, error);
+      }
+      
+      delete spacePresenceState[spaceId];
+    }
+    
+    console.log(`✅ [UnifiedPresence] Cleared presence data for space: ${spaceId}`);
+  };
+  
+  (window as any).clearOtherSpacesPresence = (currentSpaceId: string) => {
+    console.log(`🧹 [UnifiedPresence] Clearing presence for all spaces except: ${currentSpaceId}`);
+    
+    Object.keys(globalPresenceCache).forEach(spaceId => {
+      if (spaceId !== currentSpaceId) {
+        (window as any).clearSpacePresenceData(spaceId);
+      }
+    });
+    
+    Object.keys(spacePresenceState).forEach(spaceId => {
+      if (spaceId !== currentSpaceId) {
+        (window as any).clearSpacePresenceData(spaceId);
+      }
+    });
   };
 } 

@@ -21,13 +21,14 @@ import { devLogger } from './developmentLogger';
 
 // IndexedDB database for Supabase request caching
 const DB_NAME = 'lokaa-supabase-cache';
-const DB_VERSION = 2; // Incremented to create USER_PROFILES store
+const DB_VERSION = 3; // Incremented to create USER_CONVERSATIONS store
 const STORES = {
   SPACE_MEMBERS: 'space_members_cache',
   SPACES: 'spaces_cache',
   POSTS: 'posts_cache',
   CATEGORIES: 'categories_cache',
-  USER_PROFILES: 'user_profiles_cache'
+  USER_PROFILES: 'user_profiles_cache',
+  USER_CONVERSATIONS: 'user_conversations_cache'
 };
 
 // Cache TTL settings
@@ -36,7 +37,8 @@ const CACHE_TTL = {
   SPACES: 10 * 60 * 1000,           // 10 minutes - semi-static
   POSTS: 5 * 60 * 1000,             // 5 minutes - dynamic content
   CATEGORIES: 30 * 60 * 1000,       // 30 minutes - static content
-  USER_PROFILES: 5 * 60 * 1000      // 5 minutes - user profile data
+  USER_PROFILES: 5 * 60 * 1000,     // 5 minutes - user profile data
+  USER_CONVERSATIONS: 5 * 60 * 1000 // 5 minutes - conversation data
 };
 
 interface CacheEntry<T = any> {
@@ -59,6 +61,13 @@ interface BridgeMetrics {
   mobileBlockingDetected: number;
   offlineReturns: number;
   networkFailures: number;
+}
+
+interface SupabaseBridgeResult {
+  data: any;
+  error: Error | null;
+  fromCache?: boolean;
+  reason?: string;
 }
 
 class SupabaseIndexedDBBridge {
@@ -125,10 +134,17 @@ class SupabaseIndexedDBBridge {
       (window as any).supabaseIndexedDBBridge = {
         getMetrics: () => this.getMetrics(),
         clearCache: () => this.clearCache(),
+        clearUserConversationsCache: (userId: string) => this.clearUserConversationsCache(userId),
         testMobileBlocking: () => this.testMobileBlockingDetection(),
         getCacheStatus: (spaceId: string) => this.getCacheStatus(spaceId),
         warmCache: (spaceId: string) => this.warmCacheForSpace(spaceId),
-        getUserProfile: (userId: string, fields?: string[]) => this.getUserProfile(userId, fields)
+        getUserProfile: (userId: string, fields?: string[]) => this.getUserProfile(userId, fields),
+        getSpaceMembers: (spaceId: string, options?: any) => this.getSpaceMembers(spaceId, options),
+        // ROCK SOLID: Chat system monitoring and recovery
+        testChatSystemHealth: () => this.testChatSystemHealth(),
+        validateUserConversations: (userId: string) => this.validateUserConversations(userId),
+        diagnoseConversationIssues: (conversationId: string) => this.diagnoseConversationIssues(conversationId),
+        emergencyConversationRecovery: (userId: string, targetUserId: string) => this.emergencyConversationRecovery(userId, targetUserId)
       };
 
       // Add global debugging interface
@@ -139,7 +155,8 @@ class SupabaseIndexedDBBridge {
         getCacheStatus: (spaceId: string) => this.getCacheStatus(spaceId),
         testUserProfile: (userId: string) => this.getUserProfile(userId, ['profile_url', 'full_name']),
         testAuthUser: () => this.getCurrentUser(),
-        testPresenceUpdate: (userId: string, isOnline: boolean) => this.updateGlobalPresence(userId, isOnline)
+        testPresenceUpdate: (userId: string, isOnline: boolean) => this.updateGlobalPresence(userId, isOnline),
+        testSpaceMembers: (spaceId: string) => this.getSpaceMembers(spaceId, { status: 'active', forceNetwork: true })
       };
     }
   }
@@ -328,6 +345,7 @@ class SupabaseIndexedDBBridge {
       case STORES.POSTS: return CACHE_TTL.POSTS;
       case STORES.CATEGORIES: return CACHE_TTL.CATEGORIES;
       case STORES.USER_PROFILES: return CACHE_TTL.USER_PROFILES;
+      case STORES.USER_CONVERSATIONS: return CACHE_TTL.USER_CONVERSATIONS;
       default: return CACHE_TTL.SPACE_MEMBERS;
     }
   }
@@ -703,14 +721,16 @@ class SupabaseIndexedDBBridge {
    */
   async updateGlobalPresence(userId: string, isOnline: boolean, options: {
     forceNetwork?: boolean;
+    spaceId?: string;
   } = {}): Promise<any> {
     this.metrics.totalRequests++;
     
-    const { forceNetwork = false } = options;
+    const { forceNetwork = false, spaceId } = options;
     
     devLogger.log('CacheDebug', '[SupabaseIndexedDBBridge] Global presence update request', { 
       userId, 
       isOnline, 
+      spaceId,
       forceNetwork 
     });
 
@@ -723,11 +743,12 @@ class SupabaseIndexedDBBridge {
       // Store intention in cache for later sync
       await this.setCachedData(STORES.USER_PROFILES, `presence_intent_${userId}`, {
         isOnline,
+        spaceId,
         timestamp: Date.now(),
         userId
       }, {
         query: 'presence_update_intent',
-        params: { userId, isOnline },
+        params: { userId, isOnline, spaceId },
         userId
       });
       
@@ -737,7 +758,7 @@ class SupabaseIndexedDBBridge {
 
     // Try network request with mobile browser blocking detection
     try {
-      const networkPromise = this.executePresenceUpdateQuery(userId, isOnline);
+      const networkPromise = this.executePresenceUpdateQuery(userId, isOnline, spaceId);
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Mobile browser presence blocking timeout')), 3000);
       });
@@ -761,11 +782,12 @@ class SupabaseIndexedDBBridge {
       // Store intention in cache for later sync
       await this.setCachedData(STORES.USER_PROFILES, `presence_intent_${userId}`, {
         isOnline,
+        spaceId,
         timestamp: Date.now(),
         userId
       }, {
         query: 'presence_update_intent',
-        params: { userId, isOnline },
+        params: { userId, isOnline, spaceId },
         userId
       });
 
@@ -789,18 +811,61 @@ class SupabaseIndexedDBBridge {
   /**
    * Execute presence update query against Supabase
    */
-  private async executePresenceUpdateQuery(userId: string, isOnline: boolean): Promise<any> {
+  private async executePresenceUpdateQuery(userId: string, isOnline: boolean, spaceId?: string): Promise<any> {
     try {
-      const { error } = await getSupabaseClient()
-        .from('space_members')
-        .update({
-          is_online: isOnline,
-          last_active_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .eq('status', 'active');
+      if (isOnline && spaceId) {
+        // When going online in a specific space:
+        // 1. Set current space as online
+        // 2. Set all other spaces as offline
+        
+        // First, set all other spaces to offline
+        await getSupabaseClient()
+          .from('space_members')
+          .update({
+            is_online: false
+          })
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .neq('space_id', spaceId);
+        
+        // Then set current space as online
+        const { error } = await getSupabaseClient()
+          .from('space_members')
+          .update({
+            is_online: true,
+            last_active_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('space_id', spaceId)
+          .eq('status', 'active');
+          
+        return { data: null, error };
+        
+      } else if (!isOnline) {
+        // When going offline, set all spaces to offline
+        const { error } = await getSupabaseClient()
+          .from('space_members')
+          .update({
+            is_online: false,
+            last_active_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('status', 'active');
+          
+        return { data: null, error };
+        
+      } else {
+        // Legacy fallback - update last_active_at only
+        const { error } = await getSupabaseClient()
+          .from('space_members')
+          .update({
+            last_active_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('status', 'active');
 
-      return { data: null, error };
+        return { data: null, error };
+      }
     } catch (error) {
       return { data: null, error };
     }
@@ -820,10 +885,10 @@ class SupabaseIndexedDBBridge {
       if (!forceNetwork && this.shouldUseCacheFirst()) {
         console.log('🔧 [CacheDebug] [SupabaseIndexedDBBridge] Using cache-first for user conversations');
         try {
-          const cachedData = await this.getCachedData(cacheKey);
-          if (cachedData) {
+          const cachedData = await this.getCachedData(STORES.USER_CONVERSATIONS, cacheKey);
+          if (cachedData && !this.isCacheExpired(cachedData)) {
             console.log('🔧 [CacheDebug] [SupabaseIndexedDBBridge] Cache hit for user conversations');
-            return { data: cachedData, error: null };
+            return { data: cachedData.data, error: null, fromCache: true };
           }
         } catch (cacheError) {
           console.log('🔧 [CacheDebug] [SupabaseIndexedDBBridge] Cache miss for user conversations:', cacheError);
@@ -837,10 +902,10 @@ class SupabaseIndexedDBBridge {
         console.warn('🔧 [CacheDebug] [SupabaseIndexedDBBridge] Network error for user conversations:', result.error);
         // Try to return cached data as fallback
         try {
-          const cachedData = await this.getCachedData(cacheKey);
+          const cachedData = await this.getCachedData(STORES.USER_CONVERSATIONS, cacheKey);
           if (cachedData) {
             console.log('🔧 [CacheDebug] [SupabaseIndexedDBBridge] Using cached fallback for user conversations');
-            return { data: cachedData, error: null };
+            return { data: cachedData.data, error: null, fromCache: true, reason: 'network_error_fallback' };
           }
         } catch (fallbackError) {
           console.warn('🔧 [CacheDebug] [SupabaseIndexedDBBridge] No cached fallback available');
@@ -850,7 +915,11 @@ class SupabaseIndexedDBBridge {
 
       // Cache successful results
       if (result.data) {
-        await this.setCachedData(cacheKey, result.data, 300000); // 5 minutes cache
+        await this.setCachedData(STORES.USER_CONVERSATIONS, cacheKey, result.data, {
+          query: 'user_conversations',
+          params: { userId },
+          userId
+        });
         console.log('🔧 [CacheDebug] [SupabaseIndexedDBBridge] Cached user conversations data');
       }
 
@@ -870,6 +939,764 @@ class SupabaseIndexedDBBridge {
       .select('*')
       .eq('user_id', userId)
       .order('last_message_at', { ascending: false });
+  }
+
+  /**
+   * Clean up stale presence data - set users offline if inactive for more than 5 minutes
+   */
+  async cleanupStalePresence(spaceId: string): Promise<any> {
+    try {
+      devLogger.log('CacheDebug', '[SupabaseIndexedDBBridge] Cleaning up stale presence for space', spaceId);
+      
+      // Set users offline if they haven't been active in last 5 minutes
+      const { data, error } = await getSupabaseClient()
+        .from('space_members')
+        .update({ is_online: false })
+        .eq('space_id', spaceId)
+        .eq('status', 'active')
+        .or('last_active_at.is.null,last_active_at.lte.' + new Date(Date.now() - 5 * 60 * 1000).toISOString());
+
+      if (error) {
+        console.error('[SupabaseIndexedDBBridge] Error cleaning stale presence:', error);
+        return { error };
+      }
+
+      devLogger.log('CacheDebug', '[SupabaseIndexedDBBridge] Stale presence cleanup completed', { spaceId, affectedRows: data });
+      return { data };
+    } catch (error) {
+      console.error('[SupabaseIndexedDBBridge] Exception in cleanupStalePresence:', error);
+      return { error };
+    }
+  }
+
+  /**
+   * Get online members with time-based validation
+   */
+  async getOnlineMembersWithTimeValidation(spaceId: string): Promise<any> {
+    try {
+      // First cleanup stale presence
+      await this.cleanupStalePresence(spaceId);
+      
+      // Then get current online members
+      const { data, error } = await getSupabaseClient()
+        .from('space_members')
+        .select(`
+          user_id,
+          is_online,
+          last_active_at,
+          users!inner(full_name, avatar_url)
+        `)
+        .eq('space_id', spaceId)
+        .eq('status', 'active')
+        .eq('is_online', true)
+        .gte('last_active_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+
+      if (error) {
+        console.error('[SupabaseIndexedDBBridge] Error fetching time-validated online members:', error);
+        return { error, data: [] };
+      }
+
+      devLogger.log('CacheDebug', `[SupabaseIndexedDBBridge] Time-validated online members for ${spaceId}:`, data?.length || 0);
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('[SupabaseIndexedDBBridge] Exception in getOnlineMembersWithTimeValidation:', error);
+      return { error, data: [] };
+    }
+  }
+
+  /**
+   * Clear user conversations cache for a specific user
+   */
+  async clearUserConversationsCache(userId: string): Promise<void> {
+    await this.initializeDB();
+    if (!this.db) return;
+
+    const cacheKey = `user_conversations_${userId}`;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([STORES.USER_CONVERSATIONS], 'readwrite');
+      const store = transaction.objectStore(STORES.USER_CONVERSATIONS);
+      const request = store.delete(cacheKey);
+
+      request.onsuccess = () => {
+        console.log(`[SupabaseIndexedDBBridge] Cleared user conversations cache for user: ${userId}`);
+        resolve();
+      };
+      request.onerror = () => {
+        console.warn(`[SupabaseIndexedDBBridge] Failed to clear user conversations cache for user: ${userId}`);
+        resolve(); // Don't fail the operation if cache clear fails
+      };
+    });
+  }
+
+  /**
+   * ROCK SOLID: Test chat system health
+   */
+  async testChatSystemHealth(): Promise<any> {
+    console.log('🏥 [ChatHealthCheck] Starting comprehensive chat system health test...');
+    
+    const healthReport = {
+      timestamp: new Date().toISOString(),
+      overallHealth: 'unknown',
+      tests: {
+        database_connectivity: { status: 'pending', details: null },
+        rpc_function_exists: { status: 'pending', details: null },
+        user_conversations_view: { status: 'pending', details: null },
+        chat_tables_structure: { status: 'pending', details: null },
+        cache_system: { status: 'pending', details: null },
+        bridge_functionality: { status: 'pending', details: null }
+      },
+      recommendations: []
+    };
+
+    try {
+      // Test 1: Database connectivity
+      console.log('🔍 [ChatHealthCheck] Testing database connectivity...');
+      try {
+        const { data, error } = await getSupabaseClient().from('chat_conversations').select('count', { count: 'exact', head: true });
+        if (error) throw error;
+        
+        healthReport.tests.database_connectivity = { 
+          status: 'healthy', 
+          details: { total_conversations: data?.length || 0 }
+        };
+        console.log('✅ [ChatHealthCheck] Database connectivity: HEALTHY');
+      } catch (error) {
+        healthReport.tests.database_connectivity = { 
+          status: 'unhealthy', 
+          details: { error: error instanceof Error ? error.message : String(error) }
+        };
+        console.error('❌ [ChatHealthCheck] Database connectivity: FAILED', error);
+      }
+
+      // Test 2: RPC function exists and works
+      console.log('🔍 [ChatHealthCheck] Testing RPC function...');
+      try {
+        const { data, error } = await getSupabaseClient().rpc('get_or_create_direct_conversation', {
+          user1_id: '00000000-0000-0000-0000-000000000000',
+          user2_id: '11111111-1111-1111-1111-111111111111'
+        });
+        
+        // We expect this to fail with a specific error, not a function-not-found error
+        if (error && !error.message.includes('function') && !error.message.includes('does not exist')) {
+          healthReport.tests.rpc_function_exists = { 
+            status: 'healthy', 
+            details: { function_exists: true, error_as_expected: error.message }
+          };
+          console.log('✅ [ChatHealthCheck] RPC function: HEALTHY');
+        } else {
+          healthReport.tests.rpc_function_exists = { 
+            status: 'unhealthy', 
+            details: { error: error?.message || 'Function not found' }
+          };
+          console.error('❌ [ChatHealthCheck] RPC function: FAILED');
+        }
+      } catch (error) {
+        healthReport.tests.rpc_function_exists = { 
+          status: 'unhealthy', 
+          details: { error: error instanceof Error ? error.message : String(error) }
+        };
+        console.error('❌ [ChatHealthCheck] RPC function: EXCEPTION', error);
+      }
+
+      // Test 3: user_conversations view
+      console.log('🔍 [ChatHealthCheck] Testing user_conversations view...');
+      try {
+        const { data, error } = await getSupabaseClient()
+          .from('user_conversations')
+          .select('conversation_id')
+          .limit(1);
+        
+        if (error) throw error;
+        
+        healthReport.tests.user_conversations_view = { 
+          status: 'healthy', 
+          details: { view_accessible: true, sample_data: data?.length > 0 }
+        };
+        console.log('✅ [ChatHealthCheck] User conversations view: HEALTHY');
+      } catch (error) {
+        healthReport.tests.user_conversations_view = { 
+          status: 'unhealthy', 
+          details: { error: error instanceof Error ? error.message : String(error) }
+        };
+        console.error('❌ [ChatHealthCheck] User conversations view: FAILED', error);
+      }
+
+      // Test 4: Chat tables structure
+      console.log('🔍 [ChatHealthCheck] Testing chat tables structure...');
+      try {
+        const tables = ['chat_conversations', 'chat_participants', 'chat_messages'];
+        const tableResults = {};
+        
+        for (const table of tables) {
+          try {
+            const { data, error } = await getSupabaseClient().from(table).select('*').limit(0);
+            if (error) throw error;
+            tableResults[table] = { exists: true, accessible: true };
+          } catch (error) {
+            tableResults[table] = { exists: false, error: error instanceof Error ? error.message : String(error) };
+          }
+        }
+        
+        const allTablesHealthy = Object.values(tableResults).every((result: any) => result.exists);
+        healthReport.tests.chat_tables_structure = { 
+          status: allTablesHealthy ? 'healthy' : 'unhealthy', 
+          details: tableResults
+        };
+        
+        if (allTablesHealthy) {
+          console.log('✅ [ChatHealthCheck] Chat tables structure: HEALTHY');
+        } else {
+          console.error('❌ [ChatHealthCheck] Chat tables structure: ISSUES FOUND');
+        }
+      } catch (error) {
+        healthReport.tests.chat_tables_structure = { 
+          status: 'unhealthy', 
+          details: { error: error instanceof Error ? error.message : String(error) }
+        };
+        console.error('❌ [ChatHealthCheck] Chat tables structure: EXCEPTION', error);
+      }
+
+      // Test 5: Cache system
+      console.log('🔍 [ChatHealthCheck] Testing cache system...');
+      try {
+        await this.initializeDB();
+        const cacheStatus = this.db ? 'healthy' : 'unhealthy';
+        const metrics = this.getMetrics();
+        
+        healthReport.tests.cache_system = { 
+          status: cacheStatus, 
+          details: { 
+            indexedDB_available: !!this.db,
+            metrics: metrics,
+            stores_available: this.db ? Object.keys(STORES).length : 0
+          }
+        };
+        
+        if (cacheStatus === 'healthy') {
+          console.log('✅ [ChatHealthCheck] Cache system: HEALTHY');
+        } else {
+          console.error('❌ [ChatHealthCheck] Cache system: FAILED');
+        }
+      } catch (error) {
+        healthReport.tests.cache_system = { 
+          status: 'unhealthy', 
+          details: { error: error instanceof Error ? error.message : String(error) }
+        };
+        console.error('❌ [ChatHealthCheck] Cache system: EXCEPTION', error);
+      }
+
+      // Test 6: Bridge functionality
+      console.log('🔍 [ChatHealthCheck] Testing bridge functionality...');
+      try {
+        const testUserId = '00000000-0000-0000-0000-000000000000';
+        const result = await this.getUserConversations(testUserId, { forceNetwork: false });
+        
+        healthReport.tests.bridge_functionality = { 
+          status: 'healthy', 
+          details: { 
+            method_callable: true,
+            returns_result: !!result,
+            has_data_field: result.hasOwnProperty('data'),
+            has_error_field: result.hasOwnProperty('error')
+          }
+        };
+        console.log('✅ [ChatHealthCheck] Bridge functionality: HEALTHY');
+      } catch (error) {
+        healthReport.tests.bridge_functionality = { 
+          status: 'unhealthy', 
+          details: { error: error instanceof Error ? error.message : String(error) }
+        };
+        console.error('❌ [ChatHealthCheck] Bridge functionality: EXCEPTION', error);
+      }
+
+      // Calculate overall health
+      const healthyTests = Object.values(healthReport.tests).filter(test => test.status === 'healthy').length;
+      const totalTests = Object.keys(healthReport.tests).length;
+      const healthPercentage = (healthyTests / totalTests) * 100;
+      
+      if (healthPercentage >= 100) {
+        healthReport.overallHealth = 'excellent';
+      } else if (healthPercentage >= 80) {
+        healthReport.overallHealth = 'good';
+      } else if (healthPercentage >= 60) {
+        healthReport.overallHealth = 'concerning';
+      } else {
+        healthReport.overallHealth = 'critical';
+      }
+
+      // Generate recommendations
+      if (healthReport.tests.database_connectivity.status === 'unhealthy') {
+        healthReport.recommendations.push('Check database connection and network connectivity');
+      }
+      if (healthReport.tests.rpc_function_exists.status === 'unhealthy') {
+        healthReport.recommendations.push('Verify RPC function get_or_create_direct_conversation exists and has correct signature');
+      }
+      if (healthReport.tests.user_conversations_view.status === 'unhealthy') {
+        healthReport.recommendations.push('Check user_conversations view definition and permissions');
+      }
+      if (healthReport.tests.chat_tables_structure.status === 'unhealthy') {
+        healthReport.recommendations.push('Verify all chat tables (chat_conversations, chat_participants, chat_messages) exist');
+      }
+      if (healthReport.tests.cache_system.status === 'unhealthy') {
+        healthReport.recommendations.push('Check IndexedDB availability and permissions');
+      }
+      if (healthReport.tests.bridge_functionality.status === 'unhealthy') {
+        healthReport.recommendations.push('Investigate bridge method implementation issues');
+      }
+
+      console.log(`🏥 [ChatHealthCheck] Health test completed: ${healthReport.overallHealth.toUpperCase()} (${healthyTests}/${totalTests} tests passed)`);
+      
+      return healthReport;
+      
+    } catch (error) {
+      console.error('💥 [ChatHealthCheck] Health test failed with exception:', error);
+      healthReport.overallHealth = 'critical';
+      healthReport.recommendations.push('Investigate system-wide chat functionality issues');
+      return healthReport;
+    }
+  }
+
+  /**
+   * ROCK SOLID: Validate user conversations consistency
+   */
+  async validateUserConversations(userId: string): Promise<any> {
+    console.log(`🔍 [ConversationValidator] Validating conversations for user: ${userId}`);
+    
+    const validationReport = {
+      userId: userId,
+      timestamp: new Date().toISOString(),
+      status: 'unknown',
+      issues: [],
+      stats: {
+        total_conversations: 0,
+        database_conversations: 0,
+        cache_conversations: 0,
+        missing_in_cache: 0,
+        missing_in_database: 0,
+        inconsistent_data: 0
+      },
+      recommendations: []
+    };
+
+    try {
+      // Get conversations from database
+      console.log('📊 [ConversationValidator] Fetching from database...');
+      const dbResult = await this.executeUserConversationsQuery(userId);
+      const dbConversations = dbResult.data || [];
+      validationReport.stats.database_conversations = dbConversations.length;
+
+      // Get conversations from cache
+      console.log('📊 [ConversationValidator] Checking cache...');
+      const cacheKey = `user_conversations_${userId}`;
+      const cachedData = await this.getCachedData(STORES.USER_CONVERSATIONS, cacheKey);
+      const cacheConversations = cachedData?.data || [];
+      validationReport.stats.cache_conversations = cacheConversations.length;
+
+      validationReport.stats.total_conversations = Math.max(dbConversations.length, cacheConversations.length);
+
+      // Compare database vs cache
+      const dbConversationIds = new Set(dbConversations.map((c: any) => c.conversation_id));
+      const cacheConversationIds = new Set(cacheConversations.map((c: any) => c.conversation_id));
+
+      // Find missing conversations
+      const missingInCache = [...dbConversationIds].filter(id => !cacheConversationIds.has(id));
+      const missingInDatabase = [...cacheConversationIds].filter(id => !dbConversationIds.has(id));
+
+      validationReport.stats.missing_in_cache = missingInCache.length;
+      validationReport.stats.missing_in_database = missingInDatabase.length;
+
+      if (missingInCache.length > 0) {
+        validationReport.issues.push({
+          type: 'cache_outdated',
+          description: `${missingInCache.length} conversations missing from cache`,
+          conversation_ids: missingInCache
+        });
+      }
+
+      if (missingInDatabase.length > 0) {
+        validationReport.issues.push({
+          type: 'cache_stale',
+          description: `${missingInDatabase.length} stale conversations in cache`,
+          conversation_ids: missingInDatabase
+        });
+      }
+
+      // Check data consistency for common conversations
+      const commonIds = [...dbConversationIds].filter(id => cacheConversationIds.has(id));
+      let inconsistentCount = 0;
+
+      for (const conversationId of commonIds) {
+        const dbConv = dbConversations.find((c: any) => c.conversation_id === conversationId);
+        const cacheConv = cacheConversations.find((c: any) => c.conversation_id === conversationId);
+
+        if (dbConv && cacheConv) {
+          const inconsistencies = [];
+          
+          if (dbConv.last_message_at !== cacheConv.last_message_at) {
+            inconsistencies.push('last_message_at');
+          }
+          if (dbConv.unread_count !== cacheConv.unread_count) {
+            inconsistencies.push('unread_count');
+          }
+
+          if (inconsistencies.length > 0) {
+            inconsistentCount++;
+            validationReport.issues.push({
+              type: 'data_inconsistency',
+              description: `Data mismatch in conversation ${conversationId}`,
+              fields: inconsistencies,
+              database_data: dbConv,
+              cache_data: cacheConv
+            });
+          }
+        }
+      }
+
+      validationReport.stats.inconsistent_data = inconsistentCount;
+
+      // Determine overall status
+      if (validationReport.issues.length === 0) {
+        validationReport.status = 'healthy';
+      } else if (validationReport.issues.length <= 2 && inconsistentCount === 0) {
+        validationReport.status = 'minor_issues';
+      } else {
+        validationReport.status = 'needs_attention';
+      }
+
+      // Generate recommendations
+      if (missingInCache.length > 0) {
+        validationReport.recommendations.push('Clear user conversations cache and refresh from database');
+      }
+      if (missingInDatabase.length > 0) {
+        validationReport.recommendations.push('Clean up stale cache entries');
+      }
+      if (inconsistentCount > 0) {
+        validationReport.recommendations.push('Force refresh conversations to sync database and cache');
+      }
+
+      console.log(`✅ [ConversationValidator] Validation completed: ${validationReport.status} (${validationReport.issues.length} issues found)`);
+      
+      return validationReport;
+
+    } catch (error) {
+      console.error('💥 [ConversationValidator] Validation failed:', error);
+      validationReport.status = 'error';
+      validationReport.issues.push({
+        type: 'validation_error',
+        description: 'Failed to validate conversations',
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return validationReport;
+    }
+  }
+
+  /**
+   * ROCK SOLID: Diagnose specific conversation issues
+   */
+  async diagnoseConversationIssues(conversationId: string): Promise<any> {
+    console.log(`🔬 [ConversationDiagnostic] Diagnosing conversation: ${conversationId}`);
+    
+    const diagnostic = {
+      conversationId: conversationId,
+      timestamp: new Date().toISOString(),
+      exists: {
+        in_chat_conversations: false,
+        in_chat_participants: false,
+        in_user_conversations: false,
+        in_cache: false
+      },
+      details: {},
+      issues: [],
+      recommendations: []
+    };
+
+    try {
+      // Check if conversation exists in chat_conversations table
+      console.log('🔍 [ConversationDiagnostic] Checking chat_conversations table...');
+      try {
+        const { data, error } = await getSupabaseClient()
+          .from('chat_conversations')
+          .select('*')
+          .eq('id', conversationId)
+          .single();
+        
+        if (data && !error) {
+          diagnostic.exists.in_chat_conversations = true;
+          diagnostic.details.chat_conversations = data;
+        } else {
+          diagnostic.issues.push({
+            type: 'missing_conversation',
+            description: 'Conversation not found in chat_conversations table',
+            error: error?.message
+          });
+        }
+      } catch (error) {
+        diagnostic.issues.push({
+          type: 'database_error',
+          description: 'Error querying chat_conversations table',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
+      // Check participants
+      console.log('🔍 [ConversationDiagnostic] Checking chat_participants table...');
+      try {
+        const { data, error } = await getSupabaseClient()
+          .from('chat_participants')
+          .select('*')
+          .eq('conversation_id', conversationId);
+        
+        if (data && !error && data.length > 0) {
+          diagnostic.exists.in_chat_participants = true;
+          diagnostic.details.chat_participants = data;
+        } else {
+          diagnostic.issues.push({
+            type: 'missing_participants',
+            description: 'No participants found for conversation',
+            error: error?.message
+          });
+        }
+      } catch (error) {
+        diagnostic.issues.push({
+          type: 'database_error',
+          description: 'Error querying chat_participants table',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
+      // Check user_conversations view
+      console.log('🔍 [ConversationDiagnostic] Checking user_conversations view...');
+      try {
+        const { data, error } = await getSupabaseClient()
+          .from('user_conversations')
+          .select('*')
+          .eq('conversation_id', conversationId);
+        
+        if (data && !error && data.length > 0) {
+          diagnostic.exists.in_user_conversations = true;
+          diagnostic.details.user_conversations = data;
+        } else {
+          diagnostic.issues.push({
+            type: 'missing_in_view',
+            description: 'Conversation not found in user_conversations view',
+            error: error?.message
+          });
+        }
+      } catch (error) {
+        diagnostic.issues.push({
+          type: 'view_error',
+          description: 'Error querying user_conversations view',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
+      // Check cache for all potential users
+      console.log('🔍 [ConversationDiagnostic] Checking cache...');
+      if (diagnostic.details.chat_participants) {
+        for (const participant of diagnostic.details.chat_participants) {
+          const cacheKey = `user_conversations_${participant.user_id}`;
+          const cachedData = await this.getCachedData(STORES.USER_CONVERSATIONS, cacheKey);
+          
+          if (cachedData?.data) {
+            const foundInCache = cachedData.data.some((c: any) => c.conversation_id === conversationId);
+            if (foundInCache) {
+              diagnostic.exists.in_cache = true;
+              diagnostic.details.cache_info = diagnostic.details.cache_info || {};
+              diagnostic.details.cache_info[participant.user_id] = 'found';
+            }
+          }
+        }
+      }
+
+      // Generate recommendations based on findings
+      if (!diagnostic.exists.in_chat_conversations) {
+        diagnostic.recommendations.push('Conversation data is corrupted or never created properly');
+      }
+      if (!diagnostic.exists.in_chat_participants) {
+        diagnostic.recommendations.push('Participants data is missing - conversation creation was incomplete');
+      }
+      if (!diagnostic.exists.in_user_conversations) {
+        diagnostic.recommendations.push('Check user_conversations view definition and underlying data');
+      }
+      if (diagnostic.exists.in_chat_conversations && diagnostic.exists.in_chat_participants && !diagnostic.exists.in_user_conversations) {
+        diagnostic.recommendations.push('View cache may be stale - try refreshing the view');
+      }
+      if (!diagnostic.exists.in_cache && diagnostic.exists.in_user_conversations) {
+        diagnostic.recommendations.push('Clear and refresh user conversation cache');
+      }
+
+      console.log(`🔬 [ConversationDiagnostic] Diagnosis completed: ${diagnostic.issues.length} issues found`);
+      
+      return diagnostic;
+
+    } catch (error) {
+      console.error('💥 [ConversationDiagnostic] Diagnostic failed:', error);
+      diagnostic.issues.push({
+        type: 'diagnostic_error',
+        description: 'Failed to complete diagnostic',
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return diagnostic;
+    }
+  }
+
+  /**
+   * ROCK SOLID: Emergency conversation recovery
+   */
+  async emergencyConversationRecovery(userId: string, targetUserId: string): Promise<any> {
+    console.log(`🚨 [EmergencyRecovery] Starting emergency recovery for conversation between ${userId} and ${targetUserId}`);
+    
+    const recoveryReport = {
+      users: { userId, targetUserId },
+      timestamp: new Date().toISOString(),
+      steps_attempted: [],
+      success: false,
+      conversationId: null,
+      errors: [],
+      final_status: 'unknown'
+    };
+
+    try {
+      // Step 1: Clear all related caches
+      console.log('🧹 [EmergencyRecovery] Step 1: Clearing caches...');
+      recoveryReport.steps_attempted.push('clear_caches');
+      
+      try {
+        await this.clearUserConversationsCache(userId);
+        await this.clearUserConversationsCache(targetUserId);
+        console.log('✅ [EmergencyRecovery] Caches cleared successfully');
+      } catch (error) {
+        console.warn('⚠️ [EmergencyRecovery] Cache clearing failed:', error);
+        recoveryReport.errors.push(`Cache clearing failed: ${error}`);
+      }
+
+      // Step 2: Search for existing conversation
+      console.log('🔍 [EmergencyRecovery] Step 2: Searching for existing conversation...');
+      recoveryReport.steps_attempted.push('search_existing');
+      
+      let existingConversationId = null;
+      
+      try {
+        const { data: participants, error } = await getSupabaseClient()
+          .from('chat_participants')
+          .select('conversation_id')
+          .in('user_id', [userId, targetUserId]);
+        
+        if (!error && participants) {
+          const conversationCounts = participants.reduce((acc: Record<string, number>, p: any) => {
+            acc[p.conversation_id] = (acc[p.conversation_id] || 0) + 1;
+            return acc;
+          }, {});
+          
+          existingConversationId = Object.keys(conversationCounts).find(id => conversationCounts[id] >= 2) || null;
+          
+          if (existingConversationId) {
+            console.log(`✅ [EmergencyRecovery] Found existing conversation: ${existingConversationId}`);
+            recoveryReport.conversationId = existingConversationId;
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ [EmergencyRecovery] Existing conversation search failed:', error);
+        recoveryReport.errors.push(`Existing search failed: ${error}`);
+      }
+
+      // Step 3: Create new conversation if none found
+      if (!existingConversationId) {
+        console.log('🆕 [EmergencyRecovery] Step 3: Creating new conversation...');
+        recoveryReport.steps_attempted.push('create_new');
+        
+        try {
+          const newConversationId = crypto.randomUUID();
+          
+          // Create conversation
+          const { error: createError } = await getSupabaseClient()
+            .from('chat_conversations')
+            .insert({
+              id: newConversationId,
+              is_group: false,
+              created_by: userId
+            });
+          
+          if (createError) throw createError;
+          
+          // Add participants
+          const { error: participantsError } = await getSupabaseClient()
+            .from('chat_participants')
+            .insert([
+              { conversation_id: newConversationId, user_id: userId, is_admin: false },
+              { conversation_id: newConversationId, user_id: targetUserId, is_admin: false }
+            ]);
+          
+          if (participantsError) throw participantsError;
+          
+          existingConversationId = newConversationId;
+          recoveryReport.conversationId = existingConversationId;
+          console.log(`✅ [EmergencyRecovery] Created new conversation: ${existingConversationId}`);
+          
+        } catch (error) {
+          console.error('❌ [EmergencyRecovery] Conversation creation failed:', error);
+          recoveryReport.errors.push(`Creation failed: ${error}`);
+          recoveryReport.final_status = 'failed';
+          return recoveryReport;
+        }
+      }
+
+      // Step 4: Verify conversation in user_conversations view
+      console.log('🔍 [EmergencyRecovery] Step 4: Verifying in user_conversations view...');
+      recoveryReport.steps_attempted.push('verify_view');
+      
+      try {
+        const { data, error } = await getSupabaseClient()
+          .from('user_conversations')
+          .select('conversation_id')
+          .eq('conversation_id', existingConversationId)
+          .eq('user_id', userId)
+          .single();
+        
+        if (data && !error) {
+          console.log('✅ [EmergencyRecovery] Conversation verified in view');
+        } else {
+          console.warn('⚠️ [EmergencyRecovery] Conversation not found in view, may need time to propagate');
+          recoveryReport.errors.push('Not immediately visible in user_conversations view');
+        }
+      } catch (error) {
+        console.warn('⚠️ [EmergencyRecovery] View verification failed:', error);
+        recoveryReport.errors.push(`View verification failed: ${error}`);
+      }
+
+      // Step 5: Force refresh user conversations
+      console.log('🔄 [EmergencyRecovery] Step 5: Force refreshing user conversations...');
+      recoveryReport.steps_attempted.push('force_refresh');
+      
+      try {
+        const freshData = await this.getUserConversations(userId, { forceNetwork: true });
+        const foundInFresh = freshData.data?.some((c: any) => c.conversation_id === existingConversationId);
+        
+        if (foundInFresh) {
+          console.log('✅ [EmergencyRecovery] Conversation found in fresh data');
+          recoveryReport.success = true;
+          recoveryReport.final_status = 'recovered';
+        } else {
+          console.warn('⚠️ [EmergencyRecovery] Conversation not found in fresh data');
+          recoveryReport.final_status = 'partial_recovery';
+        }
+      } catch (error) {
+        console.error('❌ [EmergencyRecovery] Force refresh failed:', error);
+        recoveryReport.errors.push(`Force refresh failed: ${error}`);
+        recoveryReport.final_status = 'failed';
+      }
+
+      console.log(`🚨 [EmergencyRecovery] Recovery completed: ${recoveryReport.final_status}`);
+      
+      return recoveryReport;
+
+    } catch (error) {
+      console.error('💥 [EmergencyRecovery] Recovery failed with exception:', error);
+      recoveryReport.final_status = 'critical_failure';
+      recoveryReport.errors.push(`Critical failure: ${error}`);
+      return recoveryReport;
+    }
   }
 }
 

@@ -386,7 +386,7 @@ class Phase1MobileRecovery {
   }
   
   /**
-   * Test API connectivity with configurable timeout
+   * Test API connectivity with configurable timeout and 401 handling
    */
   private async testAPIConnectivity(timeoutMs: number): Promise<{ success: boolean; error?: string }> {
     try {
@@ -402,6 +402,58 @@ class Phase1MobileRecovery {
       const { error: testError } = await Promise.race([testPromise, timeoutPromise]);
       
       if (testError) {
+        // Check for 401 unauthorized error - indicates session expired
+        if (testError.message?.includes('401') || 
+            testError.message?.includes('unauthorized') ||
+            testError.message?.includes('JWT') ||
+            testError.message?.includes('token')) {
+          
+          this.log('401 error detected during API test, attempting session refresh');
+          
+          try {
+            // Attempt session refresh
+            const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession();
+            
+            if (refreshError || !refreshData.session) {
+              this.log('Session refresh failed, session truly expired');
+              return { 
+                success: false, 
+                error: `Session expired and refresh failed: ${refreshError?.message}` 
+              };
+            }
+            
+            this.log('Session refreshed successfully, retesting API');
+            
+            // Retry the API test with fresh session
+            const retryPromise = getSupabaseClient()
+              .from('spaces')
+              .select('id')
+              .limit(1);
+            
+            const retryTimeoutPromise = new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error(`Retry API test timeout (${timeoutMs}ms)`)), timeoutMs);
+            });
+            
+            const { error: retryError } = await Promise.race([retryPromise, retryTimeoutPromise]);
+            
+            if (retryError) {
+              return { 
+                success: false, 
+                error: `API test failed after session refresh: ${retryError.message}` 
+              };
+            }
+            
+            this.log('API test successful after session refresh');
+            return { success: true };
+            
+          } catch (refreshException) {
+            return { 
+              success: false, 
+              error: `Session refresh exception: ${refreshException}` 
+            };
+          }
+        }
+        
         return { 
           success: false, 
           error: testError.message 
@@ -583,8 +635,31 @@ class Phase1MobileRecovery {
       backgroundReturnCount,
       averageRecoveryTime: totalRecoveries > 0 ? this.state.lastRecoveryTime / totalRecoveries : 0,
       isActive: this.state.isActive,
-      phase1Enabled: this.isInitialized
+      phase1Enabled: this.isInitialized,
+      healthScore: this.calculateHealthScore(),
+      mobileDetection: {
+        isMobile: this.shouldEnableMobileFeaturesWithOverride() || this.shouldEnableMobileFeatures(),
+        deviceType: typeof window !== 'undefined' && (window as any).navigator?.userAgent?.includes('Mobile') ? 'mobile' : 'desktop',
+        isSupported: this.isInitialized
+      }
     };
+  }
+  
+  /**
+   * Calculate overall health score
+   */
+  private calculateHealthScore(): number {
+    const { successfulRecoveries, failedRecoveries, sessionValidationCount } = this.state;
+    const totalRecoveries = successfulRecoveries + failedRecoveries;
+    
+    if (totalRecoveries === 0 && sessionValidationCount === 0) {
+      return 100; // No issues so far
+    }
+    
+    const successRate = totalRecoveries > 0 ? (successfulRecoveries / totalRecoveries) * 100 : 100;
+    const validationBonus = sessionValidationCount > 0 ? Math.min(sessionValidationCount * 2, 20) : 0;
+    
+    return Math.min(100, Math.max(0, successRate + validationBonus));
   }
   
   /**

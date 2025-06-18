@@ -167,9 +167,21 @@ if (typeof window !== 'undefined') {
     window.location.href = window.location.href;
   };
   
-  // Auto-detect and recover from module errors
+  // Auto-detect and recover from module errors - MOBILE-AWARE VERSION
   (window as any).enableHMRAutoRecovery = () => {
-    console.log('🤖 [HMRAutoRecovery] Enabling automatic recovery for module errors...');
+    // Mobile detection utility
+    const isMobileBrowser = () => {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    };
+    
+    if (isMobileBrowser()) {
+      console.log('🤖 [HMRAutoRecovery] Auto-recovery DISABLED on mobile browser');
+      console.log('📱 [HMRAutoRecovery] Mobile browsers block network requests during backgrounding');
+      console.log('🔧 [HMRAutoRecovery] This prevents false "module import failed" errors');
+      return;
+    }
+    
+    console.log('🤖 [HMRAutoRecovery] Enabling automatic recovery for module errors (desktop browser)...');
     
     let errorCount = 0;
     const maxErrors = 3;

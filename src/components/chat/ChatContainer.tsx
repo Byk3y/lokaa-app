@@ -32,7 +32,23 @@ export default function ChatContainer({
   const [view, setView] = useState<'list' | 'chat' | 'new'>('list');
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // DEBUG: Log container state
+  console.log('🗨️ [ChatContainer] Rendered with state:', {
+    initialConversationId,
+    isModal,
+    view,
+    activeConversationId,
+    conversationsLength: conversations?.length || 0,
+    userId: user?.id
+  });
+
   useEffect(() => {
+    console.log('🗨️ [ChatContainer] UseEffect - fetchConversations and setup:', {
+      initialConversationId,
+      willFetchConversations: true,
+      willSetView: initialConversationId ? 'chat' : 'list'
+    });
+    
     fetchConversations();
     if (initialConversationId) {
       setActiveConversationId(initialConversationId);
@@ -56,7 +72,33 @@ export default function ChatContainer({
   const legacySelectedConversation = selectedConversation ? transformConversationToLegacy(selectedConversation, user?.id) : null;
   const legacyConversations = (conversations || []).map(conv => transformConversationToLegacy(conv, user?.id));
 
+  // DEBUG: Log conversation selection
+  console.log('🗨️ [ChatContainer] Conversation selection:', {
+    activeConversationId,
+    allConversationIds: conversations?.map(c => c.conversation_id) || [],
+    selectedConversation: selectedConversation ? {
+      id: selectedConversation.conversation_id,
+      name: selectedConversation.name,
+      participants: selectedConversation.participants?.length || 0
+    } : null,
+    legacySelectedConversation: legacySelectedConversation ? {
+      id: legacySelectedConversation.conversation_id,
+      name: legacySelectedConversation.conversation_name,
+      participants: legacySelectedConversation.other_participants?.length || 0
+    } : null,
+    getConversationByIdFunction: !!getConversationById
+  });
+
   const effectiveIsFullScreen = isModal ? isMobile : true;
+
+  // DEBUG: Log render decision
+  console.log('🗨️ [ChatContainer] Render decision:', {
+    view,
+    showList: view === 'list',
+    showChat: view === 'chat' && !!legacySelectedConversation,
+    showNew: view === 'new',
+    hasLegacyConversation: !!legacySelectedConversation
+  });
 
   return (
     <>
@@ -80,15 +122,20 @@ export default function ChatContainer({
         </>
       )}
       {view === 'chat' && legacySelectedConversation && (
-        <ChatView
-          conversation={legacySelectedConversation}
-          onBack={handleBack}
-          onClose={isModal ? onClose : undefined}
-          onExpand={onExpand}
-          isExpanded={isExpanded}
-          isFullScreen={effectiveIsFullScreen}
-          onConversationUpdated={fetchConversations}
-        />
+        (() => {
+          console.log('🗨️ [ChatContainer] Rendering ChatView with conversation:', legacySelectedConversation);
+          return (
+            <ChatView
+              conversation={legacySelectedConversation}
+              onBack={handleBack}
+              onClose={isModal ? onClose : undefined}
+              onExpand={onExpand}
+              isExpanded={isExpanded}
+              isFullScreen={effectiveIsFullScreen}
+              onConversationUpdated={fetchConversations}
+            />
+          );
+        })()
       )}
       {view === 'new' && (
         <StartNewChatView onBack={handleBack} onConversationCreated={(id) => {

@@ -146,7 +146,7 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
       console.log(`[SpaceAboutStore] Fetching space about data for: ${spaceId || subdomain}`);
       console.log(`[SpaceAboutStore] Using spaceId: ${spaceId}, subdomain: ${subdomain}`);
       
-      let query = supabase
+      let query = getSupabaseClient()
         .from('spaces')
         .select(`
           id,
@@ -213,12 +213,12 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
           
           const results = await Promise.race([
             Promise.allSettled([
-              supabase
+              getSupabaseClient()
                 .from('space_members')
                 .select('id', { count: 'exact', head: true })
                 .eq('space_id', data.id)
                 .eq('status', 'active'),
-              supabase
+              getSupabaseClient()
                 .from('space_members')
                 .select('id', { count: 'exact', head: true })
                 .eq('space_id', data.id)
@@ -347,12 +347,12 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
       console.log(`[SpaceAboutStore] Refetching member counts for space: ${spaceAboutData.id}`);
       
       const [memberCountResult, adminCountResult] = await Promise.allSettled([
-        supabase
+        getSupabaseClient()
           .from('space_members')
           .select('id', { count: 'exact', head: true })
           .eq('space_id', spaceAboutData.id)
           .eq('status', 'active'),
-        supabase
+        getSupabaseClient()
           .from('space_members')
           .select('id', { count: 'exact', head: true })
           .eq('space_id', spaceAboutData.id)

@@ -32,6 +32,11 @@ class HMRErrorRecovery {
       return;
     }
 
+    // Mobile detection utility
+    const isMobileBrowser = () => {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    };
+
     // Handle module loading errors
     window.addEventListener('error', (event) => {
       this.handleError(event.error);
@@ -42,11 +47,28 @@ class HMRErrorRecovery {
       this.handleError(event.reason);
     });
 
-    console.log('🔧 [HMRErrorRecovery] Global error handlers installed');
+    if (isMobileBrowser()) {
+      console.log('🔧 [HMRErrorRecovery] Global error handlers installed (mobile - recovery disabled)');
+    } else {
+      console.log('🔧 [HMRErrorRecovery] Global error handlers installed (desktop - recovery enabled)');
+    }
   }
 
   private handleError(error: any) {
     if (!this.isModuleError(error)) {
+      return;
+    }
+
+    // 🚨 CRITICAL FIX: Don't recover on mobile browsers
+    // Mobile browsers block network requests during backgrounding which causes false module errors
+    const isMobileBrowser = () => {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    };
+    
+    if (isMobileBrowser()) {
+      console.warn('🔄 [HMRErrorRecovery] Module error on mobile browser - likely network blocking, ignoring');
+      console.warn('📱 [HMRErrorRecovery] Mobile browsers block network requests during app backgrounding');
+      console.warn('🔧 [HMRErrorRecovery] This is NOT an actual HMR error - recovery disabled on mobile');
       return;
     }
 
@@ -60,7 +82,7 @@ class HMRErrorRecovery {
     this.errorCount++;
     this.lastErrorTime = now;
 
-    console.warn(`🔄 [HMRErrorRecovery] Module error detected (${this.errorCount}/${this.options.maxRetries}):`, error.message);
+    console.warn(`🔄 [HMRErrorRecovery] Module error detected on desktop (${this.errorCount}/${this.options.maxRetries}):`, error.message);
 
     if (this.options.autoRecover && this.errorCount <= this.options.maxRetries) {
       this.attemptRecovery();

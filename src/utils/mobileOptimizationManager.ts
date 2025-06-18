@@ -173,7 +173,7 @@ class MobileOptimizationManager {
     // Keep connection alive with lightweight requests every 90 seconds
     this.keepAliveInterval = setInterval(async () => {
       try {
-        const { supabase } = await import('@/integrations/supabase/client');
+        const { getSupabaseClient } = await import('@/integrations/supabase/client');
         await getSupabaseClient().from('posts').select('id', { count: 'exact', head: true }).limit(1);
         console.log('📱 [MobileOptimizer] Keep-alive successful');
       } catch (error) {

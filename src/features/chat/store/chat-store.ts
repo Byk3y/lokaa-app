@@ -229,9 +229,10 @@ export const useChatStore = create<ChatStore>()(
                   lastMessageUpdate: Date.now()
                 }));
 
-                // Update the existing conversation with the new message info
-                set(state => ({
-                  conversations: state.conversations.map(conv => 
+                // Update the existing conversation with the new message info AND reorder
+                set(state => {
+                  // Update the conversation with new message data
+                  const updatedConversations = state.conversations.map(conv => 
                     conv.conversation_id === relevantConversation.conversation_id
                       ? {
                           ...conv,
@@ -240,8 +241,17 @@ export const useChatStore = create<ChatStore>()(
                           // Don't update unread count here - let the user_conversations view handle it
                         }
                       : conv
-                  )
-                }));
+                  );
+                  
+                  // CRITICAL FIX: Reorder conversations by last_message_at to maintain chronological order
+                  const sortedConversations = updatedConversations.sort((a, b) => {
+                    const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+                    const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+                    return bTime - aTime; // Most recent first
+                  });
+                  
+                  return { conversations: sortedConversations };
+                });
                 } catch (error) {
                   console.error('[ChatStore] Error fetching sender for real-time message:', error);
                 }
@@ -550,16 +560,40 @@ export const useChatStore = create<ChatStore>()(
           _isOptimistic: true
         };
         
-        set(state => ({
-          messages: {
+        set(state => {
+          // Update messages with optimistic message
+          const updatedMessages = {
             ...state.messages,
             [conversationId]: [
               ...(state.messages[conversationId] || []),
               optimisticMessage
             ]
-          },
-          lastMessageUpdate: Date.now()
-        }));
+          };
+          
+          // OPTIMISTIC UPDATE: Update conversation's last_message info and reorder
+          const updatedConversations = state.conversations.map(conv =>
+            conv.conversation_id === conversationId
+              ? {
+                  ...conv,
+                  last_message: optimisticMessage.content,
+                  last_message_at: optimisticMessage.created_at,
+                }
+              : conv
+          );
+          
+          // Reorder conversations by last_message_at
+          const sortedConversations = updatedConversations.sort((a, b) => {
+            const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+            const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+            return bTime - aTime; // Most recent first
+          });
+          
+          return {
+            messages: updatedMessages,
+            conversations: sortedConversations,
+            lastMessageUpdate: Date.now()
+          };
+        });
         
         try {
           // Insert directly into chat_messages table
@@ -596,15 +630,39 @@ export const useChatStore = create<ChatStore>()(
             }
           };
           
-          set(state => ({
-            messages: {
+          set(state => {
+            // Update messages
+            const updatedMessages = {
               ...state.messages,
               [conversationId]: (state.messages[conversationId] || []).map(msg =>
                 msg.id === tempId ? realMessage : msg
               )
-            },
-            lastMessageUpdate: Date.now()
-          }));
+            };
+            
+            // CRITICAL FIX: Update conversation's last_message info and reorder
+            const updatedConversations = state.conversations.map(conv =>
+              conv.conversation_id === conversationId
+                ? {
+                    ...conv,
+                    last_message: realMessage.content,
+                    last_message_at: realMessage.created_at,
+                  }
+                : conv
+            );
+            
+            // Reorder conversations by last_message_at
+            const sortedConversations = updatedConversations.sort((a, b) => {
+              const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+              const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+              return bTime - aTime; // Most recent first
+            });
+            
+            return {
+              messages: updatedMessages,
+              conversations: sortedConversations,
+              lastMessageUpdate: Date.now()
+            };
+          });
           
           // CRITICAL FIX: Mark conversation as read for the sender AFTER the message is created
           // Use a small delay to ensure the message timestamp is properly set in the database

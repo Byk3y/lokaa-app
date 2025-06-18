@@ -21,6 +21,7 @@ import {
 import { useMembershipStore } from '@/features/spaces/store/membership-store'; // Import the store hook
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useSpace } from '@/hooks/useSpace';
+import { clearAllSpaceData } from '@/utils/spaceDataCleaner'; // Import comprehensive cleaner
 
 // Define the space interface
 interface Space {
@@ -237,17 +238,33 @@ export default function SpaceSwitcher({
     fetchUserSpaces();
   }, [userId, refreshSpacesTrigger, shouldSkipSpaceLoad]);
 
-  const handleSpaceSelect = (subdomain: string) => {
+  const handleSpaceSelect = async (subdomain: string) => {
     // REDUCED LOGGING: Only log when actually switching (not just clicking same space)
     const isActualSwitch = subdomain !== currentSpaceSubdomain;
     if (isActualSwitch) {
       console.log(`[SpaceSwitcher] Switching to ${subdomain}`);
       
-      // ENHANCED: Clear cache and prepare for new space data
+      // **CRITICAL FIX**: Get current and target space data for comprehensive cleanup
+      const selectedSpace = spaces.find(space => space.subdomain === subdomain);
+      const currentSpace = spaces.find(space => space.subdomain === currentSpaceSubdomain);
+      
+      // **PHASE 1**: Comprehensive space data cleanup BEFORE navigation
+      try {
+        await clearAllSpaceData({
+          currentSpaceId: currentSpace?.id,
+          targetSpaceId: selectedSpace?.id,
+          clearAll: false // Only clear current space, not all
+        });
+        
+        console.log(`✅ [SpaceSwitcher] Cleanup completed for space switch`);
+      } catch (error) {
+        console.error(`❌ [SpaceSwitcher] Cleanup failed, proceeding anyway:`, error);
+      }
+      
+      // ENHANCED: Clear SpaceContext cache
       clearCache();
       
       // ENHANCED: Pre-cache the target space info for faster loading
-      const selectedSpace = spaces.find(space => space.subdomain === subdomain);
       if (selectedSpace) {
         try {
           // Store space info for session context

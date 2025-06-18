@@ -73,8 +73,7 @@ import '@/utils/databaseConnectivityTest';
 import '@/utils/mobileDetection';
 import { initializeCacheWarming } from '@/utils/cacheWarming';
 
-// Import mobile browser blocking test utilities
-import '@/utils/mobileBrowserBlockingTest';
+
 
 // Phase 2C: Predictive Cache Integration
 import '@/utils/phase2cIntegration';
@@ -110,6 +109,7 @@ import '@/utils/phase8aIntegration';
 
 // PHASE 1: Enhanced Mobile Session Recovery
 import { phase1Recovery } from '@/utils/phase1MobileRecovery';
+import '@/utils/globalErrorInterceptor'; // Initialize 401 error interception
 import Phase1MobileRecovery from '@/components/mobile/Phase1MobileRecovery';
 
 import { navigationCoordinator } from "@/utils/navigationCoordinator";
@@ -126,14 +126,28 @@ import { trackRouteChange } from '@/hooks/useSpaceSettingsStore';
 import { supabaseHealthMonitor } from '@/utils/supabaseHealthCheck';
 import { initializeSupabase } from '@/integrations/supabase/client'; // Import the new initializer
 
-// 🔧 Development HMR Error Recovery
+// 🔧 Development HMR Error Recovery - MOBILE-AWARE VERSION
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
+  // Mobile detection utility
+  const isMobileBrowser = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+  
   const originalError = window.onerror;
   window.onerror = (message, source, lineno, colno, error) => {
     if (typeof message === 'string' && message.includes('Importing a module script failed')) {
-      console.warn('🔄 [HMR Fix] Module import failed detected, attempting recovery...');
+      // 🚨 CRITICAL FIX: Don't reload on mobile browsers
+      // Mobile browsers block network requests during backgrounding which causes false module errors
+      if (isMobileBrowser()) {
+        console.warn('🔄 [HMR Fix] Module import failed on mobile browser - likely network blocking, ignoring');
+        console.warn('📱 [HMR Fix] Mobile browsers block network requests during app backgrounding');
+        console.warn('🔧 [HMR Fix] This is NOT an actual HMR error - recovery disabled on mobile');
+        return true; // Prevent default error handling but don't reload
+      }
       
-      // Try to recover by triggering a gentle reload after a short delay
+      // Only reload on desktop browsers where this is likely a real HMR issue
+      console.warn('🔄 [HMR Fix] Module import failed detected on desktop, attempting recovery...');
+      
       setTimeout(() => {
         console.log('🔄 [HMR Fix] Reloading to recover from module import failure');
         window.location.reload();
@@ -152,7 +166,17 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Also handle unhandled promise rejections (async import failures)
   window.addEventListener('unhandledrejection', (event) => {
     if (event.reason?.message?.includes('Importing a module script failed')) {
-      console.warn('🔄 [HMR Fix] Async module import failed, attempting recovery...');
+      // 🚨 CRITICAL FIX: Don't reload on mobile browsers
+      if (isMobileBrowser()) {
+        console.warn('🔄 [HMR Fix] Async module import failed on mobile browser - likely network blocking, ignoring');
+        console.warn('📱 [HMR Fix] Mobile browsers block network requests during app backgrounding');
+        console.warn('🔧 [HMR Fix] This is NOT an actual HMR error - recovery disabled on mobile');
+        event.preventDefault(); // Prevent unhandled rejection error but don't reload
+        return;
+      }
+      
+      // Only reload on desktop browsers
+      console.warn('🔄 [HMR Fix] Async module import failed on desktop, attempting recovery...');
       event.preventDefault(); // Prevent unhandled rejection error
       
       setTimeout(() => {
@@ -162,7 +186,11 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
     }
   });
   
-  console.log('🔧 [HMR Fix] Module import error recovery installed');
+  if (isMobileBrowser()) {
+    console.log('🔧 [HMR Fix] Mobile-aware module import error recovery installed (reload disabled on mobile)');
+  } else {
+    console.log('🔧 [HMR Fix] Desktop module import error recovery installed');
+  }
 }
 
 // Higher-order component to safely handle auth context
@@ -560,7 +588,7 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
   );
 }
 
-// Development Module Error Recovery Component
+// Development Module Error Recovery Component - MOBILE-AWARE VERSION
 const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => {
   const isModuleError = error.message?.includes('Importing a module script failed') || 
                        error.message?.includes('Loading chunk') ||
@@ -571,7 +599,46 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
     throw error;
   }
 
-  console.error('🚨 [ModuleErrorFallback] Caught module import error:', error);
+  // Mobile detection utility
+  const isMobileBrowser = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
+  // 🚨 CRITICAL FIX: Auto-recover on mobile browsers
+  // Mobile browsers block network requests during backgrounding which causes false module errors
+  if (isMobileBrowser()) {
+    console.warn('🔄 [ModuleErrorFallback] Module error on mobile browser - likely network blocking');
+    console.warn('📱 [ModuleErrorFallback] Mobile browsers block network requests during app backgrounding');
+    console.warn('🔧 [ModuleErrorFallback] Auto-recovering without showing error screen...');
+    
+    // Auto-recover after a brief delay
+    setTimeout(() => {
+      console.log('🔄 [ModuleErrorFallback] Auto-recovering from mobile network blocking...');
+      resetErrorBoundary();
+    }, 500);
+    
+    // Show a minimal loading screen instead of error screen
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
+          <div className="text-blue-500 text-6xl mb-4">🔄</div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Reconnecting...</h2>
+          <p className="text-gray-600 mb-4">
+            Restoring connection after background activity.
+          </p>
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+          <p className="text-xs text-gray-400 mt-4">
+            This happens when mobile browsers pause network activity.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop browsers - show the full error screen for real HMR issues
+  console.error('🚨 [ModuleErrorFallback] Caught module import error on desktop:', error);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -615,6 +682,7 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
               <div><strong>Error:</strong> {error.message}</div>
               <div><strong>Type:</strong> {error.name}</div>
               <div><strong>Time:</strong> {new Date().toLocaleTimeString()}</div>
+              <div><strong>Browser:</strong> Desktop (showing full error screen)</div>
             </div>
           </details>
         )}
@@ -819,6 +887,8 @@ if (typeof window !== 'undefined') {
   (window as any).phase7 = '@/utils/phase7Integration';
 }
 
+import '@/utils/mobileConsoleValidation';
+
 export default function App() {
   // FIXED: Simplified cleanup tracking (reduced overhead)
   const cleanup = useCleanupTracker('App');
@@ -891,11 +961,10 @@ export default function App() {
             const pathSegments = currentPath.split('/').filter(Boolean);
             if (pathSegments.length > 0 && pathSegments[0] !== 'spaces' && pathSegments[0] !== 'chat') {
               const spaceSubdomain = pathSegments[0];
-                             // Silent cache warming for better mobile performance
-               supabaseIndexedDBBridge.warmCacheForSpace(spaceSubdomain).catch(() => {
-                 // Silent fail for cache warming
-               });
-              console.log(`🔧 [App] Cache warming initiated for space: ${spaceSubdomain}`);
+              
+              // Skip cache warming with subdomain - it needs space ID (UUID format)
+              // This prevents 400 Bad Request errors that interfere with member counts
+              console.log(`🔧 [App] Skipping cache warming for subdomain: ${spaceSubdomain} (needs space ID)`);
             }
           }, 3000); // Warm cache after app is fully loaded
           
@@ -905,6 +974,36 @@ export default function App() {
         
         // Initialize cache warming with known data
         initializeCacheWarming();
+        
+        // Initialize Event-Driven Space Coordinator (Phase 1)
+        try {
+          const { spaceEventCoordinator } = await import('@/utils/spaceEventCoordinator');
+          console.log('🎯 [App] Space Event Coordinator initialized');
+          
+          // Add to global debugging interface
+          if (import.meta.env.DEV) {
+            (window as any).spaceEventCoordinator = spaceEventCoordinator;
+            (window as any).debugSpaceEvents = {
+              getState: () => spaceEventCoordinator.getState(),
+              getDebugInfo: () => spaceEventCoordinator.getDebugInfo(),
+              dispatchTestEvent: (type = 'space:data-updated') => {
+                return spaceEventCoordinator.dispatchEvent(type, {
+                  spaceId: 'debug-test-space',
+                  subdomain: 'debug-test',
+                  source: 'system',
+                  timestamp: Date.now()
+                });
+              },
+              switchToTestSpace: () => {
+                return spaceEventCoordinator.switchSpace('test-space-id', 'test-space', 'user-action');
+              }
+            };
+            console.log('🎯 [App] Event coordinator debug interface available at window.debugSpaceEvents');
+          }
+          
+        } catch (coordinatorError) {
+          console.warn('🎯 [App] Space Event Coordinator initialization failed:', coordinatorError);
+        }
         
         // PHASE 1: Initialize Enhanced Mobile Session Recovery
         try {
@@ -1070,9 +1169,23 @@ export default function App() {
       }}
       onReset={() => {
         console.log('🔄 [App] Error boundary reset');
-        // For module errors, try a gentler reset first
+        
+        // CRITICAL FIX: Mobile browsers shouldn't force reload during network blocking
+        const isMobileBrowser = () => {
+          return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        };
+        
+        if (isMobileBrowser()) {
+          console.log('📱 [App] Mobile browser detected - using gentle recovery instead of reload');
+          // For mobile, just try to reset the error boundary without reloading
+          // The ModuleErrorFallback will handle mobile-specific recovery
+          return;
+        }
+        
+        // Only reload on desktop browsers where this is likely a real error
         if (import.meta.env?.DEV) {
           setTimeout(() => {
+            console.log('🔄 [App] Desktop reload for error recovery');
             window.location.reload();
           }, 100);
         } else {

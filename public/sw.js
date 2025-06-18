@@ -10,7 +10,7 @@
  * - Development-friendly port detection
  */
 
-const CACHE_VERSION = '1.0.0';
+const CACHE_VERSION = '1.0.1';
 const CACHE_PREFIX = 'lokaa-connect-spaces';
 
 // Development mode detection

@@ -101,20 +101,22 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
       } else if (wasBackground && !nowBackground) {
         // Returning from background
         const duration = now - backgroundStartRef.current;
-        const isSignificantBackground = duration > 5000; // 5 seconds
+        const isSignificantBackground = duration > 30000; // 30 seconds (much more reasonable)
+        const isLongBackground = duration > 60000; // 1 minute - very long background
         
         setState(prev => ({
           ...prev,
           isBackground: false,
           returnedFromBackground: isSignificantBackground,
           backgroundDuration: duration,
-          needsRecovery: isSignificantBackground && loading,
+          // ENHANCED: Only trigger recovery for truly stuck loading states, not normal data refreshing
+          needsRecovery: false, // Don't immediately assume we need recovery
           // PHASE 1: Reset session validation state on return
           sessionValidated: false,
           validationResult: null
         }));
 
-        console.log(`📱 [MobileLifecycle] Returned from background after ${Math.round(duration / 1000)}s, needsRecovery: ${isSignificantBackground && loading}`);
+        console.log(`📱 [MobileLifecycle] Returned from background after ${Math.round(duration / 1000)}s, isLongBackground: ${isLongBackground}, needsRecovery: delayed`);
 
         // PHASE 1: Trigger proactive session validation for significant background time
         if (isSignificantBackground && user) {
@@ -123,6 +125,9 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
           
           if (timeSinceLastValidation > validationThreshold) {
             console.log('📱 [MobileLifecycle] Triggering proactive session validation');
+            
+            // ENHANCED: Delay validation longer for very long backgrounds to let Safari settle
+            const validationDelay = isLongBackground ? 5000 : 1000; // 5s for long background, 1s for normal
             
             // Delay validation slightly to let the app settle
             sessionValidationTimeoutRef.current = setTimeout(async () => {
@@ -139,22 +144,40 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
                 
                 console.log(`📱 [MobileLifecycle] Session validation completed: ${validationResult.action}`);
                 
-                // If session is invalid, mark for recovery
-                if (!validationResult.isValid) {
+                // ENHANCED: Only mark for recovery if session is truly invalid AND we're stuck
+                if (!validationResult.isValid && loading) {
+                  // Give more time for long backgrounds to settle before marking recovery
+                  const recoveryDelay = isLongBackground ? 10000 : 5000; // 10s for long, 5s for normal
+                  setTimeout(() => {
                   setState(prev => ({
                     ...prev,
-                    needsRecovery: true
+                      needsRecovery: prev.returnedFromBackground && loading // Only if still loading
                   }));
+                  }, recoveryDelay);
                 }
               } catch (error) {
                 console.warn('📱 [MobileLifecycle] Session validation failed:', error);
+                // ENHANCED: Don't immediately mark for recovery on validation failure
+                // Mobile browsers often block requests temporarily after long backgrounds
+                console.log('📱 [MobileLifecycle] Deferring recovery decision due to validation failure (network may be blocked)');
+                
                 setState(prev => ({
                   ...prev,
                   sessionValidated: false,
+                  validationResult: 'deferred'
+                }));
+                
+                // Check again later if we're still having issues
+                setTimeout(() => {
+                  if (loading) {
+                    setState(prev => ({
+                      ...prev,
                   needsRecovery: true
                 }));
               }
-            }, 1000);
+                }, 15000); // Wait 15 seconds before marking for recovery
+              }
+            }, validationDelay);
           }
         }
 
@@ -205,16 +228,17 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
         setState(prev => ({
           ...prev,
           loadingStuckDuration: stuckDuration,
-          // PHASE 1: Enhanced recovery detection
+          // ENHANCED: More patient recovery detection, especially for long backgrounds
           needsRecovery: prev.returnedFromBackground && (
-            stuckDuration > 8000 || // 8 seconds stuck
-            (!prev.sessionValidated && stuckDuration > 5000) // 5 seconds if session not validated
+            (prev.backgroundDuration > 60000 ? stuckDuration > 30000 : stuckDuration > 15000) || // Longer wait for long backgrounds
+            (!prev.sessionValidated && prev.backgroundDuration > 60000 ? stuckDuration > 20000 : stuckDuration > 10000) // Patient session validation
           )
         }));
 
-        // PHASE 1: Auto-trigger enhanced recovery if stuck too long after background return
-        if (state.returnedFromBackground && stuckDuration > 10000 && !state.isRecovering && !state.phase1RecoveryActive) {
-          console.log('📱 [MobileLifecycle] Auto-triggering Phase 1 enhanced recovery for stuck loading state');
+        // ENHANCED: More patient auto-trigger - longer delays for longer backgrounds
+        const autoTriggerThreshold = state.backgroundDuration > 60000 ? 45000 : 25000; // 45s for long backgrounds, 25s for normal
+        if (state.returnedFromBackground && stuckDuration > autoTriggerThreshold && !state.isRecovering && !state.phase1RecoveryActive) {
+          console.log(`📱 [MobileLifecycle] Auto-triggering Phase 1 enhanced recovery for stuck loading state (${Math.round(stuckDuration/1000)}s stuck, background: ${Math.round(state.backgroundDuration/1000)}s)`);
           triggerEnhancedRecovery();
         }
       }, 1000);

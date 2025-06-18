@@ -7,6 +7,7 @@ import { useMembershipStore } from '@/features/spaces/store/membership-store'
 import { useChatStore } from '@/features/chat/store/chat-store'
 import { useSpaceAboutStore } from '@/features/spaces/store/space-about-store'
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore'
+import { globalTabComponentManager } from "@/utils/globalTabComponentManager";
 
 // Define AppError type for error handling
 interface AppError {
@@ -165,6 +166,49 @@ export const signOut = async (
   } catch (error) {
     console.warn('Failed to reset Zustand stores:', error);
   }
+  
+  // Space state management is now handled by individual components
+  
+  // **CRITICAL SECURITY FIX**: Clear Unified Presence cache to prevent cross-user data contamination
+  try {
+    const { clearUnifiedPresenceCache } = await import('@/hooks/useUnifiedPresence');
+    clearUnifiedPresenceCache();
+    console.log('🧹 SECURITY: Cleared Unified Presence cache');
+  } catch (error) {
+    console.warn('Failed to clear Unified Presence cache:', error);
+  }
+  
+  // Space component cache cleanup is now handled by individual components
+  
+  // **CRITICAL SECURITY FIX**: Clear Global Cache Coordinator to prevent cross-user data contamination
+  try {
+    const { clearGlobalCache } = await import('@/utils/globalCacheCoordinator');
+    clearGlobalCache();
+    console.log('🧹 SECURITY: Cleared Global Cache Coordinator');
+  } catch (error) {
+    console.warn('Failed to clear Global Cache Coordinator:', error);
+  }
+  
+  // **CRITICAL SECURITY FIX**: Clear Fast Path cache and other utility caches
+  try {
+    const { clearFastPathCache } = await import('@/utils/simpleFastPath');
+    const { clearSpaceCache } = await import('@/utils/cacheUtils');
+    clearFastPathCache();
+    clearSpaceCache();
+    console.log('🧹 SECURITY: Cleared FastPath and utility caches');
+  } catch (error) {
+    console.warn('Failed to clear FastPath and utility caches:', error);
+  }
+  
+  // **CRITICAL SECURITY FIX**: Clear Global Tab Components to prevent cross-user data contamination
+  try {
+    globalTabComponentManager.clearAllComponents();
+    console.log('🧹 SECURITY: Cleared global tab components');
+  } catch (error) {
+    console.warn('Failed to clear global tab components:', error);
+  }
+  
+  // Feed DOM state is now managed by components directly
   
   setters.setUser(null);
   setters.setSession(null);

@@ -3,7 +3,7 @@ import { DisplayMember } from '@/components/space/MembersTab';
 import { MemberRole } from '@/types/members';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,9 +53,37 @@ const AdminOwnerCard: React.FC<{
   onClick?: (member: DisplayMember) => void;
   onChatClick?: (member: DisplayMember) => void;
 }> = ({ member, currentUserId, currentUserRoleInSpace, spaceOwnerId, onChangeRole, onRemoveMember, onClick, onChatClick }) => {
+  const [isStartingChat, setIsStartingChat] = useState(false);
+  
   const canPerformActions = currentUserRoleInSpace === 'owner' || (currentUserRoleInSpace === 'admin' && member.role !== 'owner');
   const isSelf = member.user_id === currentUserId;
   const isOwner = member.user_id === spaceOwnerId; // Determine if this card is for the owner
+
+  const handleChatClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log(`🗨️ [LeadershipDisplay] Chat button clicked for member:`, member.user_id, member.full_name);
+    
+    if (!onChatClick) {
+      console.warn('🗨️ [LeadershipDisplay] No onChatClick function provided');
+      return;
+    }
+    
+    if (isStartingChat) {
+      console.log('🗨️ [LeadershipDisplay] Chat already starting, ignoring click');
+      return;
+    }
+    
+    setIsStartingChat(true);
+    try {
+      console.log('🗨️ [LeadershipDisplay] Calling onChatClick function...');
+      await onChatClick(member);
+      console.log('🗨️ [LeadershipDisplay] onChatClick completed successfully');
+    } catch (error) {
+      console.error('🗨️ [LeadershipDisplay] Error in chat click handler:', error);
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
 
   const cardContent = (
     <>
@@ -72,15 +100,22 @@ const AdminOwnerCard: React.FC<{
       {/* Chat button for non-self members */}
       {!isSelf && onChatClick && (
         <Button
-          onClick={(e) => {
-            e.stopPropagation();
-            onChatClick(member);
-          }}
+          onClick={handleChatClick}
+          disabled={isStartingChat}
           size="sm"
-          className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2 rounded-lg transition-colors"
+          className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <MessageSquare size={16} />
-          <span>Chat</span>
+          {isStartingChat ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Starting...</span>
+            </>
+          ) : (
+            <>
+              <MessageSquare size={16} />
+              <span>Chat</span>
+            </>
+          )}
         </Button>
       )}
       
@@ -130,7 +165,7 @@ const AdminOwnerCard: React.FC<{
       <div
         onClick={(e) => {
           // Only trigger onClick if the click didn't come from a button
-          if (!e.target?.closest('button')) {
+          if (!(e.target as Element)?.closest('button')) {
             onClick(member);
           }
         }}

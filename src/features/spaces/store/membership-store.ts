@@ -164,7 +164,7 @@ interface MembershipStoreActions {
   /**
    * Trigger spaces refresh (for components that need to refresh space lists)
    */
-  triggerSpacesRefresh: () => void;
+  triggerSpacesRefresh: () => Promise<void>;
   
   /**
    * Reset store to initial state (called on sign out)
@@ -383,7 +383,7 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
         await get().checkMembershipStatus(spaceId);
         
         // Trigger spaces refresh to update the drawer
-        get().triggerSpacesRefresh();
+        await get().triggerSpacesRefresh();
         
         return true;
       } else {
@@ -539,6 +539,50 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
       
       await membershipApi.removeMember(spaceId, userIdOfMemberToRemove);
       
+      // CRITICAL FIX: Clear all member-related caches to ensure UI updates immediately
+      try {
+        // Clear global cache coordinator member counts
+        const { globalCache } = await import('@/utils/globalCacheCoordinator');
+        if (globalCache?.unsubscribe) {
+          globalCache.unsubscribe(`memberCounts:${spaceId}`, 'member-removal-cleanup');
+          console.log(`🧹 [MembershipStore] Unsubscribed from memberCounts cache for space ${spaceId}`);
+        }
+        
+        // Clear supabase bridge cache (clear all since there's no space-specific method)
+        const { supabaseIndexedDBBridge } = await import('@/utils/supabaseIndexedDBBridge');
+        if (supabaseIndexedDBBridge?.clearCache) {
+          await supabaseIndexedDBBridge.clearCache();
+          console.log(`🧹 [MembershipStore] Cleared supabase bridge cache`);
+        }
+        
+        // Clear space data cleaner caches
+        const { clearSpaceMemberCounts } = await import('@/utils/spaceDataCleaner');
+        await clearSpaceMemberCounts(spaceId);
+        console.log(`🧹 [MembershipStore] Cleared space member counts cache for space ${spaceId}`);
+        
+        // Clear localStorage member-related caches
+        const memberCacheKeys = [
+          `memberCounts_${spaceId}`,
+          `space_members_cache_${spaceId}`,
+          `optimized_member_counts_${spaceId}`,
+          `members_list_fallback_${spaceId}`,
+          `members_${spaceId}_all_active`
+        ];
+        
+        memberCacheKeys.forEach(key => {
+          try {
+            localStorage.removeItem(key);
+          } catch (e) {
+            console.warn(`Failed to clear localStorage key: ${key}`, e);
+          }
+        });
+        
+        console.log(`🧹 [MembershipStore] Cleared localStorage member caches for space ${spaceId}`);
+        
+      } catch (cacheError) {
+        console.warn('Failed to clear some caches after member removal:', cacheError);
+      }
+      
       toast({
         title: "Member Removed",
         description: "Member has been removed from the space.",
@@ -619,13 +663,27 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
   },
   
   // Trigger spaces refresh (for components that need to refresh space lists)
-  triggerSpacesRefresh: () => {
+  triggerSpacesRefresh: async () => {
     const { refreshSpacesTrigger } = get();
     set({ refreshSpacesTrigger: refreshSpacesTrigger + 1 });
     
     // Also invalidate user spaces cache so the drawer shows updated spaces
     const userSpacesStore = useUserSpacesStore.getState();
     userSpacesStore.invalidateCache();
+    
+    // CRITICAL FIX: Clear SpaceSwitcher's fast_path_spaces cache
+    // This ensures newly joined spaces appear immediately in the space switcher
+    try {
+      const { data: { user } } = await getSupabaseClient().auth.getUser();
+      if (user?.id) {
+        const cacheKey = `fast_path_spaces_${user.id}`;
+        localStorage.removeItem(cacheKey);
+        console.log('🧹 [MembershipStore] Cleared SpaceSwitcher cache for immediate space visibility');
+      }
+    } catch (error) {
+      console.warn('Failed to clear SpaceSwitcher cache:', error);
+    }
+    
     console.log('🔄 [MembershipStore] Triggered spaces refresh and invalidated user spaces cache');
   },
   

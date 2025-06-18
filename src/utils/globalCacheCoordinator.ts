@@ -395,14 +395,45 @@ class GlobalCacheCoordinator {
     entry.lastAccessed = Date.now();
     return entry.data;
   }
+  
+  /**
+   * **CRITICAL SECURITY FIX**: Clear all cache entries (called on logout)
+   */
+  clearAll(): void {
+    console.log('🧹 [GlobalCacheCoordinator] SECURITY: Clearing all cache entries for user logout');
+    
+    // Cancel all active queries
+    this.activeQueries.clear();
+    
+    // Clear all cache entries
+    this.cache.clear();
+    
+    // Clear query configs
+    this.queryConfigs.clear();
+    
+    // Clear debounce timers
+    this.debounceTimers.forEach(timer => clearTimeout(timer));
+    this.debounceTimers.clear();
+    
+    // Reset debug counter
+    this.debugCounter = 0;
+  }
 }
 
 // Create global instance
 export const globalCache = new GlobalCacheCoordinator();
 
+// **CRITICAL**: Export clear function for logout procedures
+export const clearGlobalCache = () => {
+  globalCache.clearAll();
+};
+
 // Make it available for debugging
 if (typeof window !== 'undefined') {
-  (window as any).globalCache = globalCache;
+  (window as any).globalCache = {
+    ...globalCache,
+    clearAll: clearGlobalCache
+  };
 }
 
 /**

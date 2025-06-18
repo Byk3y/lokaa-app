@@ -24,6 +24,7 @@ import {
   getCategoryDisplayName,
   getPostsToShow 
 } from "@/utils/feedUtils";
+// Space state preservation is now handled by individual components
 
 /**
  * Return interface for the feed logic hook
@@ -112,6 +113,9 @@ interface UseFeedLogicReturn {
   refetchPosts: (forceRefresh?: boolean) => Promise<void>;
   loadPage: (page: number) => Promise<void>;
   refreshCategories: () => Promise<void>;
+  
+  // Enhanced mobile refresh
+  refreshOnTabSwitch: () => Promise<void>;
 }
 
 /**
@@ -280,6 +284,7 @@ export function useFeedLogic({
     handleCommentAdded: handleCachedCommentAdded,
     handlePinToggled: handleCachedPinToggled,
     mapPostToCardProps: mapCachedPostToCardProps,
+    refreshOnTabSwitch: refreshOnTabSwitchInternal,
   } = useOptimizedCachedPosts(readyToFetchSpaceId);
   
   const { 
@@ -762,6 +767,14 @@ export function useFeedLogic({
   }, [mapCachedPostToCardProps, currentUser?.id, effectivePermissions.effectiveIsAdmin]);
 
   // ============================================================================
+  // SIMPLIFIED SPACE STATE - State preservation now handled by existing cache systems
+  // ============================================================================
+  
+  // Note: Space state preservation is now handled by the global cache coordinator
+  // and optimized cached posts hook. This simplifies the codebase while maintaining
+  // the same user experience.
+
+  // ============================================================================
   // RETURN INTERFACE
   // ============================================================================
   
@@ -848,5 +861,8 @@ export function useFeedLogic({
     refetchPosts,
     loadPage,
     refreshCategories,
+    
+    // Enhanced mobile refresh
+    refreshOnTabSwitch: refreshOnTabSwitchInternal,
   };
 } 

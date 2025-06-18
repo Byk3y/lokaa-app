@@ -184,6 +184,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
           .select('role, status')
           .eq('user_id', user.id)
           .eq('space_id', spaceId)
+          .eq('status', 'active')
           .maybeSingle();
 
         if (dbError && dbError.code !== 'PGRST116') {
@@ -391,9 +392,9 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
           return false;
         }
       }
-      const { error: updateError } = await getSupabaseClient().from('space_members').update({ status: 'banned' as MemberStatus }).eq('user_id', userIdOfMemberToRemove).eq('space_id', spaceId);
-      if (updateError) throw updateError;
-      toast({ title: "Member Removed", description: "The member has been removed (banned)." });
+      const { error: deleteError } = await getSupabaseClient().from('space_members').delete().eq('user_id', userIdOfMemberToRemove).eq('space_id', spaceId);
+      if (deleteError) throw deleteError;
+      toast({ title: "Member Removed", description: "The member has been removed from the space." });
       // Cache invalidation for member lists would happen in components using fetchMembers/directFetchMembers
       return true;
     } catch (err: unknown) {

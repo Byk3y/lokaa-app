@@ -44,16 +44,17 @@ interface SmartRecoveryOptions {
 class MobileSessionManager {
   private static instance: MobileSessionManager;
   private state: MobileSessionState;
-  private readonly BACKGROUND_THRESHOLD = 5000; // 5 seconds
+  private readonly BACKGROUND_THRESHOLD = 30000; // 30 seconds
   private readonly RECOVERY_TIMEOUT = 8000; // 8 seconds
   private readonly MAX_RECOVERY_ATTEMPTS = 3;
   private readonly CACHE_TTL = 300000; // 5 minutes
   
-  // PHASE 1: Enhanced constants for proactive session validation
+  // ENHANCED: More patient constants for long background sessions
   private readonly SESSION_VALIDATION_THRESHOLD = 30000; // 30 seconds background triggers validation
   private readonly SESSION_REFRESH_THRESHOLD = 300000; // 5 minutes triggers refresh
-  private readonly MAX_VALIDATION_RETRIES = 3;
-  private readonly RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
+  private readonly MAX_VALIDATION_RETRIES = 5; // Increased retries for mobile browsers
+  private readonly RETRY_DELAYS = [1000, 2000, 4000, 8000, 15000]; // Extended exponential backoff
+  private readonly LONG_BACKGROUND_THRESHOLD = 60000; // 1 minute = long background
 
   private constructor() {
     this.state = {
@@ -304,16 +305,20 @@ class MobileSessionManager {
       // Step 1: Check if session validation is needed
       const timeInBackground = Date.now() - this.state.backgroundTimestamp;
       const shouldValidate = timeInBackground > this.SESSION_VALIDATION_THRESHOLD || proactiveValidation;
+      const isLongBackground = timeInBackground > this.LONG_BACKGROUND_THRESHOLD;
       
       if (!shouldValidate) {
         console.log('📱 [Phase1] Session validation not needed - short background duration');
         return { isValid: true, needsRefresh: false, action: 'valid' };
       }
       
-      // Step 2: Quick session check with timeout
+      console.log(`📱 [Phase1] Session validation needed - background: ${Math.round(timeInBackground/1000)}s, longBackground: ${isLongBackground}`);
+      
+      // Step 2: Quick session check with timeout (longer timeout for long backgrounds)
+      const sessionTimeout = isLongBackground ? 10000 : 5000; // 10s for long backgrounds, 5s for normal
       const sessionPromise = getSupabaseClient().auth.getSession();
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Session validation timeout')), 5000);
+        setTimeout(() => reject(new Error(`Session validation timeout after ${sessionTimeout}ms`)), sessionTimeout);
       });
       
       const { data, error } = await Promise.race([sessionPromise, timeoutPromise]);
@@ -375,7 +380,7 @@ class MobileSessionManager {
         }
       }
       
-      // Step 5: Test session with a simple API call
+      // Step 5: Test session with a simple API call with 401 handling
       const testPromise = getSupabaseClient()
         .from('spaces')
         .select('id')
@@ -387,7 +392,36 @@ class MobileSessionManager {
       const { error: testError } = await Promise.race([testPromise, testTimeoutPromise]);
       
       if (testError) {
+        // Check for 401 unauthorized error - indicates session needs refresh
+        if (testError.message?.includes('401') || 
+            testError.message?.includes('unauthorized') ||
+            testError.message?.includes('JWT') ||
+            testError.message?.includes('token')) {
+          
+          console.log('📱 [MobileSession] 401 error detected, attempting emergency session refresh');
+          
+          try {
+            // Attempt session refresh
+            const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession();
+            
+            if (refreshError || !refreshData.session) {
+              console.warn('📱 [MobileSession] Emergency session refresh failed');
+              throw new Error(`Session expired and refresh failed: ${refreshError?.message}`);
+            }
+            
+            console.log('📱 [MobileSession] Emergency session refresh successful');
+            this.state.authState = 'verified';
+            this.persistState();
+            
+            // Don't throw - continue with successful validation
+            
+          } catch (refreshException) {
+            console.warn('📱 [MobileSession] Emergency session refresh exception:', refreshException);
+            throw new Error(`Session refresh exception: ${refreshException}`);
+          }
+        } else {
         throw new Error(`API connectivity test failed: ${testError.message}`);
+        }
       }
       
       console.log('📱 [Phase1] Session validation successful');
@@ -436,10 +470,22 @@ class MobileSessionManager {
     this.state.mobileRecoveryAttempts++;
     this.persistState();
     
+    // ENHANCED: Check background duration for more patient recovery
+    const backgroundDuration = Date.now() - this.state.backgroundTimestamp;
+    const isLongBackground = backgroundDuration > this.LONG_BACKGROUND_THRESHOLD;
+    const maxAttempts = isLongBackground ? this.MAX_RECOVERY_ATTEMPTS + 2 : this.MAX_RECOVERY_ATTEMPTS; // More attempts for long backgrounds
+    
     // Prevent infinite recovery loops
-    if (this.state.mobileRecoveryAttempts > this.MAX_RECOVERY_ATTEMPTS) {
-      console.warn('📱 [Phase1] Max recovery attempts reached, forcing reload');
-      return this.forceReload();
+    if (this.state.mobileRecoveryAttempts > maxAttempts) {
+      console.warn(`📱 [Phase1] Max recovery attempts reached (${this.state.mobileRecoveryAttempts}/${maxAttempts}), returning success to avoid refresh`);
+      // Reset attempts and return success to prevent forced reload
+      this.state.mobileRecoveryAttempts = 0;
+      this.persistState();
+      return {
+        success: true,
+        action: 'recovered',
+        error: `Max attempts reached after ${Math.round(backgroundDuration/1000)}s background - maintaining current state`
+      };
     }
     
     try {
@@ -513,14 +559,13 @@ class MobileSessionManager {
           console.log(`📱 [Phase1] Set enhanced auth cache for ${currentSpace.subdomain}`);
         }
         
-        // Force a clean navigation with phase1 recovery state
+        // Gentle navigation with phase1 recovery state (avoid force refresh)
         navigate(targetPath, { 
-          replace: true,
+          replace: false, // Don't replace - let user go back if needed
           state: { 
             phase1Recovery: true,
             sessionValidated: true,
             validationAction: validationResult.action,
-            forceRefresh: true,
             timestamp: Date.now()
           }
         });
@@ -561,9 +606,9 @@ class MobileSessionManager {
           console.log(`📱 [Phase1] Set enhanced auth cache for cached space ${cachedSpace.subdomain}`);
         }
         
-        // Navigate with enhanced phase1 recovery flag
+        // Navigate with enhanced phase1 recovery flag (gentle approach)
         navigate(targetPath, { 
-          replace: true,
+          replace: false, // Don't force replace
           state: { 
             phase1Recovery: true,
             sessionValidated: true,
@@ -585,11 +630,11 @@ class MobileSessionManager {
         };
       }
       
-      // Step 6: Fallback to app root with session validation
+      // Step 6: Fallback to app root with session validation (gentle approach)
       if (navigate) {
         console.log('📱 [Phase1] Step 6: Fallback to /app with session validation');
         navigate('/app', { 
-          replace: true, 
+          replace: false, // Don't force replace
           state: { 
             phase1Recovery: true,
             sessionValidated: true,
@@ -613,8 +658,13 @@ class MobileSessionManager {
     } catch (error) {
       console.error('📱 [Phase1] Enhanced recovery error:', error);
       
-      // If recovery fails and we've tried multiple times, force reload
-      if (this.state.mobileRecoveryAttempts >= 2) {
+      // ENHANCED: Only force reload after more attempts, especially for long backgrounds
+      const backgroundDuration = Date.now() - this.state.backgroundTimestamp;
+      const isLongBackground = backgroundDuration > this.LONG_BACKGROUND_THRESHOLD;
+      const reloadThreshold = isLongBackground ? 4 : 2; // More attempts for long backgrounds before reload
+      
+      if (this.state.mobileRecoveryAttempts >= reloadThreshold) {
+        console.warn(`📱 [Phase1] Force reload triggered after ${this.state.mobileRecoveryAttempts} attempts (background: ${Math.round(backgroundDuration/1000)}s)`);
         return this.forceReload();
       }
       

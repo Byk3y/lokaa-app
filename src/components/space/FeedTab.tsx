@@ -28,6 +28,8 @@ const CreatePostModal = lazy(() => import("@/features/posts/components/CreatePos
 const PostDetailModal = lazy(() => import("@/components/space/post-detail/PostDetailModal"));
 const CreateCategoryModal = lazy(() => import("@/components/space/CreateCategoryModal"));
 
+// Preserved space data is now handled by individual components
+
 export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
   
   // 🧪 HMR TEST COMMENT: Testing HMR optimization effectiveness (Test 3A)
@@ -304,7 +306,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
   }, [currentSpaceData, fallbackSpaceData]);
 
   // ============================================================================
-  // EARLY RETURNS & ERROR STATES
+  // LOADING STATE & ERRORS
   // ============================================================================
 
   // ENHANCED: Detect if space data is actually available through posts loading
@@ -313,26 +315,36 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
   const categoriesDataAvailable = !categoriesError && (categoriesLoading || spaceCategories.length > 0);
   const hasDataIndicators = spaceDataAvailableViaPostsLoading || categoriesDataAvailable;
   
+  // Note: Preserved space data functionality has been simplified
+  const pathname = window.location.pathname;
+  const subdomainMatch = pathname.match(/\/([^\/]+)\/space/);
+  const urlSubdomain = subdomainMatch?.[1];
+  const hasPreservedData = false; // Simplified - no longer using preserved data
+  
   // REDUCED: Only log critical state changes, not every render
-  if (process.env.NODE_ENV === 'development' && (postsError || categoriesError || (!hasInstantAccess && !currentSpaceData && !hasDataIndicators))) {
+  if (process.env.NODE_ENV === 'development' && (postsError || categoriesError || (!hasInstantAccess && !currentSpaceData && !hasDataIndicators && !hasPreservedData))) {
     console.log('🐛 [FeedTab] Critical state check:', {
       currentSpaceData: !!currentSpaceData,
       hasInstantAccess: !!hasInstantAccess,
       postsError: !!postsError,
       categoriesError: !!categoriesError,
-      willShowLoading: !currentSpaceData && !hasDataIndicators && !hasInstantAccess
+      hasPreservedData,
+      willShowLoading: !currentSpaceData && !hasDataIndicators && !hasInstantAccess && !hasPreservedData
     });
   }
   
   // MOBILE OPTIMIZATION: Much more aggressive about showing content
   // Trust that SpaceProtectedRoute has verified access and wouldn't render us otherwise
   // This prevents loading flashes on mobile
-  const shouldShowLoadingState = (!currentSpaceData && !hasDataIndicators && !hasInstantAccess && (authLoading || storeLoadingSpace));
+  // **CRITICAL FIX**: Also check for preserved data to prevent loading flash during external navigation
+  const shouldShowLoadingState = (!currentSpaceData && !hasDataIndicators && !hasInstantAccess && !hasPreservedData && (authLoading || storeLoadingSpace));
   
   if (shouldShowLoadingState) {
     // Only show loading if absolutely necessary - minimizes loading flashes
     return <div className="p-4 text-center">Loading feed...</div>;
   }
+
+
 
   // ============================================================================
   // RENDER JSX - Pure presentation logic
@@ -524,8 +536,8 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
         )}
         
         {/* Regular Posts List */}
-        {/* SAFARI-AWARE FIX: Show loading only when genuinely loading AND no posts loaded yet */}
-        {((postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) || (hasInstantAccess && !hasDataIndicators && !currentSpaceData && fetchedPosts.length === 0 && pinnedPosts.length === 0)) && (
+        {/* **REAPPEARING FIX**: Never show loading when posts exist - prevents Chat→Feed reappearing */}
+        {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
             <p className="text-muted-foreground text-center">
@@ -675,7 +687,6 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
             isMember={!!currentUser} // If user is viewing feed, they're likely a member
             memberCount={memberCounts.totalMembers}
             adminCount={memberCounts.adminMembers}
-            onlineCount={memberCounts.onlineMembers}
           />
         </div>
       )}

@@ -45,6 +45,7 @@ export const membershipApi = {
         .select('role, status')
         .eq('user_id', userId)
         .eq('space_id', spaceId)
+        .eq('status', 'active')
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -66,19 +67,119 @@ export const membershipApi = {
    * Join a space
    */
   async joinSpace(spaceId: string): Promise<JoinSpaceResponse> {
+    console.log(`[MembershipAPI] Attempting to join space: ${spaceId}`);
+    
     try {
+      // First try the RPC function
+      console.log(`[MembershipAPI] Calling public_join_space RPC...`);
       const { data, error } = await getSupabaseClient().rpc(
         'public_join_space',
         { p_space_id: spaceId }
       );
 
       if (error) {
-        throw new Error(error.message);
+        console.error(`[MembershipAPI] RPC error:`, error);
+        
+        // If RPC fails, try direct database approach as fallback
+        console.log(`[MembershipAPI] RPC failed, trying direct database approach...`);
+        return await this.joinSpaceDirectly(spaceId);
       }
 
+      console.log(`[MembershipAPI] RPC success:`, data);
       return data as JoinSpaceResponse;
     } catch (error) {
-      console.error('Error joining space:', error);
+      console.error('Error with RPC call:', error);
+      
+      // If RPC call throws an exception, try direct database approach
+      console.log(`[MembershipAPI] RPC threw exception, trying direct database approach...`);
+      return await this.joinSpaceDirectly(spaceId);
+    }
+  },
+
+  /**
+   * Join a space using direct database operations (fallback method)
+   */
+  async joinSpaceDirectly(spaceId: string): Promise<JoinSpaceResponse> {
+    try {
+      console.log(`[MembershipAPI] Direct join for space: ${spaceId}`);
+      
+      // Get current user
+      const { data: { user }, error: authError } = await getSupabaseClient().auth.getUser();
+      if (authError || !user) {
+        throw new Error('Authentication required');
+      }
+
+      // Check if space exists
+      const { data: space, error: spaceError } = await getSupabaseClient()
+        .from('spaces')
+        .select('id, name, owner_id')
+        .eq('id', spaceId)
+        .single();
+
+      if (spaceError || !space) {
+        throw new Error('Space not found');
+      }
+
+      // Check if user is already a member
+      const { data: existingMember } = await getSupabaseClient()
+        .from('space_members')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('space_id', spaceId)
+        .maybeSingle();
+
+      if (existingMember?.status === 'active') {
+        return {
+          success: true,
+          message: 'You are already a member of this space'
+        };
+      }
+
+      // If there's an inactive record, reactivate it
+      if (existingMember && existingMember.status !== 'active') {
+        const { error: updateError } = await getSupabaseClient()
+          .from('space_members')
+          .update({ 
+            status: 'active', 
+            joined_at: new Date().toISOString() 
+          })
+          .eq('id', existingMember.id);
+
+        if (updateError) {
+          throw new Error(`Failed to reactivate membership: ${updateError.message}`);
+        }
+
+        console.log(`[MembershipAPI] Reactivated membership for user ${user.id} in space ${spaceId}`);
+        return {
+          success: true,
+          message: 'Membership reactivated successfully'
+        };
+      }
+
+      // Create new membership record
+      const { error: insertError } = await getSupabaseClient()
+        .from('space_members')
+        .insert({
+          user_id: user.id,
+          space_id: spaceId,
+          status: 'active',
+          role: 'member',
+          is_online: false,
+          joined_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        throw new Error(`Failed to create membership: ${insertError.message}`);
+      }
+
+      console.log(`[MembershipAPI] Created new membership for user ${user.id} in space ${spaceId}`);
+      return {
+        success: true,
+        message: 'Successfully joined space'
+      };
+
+    } catch (error) {
+      console.error('Error in direct join:', error);
       throw error;
     }
   },
@@ -127,13 +228,13 @@ export const membershipApi = {
   },
 
   /**
-   * Remove a member from a space (set to banned)
+   * Remove a member from a space (delete the record)
    */
   async removeMember(spaceId: string, userId: string): Promise<boolean> {
     try {
       const { error } = await getSupabaseClient()
         .from('space_members')
-        .update({ status: 'banned' as MemberStatus })
+        .delete()
         .eq('user_id', userId)
         .eq('space_id', spaceId);
 
@@ -158,7 +259,7 @@ export const membershipApi = {
     try {
       const { status = 'active', searchQuery = '', limit = 50, page = 1 } = options;
 
-      let query = supabase
+      let query = getSupabaseClient()
         .from('space_members')
         .select(`
           id, user_id, space_id, role, joined_at, status, is_online, last_active_at,
@@ -180,7 +281,7 @@ export const membershipApi = {
         throw new Error(error.message);
       }
 
-      const members = (data || []).map((sm: RawFetchedSpaceMember) => {
+      const members = (data || []).map((sm: any) => {
         const isValidUser = sm.users && !('error' in sm.users && sm.users.error !== undefined);
         const userDetails = isValidUser ? sm.users : null;
 

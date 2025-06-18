@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 import { useUserSpacesStore } from '@/hooks/useUserSpacesStore'
+import { useNavigate } from 'react-router-dom'
 
 // Simple user interface
 export interface User extends SupabaseUser {}
@@ -67,7 +68,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [preloadSpaces]) // Add preloadSpaces to dependencies
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    console.log('🚪 [AuthContext] Starting comprehensive signOut with cache clearing...');
+    
+    // **CRITICAL SECURITY FIX**: Use enhanced signOut with comprehensive cache clearing
+    try {
+      // Import the enhanced signOut function dynamically
+      const { signOut: enhancedSignOut } = await import('@/utils/auth/authActionsUtils');
+      
+      // Create a mock navigate function since we can't use useNavigate in context
+      const mockNavigate = (path: string, options?: any) => {
+        console.log('🔀 [AuthContext] Navigating to:', path);
+        if (options?.replace) {
+          window.location.replace(path);
+        } else {
+          window.location.href = path;
+        }
+      };
+      
+      // Call enhanced signOut with all cache clearing
+      await enhancedSignOut(mockNavigate as any, {
+        setUser,
+        setSession,
+        setUserDetails: () => {}, // Not used in this context
+        setHasRouted: () => {}, // Not used in this context
+        setEarlyRedirectAttempted: () => {}, // Not used in this context
+        setRoutingInProgress: () => {}, // Not used in this context
+        setAuthErrors: () => {}, // Not used in this context
+      });
+      
+      console.log('✅ [AuthContext] Enhanced signOut completed with cache clearing');
+    } catch (error) {
+      console.error('❌ [AuthContext] Enhanced signOut failed, falling back to basic signOut:', error);
+      
+      // Fallback to basic signOut if enhanced fails
+      await supabase.auth.signOut();
+      
+      // Basic cleanup for fallback scenario
+      console.log('🧹 [AuthContext] FALLBACK: Using basic signOut cleanup');
+    }
+    
     // The onAuthStateChange listener will automatically update user and session to null
   }
   

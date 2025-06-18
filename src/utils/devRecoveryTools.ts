@@ -116,10 +116,20 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
   };
   
   /**
-   * Monitor for module errors and auto-recover
+   * Monitor for module errors and auto-recover - MOBILE-AWARE VERSION
    */
   (window as any).enableAutoRecovery = () => {
-    console.log('🤖 [DevTools] Auto-recovery enabled');
+    // Mobile detection utility
+    const isMobileBrowser = () => {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    };
+    
+    if (isMobileBrowser()) {
+      console.log('🤖 [DevTools] Auto-recovery DISABLED on mobile browser (prevents false positives from network blocking)');
+      return;
+    }
+    
+    console.log('🤖 [DevTools] Auto-recovery enabled (desktop browser)');
     
     window.addEventListener('error', (event) => {
       if (event.message?.includes('Importing a module script failed')) {

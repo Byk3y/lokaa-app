@@ -5,6 +5,13 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { CachedPostType } from '@/hooks/useCachedPosts';
 import type { PostCardProps } from '@/features/posts/types/postCard';
 
+// Add tab visibility tracking for mobile refresh behavior
+interface TabVisibilityState {
+  lastTabVisit: number;
+  isFirstVisit: boolean;
+  refreshThreshold: number; // Time in ms before data needs refresh
+}
+
 interface UseOptimizedCachedPostsReturn {
   posts: CachedPostType[];
   pinnedPosts: CachedPostType[];
@@ -29,11 +36,64 @@ interface UseOptimizedCachedPostsReturn {
   
   // Utility functions
   mapPostToCardProps: (post: CachedPostType) => PostCardProps;
+  
+  // NEW: Tab switching refresh
+  refreshOnTabSwitch: () => Promise<void>;
+}
+
+/**
+ * Enhanced mobile tab switching behavior
+ */
+function useTabSwitchingBehavior(spaceId: string | undefined) {
+  const tabVisibilityRef = useRef<Map<string, TabVisibilityState>>(new Map());
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  // Track when user visits the feed tab
+  const trackTabVisit = useCallback((spaceId: string) => {
+    const now = Date.now();
+    const currentState = tabVisibilityRef.current.get(spaceId);
+    
+    tabVisibilityRef.current.set(spaceId, {
+      lastTabVisit: now,
+      isFirstVisit: !currentState,
+      refreshThreshold: 60000 // **FIX**: Increased to 60 seconds - refresh if last visit was longer ago
+    });
+    
+    devLogger.log('TabSwitch', `Feed tab visited for space ${spaceId}`, {
+      isFirstVisit: !currentState,
+      lastVisit: currentState?.lastTabVisit,
+      timeSinceLastVisit: currentState ? now - currentState.lastTabVisit : 0
+    });
+  }, []);
+  
+  // Check if we should refresh data when switching to feed tab
+  const shouldRefreshOnTabSwitch = useCallback((spaceId: string): boolean => {
+    if (!isMobile) return false; // Only for mobile
+    
+    const state = tabVisibilityRef.current.get(spaceId);
+    if (!state) return true; // First visit always refreshes
+    
+    const timeSinceLastVisit = Date.now() - state.lastTabVisit;
+    // **FIX**: Increased threshold to 60 seconds and be more conservative
+    const refreshThreshold = 60000; // 60 seconds instead of 30
+    const shouldRefresh = timeSinceLastVisit > refreshThreshold;
+    
+    devLogger.log('TabSwitch', `Checking refresh need for space ${spaceId}`, {
+      timeSinceLastVisit,
+      threshold: refreshThreshold,
+      shouldRefresh,
+      isFirstVisit: !state
+    });
+    
+    return shouldRefresh;
+  }, [isMobile]);
+  
+  return { trackTabVisit, shouldRefreshOnTabSwitch, isMobile };
 }
 
 /**
  * Optimized cached posts hook using global cache coordinator
- * Eliminates duplicate queries and provides intelligent caching
+ * Enhanced with intelligent tab switching refresh for mobile
  */
 export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimizedCachedPostsReturn {
   const [posts, setPosts] = useState<CachedPostType[]>([]);
@@ -45,6 +105,72 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
   
   // Generate unique subscriber ID for this hook instance
   const subscriberId = useRef(`posts-${Math.random().toString(36).substr(2, 9)}`).current;
+  
+  // Enhanced tab switching behavior
+  const { trackTabVisit, shouldRefreshOnTabSwitch, isMobile } = useTabSwitchingBehavior(spaceId);
+  
+  // Track page visibility for mobile optimization
+  const pageVisibilityRef = useRef<{
+    wasHidden: boolean;
+    hiddenTimestamp: number;
+  }>({ wasHidden: false, hiddenTimestamp: 0 });
+  
+  // Enhanced page visibility tracking for mobile
+  useEffect(() => {
+    if (!isMobile) return;
+    
+    const handleVisibilityChange = () => {
+      const now = Date.now();
+      const isHidden = document.hidden;
+      
+      if (isHidden && !pageVisibilityRef.current.wasHidden) {
+        // Page just became hidden
+        pageVisibilityRef.current.wasHidden = true;
+        pageVisibilityRef.current.hiddenTimestamp = now;
+        devLogger.log('TabSwitch', 'Page hidden - mobile backgrounding detected');
+      } else if (!isHidden && pageVisibilityRef.current.wasHidden) {
+        // Page just became visible
+        const timeHidden = now - pageVisibilityRef.current.hiddenTimestamp;
+        pageVisibilityRef.current.wasHidden = false;
+        
+        devLogger.log('TabSwitch', `Page visible after ${timeHidden}ms`, {
+          timeHidden,
+          spaceId
+        });
+        
+        // **FIX**: More intelligent refresh logic - only refresh if:
+        // 1. We were hidden for a reasonable amount of time (5-30 seconds)
+        // 2. It's not a quick background/foreground cycle (< 5 seconds)
+        // 3. It's not an extended background session (> 60 seconds - likely app minimization)
+        const isQuickSwitch = timeHidden < 5000; // Less than 5 seconds
+        const isLongBackground = timeHidden > 60000; // More than 60 seconds
+        const isReasonableTabSwitch = timeHidden >= 5000 && timeHidden <= 30000; // 5-30 seconds
+        
+        if (isQuickSwitch) {
+          devLogger.log('TabSwitch', 'Quick background cycle detected, skipping refresh');
+          return;
+        }
+        
+        if (isLongBackground) {
+          devLogger.log('TabSwitch', 'Long background session detected, data likely stale but no forced refresh');
+          // Don't force refresh for long backgrounds - let natural cache expiration handle it
+          return;
+        }
+        
+        // Only refresh for reasonable tab switches (5-30 seconds)
+        if (isReasonableTabSwitch && spaceId && shouldRefreshOnTabSwitch(spaceId)) {
+          devLogger.log('TabSwitch', 'Triggering smart refresh after reasonable tab switch');
+          // Small delay to let other systems settle
+          setTimeout(() => {
+            fetchPosts(1, true);
+          }, 500);
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [spaceId, shouldRefreshOnTabSwitch, isMobile]);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -70,7 +196,11 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
     setError(null);
 
     try {
-      devLogger.log('CacheDebug', `Fetching posts for space ${spaceId}, page ${page}`, { subscriberId });
+      devLogger.log('CacheDebug', `Fetching posts for space ${spaceId}, page ${page}`, { 
+        subscriberId, 
+        forceRefresh,
+        trigger: forceRefresh ? 'tab-switch-refresh' : 'normal'
+      });
 
       // If force refresh, invalidate cache first
       if (forceRefresh) {
@@ -82,6 +212,12 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
       
       // Fetch pinned posts separately (they don't paginate)
       const pinnedKey = `posts:${spaceId}:pinned`;
+      
+      // If force refresh, invalidate pinned cache too
+      if (forceRefresh) {
+        globalCache.invalidate(pinnedKey);
+      }
+      
       const pinnedData = await globalCache.get(
         pinnedKey,
         async () => {
@@ -115,7 +251,8 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
       devLogger.log('CacheDebug', `Posts loaded successfully`, { 
         regular: enrichedPosts.length, 
         pinned: enrichedPinnedPosts.length,
-        subscriberId 
+        subscriberId,
+        fromRefresh: forceRefresh
       });
 
     } catch (err) {
@@ -127,7 +264,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
     }
   }, [spaceId, subscriberId]);
 
-  // Auto-fetch posts when spaceId changes - but check cache first to avoid unnecessary loading states
+  // Auto-fetch posts when spaceId changes - enhanced with tab switching awareness
   const hasAutoFetched = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!spaceId) {
@@ -137,6 +274,9 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
       setError(null);
       return;
     }
+
+    // Track this tab visit for future refresh decisions
+    trackTabVisit(spaceId);
 
     // Check if we have cached data first
     const checkCacheAndFetch = async () => {
@@ -148,8 +288,11 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
         const cachedRegular = globalCache.getCachedData<any[]>(regularKey);
         const cachedPinned = globalCache.getCachedData<any[]>(pinnedKey);
         
-        // If we have valid cached data, use it immediately to prevent loading flash
-        if (cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned)) {
+        // Enhanced cache logic: check if we should refresh due to tab switching
+        const shouldRefreshForTabSwitch = shouldRefreshOnTabSwitch(spaceId);
+        
+        // If we have valid cached data and don't need to refresh, use it immediately
+        if (cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned) && !shouldRefreshForTabSwitch) {
           devLogger.log('CacheDebug', `Using cached posts for space ${spaceId}`, { subscriberId });
           
           // Enrich cached posts with metadata
@@ -166,11 +309,12 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
           return;
         }
         
-        // No valid cache, proceed with normal fetch if not already fetched
-        if (!hasAutoFetched.current.has(spaceId)) {
+        // Either no valid cache OR we need to refresh due to tab switching
+        if (!hasAutoFetched.current.has(spaceId) || shouldRefreshForTabSwitch) {
           hasAutoFetched.current.add(spaceId);
-          devLogger.log('CacheDebug', `Auto-fetching posts for space ${spaceId} (no cache)`, { subscriberId });
-          await fetchPosts(1, false);
+          const reason = shouldRefreshForTabSwitch ? 'tab-switch-refresh' : 'no-cache';
+          devLogger.log('CacheDebug', `Fetching posts for space ${spaceId} (${reason})`, { subscriberId });
+          await fetchPosts(1, shouldRefreshForTabSwitch);
         }
       } catch (error) {
         devLogger.warn('CacheDebug', `Cache check failed for space ${spaceId}`, { error, subscriberId });
@@ -183,12 +327,20 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
     };
 
     checkCacheAndFetch();
-  }, [spaceId, fetchPosts, subscriberId]);
+  }, [spaceId, fetchPosts, subscriberId, trackTabVisit, shouldRefreshOnTabSwitch]);
 
-  // Refetch function
+  // Enhanced refetch function
   const refetch = useCallback(async (forceRefresh = false) => {
     await fetchPosts(currentPage, forceRefresh);
   }, [fetchPosts, currentPage]);
+
+  // NEW: Tab switch refresh function
+  const refreshOnTabSwitch = useCallback(async () => {
+    if (spaceId) {
+      devLogger.log('TabSwitch', `Manual refresh triggered for space ${spaceId}`);
+      await fetchPosts(1, true);
+    }
+  }, [spaceId, fetchPosts]);
 
   // Load specific page
   const loadPage = useCallback(async (page: number) => {
@@ -459,6 +611,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
     handleCommentAdded,
     handlePinToggled,
     mapPostToCardProps,
+    refreshOnTabSwitch,
   };
 }
 

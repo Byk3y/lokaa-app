@@ -41,14 +41,42 @@ export default function ChatView({
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
   
+  // DEBUG: Log conversation data
+  console.log('🗨️ [ChatView] Rendered with conversation:', {
+    conversationId: initialConversation?.conversation_id,
+    conversationName: initialConversation?.conversation_name,
+    isGroup: initialConversation?.is_group,
+    otherParticipants: initialConversation?.other_participants?.length || 0,
+    user: user?.id,
+    hasUser: !!user
+  });
+  
   // Get messages and loading state from the centralized store
   const messages = getMessagesForConversation(currentConversation.conversation_id);
   const loading = isLoadingMessages(currentConversation.conversation_id);
+  
+  // DEBUG: Log messages state
+  console.log('🗨️ [ChatView] Messages state:', {
+    conversationId: currentConversation.conversation_id,
+    messagesCount: messages?.length || 0,
+    loading,
+    messages: messages
+  });
   
   // Check if this is a direct conversation (not group) and get other participant info
   const isDirectConversation = !currentConversation.is_group;
   const otherParticipant = isDirectConversation && currentConversation.other_participants?.[0];
   const shouldShowConnectionContext = isDirectConversation && otherParticipant;
+
+  // DEBUG: Log conversation context
+  console.log('🗨️ [ChatView] Conversation context:', {
+    isDirectConversation,
+    otherParticipant: otherParticipant ? {
+      userId: otherParticipant.user_id,
+      fullName: otherParticipant.full_name
+    } : null,
+    shouldShowConnectionContext
+  });
 
   // Mobile keyboard detection
   useEffect(() => {
