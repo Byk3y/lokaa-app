@@ -73,8 +73,6 @@ import '@/utils/databaseConnectivityTest';
 import '@/utils/mobileDetection';
 import { initializeCacheWarming } from '@/utils/cacheWarming';
 
-
-
 // Phase 2C: Predictive Cache Integration
 import '@/utils/phase2cIntegration';
 
@@ -103,9 +101,6 @@ import { advancedCache } from '@/utils/advancedCacheManager';
 import { seoManager } from '@/utils/seoManager';
 import { pageVisibilityManager } from '@/utils/pageVisibilityManager';
 import '@/utils/phase7Integration';
-
-// Phase 8A: AI/ML Integration & Smart Features
-import '@/utils/phase8aIntegration';
 
 // PHASE 1: Enhanced Mobile Session Recovery
 import { phase1Recovery } from '@/utils/phase1MobileRecovery';
@@ -733,161 +728,10 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// Global debugging interfaces for development
-if (typeof window !== 'undefined') {
-  // Phase 8A global interfaces - Import but let the module set up its own interface
-  import('@/utils/phase8aIntegration').then((module) => {
-    // The module already sets up (window as any).phase8a properly in its own code
-    // Just verify it's available
-    if ((window as any).phase8a) {
-      console.log('🤖 Phase 8A global interface loaded and verified');
-    } else {
-      console.warn('⚠️ Phase 8A global interface not found, setting up fallback');
-      (window as any).phase8a = {
-        runAllTests: () => module.phase8aIntegration.runAllTests(),
-        getStatus: () => module.phase8aIntegration.getStatus(),
-        triggerTestJourney: (context?: any) => module.phase8aIntegration.triggerTestJourney(context),
-                 clearHistory: () => {},
-        journeyManager: null
-      };
-    }
-  }).catch(err => {
-    console.warn('Failed to load Phase 8A global interface:', err);
-  });
-  
-  // Phase 8B global interfaces - Import the actual instance
-  import('@/utils/phase8bIntegration').then((module) => {
-    // Get the instance and create enhanced global interface
-    const phase8bInstance = module.phase8bIntegration;
-    
-    (window as any).phase8b = {
-      // Main integration methods
-      getStatus: () => phase8bInstance.getStatus(),
-      getMetrics: () => phase8bInstance.getMetrics(),
-      runTest: () => phase8bInstance.runComprehensiveTest(),
-      updateConfig: (config) => phase8bInstance.updateConfig(config),
-      recordInteraction: (userId, interaction) => phase8bInstance.recordUserInteraction(userId, interaction),
-      getUserSession: (userId) => phase8bInstance.getUserSession(userId),
-      getAllSessions: () => phase8bInstance.getAllSessions(),
-      getComponentStatus: () => phase8bInstance.getComponentStatus(),
-      getUserExperienceRecommendations: (userId) => phase8bInstance.getUserExperienceRecommendations(userId),
-      cleanup: () => phase8bInstance.cleanup(),
-      
-      // UI Adaptation Methods
-      resetAdaptations: () => phase8bInstance.resetAdaptations(),
-      getAdaptations: () => phase8bInstance.getActiveAdaptations(),
-      getActiveAdaptations: () => phase8bInstance.getActiveAdaptations(),
-      
-      // Test methods
-      testIntegration: () => {
-        console.log('🎯 Testing Phase 8B integration...');
-        return phase8bInstance.runComprehensiveTest();
-      },
-      
-      testUserExperience: () => {
-        console.log('👤 Testing user experience flow...');
-        const userId = 'ux_test_user_' + Date.now();
-        
-        // Simulate user interactions
-        phase8bInstance.recordUserInteraction(userId, {
-          type: 'page_view',
-          target: 'dashboard',
-          success: true,
-          duration: 1200
-        });
-        
-        phase8bInstance.recordUserInteraction(userId, {
-          type: 'click_button',
-          target: 'create_post',
-          success: true,
-          duration: 300
-        });
-        
-        phase8bInstance.recordUserInteraction(userId, {
-          type: 'form_submit',
-          target: 'post_form',
-          success: false,
-          duration: 5000
-        });
-        
-        // Get recommendations
-        const recommendations = phase8bInstance.getUserExperienceRecommendations(userId);
-        const session = phase8bInstance.getUserSession(userId);
-        
-        console.log('✅ User experience test completed', {
-          userId,
-          session: session ? {
-            interactions: session.interactions.length,
-            experienceScore: session.experienceScore,
-            satisfactionLevel: session.satisfactionLevel
-          } : null,
-          recommendations
-        });
-        
-        return { userId, session, recommendations };
-      },
-      
-      testSystemCoordination: () => {
-        console.log('🤝 Testing system coordination...');
-        const componentStatus = phase8bInstance.getComponentStatus();
-        const status = phase8bInstance.getStatus();
-        
-        console.log('✅ System coordination test completed', {
-          integrationHealth: status.integrationHealth,
-          activeComponents: status.activeComponents,
-          componentStatus: Object.fromEntries(componentStatus)
-        });
-        
-        return status;
-      }
-    };
-    
-    console.log('🎯 Phase 8B global interface loaded');
-  }).catch(err => {
-    console.warn('Failed to load Phase 8B global interface:', err);
-  });
-  
-  // Individual Phase 8B component interfaces
-  import('@/utils/predictiveUIEngine').then((module) => {
-    (window as any).predictiveUIEngine = module.predictiveUIEngine;
-    console.log('🔮 Predictive UI Engine global interface loaded');
-  }).catch(err => {
-    console.warn('Failed to load Predictive UI Engine interface:', err);
-  });
-  
-  import('@/utils/userBehaviorPredictor').then((module) => {
-    (window as any).userBehaviorPredictor = module.userBehaviorPredictor;
-    console.log('🧠 User Behavior Predictor global interface loaded');
-  }).catch(err => {
-    console.warn('Failed to load User Behavior Predictor interface:', err);
-  });
-  
-  import('@/utils/personalizationEngine').then((module) => {
-    (window as any).personalizationEngine = module.personalizationEngine;
-    console.log('🎨 Personalization Engine global interface loaded');
-  }).catch(err => {
-    console.warn('Failed to load Personalization Engine interface:', err);
-  });
-  
-  import('@/utils/adaptiveInterfaceManager').then((module) => {
-    (window as any).adaptiveInterfaceManager = module.adaptiveInterfaceManager;
-    console.log('🔄 Adaptive Interface Manager global interface loaded');
-  }).catch(err => {
-    console.warn('Failed to load Adaptive Interface Manager interface:', err);
-  });
-  
-  // Other phase interfaces (keeping as placeholders for now)
-  (window as any).phase3PerformanceOptimizer = '@/utils/phase3PerformanceOptimizer';
-  (window as any).phase3TestingFramework = '@/utils/phase3TestingFramework';
-  (window as any).phase3UXPatterns = '@/utils/phase3UXPatterns';
-  (window as any).phase4a = '@/utils/phase4aIntegration';
-  (window as any).phase4b = '@/utils/phase4bIntegration';
-  (window as any).phase5 = '@/utils/phase5Integration';
-  (window as any).phase6 = '@/utils/phase6Integration';
-  (window as any).phase7 = '@/utils/phase7Integration';
-}
-
+// Global debugging interfaces for development preserved for other tools
 import '@/utils/mobileConsoleValidation';
+// ✅ SIMPLIFIED: Phase 8 AI/ML systems removed for maintainability
+// The app now focuses on core functionality without complex AI overlays
 
 export default function App() {
   // FIXED: Simplified cleanup tracking (reduced overhead)
@@ -1055,31 +899,8 @@ export default function App() {
         } catch (phase1Error) {
           console.warn('📱 [App] Phase 1 mobile recovery failed to initialize:', phase1Error);
         }
-        
-        // Phase 8A: Initialize AI/ML Systems
-        try {
-          const { phase8aIntegration } = await import('@/utils/phase8aIntegration');
-          console.log('🤖 Phase 8A AI/ML Systems initialized');
-        } catch (error) {
-          console.warn('Phase 8A initialization failed:', error);
-        }
-        
-        // Phase 8B: Initialize Predictive User Experience
-        try {
-          const { phase8bIntegration } = await import('@/utils/phase8bIntegration');
-          await phase8bIntegration.initialize();
-          console.log('🎯 Phase 8B Predictive UX Systems initialized');
-        } catch (error) {
-          console.warn('Phase 8B initialization failed:', error);
-        }
-        
-        // Phase 8C: Initialize Automated Optimization
-        try {
-          const { phase8cIntegration } = await import('@/utils/phase8cIntegration');
-          console.log('🚀 Phase 8C Automated Optimization Systems initialized');
-        } catch (error) {
-          console.warn('Phase 8C initialization failed:', error);
-        }
+
+        // Phase 8 AI/ML systems removed for maintainability
         
         setAppReady(true);
         
@@ -1098,21 +919,8 @@ export default function App() {
         try {
           // Phase 6: Cleanup handled by unified system
           persistentCache.cleanup();
-          
-          // Phase 8A: Shutdown AI/ML systems
-          if ((window as any).phase8?.shutdown) {
-            (window as any).phase8.shutdown();
-          }
-          
-          // Phase 8B: Shutdown Predictive UX systems
-          if ((window as any).phase8b?.cleanup) {
-            (window as any).phase8b.cleanup();
-          }
-          
-          // Phase 8C: Shutdown Automated Optimization systems
-          if ((window as any).phase8c?.cleanup) {
-            (window as any).phase8c.cleanup();
-          }
+
+          // Phase 8 cleanup removed - systems no longer present
         } catch (error) {
           console.warn('Cleanup error:', error);
         }
@@ -1136,99 +944,6 @@ export default function App() {
     }
   }, []);
 
-  // Add Phase 8 visual overlay prevention (ENHANCED PROTECTION)
-  useEffect(() => {
-    // Prevent Phase 8 systems from creating visual overlays that block modals
-    if (import.meta.env.DEV) {
-      // Set comprehensive global flags to prevent Phase 8 interference
-      (window as any).__DISABLE_PHASE8_VISUALS__ = true;
-      (window as any).__DISABLE_PHASE_8__ = true;
-      (window as any).__ENABLE_REALTIME_DASHBOARD__ = false;
-      (window as any).__DISABLE_AI_OVERLAYS__ = true;
-      (window as any).__DISABLE_PHASE_8_VISUAL_OVERLAYS__ = true;
-      
-      // Add comprehensive CSS to prevent overlays and fix modal positioning
-      const style = document.createElement('style');
-      style.id = 'phase8-modal-protection';
-      style.textContent = `
-        /* PHASE 8 PROTECTION: Prevent visual overlays that block modals */
-        [class*="fixed"][class*="inset"][class*="backdrop-blur"]:not([data-modal]):not([role="dialog"]):not([data-allowed-overlay]) {
-          display: none !important;
-        }
-        
-        [data-phase8="true"],
-        .phase8-debug-overlay,
-        [class*="phase8"],
-        .fixed.inset-4.z-50.bg-background\\/95.backdrop-blur-sm {
-          display: none !important;
-        }
-        
-        /* MODAL POSITIONING FIX: Ensure modals appear correctly */
-        [role="dialog"], 
-        [data-modal="true"],
-        .modal-overlay {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          right: 0 !important;
-          bottom: 0 !important;
-          z-index: 9999 !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-        }
-        
-        /* Modal content positioning */
-        [role="dialog"] > div:first-child,
-        [data-modal="true"] > div:first-child {
-          position: relative !important;
-          max-height: 90vh !important;
-          max-width: 90vw !important;
-          margin: auto !important;
-        }
-        
-        /* Prevent Phase 8 from interfering with modal backdrop */
-        .modal-backdrop {
-          background: rgba(0, 0, 0, 0.5) !important;
-          backdrop-filter: blur(4px) !important;
-        }
-      `;
-      
-      if (!document.getElementById('phase8-modal-protection')) {
-        document.head.appendChild(style);
-      }
-      
-      // Active monitoring: Remove Phase 8 overlays that appear dynamically
-      const removePhase8Overlays = () => {
-        const overlays = document.querySelectorAll(
-          '[data-phase8], [class*="phase8"], .fixed.inset-4.z-50.bg-background\\/95, [class*="RealtimePerformance"]'
-        );
-        overlays.forEach(el => {
-          if (el.className.includes('backdrop-blur') || el.className.includes('bg-background/95')) {
-            console.log('🧹 [App] Removing Phase 8 overlay that could block modals:', el);
-            el.remove();
-          }
-        });
-      };
-      
-      // Run immediately and monitor for new overlays
-      removePhase8Overlays();
-      const observer = new MutationObserver(removePhase8Overlays);
-      observer.observe(document.body, { childList: true, subtree: true });
-      
-      // Override Phase 8 functions
-      if ((window as any).disableRealtimeDashboard) {
-        (window as any).disableRealtimeDashboard();
-      }
-      
-      console.log('🛡️ [App] Phase 8 modal protection active - overlays disabled, modal positioning fixed');
-      
-      return () => {
-        observer.disconnect();
-      };
-    }
-  }, []);
-  
   // FIXED: Show loading screen while app initializes
   if (!appReady) {
     return <AppLoadingScreen />;
