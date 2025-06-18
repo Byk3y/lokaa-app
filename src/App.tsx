@@ -45,72 +45,29 @@ import PWAInitializer from '@/components/pwa/PWAInitializer';
 // Import the new centralized initialization service
 import { appInitializationService } from '@/services/AppInitializationService';
 
-// Phase 5B Testing Tools (Development only)
-import '@/utils/phase5bTestUtils';
-import '@/utils/phase5bPerformanceFix';
-import '@/utils/phase5bPerformanceFixV2';
-import '@/utils/smartRedirectValidation';
-import '@/utils/performanceTestUtils'; // Final performance testing suite
+// Import the new centralized development tools service
+import { developmentTools } from '@/utils/DevelopmentTools';
 
-// Import presence debugging utilities
-import '@/utils/presenceDebugger';
-import '@/utils/presenceTestUtils';
-import '@/utils/mediaDebugger';
-
-// Import console cleanup utility
-import '@/utils/developmentLogger';
-import '@/utils/consoleCleanup';
-import '@/utils/consoleOptimizationReport';
-import '@/utils/presenceTestingUtility';
-import '@/utils/databaseConnectivityTest';
-import '@/utils/mobileDetection';
-
-// Phase 2C: Predictive Cache Integration
-import '@/utils/phase2cIntegration';
-
-// Phase 4A: Error Tracking & Reporting Integration
-import '@/utils/phase4aIntegration';
-import { FloatingErrorDashboard } from '@/components/debug/ErrorAnalyticsDashboard';
-
-// Phase 4B: User Analytics & A/B Testing Integration
-import '@/utils/phase4bIntegration';
-
-// Phase 5: Mobile Optimization & PWA Integration
-import '@/utils/phase5Integration';
-
-// Phase 3: Enhanced User Experience & Performance Integration
-import '@/utils/phase3PerformanceOptimizer';
-import '@/utils/phase3CacheStrategy';
-import '@/utils/phase3RenderOptimizer';
-import '@/utils/phase3UXPatterns';
-import '@/utils/phase3TestingFramework';
-
-// Phase 6: Bundle Optimization & Code Splitting Integration
-import '@/utils/phase6Integration';
-
-// Phase 7: Advanced Features & Production Readiness
+// Advanced Features & Production Readiness
 import { advancedCache } from '@/utils/advancedCacheManager';
 import { seoManager } from '@/utils/seoManager';
 import { pageVisibilityManager } from '@/utils/pageVisibilityManager';
-import '@/utils/phase7Integration';
 
 // PHASE 1: Enhanced Mobile Session Recovery
-import '@/utils/globalErrorInterceptor'; // Initialize 401 error interception
 import Phase1MobileRecovery from '@/components/mobile/Phase1MobileRecovery';
 
 import { navigationCoordinator } from "@/utils/navigationCoordinator";
 import { authFlowStateManager } from "@/utils/authFlowStateManager";
 import ChatPage from '@/pages/ChatPage'; // <-- IMPORT CHAT PAGE
 
-import '@/utils/hmrMonitor'; // Initialize HMR monitoring
 import { trackRouteChange } from '@/hooks/useSpaceSettingsStore';
-
-// REMOVED: Mobile Safari workaround - now handled by mobileOptimizationLayer
-// import '@/utils/mobileSupabaseWorkaround';
 
 // Supabase Health Monitor
 import { supabaseHealthMonitor } from '@/utils/supabaseHealthCheck';
 import { initializeSupabase } from '@/integrations/supabase/client'; // Import the new initializer
+
+// Import floating error dashboard
+import { FloatingErrorDashboard } from '@/components/debug/ErrorAnalyticsDashboard';
 
 // Higher-order component to safely handle auth context
 function withAuthSafety<P extends object>(
@@ -158,47 +115,6 @@ function AppLoadingScreen() {
   );
 }
 
-// DEBUG: Add debugging utilities to window
-if (typeof window !== 'undefined') {
-  (window as any).debugPostsCache = () => {
-    const postsCache = localStorage.getItem('posts_cache_235e68d1-89df-4d2d-8945-e7756d60de20');
-    if (postsCache) {
-      const parsed = JSON.parse(postsCache);
-      console.log('📦 [Debug] Posts cache:', parsed);
-      
-      if (parsed.data && Array.isArray(parsed.data)) {
-        const postsWithMedia = parsed.data.filter((post: any) => post.media_urls && post.media_urls.length > 0);
-        console.log('📦 [Debug] Posts with media:', postsWithMedia.length);
-        postsWithMedia.forEach((post: any) => {
-          console.log(`📦 [Debug] Post "${post.title}" media:`, post.media_urls);
-        });
-      }
-    } else {
-      console.log('📦 [Debug] No posts cache found');
-    }
-  };
-  
-  (window as any).debugMediaConversion = () => {
-    console.log('🧪 [Debug] Testing media conversion...');
-    if ((window as any).MediaDebugger?.testMediaConversionWithSamples) {
-      (window as any).MediaDebugger.testMediaConversionWithSamples();
-    } else {
-      console.log('❌ [Debug] MediaDebugger not available');
-    }
-  };
-  
-  (window as any).testDatabaseFormats = () => {
-    console.log('🧪 [Debug] Testing database media formats...');
-    if ((window as any).MediaDebugger?.testDatabaseMediaFormats) {
-      return (window as any).MediaDebugger.testDatabaseMediaFormats();
-    } else {
-      console.log('❌ [Debug] MediaDebugger not available');
-    }
-  };
-}
-
-// Global debugging interfaces for development preserved for other tools
-import '@/utils/mobileConsoleValidation';
 // ✅ SIMPLIFIED: Phase 8 AI/ML systems removed for maintainability
 // The app now focuses on core functionality without complex AI overlays
 
@@ -209,15 +125,25 @@ export default function App() {
   // FIXED: Add loading state to prevent white screen
   const [appReady, setAppReady] = useState(false);
   
-  // Streamlined initialization using centralized service
+  // Streamlined initialization using centralized services
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        // Initialize core app services
         const result = await appInitializationService.initialize({
           isDevelopment: import.meta.env?.DEV,
           enableDebugInterfaces: import.meta.env?.DEV,
           enableMobileRecovery: true
         });
+
+        // Initialize development tools (handled automatically in dev mode)
+        if (import.meta.env?.DEV) {
+          await developmentTools.initialize({
+            enablePhaseIntegrations: true,
+            enableDebugUtilities: true,
+            enableConsoleDebuggers: true
+          });
+        }
 
         if (!result.success) {
           console.error('🚨 [App] Initialization failed with errors:', result.errors);
@@ -239,8 +165,11 @@ export default function App() {
     initializeApp();
     
     return () => {
-      // Cleanup handled by initialization service
+      // Cleanup handled by services
       appInitializationService.cleanup();
+      if (import.meta.env?.DEV) {
+        developmentTools.cleanup();
+      }
     };
   }, []);
 
