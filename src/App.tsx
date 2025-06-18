@@ -42,6 +42,9 @@ import { usePWA, useInstallPrompt } from '@/hooks/usePWA';
 import NetworkStatusIndicator from '@/components/errors/NetworkStatusIndicator';
 import PWAInitializer from '@/components/pwa/PWAInitializer';
 
+// Import the new centralized initialization service
+import { appInitializationService } from '@/services/AppInitializationService';
+
 // Phase 5B Testing Tools (Development only)
 import '@/utils/phase5bTestUtils';
 import '@/utils/phase5bPerformanceFix';
@@ -61,7 +64,6 @@ import '@/utils/consoleOptimizationReport';
 import '@/utils/presenceTestingUtility';
 import '@/utils/databaseConnectivityTest';
 import '@/utils/mobileDetection';
-import { initializeCacheWarming } from '@/utils/cacheWarming';
 
 // Phase 2C: Predictive Cache Integration
 import '@/utils/phase2cIntegration';
@@ -93,7 +95,6 @@ import { pageVisibilityManager } from '@/utils/pageVisibilityManager';
 import '@/utils/phase7Integration';
 
 // PHASE 1: Enhanced Mobile Session Recovery
-import { phase1Recovery } from '@/utils/phase1MobileRecovery';
 import '@/utils/globalErrorInterceptor'; // Initialize 401 error interception
 import Phase1MobileRecovery from '@/components/mobile/Phase1MobileRecovery';
 
@@ -208,191 +209,38 @@ export default function App() {
   // FIXED: Add loading state to prevent white screen
   const [appReady, setAppReady] = useState(false);
   
-  // Streamlined initialization
+  // Streamlined initialization using centralized service
   useEffect(() => {
-    const initializeAppAsync = async () => {
+    const initializeApp = async () => {
       try {
-        // ✅ CRITICAL FIX: Initialize Supabase client after app mounts
-        initializeSupabase();
-
-        // Phase 6: Performance monitoring is now auto-initialized
-        // via the unified system in OptimizedProviders
-        
-        // Initialize essential services
-        pageVisibilityManager.initialize();
-        
-        // Track session start for PWA mobile detection
-        if (!sessionStorage.getItem('session-start')) {
-          sessionStorage.setItem('session-start', Date.now().toString());
-        }
-        
-        // Initialize persistent cache asynchronously
-        persistentCache.init().catch(err => {
-          if (import.meta.env.DEV) {
-            console.warn('Persistent cache failed:', err);
-          }
+        const result = await appInitializationService.initialize({
+          isDevelopment: import.meta.env?.DEV,
+          enableDebugInterfaces: import.meta.env?.DEV,
+          enableMobileRecovery: true
         });
-        
-        // Initialize Supabase health monitoring
-        supabaseHealthMonitor.startMonitoring();
-        
-        // CRITICAL: Initialize Supabase-IndexedDB bridge for mobile browser blocking fix
-        try {
-          const { supabaseIndexedDBBridge } = await import('@/utils/supabaseIndexedDBBridge');
-          console.log('🔧 [App] Supabase-IndexedDB bridge initialized for mobile browser blocking protection');
-          
-          // Load IndexedDB debugger in development
-          if (import.meta.env.DEV) {
-            await import('@/utils/indexedDBDebugger');
-            console.log('🔧 [App] IndexedDB debugger loaded for development');
-          }
-          
-          // Load mobile browser protection test suite
-          if (import.meta.env.DEV) {
-            await import('@/utils/mobileBrowserProtectionTest');
-            console.log('🔧 [App] Mobile browser protection test suite loaded');
-          }
-          
-          // Add to global debugging interface
-          if (import.meta.env.DEV) {
-            (window as any).debugSupabaseBridge = {
-              getMetrics: () => supabaseIndexedDBBridge.getMetrics(),
-              testMobileBlocking: () => supabaseIndexedDBBridge.testMobileBlockingDetection(),
-              clearCache: () => supabaseIndexedDBBridge.clearCache(),
-              warmCache: (spaceId: string) => supabaseIndexedDBBridge.warmCache(spaceId),
-              getCacheStatus: (spaceId: string) => supabaseIndexedDBBridge.getCacheStatus(spaceId),
-              testAuthUser: () => supabaseIndexedDBBridge.getCurrentUser(),
-              testPresenceUpdate: (userId: string, isOnline: boolean) => supabaseIndexedDBBridge.updateGlobalPresence(userId, isOnline)
-            };
-            console.log('🔧 [App] Enhanced debug interface available at window.debugSupabaseBridge');
-          }
-          
-          // Warm cache for current space if available
-          setTimeout(() => {
-            const currentPath = window.location.pathname;
-            const pathSegments = currentPath.split('/').filter(Boolean);
-            if (pathSegments.length > 0 && pathSegments[0] !== 'spaces' && pathSegments[0] !== 'chat') {
-              const spaceSubdomain = pathSegments[0];
-              
-              // Skip cache warming with subdomain - it needs space ID (UUID format)
-              // This prevents 400 Bad Request errors that interfere with member counts
-              console.log(`🔧 [App] Skipping cache warming for subdomain: ${spaceSubdomain} (needs space ID)`);
-            }
-          }, 3000); // Warm cache after app is fully loaded
-          
-        } catch (bridgeError) {
-          console.warn('🔧 [App] Supabase-IndexedDB bridge initialization failed:', bridgeError);
-        }
-        
-        // Initialize cache warming with known data
-        initializeCacheWarming();
-        
-        // Initialize Event-Driven Space Coordinator (Phase 1)
-        try {
-          const { spaceEventCoordinator } = await import('@/utils/spaceEventCoordinator');
-          console.log('🎯 [App] Space Event Coordinator initialized');
-          
-          // Add to global debugging interface
-          if (import.meta.env.DEV) {
-            (window as any).spaceEventCoordinator = spaceEventCoordinator;
-            (window as any).debugSpaceEvents = {
-              getState: () => spaceEventCoordinator.getState(),
-              getDebugInfo: () => spaceEventCoordinator.getDebugInfo(),
-              dispatchTestEvent: (type = 'space:data-updated') => {
-                return spaceEventCoordinator.dispatchEvent(type, {
-                  spaceId: 'debug-test-space',
-                  subdomain: 'debug-test',
-                  source: 'system',
-                  timestamp: Date.now()
-                });
-              },
-              switchToTestSpace: () => {
-                return spaceEventCoordinator.switchSpace('test-space-id', 'test-space', 'user-action');
-              }
-            };
-            console.log('🎯 [App] Event coordinator debug interface available at window.debugSpaceEvents');
-          }
-          
-        } catch (coordinatorError) {
-          console.warn('🎯 [App] Space Event Coordinator initialization failed:', coordinatorError);
-        }
-        
-        // PHASE 1: Initialize Enhanced Mobile Session Recovery
-        try {
-          phase1Recovery.initialize({
-            debugMode: import.meta.env.DEV,
-            enableHealthMonitorIntegration: true,
-            enablePresenceIntegration: true,
-            sessionValidationThreshold: 30000, // 30 seconds
-            maxRecoveryAttempts: 3
-          });
-          console.log('📱 [App] Phase 1 mobile recovery initialized successfully');
-          
-          // Add global debugging interface
-          if (import.meta.env.DEV) {
-            (window as any).testPhase1 = {
-              status: () => {
-                console.log('📱 Phase 1 Status Check:');
-                console.log('Available:', typeof (window as any).phase1Recovery !== 'undefined');
-                console.log('Mobile Features Enabled:', typeof (window as any).mobileSessionManager !== 'undefined');
-                console.log('Mobile Lifecycle Debug:', typeof (window as any).mobileLifecycleDebug !== 'undefined');
-                console.log('Phase 1 Component:', typeof (window as any).phase1Component !== 'undefined');
-                
-                if ((window as any).phase1Recovery) {
-                  console.log('Phase 1 Stats:', (window as any).phase1Recovery.getStats());
-                  console.log('Phase 1 State:', (window as any).phase1Recovery.getState());
-                }
-              },
-              enableForTesting: () => {
-                (window as any).phase1Recovery?.overrideMobileDetection(true);
-                (window as any).phase1Recovery?.forceEnable();
-                console.log('📱 Phase 1 force enabled for testing');
-              },
-              triggerRecovery: () => {
-                return (window as any).phase1Recovery?.triggerRecovery();
-              },
-              validateSession: () => {
-                return (window as any).phase1Recovery?.validateSession();
-              },
-              simulateBackground: () => {
-                (window as any).mobileLifecycleDebug?.forceBackground();
-                setTimeout(() => {
-                  (window as any).mobileLifecycleDebug?.forceReturn();
-                }, 2000);
-                console.log('📱 Simulated 2-second background session');
-              }
-            };
-          }
-          
-        } catch (phase1Error) {
-          console.warn('📱 [App] Phase 1 mobile recovery failed to initialize:', phase1Error);
+
+        if (!result.success) {
+          console.error('🚨 [App] Initialization failed with errors:', result.errors);
         }
 
-        // Phase 8 AI/ML systems removed for maintainability
-        
+        if (result.warnings.length > 0) {
+          console.warn('⚠️ [App] Initialization completed with warnings:', result.warnings);
+        }
+
+        console.log('✅ [App] Application ready');
         setAppReady(true);
         
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('App initialization error:', error);
-        }
-        setAppReady(true);
+        console.error('❌ [App] Initialization error:', error);
+        setAppReady(true); // Still allow app to load even if initialization fails
       }
     };
     
-    initializeAppAsync();
+    initializeApp();
     
     return () => {
-      if (import.meta.env.DEV) {
-        try {
-          // Phase 6: Cleanup handled by unified system
-          persistentCache.cleanup();
-
-          // Phase 8 cleanup removed - systems no longer present
-        } catch (error) {
-          console.warn('Cleanup error:', error);
-        }
-      }
+      // Cleanup handled by initialization service
+      appInitializationService.cleanup();
     };
   }, []);
 
