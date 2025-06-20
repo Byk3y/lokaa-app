@@ -7,17 +7,18 @@ import ProfileDropdown from "@/components/common/ProfileDropdown";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, userDetails, signOut } = useOptimizedAuth();
+  const { user, signOut } = useOptimizedAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Don't show the navbar on dashboard routes if user is logged in
+  // Don't show the navbar on dashboard routes or discover page
   const isDashboardRoute = location.pathname.startsWith('/dashboard') || 
                           location.pathname.startsWith('/discover') || 
                           location.pathname.startsWith('/spaces');
   
-  // If user is logged in and on a dashboard route, don't render the navbar
-  if (user && isDashboardRoute) {
+  // Hide navbar on discover and dashboard pages regardless of auth status
+  // The Discover page provides its own complete header with auth buttons
+  if (isDashboardRoute) {
     return null;
   }
 
@@ -140,22 +141,14 @@ export default function Navbar() {
                         to="/profile"
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                         onClick={() => {
-                          navigate(`/profile/${userDetails?.profile_url || ''}`);
+                          navigate(`/profile/${user?.id || ''}`);
                           setMobileMenuOpen(false);
                         }}
                       >
                         <User className="mr-2 h-4 w-4" />
                         <span>My Profile</span>
                       </Link>
-                      {userDetails?.role === 'creator' && (
-                        <Link
-                          to="/earnings"
-                          className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          Earnings
-                        </Link>
-                      )}
+                      {/* Creator earnings link removed - role info not available in user object */}
                       <Link
                         to="/settings"
                         className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"

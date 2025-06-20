@@ -50,6 +50,12 @@
     --input: 240 5.9% 90%;
     --ring: 180 100% 25%;
     --radius: 0.5rem;
+    
+    /* ✅ MOBILE INPUT FIX: Safe area CSS custom properties */
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
   }
  
   .dark {
@@ -253,6 +259,63 @@
     overscroll-behavior-x: contain;
   }
   
+  /* ✅ CHAT POPOVER FIX: Prevent transition flicker on popover close */
+  .chat-popover-immediate-close {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  /* ✅ CHAT MODAL FIX: Ensure modal appears instantly */
+  .chat-modal-instant {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+  
+  /* ✅ SAFARI-SPECIFIC CHAT FIXES: Handle Safari transition quirks */
+  @media not all and (min-resolution:.001dpcm) {
+    @supports (-webkit-appearance:none) {
+      /* Safari-only styles */
+      [data-state="open"][data-radix-popper-content-wrapper] {
+        transition: opacity 0ms !important;
+        animation: none !important;
+      }
+      
+      [data-state="closed"][data-radix-popper-content-wrapper] {
+        transition: opacity 0ms !important;
+        animation: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      
+      /* Force immediate hiding for Safari chat modals */
+      .chat-modal-safari-fix {
+        transition: none !important;
+        animation: none !important;
+      }
+      
+      /* Safari popover container fixes */
+      [data-radix-popover-content] {
+        transition: transform 0ms, opacity 0ms !important;
+      }
+    }
+  }
+  
+  /* ✅ CHAT VIEW FIX: Prevent layout shifts during ConnectionContext loading */
+  .chat-messages-container {
+    /* ✅ SCROLL FIX: Optimized for stable scroll positioning */
+    scroll-behavior: auto;
+    overflow-anchor: none;
+    /* Only contain layout to prevent shifts, not style which can interfere */
+    contain: layout;
+  }
+  
+  .connection-context-placeholder {
+    min-height: 64px; /* Reserve minimum space for ConnectionContext */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
   /* Custom shadow utility for top shadow */
   .shadow-t-lg {
     box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -261,6 +324,43 @@
   /* Custom height utility for 60px height */
   .h-15 {
     height: 60px;
+  }
+  
+  /* ✅ MOBILE INPUT FIX: Chat container utilities for mobile */
+  .mobile-chat-container {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .mobile-chat-input {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: white;
+    border-top: 1px solid rgb(229 231 235);
+  }
+  
+  .mobile-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  
+  /* Ensure chat input is always visible above bottom navigation */
+  @media (max-width: 640px) {
+    .mobile-chat-view {
+      position: relative;
+      height: 100vh;
+      height: 100dvh; /* Use dynamic viewport height if supported */
+      max-height: 100vh;
+      max-height: 100dvh;
+      overflow: hidden;
+    }
+    
+    .mobile-chat-view.keyboard-open {
+      height: 100vh;
+      height: 100dvh;
+    }
   }
   
   /* Typography utilities */

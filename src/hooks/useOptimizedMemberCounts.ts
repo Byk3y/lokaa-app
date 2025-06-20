@@ -3,6 +3,7 @@ import { globalCache, cacheQueries } from '@/utils/globalCacheCoordinator';
 import { devLogger } from '@/utils/developmentLogger';
 import { useSpacePresence } from '@/hooks/useUnifiedPresence';
 import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
+import { globalConsoleFlags } from '@/utils/developmentLogger';
 
 interface MemberCounts {
   totalMembers: number;
@@ -60,13 +61,17 @@ const notifySpaceSubscribers = (spaceId: string, newCounts: MemberCounts) => {
     if (onlineCountElement && newCounts.onlineMembers >= 0) {
       const currentDisplayed = parseInt(onlineCountElement.textContent || '0');
       if (currentDisplayed !== newCounts.onlineMembers) {
-        console.log(`🔧 [AutoUISync] Correcting display: ${currentDisplayed} → ${newCounts.onlineMembers}`);
+        if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+          console.log(`🔧 [AutoUISync] Correcting display: ${currentDisplayed} → ${newCounts.onlineMembers}`);
+        }
         onlineCountElement.textContent = newCounts.onlineMembers.toString();
       }
     }
   }, 50);
   
-  console.log(`🔄 [SingletonMemberCounts] Updated ${state.subscribers.size} subscribers for space ${spaceId}:`, newCounts);
+  if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+    console.log(`🔄 [SingletonMemberCounts] Updated ${state.subscribers.size} subscribers for space ${spaceId}:`, newCounts);
+  }
 };
 
 /**
@@ -100,10 +105,14 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
     if (!spaceState.isActive) {
       spaceState.isActive = true;
       isManagerRef.current = true;
-      console.log(`👑 [SingletonMemberCounts] ${subscriberId} became MANAGER for space ${spaceId}`);
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`👑 [SingletonMemberCounts] ${subscriberId} became MANAGER for space ${spaceId}`);
+      }
     } else {
       isManagerRef.current = false;
-      console.log(`👥 [SingletonMemberCounts] ${subscriberId} became SUBSCRIBER for space ${spaceId}`);
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`👥 [SingletonMemberCounts] ${subscriberId} became SUBSCRIBER for space ${spaceId}`);
+      }
       
       // Set initial state from existing data
       setCounts(spaceState.counts);
@@ -115,7 +124,9 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
       // If manager is leaving and there are other subscribers, promote one
       if (isManagerRef.current && spaceState.subscribers.size > 0) {
         const nextManager = Array.from(spaceState.subscribers)[0];
-        console.log(`👑 [SingletonMemberCounts] Promoting ${nextManager} to MANAGER for space ${spaceId}`);
+        if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+          console.log(`👑 [SingletonMemberCounts] Promoting ${nextManager} to MANAGER for space ${spaceId}`);
+        }
         
         // The promoted subscriber will detect this and become manager
         spaceState.isActive = false;
@@ -123,14 +134,19 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
         // No more subscribers, cleanup
         spaceState.isActive = false;
         globalSpaceMemberStates.delete(spaceId);
-        console.log(`🧹 [SingletonMemberCounts] Cleaned up space state for ${spaceId}`);
+        if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+          console.log(`🧹 [SingletonMemberCounts] Cleaned up space state for ${spaceId}`);
+        }
       }
     };
   }, [spaceId, subscriberId]);
 
   // Update online count from unified presence system
   useEffect(() => {
-    console.log(`🔍 [OptimizedMemberCounts] Presence update for space ${spaceId}: onlineCount=${onlineCount}`, { subscriberId });
+    // 🎯 PHASE 2 FIX: Conditional logging for presence updates
+    if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+      console.log(`🔍 [OptimizedMemberCounts] Presence update for space ${spaceId}: onlineCount=${onlineCount}`, { subscriberId });
+    }
     
     // **CRITICAL FIX**: Update singleton state directly if we're the manager
     if (isManagerRef.current) {
@@ -140,14 +156,20 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
         onlineMembers: Math.max(onlineCount, 0) 
       };
       
-      console.log(`👑 [SingletonMemberCounts] MANAGER ${subscriberId} updating presence count: ${spaceState.counts.onlineMembers} → ${newCounts.onlineMembers}`);
+      // 🎯 PHASE 2 FIX: Conditional logging for manager updates
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`👑 [SingletonMemberCounts] MANAGER ${subscriberId} updating presence count: ${spaceState.counts.onlineMembers} → ${newCounts.onlineMembers}`);
+      }
       notifySpaceSubscribers(spaceId, newCounts);
     }
     
     // **ADDITIONAL**: Always update local state immediately
     setCounts(prev => {
       const newCounts = { ...prev, onlineMembers: Math.max(onlineCount, 0) };
-      console.log(`🔍 [OptimizedMemberCounts] IMMEDIATE online count update: ${prev.onlineMembers} → ${newCounts.onlineMembers}`, { subscriberId });
+      // 🎯 PHASE 2 FIX: Conditional logging for immediate updates
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`🔍 [OptimizedMemberCounts] IMMEDIATE online count update: ${prev.onlineMembers} → ${newCounts.onlineMembers}`, { subscriberId });
+      }
       return newCounts;
     });
     
@@ -156,7 +178,10 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
       setCounts(prev => {
         if (prev.onlineMembers !== Math.max(onlineCount, 0)) {
           const correctedCounts = { ...prev, onlineMembers: Math.max(onlineCount, 0) };
-          console.log(`🛡️ [OptimizedMemberCounts] SAFETY correction for space ${spaceId}: ${prev.onlineMembers} → ${correctedCounts.onlineMembers}`, { subscriberId });
+          // 🎯 PHASE 2 FIX: Conditional logging for safety corrections
+          if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+            console.log(`🛡️ [OptimizedMemberCounts] SAFETY correction for space ${spaceId}: ${prev.onlineMembers} → ${correctedCounts.onlineMembers}`, { subscriberId });
+          }
           return correctedCounts;
         }
         return prev;
@@ -169,7 +194,10 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
   // Initialize with presence count immediately when spaceId changes
   useEffect(() => {
     if (spaceId && onlineCount >= 0) {
-      console.log(`🔍 [OptimizedMemberCounts] Initial presence for space ${spaceId}: onlineCount=${onlineCount}`, { subscriberId });
+      // 🎯 PHASE 2 FIX: Conditional logging for initial presence
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`🔍 [OptimizedMemberCounts] Initial presence for space ${spaceId}: onlineCount=${onlineCount}`, { subscriberId });
+      }
       
       // **CRITICAL FIX**: Update singleton state if we're the manager
       if (isManagerRef.current) {
@@ -179,14 +207,20 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
           onlineMembers: Math.max(onlineCount, 0) 
         };
         
-        console.log(`👑 [SingletonMemberCounts] MANAGER ${subscriberId} setting initial presence count: ${spaceState.counts.onlineMembers} → ${newCounts.onlineMembers}`);
+        // 🎯 PHASE 2 FIX: Conditional logging for manager initial count
+        if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+          console.log(`👑 [SingletonMemberCounts] MANAGER ${subscriberId} setting initial presence count: ${spaceState.counts.onlineMembers} → ${newCounts.onlineMembers}`);
+        }
         notifySpaceSubscribers(spaceId, newCounts);
       }
       
       // **ADDITIONAL**: Set the initial count IMMEDIATELY
       setCounts(prev => {
         const newCounts = { ...prev, onlineMembers: Math.max(onlineCount, 0) };
-        console.log(`🔍 [OptimizedMemberCounts] IMMEDIATE initial count: ${prev.onlineMembers} → ${newCounts.onlineMembers}`, { subscriberId });
+        // 🎯 PHASE 2 FIX: Conditional logging for immediate initial count
+        if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+          console.log(`🔍 [OptimizedMemberCounts] IMMEDIATE initial count: ${prev.onlineMembers} → ${newCounts.onlineMembers}`, { subscriberId });
+        }
         return newCounts;
       });
       
@@ -195,7 +229,10 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
         setCounts(prev => {
           if (prev.onlineMembers !== Math.max(onlineCount, 0)) {
             const correctedCounts = { ...prev, onlineMembers: Math.max(onlineCount, 0) };
-            console.log(`🛡️ [OptimizedMemberCounts] SAFETY initial correction for space ${spaceId}: ${prev.onlineMembers} → ${correctedCounts.onlineMembers}`, { subscriberId });
+            // 🎯 PHASE 2 FIX: Conditional logging for safety initial correction
+            if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+              console.log(`🛡️ [OptimizedMemberCounts] SAFETY initial correction for space ${spaceId}: ${prev.onlineMembers} → ${correctedCounts.onlineMembers}`, { subscriberId });
+            }
             return correctedCounts;
           }
           return prev;
@@ -211,7 +248,10 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
     if (!spaceId) return;
     
     const handleUpdate = (event: CustomEvent) => {
-      console.log(`📨 [SingletonMemberCounts] ${subscriberId} received update for space ${spaceId}:`, event.detail);
+      // 🎯 PHASE 2 FIX: Conditional logging for received updates
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`📨 [SingletonMemberCounts] ${subscriberId} received update for space ${spaceId}:`, event.detail);
+      }
       setCounts(event.detail);
     };
     
@@ -226,7 +266,10 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
   const fetchMemberCounts = useCallback(async () => {
     if (!isManagerRef.current || !spaceId) return;
     
-    console.log(`📊 [SingletonMemberCounts] MANAGER ${subscriberId} fetching data for space ${spaceId}`);
+    // 🎯 PHASE 2 FIX: Conditional logging for fetching data
+    if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+      console.log(`📊 [SingletonMemberCounts] MANAGER ${subscriberId} fetching data for space ${spaceId}`);
+    }
     
     const spaceState = getOrCreateSpaceState(spaceId);
     const loadingCounts = { ...spaceState.counts, loading: true, error: null };
@@ -255,14 +298,17 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
         error: null
       };
       
-      console.log(`✅ [SingletonMemberCounts] MANAGER ${subscriberId} FINAL PRESERVATION for space ${spaceId}:`, {
-        databaseOnlineCount: memberData.filter((m: any) => m.is_online === true).length,
-        currentOnlineCount,
-        finalCount: newCounts.onlineMembers,
-        totalMembers: newCounts.totalMembers,
-        adminMembers: newCounts.adminMembers,
-        message: 'USING CURRENT PRESENCE COUNT - DATABASE COUNT IGNORED'
-      });
+      // 🎯 PHASE 2 FIX: Conditional logging for final preservation
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`✅ [SingletonMemberCounts] MANAGER ${subscriberId} FINAL PRESERVATION for space ${spaceId}:`, {
+          databaseOnlineCount: memberData.filter((m: any) => m.is_online === true).length,
+          currentOnlineCount,
+          finalCount: newCounts.onlineMembers,
+          totalMembers: newCounts.totalMembers,
+          adminMembers: newCounts.adminMembers,
+          message: 'USING CURRENT PRESENCE COUNT - DATABASE COUNT IGNORED'
+        });
+      }
       
       notifySpaceSubscribers(spaceId, newCounts);
       
@@ -288,7 +334,10 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
     if (!isManagerRef.current || !spaceId || hasAutoFetched.current.has(spaceId)) return;
     
     hasAutoFetched.current.add(spaceId);
-    console.log(`🚀 [SingletonMemberCounts] MANAGER ${subscriberId} auto-fetching for space ${spaceId}`);
+    // 🎯 PHASE 2 FIX: Conditional logging for auto-fetching
+    if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+      console.log(`🚀 [SingletonMemberCounts] MANAGER ${subscriberId} auto-fetching for space ${spaceId}`);
+    }
     fetchMemberCounts();
   }, [spaceId, fetchMemberCounts]);
 
@@ -301,7 +350,10 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
     
     // Only reset if this is an actual space change, not initial load
     if (spaceId && lastSpaceId.current && lastSpaceId.current !== spaceId && hasInitialized.current) {
-      console.log(`🧹 [SingletonMemberCounts] MANAGER ${subscriberId} space changed from ${lastSpaceId.current} to ${spaceId}, resetting`);
+      // 🎯 PHASE 2 FIX: Conditional logging for space changes
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`🧹 [SingletonMemberCounts] MANAGER ${subscriberId} space changed from ${lastSpaceId.current} to ${spaceId}, resetting`);
+      }
       
       // Clear the hasAutoFetched for the old space
       if (hasAutoFetched.current.has(lastSpaceId.current)) {
@@ -323,7 +375,10 @@ export const useOptimizedMemberCounts = (spaceId: string): MemberCounts => {
     // Mark as initialized after first spaceId is set
     if (spaceId && !hasInitialized.current) {
       hasInitialized.current = true;
-      console.log(`🔧 [SingletonMemberCounts] MANAGER ${subscriberId} initialized for space ${spaceId}`);
+      // 🎯 PHASE 2 FIX: Conditional logging for initialization
+      if (!globalConsoleFlags?.DISABLE_SINGLETON_DEBUG_LOGS) {
+        console.log(`🔧 [SingletonMemberCounts] MANAGER ${subscriberId} initialized for space ${spaceId}`);
+      }
     }
     
     lastSpaceId.current = spaceId;

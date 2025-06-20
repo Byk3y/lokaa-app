@@ -14,7 +14,9 @@ const CACHE_VERSION = '1.0.1';
 const CACHE_PREFIX = 'lokaa-connect-spaces';
 
 // Development mode detection
-const isDevelopment = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const isDevelopmentMode = self.location.hostname === 'localhost' || 
+                        self.location.hostname.includes('127.0.0.1') ||
+                        self.location.search.includes('dev=true');
 
 // Cache names for different strategies
 const CACHES = {
@@ -62,7 +64,7 @@ const NEVER_CACHE_PATTERNS = [
   /\/auth\/v1\//,
   /\/storage\/v1\//,
   // Development specific patterns
-  ...(isDevelopment ? [
+  ...(isDevelopmentMode ? [
     /@vite/,
     /\.vite/,
     /__vite_ping/,
@@ -81,9 +83,9 @@ const MAX_CACHE_SIZES = {
 
 // Cache TTL (Time To Live) in milliseconds
 const CACHE_TTL = {
-  STATIC: isDevelopment ? 5 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000, // 5 minutes in dev, 7 days in prod
-  DYNAMIC: isDevelopment ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000,    // 1 minute in dev, 1 day in prod  
-  API: isDevelopment ? 30 * 1000 : 5 * 60 * 1000,                  // 30 seconds in dev, 5 minutes in prod
+  STATIC: isDevelopmentMode ? 5 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000, // 5 minutes in dev, 7 days in prod
+  DYNAMIC: isDevelopmentMode ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000,    // 1 minute in dev, 1 day in prod  
+  API: isDevelopmentMode ? 30 * 1000 : 5 * 60 * 1000,                  // 30 seconds in dev, 5 minutes in prod
   IMAGES: 30 * 24 * 60 * 60 * 1000 // 30 days
 };
 
@@ -91,13 +93,17 @@ const CACHE_TTL = {
  * Install Event - Cache static assets
  */
 self.addEventListener('install', (event) => {
-  console.log('🔧 [ServiceWorker] Installing...', isDevelopment ? '(Development Mode)' : '(Production Mode)');
+  if (!isDevelopmentMode) {
+    console.log('🔧 [ServiceWorker] Installing...');
+  } else {
+    console.log('🔧 [ServiceWorker] Installing... (Development Mode)');
+  }
   
   event.waitUntil(
     (async () => {
       try {
         // In development, don't cache as aggressively
-        if (isDevelopment) {
+        if (isDevelopmentMode) {
           console.log('⚡ [ServiceWorker] Development mode - minimal caching');
           
           // Only cache the offline page in development
@@ -112,7 +118,11 @@ self.addEventListener('install', (event) => {
           await offlineCache.add('/offline.html');
         }
         
-        console.log('✅ [ServiceWorker] Assets cached');
+        if (!isDevelopmentMode) {
+          console.log('✅ [ServiceWorker] Assets cached');
+        } else {
+          console.log('✅ [ServiceWorker] Assets cached');
+        }
         
         // Skip waiting to activate immediately
         self.skipWaiting();
@@ -127,7 +137,9 @@ self.addEventListener('install', (event) => {
  * Activate Event - Clean up old caches
  */
 self.addEventListener('activate', (event) => {
-  console.log('🚀 [ServiceWorker] Activating...');
+  if (!isDevelopmentMode) {
+    console.log('🚀 [ServiceWorker] Activating...');
+  }
   
   event.waitUntil(
     (async () => {
@@ -152,7 +164,9 @@ self.addEventListener('activate', (event) => {
         // Claim all clients immediately
         await clients.claim();
         
-        console.log('✅ [ServiceWorker] Activated and claimed clients');
+        if (!isDevelopmentMode) {
+          console.log('✅ [ServiceWorker] Activated and claimed clients');
+        }
       } catch (error) {
         console.error('❌ [ServiceWorker] Activation failed:', error);
       }
@@ -179,7 +193,7 @@ self.addEventListener('fetch', (event) => {
   }
   
   // In development mode, be less aggressive with caching
-  if (isDevelopment) {
+  if (isDevelopmentMode) {
     // Only handle offline fallback for HTML requests in development
     if (isHtmlRequest(request)) {
       event.respondWith(handleFetchDevelopment(request));
@@ -693,4 +707,6 @@ async function queueOfflineAction(payload) {
   });
 }
 
-console.log('🚀 [ServiceWorker] Loaded and ready for Phase 6A PWA features!'); 
+if (!isDevelopmentMode) {
+  console.log('🚀 [ServiceWorker] Loaded and ready for Phase 6A PWA features!'); 
+} 

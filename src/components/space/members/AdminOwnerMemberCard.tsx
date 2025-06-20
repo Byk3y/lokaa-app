@@ -1,6 +1,5 @@
 import React from 'react';
 import { MemberRole } from "@/contexts/MembershipContext"; // Assuming MemberRole is 'owner' | 'admin' | 'member'
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +13,8 @@ import {
 import { Crown, Shield, MoreHorizontal, UserX, Link as LinkIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth'; // To get current user for action checks
+import { OptimizedAvatar } from "@/components/ui/OptimizedAvatar"; // 🚀 NEW: Optimized avatar with caching
+import { getInitials } from '@/shared/utils/avatar-utils'; // 🎯 Use unified function
 
 // Re-define DisplayMember here or import if it's moved to a shared types file
 // For now, defining it to match MembersTab.tsx for clarity
@@ -41,11 +42,6 @@ interface AdminOwnerMemberCardProps {
   onRemoveMember: (memberToUpdate: DisplayMember) => Promise<void>;
   onClick?: (member: DisplayMember) => void;
 }
-
-const getInitials = (name: string | null) => {
-  if (!name) return "?";
-  return name.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
-};
 
 const formatJoinDate = (dateString: string | null) => {
   if (!dateString) return "Unknown";
@@ -110,10 +106,15 @@ export const AdminOwnerMemberCard: React.FC<AdminOwnerMemberCardProps> = ({
     <>
       <div>
         <div className="flex items-start space-x-3 mb-3">
-          <Avatar className="h-12 w-12 flex-shrink-0">
-            <AvatarImage src={member.avatar_url || undefined} alt={member.full_name || 'Member'} />
-            <AvatarFallback className="text-lg">{getInitials(member.full_name)}</AvatarFallback>
-          </Avatar>
+          <OptimizedAvatar
+            user={{
+              id: member.user_id,
+              full_name: member.full_name,
+              avatar_url: member.avatar_url
+            }}
+            size="lg"
+            enableCaching={true}
+          />
           <div className="flex-grow min-w-0">
             <h3 className="font-semibold text-gray-800 truncate" title={member.full_name || 'Unnamed Member'}>
               {member.full_name || 'Unnamed Member'}

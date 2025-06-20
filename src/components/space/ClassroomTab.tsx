@@ -203,16 +203,52 @@ const getModuleReleaseDateString = (
 };
 
 export default function ClassroomTab({ space }: ClassroomTabProps) {
-  const { user } = useOptimizedAuth();
+  const { user, loading: authLoading } = useOptimizedAuth();
   
-  // CRITICAL FIX: Ensure we always have valid space ID for course loading
-  const effectiveSpaceId = space?.id;
-  const effectiveOwnerId = space?.owner_id || 'f6064ebb-564a-49d2-a146-fb8615fd7ae2';
+  // CRITICAL FIX: Defensive space ID with persistence during transitions
+  const [stableSpaceId, setStableSpaceId] = useState<string | undefined>(space?.id);
+  const [stableOwnerId, setStableOwnerId] = useState<string>(space?.owner_id || 'f6064ebb-564a-49d2-a146-fb8615fd7ae2');
   
-  const isOwner = user?.id === effectiveOwnerId;
+  // Update stable IDs when space prop changes (but preserve during undefined transitions)
+  useEffect(() => {
+    if (space?.id) {
+      setStableSpaceId(space.id);
+    }
+    if (space?.owner_id) {
+      setStableOwnerId(space.owner_id);
+    }
+  }, [space?.id, space?.owner_id]);
   
-  // Sample course card for demonstration in development
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  // CRITICAL FIX: Use stable IDs to prevent course loading issues
+  const effectiveSpaceId = stableSpaceId || space?.id;
+  const effectiveOwnerId = stableOwnerId || space?.owner_id || 'f6064ebb-564a-49d2-a146-fb8615fd7ae2';
+  
+  // PERMISSION TIMING FIX: Wait for auth to load before calculating permissions
+  const isOwner = !authLoading && user?.id === effectiveOwnerId;
+  const hasValidAuth = !authLoading && user;
+  
+  // FORCE RE-RENDER: Add state to force component refresh when permissions change
+  const [permissionRefreshKey, setPermissionRefreshKey] = useState(0);
+  
+  // Monitor permission changes and force re-render
+  useEffect(() => {
+    // When we transition from not-owner to owner, force a re-render
+    if (hasValidAuth && isOwner) {
+      console.log('🔄 [ClassroomTab] Permission changed to owner, forcing re-render');
+      setPermissionRefreshKey(prev => prev + 1);
+    }
+  }, [hasValidAuth, isOwner]);
+  
+  // ENHANCED FIX: Force complete re-evaluation when transitioning to owner
+  const [courseGridKey, setCourseGridKey] = useState(0);
+  
+  useEffect(() => {
+    // Only increment if we're actually becoming an owner (not on initial load)
+    if (hasValidAuth && isOwner && permissionRefreshKey > 0) {
+      console.log('🔄 [ClassroomTab] Forcing complete course grid re-render');
+      setCourseGridKey(prev => prev + 1);
+    }
+  }, [hasValidAuth, isOwner, permissionRefreshKey]);
   
   // 🚀 Replace manual data fetching with cached courses
   const {
@@ -225,6 +261,20 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     removeCourse,
     handleEnrollment,
   } = useCachedClassroom(effectiveSpaceId, user?.id, effectiveOwnerId);
+  
+  // ENHANCED MOBILE RECOVERY: Force cache refresh when returning from background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && hasValidAuth && isOwner && effectiveSpaceId) {
+        console.log('🔄 [ClassroomTab] Mobile recovery: Refreshing component state for owner');
+        // Force cache refresh by calling refetch
+        refetchCourses().catch(console.error);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [hasValidAuth, isOwner, effectiveSpaceId, refetchCourses]);
   
   // Active tab state
   const [activeTab, setActiveTab] = useState("all-courses");
@@ -937,7 +987,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
 
       if (subsequentModules && subsequentModules.length > 0) {
         const updatePromises = subsequentModules.map(mod => 
-          supabase
+          getSupabaseClient()
             .from('course_modules')
             .update({ module_order: mod.module_order - 1 })
             .eq('id', mod.id)
@@ -1023,7 +1073,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
       }
       const newLessonOrder = targetModule.lessons.length + 1;
 
-      const lessonDataToInsert: Omit<Tables<'course_lessons'>, 'id' | 'created_at' | 'updated_at'> = {
+      const lessonDataToInsert = {
         module_id: addingLessonToModuleId,
         title: newLessonTitle.trim(),
         content_type: newLessonContentType,
@@ -1069,7 +1119,7 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
     setIsEditLessonDialogOpen(true);
   };
 
-  const handleUpdateLesson = async (lessonId: string, lessonDataToUpdate: Partial<Tables<'course_lessons'>>) => {
+  const handleUpdateLesson = async (lessonId: string, lessonDataToUpdate: Partial<CourseLessonData>) => {
     if (lessonDataToUpdate.title !== undefined && !lessonDataToUpdate.title.trim()) {
         toast({ title: "Lesson title required", description: "Please enter a title for the lesson.", variant: "destructive" });
         return;
@@ -1917,17 +1967,18 @@ export default function ClassroomTab({ space }: ClassroomTabProps) {
           </div>
           
           {/* Course grid */}
-          {isLoadingCourses ? (
+          {isLoadingCourses || authLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, index) => (
                 <CourseCardSkeleton key={index} />
               ))}
             </div>
           ) : searchedCourses.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* "New Course" Card - only for space owner */}
-              {isOwner && activeTab === "all-courses" && (
+            <div key={courseGridKey} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* "New Course" Card - only for space owner (wait for auth to load) */}
+              {hasValidAuth && isOwner && activeTab === "all-courses" && (
                 <motion.div
+                  key={`create-course-${permissionRefreshKey}`} // Force re-render on permission changes
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}

@@ -1,0 +1,451 @@
+/**
+ * Chat Realtime Service
+ * 
+ * Handles all real-time subscription logic for the chat system.
+ * Extracted from chat-store.ts to improve maintainability and separation of concerns.
+ * 
+ * Features:
+ * - Real-time message subscriptions
+ * - Conversation change notifications
+ * - Connection state management
+ * - Subscription cleanup
+ * - Enhanced unread count logic for messages from other users
+ */
+
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { getProtectedCurrentUser } from '@/utils/protectedAuth';
+import type { Message, Conversation } from './ChatApiService';
+
+/**
+ * Real-time event types
+ */
+export type RealtimeEventType = 
+  | 'conversation_change'
+  | 'new_message'
+  | 'message_update'
+  | 'connection_change';
+
+/**
+ * Event payload interfaces
+ */
+export interface ConversationChangeEvent {
+  type: 'conversation_change';
+  payload: any;
+}
+
+export interface NewMessageEvent {
+  type: 'new_message';
+  payload: Message;
+  conversationId: string;
+  isFromOtherUser: boolean;
+}
+
+export interface MessageUpdateEvent {
+  type: 'message_update';
+  payload: any;
+}
+
+export interface ConnectionChangeEvent {
+  type: 'connection_change';
+  payload: {
+    isConnected: boolean;
+    error?: string;
+  };
+}
+
+export type RealtimeEvent = 
+  | ConversationChangeEvent 
+  | NewMessageEvent 
+  | MessageUpdateEvent 
+  | ConnectionChangeEvent;
+
+/**
+ * Event listener callback
+ */
+export type RealtimeEventListener = (event: RealtimeEvent) => void;
+
+/**
+ * Global subscription manager to prevent multiple connections
+ */
+interface SubscriptionManager {
+  global?: any;
+  conversations: Record<string, any>;
+  validationTimer?: NodeJS.Timeout;
+}
+
+/**
+ * Chat Realtime Service class
+ */
+export class ChatRealtimeService {
+  private subscriptions: SubscriptionManager = { conversations: {} };
+  private listeners: Set<RealtimeEventListener> = new Set();
+  private isConnected = false;
+  private connectionError: string | null = null;
+
+  /**
+   * Initialize real-time subscriptions
+   */
+  initializeRealtime(): void {
+    console.log('[ChatRealtimeService] Initializing real-time subscriptions');
+
+    // Clean up existing subscriptions first
+    this.cleanupGlobalSubscription();
+
+    // Set up global conversation changes subscription
+    const globalChannel = getSupabaseClient()
+      .channel('global-chat-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_conversations'
+      }, (payload) => {
+        console.log('[ChatRealtimeService] Conversation change detected:', payload);
+        this.emitEvent({
+          type: 'conversation_change',
+          payload
+        });
+      })
+      .on('postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'chat_messages'
+        },
+        async (payload) => {
+          await this.handleNewMessage(payload);
+        })
+      .subscribe((status) => {
+        console.log('[ChatRealtimeService] Global subscription status:', status);
+        const isConnected = status === 'SUBSCRIBED';
+        const error = status === 'CHANNEL_ERROR' ? 'Connection failed' : null;
+        
+        this.isConnected = isConnected;
+        this.connectionError = error;
+        
+        this.emitEvent({
+          type: 'connection_change',
+          payload: { isConnected, error: error || undefined }
+        });
+      });
+
+    this.subscriptions.global = globalChannel;
+    
+    // Set up periodic validation timer (every 3 minutes)
+    this.setupValidationTimer();
+    
+    console.log('[ChatRealtimeService] Real-time subscriptions initialized');
+  }
+
+  /**
+   * Handle new message from real-time subscription
+   */
+  private async handleNewMessage(payload: any): Promise<void> {
+    try {
+      console.log('[ChatRealtimeService] New message detected:', payload);
+      const newMessage = payload.new as any;
+      
+      if (!newMessage?.sender_id || !newMessage?.conversation_id) {
+        console.warn('[ChatRealtimeService] Invalid message payload, skipping');
+        return;
+      }
+
+      // Get current user for unread count logic
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) {
+        console.warn('[ChatRealtimeService] No current user, skipping message processing');
+        return;
+      }
+      
+      // Check if message is from another user
+      const isFromOtherUser = newMessage.sender_id !== currentUser.id;
+      
+      console.log('[ChatRealtimeService] Message sender analysis:', {
+        conversationId: newMessage.conversation_id,
+        senderId: newMessage.sender_id,
+        currentUserId: currentUser.id,
+        isFromOtherUser,
+        messageContent: newMessage.content
+      });
+
+      // CRITICAL FIX: Handle user's own messages differently
+      // Their own messages are already handled optimistically by the message store
+      // But we still need to update conversation metadata for proper ordering
+      if (!isFromOtherUser) {
+        console.log('[ChatRealtimeService] Processing own message for conversation metadata update only');
+        
+        // Emit a conversation change event to update conversation metadata for ordering
+        this.emitEvent({
+          type: 'conversation_change',
+          payload: { 
+            type: 'own_message_sent',
+            conversationId: newMessage.conversation_id,
+            lastMessage: newMessage.content,
+            lastMessageAt: newMessage.created_at,
+            lastMessageSender: newMessage.sender_id  // CRITICAL FIX: Include sender ID
+          }
+        });
+        
+        return;
+      }
+
+      // Only process messages from OTHER users for real-time updates
+      console.log('[ChatRealtimeService] Processing message from other user for real-time updates');
+      
+      // Fetch the sender information for the new message
+      try {
+        const { data: senderData, error } = await getSupabaseClient()
+          .from('users')
+          .select('id, full_name, avatar_url')
+          .eq('id', newMessage.sender_id)
+          .single();
+        
+        const messageWithSender: Message = {
+          id: newMessage.id,
+          content: newMessage.content,
+          created_at: newMessage.created_at,
+          sender_id: newMessage.sender_id,
+          is_edited: newMessage.is_edited || false,
+          attachment_url: newMessage.attachment_url,
+          attachment_type: newMessage.attachment_type,
+          read_by_ids: newMessage.read_by_ids || [],
+          sender: !error && senderData ? {
+            id: senderData.id,
+            full_name: senderData.full_name,
+            avatar_url: senderData.avatar_url,
+          } : undefined
+        };
+
+        console.log('[ChatRealtimeService] Emitting real-time event for message from other user:', {
+          conversationId: newMessage.conversation_id,
+          senderId: newMessage.sender_id,
+          content: newMessage.content
+        });
+
+        // Emit new message event with all necessary data
+        this.emitEvent({
+          type: 'new_message',
+          payload: messageWithSender,
+          conversationId: newMessage.conversation_id,
+          isFromOtherUser: true // Always true since we filtered out own messages
+        });
+
+      } catch (error) {
+        console.error('[ChatRealtimeService] Error fetching sender for real-time message:', error);
+        
+        // Still emit the event even if sender fetch fails
+        const messageWithoutSender: Message = {
+          id: newMessage.id,
+          content: newMessage.content,
+          created_at: newMessage.created_at,
+          sender_id: newMessage.sender_id,
+          is_edited: newMessage.is_edited || false,
+          attachment_url: newMessage.attachment_url,
+          attachment_type: newMessage.attachment_type,
+          read_by_ids: newMessage.read_by_ids || []
+        };
+
+        this.emitEvent({
+          type: 'new_message',
+          payload: messageWithoutSender,
+          conversationId: newMessage.conversation_id,
+          isFromOtherUser: true // Always true since we filtered out own messages
+        });
+      }
+    } catch (error) {
+      console.error('[ChatRealtimeService] Error handling new message:', error);
+    }
+  }
+
+  /**
+   * Set up periodic validation timer
+   */
+  private setupValidationTimer(): void {
+    if (this.subscriptions.validationTimer) {
+      clearInterval(this.subscriptions.validationTimer);
+    }
+    
+    this.subscriptions.validationTimer = setInterval(() => {
+      console.log('[ChatRealtimeService] Triggering periodic unread count validation...');
+      this.emitEvent({
+        type: 'conversation_change',
+        payload: { type: 'validation_trigger' }
+      });
+    }, 180000); // 3 minutes
+    
+    console.log('[ChatRealtimeService] Periodic validation timer started (3 minute intervals)');
+  }
+
+  /**
+   * Clean up real-time subscriptions
+   */
+  cleanupRealtime(): void {
+    console.log('[ChatRealtimeService] Cleaning up real-time subscriptions');
+    
+    this.cleanupGlobalSubscription();
+    this.cleanupConversationSubscriptions();
+    this.cleanupValidationTimer();
+    
+    this.isConnected = false;
+    this.connectionError = null;
+    
+    this.emitEvent({
+      type: 'connection_change',
+      payload: { isConnected: false }
+    });
+  }
+
+  /**
+   * Clean up global subscription
+   */
+  private cleanupGlobalSubscription(): void {
+    if (this.subscriptions.global) {
+      getSupabaseClient().removeChannel(this.subscriptions.global);
+      this.subscriptions.global = undefined;
+    }
+  }
+
+  /**
+   * Clean up conversation-specific subscriptions
+   */
+  private cleanupConversationSubscriptions(): void {
+    Object.values(this.subscriptions.conversations).forEach(channel => {
+      getSupabaseClient().removeChannel(channel);
+    });
+    this.subscriptions.conversations = {};
+  }
+
+  /**
+   * Clean up validation timer
+   */
+  private cleanupValidationTimer(): void {
+    if (this.subscriptions.validationTimer) {
+      clearInterval(this.subscriptions.validationTimer);
+      this.subscriptions.validationTimer = undefined;
+      console.log('[ChatRealtimeService] Periodic validation timer cleaned up');
+    }
+  }
+
+  /**
+   * Subscribe to conversation-specific real-time events
+   */
+  subscribeToConversation(conversationId: string): void {
+    if (this.subscriptions.conversations[conversationId]) {
+      console.log('[ChatRealtimeService] Already subscribed to conversation:', conversationId);
+      return;
+    }
+
+    console.log('[ChatRealtimeService] Subscribing to conversation:', conversationId);
+
+    const channel = getSupabaseClient()
+      .channel(`conversation-${conversationId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `conversation_id=eq.${conversationId}`
+      }, (payload) => {
+        console.log('[ChatRealtimeService] Conversation message change:', payload);
+        this.emitEvent({
+          type: 'message_update',
+          payload
+        });
+      })
+      .subscribe((status) => {
+        console.log(`[ChatRealtimeService] Conversation ${conversationId} subscription status:`, status);
+      });
+
+    this.subscriptions.conversations[conversationId] = channel;
+  }
+
+  /**
+   * Unsubscribe from conversation-specific real-time events
+   */
+  unsubscribeFromConversation(conversationId: string): void {
+    const channel = this.subscriptions.conversations[conversationId];
+    if (channel) {
+      console.log('[ChatRealtimeService] Unsubscribing from conversation:', conversationId);
+      getSupabaseClient().removeChannel(channel);
+      delete this.subscriptions.conversations[conversationId];
+    }
+  }
+
+  /**
+   * Add event listener
+   */
+  addEventListener(listener: RealtimeEventListener): () => void {
+    this.listeners.add(listener);
+    
+    // Return unsubscribe function
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /**
+   * Remove event listener
+   */
+  removeEventListener(listener: RealtimeEventListener): void {
+    this.listeners.delete(listener);
+  }
+
+  /**
+   * Emit event to all listeners
+   */
+  private emitEvent(event: RealtimeEvent): void {
+    this.listeners.forEach(listener => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('[ChatRealtimeService] Error in event listener:', error);
+      }
+    });
+  }
+
+  /**
+   * Get connection status
+   */
+  getConnectionStatus(): { isConnected: boolean; error: string | null } {
+    return {
+      isConnected: this.isConnected,
+      error: this.connectionError
+    };
+  }
+
+  /**
+   * Get current authenticated user
+   */
+  private async getCurrentUser() {
+    try {
+      const userResponse = await getProtectedCurrentUser();
+      return userResponse?.data?.user || null;
+    } catch (error) {
+      console.error('[ChatRealtimeService] Error getting current user:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Force reconnection (useful for recovery scenarios)
+   */
+  reconnect(): void {
+    console.log('[ChatRealtimeService] Forcing reconnection...');
+    this.cleanupRealtime();
+    
+    // Wait a bit before reconnecting
+    setTimeout(() => {
+      this.initializeRealtime();
+    }, 1000);
+  }
+
+  /**
+   * Get active subscription count (for debugging)
+   */
+  getActiveSubscriptionCount(): number {
+    const globalCount = this.subscriptions.global ? 1 : 0;
+    const conversationCount = Object.keys(this.subscriptions.conversations).length;
+    return globalCount + conversationCount;
+  }
+}
+
+// Export singleton instance
+export const chatRealtimeService = new ChatRealtimeService(); 

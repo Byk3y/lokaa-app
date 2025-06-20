@@ -12,7 +12,6 @@ import { mobileOptimizationLayer } from '../utils/mobileOptimizationLayer';
 import { AuthProvider } from '../contexts/AuthContext';
 import { SpaceProvider } from '../contexts/SpaceContext';
 import { UserProfileProvider } from '../contexts/UserProfileContext';
-import { ChatProvider } from '../features/chat/compat/ChatContextCompat';
 import { GlobalPresenceProvider } from '../providers/GlobalPresenceProvider';
 import { MembershipProvider } from '../contexts/MembershipContext';
 import { ProfileImageProvider } from '../contexts/ProfileImageContext';
@@ -71,24 +70,6 @@ const MemoizedSpaceProvider = memo(function MemoizedSpaceProvider({
   }, []);
   
   return <SpaceProvider>{children}</SpaceProvider>;
-});
-
-/**
- * FIXED: Minimal Chat Provider wrapper - removed excessive monitoring
- */
-const MemoizedChatProvider = memo(function MemoizedChatProvider({ 
-  children 
-}: OptimizedProviderProps) {
-  // FIXED: Removed cleanup tracker to reduce overhead
-  
-  // FIXED: Minimal logging
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[MemoizedChatProvider] Mounted');
-    }
-  }, []);
-  
-  return <ChatProvider>{children}</ChatProvider>;
 });
 
 /**
@@ -250,13 +231,11 @@ export const OptimizedProviderTree = memo(function OptimizedProviderTree({
                 <MemoizedSpaceProvider>
                   <MembershipProvider>
                     <UserProfileProvider>
-                      <MemoizedChatProvider>
-                        <MemoizedPresenceProvider>
-                          <SupabaseProvider>
-                            {children}
-                          </SupabaseProvider>
-                        </MemoizedPresenceProvider>
-                      </MemoizedChatProvider>
+                      <MemoizedPresenceProvider>
+                        <SupabaseProvider>
+                          {children}
+                        </SupabaseProvider>
+                      </MemoizedPresenceProvider>
                     </UserProfileProvider>
                   </MembershipProvider>
                 </MemoizedSpaceProvider>

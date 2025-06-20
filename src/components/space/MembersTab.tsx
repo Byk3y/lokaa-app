@@ -25,7 +25,7 @@ import MemberCard from "./members/MemberCard";
 import MemberListItem from "./members/MemberListItem";
 import { LeadershipDisplay } from './members/LeadershipDisplay';
 import { MemberProfileModal } from './members/MemberProfileModal';
-import { useChat } from '@/features/chat';
+import { useConversations } from '@/features/chat';
 import ChatModal from '@/components/chat/ChatModal';
 
 // Use CachedMemberType from the hook as our DisplayMember type
@@ -39,7 +39,7 @@ export default function MembersTab() {
     permissions: storePermissions 
   } = useSpaceSettingsStore();
   const { toast } = useToast();
-  const { startDirectConversation } = useChat();
+  const { startDirectConversation } = useConversations();
   
   // Use same fallback pattern as AboutTab and FeedTab with enhanced fallback  
   const currentSpaceData = storeSpace || (spaceData as any) || null;

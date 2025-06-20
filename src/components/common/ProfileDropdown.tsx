@@ -8,6 +8,7 @@ import { safelyNavigateToProfile } from '@/utils/profileRedirect';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { navigateToProfileWithContext, getCurrentSpaceContext } from '@/utils/spaceContextUtils';
 import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
+import { getInitials } from '@/shared/utils/avatar-utils';
 
 interface CustomMenuItem {
   label: string;
@@ -23,19 +24,6 @@ interface ProfileDropdownProps {
   variant?: 'default' | 'animation';
   size?: 'sm' | 'md' | 'lg';
   customMenuItems?: CustomMenuItem[];
-}
-
-// A utility to get initials from a name (up to 2 characters)
-function getInitials(name: string): string {
-  if (!name) return '';
-  
-  const words = name.trim().split(/\s+/);
-  
-  if (words.length === 1) {
-    return name.substring(0, 2).toUpperCase();
-  }
-  
-  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
 const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ 

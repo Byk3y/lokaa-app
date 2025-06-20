@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { useMembershipStore } from '@/features/spaces/store/membership-store';
 import { useUserSpacesStore } from '@/hooks/useUserSpacesStore';
+import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
 
 // Define the space interface (re-use the one from the store)
 interface Space {
@@ -212,9 +213,21 @@ export default function MobileSpaceDrawer({
                       className="h-10 w-10 rounded-lg object-cover flex-shrink-0"
                     />
                   ) : (
-                    <div className="h-10 w-10 rounded-lg bg-slate-700 dark:bg-slate-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-                      {space.name.charAt(0).toUpperCase()}
-                    </div>
+                    /* 🚀 UPGRADED: Now uses unified space assets system */
+                    (() => {
+                      const spaceAssets = SpaceAssetsUtils.resolveSpaceAssets(space);
+                      return (
+                        <div 
+                          className="h-10 w-10 rounded-lg flex items-center justify-center font-bold text-base flex-shrink-0"
+                          style={{ 
+                            backgroundColor: spaceAssets.backgroundColor,
+                            color: spaceAssets.textColor 
+                          }}
+                        >
+                          {spaceAssets.initials}
+                        </div>
+                      );
+                    })()
                   )}
                   <div className="flex-grow overflow-hidden">
                     <span className="block text-base truncate">{capitalizeWords(space.name)}</span>

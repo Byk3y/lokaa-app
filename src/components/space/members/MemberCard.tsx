@@ -1,6 +1,7 @@
 import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns'; // Corrected import for date-fns
+import { getInitials } from '@/shared/utils/avatar-utils'; // 🎯 Use unified function
 
 export interface MemberCardProps {
   avatar_url: string | null;
@@ -17,13 +18,6 @@ const MemberCard: React.FC<MemberCardProps> = ({
   joined_at,
   onClick,
 }) => {
-  const getInitials = (name: string | null): string => {
-    if (!name) return '?';
-    const names = name.split(' ');
-    if (names.length === 1) return names[0].charAt(0).toUpperCase();
-    return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
-  };
-
   const formattedJoinDate = joined_at ? format(new Date(joined_at), 'MMM d, yyyy') : 'N/A';
 
   const cardContent = (

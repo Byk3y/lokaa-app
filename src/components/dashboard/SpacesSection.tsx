@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, PlusCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import useSpacesData from "@/hooks/useSpacesData";
+import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
 
 interface SpacesSectionProps {
   closeMobileSidebar: () => void;
@@ -16,12 +17,6 @@ const SpacesSection = ({ closeMobileSidebar }: SpacesSectionProps) => {
   const { joinedSpaces = [], loading = false } = useSpacesData() || {};
 
   const isCreator = userDetails?.role === 'creator';
-
-  // Helper function to get space initials
-  const getSpaceInitials = (name: string) => {
-    if (!name) return "S";
-    return name.charAt(0).toUpperCase();
-  };
 
   return (
     <div className="pt-4 pb-2">
@@ -41,28 +36,37 @@ const SpacesSection = ({ closeMobileSidebar }: SpacesSectionProps) => {
         <div className="mt-1 pl-4 space-y-1">
           {!loading && joinedSpaces?.length > 0 && (
             <div className="grid grid-cols-3 gap-2 px-2 mt-2">
-              {joinedSpaces.slice(0, 6).map((space) => (
-                <Link
-                  key={space.id}
-                  to={`/space/${space.subdomain}`}
-                  className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-gray-100"
-                  onClick={closeMobileSidebar}
-                >
-                  <Avatar className="h-10 w-10 mb-1">
-                    <AvatarImage 
-                      src={space.cover_image} 
-                      onError={(e) => {
-                        // If image fails to load, Radix UI's AvatarFallback will automatically show
-                        console.log(`Failed to load avatar for space: ${space.name}`);
-                      }}
-                    />
-                    <AvatarFallback className="bg-lokaa-100 text-lokaa-700">
-                      {getSpaceInitials(space.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-xs text-center truncate w-full">{space.name}</span>
-                </Link>
-              ))}
+              {joinedSpaces.slice(0, 6).map((space) => {
+                const spaceAssets = SpaceAssetsUtils.resolveSpaceAssets(space);
+                
+                return (
+                  <Link
+                    key={space.id}
+                    to={`/space/${space.subdomain}`}
+                    className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-gray-100"
+                    onClick={closeMobileSidebar}
+                  >
+                    <Avatar className="h-10 w-10 mb-1">
+                      <AvatarImage 
+                        src={space.cover_image} 
+                        onError={(e) => {
+                          console.log(`Failed to load avatar for space: ${space.name}`);
+                        }}
+                      />
+                      <AvatarFallback 
+                        className="font-semibold"
+                        style={{ 
+                          backgroundColor: spaceAssets.backgroundColor,
+                          color: spaceAssets.textColor 
+                        }}
+                      >
+                        {spaceAssets.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs text-center truncate w-full">{space.name}</span>
+                  </Link>
+                );
+              })}
             </div>
           )}
           

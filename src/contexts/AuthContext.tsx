@@ -221,6 +221,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // The onAuthStateChange listener will automatically update user and session to null
   }
+
+  // ✅ CRITICAL FIX: Expose auth state globally for cross-browser fix scripts
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Create a mock store-like interface for compatibility with cross-browser scripts
+      (window as any).useOptimizedAuth = {
+        getState: () => ({
+          session,
+          user,
+          loading: loading || !providerReady,
+          signOut,
+          fastPathEnabled: !!user,
+          lastFastPathResult: null
+        })
+      };
+      
+      console.log('🌐 [AuthProvider] Exposed auth state globally for cross-browser fixes');
+      
+      // Also expose a simpler auth object for backward compatibility
+      (window as any).authContext = {
+        user,
+        session,
+        loading: loading || !providerReady,
+        signOut
+      };
+    }
+  }, [session, user, loading, providerReady, signOut]);
   
   // The value provided to the context consumers
   const value = {
@@ -241,8 +268,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
-// Custom hook to use the auth context - FIXED: Named function for Fast Refresh compatibility
-export function useOptimizedAuth(): AuthContextType {
+// Custom hook to use the auth context - ✅ FIXED: Fast Refresh compatible export
+function useOptimizedAuthInternal(): AuthContextType {
   const context = useContext(AuthContext)
   
   // Enhanced mobile-safe error handling
@@ -273,3 +300,6 @@ export function useOptimizedAuth(): AuthContextType {
   
   return context
 }
+
+// ✅ FAST REFRESH COMPATIBLE: Export as const
+export const useOptimizedAuth = useOptimizedAuthInternal;

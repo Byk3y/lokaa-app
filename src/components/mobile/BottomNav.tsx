@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageSquare, User, Bell } from 'lucide-react';
 import useSpaceSettingsStore, { trackRouteChange } from '@/hooks/useSpaceSettingsStore';
 import { useEffect, useRef, useState } from 'react';
-import { useChat } from '@/features/chat';
+import { useConversations } from '@/features/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileBackgroundDetection } from '@/hooks/useMobileLifecycle';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -12,14 +12,11 @@ export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { space } = useSpaceSettingsStore();
-  const { getUnreadCount } = useChat();
+  const { unreadCount } = useConversations();
   const previousPathRef = useRef(location.pathname);
   const { returnedFromBackground } = useMobileBackgroundDetection();
   const isMobile = useMediaQuery("(max-width: 640px)");
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-
-  // Get unread message count
-  const unreadCount = getUnreadCount();
 
   const pathname = location.pathname;
   

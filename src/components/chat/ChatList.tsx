@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, X, MessageSquare, UserPlus, Menu, MoreHorizontal, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useChat } from '@/features/chat';
+import { useMessageStore } from '@/features/chat/store/messageStore';
 import type { LegacyConversation } from '@/features/chat/types';
 import ChatListItem from './ChatListItem';
 
@@ -29,7 +29,7 @@ export default function ChatList({
   const [isMarkingRead, setIsMarkingRead] = useState(false);
   
   const { toast } = useToast();
-  const { markConversationAsRead } = useChat();
+  const { markAsRead } = useMessageStore();
 
   const handleMarkAllAsRead = async () => {
     if (isMarkingRead) return;
@@ -51,7 +51,7 @@ export default function ChatList({
       
       // Mark each unread conversation as read
       await Promise.all(
-        unreadConversations.map(conv => markConversationAsRead(conv.conversation_id))
+        unreadConversations.map(conv => markAsRead(conv.conversation_id))
       );
       
       toast({

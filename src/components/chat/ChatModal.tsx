@@ -23,7 +23,7 @@ export default function ChatModal({ isOpen, onClose, initialConversationId }: Ch
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className={cn(
-          "p-0 overflow-hidden flex flex-col shadow-xl transition-all duration-300",
+          "p-0 overflow-hidden flex flex-col shadow-xl chat-modal-instant",
           isMobile 
             ? "w-screen h-screen max-w-full max-h-full rounded-none" 
             : isExpanded

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, X, ArrowLeft, Star, Maximize, Minimize, Users } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ChatAvatar } from '@/components/ui/OptimizedAvatar';
 import type { LegacyConversation } from '@/features/chat/types';
-import { getInitial } from '@/shared/utils/avatar-utils';
 import { formatActiveTime } from '@/utils/formatters';
 import { useTimezone } from '@/hooks/useTimezone';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -55,9 +54,6 @@ export default function ChatHeader({
     : otherParticipant?.full_name || 'Unknown User';
     
   const hasSpecialStatus = !isGroup && otherParticipant?.user_id === 'kia_ghasem_id';
-
-  const avatarUrl = !isGroup ? otherParticipant?.avatar_url : null;
-  const avatarFallback = getInitial(displayName);
   
   const activityStatus = getDynamicActivityStatus(
     isGroup,
@@ -84,18 +80,23 @@ export default function ChatHeader({
             <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
-        <Avatar className="h-12 w-12 mr-3 flex-shrink-0 border border-gray-100 dark:border-gray-700 shadow-sm">
+        
+        <div className="mr-3 flex-shrink-0">
           {isGroup ? (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center border border-gray-100 dark:border-gray-700 shadow-sm">
               <Users className="h-6 w-6 text-white" />
             </div>
           ) : (
-            <>
-              <AvatarImage src={avatarUrl || undefined} alt={displayName} />
-              <AvatarFallback className="bg-gradient-to-br from-teal-400 to-teal-600 text-white">{avatarFallback}</AvatarFallback>
-            </>
+            <ChatAvatar
+              user={{
+                id: otherParticipant?.user_id || '',
+                full_name: otherParticipant?.full_name || displayName,
+                avatar_url: otherParticipant?.avatar_url
+              }}
+            />
           )}
-        </Avatar>
+        </div>
+        
         <div className="flex-1 min-w-0">
           <div className="flex items-center">
             <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">

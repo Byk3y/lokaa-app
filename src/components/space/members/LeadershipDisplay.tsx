@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { DisplayMember } from '@/components/space/MembersTab'; 
 import { MemberRole } from '@/types/members';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare, Loader2 } from 'lucide-react';
 import {
@@ -11,15 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-// import { getInitials } from '@/lib/utils'; // Assuming you have a utility for initials
-
-// Simple getInitials function
-const getInitials = (name: string | null | undefined): string => {
-  if (!name) return 'U';
-  const names = name.split(' ');
-  const initials = names.map(n => n[0]).join('');
-  return initials.length > 2 ? initials.substring(0, 2) : initials.toUpperCase() || 'U';
-};
+import { ProfileHeaderAvatar } from "@/components/ui/OptimizedAvatar";
+import { getInitials } from '@/shared/utils/avatar-utils';
 
 interface LeadershipDisplayProps {
   owner?: DisplayMember;
@@ -87,10 +79,13 @@ const AdminOwnerCard: React.FC<{
 
   const cardContent = (
     <>
-      <Avatar className="w-24 h-24 mb-2 ring-1 ring-border ring-offset-2 ring-offset-background">
-        <AvatarImage src={member.avatar_url || undefined} alt={member.full_name || 'User'} />
-        <AvatarFallback className="text-3xl">{getInitials(member.full_name || 'U')}</AvatarFallback>
-      </Avatar>
+      <ProfileHeaderAvatar
+        user={{
+          id: member.user_id,
+          full_name: member.full_name,
+          avatar_url: member.avatar_url
+        }}
+      />
       
       <div className="text-center">
         <h4 className="font-semibold text-xl text-foreground truncate w-full">{member.full_name || 'N/A'}</h4>
