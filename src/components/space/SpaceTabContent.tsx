@@ -1,22 +1,14 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { useOutletContext, useParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { useOutletContext } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
 import { useTrustToken } from '@/hooks/useTrustToken';
-import AboutTab from "@/components/space/AboutTab";
-import FeedTab from "@/components/space/FeedTab";
-import CalendarTab from "@/components/space/CalendarTab";
-import MembersTab from "@/components/space/MembersTab";
-import LeaderboardsTab from "@/components/space/LeaderboardsTab";
-import ClassroomTab from "@/components/space/ClassroomTab";
+import { useCacheAccess } from '@/hooks/useCacheAccess';
 import { ErrorBoundary } from "react-error-boundary";
 import { Button } from "@/components/ui/button";
-import { extractTabFromPathname, type SpaceTab, debugTabExtraction } from "@/utils/tabUtils";
-import { getSpaceFallbackData } from '@/utils/spaceDataFallback';
-import { globalTabComponentManager } from "@/utils/globalTabComponentManager";
-import { useSpacePermissions } from "@/hooks/useSpacePermissions";
-
+import { extractTabFromPathname, type SpaceTab } from "@/utils/tabUtils";
+import { useTabManager } from '@/hooks/useTabManager';
+import { type TabDependencies } from '@/services/TabManagerService';
 
 // Define context type for useOutletContext
 interface SpaceShellContext {
@@ -25,18 +17,10 @@ interface SpaceShellContext {
 }
 
 /**
- * SpaceTabContent - ULTRA-OPTIMIZED Content area for space tabs
- * 
- * This component is heavily optimized to eliminate excessive re-renders.
- * Key optimizations:
- * 1. Aggressive memoization of all expensive computations
- * 2. Minimal state updates
- * 3. Immediate content rendering when possible
- * 4. Ultra-aggressive cache checking
- * 5. Robust tab determination that works with React Router timing
+ * SpaceTabContent - Optimized content area for space tabs
+ * Renders persistent tab components with service-based management
  */
 const SpaceTabContent = () => {
-  const { tab } = useParams<{ tab?: string }>();
   const { user, loading: authLoading } = useOptimizedAuth();
   const { activeTab, subdomain } = useOutletContext<SpaceShellContext>();
   
@@ -44,302 +28,56 @@ const SpaceTabContent = () => {
   const { 
     space: storeSpace,
     permissions: storePermissions,
-    loadingSpace: storeLoadingSpace,
   } = useSpaceSettingsStore();
   
-  // SIMPLIFIED: Trust token validation using extracted service
-  const { isValid: trustTokenValid, token: trustToken } = useTrustToken(subdomain, user?.id);
+  // Trust token validation using extracted service
+  const { token: trustToken } = useTrustToken(subdomain, user?.id);
   
-  // REVOLUTIONARY: Ultra-aggressive cache access with memoization
-  const hasInstantCacheAccess = useMemo(() => {
-    if (!user || authLoading || !subdomain) return false;
-    
-    try {
-      // Check cache sources for instant access
-      const lastActiveSpace = localStorage.getItem('lastActiveSpace');
-      if (lastActiveSpace) {
-        const space = JSON.parse(lastActiveSpace);
-        if (space?.subdomain === subdomain) return true;
-      }
-      
-      const ownershipFlag = localStorage.getItem(`user_owns_space_${subdomain}`);
-      if (ownershipFlag === 'true') return true;
-      
-      const membershipCache = localStorage.getItem(`user_member_${subdomain}_${user.id}`);
-      if (membershipCache) {
-        try {
-          const memberData = JSON.parse(membershipCache);
-          if (memberData.isMember) return true;
-        } catch (e) {
-          // Continue
-        }
-      }
-      
-      return false;
-    } catch (error) {
-      return false;
-    }
-  }, [user, subdomain, authLoading]);
+  // Cache access using extracted service
+  const { hasInstantAccess: hasInstantCacheAccess } = useCacheAccess(user, subdomain || '', authLoading);
 
-  // STREAMLINED: Simple access check - trust that SpaceProtectedRoute has verified access
-  const shouldShowContent = useMemo(() => {
-    // If we have a subdomain and user, show content immediately
-    // SpaceProtectedRoute has already verified access before rendering us
-    const hasSubdomain = !!subdomain;
-    const hasUser = !!user;
-    const result = hasSubdomain && hasUser;
-    
-    // DEBUG: Log the decision process
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 [SpaceTabContent] shouldShowContent check:', {
-        subdomain: subdomain || 'MISSING',
-        user: user ? 'PRESENT' : 'MISSING',
-        result
-      });
-    }
-    
-    return result;
-  }, [subdomain, user]); // Fixed: use user instead of user?.id
+  // Basic access check - SpaceProtectedRoute has already verified access
+  const shouldShowContent = subdomain && user;
 
-  // STREAMLINED: Simple permissions without complex memoization
-  const permissions = useMemo(() => ({
+  // Basic permissions check
+  const permissions = {
     isOwner: storePermissions?.isOwner ?? false,
     isAdmin: storePermissions?.isAdmin ?? false,
-  }), [storePermissions?.isOwner, storePermissions?.isAdmin]);
+  };
   
   // Ref for the post input field in FeedTab
   const postInputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
   
-  // STREAMLINED: Simple tab determination
-  const currentTab = useMemo(() => {
-    // Primary: use activeTab from context
-    if (activeTab) return activeTab as SpaceTab;
-    
-    // Fallback: extract from pathname
-    const pathname = window.location.pathname;
-    return extractTabFromPathname(pathname);
-  }, [activeTab, tab]);
+  // Tab determination
+  const currentTab = activeTab || extractTabFromPathname(window.location.pathname);
   
-  // **SOLUTION: Persistent Tab Components** - Prevent "reappearing" animation by keeping tabs mounted
-  // Track which tabs have been visited to control mounting
-  const [visitedTabs, setVisitedTabs] = useState<Set<SpaceTab>>(new Set(['feed'])); // Feed is always mounted
+  // Tab dependencies for service
+  const tabDependencies: TabDependencies = {
+    user,
+    permissions: { isOwner: permissions.isOwner, isAdmin: permissions.isAdmin },
+    spaceData: storeSpace,
+    subdomain: subdomain || '',
+    hasInstantAccess: !!(trustToken || hasInstantCacheAccess),
+    postInputRef,
+  };
+
+  // Use the tab manager service
+  const {
+    tabComponents: persistentTabComponents,
+    visitedTabs,
+    addTab,
+  } = useTabManager(tabDependencies);
   
   // Mark tab as visited when it becomes active
   useEffect(() => {
     if (currentTab) {
-      setVisitedTabs(prev => new Set([...prev, currentTab as SpaceTab]));
+      addTab(currentTab as SpaceTab);
     }
-  }, [currentTab]);
-  
-  // **CRITICAL FIX**: Use global tab component manager instead of local refs
-  // This prevents tab component recreation when SpaceShellLayout remounts (Chat→Feed navigation)
-  const tabComponentsRef = useRef<Record<string, JSX.Element | null>>({});
-  
-  // **REVOLUTIONARY**: Get or create tab components using global manager
-  const getOrCreateTabComponent = (tabKey: SpaceTab): JSX.Element | null => {
-    if (!user?.id || !subdomain) return null;
-    
-    // Try to get existing component from global manager first
-    const existingComponent = globalTabComponentManager.getTabComponent(subdomain, tabKey, user.id);
-    if (existingComponent) {
-      // Store in local ref for immediate access
-      tabComponentsRef.current[tabKey] = existingComponent;
-      return existingComponent;
-    }
-    
-    // Create new component if it doesn't exist
-    const currentUser = user;
-    const currentPermissions = permissions;
-    const currentInstantAccess = !!(trustToken || hasInstantCacheAccess);
-    const currentSpaceData = storeSpace || getSpaceFallbackData(subdomain || '');
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 [SpaceTabContent] Creating NEW ${tabKey} component for ${subdomain}`);
-    }
-    
-    let component: JSX.Element | null = null;
-    
-    switch (tabKey) {
-      case 'feed':
-        component = (
-          <FeedTab 
-            user={currentUser} 
-            isOwner={currentPermissions.isOwner} 
-            isAdmin={currentPermissions.isAdmin} 
-            postInputRef={postInputRef}
-            hasInstantAccess={currentInstantAccess}
-          />
-        );
-        break;
-        
-      case 'about':
-        component = (
-          <AboutTab />
-        );
-        break;
-        
-      case 'calendar':
-        component = (
-          <CalendarTab 
-            space={{
-              id: currentSpaceData.id,
-              name: currentSpaceData.name,
-              owner_id: currentSpaceData.owner_id || 'fallback-owner',
-            }}
-          />
-        );
-        break;
-        
-      case 'members':
-        component = <MembersTab />;
-        break;
-        
-      case 'classroom':
-        if (currentSpaceData?.id) {
-          component = (
-            <ClassroomTab space={{
-              id: currentSpaceData.id,
-              name: currentSpaceData.name,
-              owner_id: currentSpaceData.owner_id || 'f6064ebb-564a-49d2-a146-fb8615fd7ae2',
-            }} />
-          );
-        } else {
-          component = (
-            <div className="p-4 text-center">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-              <div>Loading classroom...</div>
-            </div>
-          );
-        }
-        break;
-        
-      case 'leaderboard':
-        if (currentSpaceData?.id) {
-          component = (
-            <LeaderboardsTab 
-              spaceId={currentSpaceData.id} 
-              spaceName={currentSpaceData.name} 
-            />
-          );
-        } else {
-          component = (
-            <div className="p-4 text-center">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-              <div>Loading leaderboard...</div>
-            </div>
-          );
-        }
-        break;
-        
-      default:
-        return null;
-    }
-    
-    if (component && currentSpaceData?.id) {
-      // Store in global manager for persistence across remounts
-      globalTabComponentManager.setTabComponent(
-        subdomain, 
-        tabKey, 
-        user.id, 
-        currentSpaceData.id, 
-        component
-      );
-      
-      // Store in local ref for immediate access
-      tabComponentsRef.current[tabKey] = component;
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🌐 [SpaceTabContent] Stored ${tabKey} component globally`);
-      }
-    }
-    
-    return component;
-  };
+  }, [currentTab]); // Remove addTab from dependencies to prevent circular updates
 
-  // **TRULY PERSISTENT TAB CREATION** - Create components only once, never recreate
-  useEffect(() => {
-    const needsUpdate = visitedTabs.size > Object.keys(tabComponentsRef.current).length;
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔧 [SpaceTabContent] Tab creation effect:', {
-        visitedTabsCount: visitedTabs.size,
-        existingComponentsCount: Object.keys(tabComponentsRef.current).length,
-        visitedTabs: Array.from(visitedTabs),
-        existingComponents: Object.keys(tabComponentsRef.current),
-        needsUpdate,
-        hasUser: !!user,
-        hasStoreSpace: !!storeSpace,
-        subdomain
-      });
-    }
-    
-    visitedTabs.forEach(tabKey => {
-      // Skip if component already exists in local ref
-      if (tabComponentsRef.current[tabKey]) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`🔧 [SpaceTabContent] Skipping ${tabKey} - already exists locally`);
-        }
-        return;
-      }
-      
-      // Get or create component using global manager
-      const component = getOrCreateTabComponent(tabKey);
-      if (component) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`✅ [SpaceTabContent] Successfully created/retrieved ${tabKey} component`);
-        }
-      }
-    });
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔧 [SpaceTabContent] Tab creation effect completed:', {
-        totalComponents: Object.keys(tabComponentsRef.current).length,
-        componentKeys: Object.keys(tabComponentsRef.current)
-      });
-    }
-  }, [visitedTabs, user?.id, permissions.isOwner, permissions.isAdmin, storeSpace?.id, subdomain]);
-  
-  // Cleanup global components when user navigates away from space
-  useEffect(() => {
-    return () => {
-      if (user?.id && subdomain) {
-        // Don't clear immediately - let them persist for quick return
-        setTimeout(() => {
-          // Only clear if user hasn't returned to this space within 30 seconds
-          if (window.location.pathname.includes(`/${subdomain}/space`)) {
-            return; // User is still in this space, don't clear
-          }
-          globalTabComponentManager.clearSpaceComponents(subdomain, user.id);
-        }, 30000); // 30 second grace period
-      }
-    };
-  }, [subdomain, user?.id]);
+  // Render content immediately if we have access
+  if (!shouldShowContent) return null;
 
-  // Get the stable tab components
-  const persistentTabComponents = tabComponentsRef.current;
-
-  // DEBUG: Log component state before render decision
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [SpaceTabContent] Render decision:', {
-      shouldShowContent,
-      currentTab,
-      visitedTabsCount: visitedTabs.size,
-      visitedTabsList: Array.from(visitedTabs),
-      componentsCount: Object.keys(persistentTabComponents).length,
-      componentsKeys: Object.keys(persistentTabComponents),
-      hasActiveTabComponent: !!persistentTabComponents[currentTab]
-    });
-  }
-
-  // STREAMLINED: Render content immediately if we have access
-  if (!shouldShowContent) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🚨 [SpaceTabContent] NOT RENDERING - shouldShowContent is false');
-    }
-    return null;
-  }
-
-  // STREAMLINED: Render all visited tabs but only show the active one
   return (
     <div className="flex-1 overflow-auto">
       <ErrorBoundary
@@ -352,7 +90,7 @@ const SpaceTabContent = () => {
           </div>
         }
       >
-        {/* **SOLUTION: Persistent Tab Rendering** - All tabs stay mounted, only active one is visible */}
+        {/* Persistent tabs - only active tab is visible */}
         {Object.entries(persistentTabComponents).map(([tabKey, component]) => {
           if (!component) return null;
           return (
@@ -374,4 +112,4 @@ const SpaceTabContent = () => {
 
 SpaceTabContent.displayName = 'SpaceTabContent';
 
-export default SpaceTabContent; 
+export default SpaceTabContent;

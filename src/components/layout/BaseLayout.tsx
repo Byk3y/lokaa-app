@@ -4,17 +4,11 @@ import { Home, Users, Plus, Search } from "lucide-react";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { getInitials } from '@/shared/utils/avatar-utils';
 
 export default function BaseLayout() {
   const navigate = useNavigate();
   const { user: authUser } = useOptimizedAuth();
-
-  function getInitials(name: string | null | undefined): string {
-    if (!name) return 'U';
-    const words = name.trim().split(/\s+/);
-    if (words.length === 1) return name.substring(0, 2).toUpperCase();
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-  }
 
   const displayName = authUser?.user_metadata?.full_name || authUser?.email || 'User';
   const avatarUrl = authUser?.user_metadata?.avatar_url;

@@ -7,6 +7,7 @@
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/shared/components";
 import { useProfile } from "../hooks/useProfile";
+import { getInitials } from "@/shared/utils/avatar-utils";
 
 interface ProfileAvatarProps {
   /** Size of the avatar in pixels */
@@ -38,18 +39,8 @@ export function ProfileAvatar({
     xl: 'h-16 w-16',
   };
   
-  // Get initials for the fallback
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(part => part.charAt(0))
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  };
-  
-  // Calculate the initials for the fallback
-  const initials = fullName ? getInitials(fullName) : '??';
+  // Use centralized initials function
+  const initials = getInitials(fullName);
   
   // Handle loading state
   if (isLoading && showLoadingFallback) {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { globalCache, cacheQueries } from '@/utils/globalCacheCoordinator';
 import { devLogger } from '@/utils/developmentLogger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import type { CachedPostType } from '@/hooks/useCachedPosts';
+import type { CachedPostType } from '@/features/posts/types/cachedPost'; // 🚀 MIGRATED: Now uses shared type definition
 import type { PostCardProps } from '@/features/posts/types/postCard';
 
 // Add tab visibility tracking for mobile refresh behavior

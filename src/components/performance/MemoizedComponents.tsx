@@ -1,6 +1,7 @@
 import React, { memo, useMemo, useCallback, useRef, useEffect } from 'react';
 import { performanceMonitor } from '../../utils/performanceMonitor';
 import { useCleanupTracker } from '../../hooks/useCleanupTracker';
+import { getInitials } from '@/shared/utils/avatar-utils';
 
 /**
  * Higher-order component for automatic performance memoization
@@ -314,9 +315,7 @@ export const OptimizedUserAvatar = withPerformanceMemo(
       return sizes[size];
     }, [size]);
     
-    const initials = useMemo(() => {
-      return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U';
-    }, [name]);
+    const initials = useMemo(() => getInitials(name), [name]);
     
     const handleClick = useStableCallback(() => {
       onClick?.(userId);

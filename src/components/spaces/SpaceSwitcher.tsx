@@ -22,14 +22,17 @@ import { useMembershipStore } from '@/features/spaces/store/membership-store'; /
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useSpace } from '@/hooks/useSpace';
 import { clearAllSpaceData } from '@/utils/spaceDataCleaner'; // Import comprehensive cleaner
+import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils'; // 🚀 NEW: Unified space assets system
 
-// Define the space interface
+// Define the space interface - 🚀 ENHANCED: Now includes all asset fields
 interface Space {
   id: string;
   name: string;
   subdomain: string;
   owner_id: string;
   icon_image?: string | null;
+  cover_image?: string | null;
+  primary_color?: string | null;
 }
 
 // Explicit type for the record fetched from space_members
@@ -371,17 +374,32 @@ export default function SpaceSwitcher({
             <DropdownMenuTrigger className="flex items-center outline-none hover:text-teal-600 transition-colors">
               {!hideTriggerLabel && (
                 <>
-                  {currentIcon ? (
-                    <img 
-                      src={currentIcon} 
-                      alt={formattedDisplayName} 
-                      className="h-10 w-10 rounded-lg mr-2"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 rounded-lg mr-2 bg-slate-700 dark:bg-slate-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-                      {formattedDisplayName?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  {/* 🚀 UPGRADED: Now uses unified space assets system */}
+                  {(() => {
+                    const spaceAssets = SpaceAssetsUtils.resolveSpaceAssets({
+                      name: formattedDisplayName,
+                      icon_image: currentIcon,
+                      subdomain: currentSpaceSubdomain
+                    });
+                    
+                    return spaceAssets.hasIcon && spaceAssets.iconUrl ? (
+                      <img 
+                        src={spaceAssets.iconUrl} 
+                        alt={formattedDisplayName} 
+                        className="h-10 w-10 rounded-lg mr-2 object-cover"
+                      />
+                    ) : (
+                      <div 
+                        className="h-10 w-10 rounded-lg mr-2 flex items-center justify-center font-bold text-base flex-shrink-0"
+                        style={{ 
+                          backgroundColor: spaceAssets.backgroundColor,
+                          color: spaceAssets.textColor 
+                        }}
+                      >
+                        {spaceAssets.initials}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
               {!hideTriggerLabel && (

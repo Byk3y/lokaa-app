@@ -213,14 +213,32 @@ if (typeof window !== 'undefined') {
 
 // Default configuration for production-like development experience
 if (process.env.NODE_ENV === 'development') {
+  // 🎯 PHASE 1 FIX: Use quiet defaults instead of allowing all Phase categories
   // Disable noisy categories by default
   devLogger.disableCategory(
     'MediaProcessing',
     'PerformanceMonitor', 
     'BundleOptimizer',
     'MobileOptimization',
-    'PresenceDebug'
+    'PresenceDebug',
+    // 🎯 PHASE 1 FIX: Add Phase categories to disabled list
+    'Phase2A',
+    'Phase2B', 
+    'Phase2C',
+    'Phase3',
+    'Phase4B',
+    'Phase5',
+    'Phase6',
+    'Phase7',
+    'CacheDebug',
+    'UnifiedPresence',
+    'GlobalPresence',
+    'ServiceWorker',
+    'PredictiveCache'
   );
+
+  // 🎯 PHASE 1 FIX: Only allow essential categories for better development experience
+  devLogger.onlyAllow('Error', 'Warning', 'Critical', 'Auth', 'Chat');
 
   console.log('🔧 [DevLogger] Development logger initialized');
   console.log('🔧 Available commands:');
@@ -229,20 +247,50 @@ if (process.env.NODE_ENV === 'development') {
   console.log('  - window.devLogger.onlyAllow("Category1", "Category2") - Only show specific categories');
   console.log('  - window.devLogger.getStats() - Show logging statistics');
   console.log('  - window.devLogger.setEnabled(false) - Disable all dev logging');
+  console.log('🔇 [DevLogger] Quiet mode active - use window.devLogger.allowAll() to see all logs');
 }
 
-// Phase 2A: Enable Advanced Query Engine logging categories
-if (process.env.NODE_ENV === 'development') {
-  devLogger.startup('Phase2A', 'Advanced Query Engine logging enabled');
-  // Enable specific categories for Phase 2A
-  devLogger.onlyAllow('CacheDebug', 'QueryEngine', 'AdvancedQuery', 'Phase2A');
+// 🎯 PHASE 1 FIX: Remove automatic Phase system logging - let them initialize quietly
+// Phase 2A: Removed automatic enabling of Advanced Query Engine logging categories
+// Phase 2C: Removed automatic enabling of Predictive Cache logging categories
+
+// 🎯 PHASE 2 FIX: Add global environment detection and aggressive quiet mode
+const isDevelopmentMode = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' || 
+  window.location.hostname.includes('127.0.0.1') ||
+  process.env.NODE_ENV === 'development'
+);
+
+// 🎯 PHASE 2 FIX: Global flags for system-wide console control
+const globalConsoleFlags = {
+  QUIET_MODE: isDevelopmentMode && !window.location.search.includes('verbose=true'),
+  DISABLE_PHASE_INIT_LOGS: isDevelopmentMode,
+  DISABLE_CHAT_DEBUG_LOGS: isDevelopmentMode,
+  DISABLE_PRESENCE_DEBUG_LOGS: isDevelopmentMode,
+  DISABLE_SINGLETON_DEBUG_LOGS: isDevelopmentMode
+};
+
+// 🎯 PHASE 2 FIX: Expose flags globally for other modules
+if (typeof window !== 'undefined') {
+  (window as any).globalConsoleFlags = globalConsoleFlags;
+  
+  // Add console optimization commands
+  (window as any).enableFullLogging = () => {
+    Object.keys(globalConsoleFlags).forEach(key => {
+      (globalConsoleFlags as any)[key] = false;
+    });
+    console.log('🔊 [DevLogger] Full logging enabled - all debug output restored');
+  };
+  
+  (window as any).enableQuietMode = () => {
+    Object.keys(globalConsoleFlags).forEach(key => {
+      (globalConsoleFlags as any)[key] = true;
+    });
+    console.log('🔇 [DevLogger] Quiet mode enabled - debug output suppressed');
+  };
 }
 
-// Phase 2C: Enable Predictive Cache logging categories
-if (process.env.NODE_ENV === 'development') {
-  devLogger.startup('Phase2C', 'Predictive Cache Engine logging enabled');
-  // Add Phase 2C categories to allowed list
-  devLogger.onlyAllow('CacheDebug', 'QueryEngine', 'AdvancedQuery', 'Phase2A', 'PredictiveCache', 'PredictiveDashboard', 'Phase2C');
-}
+// 🎯 PHASE 2 FIX: Export global console flags for other modules
+export { globalConsoleFlags };
 
 export default devLogger; 

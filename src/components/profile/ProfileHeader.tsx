@@ -20,6 +20,7 @@ import { toast } from '@/hooks/use-toast';
 import ProfileImageUploader from './ProfileImageUploader';
 import FollowButton from './FollowButton';
 import FollowStats from './FollowStats';
+import { AvatarUtils } from '@/shared/utils/avatar-utils'; // 🎯 Use unified avatar system
 
 interface ProfileHeaderProps {
   profileData: any;
@@ -41,6 +42,13 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
     location: profileData.location || profileData.country,
   };
   
+  // ENHANCED: Use unified avatar resolver for consistent colors and initials
+  const avatar = AvatarUtils.resolveAvatar({
+    id: profileData.id,
+    full_name: userData.fullName,
+    avatar_url: profileImage
+  });
+  
   const handleCopyLink = () => {
     const profileUrl = window.location.href;
     navigator.clipboard.writeText(profileUrl);
@@ -52,10 +60,6 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
 
   const handleEditProfile = () => {
     navigate("/settings/profile");
-  };
-
-  const getInitials = (name: string | null) => {
-    return name ? name.charAt(0).toUpperCase() : "U";
   };
 
   // Format dates
@@ -80,12 +84,19 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
             currentImageUrl={profileImage} 
             onImageUploaded={handleImageUploaded}
             size="lg"
-            userInitials={getInitials(userData.fullName)}
+            userInitials={avatar.initials}
           />
         ) : (
-          <Avatar className="h-28 w-28 bg-green-700 text-white text-4xl">
-            <AvatarImage src={profileImage} alt={userData.username} />
-            <AvatarFallback>{getInitials(userData.fullName)}</AvatarFallback>
+          <Avatar className="h-28 w-28 text-white text-4xl">
+            {avatar.hasImage && (
+              <AvatarImage src={avatar.url!} alt={userData.username} />
+            )}
+            <AvatarFallback 
+              className="text-white font-semibold text-4xl"
+              style={{ backgroundColor: avatar.backgroundColor }}
+            >
+              {avatar.initials}
+            </AvatarFallback>
           </Avatar>
         )}
       </div>

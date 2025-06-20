@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import UserProfileHoverCard from '@/components/profile/UserProfileHoverCard';
 import { formatRelativeTime } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
+import { AvatarUtils } from '@/shared/utils/avatar-utils';
 import type { Author, Category } from "@/features/posts/types";
 
 interface PostCardHeaderProps {
@@ -28,11 +29,12 @@ export const PostCardHeader: React.FC<PostCardHeaderProps> = ({
   // Format date in relative time (e.g., "2 hours ago")
   const formattedDate = formatRelativeTime(typeof createdAt === 'string' ? new Date(createdAt) : createdAt);
 
-  // Get user initial for avatar fallback
-  const getInitial = () => {
-    if (!author.name) return "U";
-    return author.name.charAt(0).toUpperCase();
-  };
+  // 🎯 ENHANCED: Use unified avatar resolver for consistent colors and initials
+  const avatar = AvatarUtils.resolveAvatar({
+    id: author.id,
+    full_name: author.name,
+    avatar_url: author.avatar
+  });
 
   // Get profile link path if available
   const getProfileLink = () => {
@@ -54,15 +56,29 @@ export const PostCardHeader: React.FC<PostCardHeaderProps> = ({
             >
               <Link to={getProfileLink() || '#'}>
                 <Avatar className="h-9 w-9 rounded-full hover:ring-2 hover:ring-blue-300 transition-all">
-                  {author.avatar ? <AvatarImage src={author.avatar} alt={author.name}/> : null}
-                  <AvatarFallback className="bg-gray-200 text-gray-600 font-medium text-sm">{getInitial()}</AvatarFallback>
+                  {avatar.hasImage && (
+                    <AvatarImage src={avatar.url!} alt={author.name} />
+                  )}
+                  <AvatarFallback 
+                    className="text-white font-medium text-sm"
+                    style={{ backgroundColor: avatar.backgroundColor }}
+                  >
+                    {avatar.initials}
+                  </AvatarFallback>
                 </Avatar>
               </Link>
             </UserProfileHoverCard>
           ) : (
             <Avatar className="h-9 w-9 rounded-full">
-              {author.avatar ? <AvatarImage src={author.avatar} alt={author.name}/> : null}
-              <AvatarFallback className="bg-gray-200 text-gray-600 font-medium text-sm">{getInitial()}</AvatarFallback>
+              {avatar.hasImage && (
+                <AvatarImage src={avatar.url!} alt={author.name} />
+              )}
+              <AvatarFallback 
+                className="text-white font-medium text-sm"
+                style={{ backgroundColor: avatar.backgroundColor }}
+              >
+                {avatar.initials}
+              </AvatarFallback>
             </Avatar>
           )}
         </div>

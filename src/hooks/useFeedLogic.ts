@@ -7,7 +7,7 @@ import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
 import { useOptimizedCachedPosts } from "@/hooks/useOptimizedCachedPosts";
 import { useOptimizedCachedCategories } from "@/hooks/useOptimizedCachedCategories";
 import { useStableSpaceId } from "@/hooks/useStableSpaceId";
-import type { CachedPostType } from "@/hooks/useCachedPosts";
+import type { CachedPostType } from "@/features/posts/types/cachedPost";
 import { useRealtimePosts } from "@/hooks/useRealtimePosts";
 import { useNewPostsState } from "@/hooks/useNewPostsState";
 import { getSupabaseClient } from '@/integrations/supabase/client';

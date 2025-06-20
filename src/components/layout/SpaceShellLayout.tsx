@@ -10,7 +10,7 @@ import { LocationState } from "@/pages/Space"; // Import the existing LocationSt
 import { warmSpaceCache } from "@/utils/cacheUtils"; // Import cache warming
 import { extractTabFromPathname, buildSpaceUrl, type SpaceTab, debugTabExtraction } from "@/utils/tabUtils";
 import { setCurrentSpaceForPresence } from "@/hooks/useUnifiedPresence";
-
+import { AvatarCacheService } from "@/services/AvatarCacheService"; // 🚀 NEW: Avatar cache service
 /**
  * SpaceShellLayout - A shell layout for space pages
  * 
@@ -107,7 +107,7 @@ export default function SpaceShellLayout() {
     }
   }, [subdomain, navigate, location.pathname]);
 
-  // PHASE 2.6: CACHE WARMING - Warm cache when space data loads
+  // PHASE 2.6: CACHE WARMING + AVATAR PRELOADING - Warm cache when space data loads
   useEffect(() => {
     if (storeSpace && storeSpace.subdomain && subdomain && user?.id) {
       // Warm cache for instant future redirects with user ID
@@ -120,6 +120,19 @@ export default function SpaceShellLayout() {
       // CRITICAL FIX: Set current space for presence system
       setCurrentSpaceForPresence(storeSpace.id);
       console.log(`🌐 [SpaceShellLayout] Set current space for presence: ${storeSpace.id}`);
+      
+      // 🚀 OPTIMIZED: Initialize avatar cache for instant display
+      AvatarCacheService.preloadSpaceAvatars(storeSpace.id)
+        .then(result => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`🚀 [SpaceShellLayout] Avatar cache initialized for ${storeSpace.name}`);
+          }
+        })
+        .catch(error => {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️ [SpaceShellLayout] Avatar cache initialization failed:', error);
+          }
+        });
     }
   }, [storeSpace, subdomain, user?.id]);
 

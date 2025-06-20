@@ -1,6 +1,5 @@
 import React from 'react';
 import { MemberRole } from "@/contexts/MembershipContext";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,6 +12,7 @@ import {
 import { MoreHorizontal, UserX, Shield, Link as LinkIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth'; // To get current user for action checks
+import { MemberAvatar } from "@/components/ui/OptimizedAvatar"; // 🚀 NEW: Optimized avatar with caching
 
 // Matching DisplayMember type from MembersTab.tsx
 type DisplayMember = {
@@ -89,10 +89,14 @@ export const RegularMemberRow: React.FC<RegularMemberRowProps> = ({
     <tr className="hover:bg-gray-50 transition-colors">
       <td className="px-4 py-3 whitespace-nowrap">
         <div className="flex items-center space-x-3">
-          <Avatar className="h-9 w-9 flex-shrink-0">
-            <AvatarImage src={member.avatar_url || undefined} alt={member.full_name || 'Member'} />
-            <AvatarFallback className="text-xs">{getInitials(member.full_name)}</AvatarFallback>
-          </Avatar>
+          <MemberAvatar
+            user={{
+              id: member.user_id,
+              full_name: member.full_name,
+              avatar_url: member.avatar_url
+            }}
+            isOnline={member.is_online}
+          />
           <div className="min-w-0">
             <div className="font-medium text-gray-800 text-sm truncate" title={member.full_name || 'Unnamed Member'}>
               {member.full_name || 'Unnamed Member'}

@@ -17,7 +17,9 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { createManagedInterval } from '@/utils/pageVisibilityManager';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
-import { devLogger } from '@/utils/devLogger';
+// 🎯 PHASE 1 FIX: Add debug flags for conditional logging
+const DEBUG_PRESENCE = import.meta.env.VITE_DEBUG_PRESENCE === 'true' || window.location.search.includes('debug_presence=true');
+const DEBUG_PRESENCE_VERBOSE = import.meta.env.VITE_DEBUG_PRESENCE_VERBOSE === 'true' || window.location.search.includes('debug_presence_verbose=true');
 
 // Cache for presence data to prevent excessive database queries
 interface PresenceCache {
@@ -461,8 +463,13 @@ const fetchSpacePresenceFromDatabase = async (spaceId: string): Promise<{ count:
     
     const count = onlineUsers.length;
     
-    console.log(`🌐 [UnifiedPresence] Database query for space ${spaceId}: ${count} users online out of ${allMembers.length} total${result.fromCache ? ' (cached)' : ''}`);
-    console.log(`🌐 [UnifiedPresence] Online user IDs:`, onlineUsers);
+    // 🎯 PHASE 1 FIX: Make database query logging conditional
+    if (DEBUG_PRESENCE) {
+      console.log(`🌐 [UnifiedPresence] Database query for space ${spaceId}: ${count} users online out of ${allMembers.length} total${result.fromCache ? ' (cached)' : ''}`);
+      if (DEBUG_PRESENCE_VERBOSE) {
+        console.log(`🌐 [UnifiedPresence] Online user IDs:`, onlineUsers);
+      }
+    }
     
     // EMERGENCY FIX: If bridge returns 0 but we know this space should have users, try direct query
     if (count === 0 && spaceId === '235e68d1-89df-4d2d-8945-e7756d60de20') {
@@ -526,7 +533,10 @@ const fetchSpacePresenceFromDatabase = async (spaceId: string): Promise<{ count:
 // Get or create space presence subscription
 const getOrCreateSpacePresence = (spaceId: string) => {
   if (!spacePresenceState[spaceId]) {
-    console.log(`🌐 [UnifiedPresence] Creating presence state for space: ${spaceId}`);
+    // 🎯 PHASE 1 FIX: Make presence state creation logging conditional
+    if (DEBUG_PRESENCE_VERBOSE) {
+      console.log(`🌐 [UnifiedPresence] Creating presence state for space: ${spaceId}`);
+    }
     
     spacePresenceState[spaceId] = {
       onlineCount: 0,
@@ -778,7 +788,10 @@ export const useSpacePresence = (spaceId: string) => {
     
     // Create listener with debug logging
     const listener = (count: number, users: string[]) => {
-      console.log(`🌐 [useSpacePresence] Listener called for space ${spaceId}: count=${count}, users=${users.length}`);
+      // 🎯 PHASE 1 FIX: Make listener logging conditional
+      if (DEBUG_PRESENCE_VERBOSE) {
+        console.log(`🌐 [useSpacePresence] Listener called for space ${spaceId}: count=${count}, users=${users.length}`);
+      }
       setOnlineCount(count);
       setOnlineUsers(users);
     };
@@ -869,7 +882,10 @@ export const useSpacePresence = (spaceId: string) => {
   
   // Debug logging for hook state changes
   useEffect(() => {
-    console.log(`🌐 [useSpacePresence] Hook state changed for space ${spaceId}: onlineCount=${onlineCount}, onlineUsers=${onlineUsers.length}`);
+    // 🎯 PHASE 1 FIX: Make hook state change logging conditional
+    if (DEBUG_PRESENCE_VERBOSE) {
+      console.log(`🌐 [useSpacePresence] Hook state changed for space ${spaceId}: onlineCount=${onlineCount}, onlineUsers=${onlineUsers.length}`);
+    }
   }, [onlineCount, onlineUsers, spaceId]);
   
   return { onlineCount, onlineUsers };

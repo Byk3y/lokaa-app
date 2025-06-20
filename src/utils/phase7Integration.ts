@@ -14,6 +14,7 @@ import { AdvancedCacheManager } from './advancedCacheManager';
 import { SEOManager } from './seoManager';
 import { pageVisibilityManager } from './pageVisibilityManager';
 import { logAnalyticsEvent } from './analytics';
+import { globalConsoleFlags } from '@/utils/developmentLogger';
 
 // Global interface for Phase 7 testing and debugging
 interface Phase7GlobalAPI {
@@ -69,7 +70,9 @@ class Phase7Integration {
   private initialize(): void {
     if (this.initialized) return;
 
-    console.log('🚀 [Phase 7] Initializing Advanced Features & Production Readiness...');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('🚀 [Phase 7] Initializing Advanced Features & Production Readiness...');
+    }
 
     // Initialize page visibility manager
     pageVisibilityManager.initialize();
@@ -81,7 +84,9 @@ class Phase7Integration {
     this.logIntegrationStatus();
 
     this.initialized = true;
-    console.log('✅ [Phase 7] Integration completed successfully');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('✅ [Phase 7] Integration completed successfully');
+    }
   }
 
   /**
@@ -114,14 +119,16 @@ class Phase7Integration {
 
     (window as any).phase7 = phase7API;
     
-    console.log('🔧 [Phase 7] Global API available at window.phase7');
-    console.log('🧪 Available commands:');
-    console.log('  - window.phase7.getStatus() - Get comprehensive status');
-    console.log('  - window.phase7.runAllTests() - Run all Phase 7 tests');
-    console.log('  - window.phase7.getCacheStats() - Get cache performance');
-    console.log('  - window.phase7.getSEOStatus() - Get SEO status');
-    console.log('  - window.phase7.testEdgeFunctions() - Test Edge Functions');
-    console.log('  - window.phase7.validatePhase7() - Validate implementation');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('🔧 [Phase 7] Global API available at window.phase7');
+      console.log('🧪 Available commands:');
+      console.log('  - window.phase7.getStatus() - Get comprehensive status');
+      console.log('  - window.phase7.runAllTests() - Run all Phase 7 tests');
+      console.log('  - window.phase7.getCacheStats() - Get cache performance');
+      console.log('  - window.phase7.getSEOStatus() - Get SEO status');
+      console.log('  - window.phase7.testEdgeFunctions() - Test Edge Functions');
+      console.log('  - window.phase7.validatePhase7() - Validate implementation');
+    }
   }
 
   /**
@@ -633,13 +640,15 @@ class Phase7Integration {
    * Log integration status
    */
   private logIntegrationStatus(): void {
-    console.log('📊 [Phase 7] Integration Status:');
-    console.log('   ✅ Advanced Cache Manager: Active');
-    console.log('   ✅ SEO Manager: Active');
-    console.log('   ✅ Page Visibility Manager: Active');
-    console.log('   ✅ Edge Functions: Deployed');
-    console.log('   ✅ Global Interface: Available');
-    console.log('🚀 [Phase 7] Production readiness: ENTERPRISE-GRADE');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('📊 [Phase 7] Integration Status:');
+      console.log('   ✅ Advanced Cache Manager: Active');
+      console.log('   ✅ SEO Manager: Active');
+      console.log('   ✅ Page Visibility Manager: Active');
+      console.log('   ✅ Edge Functions: Deployed');
+      console.log('   ✅ Global Interface: Available');
+      console.log('🚀 [Phase 7] Production readiness: ENTERPRISE-GRADE');
+    }
   }
 
   /**
@@ -659,7 +668,9 @@ const phase7Integration = new Phase7Integration();
 
 // Initialize Phase 7 when module loads
 export function initializePhase7(): void {
-  console.log('🚀 [Phase 7] Advanced Features & Production Readiness initialized');
+  if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+    console.log('🚀 [Phase 7] Advanced Features & Production Readiness initialized');
+  }
 }
 
 // Auto-initialize

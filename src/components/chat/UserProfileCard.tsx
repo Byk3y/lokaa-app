@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getInitial } from '@/shared/utils/avatar-utils';
+import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { Building2, Users, UserRoundCheck, UserRoundPlus, Loader2 } from 'lucide-react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -71,12 +70,21 @@ export default function UserProfileCard({ user, isSelected = false, onClick }: U
       }`}
       onClick={onClick}
     >
-      <Avatar className="h-10 w-10 mr-3 mt-0.5">
-        <AvatarImage src={user.avatar_url || ''} />
-        <AvatarFallback className="bg-gradient-to-br from-teal-50 to-teal-100 text-teal-600">
-          {getInitial(user.full_name || 'User')}
-        </AvatarFallback>
-      </Avatar>
+      <div className="mr-3 mt-0.5 flex-shrink-0">
+        <OptimizedAvatar
+          user={{
+            id: user.id,
+            full_name: user.full_name,
+            avatar_url: user.avatar_url
+          }}
+          size="md"
+          enableLazyLoading={true}
+          enableCaching={true}
+          placeholderType="initials"
+          loadingTransition="fade"
+          className="h-10 w-10"
+        />
+      </div>
       
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900 truncate">

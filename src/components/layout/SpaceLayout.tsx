@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef, useLayoutEffect, ReactNode } from "react";
+import { useEffect, useState, useRef, useLayoutEffect, ReactNode, useContext, useMemo } from "react";
 import { Outlet, useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { User } from '@/contexts/AuthContext';
 import { useSpace, SpaceData } from "@/contexts/SpaceContext";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Settings, Camera } from "lucide-react";
+import { Loader2, Settings, Camera, Search, Bell, MessageSquare } from "lucide-react";
 import SpaceSwitcher from "@/components/spaces/SpaceSwitcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,90 +17,44 @@ import ProfileDropdown from "@/components/common/ProfileDropdown";
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
 import BottomNav from "@/components/mobile/BottomNav";
 import { getSpaceTabIcon, FeedIcon } from "@/components/ui/nav-icons";
+import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
 
-// Header component for space
+// Types for Space and User data
+export interface SpaceData {
+  id: string;
+  name: string;
+  description?: string;
+  subdomain: string;
+  owner_id?: string;
+  is_private?: boolean;
+  icon_image?: string | null;
+  cover_image?: string | null;
+  primary_color?: string | null;
+}
+
+/**
+ * Header component for space layouts
+ * ✅ UPGRADED: Now uses unified SpaceAssetsUtils system
+ */
 export function Header({ user, space, children }: { user: User | null; space: SpaceData | null; children?: ReactNode }) {
-  // Try to get the current space name even when not directly set
-  const [contextSpace, setContextSpace] = useState<{name: string; subdomain?: string; id?: string} | null>(null);
-  const [isContextLoaded, setIsContextLoaded] = useState(false);
-  
-  // Function to properly capitalize space name
+  const location = useLocation();
+
+  // Function to capitalize space name properly
   const capitalizeSpaceName = (name: string) => {
-    if (!name) return '';
-    return name
-      .split(' ')
+    return name.split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   };
-  
-  // Look for navigatedFromSpace in sessionStorage on mount
-  useEffect(() => {
-    if (space) {
-      // If space prop exists, use it (takes precedence)
-      setContextSpace({
-        name: space.name,
-        subdomain: space.subdomain,
-        id: space.id
-      });
-      setIsContextLoaded(true);
-      return;
-    }
-    
-    // No space prop, try to get from session storage
-    try {
-      const navigationSpaceData = sessionStorage.getItem('navigatedFromSpace');
-      if (navigationSpaceData) {
-        const parsedSpace = JSON.parse(navigationSpaceData);
-        if (parsedSpace) {
-          let spaceName = null;
-          
-          if (parsedSpace.name) {
-            console.log('Header: Using space name from navigation context:', parsedSpace.name);
-            spaceName = parsedSpace.name;
-          } else if (parsedSpace.subdomain) {
-            // If we only have subdomain, capitalize it as fallback
-            spaceName = parsedSpace.subdomain
-              .split('-')
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ');
-          }
-          
-          if (spaceName) {
-            setContextSpace({
-              name: spaceName,
-              subdomain: parsedSpace.subdomain,
-              id: parsedSpace.id
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Error retrieving space from navigation context:', e);
-    }
-    
-    setIsContextLoaded(true);
-  }, [space]);
 
-  // Don't render until we've loaded context to prevent flashes
-  if (!isContextLoaded) {
-    return (
-      <header className="bg-white border-b py-3 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-4">
-          <div className="flex items-center">
-            <div className="h-10 w-10 bg-[#F5F6F7] rounded-lg flex items-center justify-center text-white font-bold mr-3 shadow-sm"></div>
-            <div className="h-6 w-40 bg-[#F5F6F7] rounded-md"></div>
-          </div>
-          <div className="flex items-center space-x-6">
-            <div className="h-5 w-5 bg-[#F5F6F7] rounded-md"></div>
-            <div className="h-10 w-10 bg-[#F5F6F7] rounded-full"></div>
-          </div>
-        </div>
-      </header>
-    );
-  }
+  // Get space from context if not passed directly
+  const contextSpace = useContext(SpaceContext);
+  const currentSpace = space || contextSpace;
+
+  // 🚀 NEW: Use unified space assets system
+  const spaceAssets = SpaceAssetsUtils.resolveSpaceAssets(currentSpace);
 
   // Get properly capitalized name
-  const displayName = contextSpace ? capitalizeSpaceName(contextSpace.name) : '';
+  const displayName = currentSpace ? capitalizeSpaceName(currentSpace.name) : '';
 
   return (
     <header className="bg-white border-b py-3 sticky top-0 z-50 shadow-sm">
@@ -108,19 +62,22 @@ export function Header({ user, space, children }: { user: User | null; space: Sp
         {/* Left - Space Logo and Name with Switch Button */}
         <div className="flex items-center">
           <div className="h-10 w-10 bg-[#1A8A7E] rounded-lg flex items-center justify-center text-white font-bold mr-3 shadow-sm relative overflow-hidden">
-            {space?.icon_image ? (
+            {spaceAssets.hasIcon && spaceAssets.iconUrl ? (
               <div
                 className="absolute inset-0 w-full h-full bg-cover bg-center"
-                style={{ backgroundImage: `url(${space.icon_image})` }}
+                style={{ backgroundImage: `url(${spaceAssets.iconUrl})` }}
               />
             ) : (
-              <span>{displayName?.charAt(0).toUpperCase() || 'S'}</span>
+              /* ✅ UPGRADED: Now uses unified initials */
+              <span style={{ color: spaceAssets.textColor }}>
+                {spaceAssets.initials}
+              </span>
             )}
           </div>
           <div className="flex flex-col justify-center">
             <div className="flex items-center">
               {/* Display the space name directly with dropdown on the right */}
-              {contextSpace ? (
+              {currentSpace ? (
                 <div className="flex items-center">
                   <span className="text-gray-800 font-bold text-xl mr-1">
                     {displayName || 'Profile'}
@@ -128,8 +85,8 @@ export function Header({ user, space, children }: { user: User | null; space: Sp
                   
                   {/* SpaceSwitcher with only the dropdown icon */}
                   <SpaceSwitcher
-                    currentSpaceSubdomain={contextSpace.subdomain || '_profile_'}
-                    currentSpaceName={contextSpace.name}
+                    currentSpaceSubdomain={currentSpace.subdomain || '_profile_'}
+                    currentSpaceName={currentSpace.name}
                     userId={user?.id || ''}
                     hideTriggerLabel={true}
                   />
@@ -142,29 +99,11 @@ export function Header({ user, space, children }: { user: User | null; space: Sp
         </div>
 
         {/* Right - User profile and actions */}
-        <div className="flex items-center space-x-6">
-          {/* Render children if provided, otherwise show default buttons */}
-          {children ? (
-            children
-          ) : (
-            <>
-          <button className="text-[#4B5563] hover:text-[#1A8A7E] transition-colors">
-            <FeedIcon className="h-5 w-5" />
-          </button>
-
-          <div className="relative">
-            {user ? (
-              <ProfileDropdown user={user} variant="animation" size="md" />
-            ) : (
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-[#1A8A7E] text-white">
-                  U
-                </AvatarFallback>
-              </Avatar>
-            )}
-          </div>
-            </>
-          )}
+        <div className="flex items-center space-x-4">
+          {children}
+          
+          {/* Profile dropdown */}
+          {user && <ProfileDropdown user={user} />}
         </div>
       </div>
     </header>
@@ -241,27 +180,45 @@ function Composer({ onClick, user }: { onClick: () => void; user: User | null })
   );
 }
 
-// CoverPhotoCard component
+/**
+ * CoverPhotoCard component  
+ * ✅ UPGRADED: Now uses unified SpaceAssetsUtils system
+ */
 function CoverPhotoCard({ space }: { space: SpaceData | null }) {
+  // 🚀 NEW: Use unified space assets system
+  const spaceAssets = SpaceAssetsUtils.resolveSpaceAssets(space);
+  const placeholder = SpaceAssetsUtils.getPlaceholderConfig(space);
+  
   return (
     <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-[#E1E4E8]">
       <div className="h-36 bg-[#F5F6F7] flex items-center justify-center relative">
-        {space?.cover_image ? (
+        {spaceAssets.hasCover && spaceAssets.coverUrl ? (
           <div
             className="absolute inset-0 w-full h-full bg-cover bg-center"
-            style={{ backgroundImage: `url(${space.cover_image})` }}
+            style={{ backgroundImage: `url(${spaceAssets.coverUrl})` }}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center text-[#A0AEC0]">
-            <Camera className="h-8 w-8 opacity-40" />
+          // 🎨 UPGRADED: Professional gradient placeholder
+          <div 
+            className="absolute inset-0 w-full h-full flex items-center justify-center"
+            style={{ 
+              background: `linear-gradient(135deg, ${placeholder.gradientFrom}, ${placeholder.gradientTo})` 
+            }}
+          >
+            <span 
+              className="text-2xl font-bold"
+              style={{ color: placeholder.textColor }}
+            >
+              {placeholder.initials}
+            </span>
           </div>
         )}
       </div>
 
       <div className="p-4">
         <h2 className="text-lg font-bold text-[#37474F] mb-1">{space?.name}</h2>
-        <p className="text-sm text-[#78909C] mb-3\">lokaa.com/{space?.subdomain || 'your-subdomain'}</p>
-        <p className="text-sm text-[#4B5563]\">{space?.description || `Welcome to ${space?.name}!`}</p>
+        <p className="text-sm text-[#78909C] mb-3">lokaa.com/{space?.subdomain || 'your-subdomain'}</p>
+        <p className="text-sm text-[#4B5563]">{space?.description || `Welcome to ${space?.name}!`}</p>
       </div>
     </div>
   );

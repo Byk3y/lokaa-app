@@ -10,7 +10,12 @@ import useSpacesData from "@/hooks/useSpacesData";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import LoadingSpinner from "@/components/discover/LoadingSpinner";
 import { SpaceData } from "@/contexts/SpaceContext";
+import { SpaceAssetsUtils } from "@/shared/utils/space-assets-utils";
 
+/**
+ * SpaceSidebar component for space navigation
+ * ✅ UPGRADED: Now uses unified SpaceAssetsUtils system
+ */
 export function SpaceSidebar() {
   const { joinedSpaces, loading } = useSpacesData();
   const navigate = useNavigate();
@@ -49,12 +54,6 @@ export function SpaceSidebar() {
       fetchOwnedSpaces();
     }
   }, [user, userDetails]);
-
-  // Helper function to get space initials for avatar fallback
-  const getSpaceInitials = (name: string) => {
-    if (!name) return "S";
-    return name.charAt(0).toUpperCase();
-  };
 
   const goToSpace = (spaceId: string) => {
     navigate(`/space/${spaceId}`);
@@ -113,49 +112,12 @@ export function SpaceSidebar() {
         )}
 
         {/* Show owned spaces first with a special highlight */}
-        {ownedSpaces.map((space) => (
-          <TooltipProvider key={`owned-${space.id}`}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="default"
-                  className={`rounded-full h-10 w-10 ${
-                    currentSpaceId === space.id 
-                      ? 'ring-2 ring-lokaa-600' 
-                      : ''
-                  }`}
-                  onClick={() => goToSpace(space.id)}
-                >
-                  <Avatar className="h-10 w-10 border-2 border-lokaa-200">
-                    <AvatarImage 
-                      src={space.cover_image} 
-                      onError={(e) => {
-                        // If image fails to load, Radix UI's AvatarFallback will automatically show
-                        console.log(`Failed to load avatar for space: ${space.name}`);
-                      }}
-                    />
-                    <AvatarFallback className="bg-lokaa-100 text-lokaa-700">
-                      {getSpaceInitials(space.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <div>
-                  <p>{space.name}</p>
-                  <p className="text-xs text-gray-500">Owner</p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ))}
-
-        {/* Show joined spaces that aren't owned */}
-        {joinedSpaces
-          .filter(space => !ownedSpaces.some(s => s.id === space.id))
-          .map((space) => (
-            <TooltipProvider key={`joined-${space.id}`}>
+        {ownedSpaces.map((space) => {
+          // 🚀 NEW: Use unified space assets system
+          const assets = SpaceAssetsUtils.resolveSpaceAssets(space);
+          
+          return (
+            <TooltipProvider key={`owned-${space.id}`}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
@@ -168,26 +130,85 @@ export function SpaceSidebar() {
                     }`}
                     onClick={() => goToSpace(space.id)}
                   >
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 border-2 border-lokaa-200">
                       <AvatarImage 
                         src={space.cover_image} 
                         onError={(e) => {
-                          // If image fails to load, Radix UI's AvatarFallback will automatically show
                           console.log(`Failed to load avatar for space: ${space.name}`);
                         }}
                       />
-                      <AvatarFallback className="bg-lokaa-100 text-lokaa-700">
-                        {getSpaceInitials(space.name)}
+                      <AvatarFallback 
+                        className="bg-lokaa-100 text-lokaa-700"
+                        style={{ 
+                          backgroundColor: assets.backgroundColor + '20', // 20% opacity
+                          color: assets.backgroundColor 
+                        }}
+                      >
+                        {/* ✅ UPGRADED: Now uses unified initials */}
+                        {assets.initials}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>{space.name}</p>
+                  <div>
+                    <p>{space.name}</p>
+                    <p className="text-xs text-gray-500">Owner</p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          ))}
+          );
+        })}
+
+        {/* Show joined spaces that aren't owned */}
+        {joinedSpaces
+          .filter(space => !ownedSpaces.some(s => s.id === space.id))
+          .map((space) => {
+            // 🚀 NEW: Use unified space assets system
+            const assets = SpaceAssetsUtils.resolveSpaceAssets(space);
+            
+            return (
+              <TooltipProvider key={`joined-${space.id}`}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="default"
+                      className={`rounded-full h-10 w-10 ${
+                        currentSpaceId === space.id 
+                          ? 'ring-2 ring-lokaa-600' 
+                          : ''
+                      }`}
+                      onClick={() => goToSpace(space.id)}
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage 
+                          src={space.cover_image} 
+                          onError={(e) => {
+                            console.log(`Failed to load avatar for space: ${space.name}`);
+                          }}
+                        />
+                        <AvatarFallback 
+                          className="bg-lokaa-100 text-lokaa-700"
+                          style={{ 
+                            backgroundColor: assets.backgroundColor + '20', // 20% opacity
+                            color: assets.backgroundColor 
+                          }}
+                        >
+                          {/* ✅ UPGRADED: Now uses unified initials */}
+                          {assets.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>{space.name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })}
       </div>
 
       <div className="mt-auto">

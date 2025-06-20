@@ -18,6 +18,7 @@ import ProfileDropdown from "@/components/common/ProfileDropdown";
 import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
 import SpaceContextBanner from '@/components/profile/SpaceContextBanner';
 import { Space } from "@/types/space";
+import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
 
 // Modified Header component for Profile page to show Lokaa logo instead of space
 function ProfileHeader({ user }: { user: any }) {
@@ -153,9 +154,17 @@ function ProfileHeader({ user }: { user: any }) {
                                   {space.icon_image ? (
                                     <img src={space.icon_image} alt={space.name} className="w-full h-full object-cover" />
                                   ) : (
-                                    <span className="text-base font-bold text-gray-600">
-                                      {space.name.charAt(0).toUpperCase()}
-                                    </span>
+                                    (() => {
+                                      const spaceAssets = SpaceAssetsUtils.resolveSpaceAssets(space);
+                                      return (
+                                        <span 
+                                          className="text-base font-bold"
+                                          style={{ color: spaceAssets.textColor }}
+                                        >
+                                          {spaceAssets.initials}
+                                        </span>
+                                      );
+                                    })()
                                   )}
                                 </div>
                                 <span className="text-sm font-medium">{space.name}</span>

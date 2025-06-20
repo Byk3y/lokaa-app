@@ -12,6 +12,7 @@
 import { phase6BundleOptimizer } from './phase6BundleOptimizer';
 import { phase6ConsolidationManager } from './phase6ConsolidationManager';
 import { logAnalyticsEvent } from './analytics';
+import { globalConsoleFlags } from '@/utils/developmentLogger';
 
 // Global interface for Phase 6 testing and debugging
 interface Phase6GlobalAPI {
@@ -65,14 +66,20 @@ class Phase6Integration {
 
   private async performInitialization(): Promise<boolean> {
     try {
-      console.log('📦 [Phase 6] Starting bundle optimization & code splitting initialization...');
+      if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+        console.log('📦 [Phase 6] Starting bundle optimization & code splitting initialization...');
+      }
 
       // Initialize bundle optimizer
-      console.log('📊 [Phase 6] Initializing bundle optimizer...');
+      if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+        console.log('📊 [Phase 6] Initializing bundle optimizer...');
+      }
       // Bundle optimizer is already a singleton, just ensure it's loaded
 
       // Initialize consolidation manager
-      console.log('🔄 [Phase 6] Initializing system consolidation...');
+      if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+        console.log('🔄 [Phase 6] Initializing system consolidation...');
+      }
       await phase6ConsolidationManager.initialize();
 
       // Mark systems as consolidated if they're available
@@ -90,7 +97,9 @@ class Phase6Integration {
       });
 
       this.isInitialized = true;
-      console.log('✅ [Phase 6] Bundle optimization & code splitting initialized successfully');
+      if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+        console.log('✅ [Phase 6] Bundle optimization & code splitting initialized successfully');
+      }
       return true;
 
     } catch (error) {
@@ -337,10 +346,14 @@ export const phase6Integration = Phase6Integration.getInstance();
 // Auto-initialize Phase 6 when module loads
 const initializePhase6 = async () => {
   try {
-    console.log('📦 [Phase 6] Module loaded, starting initialization...');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('📦 [Phase 6] Module loaded, starting initialization...');
+    }
     const success = await phase6Integration.initialize();
     if (success) {
-      console.log('✅ [Phase 6] Initialization completed successfully');
+      if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+        console.log('✅ [Phase 6] Initialization completed successfully');
+      }
     } else {
       console.error('❌ [Phase 6] Initialization failed');
     }
@@ -368,8 +381,10 @@ if (typeof window !== 'undefined') {
 
   (window as any).phase6 = phase6API;
   
-  console.log('📦 [Phase 6] Global API available at window.phase6');
-  console.log('📦 [Phase 6] API object:', phase6API);
+  if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+    console.log('📦 [Phase 6] Global API available at window.phase6');
+    console.log('📦 [Phase 6] API object:', phase6API);
+  }
 }
 
 // Initialize Phase 6 when module loads

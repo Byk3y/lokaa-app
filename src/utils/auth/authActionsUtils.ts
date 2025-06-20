@@ -4,7 +4,11 @@ import { NavigateFunction } from 'react-router-dom'
 import { User, SessionStateSetters } from './sessionUtils'
 import { clearAuthStorage } from './userUtils'
 import { useMembershipStore } from '@/features/spaces/store/membership-store'
-import { useChatStore } from '@/features/chat/store/chat-store'
+// ✅ UPDATED: Use new specialized chat stores instead of old monolithic chat store
+import { useConversationStore } from '@/features/chat/store/conversationStore'
+import { useMessageStore } from '@/features/chat/store/messageStore'
+import { useRealtimeStore } from '@/features/chat/store/realtimeStore'
+import { useNavigationStore } from '@/features/chat/store/navigationStore'
 import { useSpaceAboutStore } from '@/features/spaces/store/space-about-store'
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore'
 import { globalTabComponentManager } from "@/utils/globalTabComponentManager";
@@ -153,8 +157,18 @@ export const signOut = async (
   
   // CRITICAL: Reset all other Zustand stores to prevent stale data
   try {
-    const chatStore = useChatStore.getState();
-    chatStore.reset();
+    // ✅ UPDATED: Reset all new specialized chat stores instead of old monolithic chat store
+    const conversationStore = useConversationStore.getState();
+    conversationStore.reset();
+    
+    const messageStore = useMessageStore.getState();
+    messageStore.reset();
+    
+    const realtimeStore = useRealtimeStore.getState();
+    realtimeStore.reset();
+    
+    const navigationStore = useNavigationStore.getState();
+    navigationStore.reset();
     
     const spaceAboutStore = useSpaceAboutStore.getState();
     spaceAboutStore.reset();
@@ -162,7 +176,7 @@ export const signOut = async (
     const spaceSettingsStore = useSpaceSettingsStore.getState();
     spaceSettingsStore.resetStore();
     
-    console.log('🧹 Reset all Zustand stores');
+    console.log('🧹 Reset all Zustand stores including specialized chat stores');
   } catch (error) {
     console.warn('Failed to reset Zustand stores:', error);
   }

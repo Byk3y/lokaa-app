@@ -3,6 +3,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
 
 interface MembershipSpacesListProps {
   userId: string;
@@ -108,59 +109,70 @@ const MembershipSpacesList: React.FC<MembershipSpacesListProps> = ({
     ? `Memberships (${commonSpacesCount} in common)`
     : 'Memberships';
 
-  const renderSpaceCard = (space: Space) => (
-    <Link
-      to={`/${space.subdomain}`}
-      key={space.id}
-      className="group flex items-center w-full bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.03)] border border-gray-100 p-4 mb-3 hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:border-gray-50 transition-all duration-300 gap-3 transform hover:-translate-y-1"
-    >
-      {/* Icon */}
-      <div className="flex-shrink-0 w-10 h-10 rounded-md bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center overflow-hidden shadow-sm ring-2 ring-gray-50">
-        {space.icon_image ? (
-          <img
-            src={space.icon_image}
-            alt={space.name}
-            className="w-full h-full object-cover rounded-md"
-          />
-        ) : (
-          <span className="text-lg font-bold text-blue-500">
-            {space.name.charAt(0).toUpperCase()}
-          </span>
-        )}
-      </div>
-      {/* Info */}
-      <div className="flex flex-col flex-1 min-w-0">
-        <div className="font-semibold text-gray-800 truncate mb-0 flex items-center">
-          {space.name}
-          {space.isOwner && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700 font-medium ring-1 ring-yellow-200">Owner</span>
-          )}
-          {space.inCommon && !space.isOwner && (
-            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium ring-1 ring-blue-200">In Common</span>
+  const renderSpaceCard = (space: Space) => {
+    const spaceAssets = SpaceAssetsUtils.resolveSpaceAssets(space);
+    const placeholder = SpaceAssetsUtils.getPlaceholderConfig(space);
+    
+    return (
+      <Link
+        to={`/${space.subdomain}`}
+        key={space.id}
+        className="group flex items-center w-full bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.03)] border border-gray-100 p-4 mb-3 hover:shadow-[0_10px_30px_rgba(0,0,0,0.08)] hover:border-gray-50 transition-all duration-300 gap-3 transform hover:-translate-y-1"
+      >
+        {/* Icon */}
+        <div className="flex-shrink-0 w-10 h-10 rounded-md overflow-hidden shadow-sm ring-2 ring-gray-50">
+          {spaceAssets.hasIcon && spaceAssets.iconUrl ? (
+            <img
+              src={spaceAssets.iconUrl}
+              alt={space.name}
+              className="w-full h-full object-cover rounded-md"
+            />
+          ) : (
+            <div 
+              className="w-full h-full flex items-center justify-center font-bold text-lg"
+              style={{
+                background: `linear-gradient(135deg, ${placeholder.gradientFrom}, ${placeholder.gradientTo})`,
+                color: placeholder.textColor
+              }}
+            >
+              {placeholder.initials}
+            </div>
           )}
         </div>
-        <div className="flex items-center text-xs text-gray-500 font-medium mt-1.5 gap-2">
-          <div className="flex items-center">
-            <Users className="h-3.5 w-3.5 mr-1 text-blue-400" />
-            {space.member_count ?
-              (space.member_count > 1000 ? `${(space.member_count / 1000).toFixed(1)}k` : space.member_count)
-              : 0
-            } members
+        {/* Info */}
+        <div className="flex flex-col flex-1 min-w-0">
+          <div className="font-semibold text-gray-800 truncate mb-0 flex items-center">
+            {space.name}
+            {space.isOwner && (
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700 font-medium ring-1 ring-yellow-200">Owner</span>
+            )}
+            {space.inCommon && !space.isOwner && (
+              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium ring-1 ring-blue-200">In Common</span>
+            )}
           </div>
-          <span className={`ml-0 px-2 py-0.5 rounded-full text-xs ${
-            space.pricing_type === 'free' 
-              ? 'bg-green-100 text-green-700 ring-1 ring-green-200' 
-              : 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-200'
-          }`}>
-            {space.pricing_type === 'free' ? 'Free' : 'Paid'}
-          </span>
+          <div className="flex items-center text-xs text-gray-500 font-medium mt-1.5 gap-2">
+            <div className="flex items-center">
+              <Users className="h-3.5 w-3.5 mr-1 text-blue-400" />
+              {space.member_count ?
+                (space.member_count > 1000 ? `${(space.member_count / 1000).toFixed(1)}k` : space.member_count)
+                : 0
+              } members
+            </div>
+            <span className={`ml-0 px-2 py-0.5 rounded-full text-xs ${
+              space.pricing_type === 'free' 
+                ? 'bg-green-100 text-green-700 ring-1 ring-green-200' 
+                : 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-200'
+            }`}>
+              {space.pricing_type === 'free' ? 'Free' : 'Paid'}
+            </span>
+          </div>
         </div>
-      </div>
-      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors duration-300">
-        <span className="text-gray-400 group-hover:text-blue-500 transition-colors duration-300">→</span>
-      </div>
-    </Link>
-  );
+        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors duration-300">
+          <span className="text-gray-400 group-hover:text-blue-500 transition-colors duration-300">→</span>
+        </div>
+      </Link>
+    );
+  };
 
   return (
     <div className={`w-full ${className}`}>

@@ -1,6 +1,5 @@
 import React from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getInitial } from '@/shared/utils/avatar-utils';
+import { ChatAvatar } from '@/components/ui/OptimizedAvatar';
 import { format } from 'date-fns'; // For more precise time formatting like '4:14pm'
 import { Check, CheckCheck, Star } from 'lucide-react';
 import { formatInTimezone } from '@/utils/formatters';
@@ -41,7 +40,6 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
   const { userTimezone } = useTimezone();
   const isCurrentUserMessage = message.sender_id === currentUserId;
   const senderName = message.sender?.full_name || 'Unknown User';
-  const avatarUrl = message.sender?.avatar_url;
 
   const formatTime = (timeStr: string) => {
     try {
@@ -79,10 +77,15 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
   return (
     <div className={`mb-4 ${messageContainerClasses}`}>
       {!isCurrentUserMessage && isFirstInSequence && (
-        <Avatar className="h-7 w-7 mr-2.5 mt-0.5 flex-shrink-0">
-              <AvatarImage src={avatarUrl || undefined} alt={senderName} />
-          <AvatarFallback className="text-xs">{getInitial(senderName)}</AvatarFallback>
-            </Avatar>
+        <div className="mr-2.5 mt-0.5 flex-shrink-0">
+          <ChatAvatar
+            user={{
+              id: message.sender_id,
+              full_name: senderName,
+              avatar_url: message.sender?.avatar_url
+            }}
+          />
+        </div>
       )}
       
       {!isCurrentUserMessage && !isFirstInSequence && (

@@ -3,6 +3,7 @@
  * 
  * Displays a card for a space with its details, including cover image, 
  * name, description, and member information.
+ * ✅ UPGRADED: Now uses unified SpaceAssetsUtils system
  */
 
 import { Link } from "react-router-dom";
@@ -10,6 +11,7 @@ import { Globe, Lock, Users, Tag } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components";
 import { useSpacePreviewStore } from "../../store/space-preview-store";
 import { Space } from "../../types";
+import { SpaceAssetsUtils, useSpaceAssets } from "@/shared/utils/space-assets-utils";
 
 interface SpaceCardProps {
   /** The space to display */
@@ -33,6 +35,11 @@ interface SpaceCardProps {
  */
 export function SpaceCard({ space, openInModal = true }: SpaceCardProps) {
   const openPreview = useSpacePreviewStore(state => state.open);
+  
+  // 🚀 NEW: Use unified space assets system
+  const { assets, placeholder } = useSpaceAssets(space);
+  // 🎨 USER PREFERENCE: Use neutral gray gradients for both cover and icons
+  const coverPlaceholder = SpaceAssetsUtils.getCoverPlaceholderConfig(space); // Use gray gradients per user preference
   
   /**
    * Handles the card click based on the openInModal prop:
@@ -66,16 +73,25 @@ export function SpaceCard({ space, openInModal = true }: SpaceCardProps) {
     >
       {/* Cover Image - Keep at 335x176.98 */}
       <div className="relative w-full h-[176.98px]">
-        {space.cover_image ? (
+        {assets.hasCover && assets.coverUrl ? (
           <img 
-            src={space.cover_image} 
+            src={assets.coverUrl} 
             alt={space.name}
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-            <span className="text-xl font-bold text-gray-400">
-              {space.name.substring(0, 2).toUpperCase()}
+          // 🎨 USER PREFERENCE: Use neutral gray gradients that user likes
+          <div 
+            className="w-full h-full flex items-center justify-center"
+            style={{ 
+              background: `linear-gradient(135deg, ${coverPlaceholder.gradientFrom}, ${coverPlaceholder.gradientTo})` 
+            }}
+          >
+            <span 
+              className="text-xl font-bold"
+              style={{ color: coverPlaceholder.textColor }}
+            >
+              {coverPlaceholder.initials}
             </span>
           </div>
         )}
@@ -87,27 +103,42 @@ export function SpaceCard({ space, openInModal = true }: SpaceCardProps) {
         <div className="px-3 pt-3 flex flex-col">
           {/* Icon and name on the same line */}
           <div className="flex items-center gap-3 mb-2">
-            {/* Check for icon_image */}
-            {space.icon_image ? (
+            {/* ✅ UPGRADED: Now uses unified SpaceAssetsUtils for consistent icon handling */}
+            {assets.hasIcon && assets.iconUrl ? (
               <div className="h-10 w-10 rounded-md overflow-hidden">
                 <img 
-                  src={space.icon_image} 
+                  src={assets.iconUrl} 
                   alt={`${space.name} icon`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    // If image fails to load, fallback to initials
+                    // 🎨 USER PREFERENCE: Graceful fallback to neutral gray placeholder
                     e.currentTarget.style.display = 'none';
-                    // The parent div will show the initials as fallback
-                    e.currentTarget.parentElement?.classList.add('bg-gradient-to-r', 'from-blue-500', 'to-indigo-600', 'flex', 'items-center', 'justify-center', 'text-white', 'text-sm', 'font-medium');
-                    const initialsSpan = document.createElement('span');
-                    initialsSpan.textContent = space.name.substring(0, 2).toUpperCase();
-                    e.currentTarget.parentElement?.appendChild(initialsSpan);
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                      parent.style.background = `linear-gradient(135deg, ${coverPlaceholder.gradientFrom}, ${coverPlaceholder.gradientTo})`;
+                      parent.style.display = 'flex';
+                      parent.style.alignItems = 'center';
+                      parent.style.justifyContent = 'center';
+                      const initialsSpan = document.createElement('span');
+                      initialsSpan.textContent = coverPlaceholder.initials;
+                      initialsSpan.style.color = coverPlaceholder.textColor;
+                      initialsSpan.style.fontSize = '14px';
+                      initialsSpan.style.fontWeight = '600';
+                      parent.appendChild(initialsSpan);
+                    }
                   }}
                 />
               </div>
             ) : (
-              <div className="h-10 w-10 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-medium">
-                {space.name.substring(0, 2).toUpperCase()}
+              // 🎨 USER PREFERENCE: Neutral gray placeholder for icons too
+              <div 
+                className="h-10 w-10 rounded-md flex items-center justify-center text-sm font-medium"
+                style={{ 
+                  background: `linear-gradient(135deg, ${coverPlaceholder.gradientFrom}, ${coverPlaceholder.gradientTo})`,
+                  color: coverPlaceholder.textColor
+                }}
+              >
+                {coverPlaceholder.initials}
               </div>
             )}
             <h3 className="font-bold text-gray-900 text-lg">

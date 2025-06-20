@@ -12,6 +12,7 @@
 import { pushNotificationService } from './pushNotificationService';
 import { offlineDataSync } from './offlineDataSync';
 import { logAnalyticsEvent } from './analytics';
+import { globalConsoleFlags } from '@/utils/developmentLogger';
 
 // Global interface for Phase 5 testing and debugging
 interface Phase5GlobalAPI {
@@ -53,14 +54,20 @@ interface Phase5GlobalAPI {
  */
 async function initializePhase5(): Promise<boolean> {
   try {
-    console.log('📱 [Phase 5] Initializing Mobile Optimization & PWA...');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('📱 [Phase 5] Initializing Mobile Optimization & PWA...');
+    }
 
     // Initialize push notifications
-    console.log('🔔 [Phase 5] Initializing push notifications...');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('🔔 [Phase 5] Initializing push notifications...');
+    }
     await pushNotificationService.initialize();
 
     // Initialize offline data sync
-    console.log('🔄 [Phase 5] Initializing offline data sync...');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('🔄 [Phase 5] Initializing offline data sync...');
+    }
     await offlineDataSync.initialize();
 
     // Track Phase 5 initialization
@@ -75,7 +82,9 @@ async function initializePhase5(): Promise<boolean> {
       }
     });
 
-    console.log('✅ [Phase 5] Mobile Optimization & PWA initialized successfully');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('✅ [Phase 5] Mobile Optimization & PWA initialized successfully');
+    }
     return true;
   } catch (error) {
     console.error('❌ [Phase 5] Initialization failed:', error);
@@ -390,10 +399,14 @@ function getInfo(): any {
 }
 
 // Initialize Phase 5 when module loads
-console.log('📱 [Phase 5] Module loaded, starting initialization...');
+if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+  console.log('📱 [Phase 5] Module loaded, starting initialization...');
+}
 initializePhase5().then(success => {
   if (success) {
-    console.log('✅ [Phase 5] Initialization completed successfully');
+    if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
+      console.log('✅ [Phase 5] Initialization completed successfully');
+    }
   } else {
     console.error('❌ [Phase 5] Initialization failed');
   }

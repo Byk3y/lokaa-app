@@ -23,9 +23,9 @@ export function useAppInitialization() {
         // Initialize development tools (handled automatically in dev mode)
         if (import.meta.env?.DEV) {
           await developmentTools.initialize({
-            enablePhaseIntegrations: true,
-            enableDebugUtilities: true,
-            enableConsoleDebuggers: true
+            enablePhaseIntegrations: false,
+            enableDebugUtilities: false,
+            enableConsoleDebuggers: false
           });
         }
 
