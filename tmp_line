@@ -1,1 +1,0 @@
-const from = location.state?.from?.pathname || "/dashboard";
