@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Paperclip, Link as LinkIcon, Video as VideoIcon, ImageIcon, Gift, Smile, BarChart, FileText, File } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -83,6 +83,29 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   );
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
   
+  // Transform post media_urls into proper Attachment format for edit mode
+  const initialAttachments = useMemo(() => {
+    if (!editMode || !post?.media_urls || !Array.isArray(post.media_urls)) {
+      return [];
+    }
+    
+    return post.media_urls.map((media: any, index: number) => ({
+      id: media.id || `media-${index}`,
+      type: media.type || 'file',
+      url: media.url || '',
+      name: media.name || media.fileName || `Attachment ${index + 1}`,
+      fileType: media.fileType || media.mimeType || (media.url?.includes('.jpg') || media.url?.includes('.jpeg') ? 'image/jpeg' : 
+                media.url?.includes('.png') ? 'image/png' : 
+                media.url?.includes('.gif') ? 'image/gif' : 
+                media.url?.includes('.pdf') ? 'application/pdf' : 'application/octet-stream'),
+      fileSize: media.fileSize || media.size,
+      storagePath: media.storagePath,
+      videoPlatform: media.videoPlatform,
+      videoId: media.videoId,
+      thumbnailUrl: media.thumbnailUrl
+    }));
+  }, [editMode, post?.media_urls]);
+
   const {
     attachments,
     isVideoLinkModalOpen,
@@ -108,7 +131,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     userId: currentUserId,
     isOpen,
     editMode,
-    initialAttachments: post?.media_urls
+    initialAttachments
   });
   
   const {
@@ -252,14 +275,38 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       return;
     }
     
+    // CRITICAL FIX: Process content GIFs and embed them in content
+    let finalContent = content;
+    
+    // If we're editing, first remove existing GIF HTML from content
+    if (editMode && post?.content) {
+      const gifTagRegex = /<img\s+[^>]*src="[^"]*\.gif[^"]*"[^>]*>/gi;
+      finalContent = content.replace(gifTagRegex, '').trim();
+    }
+    
+    // Add selected content GIFs as HTML at the end of content
+    if (selectedContentGifUrls.length > 0) {
+      const gifHtmlTags = selectedContentGifUrls.map(gifUrl => {
+        // Ensure proper dimensions for consistent display
+        return `<img src="${gifUrl}" alt="GIF" width="210" height="210" />`;
+      }).join('\n');
+      
+      // Add GIFs to content with proper spacing
+      if (finalContent.trim()) {
+        finalContent = `${finalContent}\n\n${gifHtmlTags}`;
+      } else {
+        finalContent = gifHtmlTags;
+      }
+    }
+    
     const response = await submitPost({
       title,
-      content,
+      content: finalContent,
       categoryId: getSubmissionCategoryId(),
       attachments,
       pollData: getPreparedPollData(),
       categories,
-      content_gif_url: selectedContentGifUrls.length > 0 ? selectedContentGifUrls[0] : null
+      content_gif_url: null // No longer needed since GIFs are embedded in content
     });
     
     if (response.success) {
@@ -278,17 +325,59 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   };
 
   useEffect(() => {
-  if (!isOpen) {
-        if (!editMode) {
-            setTitle('');
-            setContent('');
-            setCategoryId(null);
-        }
-        setSelectedContentGifUrls([]);
+    if (!isOpen) {
+      if (!editMode) {
+        setTitle('');
+        setContent('');
+        setCategoryId(null);
+      }
+      setSelectedContentGifUrls([]);
     } else {
-      setSelectedContentGifUrls(editMode && post?.content_gif_url ? [post.content_gif_url] : []);
+      // Initialize GIFs for edit mode
+      if (editMode && post) {
+        const gifUrls: string[] = [];
+        
+        // Check for content_gif_url (direct GIF field) - legacy support
+        if (post.content_gif_url) {
+          gifUrls.push(post.content_gif_url);
+        }
+        
+        // CRITICAL FIX: Extract GIFs from HTML content field
+        if (post.content) {
+          const gifTagRegex = /<img\s+[^>]*src="([^"]*\.gif[^"]*)"[^>]*>/gi;
+          let match;
+          while ((match = gifTagRegex.exec(post.content)) !== null) {
+            const gifUrl = match[1];
+            if (gifUrl && !gifUrls.includes(gifUrl)) {
+              gifUrls.push(gifUrl);
+            }
+          }
+        }
+        
+        // Check for GIFs in media_urls attachments
+        if (post.media_urls && Array.isArray(post.media_urls)) {
+          const gifAttachments = post.media_urls.filter((media: any) => {
+            return media?.type === 'file' && 
+                   (media?.fileType === 'image/gif' || 
+                    (typeof media?.url === 'string' && media.url.toLowerCase().includes('.gif')) ||
+                    (typeof media?.url === 'string' && media.url.includes('giphy.com')));
+          });
+          
+          gifAttachments.forEach((gif: any) => {
+            if (gif.url && !gifUrls.includes(gif.url)) {
+              // Use directUrl if available (for Giphy), otherwise use regular url
+              const gifUrl = gif.directUrl || gif.url;
+              gifUrls.push(gifUrl);
+            }
+          });
+        }
+        
+        setSelectedContentGifUrls(gifUrls);
+      } else {
+        setSelectedContentGifUrls([]);
+      }
     }
-  }, [isOpen, editMode, setTitle, setContent, setCategoryId, post?.content_gif_url]);
+  }, [isOpen, editMode, setTitle, setContent, setCategoryId, post?.content_gif_url, post?.media_urls, post?.content]);
 
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;

@@ -183,13 +183,13 @@ export const signOut = async (
   
   // Space state management is now handled by individual components
   
-  // **CRITICAL SECURITY FIX**: Clear Unified Presence cache to prevent cross-user data contamination
+  // **CRITICAL SECURITY FIX**: Clear Simple Presence cache to prevent cross-user data contamination
   try {
-    const { clearUnifiedPresenceCache } = await import('@/hooks/useUnifiedPresence');
-    clearUnifiedPresenceCache();
-    console.log('🧹 SECURITY: Cleared Unified Presence cache');
+    const { clearSpacePresenceCache } = await import('@/hooks/useSimpleSpacePresence');
+    clearSpacePresenceCache(); // Clear all spaces
+    console.log('🧹 SECURITY: Cleared Simple Presence cache');
   } catch (error) {
-    console.warn('Failed to clear Unified Presence cache:', error);
+    console.warn('Failed to clear Simple Presence cache:', error);
   }
   
   // Space component cache cleanup is now handled by individual components

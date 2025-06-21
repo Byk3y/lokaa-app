@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useRealtimeComments } from '@/hooks/useRealtimeComments';
 import type { PostCardProps } from '@/components/space/PostCard';
 import type { CommentAuthor } from '@/components/space/comments/CommentItem';
 
@@ -22,7 +23,7 @@ export interface FetchedComment {
   currentUserId?: string | null;
 }
 
-interface CommentDataFromServer {
+type CommentDataFromServer = {
   id: string;
   content: string;
   created_at: string;
@@ -30,12 +31,12 @@ interface CommentDataFromServer {
   post_id: string;
   space_id: string;
   parent_comment_id: string | null;
-  author: CommentAuthor | null; // Assuming author is already in the correct FetchedComment structure or can be cast
-  // reply_count is NOT here
-}
+  author: CommentAuthor | null;
+};
 
 /**
  * Hook to handle post comments (fetching, posting, managing state)
+ * 🔔 NOW WITH REAL-TIME SUPPORT!
  */
 export function useComments(
   post: PostCardProps | null, 
@@ -49,9 +50,36 @@ export function useComments(
   const [optimisticCommentCount, setOptimisticCommentCount] = useState(post?.comments || 0);
   const [replyingToComment, setReplyingToComment] = useState<FetchedComment | null>(null);
 
+  // 🔔 REAL-TIME COMMENT SUBSCRIPTION
+  const { isConnected: realtimeConnected } = useRealtimeComments({
+    postId: post?.id || '',
+    spaceId: post?.spaceId,
+    userId: currentUserId,
+    isEnabled: !!post?.id,
+    onNewComment: (newCommentData) => {
+      console.log('🔔 [useComments] Real-time comment received, refreshing comments...');
+      // 🔧 STABILIZED: Add delay to prevent overwriting optimistic updates
+      setTimeout(() => {
+        if (post?.id) {
+          fetchComments(post.id);
+        }
+      }, 1000); // 1-second delay to allow optimistic updates to settle
+    },
+    onCommentUpdate: (commentId) => {
+      console.log('🔔 [useComments] Comment updated, refreshing comments...', commentId);
+      // 🔧 STABILIZED: Add delay for update propagation
+      setTimeout(() => {
+        if (post?.id) {
+          fetchComments(post.id);
+        }
+      }, 500); // 500ms delay for updates
+    }
+  });
+
   // Load initial comment data when post changes
   useEffect(() => {
     if (post?.id) {
+      console.log('🔔 [useComments] Loading comments for post:', post.id);
       fetchComments(post.id);
     }
     setOptimisticCommentCount(post?.comments || 0);
@@ -61,6 +89,7 @@ export function useComments(
   const fetchComments = async (postId: string) => {
     if (!postId) return;
     
+    console.log('🔔 [useComments] Fetching comments for post:', postId);
     setCommentsLoading(true);
     try {
       const { data, error } = await getSupabaseClient()
@@ -77,6 +106,8 @@ export function useComments(
       if (error) throw error;
       
       if (data) {
+        console.log(`🔔 [useComments] Fetched ${data.length} comments for post ${postId}`);
+        
         const commentIds = data.map(comment => comment.id);
         
         // Fetch reply counts
@@ -116,12 +147,15 @@ export function useComments(
           like_count: comment.like_count?.[0]?.count || 0,
           isLiked: likedCommentIds.has(comment.id),
         }));
+        
         setComments(commentsWithDetails);
+        console.log(`🔔 [useComments] Comments state updated with ${commentsWithDetails.length} comments`);
       } else {
         setComments([]);
+        console.log('🔔 [useComments] No comments found, clearing state');
       }
     } catch (err) {
-      console.error('Error fetching comments:', err);
+      console.error('🔔 [useComments] Error fetching comments:', err);
     } finally {
       setCommentsLoading(false);
     }
@@ -153,6 +187,12 @@ export function useComments(
     
     if (isCommenting) return;
 
+    console.log('🔔 [useComments] Submitting comment:', {
+      postId: post.id,
+      content: contentToSubmit.substring(0, 50) + '...',
+      parentId: replyingToComment?.id
+    });
+
     setIsCommenting(true);
     
     const parentId = replyingToComment ? replyingToComment.id : null;
@@ -168,6 +208,8 @@ export function useComments(
       }).select('id, content, created_at, user_id, post_id, parent_comment_id').single();
 
       if (error) throw error;
+
+      console.log('🔔 [useComments] Comment submitted successfully:', submittedCommentData.id);
 
       if (submittedCommentData?.id) {
         await getSupabaseClient().from('user_activity_log').insert({
@@ -212,9 +254,10 @@ export function useComments(
         handleReplyAdded(parentId, newCommentEntry);
         // The CommentItem itself will be responsible for re-fetching if its reply_count prop changes.
       } else {
-        // It's a new top-level comment
+        // It's a new top-level comment - add optimistically and real-time will confirm
         setComments(prevComments => [...prevComments, newCommentEntry]);
         setOptimisticCommentCount(prevCount => prevCount + 1); 
+        console.log('🔔 [useComments] Added optimistic comment, real-time will sync');
       }
       
       setNewComment("");
@@ -231,11 +274,13 @@ export function useComments(
         onCommentAddedForTopLevel(post.id, optimisticCommentCount); // optimisticCommentCount should be updated before this
       }
 
+      console.log('🔔 [useComments] Comment submission completed successfully');
+
     } catch (error: any) {
-      console.error(isReply ? "Error posting reply:" : "Error posting comment:", error);
+      console.error('🔔 [useComments] Error submitting comment:', error);
       toast({
         title: "Error",
-        description: error.message || (isReply ? "Could not post reply" : "Could not post comment"),
+        description: error.message || "Could not post comment",
         variant: "destructive",
       });
     } finally {
@@ -243,19 +288,17 @@ export function useComments(
     }
   };
 
-  // Handle when a reply is added to a comment
+  // Handle when a reply is added to a parent comment
   const handleReplyAdded = (commentId: string, newReply: any) => {
-    // Increment the optimistic comment count
-    setOptimisticCommentCount(prevCount => prevCount + 1);
-    
-    // Update the reply count for the parent comment
+    // Update the parent comment's reply count
     setComments(prevComments => 
       prevComments.map(comment => 
         comment.id === commentId 
-          ? { ...comment, reply_count: (comment.reply_count || 0) + 1 } 
+          ? { ...comment, reply_count: (comment.reply_count || 0) + 1 }
           : comment
       )
     );
+    setOptimisticCommentCount(prevCount => prevCount + 1);
   };
 
   // Fetch replies for a specific comment
@@ -302,22 +345,6 @@ export function useComments(
     }
   };
 
-  // Function to handle when a comment's like status is toggled
-  const handleCommentLikeToggled = (commentId: string, newLikedState: boolean, newLikeCount: number) => {
-    const updateCommentRecursive = (list: FetchedComment[]): FetchedComment[] => {
-      return list.map(comment => {
-        if (comment.id === commentId) {
-          return { ...comment, isLiked: newLikedState, like_count: newLikeCount };
-        }
-        if (comment.replies && comment.replies.length > 0) {
-          return { ...comment, replies: updateCommentRecursive(comment.replies) };
-        }
-        return comment;
-      });
-    };
-    setComments(prevComments => updateCommentRecursive(prevComments));
-  };
-
   return {
     comments,
     commentsLoading,
@@ -325,11 +352,13 @@ export function useComments(
     setNewComment,
     isCommenting,
     optimisticCommentCount,
-    handleCommentSubmit,
-    handleReplyAdded,
-    fetchReplies,
     replyingToComment,
     setReplyTarget,
-    handleCommentLikeToggled,
+    handleCommentSubmit,
+    handleReplyAdded,
+    fetchComments,
+    fetchReplies,
+    // 🔔 Real-time status
+    realtimeConnected,
   };
 } 

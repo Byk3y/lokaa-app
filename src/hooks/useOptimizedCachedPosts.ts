@@ -451,7 +451,26 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
   }, [handlePostUpdated]);
 
   const handleCommentAdded = useCallback((postId: string, newCommentCount: number) => {
+    // CRITICAL FIX: Force immediate UI update for real-time comment count display
+    console.log(`🔔 [CacheDebug] Updating comment count for post ${postId}: ${newCommentCount}`);
+    
+    // 1. Update the post in both regular and pinned posts arrays immediately
+    setPosts(prev => prev.map(post => 
+      post.id === postId 
+        ? { ...post, comment_count: newCommentCount }
+        : post
+    ));
+    
+    setPinnedPosts(prev => prev.map(post => 
+      post.id === postId 
+        ? { ...post, comment_count: newCommentCount }
+        : post
+    ));
+    
+    // 2. Also call the existing handlePostUpdated for cache consistency
     handlePostUpdated(postId, { comment_count: newCommentCount });
+    
+    console.log(`✅ [CacheDebug] Comment count updated successfully for post ${postId}`);
   }, [handlePostUpdated]);
 
   const handlePinToggled = useCallback((postId: string, isPinned: boolean, pinPosition?: number) => {

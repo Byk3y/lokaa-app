@@ -120,7 +120,7 @@ export class AvatarCacheService {
 
   /**
    * 🚀 Preload avatars for current space members (MAJOR PERFORMANCE BOOST)
-   * Now optimized for instant display + background preloading
+   * Now optimized for instant display + background preloading + incognito mode support
    */
   static async preloadSpaceAvatars(spaceId: string): Promise<PreloadResult> {
     const startTime = Date.now();
@@ -199,8 +199,50 @@ export class AvatarCacheService {
 
       // 🔄 BACKGROUND LOADING: Load new avatars asynchronously
       if (newAvatars.length > 0) {
-        // Start background loading without blocking
-        this.loadAvatarsInBackground(newAvatars).then(result => {
+        // 🚀 FIX FOR INCOGNITO MODE: If no cache exists, load some avatars synchronously first
+        const isEmptyCache = cached === 0;
+        const shouldLoadSomeSync = isEmptyCache && newAvatars.length > 0;
+        
+        if (shouldLoadSomeSync) {
+          // Load first 3 avatars synchronously for immediate display in incognito mode
+          const syncAvatars = newAvatars.slice(0, 3);
+          const backgroundAvatars = newAvatars.slice(3);
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`🔄 [AvatarCache] INCOGNITO MODE: Loading ${syncAvatars.length} avatars synchronously, ${backgroundAvatars.length} in background`);
+          }
+          
+          // Load first batch synchronously
+          try {
+            const syncResult = await this.loadAvatarsSynchronously(syncAvatars);
+            loaded += syncResult.loaded;
+            failed += syncResult.failed;
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`⚡ [AvatarCache] SYNC COMPLETE: ${syncResult.loaded} loaded, ${syncResult.failed} failed`);
+            }
+          } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ [AvatarCache] Sync loading failed:', error);
+            }
+            failed += syncAvatars.length;
+          }
+          
+          // Load remaining avatars in background
+          if (backgroundAvatars.length > 0) {
+            this.loadAvatarsInBackground(backgroundAvatars).then(result => {
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`🔄 [AvatarCache] Background loading complete: ${result.loaded} loaded, ${result.failed} failed`);
+              }
+            }).catch(error => {
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('⚠️ [AvatarCache] Background loading failed:', error);
+              }
+            });
+          }
+        } else {
+          // Normal background loading for when we have some cache
+          this.loadAvatarsInBackground(newAvatars).then(result => {
           if (process.env.NODE_ENV === 'development') {
             console.log(`🔄 [AvatarCache] Background loading complete: ${result.loaded} loaded, ${result.failed} failed`);
           }
@@ -209,13 +251,18 @@ export class AvatarCacheService {
             console.warn('⚠️ [AvatarCache] Background loading failed:', error);
           }
         });
+        }
 
-        // Return immediately with cached status
+        // Return with current status
         const duration = Date.now() - startTime;
         if (process.env.NODE_ENV === 'development') {
-          console.log(`⚡ [AvatarCache] INSTANT with background: 0 loaded, ${cached} cached, 0 failed (${duration}ms) + ${newAvatars.length} loading in background`);
+          if (shouldLoadSomeSync) {
+            console.log(`⚡ [AvatarCache] HYBRID LOADING: ${loaded} loaded, ${cached} cached, ${failed} failed (${duration}ms) + ${newAvatars.length - loaded} loading in background`);
+          } else {
+            console.log(`⚡ [AvatarCache] INSTANT with background: ${loaded} loaded, ${cached} cached, ${failed} failed (${duration}ms) + ${newAvatars.length} loading in background`);
+          }
         }
-        return { loaded: 0, failed: 0, cached, duration };
+        return { loaded, failed, cached, duration };
       }
 
       const duration = Date.now() - startTime;
@@ -443,6 +490,47 @@ export class AvatarCacheService {
     console.log('🧪 [AvatarCache] Performance Test Results:');
     console.log('📊 Cache Stats:', this.getStats());
     console.log('💡 Recommendations:', this.generateRecommendations());
+  }
+
+  /**
+   * 🔄 Load avatars synchronously for incognito mode (blocking but fast)
+   */
+  private static async loadAvatarsSynchronously(avatars: any[]): Promise<{ loaded: number; failed: number }> {
+    let loaded = 0, failed = 0;
+
+    try {
+      // Load all avatars in parallel but wait for completion
+      const promises = avatars.map(async (user: any) => {
+        try {
+          const userId = user.id;
+          const avatarUrl = user.avatar_url;
+
+          if (!avatarUrl) return;
+
+          // Preload image synchronously
+          await this.preloadImage(avatarUrl);
+          
+          // Cache for multiple sizes
+          this.setCachedAvatar(userId, avatarUrl, 'sm', true);
+          this.setCachedAvatar(userId, avatarUrl, 'md', true);
+          this.setCachedAvatar(userId, avatarUrl, 'lg', true);
+          
+          loaded++;
+        } catch (error) {
+          failed++;
+          // Only log errors in development
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️ [AvatarCache] Sync load failed for avatar:', error);
+          }
+        }
+      });
+
+      await Promise.all(promises);
+      return { loaded, failed };
+    } catch (error) {
+      console.error('❌ [AvatarCache] Synchronous loading failed:', error);
+      return { loaded, failed: failed + 1 };
+    }
   }
 }
 

@@ -6,6 +6,15 @@ interface PostContentProps {
   postTitleRef: React.RefObject<HTMLHeadingElement>;
 }
 
+// Convert text to title case (capitalize first letter of each word)
+function toTitleCase(text: string): string {
+  return text
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export default function PostContent({ post, postTitleRef }: PostContentProps) {
   // Sanitize content to prevent XSS
   const sanitizedContent = useMemo(() => {
@@ -25,7 +34,7 @@ export default function PostContent({ post, postTitleRef }: PostContentProps) {
           ref={postTitleRef} 
           className="text-2xl font-bold text-gray-900 leading-tight mb-1"
         >
-          {post.title}
+          {toTitleCase(post.title)}
         </h1>
       )}
       <div 
@@ -34,4 +43,4 @@ export default function PostContent({ post, postTitleRef }: PostContentProps) {
       />
     </div>
   );
-} 
+}

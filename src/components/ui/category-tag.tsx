@@ -7,6 +7,15 @@ interface CategoryTagProps {
   className?: string;
 }
 
+// Convert text to title case (capitalize first letter of each word)
+function toTitleCase(text: string): string {
+  return text
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 // Generate consistent color based on category name
 function getCategoryColor(name: string) {
   const colors = [
@@ -40,7 +49,7 @@ export function CategoryTag({ name, variant = 'default', className }: CategoryTa
 
   return (
     <span className={cn(baseClasses, variantClasses[variant], className)}>
-      {name}
+      {toTitleCase(name)}
     </span>
   );
 } 

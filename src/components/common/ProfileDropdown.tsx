@@ -7,7 +7,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { safelyNavigateToProfile } from '@/utils/profileRedirect';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { navigateToProfileWithContext, getCurrentSpaceContext } from '@/utils/spaceContextUtils';
-import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
+import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 import { getInitials } from '@/shared/utils/avatar-utils';
 
 interface CustomMenuItem {
@@ -47,7 +47,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       
       try {
         // Use Supabase-IndexedDB bridge for mobile browser blocking protection
-        const { data, error, fromCache } = await supabaseIndexedDBBridge.getUserProfile(
+        const { data, error, fromCache } = await migrationAdapter.getUserProfile(
           currentUser.id, 
           ['profile_url']
         );
@@ -133,7 +133,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       
       try {
         // Use Supabase-IndexedDB bridge for mobile browser blocking protection
-        const { data, error, fromCache } = await supabaseIndexedDBBridge.getUserProfile(
+        const { data, error, fromCache } = await migrationAdapter.getUserProfile(
           currentUser.id, 
           ['full_name']
         );

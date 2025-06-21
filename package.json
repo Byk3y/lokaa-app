@@ -14,7 +14,12 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:indexeddb": "vitest run src/utils/indexeddb",
+    "test:indexeddb:watch": "vitest src/utils/indexeddb",
+    "test:indexeddb:ui": "vitest --ui src/utils/indexeddb",
+    "test:coverage": "vitest run --coverage",
+    "test:indexeddb:coverage": "vitest run --coverage src/utils/indexeddb"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",

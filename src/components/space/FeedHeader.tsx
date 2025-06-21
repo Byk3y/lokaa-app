@@ -1,13 +1,9 @@
-import React from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/shared/components';
+import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
+import { User } from '@supabase/supabase-js';
 
 interface FeedHeaderProps {
-  currentUser: {
-    email?: string;
-    user_metadata?: {
-      avatar_url?: string;
-    };
-  } | null;
+  currentUser: User | null;
   onOpenCreatePostModal: () => void;
 }
 
@@ -25,10 +21,19 @@ export default function FeedHeader({
         role="button"
       >
         <div className="flex items-center space-x-2 sm:space-x-3">
-          <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-            <AvatarImage src={currentUser?.user_metadata?.avatar_url || undefined} />
-            <AvatarFallback>{currentUser?.email?.[0]?.toUpperCase()}</AvatarFallback>
-          </Avatar>
+          <OptimizedAvatar
+            user={{
+              id: currentUser?.id || 'unknown',
+              full_name: currentUser?.user_metadata?.full_name || currentUser?.email || 'User',
+              avatar_url: currentUser?.user_metadata?.avatar_url || null
+            }}
+            size="md"
+            enableLazyLoading={false} // 🚀 OPTIMIZED: Instant loading for feed header
+            enableCaching={true}
+            placeholderType="initials"
+            loadingTransition="fade"
+            className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0"
+          />
           <div 
             className="flex-grow text-gray-600 text-base sm:text-lg font-semibold px-1 transition-colors rounded-md hover:text-gray-900"
           >

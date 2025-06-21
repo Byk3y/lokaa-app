@@ -61,7 +61,17 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
     } else if (editMode && post) {
       // Set form values for edit mode
       setTitle(post.title || '');
-      setContent(post.content || '');
+      
+      // CRITICAL FIX: Clean content by removing embedded GIF HTML tags for editing
+      let cleanContent = post.content || '';
+      if (cleanContent) {
+        // Remove embedded GIF HTML tags from content for clean editing experience
+        const gifTagRegex = /<img\s+[^>]*src="[^"]*\.gif[^"]*"[^>]*>/gi;
+        cleanContent = cleanContent.replace(gifTagRegex, '').trim();
+        // Also clean up extra newlines that might be left behind
+        cleanContent = cleanContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+      }
+      setContent(cleanContent);
       
       // Check if post has poll data
       if (post.poll_data) {

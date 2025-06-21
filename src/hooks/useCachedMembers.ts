@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useMembersCache } from './useMembersCache';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
-import { useSpacePresence } from '@/hooks/useUnifiedPresence';
+import { useSimpleSpacePresence } from '@/hooks/useSimpleSpacePresence';
 import type { CachedMemberType } from './useMembersCache';
 import type { MemberRole } from '@/contexts/MembershipContext';
 
@@ -28,7 +28,7 @@ interface UseCachedMembersReturn {
 
 export const useCachedMembers = (spaceId: string | undefined): UseCachedMembersReturn => {
   const { user, loading: authLoading } = useOptimizedAuth();
-  const { onlineUsers } = useSpacePresence(spaceId || ''); // Get real-time online users
+  const { onlineUsers } = useSimpleSpacePresence(spaceId || ''); // Get real-time online users
   const {
     fetchMembers,
     getMembers,

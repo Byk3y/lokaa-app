@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import React, { useCallback, useMemo, memo, useState } from "react";
+import React, { useCallback, useMemo, memo, useState, useEffect } from "react";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import type { PostCardProps } from "@/features/posts/types";
 import {
@@ -8,13 +8,14 @@ import {
   usePostPin,
 } from "@/features/posts/hooks";
 import { formatDistanceToNow } from "date-fns";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { OptimizedAvatar } from "@/components/ui/OptimizedAvatar";
 import { Badge } from "@/components/ui/badge";
 import { extractVideoInfo } from '@/shared/utils/media-utils';
 import { CategoryTag } from '@/components/ui/category-tag';
 import { usePostDetail } from '@/hooks/usePostDetail';
 import { LikeButton, CommentButton } from "@/components/ui/post-icons";
 import { devLogger } from '../../utils/developmentLogger';
+import { getSimpleCommentInfo } from '@/utils/commentUtils';
 
 // Optimized media detection helper function
 const getFirstMedia = (mediaUrls?: Array<{ url: string; type?: string; fileType?: string; videoPlatform?: string; videoId?: string | null; thumbnailUrl?: string | null; directUrl?: string }> | null): { url: string; type: 'video' | 'gif' | 'image'; thumbnailUrl?: string } | null => {
@@ -117,8 +118,8 @@ const PostCardMedia = memo(({ media, contentGifUrl, onClick }: {
             }}
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
-              <div className="w-0 h-0 border-l-[8px] border-l-gray-800 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent ml-1"></div>
+            <div className="px-4 py-2 md:px-5 md:py-3 bg-black/75 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-xl hover:bg-black/85 transition-all duration-200">
+              <div className="w-0 h-0 border-l-[10px] md:border-l-[12px] border-l-white border-t-[7px] md:border-t-[8px] border-t-transparent border-b-[7px] md:border-b-[8px] border-b-transparent ml-1"></div>
             </div>
           </div>
         </div>
@@ -148,21 +149,29 @@ const PostCardMedia = memo(({ media, contentGifUrl, onClick }: {
 });
 
 // Recent commenters avatars
-const CommentersAvatars = memo(({ commenters }: { commenters: Array<{ avatar?: string; name?: string }> }) => {
-  const maxShow = 3;
+const CommentersAvatars = memo(({ commenters }: { commenters: Array<{ avatar?: string; name?: string; id?: string }> }) => {
+  const maxShow = 5;
   const displayCommenters = commenters.slice(0, maxShow);
   
   if (displayCommenters.length === 0) return null;
   
   return (
-    <div className="flex -space-x-1">
+    <div className="flex -space-x-1.5 ml-6">
       {displayCommenters.map((commenter, index) => (
-        <Avatar key={index} className="w-6 h-6 border-2 border-white">
-          <AvatarImage src={commenter.avatar} />
-          <AvatarFallback className="text-xs bg-gray-200">
-            {commenter.name?.[0]?.toUpperCase() || '?'}
-          </AvatarFallback>
-        </Avatar>
+        <OptimizedAvatar 
+          key={commenter.id || index} 
+          user={{
+            id: commenter.id || `commenter-${index}`,
+            full_name: commenter.name || 'User',
+            avatar_url: commenter.avatar || null
+          }}
+          size="sm"
+          enableLazyLoading={true}
+          enableCaching={true}
+          placeholderType="initials"
+          loadingTransition="fade"
+          className="w-8 h-8 border-2 border-white rounded-full ring-1 ring-gray-200"
+        />
       ))}
     </div>
   );
@@ -192,6 +201,7 @@ const PostCard = memo(function PostCard({
   onPostClick,
   onLikeToggled,
   onPinToggled,
+  onCommentAdded, // 🔥 NEW: Add comment callback prop
 }: PostCardProps) {
   const { user: loggedInUser } = useOptimizedAuth();
   const userIdForActions = currentUserId || loggedInUser?.id;
@@ -227,12 +237,21 @@ const PostCard = memo(function PostCard({
   const {
     comments: postComments,
     optimisticCommentCount,
+    fetchComments,
   } = usePostComments({
     postId: id,
     spaceId,
     userId: userIdForActions,
     initialComments: comments,
+    onCommentAdded, // 🔥 CRITICAL FIX: Connect the callback to enable real-time updates
   });
+
+  // Fetch comments when the component mounts if there are comments to show avatars
+  useEffect(() => {
+    if (optimisticCommentCount > 0 && (!postComments || postComments.length === 0)) {
+      fetchComments();
+    }
+  }, [optimisticCommentCount, postComments, fetchComments]);
 
   // Detect media for display
   const firstMedia = useMemo(() => {
@@ -264,6 +283,30 @@ const PostCard = memo(function PostCard({
     return result;
   }, [media_urls, id, title]);
   const hasMedia = !!(firstMedia || content_gif_url);
+
+  // Extract recent commenters from the comments data
+  const recentCommenters = useMemo(() => {
+    if (!postComments || postComments.length === 0) return [];
+    
+    // Get unique commenters (avoid duplicates from same user)
+    const uniqueCommenters = new Map();
+    
+    // Process comments in reverse order to get most recent commenters first
+    const reversedComments = [...postComments].reverse();
+    
+    reversedComments.forEach(comment => {
+      if (comment.author && !uniqueCommenters.has(comment.author.id)) {
+        uniqueCommenters.set(comment.author.id, {
+          avatar: comment.author.avatar_url,
+          name: comment.author.full_name || 'User',
+          id: comment.author.id
+        });
+      }
+    });
+    
+    // Return the most recent 5 commenters
+    return Array.from(uniqueCommenters.values()).slice(0, 5);
+  }, [postComments]);
 
   // Handle card click
   const handleCardClick = useCallback(() => {
@@ -311,7 +354,14 @@ const PostCard = memo(function PostCard({
     }
   }, [toggleLike, onLikeToggled, id, hasLiked, likeCount]);
 
-  // Format timestamp
+  // Get simple comment info based on session-aware time logic
+  const commentDisplayInfo = useMemo(() => {
+    // You could make spaceActivity dynamic based on space data in the future
+    const spaceActivity: 'high' | 'medium' | 'low' = 'medium';
+    return getSimpleCommentInfo(postComments || [], userIdForActions, spaceActivity);
+  }, [postComments, userIdForActions]);
+
+  // Format timestamp for post creation
   const timeAgo = useMemo(() => {
     try {
       return formatDistanceToNow(new Date(createdAt), { addSuffix: true })
@@ -322,12 +372,6 @@ const PostCard = memo(function PostCard({
       return 'Unknown';
     }
   }, [createdAt]);
-
-  // Mock recent commenters (you'll need to get this from your comments data)
-  const recentCommenters = useMemo(() => {
-    // This would come from your actual comments data
-    return [];
-  }, []);
 
   return (
     <motion.div
@@ -349,16 +393,23 @@ const PostCard = memo(function PostCard({
     >
       {/* Header Section */}
              <div className="flex items-center space-x-3 mb-3">
-         <Avatar className="w-10 h-10">
-           <AvatarImage src={author?.avatar} />
-           <AvatarFallback className="bg-gray-200">
-             {author?.name?.[0]?.toUpperCase() || 'U'}
-           </AvatarFallback>
-         </Avatar>
+         <OptimizedAvatar
+           user={{
+             id: author?.id || 'unknown',
+             full_name: author?.name || 'Unknown User',
+             avatar_url: author?.avatar || null
+           }}
+           size="lg"
+           enableLazyLoading={true}
+           enableCaching={true}
+           placeholderType="initials"
+           loadingTransition="fade"
+           className="w-10 h-10"
+         />
          
          <div className="flex-1 min-w-0">
            {/* User name on first line */}
-           <div className="post-author truncate">
+           <div className="post-author font-bold text-base truncate">
              {author?.name || 'Unknown User'}
            </div>
            {/* Time and category on second line */}
@@ -377,7 +428,7 @@ const PostCard = memo(function PostCard({
         hasMedia ? "pr-[78px] md:pr-[118px]" : "pr-0"
       )}>
         {title && (
-          <h3 className="post-title mb-2 line-clamp-1 text-lg md:text-2xl font-sans font-extrabold tracking-tight capitalize">
+          <h3 className="post-title mb-2 line-clamp-1 text-[17px] md:text-[22px] font-sans font-extrabold tracking-tight capitalize">
             {title}
           </h3>
         )}
@@ -406,19 +457,20 @@ const PostCard = memo(function PostCard({
             disabled={isLiking}
           />
 
-          {/* Comment Button */}
-          <CommentButton count={optimisticCommentCount} />
-
-          {/* Recent Commenters */}
-          {recentCommenters.length > 0 && (
-            <CommentersAvatars commenters={recentCommenters} />
-          )}
+          {/* Comment Button with Recent Commenters */}
+          <div className="flex items-center">
+            <CommentButton count={optimisticCommentCount} />
+            {/* Recent Commenters - positioned right after comment button */}
+            {recentCommenters.length > 0 && (
+              <CommentersAvatars commenters={recentCommenters} />
+            )}
+          </div>
         </div>
 
-        {/* Last Activity */}
-        {optimisticCommentCount > 0 && (
+        {/* Last Activity - Shows "New comment" or "Last comment" based on seen status */}
+        {commentDisplayInfo && (
           <div className="typography-caption text-blue-600">
-            New comment {timeAgo}
+            {commentDisplayInfo.displayText} {commentDisplayInfo.timeText}
           </div>
         )}
       </div>

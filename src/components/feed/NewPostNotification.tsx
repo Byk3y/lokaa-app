@@ -75,7 +75,7 @@ export const NewPostNotification: React.FC<NewPostNotificationProps> = ({
             damping: 25,
             duration: 0.3 
           }}
-          className="mb-4 z-10 relative w-[768px] max-w-[768px] min-w-[768px] flex-shrink-0 flex-grow-0"
+          className="mb-4 z-10 relative w-full max-w-[768px]"
         >
           <motion.div
             animate={shouldPulse ? { scale: [1, 1.01, 1] } : {}}

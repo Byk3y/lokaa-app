@@ -7,7 +7,8 @@ import { Loader2, Tag, AlertTriangle, RefreshCw, MessageSquare, Users, Calendar,
 import { Button } from "@/components/ui/button";
 import { useToast } from '@/hooks/use-toast';
 import { useFeedLogic } from "@/hooks/useFeedLogic";
-import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts";
+import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts";
+import { useRealtimeSpaceComments } from "@/hooks/useRealtimeSpaceComments";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 
 // HMR OPTIMIZATION: Group type and utility imports
@@ -235,7 +236,15 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
   
   // Use optimized member counts hook for real-time data
   const spaceIdForCounts = currentSpaceData?.id || fallbackSpaceData?.id || '';
-  const memberCounts = useOptimizedMemberCounts(spaceIdForCounts);
+  const memberCounts = useSimpleMemberCounts(spaceIdForCounts);
+  
+  // 🔔 NEW: Space-level comment subscription for real-time comment count updates
+  const { isConnected: commentsConnected } = useRealtimeSpaceComments({
+    spaceId: spaceIdForCounts,
+    userId: currentUser?.id || null,
+    isEnabled: !!spaceIdForCounts && !!currentUser?.id,
+    onCommentAdded: handleCommentAddedInModal, // Connect to the cached posts update function
+  });
   
   // PHASE 1.5 FIX: Ensure sidebarSpaceData ALWAYS provides space name
   const sidebarSpaceData = React.useMemo(() => {
@@ -463,15 +472,6 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
             </Suspense>
           </div>
         )}
-        
-        {/* Real-time New Posts Notification - appears at very top above first post */}
-        <NewPostNotification
-          newPostCount={realtimeState.newPostCount}
-          isLoading={realtimeState.isLoadingNewPosts}
-          isVisible={!realtimeState.isDismissed && realtimeState.newPostCount > 0}
-          onLoadPosts={() => handleLoadNewPosts(realtimeState.newPostIds)}
-          onDismiss={handleDismissNotification}
-        />
 
         {/* Posts Content - Show skeletons during pagination loading, loading screen only when no data */}
         {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
@@ -500,6 +500,17 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
           </div>
         )}
 
+        {/* Real-time New Posts Notification - positioned on top of post cards with reduced spacing */}
+        <div className="mt-4">
+          <NewPostNotification
+            newPostCount={realtimeState.newPostCount}
+            isLoading={realtimeState.isLoadingNewPosts}
+            isVisible={!realtimeState.isDismissed && realtimeState.newPostCount > 0}
+            onLoadPosts={() => handleLoadNewPosts(realtimeState.newPostIds)}
+            onDismiss={handleDismissNotification}
+          />
+        </div>
+
         {/* Pinned Posts - Only visible to admins/owners */}
         {!postsLoading && !postsError && filteredPinnedPosts.length > 0 && selectedTab === "all" && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
           <div className="space-y-4 mt-6">
@@ -525,6 +536,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                     onPostClick={handlePostCardClick}
                     onLikeToggled={handleLikeToggledInCard}
                     onPinToggled={handlePinToggled}
+                    onCommentAdded={handleCommentAddedInModal} // 🔥 ENABLE REAL-TIME COMMENT UPDATES
                   />
                 ))}
             </div>
@@ -556,6 +568,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                     onPostClick={handlePostCardClick}
                     onLikeToggled={handleLikeToggledInCard}
                     onPinToggled={handlePinToggled}
+                    onCommentAdded={handleCommentAddedInModal} // 🔥 ENABLE REAL-TIME COMMENT UPDATES
                   />
                 ))}
             </div>
@@ -581,6 +594,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
                     onPostClick={handlePostCardClick}
                     onLikeToggled={handleLikeToggledInCard}
                     onPinToggled={handlePinToggled}
+                    onCommentAdded={handleCommentAddedInModal} // 🔥 ENABLE REAL-TIME COMMENT UPDATES
                   />
                 ));
             })()}

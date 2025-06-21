@@ -10,7 +10,7 @@ import { useSpaceMembers } from "@/hooks/useSpaceMembers";
 import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { fetchSpaceMediaFromSupabase, MediaItem } from "@/utils/mediaStorageUtils";
-import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts"; // Import optimized hook
+import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts"; // Import simplified hook
 
 interface SpaceCardPreviewProps {
   space: SpaceAboutData; // Use new type
@@ -20,29 +20,55 @@ interface SpaceCardPreviewProps {
 export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProps) {
   // Use the same approach as FeedTab to get accurate member counts
   const spaceId = space.id;
+  
+  // Debug logging to track the space ID being used
+  useEffect(() => {
+    console.log(`🔍 [SpaceCardPreview] Component mounted with space:`, {
+      spaceId,
+      spaceName: space.name,
+      subdomain: space.subdomain
+    });
+  }, [spaceId, space.name, space.subdomain]);
+  
   const { stats: memberStats } = useSpaceMembers({ spaceId });
   
-  // Use our new hook for real-time counts
+  // Use our new hook for real-time counts - only when we have a valid spaceId
   const { 
     totalMembers, 
     onlineMembers, 
     adminMembers,
     loading: countsLoading 
-  } = useOptimizedMemberCounts(spaceId);
+  } = useSimpleMemberCounts(spaceId && space?.name ? spaceId : ''); // Only run when we have valid space data
+  
+  // Debug logging to track hook results
+  useEffect(() => {
+    console.log(`🔍 [SpaceCardPreview] Member counts updated for ${space.name}:`, {
+      spaceId,
+      totalMembers,
+      onlineMembers,
+      adminMembers,
+      loading: countsLoading,
+      spaceHasName: !!space?.name
+    });
+  }, [spaceId, space.name, totalMembers, onlineMembers, adminMembers, countsLoading]);
   
   // Keep previous state variables for compatibility with existing code 
   const [adminCount, setAdminCount] = useState<number>(0);
   const [onlineCount, setOnlineCount] = useState<number>(0);
   const [activeMemberCount, setActiveMemberCount] = useState<number>(0);
   
-  // Update state from our hook
+  // Update state from our hook - only when we have valid data and space is properly loaded
   useEffect(() => {
-    if (!countsLoading) {
+    if (!countsLoading && spaceId && space?.name) {
+      console.log(`🔍 [SpaceCardPreview] Updating display counts for ${space.name}:`, {
+        from: { adminCount, onlineCount, activeMemberCount },
+        to: { adminMembers, onlineMembers, totalMembers }
+      });
       setAdminCount(adminMembers);
       setOnlineCount(onlineMembers);
       setActiveMemberCount(totalMembers);
     }
-  }, [adminMembers, onlineMembers, totalMembers, countsLoading]);
+  }, [adminMembers, onlineMembers, totalMembers, countsLoading, space.name, spaceId, adminCount, onlineCount, activeMemberCount]);
 
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);

@@ -7,6 +7,7 @@ import { VideoPlayerModal } from '@/components/VideoPlayerModal';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import CommentItem from '@/components/space/comments/CommentItem';
 import type { PostCardProps } from '@/features/posts/types/postCard';
+import type { Attachment } from '@/features/posts/types';
 import { CreatePostModal } from '@/features/posts';
 import { 
   AlertDialog,
@@ -122,7 +123,11 @@ export default function PostDetailModal({
     fetchReplies,
     replyingToComment,
     setReplyTarget,
-    handleCommentLikeToggled
+    handleCommentLikeToggled,
+    // 🔥 PAGINATION CONTROLS
+    loadMoreComments,
+    hasMoreComments,
+    isLoadingMoreComments,
   } = useCommentsEnhanced(post, currentUserId, onCommentAdded);
 
   // Update browser history when opening a post
@@ -266,7 +271,7 @@ export default function PostDetailModal({
           onClose={handleEditCancel}
           spaceId={post.spaceId}
           currentUserId={currentUserId || ''}
-          spaceName={post.spaceId}
+          spaceName={space?.name || 'Space'}
           userName={post.author?.name || ''}
           userAvatarUrl={loggedInUser?.user_metadata?.avatar_url}
           editMode={true}
@@ -317,7 +322,7 @@ export default function PostDetailModal({
         )}
         
         <DialogContent 
-          className="max-w-3xl w-[90vw] p-0 max-h-[85vh] flex flex-col"
+          className="max-w-3xl w-[90vw] p-0 max-h-[95vh] flex flex-col"
           hideCloseButton={true}
           aria-describedby="post-content-description"
         >
@@ -452,7 +457,12 @@ export default function PostDetailModal({
               }
               
               return convertedMedia.length > 0 ? (
-                <MediaGallery media={convertedMedia} />
+                <MediaGallery 
+                  media={convertedMedia}
+                  currentVideoIndex={currentVideoIndex}
+                  setCurrentVideoIndex={setCurrentVideoIndex}
+                  onVideoClick={handleVideoClick}
+                />
               ) : null;
             })()}
             </div>
@@ -517,6 +527,27 @@ export default function PostDetailModal({
                       has_more_replies={comment.has_more_replies}
                     />
                   ))}
+                  
+                  {/* 🔥 LOAD MORE COMMENTS BUTTON */}
+                  {hasMoreComments && (
+                    <div className="flex justify-center py-4">
+                      <Button
+                        variant="outline"
+                        onClick={loadMoreComments}
+                        disabled={isLoadingMoreComments}
+                        className="text-sm text-gray-600 hover:text-gray-800 border-gray-300 hover:border-gray-400"
+                      >
+                        {isLoadingMoreComments ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Loading more comments...
+                          </>
+                        ) : (
+                          `Load more comments`
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="py-6 text-center text-gray-500">

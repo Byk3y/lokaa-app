@@ -3,8 +3,6 @@
 
 import React, { useEffect } from 'react';
 import { useOptimizedAuth } from "@/contexts/AuthContext";
-import { useUnifiedPresence } from '@/hooks/useUnifiedPresence';
-
 // Higher-order component to safely handle auth context
 export function withAuthSafety<P extends object>(
   Component: React.ComponentType<P>,
@@ -24,16 +22,15 @@ export function withAuthSafety<P extends object>(
   };
 }
 
-// Unified Presence Initializer - ensures global presence system is active
+// Simple Presence Initializer - no complex initialization needed with new system
 export const UnifiedPresenceInitializer = withAuthSafety(function UnifiedPresenceInitializer() {
   const { user } = useOptimizedAuth();
-  const { isInitialized } = useUnifiedPresence();
   
   useEffect(() => {
-    if (user?.id && isInitialized) {
-      console.log('🌐 [UnifiedPresence] Global presence system initialized for user:', user.id);
+    if (user?.id) {
+      console.log('🌐 [SimplePresence] User authenticated for presence system:', user.id);
     }
-  }, [user?.id, isInitialized]);
+  }, [user?.id]);
   
   return null;
 }, 'UnifiedPresenceInitializer');

@@ -92,7 +92,8 @@ export default function MediaGallery({
 
   return (
     <div className="my-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      {/* Horizontal scrollable container for videos */}
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         {media.map((att, index) => {
           const isVideo = att.type === 'video';
           const isImage = att.type === 'file' && att.fileType?.startsWith('image/');
@@ -155,10 +156,22 @@ export default function MediaGallery({
           return (
             <div 
               key={att.id || `media-${index}`} 
-              className="relative w-[210px] h-[210px] rounded-lg border bg-white shadow-sm group overflow-hidden cursor-pointer"
+              className={`relative rounded-lg border bg-white shadow-sm group overflow-hidden cursor-pointer flex-shrink-0 ${
+                isVideo 
+                  ? 'w-[369.59px] h-[210px]' // Exact 369.59 x 210 dimensions for videos, no centering
+                  : 'w-[180px] h-[180px]' // Square containers for images and other media, slightly larger
+              }`}
               onClick={handleClick}
             >
               {renderContent()}
+              {/* Video play button overlay */}
+              {isVideo && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="px-4 py-2 md:px-6 md:py-3 bg-black/75 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-xl hover:bg-black/85 transition-all duration-200">
+                    <div className="w-0 h-0 border-l-[12px] md:border-l-[16px] border-l-white border-t-[8px] md:border-t-[11px] border-t-transparent border-b-[8px] md:border-b-[11px] border-b-transparent ml-1"></div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useRealtimeComments } from '@/hooks/useRealtimeComments';
 import type { FetchedComment, CommentAuthor } from '../types/postCard';
 
 // Extended type to include the callbacks that CommentItem expects
@@ -36,10 +37,12 @@ interface UsePostCommentsReturn {
   setReplyTarget: (comment: CommentItemProps | null) => void;
   handleCommentLikeToggled: (commentId: string, isLiked: boolean, likeCount: number) => void;
   fetchComments: () => Promise<void>;
+  realtimeConnected: boolean;
 }
 
 /**
  * Custom hook to manage post comments
+ * 🔔 NOW WITH REAL-TIME SUPPORT!
  */
 export const usePostComments = ({
   postId,
@@ -56,6 +59,34 @@ export const usePostComments = ({
   const [showComments, setShowComments] = useState(false);
   const [replyingToComment, setReplyingToComment] = useState<CommentItemProps | null>(null);
 
+  // 🔔 REAL-TIME COMMENT SUBSCRIPTION
+  const { isConnected: realtimeConnected } = useRealtimeComments({
+    postId: postId || '',
+    spaceId: spaceId,
+    userId: userId,
+    isEnabled: !!postId,
+    onNewComment: (newCommentData) => {
+      console.log('🔔 [usePostComments] Real-time comment received, refreshing comments...');
+      // 🔧 STABILIZED: Add delay to prevent overwriting optimistic updates
+      setTimeout(() => {
+        if (postId && showComments) {
+          fetchComments();
+        }
+      }, 1000); // 1-second delay to allow optimistic updates to settle
+      // Update comment count optimistically
+      setOptimisticCommentCount(prev => prev + 1);
+    },
+    onCommentUpdate: (commentId) => {
+      console.log('🔔 [usePostComments] Comment updated, refreshing comments...', commentId);
+      // 🔧 STABILIZED: Add delay for update propagation
+      setTimeout(() => {
+        if (postId && showComments) {
+          fetchComments();
+        }
+      }, 500); // 500ms delay for updates
+    }
+  });
+
   // Keep optimistic comment count in sync with initialComments prop
   useEffect(() => {
     setOptimisticCommentCount(initialComments);
@@ -64,6 +95,7 @@ export const usePostComments = ({
   // Fetch comments when requested
   const fetchComments = useCallback(async () => {
     if (!postId) return;
+    console.log('🔔 [usePostComments] Fetching comments for post:', postId);
     setCommentsLoading(true);
     try {
       // First, fetch top-level comments
@@ -86,6 +118,8 @@ export const usePostComments = ({
       }
 
       if (commentsData) {
+        console.log(`🔔 [usePostComments] Fetched ${commentsData.length} comments for post ${postId}`);
+        
         // Get the counts of replies for each comment
         const commentIds = commentsData.map(comment => comment.id);
         
@@ -162,11 +196,14 @@ export const usePostComments = ({
         const totalComments = processedComments.length + 
           processedComments.reduce((total, comment) => total + (comment.reply_count || 0), 0);
         setOptimisticCommentCount(totalComments);
+        
+        console.log(`🔔 [usePostComments] Comments state updated with ${commentsWithCallbacks.length} comments`);
       } else {
         setComments([]);
+        console.log('🔔 [usePostComments] No comments found, clearing state');
       }
     } catch (error: any) {
-      console.error('Error fetching comments:', error);
+      console.error('🔔 [usePostComments] Error fetching comments:', error);
       toast({
         title: "Error",
         description: error.message || "Could not load comments.",
@@ -272,6 +309,12 @@ export const usePostComments = ({
     }
     if (isCommenting) return;
 
+    console.log('🔔 [usePostComments] Submitting comment:', {
+      postId: postId,
+      content: newComment.trim().substring(0, 50) + '...',
+      parentId: replyingToComment?.id
+    });
+
     setIsCommenting(true);
     const originalCommentCount = optimisticCommentCount;
     const parentId = replyingToComment ? replyingToComment.id : null;
@@ -288,6 +331,8 @@ export const usePostComments = ({
 
       if (error) throw error;
 
+      console.log('🔔 [usePostComments] Comment submitted successfully:', data.id);
+
       // Insert into user_activity_log after comment creation
       if (data && data.id) {
         await getSupabaseClient().from('user_activity_log').insert({
@@ -302,36 +347,45 @@ export const usePostComments = ({
         });
       }
 
+      // Notify parent component if callback provided - CRITICAL: Call BEFORE refresh
+      if (onCommentAdded) {
+        console.log('🔔 [usePostComments] Notifying parent of comment addition:', {
+          postId,
+          newCount: optimisticCommentCount + 1
+        });
+        onCommentAdded(postId, optimisticCommentCount + 1);
+      }
+      
       setNewComment("");
       setReplyingToComment(null); // Clear reply target
       setOptimisticCommentCount(prev => prev + 1);
       
       // Refresh comments to show the new comment/reply
       if (showComments) {
+        console.log('🔔 [usePostComments] Refreshing comments after successful submission');
         fetchComments();
-      }
-      
-      // Notify parent component if callback provided
-      if (onCommentAdded) {
-        onCommentAdded(postId, optimisticCommentCount + 1);
       }
       
       toast({ 
         title: isReply ? "Reply posted!" : "Comment posted!", 
         variant: "default" 
       });
+
+      console.log('🔔 [usePostComments] Comment submission completed successfully');
+      
     } catch (error: any) {
-      console.error("Error posting comment:", error);
+      console.error('🔔 [usePostComments] Error submitting comment:', error);
+      // Reset optimistic count on error
+      setOptimisticCommentCount(originalCommentCount);
       toast({
         title: "Error",
         description: error.message || "Could not post comment.",
         variant: "destructive",
       });
-      setOptimisticCommentCount(originalCommentCount); // Revert optimistic update
     } finally {
       setIsCommenting(false);
     }
-  }, [userId, postId, spaceId, newComment, isCommenting, optimisticCommentCount, replyingToComment, showComments, fetchComments, onCommentAdded]);
+  }, [userId, newComment, isCommenting, postId, spaceId, replyingToComment, optimisticCommentCount, showComments, fetchComments, onCommentAdded]);
 
   // Function to handle when a comment's like status is toggled
   const handleCommentLikeToggled = useCallback((commentId: string, isLiked: boolean, likeCount: number) => {
@@ -345,20 +399,22 @@ export const usePostComments = ({
   }, []);
 
   return {
-    comments,
-    commentsLoading,
     newComment,
     setNewComment,
     isCommenting,
     optimisticCommentCount,
+    comments,
+    commentsLoading,
     showComments,
     setShowComments,
     replyingToComment,
+    setReplyTarget,
     handleCommentSubmit,
     handleReplyAdded,
-    fetchReplies,
-    setReplyTarget,
-    handleCommentLikeToggled,
     fetchComments,
+    fetchReplies,
+    handleCommentLikeToggled,
+    // 🔔 Real-time status
+    realtimeConnected,
   };
 }; 

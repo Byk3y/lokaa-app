@@ -1,10 +1,8 @@
 import React from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { InstantAvatar } from '@/components/ui/InstantAvatar';
 import { Paperclip, Link2, PlayCircle, Smile, Send, X } from 'lucide-react';
-import { getInitial } from '@/shared/utils/avatar-utils';
 import type { User } from '@supabase/supabase-js';
 import type { FetchedComment } from '../hooks/useComments';
-import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 interface CommentInputProps {
   value: string;
@@ -30,12 +28,11 @@ export default function CommentInput({
 }: CommentInputProps) {
   if (!currentUser) return null; // Don't render if not logged in
 
-  const { userDetails } = useOptimizedAuth();
-  
-  // FIXED: Get avatar URL from multiple sources with proper fallback chain
-  const avatarUrl = currentUser?.user_metadata?.avatar_url || 
-                    userDetails?.avatar_url || 
-                    '';
+  // Get avatar URL and name from currentUser
+  const avatarUrl = currentUser?.user_metadata?.avatar_url || '';
+  const userName = currentUser?.user_metadata?.full_name || 
+                   currentUser?.email || 
+                   'User';
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -59,15 +56,15 @@ export default function CommentInput({
         </div>
       )}
       <div className="flex items-center space-x-3">
-        <Avatar className="h-8 w-8 flex-shrink-0">
-          {avatarUrl ? (
-            <AvatarImage src={avatarUrl} alt={currentUser.email || 'User'} />
-          ) : (
-            <AvatarFallback className="bg-blue-100 text-blue-600 text-sm">
-              {getInitial(currentUser?.email || '')}
-            </AvatarFallback>
-          )}
-        </Avatar>
+        <InstantAvatar
+          user={{
+            id: currentUser.id,
+            full_name: userName,
+            avatar_url: avatarUrl
+          }}
+          size="sm"
+          className="h-8 w-8 flex-shrink-0"
+        />
         <div className="flex-grow flex items-center bg-white border border-gray-200 rounded-full px-4 py-[10px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           <input
             id="comment-input"

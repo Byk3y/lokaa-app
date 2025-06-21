@@ -11,6 +11,7 @@ import type { CachedPostType } from "@/features/posts/types/cachedPost";
 import { useRealtimePosts } from "@/hooks/useRealtimePosts";
 import { useNewPostsState } from "@/hooks/useNewPostsState";
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { PostService } from '@/services/PostService';
 import type { PostCardProps } from "@/features/posts/types/postCard";
 import type { 
   FetchedPostType, 
@@ -567,7 +568,8 @@ export function useFeedLogic({
     handleCachedPostUpdated(updatedPost.id, {
       content: updatedPost.content,
       title: updatedPost.title,
-      edited_at: updatedPost.editedAt
+      edited_at: updatedPost.editedAt,
+      media_urls: updatedPost.media_urls?.map(media => media.url) || null  // CRITICAL FIX: Include media_urls
     });
     
     setSelectedPostForModal(updatedPost);
@@ -643,101 +645,73 @@ export function useFeedLogic({
         return;
       }
       
-      // Fetch post by slug and open modal
+      // Fetch post by slug and open modal using PostService
       const fetchAndOpenPost = async () => {
         setIsLoadingUrlPost(true);
         setUrlPostError(null);
         
+        console.log('[FeedLogic] Detected post slug in URL:', postSlug, 'fetching post...');
+        
         try {
-          console.log('[FeedLogic] Detected post slug in URL:', postSlug, 'fetching post...');
+          // Use PostService with fallback space ID support
+          const effectiveSpaceId = stableSpaceId || PostService.getSpaceIdFromUrl(location.pathname);
           
-          const supabase = getSupabaseClient();
-          // Fetch the post by slug
-          const { data: postDataRaw, error: postError } = await (supabase as any)
-            .from('posts')
-            .select(`
-              id, created_at, content, title, like_count, comment_count, user_id, space_id, 
-              media_urls, category_id, is_pinned, pinned_at, pin_position, pin_category, 
-              updated_at, poll_data, slug,
-              author:users!posts_user_id_fkey(id, full_name, avatar_url, profile_url, activity_score),
-              category:space_categories!posts_category_id_fkey(id, name, icon)
-            `)
-            .eq('slug', postSlug)
-            .eq('space_id', stableSpaceId)
-            .single();
-
-          let postData = postDataRaw;
-
-          if (postError) {
-            // Try to fetch by ID as fallback for legacy URLs
-            const { data: legacyPost, error: legacyError } = await (getSupabaseClient() as any)
-              .from('posts')
-              .select(`
-                id, created_at, content, title, like_count, comment_count, user_id, space_id, 
-                media_urls, category_id, is_pinned, pinned_at, pin_position, pin_category, 
-                updated_at, poll_data, slug,
-                author:users!posts_user_id_fkey(id, full_name, avatar_url, profile_url, activity_score),
-                category:space_categories!posts_category_id_fkey(id, name, icon)
-              `)
-              .eq('id', postSlug)
-              .eq('space_id', stableSpaceId)
-              .single();
-
-            if (legacyError || !legacyPost) {
-              console.error('[FeedLogic] Post not found by slug or ID:', { postError, legacyError });
-              setUrlPostError('Post not found');
-              return;
-            }
-            
-            // Use legacy post data
-            postData = legacyPost;
+          if (!effectiveSpaceId) {
+            throw new Error('Unable to determine space ID for post fetch');
           }
-
-          if (!postData) {
-            setUrlPostError('Post not found');
-            return;
+          
+          console.log('[FeedLogic] Using PostService to fetch post:', {
+            slug: postSlug,
+            spaceId: effectiveSpaceId,
+            fallbackUsed: !stableSpaceId
+          });
+          
+          // Use PostService for reliable fetching with timeout, retries, and error handling
+          const result = await PostService.fetchPostBySlug(postSlug, {
+            spaceId: effectiveSpaceId,
+            timeout: 15000,
+            maxRetries: 2
+          }, currentUser?.id);
+          
+          if (result.error || !result.data) {
+            throw new Error(result.error || 'Post not found');
           }
-
-          // Transform to PostCardProps format with proper type assertion
+          
+          console.log('[FeedLogic] PostService successfully fetched post:', {
+            title: result.data.title || result.data.id,
+            source: result.source,
+            author: result.data.author.name
+          });
+          
+          // Set permissions based on user context
           const mappedPost: PostCardProps = {
-            id: (postData as any).id,
-            spaceId: (postData as any).space_id,
-            currentUserId: currentUser?.id,
-            author: {
-              id: (postData as any).author?.id || '',
-              name: (postData as any).author?.full_name || 'Unknown User',
-              avatar: (postData as any).author?.avatar_url || null,
-              profile_url: (postData as any).author?.profile_url || null,
-              activity_score: (postData as any).author?.activity_score || 0,
-            },
-            title: (postData as any).title,
-            content: (postData as any).content,
-            createdAt: (postData as any).created_at || new Date().toISOString(),
-            editedAt: (postData as any).updated_at,
-            category: (postData as any).category ? {
-              id: (postData as any).category.id,
-              name: (postData as any).category.name,
-              icon: (postData as any).category.icon
-            } : null,
-            likes: (postData as any).like_count || 0,
-            comments: (postData as any).comment_count || 0,
-            media_urls: (postData as any).media_urls,
-            isPinned: (postData as any).is_pinned || false,
-            pinCategory: (postData as any).pin_category || null,
+            ...result.data,
             isAdmin: effectivePermissions?.effectiveIsAdmin || effectivePermissions?.effectiveIsOwner || false,
-            poll_data: (postData as any).poll_data,
-            slug: (postData as any).slug,
           };
-
-          console.log('[FeedLogic] Successfully fetched post, opening modal:', mappedPost.title || mappedPost.id);
           
           // Set modal state
           setSelectedPostForModal(mappedPost);
           setIsPostModalOpen(true);
           
+          console.log('[FeedLogic] PostDetailModal opened successfully');
+          
         } catch (error) {
-          console.error('[FeedLogic] Error fetching post:', error);
+          console.error('[FeedLogic] PostService error:', error);
           setUrlPostError('Failed to load post');
+          
+          // Clean up URL on failure to prevent infinite loops
+          console.log('[FeedLogic] Cleaning up URL after post fetch failure');
+          const searchParams = new URLSearchParams(location.search);
+          searchParams.delete('post');
+          navigate({ search: searchParams.toString() }, { replace: true });
+          
+          // Show error state for 3 seconds then close
+          setTimeout(() => {
+            setUrlPostError(null);
+            setIsLoadingUrlPost(false);
+          }, 3000);
+          
+          return; // Early return to prevent setting loading to false in finally
         } finally {
           setIsLoadingUrlPost(false);
         }

@@ -3,7 +3,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import { toast } from '@/hooks/use-toast';
-import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
+import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 
 // Type definitions
 export type MemberRole = 'owner' | 'admin' | 'member';
@@ -325,7 +325,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
       }
       if (membershipState.isAdmin && !membershipState.isOwner) {
         // CRITICAL FIX: Use bridge instead of direct call to prevent mobile blocking
-        const result = await supabaseIndexedDBBridge.getSpaceMembers(spaceId, { 
+        const result = await migrationAdapter.getSpaceMembers(spaceId, { 
           userId, 
           forceNetwork: false 
         });
@@ -380,7 +380,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
       }
       if (membershipState.isAdmin && !membershipState.isOwner) {
         // CRITICAL FIX: Use bridge instead of direct call to prevent mobile blocking
-        const result = await supabaseIndexedDBBridge.getSpaceMembers(spaceId, { 
+        const result = await migrationAdapter.getSpaceMembers(spaceId, { 
           userId: userIdOfMemberToRemove, 
           forceNetwork: false 
         });
@@ -412,7 +412,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
     if (!user) return [];
     try {
       // CRITICAL FIX: Use bridge instead of direct call to prevent mobile blocking
-      const result = await supabaseIndexedDBBridge.getSpaceMembers(spaceId, {
+      const result = await migrationAdapter.getSpaceMembers(spaceId, {
         status: options.status || 'active',
         forceNetwork: false // Allow cache-first on mobile
       });

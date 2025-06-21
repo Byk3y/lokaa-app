@@ -49,9 +49,9 @@ export default function VideoThumbnail({
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden mb-6" style={{ width: "369.59px" }}>
-      {/* YouTube-style video container with exact dimensions */}
-      <div className="relative" style={{ width: "369.59px", height: "210px" }}>
+    <div className="border border-gray-200 rounded-lg overflow-hidden mb-6 w-full max-w-full">
+      {/* YouTube-style video container with responsive dimensions - wider like Skool */}
+      <div className="relative w-full aspect-video">
         <div className="absolute inset-0">
           {/* Video thumbnail - prioritize attachment's thumbnailUrl if available */}
           <img 
@@ -82,13 +82,13 @@ export default function VideoThumbnail({
             }}
           />
           
-          {/* Play button overlay */}
+          {/* Play button overlay - larger for bigger video container */}
           <div 
             className="absolute inset-0 flex items-center justify-center cursor-pointer"
             onClick={handleClick}
           >
-            <div className="h-16 w-16 flex items-center justify-center rounded-full bg-black/80 hover:bg-black/90 transition-all shadow-lg">
-              <div className="w-0 h-0 border-y-8 border-y-transparent border-l-[14px] border-l-white ml-1"></div>
+            <div className="px-10 py-5 md:px-12 md:py-6 bg-black/75 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-xl hover:bg-black/85 transition-all duration-200">
+              <div className="w-0 h-0 border-l-[20px] md:border-l-[24px] border-l-white border-t-[14px] md:border-t-[16px] border-t-transparent border-b-[14px] md:border-b-[16px] border-b-transparent ml-1"></div>
             </div>
           </div>
           

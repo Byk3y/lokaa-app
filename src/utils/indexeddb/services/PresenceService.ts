@@ -1,0 +1,528 @@
+/**
+ * Presence Service
+ * 
+ * Specialized service for handling user presence tracking with mobile-safe operations
+ * Handles global presence updates and space-specific presence management
+ */
+
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { SupabaseBridgeResult, CacheOptions } from '../types';
+import { mobileBrowserService } from '../core/MobileBrowserService';
+import { spaceMembersCacheService } from '../core/CacheService';
+
+export interface PresenceUpdate {
+  userId: string;
+  isOnline: boolean;
+  spaceId?: string;
+  timestamp: string;
+  lastActiveAt: string;
+}
+
+export interface PresenceOptions {
+  forceNetwork?: boolean;
+  spaceId?: string;
+  skipMobileProtection?: boolean;
+}
+
+export interface SpacePresenceData {
+  spaceId: string;
+  onlineCount: number;
+  totalMembers: number;
+  onlineMembers: {
+    userId: string;
+    lastActiveAt: string;
+    role: string;
+  }[];
+  lastUpdated: string;
+}
+
+/**
+ * Presence Service
+ * 
+ * Handles all user presence operations with mobile-safe protection
+ */
+export class PresenceService {
+  private metrics = {
+    totalRequests: 0,
+    successfulUpdates: 0,
+    failedUpdates: 0,
+    mobileSkipped: 0,
+    networkRequests: 0,
+    errors: 0
+  };
+
+  private pendingUpdates = new Map<string, PresenceUpdate>();
+
+  /**
+   * Update global user presence - CRITICAL METHOD for presence system
+   * 
+   * This handles the main presence tracking functionality
+   */
+  async updateGlobalPresence(
+    userId: string,
+    isOnline: boolean,
+    options: PresenceOptions = {}
+  ): Promise<SupabaseBridgeResult<null>> {
+    this.metrics.totalRequests++;
+    
+    const { forceNetwork = false, spaceId, skipMobileProtection = false } = options;
+    
+    console.log('[PresenceService] Global presence update request', { 
+      userId, 
+      isOnline, 
+      spaceId,
+      forceNetwork 
+    });
+
+    try {
+      // Only skip presence updates in extreme mobile blocking cases
+      // Unlike read operations, presence updates are critical for user experience
+      const shouldSkipNetwork = !forceNetwork && !skipMobileProtection && 
+        mobileBrowserService.shouldUseCacheFirst() && 
+        this.isRecentMobileBackgroundActivity();
+
+      if (shouldSkipNetwork) {
+        console.log('[PresenceService] Skipping network call due to mobile blocking, caching intent');
+        this.metrics.mobileSkipped++;
+        
+        // Store presence intention for later sync
+        await this.storePendingPresenceUpdate(userId, isOnline, spaceId);
+        
+        return { 
+          data: null, 
+          error: null, 
+          fromCache: true, 
+          reason: 'mobile_blocking_deferred' 
+        };
+      }
+
+      // Execute presence update
+      const result = await this.executePresenceUpdateQuery(userId, isOnline, spaceId);
+      
+      if (result.error) {
+        this.metrics.failedUpdates++;
+        console.warn('[PresenceService] Presence update failed:', result.error);
+        
+        // Store as pending for retry
+        await this.storePendingPresenceUpdate(userId, isOnline, spaceId);
+        
+        return result;
+      }
+
+      this.metrics.successfulUpdates++;
+      console.log('[PresenceService] Presence update successful');
+      
+      // CRITICAL: Invalidate member counts cache to refresh UI
+      if (spaceId) {
+        await this.invalidateMemberCountsCache(spaceId);
+      }
+      
+      return { data: null, error: null, fromCache: false };
+
+    } catch (error: any) {
+      this.metrics.errors++;
+      console.error('[PresenceService] Exception in updateGlobalPresence:', error);
+      
+      // Store as pending for retry
+      if (spaceId) {
+        await this.storePendingPresenceUpdate(userId, isOnline, spaceId);
+      }
+      
+      return { 
+        data: null, 
+        error: error, 
+        fromCache: false 
+      };
+    }
+  }
+
+  /**
+   * Cleanup stale presence data - set users offline if inactive for more than 5 minutes
+   */
+  async cleanupStalePresence(spaceId: string): Promise<SupabaseBridgeResult<any>> {
+    this.metrics.totalRequests++;
+    
+    try {
+      console.log('[PresenceService] Cleaning up stale presence for space', spaceId);
+      
+      // Set users offline if they haven't been active in last 5 minutes
+      const { data, error } = await getSupabaseClient()
+        .from('space_members')
+        .update({ is_online: false })
+        .eq('space_id', spaceId)
+        .eq('status', 'active')
+        .or('last_active_at.is.null,last_active_at.lte.' + new Date(Date.now() - 5 * 60 * 1000).toISOString());
+
+      if (error) {
+        console.error('[PresenceService] Error cleaning stale presence:', error);
+        this.metrics.errors++;
+        return { data: null, error };
+      }
+
+      console.log('[PresenceService] Stale presence cleanup completed', { spaceId, affectedRows: data });
+      this.metrics.successfulUpdates++;
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error('[PresenceService] Exception in cleanupStalePresence:', error);
+      this.metrics.errors++;
+      return { 
+        data: null, 
+        error: error instanceof Error ? error : new Error(String(error))
+      };
+    }
+  }
+
+  /**
+   * Get online members with time-based validation
+   */
+  async getOnlineMembersWithTimeValidation(spaceId: string): Promise<SupabaseBridgeResult<any[]>> {
+    this.metrics.totalRequests++;
+    
+    try {
+      // First cleanup stale presence
+      await this.cleanupStalePresence(spaceId);
+      
+      // Then get current online members
+      const { data, error } = await getSupabaseClient()
+        .from('space_members')
+        .select(`
+          user_id,
+          is_online,
+          last_active_at,
+          role,
+          users!inner(full_name, profile_url)
+        `)
+        .eq('space_id', spaceId)
+        .eq('status', 'active')
+        .eq('is_online', true)
+        .gte('last_active_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+
+      if (error) {
+        console.error('[PresenceService] Error fetching time-validated online members:', error);
+        this.metrics.errors++;
+        return { data: [], error };
+      }
+
+      console.log(`[PresenceService] Time-validated online members for ${spaceId}:`, data?.length || 0);
+      this.metrics.networkRequests++;
+      
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('[PresenceService] Exception in getOnlineMembersWithTimeValidation:', error);
+      this.metrics.errors++;
+      return { 
+        data: [], 
+        error: error instanceof Error ? error : new Error(String(error))
+      };
+    }
+  }
+
+  /**
+   * Get space presence statistics
+   */
+  async getSpacePresenceStats(spaceId: string): Promise<SupabaseBridgeResult<SpacePresenceData>> {
+    this.metrics.totalRequests++;
+    
+    try {
+      // First cleanup stale presence
+      await this.cleanupStalePresence(spaceId);
+      
+      // Get online members count and details
+      const onlineResult = await this.getOnlineMembersWithTimeValidation(spaceId);
+      if (onlineResult.error) {
+        throw onlineResult.error;
+      }
+
+      // Get total members count
+      const { data: totalData, error: totalError } = await getSupabaseClient()
+        .from('space_members')
+        .select('user_id', { count: 'exact' })
+        .eq('space_id', spaceId)
+        .eq('status', 'active');
+
+      if (totalError) {
+        throw totalError;
+      }
+
+      const onlineMembers = onlineResult.data || [];
+      const totalCount = totalData?.length || 0;
+
+      const presenceData: SpacePresenceData = {
+        spaceId,
+        onlineCount: onlineMembers.length,
+        totalMembers: totalCount,
+        onlineMembers: onlineMembers.map((member: any) => ({
+          userId: member.user_id,
+          lastActiveAt: member.last_active_at,
+          role: member.role
+        })),
+        lastUpdated: new Date().toISOString()
+      };
+
+      this.metrics.networkRequests++;
+      return { data: presenceData, error: null };
+      
+    } catch (error) {
+      console.error('[PresenceService] Error getting space presence stats:', error);
+      this.metrics.errors++;
+      return { 
+        data: null as any, 
+        error: error instanceof Error ? error : new Error(String(error))
+      };
+    }
+  }
+
+  /**
+   * Sync pending presence updates (for when mobile blocking is resolved)
+   */
+  async syncPendingUpdates(): Promise<SupabaseBridgeResult<{ synced: number; failed: number }>> {
+    const pendingCount = this.pendingUpdates.size;
+    
+    if (pendingCount === 0) {
+      return { 
+        data: { synced: 0, failed: 0 }, 
+        error: null 
+      };
+    }
+
+    console.log(`[PresenceService] Syncing ${pendingCount} pending presence updates`);
+    
+    let synced = 0;
+    let failed = 0;
+
+    const updatePromises = Array.from(this.pendingUpdates.entries()).map(async ([userId, update]) => {
+      try {
+        const result = await this.executePresenceUpdateQuery(
+          update.userId,
+          update.isOnline,
+          update.spaceId
+        );
+        
+        if (result.error) {
+          failed++;
+          console.warn(`[PresenceService] Failed to sync presence for user ${userId}:`, result.error);
+        } else {
+          synced++;
+          this.pendingUpdates.delete(userId);
+        }
+      } catch (error) {
+        failed++;
+        console.error(`[PresenceService] Exception syncing presence for user ${userId}:`, error);
+      }
+    });
+
+    await Promise.all(updatePromises);
+
+    console.log(`[PresenceService] Sync completed: ${synced} synced, ${failed} failed`);
+    
+    return { 
+      data: { synced, failed }, 
+      error: null 
+    };
+  }
+
+  /**
+   * Get pending updates count
+   */
+  getPendingUpdatesCount(): number {
+    return this.pendingUpdates.size;
+  }
+
+  /**
+   * Clear all pending updates
+   */
+  clearPendingUpdates(): void {
+    this.pendingUpdates.clear();
+    console.log('[PresenceService] Cleared all pending presence updates');
+  }
+
+  /**
+   * Get service metrics
+   */
+  getMetrics() {
+    return { ...this.metrics };
+  }
+
+  /**
+   * Get cache statistics (presence doesn't use traditional caching)
+   */
+  async getCacheStats() {
+    return {
+      totalEntries: this.pendingUpdates.size,
+      totalSize: JSON.stringify([...this.pendingUpdates.entries()]).length,
+      hitRate: 0,
+      missRate: 0,
+      averageAge: 0,
+      oldestEntry: 0,
+      newestEntry: 0
+    };
+  }
+
+  /**
+   * Clear all cached presence data
+   */
+  async clearCache(): Promise<void> {
+    this.clearPendingUpdates();
+    console.log('[PresenceService] Cleared all presence cache');
+  }
+
+  // Private helper methods
+
+  /**
+   * Execute presence update query against Supabase
+   */
+  private async executePresenceUpdateQuery(
+    userId: string, 
+    isOnline: boolean, 
+    spaceId?: string
+  ): Promise<{ data: any; error: any }> {
+    try {
+      if (isOnline && spaceId) {
+        // When going online in a specific space:
+        // 1. Set current space as online
+        // 2. Set all other spaces as offline
+        
+        // First, set all other spaces to offline
+        await getSupabaseClient()
+          .from('space_members')
+          .update({
+            is_online: false
+          })
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .neq('space_id', spaceId);
+        
+        // Then set current space as online
+        const { error } = await getSupabaseClient()
+          .from('space_members')
+          .update({
+            is_online: true,
+            last_active_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('space_id', spaceId)
+          .eq('status', 'active');
+          
+        return { data: null, error };
+        
+      } else if (!isOnline) {
+        // When going offline, set all spaces to offline
+        const { error } = await getSupabaseClient()
+          .from('space_members')
+          .update({
+            is_online: false,
+            last_active_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('status', 'active');
+          
+        return { data: null, error };
+        
+      } else {
+        // Legacy fallback - update last_active_at only
+        const { error } = await getSupabaseClient()
+          .from('space_members')
+          .update({
+            last_active_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('status', 'active');
+
+        return { data: null, error };
+      }
+    } catch (error) {
+      return { data: null, error };
+    }
+  }
+
+  /**
+   * Check if there's recent mobile background activity that would indicate
+   * potential blocking issues
+   */
+  private isRecentMobileBackgroundActivity(): boolean {
+    try {
+      // Check if mobile browser service indicates recent background activity
+      const debugInfo = mobileBrowserService.getDebugInfo();
+      
+      // Only consider it "recent" if background activity happened in last 10 seconds
+      if (debugInfo.lastVisibilityChange) {
+        const timeSinceBackground = Date.now() - debugInfo.lastVisibilityChange;
+        return timeSinceBackground < 10000; // 10 seconds
+      }
+      
+      // Also check if mobile background state is currently active
+      return debugInfo.mobileBackgroundState;
+      
+    } catch (error) {
+      console.warn('[PresenceService] Error checking mobile background activity:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Store pending presence update for later sync
+   */
+  private async storePendingPresenceUpdate(
+    userId: string,
+    isOnline: boolean,
+    spaceId?: string
+  ): Promise<void> {
+    try {
+      // Store in cache service for later retry
+      const pendingUpdate = {
+        userId,
+        isOnline,
+        spaceId,
+        timestamp: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString()
+      };
+      
+      // Store with a shorter TTL for pending updates
+      const cacheKey = `pending_presence_${userId}_${spaceId || 'global'}`;
+      await spaceMembersCacheService.set(cacheKey, pendingUpdate, { ttl: 300000 }); // 5 minutes
+      
+      console.log('[PresenceService] Stored pending presence update for later sync');
+    } catch (error) {
+      console.warn('[PresenceService] Failed to store pending presence update:', error);
+    }
+  }
+
+  /**
+   * Invalidate member counts cache to refresh UI after presence update
+   */
+  private async invalidateMemberCountsCache(spaceId: string): Promise<void> {
+    try {
+      // Invalidate space-specific cache entries
+      const cacheKeysToInvalidate = [
+        `space_members_${spaceId}_status_active`,
+        `member_counts_${spaceId}`,
+        `online_members_${spaceId}`,
+        `space_members_cache_${spaceId}`
+      ];
+      
+      for (const key of cacheKeysToInvalidate) {
+        try {
+          await spaceMembersCacheService.invalidate(key);
+        } catch (error) {
+          // Continue with other keys if one fails
+          console.warn(`[PresenceService] Failed to invalidate cache key ${key}:`, error);
+        }
+      }
+      
+      // Trigger a custom event to notify UI components to refresh
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('presence-updated', {
+          detail: { spaceId, timestamp: Date.now() }
+        }));
+      }
+      
+      console.log('[PresenceService] Invalidated member counts cache for space:', spaceId);
+    } catch (error) {
+      console.warn('[PresenceService] Failed to invalidate member counts cache:', error);
+    }
+  }
+}
+
+// Export singleton instance
+export const presenceService = new PresenceService(); 

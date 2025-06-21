@@ -1,11 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 import UserProfileHoverCard from '@/components/profile/UserProfileHoverCard';
 import { Link } from 'react-router-dom';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { Heart, MoreHorizontal, MessageCircle, Flag, Edit2, Trash2, Pencil, X, Check } from 'lucide-react';
+import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { getInitials } from '@/shared/utils/avatar-utils';
+import { Textarea } from '@/components/ui/textarea';
 
 // Types
 export interface CommentAuthor {
@@ -106,13 +117,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
     setOptimisticLikeCount(like_count);
     setOptimisticLiked(isLiked);
   }, [like_count, isLiked]);
-
-  const getInitials = (name: string | null): string => {
-    if (!name) return 'U';
-    const names = name.split(' ');
-    if (names.length === 1) return names[0].charAt(0).toUpperCase();
-    return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
-  };
 
   const timeAgo = formatDistanceToNow(new Date(created_at), { addSuffix: true });
 
@@ -233,23 +237,35 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 activityScore={author.activity_score}
               >
                 <Link to={getProfileLink(author) || '#'} className={!getProfileLink(author) ? 'pointer-events-none' : ''}>
-                  <Avatar className="h-9 w-9 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all">
-                    {author.avatar_url ? (
-                      <AvatarImage src={author.avatar_url} alt={author.full_name || 'User'} />
-                    ) : (
-                      <AvatarFallback className="text-sm bg-blue-100 text-blue-600 font-medium">
-                        {getInitials(author.full_name || null)}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
+                  <OptimizedAvatar
+                    user={{
+                      id: author.id,
+                      full_name: author.full_name,
+                      avatar_url: author.avatar_url
+                    }}
+                    size="lg"
+                    enableLazyLoading={false}
+                    enableCaching={true}
+                    placeholderType="initials"
+                    loadingTransition="fade"
+                    className="h-9 w-9 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all"
+                  />
                 </Link>
               </UserProfileHoverCard>
             ) : (
-              <Avatar className="h-9 w-9 flex-shrink-0">
-                <AvatarFallback className="text-sm bg-gray-100 text-gray-600">
-                  U
-                </AvatarFallback>
-              </Avatar>
+              <OptimizedAvatar
+                user={{
+                  id: 'unknown',
+                  full_name: 'User',
+                  avatar_url: null
+                }}
+                size="lg"
+                enableLazyLoading={false}
+                enableCaching={true}
+                placeholderType="initials"
+                loadingTransition="fade"
+                className="h-9 w-9 flex-shrink-0"
+              />
             )}
             <div className="flex-grow">
               <div className="flex items-center space-x-2">
@@ -351,23 +367,35 @@ const CommentItem: React.FC<CommentItemProps> = ({
               activityScore={author.activity_score}
             >
               <Link to={getProfileLink(author) || '#'} className={!getProfileLink(author) ? 'pointer-events-none' : ''}>
-                <Avatar className="h-11 w-11 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all">
-                  {author.avatar_url ? (
-                    <AvatarImage src={author.avatar_url} alt={author.full_name || 'User'} />
-                  ) : (
-                    <AvatarFallback className="text-base bg-blue-100 text-blue-600 font-medium">
-                      {getInitials(author.full_name || null)}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
+                <OptimizedAvatar
+                  user={{
+                    id: author.id,
+                    full_name: author.full_name,
+                    avatar_url: author.avatar_url
+                  }}
+                  size="xl"
+                  enableLazyLoading={false}
+                  enableCaching={true}
+                  placeholderType="initials"
+                  loadingTransition="fade"
+                  className="h-11 w-11 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all"
+                />
               </Link>
             </UserProfileHoverCard>
           ) : (
-            <Avatar className="h-11 w-11 flex-shrink-0">
-              <AvatarFallback className="text-base bg-gray-100 text-gray-600 font-medium">
-                U
-              </AvatarFallback>
-            </Avatar>
+            <OptimizedAvatar
+              user={{
+                id: 'unknown',
+                full_name: 'User',
+                avatar_url: null
+              }}
+              size="xl"
+              enableLazyLoading={false}
+              enableCaching={true}
+              placeholderType="initials"
+              loadingTransition="fade"
+              className="h-11 w-11 flex-shrink-0"
+            />
           )}
           <div className="flex-grow">
             <div className="flex items-center space-x-2">

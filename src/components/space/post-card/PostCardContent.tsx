@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { capitalizeFirstLetter } from "@/utils/formatters";
 import { extractFirstGifAndRest } from '@/utils/mediaUtils';
 import { cn } from '@/lib/utils';
 
@@ -9,6 +8,15 @@ interface PostCardContentProps {
   shouldTruncate?: boolean; 
   onReadMoreClick?: (e: React.MouseEvent) => void;
   className?: string;
+}
+
+// Convert text to title case (capitalize first letter of each word)
+function toTitleCase(text: string): string {
+  return text
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }
 
 /**
@@ -54,7 +62,7 @@ export const PostCardContent: React.FC<PostCardContentProps> = ({
     <div className={cn("flex-grow flex flex-col min-w-0 overflow-hidden", className)}>
       {title && (
         <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5 truncate break-words">
-          {capitalizeFirstLetter(title)}
+          {toTitleCase(title)}
         </h2>
       )}
       

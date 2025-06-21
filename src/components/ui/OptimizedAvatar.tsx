@@ -9,13 +9,13 @@
  * - Accessibility enhancements
  */
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { useAvatar } from '@/shared/utils/avatar-utils';
 import { AvatarCacheService } from '@/services/AvatarCacheService';
+import { useAvatar } from '@/shared/utils/avatar-utils';
 
 interface AvatarUser {
-  id?: string;
+  id: string;
   full_name?: string | null;
   avatar_url?: string | null;
   first_name?: string | null;
@@ -63,30 +63,44 @@ export function OptimizedAvatar({
   const [imageStatus, setImageStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [cachedUrl, setCachedUrl] = useState<string | null>(null);
   const [loadStartTime] = useState(Date.now());
+  const [preloadImage, setPreloadImage] = useState<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Use unified avatar resolver
   const avatar = useAvatar(user);
 
-  // 🚀 NEW: Smart caching integration
+  // 🚀 ENHANCED: Instant cache checking with preload optimization
   useEffect(() => {
     if (enableCaching && user.id && avatar.hasImage) {
       // Check cache first
       const cached = AvatarCacheService.getCachedAvatar(user.id, size);
       if (cached) {
         setCachedUrl(cached);
+        setImageStatus('loaded'); // 🎯 INSTANT: Mark as loaded if cached
         console.debug(`🎯 [OptimizedAvatar] Cache hit for user ${user.id}`);
       } else if (avatar.url) {
-        // Cache the URL for future use
-        AvatarCacheService.setCachedAvatar(user.id, avatar.url, size);
-        console.debug(`🎯 [OptimizedAvatar] Cached avatar for user ${user.id}`);
+        // 🚀 PRELOAD: Start loading image immediately without waiting for intersection
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          // Cache the successful load
+          AvatarCacheService.setCachedAvatar(user.id, avatar.url!, size);
+          setCachedUrl(avatar.url!);
+          setImageStatus('loaded');
+          console.debug(`🎯 [OptimizedAvatar] Preloaded and cached avatar for user ${user.id}`);
+        };
+        img.onerror = () => {
+          setImageStatus('error');
+        };
+        img.src = avatar.url;
+        setPreloadImage(img);
       }
     }
   }, [enableCaching, user.id, avatar.hasImage, avatar.url, size]);
 
-  // 🔍 Intersection Observer for lazy loading
+  // 🔍 Intersection Observer for lazy loading (only when not preloaded)
   useEffect(() => {
-    if (!enableLazyLoading || !containerRef.current) return;
+    if (!enableLazyLoading || !containerRef.current || cachedUrl || preloadImage) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -103,7 +117,7 @@ export function OptimizedAvatar({
 
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [enableLazyLoading]);
+  }, [enableLazyLoading, cachedUrl, preloadImage]);
 
   // 📊 Performance tracking (simplified)
   useEffect(() => {
@@ -121,8 +135,16 @@ export function OptimizedAvatar({
   // Memoize size classes for performance
   const sizeClasses = useMemo(() => SIZE_CLASSES[size], [size]);
 
-  // 🎯 Determine which URL to use (cached or original)
-  const imageUrl = cachedUrl || avatar.url;
+  // 🎯 Determine which URL to use (cached, preloaded, or original)
+  const imageUrl = cachedUrl || (preloadImage?.complete ? avatar.url : null) || 
+                   (isIntersecting ? avatar.url : null);
+
+  // 🎯 ENHANCED: Smarter showing logic
+  const shouldShowImage = avatar.hasImage && imageUrl && (
+    imageStatus === 'loaded' || 
+    (cachedUrl && imageStatus !== 'error') ||
+    (preloadImage?.complete && imageStatus !== 'error')
+  );
 
   return (
     <div
@@ -133,6 +155,10 @@ export function OptimizedAvatar({
         onClick && 'cursor-pointer hover:opacity-80 transition-opacity',
         className
       )}
+      data-optimized-avatar="true"
+      data-user-id={user.id}
+      data-enable-caching={enableCaching}
+      data-enable-lazy-loading={enableLazyLoading}
       onClick={onClick}
       role={onClick ? 'button' : 'img'}
       aria-label={accessibleLabel}
@@ -146,14 +172,14 @@ export function OptimizedAvatar({
       {...props}
     >
       {/* Image Layer with Smart Loading */}
-      {avatar.hasImage && isIntersecting && imageUrl && (
+      {shouldShowImage && (
         <img
           src={imageUrl}
           alt={accessibleLabel}
           className={cn(
-            'w-full h-full object-cover transition-all duration-300 ease-out',
+            'w-full h-full object-cover transition-all duration-200 ease-out',
             {
-              'opacity-100 scale-100 blur-0': imageStatus === 'loaded',
+              'opacity-100 scale-100 blur-0': imageStatus === 'loaded' || cachedUrl,
               'opacity-0 scale-105 blur-sm': imageStatus === 'loading' && loadingTransition === 'blur-to-sharp',
               'opacity-0 scale-110': imageStatus === 'loading' && loadingTransition === 'scale',
               'opacity-0': imageStatus === 'loading' && loadingTransition === 'fade'
@@ -165,12 +191,12 @@ export function OptimizedAvatar({
         />
       )}
       
-      {/* Fallback/Placeholder Layer */}
-      {(!avatar.hasImage || !isIntersecting || imageStatus !== 'loaded') && (
+      {/* Fallback/Placeholder Layer - Only show when truly needed */}
+      {(!avatar.hasImage || (!shouldShowImage && imageStatus !== 'loaded')) && (
         <div 
           className={cn(
-            'absolute inset-0 flex items-center justify-center transition-opacity duration-300',
-            imageStatus === 'loaded' && avatar.hasImage ? 'opacity-0' : 'opacity-100'
+            'absolute inset-0 flex items-center justify-center transition-opacity duration-200',
+            shouldShowImage && imageStatus === 'loaded' ? 'opacity-0' : 'opacity-100'
           )}
           style={{ backgroundColor: avatar.backgroundColor }}
         >
@@ -233,7 +259,7 @@ export function MemberAvatar({ user, isOnline, onClick }: {
       size="lg"
       showOnlineStatus={true}
       isOnline={isOnline}
-      enableLazyLoading={true}
+      enableLazyLoading={false} // 🚀 OPTIMIZED: Disable lazy loading for member lists
       enableCaching={true} // 🚀 Cache enabled for member lists
       placeholderType="initials"
       loadingTransition="fade"
@@ -270,7 +296,7 @@ export function ChatAvatar({ user, onClick }: {
     <OptimizedAvatar
       user={user}
       size="lg"
-      enableLazyLoading={true}
+      enableLazyLoading={false} // 🚀 OPTIMIZED: Immediate loading for chat
       enableCaching={true} // 🚀 Cache for chat performance
       placeholderType="initials"
       loadingTransition="fade"

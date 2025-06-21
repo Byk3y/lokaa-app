@@ -1,8 +1,7 @@
 import React from 'react';
-import { Share } from 'lucide-react';
+import { Share, ThumbsUp, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LikeButton, CommentButton } from "@/components/ui/post-icons";
 
 interface PostActionsProps {
   hasLiked: boolean;
@@ -37,13 +36,7 @@ export default function PostActions({
             isLiking && "opacity-60 cursor-not-allowed"
           )}
         >
-          <LikeButton
-            isLiked={hasLiked}
-            count={0}
-            onClick={() => {}}
-            showCount={false}
-            className="pointer-events-none"
-          />
+          <ThumbsUp size={18} className={hasLiked ? "fill-current" : ""} />
           <span>{hasLiked ? 'Liked' : 'Like'}</span>
           {likeCount > 0 && <span className="ml-1 text-gray-500">{likeCount}</span>}
         </Button>
@@ -53,11 +46,7 @@ export default function PostActions({
           className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
           onClick={onCommentClick}
         >
-          <CommentButton
-            count={0}
-            showCount={false}
-            className="pointer-events-none"
-          />
+          <MessageSquare size={18} />
           <span>Comment</span>
           {commentCount > 0 && <span className="ml-1 text-gray-500">{commentCount}</span>}
         </Button>

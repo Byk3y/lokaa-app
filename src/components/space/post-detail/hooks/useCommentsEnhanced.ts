@@ -33,7 +33,7 @@ export interface FetchedComment {
 }
 
 /**
- * Enhanced Comments Hook with TanStack Query Caching
+ * Enhanced Comments Hook with TanStack Query Caching and Pagination Support
  * Maintains the same interface as the original useComments but with performance benefits
  */
 export function useCommentsEnhanced(
@@ -50,6 +50,10 @@ export function useCommentsEnhanced(
     addComment,
     toggleCommentLike,
     refetchComments,
+    // 🔥 EXPOSE PAGINATION FUNCTIONALITY
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useCommentsCache(post?.id || '', currentUserId || undefined);
 
   // State for comment input and reply management
@@ -240,7 +244,15 @@ export function useCommentsEnhanced(
     }
   }, [currentUserId, toggleCommentLike]);
 
-  // Return the same interface as the original hook
+  // 🔥 NEW: Load more comments function
+  const loadMoreComments = useCallback(async () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      console.log('🔔 [useCommentsEnhanced] Loading more comments...');
+      await fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Return enhanced interface with pagination support
   return {
     comments,
     commentsLoading,
@@ -251,9 +263,13 @@ export function useCommentsEnhanced(
     handleCommentSubmit,
     handleReplyAdded,
     fetchReplies,
-    fetchAdditionalReplies, // New function for Skool-style additional replies
+    fetchAdditionalReplies,
     replyingToComment,
     setReplyTarget,
     handleCommentLikeToggled,
+    // 🔥 NEW: Pagination controls
+    loadMoreComments,
+    hasMoreComments: hasNextPage,
+    isLoadingMoreComments: isFetchingNextPage,
   };
 } 

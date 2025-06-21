@@ -53,15 +53,19 @@ class GlobalErrorInterceptor {
         return response;
       };
       
-      // Also intercept console errors for Phase 1 mobile recovery
+      // 🔧 FIXED: More selective console error interception
+      // Only intercept actual 401 authentication errors, not all errors
       const originalError = console.error;
       console.error = (...args) => {
         const errorMessage = args.join(' ');
         
+        // Only intercept if it's specifically a 401 authentication error from Supabase
         if (errorMessage.includes('401') && 
-            errorMessage.includes('supabase.co')) {
+            errorMessage.includes('supabase.co') &&
+            !errorMessage.includes('timeout') &&
+            !errorMessage.includes('fallback')) {
           
-          console.log('🚨 [GlobalErrorInterceptor] 401 error detected in console');
+          console.log('🚨 [GlobalErrorInterceptor] 401 authentication error detected');
           this.handleSessionExpiry();
         }
         
@@ -73,11 +77,14 @@ class GlobalErrorInterceptor {
         const error = event.reason;
         const errorMessage = error?.message || error?.toString() || '';
         
-        if (errorMessage.includes('401') || 
-            errorMessage.includes('unauthorized') ||
+        // 🔧 FIXED: More specific error detection
+        if ((errorMessage.includes('401') || errorMessage.includes('unauthorized')) &&
+            errorMessage.includes('supabase') &&
+            !errorMessage.includes('timeout') &&
+            !errorMessage.includes('fallback') &&
             errorMessage.includes('JWT')) {
           
-          console.log('🚨 [GlobalErrorInterceptor] 401 error in unhandled rejection');
+          console.log('🚨 [GlobalErrorInterceptor] 401 authentication error in unhandled rejection');
           this.handleSessionExpiry();
         }
       });
