@@ -32,7 +32,7 @@ export default function PostContent({ post, postTitleRef }: PostContentProps) {
       {post.title && (
         <h1 
           ref={postTitleRef} 
-          className="text-2xl font-bold text-gray-900 leading-tight mb-1"
+          className="text-base md:text-2xl font-bold text-gray-900 leading-tight mb-1"
         >
           {toTitleCase(post.title)}
         </h1>

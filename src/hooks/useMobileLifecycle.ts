@@ -77,10 +77,14 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
    * Only activates on mobile devices
    */
   useEffect(() => {
-    // Only enable mobile lifecycle management on actual mobile devices
-    if (!isMobileDevice) {
-      console.log('📱 [MobileLifecycle] Desktop detected - mobile lifecycle management disabled');
+    // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
+    if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_LIFECYCLE) {
+      console.log('🔧 [MobileLifecycle] DISABLED - Mobile Event Coordinator is managing events');
       return;
+    }
+    
+    if (!isMobileDevice) {
+      return; // Not a mobile device, no need for mobile lifecycle management
     }
 
     const handleVisibilityChange = () => {

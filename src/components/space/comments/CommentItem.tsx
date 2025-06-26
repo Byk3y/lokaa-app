@@ -1,12 +1,13 @@
 import React, { useState, useEffect, memo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { useRealtimeCommentLikes } from '@/hooks/useRealtimeCommentLikes';
 
 import UserProfileHoverCard from '@/components/profile/UserProfileHoverCard';
 import { Link } from 'react-router-dom';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { Heart, MoreHorizontal, MessageCircle, Flag, Edit2, Trash2, Pencil, X, Check } from 'lucide-react';
+import { Heart, MoreHorizontal, MessageCircle, Flag, Edit2, Trash2, Pencil, X, Check, ThumbsUp } from 'lucide-react';
 import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +18,30 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getInitials } from '@/shared/utils/avatar-utils';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+
+const renderWithMentions = (content: string) => {
+  if (!content) return null;
+  
+  // Regex to match @ followed by up to 3 words. This is a heuristic.
+  const mentionRegex = /(@[A-Za-z]+(?: [A-Za-z]+){0,2})/g;
+  const parts = content.split(mentionRegex);
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (i % 2 === 1) { // It's a mention
+          return (
+            <span key={i} className="text-blue-600 font-medium">
+              {part}
+            </span>
+          );
+        }
+        return part;
+      })}
+    </>
+  );
+};
 
 // Types
 export interface CommentAuthor {
@@ -117,6 +142,29 @@ const CommentItem: React.FC<CommentItemProps> = ({
     setOptimisticLikeCount(like_count);
     setOptimisticLiked(isLiked);
   }, [like_count, isLiked]);
+
+  // 🚀 Real-time comment like updates from other users
+  const handleRealtimeCommentLikeAdded = useCallback((commentId: string, userId: string) => {
+    if (commentId === id) {
+      console.log('🔔 [CommentItem] Real-time comment like added:', { commentId, userId });
+      setOptimisticLikeCount(prevCount => prevCount + 1);
+    }
+  }, [id]);
+
+  const handleRealtimeCommentLikeRemoved = useCallback((commentId: string, userId: string) => {
+    if (commentId === id) {
+      console.log('🔔 [CommentItem] Real-time comment like removed:', { commentId, userId });
+      setOptimisticLikeCount(prevCount => Math.max(0, prevCount - 1));
+    }
+  }, [id]);
+
+  const { isConnected: realtimeConnected } = useRealtimeCommentLikes({
+    spaceId: space_id || '',
+    userId: userIdForActions,
+    enabled: !!space_id,
+    onLikeAdded: handleRealtimeCommentLikeAdded,
+    onLikeRemoved: handleRealtimeCommentLikeRemoved
+  });
 
   const timeAgo = formatDistanceToNow(new Date(created_at), { addSuffix: true });
 
@@ -223,141 +271,104 @@ const CommentItem: React.FC<CommentItemProps> = ({
   };
 
   if (parent_comment_id) {
-    // It's a reply - Skool-style clean indentation
+    // It's a reply - Skool-style clean indentation. The parent provides the nesting visuals.
     return (
-      <div className="ml-11 pl-3 border-l border-gray-200">
-        <div className="py-3">
-          <div className="flex items-start space-x-3">
-            {author ? (
-              <UserProfileHoverCard
-                userId={author.id}
-                userName={author.full_name || author.id.split('-')[0] || 'User'}
-                userAvatar={author.avatar_url}
-                userProfileUrl={author.profile_url || undefined}
-                activityScore={author.activity_score}
-              >
-                <Link to={getProfileLink(author) || '#'} className={!getProfileLink(author) ? 'pointer-events-none' : ''}>
-                  <OptimizedAvatar
-                    user={{
-                      id: author.id,
-                      full_name: author.full_name,
-                      avatar_url: author.avatar_url
-                    }}
-                    size="lg"
-                    enableLazyLoading={false}
-                    enableCaching={true}
-                    placeholderType="initials"
-                    loadingTransition="fade"
-                    className="h-9 w-9 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all"
-                  />
-                </Link>
-              </UserProfileHoverCard>
-            ) : (
+      <div className="flex items-start space-x-2">
+        {author ? (
+          <UserProfileHoverCard
+            userId={author.id}
+            userName={author.full_name || author.id.split('-')[0] || 'User'}
+            userAvatar={author.avatar_url}
+            userProfileUrl={author.profile_url || undefined}
+            activityScore={author.activity_score}
+          >
+            <Link to={getProfileLink(author) || '#'} className={!getProfileLink(author) ? 'pointer-events-none' : ''}>
               <OptimizedAvatar
                 user={{
-                  id: 'unknown',
-                  full_name: 'User',
-                  avatar_url: null
+                  id: author.id,
+                  full_name: author.full_name,
+                  avatar_url: author.avatar_url
                 }}
                 size="lg"
                 enableLazyLoading={false}
                 enableCaching={true}
                 placeholderType="initials"
                 loadingTransition="fade"
-                className="h-9 w-9 flex-shrink-0"
+                className="h-9 w-9 flex-shrink-0 hover:ring-2 hover:ring-blue-300 transition-all"
               />
-            )}
-            <div className="flex-grow">
-              <div className="flex items-center space-x-2">
-                {author ? (
-                  <UserProfileHoverCard
-                    userId={author.id}
-                    userName={author.full_name || author.id.split('-')[0] || 'User'}
-                    userAvatar={author.avatar_url}
-                    userProfileUrl={author.profile_url || undefined}
-                    activityScore={author.activity_score}
-                  >
-                    <Link 
-                      to={getProfileLink(author) || '#'} 
-                      className={`font-semibold text-gray-900 hover:text-blue-600 hover:underline ${!getProfileLink(author) ? 'pointer-events-none' : ''}`}
-                    >
-                      {author.full_name || author.id.split('-')[0] || 'User'}
-                    </Link>
-                  </UserProfileHoverCard>
-                ) : (
-                  <span className="font-semibold text-gray-900">
-                    User
-                  </span>
-                )}
-                <span className="text-sm text-gray-500">{timeAgo}</span>
-              </div>
-              <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed">
-                {content}
-              </p>
-              
-              <div className="mt-2 flex items-center text-xs text-gray-500"> 
-                <button 
-                  onClick={handleLikeToggle}
-                  className={`flex items-center mr-5 hover:text-blue-500 ${optimisticLiked ? 'text-blue-500' : ''}`}
-                  disabled={!userIdForActions || isLiking}
+            </Link>
+          </UserProfileHoverCard>
+        ) : (
+          <OptimizedAvatar
+            user={{
+              id: 'unknown',
+              full_name: 'User',
+              avatar_url: null
+            }}
+            size="lg"
+            enableLazyLoading={false}
+            enableCaching={true}
+            placeholderType="initials"
+            loadingTransition="fade"
+            className="h-9 w-9 flex-shrink-0"
+          />
+        )}
+        <div className="flex-grow">
+          <div className="bg-gray-100 rounded-xl p-3">
+            <div className="flex items-center space-x-2">
+              {author ? (
+                <UserProfileHoverCard
+                  userId={author.id}
+                  userName={author.full_name || author.id.split('-')[0] || 'User'}
+                  userAvatar={author.avatar_url}
+                  userProfileUrl={author.profile_url || undefined}
+                  activityScore={author.activity_score}
                 >
-                  {optimisticLikeCount > 0 ? (
-                    <>
-                      <span>{optimisticLikeCount}</span>
-                      <span className="ml-1">{optimisticLikeCount === 1 ? 'Like' : 'Likes'}</span>
-                    </>
-                  ) : (
-                    <span>Like</span>
-                  )}
-                </button>
-                <button 
-                  onClick={handleReplyPress}
-                  className="flex items-center hover:text-blue-500"
-                >
-                  Reply
-                </button>
-              </div>
-
-              {/* Replies Section for nested replies (legacy system) */}
-              {optimisticReplyCount > 0 && (
-                <div className="mt-2 mb-1">
-                  <button 
-                    onClick={toggleShowReplies} 
-                    className="text-xs text-blue-600 hover:underline font-medium"
+                  <Link 
+                    to={getProfileLink(author) || '#'} 
+                    className={`text-sm sm:text-base font-semibold text-gray-900 hover:text-blue-600 hover:underline ${!getProfileLink(author) ? 'pointer-events-none' : ''}`}
                   >
-                    {showReplies 
-                      ? `Hide replies` 
-                      : `${optimisticReplyCount} ${optimisticReplyCount === 1 ? 'Reply' : 'Replies'}`}
-                    {isLoadingReplies && " (Loading...)"}
-                  </button>
-                </div>
+                    {author.full_name || author.id.split('-')[0] || 'User'}
+                  </Link>
+                </UserProfileHoverCard>
+              ) : (
+                <span className="font-semibold text-gray-900">
+                  User
+                </span>
               )}
-
-              {showReplies && loadedReplies.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {loadedReplies.map(reply => (
-                    <CommentItem 
-                      key={reply.id} 
-                      {...reply} 
-                      currentUserId={userIdForActions}
-                      onReplyAddedToParent={onReplyAddedToParent}
-                      fetchRepliesHook={fetchRepliesHook}
-                      onSetReplyTarget={onSetReplyTarget}
-                      depth={(depth || 0) + 1} 
-                    />
-                  ))}
-                </div>
-              )}
+              <span className="text-sm text-gray-500">{timeAgo}</span>
             </div>
+            <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed">
+              {renderWithMentions(content)}
+            </p>
+          </div>
+          
+          <div className="mt-2 flex items-center text-sm text-gray-500 space-x-4">
+            <button
+              onClick={handleLikeToggle}
+              className="flex items-center space-x-1 text-gray-500 hover:text-blue-600 disabled:cursor-not-allowed"
+              disabled={!userIdForActions || isLiking}
+            >
+              <ThumbsUp className={cn("h-4 w-4", optimisticLiked ? 'text-blue-600' : 'text-gray-400')} />
+              <span className="font-medium">{optimisticLikeCount}</span>
+            </button>
+            <button 
+              onClick={handleReplyPress}
+              className="font-medium hover:text-blue-600"
+            >
+              Reply
+            </button>
           </div>
         </div>
       </div>
     );
   } else {
     // It's a top-level comment - Skool-style clean flat design
+    const allReplies = [...initial_replies, ...(showMoreReplies ? additionalReplies : [])];
+    
     return (
-      <div className="py-4 border-b border-gray-100 last:border-b-0">
-        <div className="flex items-start space-x-4">
+      <div className="py-1">
+        <div className="flex items-start space-x-2">
           {author ? (
             <UserProfileHoverCard
               userId={author.id}
@@ -398,87 +409,68 @@ const CommentItem: React.FC<CommentItemProps> = ({
             />
           )}
           <div className="flex-grow">
-            <div className="flex items-center space-x-2">
-              {author ? (
-                <UserProfileHoverCard
-                  userId={author.id}
-                  userName={author.full_name || author.id.split('-')[0] || 'User'}
-                  userAvatar={author.avatar_url}
-                  userProfileUrl={author.profile_url || undefined}
-                  activityScore={author.activity_score}
-                >
-                  <Link 
-                    to={getProfileLink(author) || '#'} 
-                    className={`font-semibold text-gray-900 hover:text-blue-600 hover:underline ${!getProfileLink(author) ? 'pointer-events-none' : ''}`}
+            <div className="bg-gray-100 rounded-xl p-3">
+              <div className="flex items-center space-x-2">
+                {author ? (
+                  <UserProfileHoverCard
+                    userId={author.id}
+                    userName={author.full_name || author.id.split('-')[0] || 'User'}
+                    userAvatar={author.avatar_url}
+                    userProfileUrl={author.profile_url || undefined}
+                    activityScore={author.activity_score}
                   >
-                    {author.full_name || author.id.split('-')[0] || 'User'}
-                  </Link>
-                </UserProfileHoverCard>
-              ) : (
-                <span className="font-semibold text-gray-900">
-                  User
-                </span>
-              )}
-              <span className="text-sm text-gray-500">{timeAgo}</span>
+                    <Link 
+                      to={getProfileLink(author) || '#'} 
+                      className={`text-sm sm:text-base font-semibold text-gray-900 hover:text-blue-600 hover:underline ${!getProfileLink(author) ? 'pointer-events-none' : ''}`}
+                    >
+                      {author.full_name || author.id.split('-')[0] || 'User'}
+                    </Link>
+                  </UserProfileHoverCard>
+                ) : (
+                  <span className="font-semibold text-gray-900">
+                    User
+                  </span>
+                )}
+                <span className="text-sm text-gray-500">{timeAgo}</span>
+              </div>
+              <p className="text-gray-800 mt-2 whitespace-pre-wrap break-words leading-relaxed">
+                {renderWithMentions(content)}
+              </p>
             </div>
-            <p className="text-gray-800 mt-2 whitespace-pre-wrap break-words leading-relaxed">
-              {content}
-            </p>
             
-            <div className="mt-3 flex items-center text-xs text-gray-500">
-              <button 
+            <div className="mt-3 flex items-center text-sm text-gray-500 space-x-4">
+              <button
                 onClick={handleLikeToggle}
-                className={`flex items-center mr-5 hover:text-blue-500 ${optimisticLiked ? 'text-blue-500' : ''}`}
+                className="flex items-center space-x-1 text-gray-500 hover:text-blue-600 disabled:cursor-not-allowed"
                 disabled={!userIdForActions || isLiking}
               >
-                {optimisticLikeCount > 0 ? (
-                  <>
-                    <span>{optimisticLikeCount}</span>
-                    <span className="ml-1">{optimisticLikeCount === 1 ? 'Like' : 'Likes'}</span>
-                  </>
-                ) : (
-                  <span>Like</span>
-                )}
+                <ThumbsUp className={cn("h-4 w-4", optimisticLiked ? 'text-blue-600' : 'text-gray-400')} />
+                <span className="font-medium">{optimisticLikeCount}</span>
               </button>
               <button 
                 onClick={handleReplyPress}
-                className="flex items-center hover:text-blue-500"
+                className="font-medium hover:text-blue-600"
               >
                 Reply
               </button>
             </div>
 
-            {/* Display Initial Replies (Skool-style - always shown) */}
-            {initial_replies && initial_replies.length > 0 && (
-              <div className="mt-4 space-y-1">
-                {initial_replies.map(reply => (
-                  <CommentItem 
-                    key={reply.id} 
-                    {...reply} 
-                    currentUserId={userIdForActions}
-                    onReplyAddedToParent={onReplyAddedToParent}
-                    fetchRepliesHook={fetchRepliesHook}
-                    onSetReplyTarget={onSetReplyTarget}
-                    depth={(depth || 0) + 1}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Display Additional Replies (when "View more replies" is clicked) */}
-            {showMoreReplies && additionalReplies.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {additionalReplies.map(reply => (
-                  <CommentItem 
-                    key={reply.id} 
-                    {...reply} 
-                    currentUserId={userIdForActions}
-                    onReplyAddedToParent={onReplyAddedToParent}
-                    fetchRepliesHook={fetchRepliesHook}
-                    onSetReplyTarget={onSetReplyTarget}
-                    depth={(depth || 0) + 1}
-                  />
-                ))}
+            {/* Display All Replies (Initial and Loaded) */}
+            {allReplies.length > 0 && (
+              <div className="mt-2">
+                <div className="space-y-1">
+                  {allReplies.map(reply => (
+                    <CommentItem 
+                      key={reply.id} 
+                      {...reply} 
+                      currentUserId={userIdForActions}
+                      onReplyAddedToParent={onReplyAddedToParent}
+                      fetchRepliesHook={fetchRepliesHook}
+                      onSetReplyTarget={onSetReplyTarget}
+                      depth={(depth || 0) + 1}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 

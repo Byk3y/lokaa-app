@@ -17,7 +17,7 @@ export function useAppInitialization() {
         const result = await appInitializationService.initialize({
           isDevelopment: import.meta.env?.DEV,
           enableDebugInterfaces: import.meta.env?.DEV,
-          enableMobileRecovery: true
+          enableMobileRecovery: false  // DISABLED - mobile protection handled by comprehensive fix in index.html
         });
 
         // Initialize development tools (handled automatically in dev mode)

@@ -39,6 +39,13 @@ class PageVisibilityManager {
   initialize(): void {
     if (this.initialized) return;
 
+    // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
+    if (typeof window !== 'undefined' && (window as any).DISABLE_PAGE_VISIBILITY_MANAGER) {
+      console.log('🔧 [PageVisibilityManager] DISABLED - Mobile Event Coordinator is managing events');
+      this.initialized = true; // Mark as initialized but don't set up listeners
+      return;
+    }
+
     // Only enable page visibility management on mobile devices
     if (!shouldEnableMobileFeatures()) {
       console.log('🔋 [PageVisibilityManager] Desktop detected - page visibility management disabled');
@@ -234,8 +241,39 @@ class PageVisibilityManager {
   }
 }
 
-// Export singleton instance
-export const pageVisibilityManager = PageVisibilityManager.getInstance();
+// OPTION C FIX: Only create singleton instance if not disabled
+let pageVisibilityManagerInstance: PageVisibilityManager | null = null;
+
+function getPageVisibilityManager(): PageVisibilityManager {
+  if (!pageVisibilityManagerInstance) {
+    // Check disable flag before creating instance
+    if (typeof window !== 'undefined' && (window as any).DISABLE_PAGE_VISIBILITY_MANAGER) {
+      console.log('🔧 [PageVisibilityManager] Singleton creation DISABLED - Mobile Event Coordinator is managing events');
+      // Return a no-op instance
+      pageVisibilityManagerInstance = {
+        initialize: () => {},
+        registerActivity: () => {},
+        unregisterActivity: () => {},
+        addVisibilityListener: () => () => {},
+        get pageVisible() { return true; },
+        getActivityStatus: () => [],
+        destroy: () => {}
+      } as unknown as PageVisibilityManager;
+    } else {
+      pageVisibilityManagerInstance = PageVisibilityManager.getInstance();
+    }
+  }
+  return pageVisibilityManagerInstance;
+}
+
+// Export lazy singleton using Proxy for deferred creation
+export const pageVisibilityManager = new Proxy({} as PageVisibilityManager, {
+  get(target, prop) {
+    const instance = getPageVisibilityManager();
+    const value = (instance as any)[prop];
+    return typeof value === 'function' ? value.bind(instance) : value;
+  }
+});
 
 /**
  * 🎣 React Hook for easy integration

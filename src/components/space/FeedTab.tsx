@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from '@/hooks/use-toast';
 import { useFeedLogic } from "@/hooks/useFeedLogic";
 import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts";
-import { useRealtimeSpaceComments } from "@/hooks/useRealtimeSpaceComments";
+import { useRealtimeSpaceCommentsOptimized } from "@/hooks/useRealtimeSpaceCommentsOptimized";
+import { useRealtimePostLikes } from "@/hooks/useRealtimePostLikes";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 
 // HMR OPTIMIZATION: Group type and utility imports
@@ -238,13 +239,40 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
   const spaceIdForCounts = currentSpaceData?.id || fallbackSpaceData?.id || '';
   const memberCounts = useSimpleMemberCounts(spaceIdForCounts);
   
-  // 🔔 NEW: Space-level comment subscription for real-time comment count updates
-  const { isConnected: commentsConnected } = useRealtimeSpaceComments({
+  // 🔔 DISABLED: Space-level comment subscription to prevent double counting
+  // PostCard components now handle their own real-time comment updates via usePostComments
+  // This prevents the double counting issue where each comment was processed twice
+  /*
+  const { isConnected: commentsConnected } = useRealtimeSpaceCommentsOptimized({
     spaceId: spaceIdForCounts,
     userId: currentUser?.id || null,
-    isEnabled: !!spaceIdForCounts && !!currentUser?.id,
-    onCommentAdded: handleCommentAddedInModal, // Connect to the cached posts update function
+    isEnabled: false, // 🔥 DISABLED: Prevents double counting with PostCard-level subscriptions
+    onCommentAdded: (data) => {
+      // Adapter: Convert from {postId, commentId, authorName, spaceId} to (postId, newCommentCount)
+      // For now, we'll increment by 1 since we don't have the exact count in the data
+      handleCommentAddedInModal(data.postId, 0); // The function will handle getting the actual count
+    },
   });
+  */
+
+  // 🔥 DISABLED: FeedTab-level real-time likes subscription to prevent double counting
+  // PostCard components now handle their own real-time like updates via usePostLikes → useRealtimePostLikes
+  // This prevents the double counting issue where each like was processed twice:
+  // 1. PostCard subscription (correctly skips own likes) 
+  // 2. FeedTab subscription (was NOT skipping own likes, causing double counting)
+  /*
+  const { isConnected: likesConnected } = useRealtimePostLikes({
+    spaceId: spaceIdForCounts,
+    userId: currentUser?.id || null,
+    enabled: false, // 🔥 DISABLED: Prevents double counting with PostCard-level subscriptions
+    onLikeAdded: (postId, userId) => {
+      // Handle real-time like from other users - delegate to feed logic
+      console.log('🔔 [FeedTab] Real-time post like added:', { postId, userId });
+      handleLikeToggledInCard(postId, 0); // The function will fetch the updated like count
+    }
+    // 🚀 SIMPLIFIED: No onLikeRemoved - users toggle likes optimistically like Instagram/LinkedIn
+  });
+  */
   
   // PHASE 1.5 FIX: Ensure sidebarSpaceData ALWAYS provides space name
   const sidebarSpaceData = React.useMemo(() => {
@@ -406,46 +434,46 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
         {/* Category Tabs - Standalone Pills (sticky only on desktop) */}
         <div className="mt-6">
           <div className="flex items-center space-x-2 overflow-x-auto pb-1 px-4 sm:px-0" role="tablist">
-            <motion.button 
+            <button 
               role="tab"
               aria-selected={selectedTab === "all"}
               onClick={() => handleTabSelect("all")}
-              className={`flex-shrink-0 px-3 py-3 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === "all" 
+              className={`flex-shrink-0 px-3 py-3 rounded-full text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === "all" 
                   ? 'bg-primary text-white' 
                   : 'bg-gray-200 text-primary hover:bg-primary/10 hover:text-primary-dark dark:bg-gray-700 dark:text-primary dark:hover:bg-primary/20'
               }`}
             >
               All
-            </motion.button>
+            </button>
             
             {spaceCategories.map((category) => (
-              <motion.button 
+              <button 
                   key={category.id}
                   role="tab"
                   aria-selected={selectedTab === category.id}
                   onClick={() => handleTabSelect(category.id)}
-                  className={`flex-shrink-0 px-3 py-3 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === category.id
+                  className={`flex-shrink-0 px-3 py-3 rounded-full text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === category.id
                     ? 'bg-primary text-white' 
                     : 'bg-gray-200 text-primary hover:bg-primary/10 hover:text-primary-dark dark:bg-gray-700 dark:text-primary dark:hover:bg-primary/20'
                 }`}
-                  disabled={categoriesLoading}
-                  style={{ opacity: categoriesLoading ? 0.7 : 1 }}
+                  disabled={categoriesLoading && spaceCategories.length === 0}
+                  style={{ 
+                    opacity: (categoriesLoading && spaceCategories.length === 0) ? 0.7 : 1 
+                  }}
               >
                 {category.icon && <span className="mr-1 sm:mr-1.5">{category.icon}</span>}
                 {category.name}
-              </motion.button>
+              </button>
             ))}
             
             {(effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
-              <motion.button 
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
+              <button 
                 className="flex-shrink-0 flex items-center justify-center px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 whitespace-nowrap"
                 onClick={openCategoryModal}
               >
                 <Tag className="h-4 w-4 mr-1 sm:mr-1.5" />
                 Edit
-              </motion.button>
+              </button>
             )}
           </div>
         </div>

@@ -1,14 +1,16 @@
 /**
  * Space Members Service
  * 
- * Specialized service for handling space member data with caching
- * Replaces space member functionality from the monolithic bridge
+ * Handles space member data operations with IndexedDB caching
+ * and mobile browser protection
  */
 
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { SupabaseBridgeResult, CacheOptions } from '../types';
-import { spaceMembersCacheService } from '../core/CacheService';
-import { mobileBrowserService } from '../core/MobileBrowserService';
+import { ISpaceMembersService, SpaceMemberRecord, CacheEntry } from '../types';
+import { IndexedDBManager } from '../core/IndexedDBManager';
+import { CacheService } from './CacheService';
+import { MobileBrowserService } from '../core/MobileBrowserService';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface SpaceMember {
   id: string;
@@ -57,24 +59,23 @@ export class SpaceMembersService {
     const cacheKey = this.generateCacheKey(spaceId, options);
 
     try {
-      // Check if we should use cache-first approach (mobile blocking)
-      const shouldUseCacheFirst = mobileBrowserService.shouldUseCacheFirst();
+      // ✅ Phase 2: Use simplified mobile manager for cache-first logic
+      // const shouldUseCacheFirst = simpleMobileManager.shouldUseCacheFirst();
       
-      if (!forceNetwork && shouldUseCacheFirst) {
-        console.log('[SpaceMembersService] Mobile blocking detected, checking cache first');
-        
-        const cachedData = await spaceMembersCacheService.get(cacheKey);
-        if (cachedData) {
-          this.metrics.cacheHits++;
-          console.log('[SpaceMembersService] Returning cached space members (mobile blocking)');
-          return {
-            data: cachedData as SpaceMember[],
-            error: null,
-            fromCache: true,
-            reason: 'mobile_blocking'
-          };
-        }
-      }
+      // If mobile browser is likely blocking requests, try cache first
+      // if (shouldUseCacheFirst) {
+      //   console.log('[SpaceMembersService] Mobile browser detected, trying cache first');
+      //   
+      //   try {
+      //     const cachedData = await this.getCachedMembers(spaceId);
+      //     if (cachedData.length > 0) {
+      //       console.log(`[SpaceMembersService] Using cached data: ${cachedData.length} members`);
+      //       return { success: true, data: cachedData, source: 'cache' };
+      //     }
+      //   } catch (cacheError) {
+      //     console.log('[SpaceMembersService] Cache read failed, proceeding to network');
+      //   }
+      // }
 
       // Try network request with mobile browser blocking detection
       try {

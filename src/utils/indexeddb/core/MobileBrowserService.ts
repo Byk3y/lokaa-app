@@ -25,6 +25,12 @@ export class MobileBrowserService implements IMobileBrowserService {
    * Setup mobile browser detection and event listeners
    */
   setupMobileDetection(): void {
+    // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
+    if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_BROWSER_SERVICE) {
+      console.log('🔧 [MobileBrowserService] DISABLED - Mobile Event Coordinator is managing events');
+      return;
+    }
+    
     if (typeof document === 'undefined' || typeof window === 'undefined') {
       return; // Not in browser environment
     }
@@ -278,5 +284,82 @@ export class MobileBrowserService implements IMobileBrowserService {
   }
 }
 
-// Export singleton instance
-export const mobileBrowserService = new MobileBrowserService(); 
+// OPTION C FIX: Only create singleton instance if not disabled
+let mobileBrowserServiceInstance: MobileBrowserService | null = null;
+
+function getMobileBrowserService(): MobileBrowserService {
+  if (!mobileBrowserServiceInstance) {
+    mobileBrowserServiceInstance = new MobileBrowserService();
+  }
+  return mobileBrowserServiceInstance;
+}
+
+// Export lazy singleton using Proxy that checks disable flag on every call
+export const mobileBrowserService = new Proxy({} as MobileBrowserService, {
+  get(target, prop) {
+    // Check disable flag on EVERY method/property access
+    if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_BROWSER_SERVICE) {
+      // Return no-op functions for disabled state
+      if (prop === 'setupMobileDetection') return () => console.log('🔧 [MobileBrowserService] setupMobileDetection DISABLED - Mobile Event Coordinator is managing events');
+      if (prop === 'detectEnvironment') return () => ({
+        isMobile: false,
+        userAgent: '',
+        platform: '',
+        shouldUseCacheFirst: false,
+        recentBackgroundReturn: false,
+        isHardRefresh: false,
+        mobileBackgroundDetected: false
+      });
+      if (prop === 'shouldUseCacheFirst') return () => false;
+      if (prop === 'isMobileBrowserBlocking') return () => false;
+      if (prop === 'testMobileBlockingDetection') return () => ({
+        environment: {
+          isMobile: false,
+          userAgent: '',
+          platform: '',
+          shouldUseCacheFirst: false,
+          recentBackgroundReturn: false,
+          isHardRefresh: false,
+          mobileBackgroundDetected: false
+        },
+        wouldUseCache: false,
+        timeSinceBackground: null
+      });
+      if (prop === 'forceCacheFirstMode') return () => {};
+      if (prop === 'clearCacheFirstMode') return () => {};
+      if (prop === 'getMobileBrowserCapabilities') return () => ({
+        supportsServiceWorker: false,
+        supportsIndexedDB: false,
+        supportsWebSockets: false,
+        isOnline: true
+      });
+      if (prop === 'cleanup') return () => {};
+      if (prop === 'getDebugInfo') return () => ({
+        lastVisibilityChange: null,
+        mobileBackgroundState: false,
+        environment: {
+          isMobile: false,
+          userAgent: '',
+          platform: '',
+          shouldUseCacheFirst: false,
+          recentBackgroundReturn: false,
+          isHardRefresh: false,
+          mobileBackgroundDetected: false
+        },
+        capabilities: {
+          supportsServiceWorker: false,
+          supportsIndexedDB: false,
+          supportsWebSockets: false,
+          isOnline: true
+        }
+      });
+      // Return no-op for any other property
+      return () => {};
+    }
+    
+    // Normal operation - get real instance and bind methods
+    const instance = getMobileBrowserService();
+    const value = (instance as any)[prop];
+    return typeof value === 'function' ? value.bind(instance) : value;
+  }
+}); 

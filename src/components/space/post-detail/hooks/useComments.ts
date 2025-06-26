@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { useRealtimeComments } from '@/hooks/useRealtimeComments';
-import type { PostCardProps } from '@/components/space/PostCard';
+import { useRealtimeCommentsOptimized } from '@/hooks/useRealtimeCommentsOptimized';
+import type { PostCardProps } from '@/features/posts/types/postCard';
 import type { CommentAuthor } from '@/components/space/comments/CommentItem';
+
+// Note: Global type declaration for navigationAwareRealtimeService is in usePostComments.ts
 
 // Re-use FetchedComment type
 export interface FetchedComment {
@@ -36,7 +38,7 @@ type CommentDataFromServer = {
 
 /**
  * Hook to handle post comments (fetching, posting, managing state)
- * 🔔 NOW WITH REAL-TIME SUPPORT!
+ * 🔔 NOW WITH REAL-TIME SUPPORT AND NAVIGATION-AWARE CACHING!
  */
 export function useComments(
   post: PostCardProps | null, 
@@ -50,8 +52,8 @@ export function useComments(
   const [optimisticCommentCount, setOptimisticCommentCount] = useState(post?.comments || 0);
   const [replyingToComment, setReplyingToComment] = useState<FetchedComment | null>(null);
 
-  // 🔔 REAL-TIME COMMENT SUBSCRIPTION
-  const { isConnected: realtimeConnected } = useRealtimeComments({
+  // 🔔 OPTIMIZED: Real-time comment subscription using NavigationAwareRealtimeService
+  const { isConnected: realtimeConnected } = useRealtimeCommentsOptimized({
     postId: post?.id || '',
     spaceId: post?.spaceId,
     userId: currentUserId,
@@ -61,7 +63,7 @@ export function useComments(
       // 🔧 STABILIZED: Add delay to prevent overwriting optimistic updates
       setTimeout(() => {
         if (post?.id) {
-          fetchComments(post.id);
+          fetchComments(post.id, true); // Force refresh for real-time updates
         }
       }, 1000); // 1-second delay to allow optimistic updates to settle
     },
@@ -70,24 +72,102 @@ export function useComments(
       // 🔧 STABILIZED: Add delay for update propagation
       setTimeout(() => {
         if (post?.id) {
-          fetchComments(post.id);
+          fetchComments(post.id, true); // Force refresh for updates
         }
       }, 500); // 500ms delay for updates
     }
   });
 
-  // Load initial comment data when post changes
+  // 🚀 NAVIGATION-AWARE: Check if we should skip fetching due to recent navigation
+  const shouldSkipFetch = useCallback(() => {
+    if (typeof window !== 'undefined' && window.navigationAwareRealtimeService) {
+      const stats = window.navigationAwareRealtimeService.getStats();
+      const timeSinceNavigation = Date.now() - stats.navigationState.lastNavigationTime;
+      const isRecentNavigation = timeSinceNavigation < 3000; // 3 seconds
+      
+      // EXPANDED PROTECTION: Cover more navigation scenarios
+      const previousRoute = stats.navigationState.previousRoute;
+      const currentRoute = stats.navigationState.currentRoute;
+      
+      // 1. Chat⟷Space navigation (original protection)
+      const isChatSpaceNavigation = (
+        (previousRoute.includes('/app/chat') && currentRoute.includes('/space')) ||
+        (previousRoute.includes('/space') && currentRoute.includes('/app/chat'))
+      );
+      
+      // 2. INITIAL SPACE LOAD PROTECTION (NEW) - Login flow navigation
+      const isInitialSpaceLoad = (
+        currentRoute.includes('/space') && (
+          previousRoute.includes('/login') ||
+          previousRoute.includes('/app') ||
+          previousRoute === '/' ||
+          previousRoute.includes('/auth') ||
+          previousRoute === '' ||
+          timeSinceNavigation < 10000 // EXPANDED: 10s window for initial space loads (was 5s)
+        )
+      );
+      
+      // 3. Space switching protection (NEW)
+      const isSpaceSwitching = (
+        previousRoute.includes('/space') && currentRoute.includes('/space') && 
+        previousRoute !== currentRoute
+      );
+      
+      // EXPANDED TIMING for initial space loads
+      const extendedRecentNavigation = isChatSpaceNavigation ? 
+        timeSinceNavigation < 3000 : // 3s for chat-space
+        timeSinceNavigation < 10000; // 10s for initial loads and space switching
+      
+      const shouldSkip = extendedRecentNavigation && (isChatSpaceNavigation || isInitialSpaceLoad || isSpaceSwitching);
+      
+      // ENHANCED DEBUGGING
+      console.log(`🔍 [useComments] shouldSkipFetch analysis for post ${post?.id}:`, {
+        timeSinceNavigation: `${timeSinceNavigation}ms`,
+        navigation: `${previousRoute} → ${currentRoute}`,
+        conditions: {
+          isRecentNavigation,
+          extendedRecentNavigation,
+          isChatSpaceNavigation,
+          isInitialSpaceLoad,
+          isSpaceSwitching
+        },
+        result: shouldSkip ? 'SKIP FETCH' : 'ALLOW FETCH'
+      });
+      
+      if (shouldSkip) {
+        const reason = isChatSpaceNavigation ? 'Chat⟷Space navigation' : 
+                      isInitialSpaceLoad ? 'initial space load' : 
+                      isSpaceSwitching ? 'space switching' : 'recent navigation';
+        console.log(`🛡️ [useComments] Skipping fetch for post ${post?.id} - ${reason} detected (${previousRoute} → ${currentRoute}, ${timeSinceNavigation}ms ago)`);
+        return true;
+      }
+    }
+    return false;
+  }, [post?.id]);
+
+  // 🚀 NAVIGATION-AWARE: Load initial comment data when post changes
   useEffect(() => {
     if (post?.id) {
-      console.log('🔔 [useComments] Loading comments for post:', post.id);
-      fetchComments(post.id);
+      // Skip fetch if we're in a recent navigation scenario
+      if (!shouldSkipFetch()) {
+        console.log('🔔 [useComments] Loading comments for post:', post.id);
+        fetchComments(post.id);
+      } else {
+        console.log(`🛡️ [useComments] Skipped initial fetch for post ${post.id} due to navigation`);
+      }
     }
     setOptimisticCommentCount(post?.comments || 0);
-  }, [post?.id, post?.comments]);
+  }, [post?.id, post?.comments, shouldSkipFetch]);
 
-  // Fetch comments for the post
-  const fetchComments = async (postId: string) => {
+  // 🚀 NAVIGATION-AWARE: Fetch comments for the post
+  const fetchComments = async (postId: string, forceRefresh: boolean = false) => {
     if (!postId) return;
+    
+    // Skip fetch if we're in a recent navigation scenario (unless forced)
+    if (!forceRefresh && shouldSkipFetch()) {
+      console.log(`🛡️ [useComments] Skipped fetch for post ${postId} due to navigation`);
+      return;
+    }
     
     console.log('🔔 [useComments] Fetching comments for post:', postId);
     setCommentsLoading(true);

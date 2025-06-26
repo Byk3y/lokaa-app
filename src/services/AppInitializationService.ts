@@ -1,12 +1,15 @@
 // App Initialization Service - extracted from App.tsx
 // Handles all app initialization logic in a centralized service
 
-import { initializeSupabase } from '@/integrations/supabase/client';
-import { pageVisibilityManager } from '@/utils/pageVisibilityManager';
+import { supabase } from '@/integrations/supabase/client';
+import { performanceMonitor } from '@/utils/performanceMonitor';
+// DISABLED: PageVisibilityManager causes reload conflicts with comprehensive fix
+// import { pageVisibilityManager } from '@/utils/pageVisibilityManager';
 import { persistentCache } from '@/utils/persistentCache';
 import { supabaseHealthMonitor } from '@/utils/supabaseHealthCheck';
 import { initializeCacheWarming } from '@/utils/cacheWarming';
-import { phase1Recovery } from '@/utils/phase1MobileRecovery';
+// DISABLED: import { phase1Recovery } from '@/utils/phase1MobileRecovery';
+import { spaceMembersService } from '@/utils/indexeddb/services/SpaceMembersService';
 
 export interface AppInitializationOptions {
   isDevelopment?: boolean;
@@ -77,7 +80,9 @@ export class AppInitializationService {
 
       // Mobile recovery systems
       if (enableMobileRecovery) {
-        await this.initializeMobileRecovery(result, enableDebugInterfaces);
+        // DISABLED: Complex mobile recovery conflicts with simple reload prevention
+        // await this.initializeMobileRecovery(result, enableDebugInterfaces);
+        console.log("📱 [AppInitialization] Mobile recovery disabled - using simple reload prevention system");
       }
 
       // Development debug interfaces
@@ -102,7 +107,11 @@ export class AppInitializationService {
   private async initializeSupabase(result: AppInitializationResult): Promise<void> {
     try {
       console.log('🔧 [AppInitialization] Initializing Supabase...');
-      initializeSupabase();
+      // Check if Supabase client is available (it's already instantiated)
+      if (!supabase) {
+        throw new Error('Supabase client is not available');
+      }
+      console.log('✅ [AppInitialization] Supabase client verified');
     } catch (error) {
       const message = 'Supabase initialization failed';
       result.errors.push(message);
@@ -114,13 +123,9 @@ export class AppInitializationService {
     try {
       console.log('🔧 [AppInitialization] Initializing essential services...');
       
-      pageVisibilityManager.initialize();
-      
-      if (!sessionStorage.getItem('session-start')) {
-        sessionStorage.setItem('session-start', Date.now().toString());
-      }
-      
-      supabaseHealthMonitor.startMonitoring();
+      // DISABLED: Health monitor causes page reloads - mobile protection handled by comprehensive fix in index.html
+      // supabaseHealthMonitor.startMonitoring();
+      console.log('🔧 [AppInitialization] Health monitor disabled - mobile protection handled by comprehensive fix');
       
     } catch (error) {
       const message = 'Essential services initialization failed';

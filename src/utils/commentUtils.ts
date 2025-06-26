@@ -98,9 +98,9 @@ export function getSimpleCommentInfo(
 ): CommentDisplayInfo | null {
   if (!comments?.length) return null;
   
-  // Filter out user's own comments
+  // Filter out user's own comments AND comments with null authors
   const otherComments = comments.filter(comment => 
-    comment.author?.id !== currentUserId
+    comment.author?.id && comment.author.id !== currentUserId
   );
   
   if (!otherComments.length) return null;
@@ -109,6 +109,12 @@ export function getSimpleCommentInfo(
   const mostRecent = otherComments.sort((a, b) => 
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )[0];
+  
+  // Double-check that author exists (safety check)
+  if (!mostRecent.author) {
+    console.warn('[CommentUtils] Most recent comment has null author, skipping');
+    return null;
+  }
   
   const timeText = formatCommentTime(mostRecent.created_at);
   const isNew = isCommentNewToSession(mostRecent.created_at, spaceActivity);
@@ -119,8 +125,8 @@ export function getSimpleCommentInfo(
     commentTime: mostRecent.created_at,
     author: {
       id: mostRecent.author.id,
-      name: mostRecent.author.name,
-      avatar: mostRecent.author.avatar
+      name: mostRecent.author.name || mostRecent.author.full_name || 'Unknown User',
+      avatar: mostRecent.author.avatar || mostRecent.author.avatar_url
     }
   };
 }

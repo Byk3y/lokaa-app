@@ -77,10 +77,14 @@ export const useNavigationStore = create<NavigationStore>()(
             // Add to history
             get().addToHistory(slug);
             
-                         // Perform navigation
-             navigateToConversation(conversationId, slug);
+            // ✅ CRITICAL FIX: Call with correct parameters (conversationId, replace)
+            const success = navigateToConversation(conversationId, false); // false = pushState, not replaceState
             
-            console.log('[NavigationStore] Navigated to conversation:', { slug, conversationId });
+            if (success) {
+              console.log('[NavigationStore] Navigated to conversation:', { slug, conversationId });
+            } else {
+              console.warn('[NavigationStore] Navigation failed for:', { slug, conversationId });
+            }
           } else {
             console.warn('[NavigationStore] No conversation found for slug:', slug);
           }
@@ -136,7 +140,19 @@ export const useNavigationStore = create<NavigationStore>()(
       // Find conversation from slug
       findConversationFromSlug: (slug: string) => {
         try {
-          return findConversationIdFromSlug(slug);
+          // First try cache-only lookup
+          const cachedId = findConversationIdFromSlug(slug);
+          
+          if (cachedId) {
+            return cachedId;
+          }
+          
+          // Cache miss - in a real implementation, we might want to:
+          // 1. Get conversations from ConversationStore
+          // 2. Try the lookup again with full conversation list
+          // For now, return null to indicate cache miss
+          console.warn('[NavigationStore] Cache miss for slug, consider refreshing conversations:', slug);
+          return null;
         } catch (error) {
           console.error('[NavigationStore] Failed to find conversation from slug:', error);
           return null;

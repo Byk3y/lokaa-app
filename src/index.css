@@ -372,3 +372,7 @@
     text-wrap: pretty;
   }
 }
+
+.jump-button-hidden {
+  display: none !important;
+}

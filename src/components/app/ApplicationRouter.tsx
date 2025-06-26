@@ -14,6 +14,8 @@ import { RouteLoadingFallback, SpaceLoadingFallback } from "@/routes/LazyRoutes"
 
 // Import layout components
 import SpaceShellLayout from "@/components/layout/SpaceShellLayout";
+import UnifiedAppLayout from "@/components/layout/UnifiedAppLayout";
+import PersistentAppShell from "@/components/layout/PersistentAppShell";
 import SpaceTabContent from "@/components/space/SpaceTabContent";
 import PostLegacyRedirect from "@/components/PostLegacyRedirect";
 import ProfileRouteHandler from "@/components/profile/ProfileRouteHandler";
@@ -240,12 +242,22 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
 
         {/* Protected routes - require authentication */}
         <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
-          {/* Chat page for mobile */}
-          <Route path="/app/chat" element={
-            <Suspense fallback={<RouteLoadingFallback />}>
-              <LazyRoutes.ChatPage />
-            </Suspense>
-          } />
+          {/* Persistent App Shell - wraps both chat and spaces to prevent ANY remounting */}
+          <Route element={<PersistentAppShell />}>
+            {/* Chat page for mobile - now persistent */}
+            <Route path="/app/chat" element={
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <LazyRoutes.ChatPage />
+              </Suspense>
+            } />
+            
+            {/* Future notifications route */}
+            <Route path="/app/notifications" element={
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <div>Notifications coming soon!</div>
+              </Suspense>
+            } />
+          </Route>
           
           {/* User Profile route - MUST come before subdomain routes */}
           <Route path="/profile/:slug" element={
@@ -301,31 +313,34 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
         
         {/* Protected space routes - require space membership */}
         <Route path="/:subdomain/space" element={<SpaceProtectedRoute />}>
-          {/* Post detail page with slug URL */}
-          <Route path=":postSlug" element={
-            <Suspense fallback={<SpaceLoadingFallback />}>
-              <LazyRoutes.PostDetailPage />
-            </Suspense>
-          } />
-          
-          {/* Replace all individual space tab routes with our new shell layout */}
-          <Route element={<SpaceShellLayout />}>
-            <Route index element={<SpaceTabContent />} />
-            {/* Add a redirect from /feed to the root path for backward compatibility */}
-            <Route path="feed" element={<Navigate to="." replace />} />
-            <Route path="community" element={<SpaceTabContent />} />
-            <Route path="about" element={<SpaceTabContent />} />
-            <Route path="members" element={<SpaceTabContent />} />
-            <Route path="classroom" element={<SpaceTabContent />} />
-            <Route path="calendar" element={<SpaceTabContent />} />
-            <Route path="leaderboard" element={<SpaceTabContent />} />
+          {/* Persistent App Shell - wraps spaces to prevent ANY remounting when going to chat */}
+          <Route element={<PersistentAppShell />}>
+            {/* Post detail page with slug URL */}
+            <Route path=":postSlug" element={
+              <Suspense fallback={<SpaceLoadingFallback />}>
+                <LazyRoutes.PostDetailPage />
+              </Suspense>
+            } />
+            
+            {/* Replace all individual space tab routes with our new shell layout */}
+            <Route element={<SpaceShellLayout />}>
+              <Route index element={<SpaceTabContent />} />
+              {/* Add a redirect from /feed to the root path for backward compatibility */}
+              <Route path="feed" element={<Navigate to="." replace />} />
+              <Route path="community" element={<SpaceTabContent />} />
+              <Route path="about" element={<SpaceTabContent />} />
+              <Route path="members" element={<SpaceTabContent />} />
+              <Route path="classroom" element={<SpaceTabContent />} />
+              <Route path="calendar" element={<SpaceTabContent />} />
+              <Route path="leaderboard" element={<SpaceTabContent />} />
+            </Route>
+            {/* Keep the debug route separate as it's not a tab */}
+            <Route path="debug" element={
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <LazyRoutes.SpaceDebugPage />
+              </Suspense>
+            } />
           </Route>
-          {/* Keep the debug route separate as it's not a tab */}
-          <Route path="debug" element={
-            <Suspense fallback={<RouteLoadingFallback />}>
-              <LazyRoutes.SpaceDebugPage />
-            </Suspense>
-          } />
         </Route>
 
         {/* User Settings route */}

@@ -8,7 +8,7 @@ import { useOptimizedCachedPosts } from "@/hooks/useOptimizedCachedPosts";
 import { useOptimizedCachedCategories } from "@/hooks/useOptimizedCachedCategories";
 import { useStableSpaceId } from "@/hooks/useStableSpaceId";
 import type { CachedPostType } from "@/features/posts/types/cachedPost";
-import { useRealtimePosts } from "@/hooks/useRealtimePosts";
+import { useRealtimePostsOptimized } from "@/hooks/useRealtimePostsOptimized";
 import { useNewPostsState } from "@/hooks/useNewPostsState";
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { PostService } from '@/services/PostService';
@@ -323,7 +323,7 @@ export function useFeedLogic({
     newPostCount,
     isConnected: isRealtimeConnected,
     clearNewPosts,
-  } = useRealtimePosts({
+  } = useRealtimePostsOptimized({
     spaceId: readyToFetchSpaceId || '',
     userId: currentUser?.id || '',
     isEnabled: !!readyToFetchSpaceId && !!currentUser?.id,

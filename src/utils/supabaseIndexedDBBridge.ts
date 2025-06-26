@@ -140,11 +140,11 @@ class SupabaseIndexedDBBridge {
         warmCache: (spaceId: string) => this.warmCacheForSpace(spaceId),
         getUserProfile: (userId: string, fields?: string[]) => this.getUserProfile(userId, fields),
         getSpaceMembers: (spaceId: string, options?: any) => this.getSpaceMembers(spaceId, options),
-        // ROCK SOLID: Chat system monitoring and recovery
-        testChatSystemHealth: () => this.testChatSystemHealth(),
-        validateUserConversations: (userId: string) => this.validateUserConversations(userId),
-        diagnoseConversationIssues: (conversationId: string) => this.diagnoseConversationIssues(conversationId),
-        emergencyConversationRecovery: (userId: string, targetUserId: string) => this.emergencyConversationRecovery(userId, targetUserId)
+              // Chat system functionality
+      testChatSystemHealth: () => this.testChatSystemHealth(),
+      validateUserConversations: (userId: string) => this.validateUserConversations(userId),
+      diagnoseConversationIssues: (conversationId: string) => this.diagnoseConversationIssues(conversationId),
+      findOrCreateConversation: (userId: string, targetUserId: string) => this.findOrCreateConversation(userId, targetUserId)
       };
 
       // Add global debugging interface
@@ -1406,7 +1406,12 @@ class SupabaseIndexedDBBridge {
         in_user_conversations: false,
         in_cache: false
       },
-      details: {},
+      details: {
+        chat_conversations: null,
+        chat_participants: null,
+        user_conversations: null,
+        cache_info: {} as Record<string, string>
+      },
       issues: [],
       recommendations: []
     };
@@ -1542,160 +1547,61 @@ class SupabaseIndexedDBBridge {
   }
 
   /**
-   * ROCK SOLID: Emergency conversation recovery
+   * Simple conversation lookup (replaced emergency recovery with standard functionality)
    */
-  async emergencyConversationRecovery(userId: string, targetUserId: string): Promise<any> {
-    console.log(`🚨 [EmergencyRecovery] Starting emergency recovery for conversation between ${userId} and ${targetUserId}`);
+  async findOrCreateConversation(userId: string, targetUserId: string): Promise<any> {
+    console.log(`🔍 [ConversationLookup] Finding conversation between ${userId} and ${targetUserId}`);
     
-    const recoveryReport = {
-      users: { userId, targetUserId },
-      timestamp: new Date().toISOString(),
-      steps_attempted: [],
-      success: false,
-      conversationId: null,
-      errors: [],
-      final_status: 'unknown'
-    };
-
     try {
-      // Step 1: Clear all related caches
-      console.log('🧹 [EmergencyRecovery] Step 1: Clearing caches...');
-      recoveryReport.steps_attempted.push('clear_caches');
+      // Look for existing conversation
+      const { data: participants, error } = await getSupabaseClient()
+        .from('chat_participants')
+        .select('conversation_id')
+        .in('user_id', [userId, targetUserId]);
       
-      try {
-        await this.clearUserConversationsCache(userId);
-        await this.clearUserConversationsCache(targetUserId);
-        console.log('✅ [EmergencyRecovery] Caches cleared successfully');
-      } catch (error) {
-        console.warn('⚠️ [EmergencyRecovery] Cache clearing failed:', error);
-        recoveryReport.errors.push(`Cache clearing failed: ${error}`);
-      }
-
-      // Step 2: Search for existing conversation
-      console.log('🔍 [EmergencyRecovery] Step 2: Searching for existing conversation...');
-      recoveryReport.steps_attempted.push('search_existing');
-      
-      let existingConversationId = null;
-      
-      try {
-        const { data: participants, error } = await getSupabaseClient()
-          .from('chat_participants')
-          .select('conversation_id')
-          .in('user_id', [userId, targetUserId]);
+      if (!error && participants) {
+        const conversationCounts = participants.reduce((acc: Record<string, number>, p: any) => {
+          acc[p.conversation_id] = (acc[p.conversation_id] || 0) + 1;
+          return acc;
+        }, {});
         
-        if (!error && participants) {
-          const conversationCounts = participants.reduce((acc: Record<string, number>, p: any) => {
-            acc[p.conversation_id] = (acc[p.conversation_id] || 0) + 1;
-            return acc;
-          }, {});
-          
-          existingConversationId = Object.keys(conversationCounts).find(id => conversationCounts[id] >= 2) || null;
-          
-          if (existingConversationId) {
-            console.log(`✅ [EmergencyRecovery] Found existing conversation: ${existingConversationId}`);
-            recoveryReport.conversationId = existingConversationId;
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ [EmergencyRecovery] Existing conversation search failed:', error);
-        recoveryReport.errors.push(`Existing search failed: ${error}`);
-      }
-
-      // Step 3: Create new conversation if none found
-      if (!existingConversationId) {
-        console.log('🆕 [EmergencyRecovery] Step 3: Creating new conversation...');
-        recoveryReport.steps_attempted.push('create_new');
+        const existingConversationId = Object.keys(conversationCounts).find(id => conversationCounts[id] >= 2);
         
-        try {
-          const newConversationId = crypto.randomUUID();
-          
-          // Create conversation
-          const { error: createError } = await getSupabaseClient()
-            .from('chat_conversations')
-            .insert({
-              id: newConversationId,
-              is_group: false,
-              created_by: userId
-            });
-          
-          if (createError) throw createError;
-          
-          // Add participants
-          const { error: participantsError } = await getSupabaseClient()
-            .from('chat_participants')
-            .insert([
-              { conversation_id: newConversationId, user_id: userId, is_admin: false },
-              { conversation_id: newConversationId, user_id: targetUserId, is_admin: false }
-            ]);
-          
-          if (participantsError) throw participantsError;
-          
-          existingConversationId = newConversationId;
-          recoveryReport.conversationId = existingConversationId;
-          console.log(`✅ [EmergencyRecovery] Created new conversation: ${existingConversationId}`);
-          
-        } catch (error) {
-          console.error('❌ [EmergencyRecovery] Conversation creation failed:', error);
-          recoveryReport.errors.push(`Creation failed: ${error}`);
-          recoveryReport.final_status = 'failed';
-          return recoveryReport;
+        if (existingConversationId) {
+          console.log(`✅ [ConversationLookup] Found existing conversation: ${existingConversationId}`);
+          return { success: true, conversationId: existingConversationId };
         }
       }
 
-      // Step 4: Verify conversation in user_conversations view
-      console.log('🔍 [EmergencyRecovery] Step 4: Verifying in user_conversations view...');
-      recoveryReport.steps_attempted.push('verify_view');
+      // Create new conversation if none exists
+      const newConversationId = crypto.randomUUID();
       
-      try {
-        const { data, error } = await getSupabaseClient()
-          .from('user_conversations')
-          .select('conversation_id')
-          .eq('conversation_id', existingConversationId)
-          .eq('user_id', userId)
-          .single();
-        
-        if (data && !error) {
-          console.log('✅ [EmergencyRecovery] Conversation verified in view');
-        } else {
-          console.warn('⚠️ [EmergencyRecovery] Conversation not found in view, may need time to propagate');
-          recoveryReport.errors.push('Not immediately visible in user_conversations view');
-        }
-      } catch (error) {
-        console.warn('⚠️ [EmergencyRecovery] View verification failed:', error);
-        recoveryReport.errors.push(`View verification failed: ${error}`);
-      }
-
-      // Step 5: Force refresh user conversations
-      console.log('🔄 [EmergencyRecovery] Step 5: Force refreshing user conversations...');
-      recoveryReport.steps_attempted.push('force_refresh');
+      const { error: createError } = await getSupabaseClient()
+        .from('chat_conversations')
+        .insert({
+          id: newConversationId,
+          is_group: false,
+          created_by: userId
+        });
       
-      try {
-        const freshData = await this.getUserConversations(userId, { forceNetwork: true });
-        const foundInFresh = freshData.data?.some((c: any) => c.conversation_id === existingConversationId);
-        
-        if (foundInFresh) {
-          console.log('✅ [EmergencyRecovery] Conversation found in fresh data');
-          recoveryReport.success = true;
-          recoveryReport.final_status = 'recovered';
-        } else {
-          console.warn('⚠️ [EmergencyRecovery] Conversation not found in fresh data');
-          recoveryReport.final_status = 'partial_recovery';
-        }
-      } catch (error) {
-        console.error('❌ [EmergencyRecovery] Force refresh failed:', error);
-        recoveryReport.errors.push(`Force refresh failed: ${error}`);
-        recoveryReport.final_status = 'failed';
-      }
-
-      console.log(`🚨 [EmergencyRecovery] Recovery completed: ${recoveryReport.final_status}`);
+      if (createError) throw createError;
       
-      return recoveryReport;
+      // Add participants
+      const { error: participantsError } = await getSupabaseClient()
+        .from('chat_participants')
+        .insert([
+          { conversation_id: newConversationId, user_id: userId, is_admin: false },
+          { conversation_id: newConversationId, user_id: targetUserId, is_admin: false }
+        ]);
+      
+      if (participantsError) throw participantsError;
+      
+      console.log(`✅ [ConversationLookup] Created new conversation: ${newConversationId}`);
+      return { success: true, conversationId: newConversationId };
 
     } catch (error) {
-      console.error('💥 [EmergencyRecovery] Recovery failed with exception:', error);
-      recoveryReport.final_status = 'critical_failure';
-      recoveryReport.errors.push(`Critical failure: ${error}`);
-      return recoveryReport;
+      console.error('❌ [ConversationLookup] Failed to find/create conversation:', error);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 }

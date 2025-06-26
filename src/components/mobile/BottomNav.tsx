@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useConversations } from '@/features/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileBackgroundDetection } from '@/hooks/useMobileLifecycle';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { extractTabFromPathname } from '@/utils/tabUtils';
 
 export default function BottomNav() {
@@ -15,7 +15,7 @@ export default function BottomNav() {
   const { unreadCount } = useConversations();
   const previousPathRef = useRef(location.pathname);
   const { returnedFromBackground } = useMobileBackgroundDetection();
-  const isMobile = useMediaQuery("(max-width: 640px)");
+  const isMobile = shouldEnableMobileFeatures(); // UNIFIED: Use centralized mobile detection
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
   const pathname = location.pathname;
@@ -63,26 +63,28 @@ export default function BottomNav() {
   const currentTab = isInSpace ? extractTabFromPathname(pathname) : null;
   
   const isActive = (path: string) => {
-    // Special handling for home button in spaces
-    if (path === '/' && isInSpace) {
-      // In a space, home button is active when on feed tab
-      return currentTab === 'feed' || (!currentTab && pathname.endsWith('/space'));
+    // Home button: active when in spaces or at root
+    if (path === '/') {
+      if (isInSpace) {
+        return currentTab === 'feed' || (!currentTab && pathname.endsWith('/space'));
+      }
+      return pathname === '/' || (space?.subdomain && pathname === `/${space.subdomain}/space`);
     }
     
-    // Exact match for root, startsWith for others
-    if (path === '/') {
-        // Handle space-specific home vs generic home
-        const spaceHomePath = `/${space?.subdomain}/space`;
-        return pathname === '/' || pathname === spaceHomePath;
+    // Chat button: active when on chat page
+    if (path === '/app/chat') {
+      return pathname === '/app/chat';
     }
+    
+    // Other pages: use startsWith for flexibility
     return pathname.startsWith(path);
   };
   
-  // **SIMPLE FIX**: Use standard navigation with global tab component manager protection
   const handleHomeClick = () => {
     const fromRoute = location.pathname;
     
-    // Check if we have an active space
+    // 🚨 FIX: Wait for space data to be available before navigating
+    // This prevents navigation to '/' which causes page refresh and redirects
     const hasActiveSpace = space?.subdomain;
     
     if (hasActiveSpace) {
@@ -96,7 +98,26 @@ export default function BottomNav() {
       // Global Tab Component Manager prevents tab component recreation
       navigate(targetRoute);
     } else {
-      // Default behavior when no active space
+      // 🚨 FIX: Don't navigate to '/' if space is loading - this causes page refresh!
+      // Instead, try to get space from localStorage or wait
+      try {
+        const lastActiveSpace = localStorage.getItem('lastActiveSpace');
+        if (lastActiveSpace) {
+          const spaceData = JSON.parse(lastActiveSpace);
+          if (spaceData?.subdomain) {
+            const targetRoute = `/${spaceData.subdomain}/space`;
+            console.log('🔄 [BottomNav] Using cached space for navigation:', { from: fromRoute, to: targetRoute });
+            trackRouteChange(fromRoute, targetRoute);
+            navigate(targetRoute);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse cached space data:', e);
+      }
+      
+      // Only fall back to '/' if we truly have no space information
+      console.warn('🚨 [BottomNav] No space data available - this might cause page refresh');
       const targetRoute = '/';
       trackRouteChange(fromRoute, targetRoute);
       navigate(targetRoute);
@@ -109,9 +130,17 @@ export default function BottomNav() {
     navigate(route);
   };
 
+  // Navigate to chat page (now wrapped in UnifiedAppLayout to prevent unmounting)
+  const handleChatClick = () => {
+    const fromRoute = location.pathname;
+    console.log('🔄 [BottomNav] Navigating to chat page from:', fromRoute);
+    trackRouteChange(fromRoute, '/app/chat');
+    navigate('/app/chat');
+  };
+
   const navItems = [
     { path: '/', label: 'Home', icon: Home, onClick: handleHomeClick },
-    { path: '/app/chat', label: 'Chat', icon: MessageSquare, onClick: () => handleNavigation('/app/chat'), unreadCount },
+    { path: '/app/chat', label: 'Chat', icon: MessageSquare, onClick: handleChatClick, unreadCount },
     { path: '/notifications', label: 'Notifications', icon: Bell, onClick: () => handleNavigation('/notifications'), notification: true },
     { path: '/profile', label: 'Profile', icon: User, onClick: () => handleNavigation('/profile'), notification: true },
   ];
@@ -137,17 +166,17 @@ export default function BottomNav() {
             return (
               <button
                 key={item.label}
-                className="relative flex-1 h-full min-w-14 min-h-14 flex flex-col items-center justify-center gap-1 transition-colors duration-200"
+                className="relative flex-1 h-full min-w-14 min-h-14 flex items-center justify-center transition-colors duration-200"
                 onClick={item.onClick}
               >
               {/* Generic notification dot for other items */}
               {item.notification && !item.unreadCount && (
-                  <span className="absolute top-3 right-1/2 translate-x-[16px] w-2 h-2 bg-blue-500 rounded-full border-2 border-[#171E2E]"></span>
+                  <span className="absolute top-4 right-1/2 translate-x-[12px] w-2 h-2 bg-blue-500 rounded-full border-2 border-[#171E2E]"></span>
                 )}
               
               <div className="relative">
                 <Icon
-                  className={`w-[24px] h-[24px] transition-colors ${
+                  className={`w-[26px] h-[26px] transition-colors ${
                     active ? 'text-white' : 'text-gray-400'
                   }`}
                 />
@@ -159,18 +188,13 @@ export default function BottomNav() {
                       animate={{ scale: 1, opacity: 1, y: 0 }}
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30, duration: 0.2 }}
-                      className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[11px] font-semibold rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center border-2 border-[#171E2E]"
+                      className="absolute -top-2 -right-2 bg-red-500 text-white text-[11px] font-semibold rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center border-2 border-[#171E2E]"
                     >
                       {item.unreadCount > 99 ? '99+' : item.unreadCount}
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
-              <span className={`text-[10px] font-medium transition-colors ${
-                active ? 'text-white' : 'text-gray-400'
-              }`}>
-                {item.label}
-              </span>
             </button>
             );
           })}

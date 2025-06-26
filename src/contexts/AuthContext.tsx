@@ -3,6 +3,8 @@ import { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 import { useUserSpacesStore } from '@/hooks/useUserSpacesStore'
 import { useNavigate } from 'react-router-dom'
+// DISABLED: Mobile system conflicts with comprehensive fix in index.html
+// import { simpleMobileManager } from '@/utils/SimpleMobileManager' // ✅ Phase 2: Simplified mobile manager
 
 // Simple user interface
 export interface User extends SupabaseUser {}
@@ -142,6 +144,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user?.id) {
           console.log('🚀 [AuthProvider] Preloading spaces for authenticated user');
         preloadSpaces(session.user.id);
+        // DISABLED: Mobile manager conflicts with comprehensive fix
+        // simpleMobileManager.setUser(session.user.id);
+        console.log('🔧 [AuthProvider] Mobile manager disabled - handled by comprehensive fix');
+      } else {
+        // DISABLED: Mobile manager conflicts with comprehensive fix
+        // simpleMobileManager.setUser(null);
+        console.log('🔧 [AuthProvider] Mobile manager disabled - handled by comprehensive fix');
       }
 
       // Set up the listener for future auth events
@@ -151,10 +160,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(session)
           setUser(session?.user ?? null)
           
-          // MOBILE OPTIMIZATION: Preload spaces on sign in
+          // ✅ Phase 2: Update mobile manager with user changes
           if (_event === 'SIGNED_IN' && session?.user?.id) {
               console.log('🚀 [AuthProvider] User signed in, preloading spaces');
             preloadSpaces(session.user.id);
+            // DISABLED: Mobile manager conflicts with comprehensive fix
+            // simpleMobileManager.setUser(session.user.id);
+            console.log('🔧 [AuthProvider] Mobile manager disabled - handled by comprehensive fix');
+          } else if (_event === 'SIGNED_OUT') {
+            console.log('🚪 [AuthProvider] User signed out, clearing mobile manager');
+            // DISABLED: Mobile manager conflicts with comprehensive fix  
+            // simpleMobileManager.setUser(null);
+            console.log('🔧 [AuthProvider] Mobile manager disabled - handled by comprehensive fix');
           }
         }
       )
@@ -222,32 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // The onAuthStateChange listener will automatically update user and session to null
   }
 
-  // ✅ CRITICAL FIX: Expose auth state globally for cross-browser fix scripts
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Create a mock store-like interface for compatibility with cross-browser scripts
-      (window as any).useOptimizedAuth = {
-        getState: () => ({
-          session,
-          user,
-          loading: loading || !providerReady,
-          signOut,
-          fastPathEnabled: !!user,
-          lastFastPathResult: null
-        })
-      };
-      
-      console.log('🌐 [AuthProvider] Exposed auth state globally for cross-browser fixes');
-      
-      // Also expose a simpler auth object for backward compatibility
-      (window as any).authContext = {
-        user,
-        session,
-        loading: loading || !providerReady,
-        signOut
-      };
-    }
-  }, [session, user, loading, providerReady, signOut]);
+
   
   // The value provided to the context consumers
   const value = {

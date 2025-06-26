@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CornerDownRight, Edit, MessageCircle, AlertTriangle, Loader2, MoreHorizontal, Pin, Trash2, X } from 'lucide-react';
+import { CornerDownRight, Edit, MessageCircle, AlertTriangle, Loader2, MoreHorizontal, Pin, Trash2, X, ArrowLeft, ChevronDown } from 'lucide-react';
 import { VideoPlayerModal } from '@/components/VideoPlayerModal';
+import BottomNav from '@/components/mobile/BottomNav';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import CommentItem from '@/components/space/comments/CommentItem';
 import type { PostCardProps } from '@/features/posts/types/postCard';
@@ -46,6 +47,17 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { getInitial } from '@/shared/utils/avatar-utils';
 import { CategoryTag } from '@/components/ui/category-tag';
+import { resolveImageUrl } from '@/utils/preloadAssets';
+
+// Convert text to title case (capitalize first letter of each word)
+function toTitleCase(text: string): string {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 
 interface PostDetailModalProps {
   isOpen: boolean;
@@ -85,6 +97,9 @@ export default function PostDetailModal({
   
   // State for jump button visibility
   const [showJumpButton, setShowJumpButton] = useState(true);
+  
+  // State for header title transition on mobile
+  const [showPostTitle, setShowPostTitle] = useState(false);
   
   // State for edit mode
   const [isEditMode, setIsEditMode] = useState(false);
@@ -137,7 +152,7 @@ export default function PostDetailModal({
     // No need for manual history.pushState here
   }, [isOpen, post, location.pathname, space?.subdomain, navigate]);
 
-  // Handle scroll to show/hide jump button
+  // Handle scroll to show/hide jump button and header title transition
   useEffect(() => {
     const scrollContainer = contentRef.current;
     if (!scrollContainer) return;
@@ -146,6 +161,10 @@ export default function PostDetailModal({
       const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
       const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100; // 100px threshold
       setShowJumpButton(!isNearBottom);
+      
+      // Header title transition on mobile - show post title after scrolling 80px
+      const shouldShowPostTitle = scrollTop > 80;
+      setShowPostTitle(shouldShowPostTitle);
     };
 
     scrollContainer.addEventListener('scroll', handleScroll);
@@ -307,77 +326,95 @@ export default function PostDetailModal({
       
       {/* View Mode - Show Dialog */}
       <Dialog open={isOpen && !isEditMode} onOpenChange={handleDialogClose}>
-        {/* Custom Close Button - Positioned outside modal */}
-        {isOpen && !isEditMode && (
-          <div className="fixed top-4 right-4 z-[60]">
-            <Button
-              onClick={() => handleDialogClose(false)}
-              variant="ghost"
-              size="icon"
-              className="rounded-full bg-white/90 backdrop-blur-sm shadow-lg hover:bg-white border border-gray-200 h-10 w-10"
-            >
-              <X className="h-5 w-5 text-gray-600" />
-            </Button>
-          </div>
-        )}
+
         
         <DialogContent 
-          className="max-w-3xl w-[90vw] p-0 max-h-[95vh] flex flex-col"
+          className="
+            /* Mobile: Fullscreen like Skool */
+            max-w-full w-full h-full max-h-full rounded-none
+            /* Desktop: Modal with constraints */  
+            md:max-w-3xl md:w-[90vw] md:max-h-[95vh] md:rounded-lg
+            /* Common styles */
+            p-0 flex flex-col
+          "
           hideCloseButton={true}
           aria-describedby="post-content-description"
         >
-          <DialogTitle>
-            <VisuallyHidden>
-              {post.title || `Post by ${post.author?.name || 'Unknown'}`}
-            </VisuallyHidden>
+          {/* Hidden accessibility elements - positioned absolutely to not take layout space */}
+          <DialogTitle className="sr-only absolute">
+            {post.title || `Post by ${post.author?.name || 'Unknown'}`}
           </DialogTitle>
-          <DialogDescription id="post-content-description">
-            <VisuallyHidden>
-              {post.title ? `Post by ${post.author?.name || 'Unknown'}: ${post.content?.substring(0, 100)}${post.content && post.content.length > 100 ? '...' : ''}` : `Post content: ${post.content?.substring(0, 100)}${post.content && post.content.length > 100 ? '...' : ''}`}
-            </VisuallyHidden>
+          <DialogDescription id="post-content-description" className="sr-only absolute">
+            {post.title ? `Post by ${post.author?.name || 'Unknown'}: ${post.content?.substring(0, 100)}${post.content && post.content.length > 100 ? '...' : ''}` : `Post content: ${post.content?.substring(0, 100)}${post.content && post.content.length > 100 ? '...' : ''}`}
           </DialogDescription>
 
-          {/* Scrollable Content Area */}
+          {/* Scrollable Content Area - starts immediately */}
           <div 
             ref={contentRef}
-            className="flex-1 min-h-0 bg-white overflow-y-auto overflow-x-hidden relative"
+            className="flex-1 bg-white overflow-y-auto overflow-x-hidden relative pb-32 sm:pb-0"
           >
-            {/* Author Header - now inside scrollable area */}
-            <div className="flex items-center justify-between px-6 py-1">
-              <div className="flex items-center space-x-3">
-                <Link 
-                  to={`/profile/${post.author.id}`}
-                  onMouseEnter={() => prefetchUser(post.author.id, 100)}
+            {/* Header Bar - Skool style */}
+            <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
+              <div className="flex items-center px-3 py-2 h-12">
+                {/* Back Button */}
+                <Button
+                  onClick={() => handleDialogClose(false)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-gray-100 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 flex-shrink-0"
                 >
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={post.author.avatar} alt={post.author.name} />
-                    <AvatarFallback>{getInitial(post.author.name)}</AvatarFallback>
-                  </Avatar>
-                </Link>
-                <div>
-                  <Link 
-                    to={`/profile/${post.author.id}`} 
-                    className="font-semibold text-gray-900 hover:underline"
-                    onMouseEnter={() => prefetchUser(post.author.id, 100)}
-                  >
-                    {post.author.name}
-                  </Link>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-gray-500">
-                      {post.createdAt ? formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }) : ''}
-                    </span>
-                    {post.editedAt && <span className="text-xs text-gray-500">(edited)</span>}
-                    {post.category?.name && (
-                      <CategoryTag name={post.category.name} variant="compact" />
+                  <ArrowLeft className="h-4 w-4 text-gray-700 stroke-[2.5]" />
+                </Button>
+                
+                {/* Space Info / Post Title - takes up remaining space */}
+                <div className="flex items-center space-x-2 flex-1 min-w-0 mx-2">
+                  {/* Icon stays visible always */}
+                  <div className="h-7 w-7 rounded-lg bg-gray-900 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {space?.icon_image ? (
+                      <img 
+                        src={resolveImageUrl(space.icon_image)} 
+                        alt={`${space.name} icon`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Fallback to initials if image fails to load
+                          e.currentTarget.style.display = 'none';
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `<span class="text-white text-xs font-bold">${space?.name ? space.name.charAt(0).toUpperCase() : 'S'}</span>`;
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span className="text-white text-xs font-bold">
+                        {space?.name ? space.name.charAt(0).toUpperCase() : 'S'}
+                      </span>
                     )}
                   </div>
+                  
+                  {/* Animated text transition - uses all available space */}
+                  <div className="relative overflow-hidden flex-1 min-w-0">
+                    <span 
+                      className={`font-semibold text-gray-900 text-sm transition-transform duration-300 ease-in-out block whitespace-nowrap overflow-hidden ${
+                        showPostTitle ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'
+                      }`}
+                    >
+                      {space?.name || 'Space'}
+                    </span>
+                    <span 
+                      className={`font-semibold text-gray-900 text-sm transition-transform duration-300 ease-in-out absolute top-0 left-0 right-0 whitespace-nowrap overflow-hidden ${
+                        showPostTitle ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
+                      }`}
+                    >
+                      {toTitleCase(post.title) || post.content?.substring(0, 100) + '...' || 'Post'}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center">
+                
+                {/* Menu Button */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full -mr-2">
-                      <MoreHorizontal className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                      <MoreHorizontal className="h-4 w-4 text-gray-700" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -406,8 +443,39 @@ export default function PostDetailModal({
                 </DropdownMenu>
               </div>
             </div>
+
+            {/* Post Author Info */}
+            <div className="flex items-center space-x-3 px-3 py-2">
+              <Link 
+                to={`/profile/${post.author.id}`}
+                onMouseEnter={() => prefetchUser(post.author.id, 100)}
+              >
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={post.author.avatar} alt={post.author.name} />
+                  <AvatarFallback>{getInitial(post.author.name)}</AvatarFallback>
+                </Avatar>
+              </Link>
+              <div>
+                <Link 
+                  to={`/profile/${post.author.id}`} 
+                  className="font-semibold text-gray-900 hover:underline"
+                  onMouseEnter={() => prefetchUser(post.author.id, 100)}
+                >
+                  {post.author.name}
+                </Link>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-gray-500">
+                    {post.createdAt ? formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }) : ''}
+                  </span>
+                  {post.editedAt && <span className="text-xs text-gray-500">(edited)</span>}
+                  {post.category?.name && (
+                    <CategoryTag name={post.category.name} variant="compact" />
+                  )}
+                </div>
+              </div>
+            </div>
             {/* Post Content (title & text) */}
-            <div className="relative px-6">
+            <div className="relative px-3">
               <PostContent 
                 post={post} 
                 postTitleRef={postTitleActualRef} 
@@ -415,7 +483,7 @@ export default function PostDetailModal({
             </div>
 
             {/* Media Gallery (videos, images, files) */}
-            <div className="px-6 my-4">
+            <div className="px-3 my-3">
             {(() => {
               // Ensure media_urls are in the correct Attachment[] format
               const convertedMedia: Attachment[] = (post.media_urls || []).map((mediaItem: any, index: number) => {
@@ -443,7 +511,7 @@ export default function PostDetailModal({
                   url,
                   type,
                   fileType,
-                  videoPlatform,
+                  videoPlatform: videoPlatform as 'youtube' | 'vimeo' | 'other',
                   videoId,
                   thumbnailUrl,
                   name: `media-${index}`,
@@ -467,8 +535,7 @@ export default function PostDetailModal({
             })()}
             </div>
 
-            {/* Post Actions (like, comment, share) */}
-            <div className="border-t border-gray-200">
+            {/* Post Actions (like, comment) */}
             <PostActions
               hasLiked={hasLikedPost}
               likeCount={optimisticLikeCount}
@@ -477,18 +544,16 @@ export default function PostDetailModal({
               onLikeToggle={handleLikeAction}
               onCommentClick={handleCommentClick}
             />
-            </div>
 
             {/* Floating Jump to latest comment button */}
             {!commentsLoading && optimisticCommentCount > 2 && showJumpButton && (
-              <div className="fixed left-1/2 bottom-8 z-20 -translate-x-1/2">
+              <div className="fixed left-1/2 bottom-36 sm:bottom-8 z-30 -translate-x-1/2">
                 <Button
-                  variant="outline"
                   onClick={() => contentRef.current?.scrollTo({ top: contentRef.current.scrollHeight, behavior: 'smooth' })}
-                  className="bg-white text-gray-700 hover:bg-gray-50 shadow-lg border-gray-300 text-sm font-medium py-2 px-4 rounded-full"
+                  className="bg-black text-white hover:bg-gray-800 shadow-lg text-sm font-medium py-2 px-3 rounded-full border-none flex items-center gap-1"
                 >
-                  <CornerDownRight className="h-4 w-4 mr-2 text-gray-500" />
-                  <span>Jump to latest comment</span>
+                  <span>Latest comment</span>
+                  <ChevronDown className="h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -501,7 +566,7 @@ export default function PostDetailModal({
             ) : (
               <>
                 {/* Comments Section */}
-                <div className="px-6 pt-4 pb-6 border-t border-gray-200">
+                <div className="px-3 pt-3 pb-4 border-t border-gray-200">
                   {comments.length > 0 ? (
                 <div className="space-y-5">
                   {comments.map(comment => (
@@ -555,20 +620,43 @@ export default function PostDetailModal({
                 </div>
               )}
 
-              {/* Comment Input */}
-              <CommentInput
-                value={newComment}
-                onChange={setNewComment}
-                onSubmit={handleCommentSubmit}
-                isSubmitting={isCommenting}
-                currentUser={loggedInUser}
-                replyingTo={replyingToComment}
-                onCancelReply={() => setReplyTarget(null)}
-              />
+              {/* Desktop Comment Input */}
+              <div className="hidden sm:block pt-4 border-t border-gray-100">
+                <CommentInput
+                  value={newComment}
+                  onChange={setNewComment}
+                  onSubmit={handleCommentSubmit}
+                  isSubmitting={isCommenting}
+                  currentUser={loggedInUser}
+                  replyingTo={replyingToComment}
+                  onCancelReply={() => setReplyTarget(null)}
+                  showAvatar={true}
+                />
+              </div>
+
             </div>
               </>
             )}
             </div>
+
+          {/* Mobile Comment Input - Fixed above bottom nav */}
+          <div className="block sm:hidden fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-3 py-3 z-40">
+            <CommentInput
+              value={newComment}
+              onChange={setNewComment}
+              onSubmit={handleCommentSubmit}
+              isSubmitting={isCommenting}
+              currentUser={loggedInUser}
+              replyingTo={replyingToComment}
+              onCancelReply={() => setReplyTarget(null)}
+              showAvatar={false}
+            />
+          </div>
+
+          {/* Bottom Navigation - Mobile Only (Inside Modal) */}
+          <div className="block sm:hidden">
+            <BottomNav />
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -579,6 +667,7 @@ export default function PostDetailModal({
         videoUrl={selectedVideo.url}
         videoId={selectedVideo.videoId}
         videoPlatform={selectedVideo.platform as 'youtube' | 'vimeo' | 'other' | undefined}
+        title={post.title}
       />
     </>
   );

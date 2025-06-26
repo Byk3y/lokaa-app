@@ -6,8 +6,8 @@ export const isMobileBrowser = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 };
 
-// HMR Error Recovery System - extracted from App.tsx
-export const initializeHMRErrorRecovery = () => {
+// HMR Error Recovery System - REMOVED EXPORT to fix Fast Refresh compatibility
+const initializeHMRErrorRecovery = () => {
   if (import.meta.env?.DEV && typeof window !== 'undefined') {
     const originalError = window.onerror;
     window.onerror = (message, source, lineno, colno, error) => {
@@ -22,8 +22,7 @@ export const initializeHMRErrorRecovery = () => {
         console.warn('🔄 [HMR Fix] Module import failed detected on desktop, attempting recovery...');
         setTimeout(() => {
           console.log('🔄 [HMR Fix] Reloading to recover from module import failure');
-          window.location.reload();
-        }, 1000);
+          console.log("🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");        }, 1000);
         return true;
       }
       
@@ -47,8 +46,7 @@ export const initializeHMRErrorRecovery = () => {
         event.preventDefault();
         setTimeout(() => {
           console.log('🔄 [HMR Fix] Reloading to recover from async import failure');
-          window.location.reload();
-        }, 1000);
+          console.log("🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");        }, 1000);
       }
     });
     
@@ -88,7 +86,7 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
             Try Again
           </button>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={() => console.log("🛡️ [ErrorFallback] Reload disabled by bulletproof protection")}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
           >
             Reload Page
@@ -166,8 +164,7 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
           <button 
             onClick={() => {
               console.log('🔄 [ModuleErrorFallback] Hard reload...');
-              window.location.reload();
-            }}
+          console.log("🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");            }}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
             ↻ Reload Page
@@ -228,20 +225,11 @@ export default function AppErrorBoundary({ children }: AppErrorBoundaryProps) {
       }}
       onReset={() => {
         console.log('🔄 [AppErrorBoundary] Error boundary reset');
+        console.log('🛡️ [AppErrorBoundary] Reload protection active - not triggering any reloads');
         
-        if (isMobileBrowser()) {
-          console.log('📱 [AppErrorBoundary] Mobile browser detected - using gentle recovery instead of reload');
-          return;
-        }
-        
-        if (import.meta.env?.DEV) {
-          setTimeout(() => {
-            console.log('🔄 [AppErrorBoundary] Desktop reload for error recovery');
-            window.location.reload();
-          }, 100);
-        } else {
-          window.location.reload();
-        }
+        // DISABLED: All reload mechanisms are disabled due to bulletproof protection
+        // The bulletproof protection system handles all reload scenarios
+        return;
       }}
     >
       {children}

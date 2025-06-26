@@ -57,3 +57,9 @@ export const initializeSupabase = () => {
 // A re-export of the getter function in case it's needed for specific scenarios,
 // though direct import of the `supabase` instance is preferred.
 export { getSupabaseClient };
+
+// Make Supabase client available globally for testing (development only)
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  (window as any).supabase = supabase;
+  (window as any)._supabaseClient = supabase;
+}

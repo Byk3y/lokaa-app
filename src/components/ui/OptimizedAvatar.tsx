@@ -202,7 +202,7 @@ export function OptimizedAvatar({
         >
           {/* Skeleton Loading */}
           {placeholderType === 'skeleton' && imageStatus === 'loading' && (
-            <div className="animate-pulse bg-white/20 w-full h-full rounded-full" />
+            <div className="bg-white/20 w-full h-full rounded-full" />
           )}
           
           {/* Initials Fallback */}

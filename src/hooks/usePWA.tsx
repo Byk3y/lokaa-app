@@ -154,6 +154,23 @@ export const usePWA = (): UsePWAReturn => {
         // Don't show if already installed
         if (state.isInstalled) return false;
         
+        // PREVENT FLASHING DURING PAGE RELOADS
+        // Don't show prompt if page just loaded (within 5 seconds)
+        const pageLoadTime = performance.now();
+        if (pageLoadTime < 5000) {
+          console.log('📱 [usePWA] Page recently loaded, skipping prompt to prevent flash');
+          return false;
+        }
+        
+        // Don't show if this is a page reload (navigation type is reload)
+        if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+          const navigationEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+          if (navigationEntries.length > 0 && navigationEntries[0].type === 'reload') {
+            console.log('📱 [usePWA] Page reload detected, skipping prompt to prevent flash');
+            return false;
+          }
+        }
+        
         // Check if recently dismissed (within 24 hours)
         const dismissedTime = localStorage.getItem('pwa-install-dismissed');
         if (dismissedTime) {
@@ -210,22 +227,32 @@ export const usePWA = (): UsePWAReturn => {
         return true;
       })();
 
-      // Show custom install notification only if appropriate
+      // DELAY PROMPT SHOWING TO PREVENT FLASH DURING RELOADS
+      // Only show prompt after app has been stable for a bit
       if (shouldShowPrompt) {
-        // Track prompt showing
-        const currentCount = parseInt(localStorage.getItem('pwa-prompt-count') || '0');
-        localStorage.setItem('pwa-prompt-count', (currentCount + 1).toString());
-        localStorage.setItem('pwa-last-prompt', Date.now().toString());
-        
-        toast({
-          title: "Install Lokaa Spaces",
-          description: "Install the app for a better experience with offline support!",
-          action: {
-            label: "Install",
-            onClick: () => showInstallPrompt()
-          },
-          duration: 10000
-        });
+        setTimeout(() => {
+          // Double-check conditions after delay
+          const stillShouldShow = !state.isInstalled && 
+                                  !localStorage.getItem('pwa-install-dismissed') &&
+                                  performance.now() > 5000;
+          
+          if (stillShouldShow) {
+            // Track prompt showing
+            const currentCount = parseInt(localStorage.getItem('pwa-prompt-count') || '0');
+            localStorage.setItem('pwa-prompt-count', (currentCount + 1).toString());
+            localStorage.setItem('pwa-last-prompt', Date.now().toString());
+            
+            toast({
+              title: "Install Lokaa Spaces",
+              description: "Install the app for a better experience with offline support!",
+              action: {
+                label: "Install",
+                onClick: () => showInstallPrompt()
+              },
+              duration: 10000
+            });
+          }
+        }, 3000); // 3 second delay to ensure app is stable
       }
     };
 
@@ -234,7 +261,7 @@ export const usePWA = (): UsePWAReturn => {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
     };
-  }, [state.isInstalled]);
+  }, [state.isInstalled, showInstallPrompt]);
 
   /**
    * Set up app installed listener
