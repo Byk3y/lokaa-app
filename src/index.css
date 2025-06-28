@@ -459,12 +459,23 @@
     /* Handle bottom navigation spacing when chat is in main app */
     .mobile-chat-view:not(.modal-chat) {
       /* Account for bottom nav height when not in modal */
-      padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+      padding-bottom: 4rem; /* h-16 = 4rem for bottom nav */
+    }
+    
+    .mobile-chat-view:not(.modal-chat) .mobile-chat-messages {
+      /* Add bottom padding to prevent messages from being hidden behind input */
+      padding-bottom: 4rem; /* Reduced from 5rem to account for smaller input */
     }
     
     .mobile-chat-view:not(.modal-chat) .mobile-chat-input {
-      /* Adjust input position when bottom nav is present */
-      margin-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+      /* Position input directly above bottom nav without gap */
+      position: absolute;
+      bottom: 4rem; /* Sit directly on top of bottom nav */
+      left: 0;
+      right: 0;
+      margin-bottom: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      z-index: 10; /* Ensure input stays above messages */
     }
   }
   
