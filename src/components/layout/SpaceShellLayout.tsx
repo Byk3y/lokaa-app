@@ -9,8 +9,9 @@ import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
 import { LocationState } from "@/pages/Space"; // Import the existing LocationState type
 import { warmSpaceCache } from "@/utils/cacheUtils"; // Import cache warming
 import { extractTabFromPathname, buildSpaceUrl, type SpaceTab, debugTabExtraction } from "@/utils/tabUtils";
-import { setCurrentSpaceForPresence } from "@/hooks/useUnifiedPresence";
+// Removed setCurrentSpaceForPresence - new simple system doesn't need manual space tracking
 import { AvatarCacheService } from "@/services/AvatarCacheService"; // 🚀 NEW: Avatar cache service
+import { useAutoPresenceUpdater } from "@/hooks/useAutoPresenceUpdater"; // 🎯 NEW: Auto presence updater
 /**
  * SpaceShellLayout - A shell layout for space pages
  * 
@@ -58,6 +59,9 @@ export default function SpaceShellLayout() {
   
   // Load the space from the store
   const { loadActiveSpace, space: storeSpace } = useSpaceSettingsStore();
+
+  // 🎯 AUTO PRESENCE UPDATER: Automatically update presence when user returns from minimizing
+  useAutoPresenceUpdater(storeSpace?.id);
 
   // PHASE 1.5 FIX: Prevent race condition with SpaceContext
   useEffect(() => {
@@ -117,9 +121,8 @@ export default function SpaceShellLayout() {
         subdomain: storeSpace.subdomain
       }, user.id);
       
-      // CRITICAL FIX: Set current space for presence system
-      setCurrentSpaceForPresence(storeSpace.id);
-      console.log(`🌐 [SpaceShellLayout] Set current space for presence: ${storeSpace.id}`);
+      // New simple presence system automatically handles space-specific presence
+      console.log(`🌐 [SpaceShellLayout] Space loaded for simplified presence: ${storeSpace.id}`);
       
       // 🚀 OPTIMIZED: Initialize avatar cache for instant display
       AvatarCacheService.preloadSpaceAvatars(storeSpace.id)

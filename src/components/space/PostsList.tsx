@@ -1,50 +1,23 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import PostCard from './PostCard';
-import type { PostCardProps } from '@/features/posts/types/postCard';
+import { type Post } from '@/types/database-types';
+import { type PostCardProps } from './PostCard';
+import { type SpaceTab } from '@/utils/tabUtils';
 
-interface FetchedPostType {
-  id: string;
-  author?: {
-    id: string;
-    full_name: string | null;
-    avatar_url: string | null;
-    profile_url?: string | null;
-    activity_score?: number | null;
-  } | null;
-  created_at: string;
-  title?: string | null;
-  content: string;
-  category?: {
-    id: string;
-    name: string;
-    icon?: string | null;
-  } | null;
-  like_count: number;
-  comment_count: number;
-  media_urls?: string[] | null;
-  user_id: string;
-  space_id: string;
-  is_pinned: boolean;
-  pinned_at?: string | null;
-  pin_position?: number | null;
-  pin_category?: string | null;
-  edited_at?: string | null;
-  poll_data?: any;
-}
-
-interface PostsListProps {
-  posts: FetchedPostType[];
-  selectedTab: string;
+export interface PostsListProps {
+  posts: Post[];
+  selectedTab: SpaceTab | string;
   postsLoading: boolean;
-  currentUserId: string | null;
+  currentUserId: string;
   isOwnerOrAdmin: boolean;
-  onPostCardClick: (post: any) => void;
+  onPostCardClick: (post: Post) => void;
   onPinToggled: (postId: string, isPinned: boolean) => void;
   onLikeToggled: (postId: string, isLiked: boolean, newLikeCount: number) => void;
-  onPostUpdated: (updatedPost: any) => void;
+  onPostUpdated: (updatedPost: Post) => void;
   onPostDeleted: (postId: string) => void;
-  mapPostToCardProps: (post: FetchedPostType) => PostCardProps;
+  mapPostToCardProps: (post: Post) => PostCardProps;
 }
 
 export default function PostsList({
@@ -90,12 +63,7 @@ export default function PostsList({
 
   if (filteredPosts.length === 0) {
     return (
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-center py-12"
-      >
+      <div className="text-center py-12">
         <div className="text-6xl mb-4">📭</div>
         <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
           {selectedTab === "all" ? "No posts yet" : "No posts in this category"}
@@ -106,27 +74,14 @@ export default function PostsList({
             : "Be the first to post in this category!"
           }
         </p>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-4"
-    >
-      {filteredPosts.map((post, index) => (
-        <motion.div
-          key={post.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ 
-            duration: 0.3, 
-            delay: index * 0.05 
-          }}
-        >
+    <div className="space-y-4">
+      {filteredPosts.map((post) => (
+        <div key={post.id}>
           <PostCard
             {...mapPostToCardProps(post)}
             onPostClick={() => onPostCardClick(post)}
@@ -134,8 +89,8 @@ export default function PostsList({
             onLikeToggled={(postId, newLikeCount) => onLikeToggled(postId, false, newLikeCount)}
             isPinned={false}
           />
-        </motion.div>
+        </div>
       ))}
-    </motion.div>
+    </div>
   );
 } 

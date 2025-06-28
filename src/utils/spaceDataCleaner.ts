@@ -7,7 +7,7 @@
  * CRITICAL FOR: Fixing SpaceInfoSidebar showing wrong space data after switching
  */
 
-import { clearUnifiedPresenceCache } from '@/hooks/useUnifiedPresence';
+import { clearSpacePresenceCache } from '@/hooks/useSimpleSpacePresence';
 import { globalCache } from '@/utils/globalCacheCoordinator';
 
 // Track which space we're currently cleaning to prevent loops
@@ -169,9 +169,9 @@ export const clearAllSpaceData = async (options: {
     // Phase 1: Clear presence data
     if (clearAll) {
       console.log(`🧹 [SpaceDataCleaner] Clearing ALL presence data`);
-      clearUnifiedPresenceCache();
+      clearSpacePresenceCache(); // Clear all spaces
     } else if (currentSpaceId) {
-      await clearSpacePresence(currentSpaceId);
+      clearSpacePresenceCache(currentSpaceId); // Clear specific space
     }
     
     // Phase 2: Clear member counts

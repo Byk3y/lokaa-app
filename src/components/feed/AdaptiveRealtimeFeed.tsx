@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useRealtimePosts } from '@/hooks/useRealtimePosts';
+import { useRealtimePostsOptimized } from '@/hooks/useRealtimePostsOptimized';
 import { useAdvancedRealtimePosts } from '@/hooks/useAdvancedRealtimePosts';
 import { useNewPostsState } from '@/hooks/useNewPostsState';
 import { NewPostNotification } from './NewPostNotification';
@@ -56,8 +56,8 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
     return () => clearInterval(interval);
   }, [adaptiveMode, performanceMode, useAdvanced]);
 
-  // Standard real-time hook
-  const standardRealtime = useRealtimePosts({
+  // Standard real-time hook (now optimized with GlobalRealtimeService)
+  const standardRealtime = useRealtimePostsOptimized({
     spaceId,
     userId,
     isEnabled: !useAdvanced,

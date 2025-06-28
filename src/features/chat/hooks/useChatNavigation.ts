@@ -5,7 +5,7 @@
 import { useCallback, useEffect } from 'react';
 import { useNavigationStore } from '../store/navigationStore';
 import { useConversationStore } from '../store/conversationStore';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 
 export function useChatNavigation() {
   // Store selectors
@@ -34,14 +34,17 @@ export function useChatNavigation() {
     setActiveConversationId
   } = useConversationStore();
 
-  // Device detection
-  const isMobileViewport = useMediaQuery("(max-width: 768px)");
+  // UNIFIED: Use the centralized mobile detection
+  const isMobileDetected = shouldEnableMobileFeatures();
 
-  // Update mobile device status
+  // Update mobile device status using unified detection
   useEffect(() => {
-    const isMobile = isMobileViewport && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    setMobileDevice(isMobile);
-  }, [isMobileViewport, setMobileDevice]);
+    // Only update if the detection result has changed to prevent rapid state changes
+    if (isMobileDetected !== isMobileDevice) {
+      setMobileDevice(isMobileDetected);
+      console.log(`📱 [useChatNavigation] Updated mobile status: ${isMobileDetected}`);
+    }
+  }, [isMobileDetected, isMobileDevice, setMobileDevice]);
 
   // Parse URL on mount and when URL changes
   useEffect(() => {
@@ -67,6 +70,13 @@ export function useChatNavigation() {
    * Navigate to conversation with URL update (mobile only)
    */
   const navigateToConversation = useCallback((conversationId: string) => {
+    // ✅ NAVIGATION STATE GUARD: Check if already at this conversation
+    const currentParams = parseUrlParameters();
+    if (currentParams.conversationId === conversationId) {
+      console.log('[useChatNavigation] Already at target conversation, skipping navigation:', conversationId);
+      return;
+    }
+
     if (isMobileDevice && urlParsingEnabled) {
       console.log('[useChatNavigation] Navigating to conversation with URL:', conversationId);
       navigateToConversationById(conversationId);
@@ -74,7 +84,7 @@ export function useChatNavigation() {
       console.log('[useChatNavigation] Direct navigation (desktop/disabled):', conversationId);
       setActiveConversationId(conversationId);
     }
-  }, [isMobileDevice, urlParsingEnabled, navigateToConversationById, setActiveConversationId]);
+  }, [isMobileDevice, urlParsingEnabled, navigateToConversationById, setActiveConversationId, parseUrlParameters]);
 
   /**
    * Navigate to conversation list (mobile only)

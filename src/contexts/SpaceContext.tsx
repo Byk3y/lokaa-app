@@ -334,6 +334,59 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
       const hasActiveRequest = activeFetches.current.has(currentSubdomain);
       const hasCachedData = spaceCache.current.has(currentSubdomain);
       
+      // CRITICAL FIX: Check for space data from fast path or localStorage before fetching
+      if (needsNewData && !hasActiveRequest && !hasCachedData) {
+        // Check multiple cache sources first to prevent unnecessary database calls
+        let foundCachedData = null;
+        
+        // Strategy 1: Check persistent localStorage cache
+        try {
+          const persistentCacheKey = `space_fallback_${currentSubdomain}`;
+          const cachedData = localStorage.getItem(persistentCacheKey);
+          if (cachedData) {
+            const parsed = JSON.parse(cachedData);
+            const cacheAge = Date.now() - parsed.timestamp;
+            const maxFallbackAge = 24 * 60 * 60 * 1000; // 24 hours
+            
+            if (cacheAge < maxFallbackAge && parsed.data) {
+              foundCachedData = parsed.data;
+              console.log(`⚡ [SpaceContext] Using persistent cache to avoid fetch (${Math.round(cacheAge / 60000)} minutes old)`);
+            }
+          }
+        } catch (e) {
+          console.warn('[SpaceContext] Failed to read persistent cache:', e);
+        }
+        
+        // Strategy 2: Check lastActiveSpace cache
+        if (!foundCachedData) {
+          try {
+            const lastActiveData = localStorage.getItem('lastActiveSpace');
+            if (lastActiveData) {
+              const parsed = JSON.parse(lastActiveData);
+              if (parsed.subdomain === currentSubdomain) {
+                foundCachedData = parsed;
+                console.log(`⚡ [SpaceContext] Using lastActiveSpace cache to avoid fetch`);
+              }
+            }
+          } catch (e) {
+            console.warn('[SpaceContext] Failed to read lastActiveSpace:', e);
+          }
+        }
+        
+        // If we found cached data, use it immediately and skip database fetch
+        if (foundCachedData) {
+          console.log(`🚀 [SpaceContext] LOGIN OPTIMIZATION: Using cached data instead of database fetch for ${currentSubdomain}`);
+          setSpaceData(foundCachedData);
+          setError(null);
+          // Update memory cache for future use
+          spaceCache.current.set(currentSubdomain, foundCachedData);
+          return; // Skip database fetch entirely
+        }
+        
+        // Only proceed with database fetch if no cached data was found
+        console.log(`⚠️ [SpaceContext] No cached data found for ${currentSubdomain}, proceeding with database fetch`);
+      }
+      
       // IMPROVED: Only fetch if we actually need new data and don't have it cached
       if (needsNewData && !hasActiveRequest) {
         // If we have cached data, use it immediately to prevent loading states

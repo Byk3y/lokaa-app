@@ -155,7 +155,7 @@ function Composer({ onClick, user }: { onClick: () => void; user: User | null })
   const avatarUrl = user?.user_metadata?.avatar_url || 
                     userDetails?.avatar_url || 
                     '';
-  
+
   return (
     <div className="w-full">
       <div

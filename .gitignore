@@ -29,3 +29,32 @@ dist-ssr
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Temporary files and backups
+*.bak
+*.backup
+*.tmp
+*.temp
+*~
+tmp_*
+temp_*
+*.orig
+*.rej
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Supabase temporary files
+supabase/.temp/
+supabase/temp/
+
+# Editor temporary files
+*.swp
+*.swo
+*~

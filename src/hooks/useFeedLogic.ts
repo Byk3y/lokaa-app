@@ -8,9 +8,10 @@ import { useOptimizedCachedPosts } from "@/hooks/useOptimizedCachedPosts";
 import { useOptimizedCachedCategories } from "@/hooks/useOptimizedCachedCategories";
 import { useStableSpaceId } from "@/hooks/useStableSpaceId";
 import type { CachedPostType } from "@/features/posts/types/cachedPost";
-import { useRealtimePosts } from "@/hooks/useRealtimePosts";
+import { useRealtimePostsOptimized } from "@/hooks/useRealtimePostsOptimized";
 import { useNewPostsState } from "@/hooks/useNewPostsState";
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { PostService } from '@/services/PostService';
 import type { PostCardProps } from "@/features/posts/types/postCard";
 import type { 
   FetchedPostType, 
@@ -322,7 +323,7 @@ export function useFeedLogic({
     newPostCount,
     isConnected: isRealtimeConnected,
     clearNewPosts,
-  } = useRealtimePosts({
+  } = useRealtimePostsOptimized({
     spaceId: readyToFetchSpaceId || '',
     userId: currentUser?.id || '',
     isEnabled: !!readyToFetchSpaceId && !!currentUser?.id,
@@ -567,7 +568,8 @@ export function useFeedLogic({
     handleCachedPostUpdated(updatedPost.id, {
       content: updatedPost.content,
       title: updatedPost.title,
-      edited_at: updatedPost.editedAt
+      edited_at: updatedPost.editedAt,
+      media_urls: updatedPost.media_urls?.map(media => media.url) || null  // CRITICAL FIX: Include media_urls
     });
     
     setSelectedPostForModal(updatedPost);
@@ -588,16 +590,14 @@ export function useFeedLogic({
   // ============================================================================
   
   const openCreatePostModal = useCallback(() => {
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.set('action', 'create-post');
-    navigate({ search: searchParams.toString() }, { replace: true });
-  }, [location.search, navigate]);
+    console.log('[FeedLogic] Opening create post modal');
+    setIsCreatePostModalOpen(true);
+  }, []);
 
   const closeCreatePostModal = useCallback(() => {
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.delete('action');
-    navigate({ search: searchParams.toString() }, { replace: true });
-  }, [location.search, navigate]);
+    console.log('[FeedLogic] Closing create post modal');
+    setIsCreatePostModalOpen(false);
+  }, []);
 
   const openCategoryModal = useCallback(() => {
     setIsCategoryModalOpen(true);
@@ -606,152 +606,6 @@ export function useFeedLogic({
   const closeCategoryModal = useCallback(() => {
     setIsCategoryModalOpen(false);
   }, []);
-
-  // Handle URL-based modal state
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    if (searchParams.get('action') === 'create-post') {
-      setIsCreatePostModalOpen(true);
-    } else {
-      if (isCreatePostModalOpen && !searchParams.get('action')) {
-         setIsCreatePostModalOpen(false);
-      }
-    }
-  }, [location.search, isCreatePostModalOpen]);
-
-  // NEW: URL-based post detection and modal synchronization via search params
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const postSlug = searchParams.get('post');
-    
-    console.log('[FeedLogic] URL Effect triggered:', {
-      pathname: location.pathname,
-      searchParams: location.search,
-      postSlug,
-      modalOpen: isPostModalOpen,
-      selectedPost: selectedPostForModal?.slug
-    });
-    
-    if (postSlug && stableSpaceId) {
-      // Skip if we already have this post selected or if we're in a loading state
-      if (selectedPostForModal?.slug === postSlug || isLoadingUrlPost) {
-        console.log('[FeedLogic] Skipping - already selected or loading:', {
-          currentSlug: selectedPostForModal?.slug,
-          targetSlug: postSlug,
-          isLoading: isLoadingUrlPost
-        });
-        return;
-      }
-      
-      // Fetch post by slug and open modal
-      const fetchAndOpenPost = async () => {
-        setIsLoadingUrlPost(true);
-        setUrlPostError(null);
-        
-        try {
-          console.log('[FeedLogic] Detected post slug in URL:', postSlug, 'fetching post...');
-          
-          const supabase = getSupabaseClient();
-          // Fetch the post by slug
-          const { data: postDataRaw, error: postError } = await (supabase as any)
-            .from('posts')
-            .select(`
-              id, created_at, content, title, like_count, comment_count, user_id, space_id, 
-              media_urls, category_id, is_pinned, pinned_at, pin_position, pin_category, 
-              updated_at, poll_data, slug,
-              author:users!posts_user_id_fkey(id, full_name, avatar_url, profile_url, activity_score),
-              category:space_categories!posts_category_id_fkey(id, name, icon)
-            `)
-            .eq('slug', postSlug)
-            .eq('space_id', stableSpaceId)
-            .single();
-
-          let postData = postDataRaw;
-
-          if (postError) {
-            // Try to fetch by ID as fallback for legacy URLs
-            const { data: legacyPost, error: legacyError } = await (getSupabaseClient() as any)
-              .from('posts')
-              .select(`
-                id, created_at, content, title, like_count, comment_count, user_id, space_id, 
-                media_urls, category_id, is_pinned, pinned_at, pin_position, pin_category, 
-                updated_at, poll_data, slug,
-                author:users!posts_user_id_fkey(id, full_name, avatar_url, profile_url, activity_score),
-                category:space_categories!posts_category_id_fkey(id, name, icon)
-              `)
-              .eq('id', postSlug)
-              .eq('space_id', stableSpaceId)
-              .single();
-
-            if (legacyError || !legacyPost) {
-              console.error('[FeedLogic] Post not found by slug or ID:', { postError, legacyError });
-              setUrlPostError('Post not found');
-              return;
-            }
-            
-            // Use legacy post data
-            postData = legacyPost;
-          }
-
-          if (!postData) {
-            setUrlPostError('Post not found');
-            return;
-          }
-
-          // Transform to PostCardProps format with proper type assertion
-          const mappedPost: PostCardProps = {
-            id: (postData as any).id,
-            spaceId: (postData as any).space_id,
-            currentUserId: currentUser?.id,
-            author: {
-              id: (postData as any).author?.id || '',
-              name: (postData as any).author?.full_name || 'Unknown User',
-              avatar: (postData as any).author?.avatar_url || null,
-              profile_url: (postData as any).author?.profile_url || null,
-              activity_score: (postData as any).author?.activity_score || 0,
-            },
-            title: (postData as any).title,
-            content: (postData as any).content,
-            createdAt: (postData as any).created_at || new Date().toISOString(),
-            editedAt: (postData as any).updated_at,
-            category: (postData as any).category ? {
-              id: (postData as any).category.id,
-              name: (postData as any).category.name,
-              icon: (postData as any).category.icon
-            } : null,
-            likes: (postData as any).like_count || 0,
-            comments: (postData as any).comment_count || 0,
-            media_urls: (postData as any).media_urls,
-            isPinned: (postData as any).is_pinned || false,
-            pinCategory: (postData as any).pin_category || null,
-            isAdmin: effectivePermissions?.effectiveIsAdmin || effectivePermissions?.effectiveIsOwner || false,
-            poll_data: (postData as any).poll_data,
-            slug: (postData as any).slug,
-          };
-
-          console.log('[FeedLogic] Successfully fetched post, opening modal:', mappedPost.title || mappedPost.id);
-          
-          // Set modal state
-          setSelectedPostForModal(mappedPost);
-          setIsPostModalOpen(true);
-          
-        } catch (error) {
-          console.error('[FeedLogic] Error fetching post:', error);
-          setUrlPostError('Failed to load post');
-        } finally {
-          setIsLoadingUrlPost(false);
-        }
-      };
-
-      fetchAndOpenPost();
-    } else if (!postSlug && isPostModalOpen && !isLoadingUrlPost) {
-      // Only close modal if we're not currently loading a URL post
-      // This prevents the modal from closing during navigation transitions
-      console.log('[FeedLogic] No post parameter in URL and modal is open, closing modal');
-      setIsPostModalOpen(false);
-      setSelectedPostForModal(null);
-    }
-  }, [location.search, stableSpaceId, isLoadingUrlPost, currentUser?.id]);
 
   // ============================================================================
   // UTILITY FUNCTIONS

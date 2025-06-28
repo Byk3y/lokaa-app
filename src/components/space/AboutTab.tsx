@@ -39,7 +39,7 @@ import {
   deleteMediaFromSupabase
 } from "@/utils/mediaStorageUtils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts";
+import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts";
 
 interface AboutTabProps {
   // onSpaceUpdate?: (updatedSpace: Database['public']['Tables']['spaces']['Row'] | null) => void; // Removed
@@ -68,7 +68,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
   } = useMembership();
   
   // FIXED: Use the same optimized member counts hook as FeedTab for unified presence system
-  const memberCounts = useOptimizedMemberCounts(currentSpaceData?.id || '');
+  const memberCounts = useSimpleMemberCounts(currentSpaceData?.id || '');
   
   // useSpaceDescriptionManager for main space description
   const {

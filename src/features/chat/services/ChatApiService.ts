@@ -14,7 +14,7 @@
 
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { getProtectedCurrentUser } from '@/utils/protectedAuth';
-import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
+import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 import { generateConversationSlug, findConversationIdFromSlug } from '@/utils/conversationUrlUtils';
 
 /**
@@ -95,7 +95,7 @@ export class ChatApiService {
       if (shouldUseCacheFirst && !options.forceNetwork) {
         // Try to get from cache first on mobile
         try {
-          const cachedResult = await supabaseIndexedDBBridge.getUserConversations(userId);
+          const cachedResult = await migrationAdapter.getUserConversations(userId);
           if (cachedResult.data && cachedResult.data.length > 0) {
             console.log('[ChatApiService] 📱 Using cached conversations on mobile');
             data = cachedResult.data;

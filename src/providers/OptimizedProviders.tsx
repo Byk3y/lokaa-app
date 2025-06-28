@@ -4,9 +4,10 @@ import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { useCleanupTracker } from '../hooks/useCleanupTracker';
 import performanceMonitor from '../utils/performanceMonitor';
-import { pageVisibilityManager } from '../utils/pageVisibilityManager';
-import { phase6BundleOptimizer } from '../utils/phase6BundleOptimizer';
-import { mobileOptimizationLayer } from '../utils/mobileOptimizationLayer';
+// DISABLED: All mobile systems completely disabled for bfcache optimization
+// import { pageVisibilityManager } from '../utils/pageVisibilityManager';
+// DISABLED: All mobile optimization completely disabled for bfcache optimization
+// import { mobileOptimizationLayer } from '../utils/mobileOptimizationLayer';
 
 // Import your existing providers
 import { AuthProvider } from '../contexts/AuthContext';
@@ -144,57 +145,24 @@ export const OptimizedProviderTree = memo(function OptimizedProviderTree({
 }: OptimizedProviderProps) {
   // Initialize PageVisibilityManager early
   useEffect(() => {
-    pageVisibilityManager.initialize();
-    console.log('🔋 [OptimizedProviders] PageVisibilityManager initialized');
-    
-    return () => {
-      pageVisibilityManager.destroy();
-    };
-  }, []);
-
-  // 🚀 Phase 6: Initialize consolidated systems
-  useEffect(() => {
-    const initializePhase6Systems = async () => {
-      try {
-        // Initialize mobile optimization layer if on mobile
-        const { mobileOptimizationLayer } = await import('../utils/mobileOptimizationLayer');
-        if (mobileOptimizationLayer.getCapabilities().isMobile) {
-          mobileOptimizationLayer.initialize();
-        }
-
-        // Initialize mobile validation for debugging (dev only, mobile devices only)
-        if (import.meta.env?.DEV && mobileOptimizationLayer.getCapabilities().isMobile) {
-          await import('../utils/mobileConsoleValidation');
-        }
-
-        // Initialize bundle optimizer
-        const { phase6BundleOptimizer } = await import('../utils/phase6BundleOptimizer');
-        
-        // Mark performance monitor as consolidated
-        if ((window as any).phase6PerformanceConsolidated) {
-          phase6BundleOptimizer.markSystemConsolidated(
-            'performanceMonitor + realtimePerformanceMonitor + hmrMonitor',
-            'UnifiedPerformanceMonitor'
-          );
-        }
-
-        // Mark mobile systems as consolidated if available
-        if ((window as any).phase6MobileConsolidated) {
-          phase6BundleOptimizer.markSystemConsolidated(
-            '7 mobile utilities',
-            'MobileOptimizationLayer'
-          );
-        }
-
-        console.log('🚀 [Phase6] Consolidated systems initialized');
-        
-      } catch (error) {
-        console.warn('⚠️ [Phase6] System initialization failed:', error);
+    const initializeSystems = async () => {
+      // CHECK FOR ULTRA AGGRESSIVE DISABLE FLAGS
+      if ((window as any).__DISABLE_ALL_MOBILE_SYSTEMS__) {
+        console.log('🚨 [OptimizedProviders] UltraKiller flags detected - ALL mobile systems disabled');
+        return;
       }
+      
+      // DISABLED: All mobile optimization systems for bfcache compatibility
+      // Complex mobile systems prevent browser's native Back/Forward Cache optimization
+      console.log('📱 [OptimizedProviders] All mobile systems disabled for bfcache optimization');
+      console.log('📱 [OptimizedProviders] Bundle optimizer disabled for bfcache optimization');
+      console.log('📱 [OptimizedProviders] Phase 6 systems disabled for bfcache optimization');
+      
+      // bfcache works best with minimal JavaScript intervention
+      console.log('🚀 [OptimizedProviders] PWA + bfcache optimization active');
     };
-
-    // Delay initialization to avoid blocking initial render
-    setTimeout(initializePhase6Systems, 500);
+    
+    initializeSystems().catch(console.error);
   }, []);
   
   // FIXED: Reduced performance monitoring overhead
@@ -247,55 +215,6 @@ export const OptimizedProviderTree = memo(function OptimizedProviderTree({
     </OptimizedQueryProvider>
   );
 });
-
-/**
- * FIXED: Simplified performance tracking for providers (reduced overhead)
- */
-export function withPerformanceTracking<P extends object>(
-  Component: React.ComponentType<P>,
-  componentName: string
-) {
-  const WrappedComponent = memo(function PerformanceTrackedComponent(props: P) {
-    // FIXED: Removed heavy cleanup tracking
-    
-    // FIXED: Minimal performance tracking only in development
-    useEffect(() => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[${componentName}] Mounted`);
-      }
-    }, []);
-    
-    return <Component {...props} />;
-  });
-  
-  WrappedComponent.displayName = `withPerformanceTracking(${componentName})`;
-  return WrappedComponent;
-}
-
-/**
- * FIXED: Lightweight provider performance hook - named function for Fast Refresh compatibility
- */
-export function useProviderPerformance() {
-  const getProviderMetrics = useCallback(() => {
-    // FIXED: Simplified metrics to reduce overhead
-    const health = performanceMonitor.getSystemHealth();
-    
-    return {
-      health,
-      simplified: true,
-      report: 'Performance monitoring simplified for better performance'
-    };
-  }, []);
-  
-  const logPerformanceReport = useCallback(() => {
-    console.log('Provider performance monitoring simplified for optimal performance');
-  }, []);
-  
-  return {
-    getProviderMetrics,
-    logPerformanceReport
-  };
-}
 
 /**
  * FIXED: Simplified development helper

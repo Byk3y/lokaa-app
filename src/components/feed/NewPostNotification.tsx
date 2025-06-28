@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, ChevronUp } from 'lucide-react';
 
 interface NewPostNotificationProps {
@@ -19,7 +18,6 @@ export const NewPostNotification: React.FC<NewPostNotificationProps> = ({
   onDismiss,
   autoHideDelay = 0, // Disabled - stay persistent until user action
 }) => {
-  const [shouldPulse, setShouldPulse] = useState(false);
   const [progress, setProgress] = useState(100);
 
   // Auto-hide functionality
@@ -42,15 +40,6 @@ export const NewPostNotification: React.FC<NewPostNotificationProps> = ({
     return () => clearInterval(interval);
   }, [isVisible, isLoading, autoHideDelay, onDismiss]);
 
-  // Pulse effect when count increases
-  useEffect(() => {
-    if (newPostCount > 0) {
-      setShouldPulse(true);
-      const timer = setTimeout(() => setShouldPulse(false), 600);
-      return () => clearTimeout(timer);
-    }
-  }, [newPostCount]);
-
   const getMessage = () => {
     if (newPostCount === 1) return 'Load 1 new post';
     return `Load ${newPostCount} new posts`;
@@ -63,23 +52,12 @@ export const NewPostNotification: React.FC<NewPostNotificationProps> = ({
   };
 
   return (
-    <AnimatePresence>
+    <div>
       {isVisible && newPostCount > 0 && (
-        <motion.div
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -50, opacity: 0 }}
-          transition={{ 
-            type: 'spring', 
-            stiffness: 400, 
-            damping: 25,
-            duration: 0.3 
-          }}
-          className="mb-4 z-10 relative w-[768px] max-w-[768px] min-w-[768px] flex-shrink-0 flex-grow-0"
+        <div
+          className="mb-4 z-10 relative w-full max-w-[768px]"
         >
-          <motion.div
-            animate={shouldPulse ? { scale: [1, 1.01, 1] } : {}}
-            transition={{ duration: 0.4, ease: 'easeInOut' }}
+          <div
             className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg shadow-sm overflow-hidden relative"
           >
             <div 
@@ -96,9 +74,9 @@ export const NewPostNotification: React.FC<NewPostNotificationProps> = ({
                 {isLoading ? 'Loading new posts...' : getMessage()}
               </span>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
-    </AnimatePresence>
+    </div>
   );
 }; 

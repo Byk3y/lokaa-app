@@ -1,8 +1,7 @@
 import React from 'react';
-import { Share } from 'lucide-react';
+import { ThumbsUp, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { LikeButton, CommentButton } from "@/components/ui/post-icons";
 
 interface PostActionsProps {
   hasLiked: boolean;
@@ -25,51 +24,33 @@ export default function PostActions({
   onCommentClick
 }: PostActionsProps) {
   return (
-    <div className="flex items-center justify-between py-3 px-6 border-t border-b border-gray-200">
-      <div className="flex items-center space-x-2">
+    <div className="flex items-center px-3 py-2 border-t border-gray-200">
+      <div className="flex items-center space-x-1">
         <Button 
           variant="ghost"
           onClick={onLikeToggle}
           disabled={isLiking}
           className={cn(
-            "flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-            hasLiked ? "text-green-600 bg-green-50 hover:bg-green-100" : "text-gray-600 hover:bg-gray-100",
+            "flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+            hasLiked ? "text-blue-600 bg-blue-50 hover:bg-blue-100" : "text-gray-600 hover:bg-gray-100",
             isLiking && "opacity-60 cursor-not-allowed"
           )}
         >
-          <LikeButton
-            isLiked={hasLiked}
-            count={0}
-            onClick={() => {}}
-            showCount={false}
-            className="pointer-events-none"
-          />
+          <ThumbsUp size={18} className={hasLiked ? "fill-current" : ""} />
           <span>{hasLiked ? 'Liked' : 'Like'}</span>
           {likeCount > 0 && <span className="ml-1 text-gray-500">{likeCount}</span>}
         </Button>
         
         <Button 
           variant="ghost"
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
           onClick={onCommentClick}
         >
-          <CommentButton
-            count={0}
-            showCount={false}
-            className="pointer-events-none"
-          />
+          <MessageSquare size={18} />
           <span>Comment</span>
           {commentCount > 0 && <span className="ml-1 text-gray-500">{commentCount}</span>}
         </Button>
       </div>
-          
-      <Button 
-        variant="ghost" 
-        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-      >
-        <Share size={18} />
-        <span>Share</span>
-      </Button>
     </div>
   );
 } 

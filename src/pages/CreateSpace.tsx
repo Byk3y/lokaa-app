@@ -154,7 +154,7 @@ export default function CreateSpace() {
       // Try the enhanced redirectToSpace utility
       try {
         console.log('🔀 Attempting space redirection with enhanced utility...');
-        const { redirectToSpace } = await import('@/utils/spaceRedirect');
+        const { redirectToSpace } = await import("@/utils/spaceRedirect");
         
         // Use React Router navigation
         setTimeout(async () => {

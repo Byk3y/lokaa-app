@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tag } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { OptimizedAvatar } from "@/components/ui/OptimizedAvatar";
 import { Link } from "react-router-dom";
 import UserProfileHoverCard from '@/components/profile/UserProfileHoverCard';
 import { formatRelativeTime } from "@/utils/formatters";
@@ -29,13 +29,6 @@ export const PostCardHeader: React.FC<PostCardHeaderProps> = ({
   // Format date in relative time (e.g., "2 hours ago")
   const formattedDate = formatRelativeTime(typeof createdAt === 'string' ? new Date(createdAt) : createdAt);
 
-  // 🎯 ENHANCED: Use unified avatar resolver for consistent colors and initials
-  const avatar = AvatarUtils.resolveAvatar({
-    id: author.id,
-    full_name: author.name,
-    avatar_url: author.avatar
-  });
-
   // Get profile link path if available
   const getProfileLink = () => {
     if (!author || !author.profile_url) return null;
@@ -55,31 +48,35 @@ export const PostCardHeader: React.FC<PostCardHeaderProps> = ({
               activityScore={author.activity_score}
             >
               <Link to={getProfileLink() || '#'}>
-                <Avatar className="h-9 w-9 rounded-full hover:ring-2 hover:ring-blue-300 transition-all">
-                  {avatar.hasImage && (
-                    <AvatarImage src={avatar.url!} alt={author.name} />
-                  )}
-                  <AvatarFallback 
-                    className="text-white font-medium text-sm"
-                    style={{ backgroundColor: avatar.backgroundColor }}
-                  >
-                    {avatar.initials}
-                  </AvatarFallback>
-                </Avatar>
+                <OptimizedAvatar
+                  user={{
+                    id: author.id,
+                    full_name: author.name,
+                    avatar_url: author.avatar
+                  }}
+                  size="lg"
+                  enableLazyLoading={false}
+                  enableCaching={true}
+                  placeholderType="initials"
+                  loadingTransition="fade"
+                  className="h-9 w-9 rounded-full hover:ring-2 hover:ring-blue-300 transition-all cursor-pointer"
+                />
               </Link>
             </UserProfileHoverCard>
           ) : (
-            <Avatar className="h-9 w-9 rounded-full">
-              {avatar.hasImage && (
-                <AvatarImage src={avatar.url!} alt={author.name} />
-              )}
-              <AvatarFallback 
-                className="text-white font-medium text-sm"
-                style={{ backgroundColor: avatar.backgroundColor }}
-              >
-                {avatar.initials}
-              </AvatarFallback>
-            </Avatar>
+            <OptimizedAvatar
+              user={{
+                id: author.id,
+                full_name: author.name,
+                avatar_url: author.avatar
+              }}
+              size="lg"
+              enableLazyLoading={false}
+              enableCaching={true}
+              placeholderType="initials"
+              loadingTransition="fade"
+              className="h-9 w-9 rounded-full"
+            />
           )}
         </div>
         

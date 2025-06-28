@@ -93,6 +93,12 @@ export default function ChatContainer({
       
       const { slug, conversationId: cachedId } = parseConversationUrlParams();
       
+      // ✅ NAVIGATION STATE GUARD: Check if already at this conversation
+      if (cachedId && cachedId === activeConversationId) {
+        console.log('📱 [ChatContainer] Already at target conversation, skipping:', cachedId);
+        return;
+      }
+      
       if (slug) {
         // User navigated to a conversation URL
         let resolvedId = cachedId;
@@ -125,6 +131,12 @@ export default function ChatContainer({
     const handleCustomUrlChange = (event: CustomEvent) => {
       const { conversationId } = event.detail;
       
+      // ✅ NAVIGATION STATE GUARD: Check if already at this conversation
+      if (conversationId && conversationId === activeConversationId) {
+        console.log('📱 [ChatContainer] Already at target conversation, skipping custom URL change:', conversationId);
+        return;
+      }
+      
       if (conversationId) {
         console.log('📱 [ChatContainer] Custom URL change to conversation:', conversationId);
         selectConversation(conversationId);
@@ -142,7 +154,7 @@ export default function ChatContainer({
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('conversationUrlChange', handleCustomUrlChange as EventListener);
     };
-  }, [legacyConversations?.length, isModal, isMobileForUrls]); // ✅ INFINITE LOOP FIX: Only depend on conversation count, not the function
+  }, [legacyConversations?.length, isModal, isMobileForUrls, activeConversationId]); // ✅ INFINITE LOOP FIX: Added activeConversationId for state guard
 
   const handleSelectConversation = (conversation: LegacyConversation) => {
     // This is called by ChatListItem for state consistency

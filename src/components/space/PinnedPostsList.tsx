@@ -69,14 +69,13 @@ export default function PinnedPostsList({
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="space-y-4 mb-6"
+    <div
+      className="space-y-4"
+      role="region"
+      aria-label={`${filteredPinnedPosts.length} pinned posts`}
     >
-      <div className="space-y-3">
-            {filteredPinnedPosts
+      <div className="space-y-4">
+        {filteredPinnedPosts
           .sort((a, b) => {
             // Sort by pin_position (lower number = higher priority, position 1 is at top)
             if (a.pin_position !== null && b.pin_position !== null) {
@@ -88,12 +87,9 @@ export default function PinnedPostsList({
             }
             return 0;
           })
-              .map((post, index) => (
-            <motion.div
+          .map((post, index) => (
+            <div
                   key={post.id} 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
               className="relative"
             >
                         <PostCard
@@ -103,9 +99,9 @@ export default function PinnedPostsList({
                           onLikeToggled={(postId, newLikeCount) => onLikeToggled(postId, false, newLikeCount)}
                           isPinned={true}
                         />
-            </motion.div>
+            </div>
           ))}
           </div>
-    </motion.div>
+    </div>
   );
 } 

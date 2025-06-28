@@ -448,4 +448,9 @@ export class ChatRealtimeService {
 }
 
 // Export singleton instance
-export const chatRealtimeService = new ChatRealtimeService(); 
+export const chatRealtimeService = new ChatRealtimeService();
+
+// Make available globally for testing (development only)
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+  (window as any).chatRealtimeService = chatRealtimeService;
+} 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useRealtimePostLikes } from '@/hooks/useRealtimePostLikes';
 
 interface UsePostLikesProps {
   postId: string;
@@ -15,6 +16,7 @@ interface UsePostLikesReturn {
   optimisticLikeCount: number;
   isLikingInProgress: boolean;
   handleLikeToggle: () => Promise<void>;
+  realtimeConnected: boolean;
 }
 
 /**
@@ -61,6 +63,99 @@ export const usePostLikes = ({
     setOptimisticLikeCount(initialLikes);
   }, [initialLikes]);
 
+  // 🚀 Real-time like updates from other users
+  const handleRealtimeLikeAdded = useCallback((likePostId: string, likeUserId: string) => {
+    if (likePostId === postId) {
+      console.log('🔔 [usePostLikes] Real-time like added:', { likePostId, likeUserId });
+      
+      // 🔥 FIX: Use state updater to get the new count and pass it to callback
+      setOptimisticLikeCount(prevCount => {
+        const newCount = prevCount + 1;
+        
+        // Call callback with the correct new count
+        if (onLikeToggled) {
+          // Use setTimeout to ensure the callback runs after state update
+          setTimeout(() => {
+            onLikeToggled(postId, newCount);
+          }, 0);
+        }
+        
+        return newCount;
+      });
+    }
+  }, [postId, onLikeToggled]);
+
+  // 🚀 SIMPLIFIED: No complex DELETE handling needed
+  // Users toggle likes optimistically - much simpler and more reliable!
+
+  // 🚀 Handle real-time like removals (cross-user unlikes)
+  const handleRealtimeLikeRemoved = useCallback((likePostId: string, likeUserId: string) => {
+    if (likePostId === 'REFRESH_ALL') {
+      // Special signal: refresh like count from database
+      console.log('🔔 [usePostLikes] Refreshing like count due to DELETE event');
+      
+      // Fetch current like count from database
+      const refreshLikeCount = async () => {
+        try {
+          const { count, error } = await getSupabaseClient()
+            .from('post_likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', postId);
+          
+          if (error) {
+            console.warn('[usePostLikes] Error refreshing like count:', error);
+            return;
+          }
+          
+          const actualCount = count || 0;
+          console.log(`🔔 [usePostLikes] Refreshed like count: ${actualCount} (was: ${optimisticLikeCount})`);
+          
+          // Update to actual count if different
+          if (actualCount !== optimisticLikeCount) {
+            setOptimisticLikeCount(actualCount);
+            
+            // Notify parent of count change
+            if (onLikeToggled) {
+              setTimeout(() => {
+                onLikeToggled(postId, actualCount);
+              }, 0);
+            }
+          }
+        } catch (err) {
+          console.warn('[usePostLikes] Exception refreshing like count:', err);
+        }
+      };
+      
+      refreshLikeCount();
+    } else {
+      // Regular unlike from specific user
+      if (likePostId === postId) {
+        console.log('🔔 [usePostLikes] Real-time like removed:', { likePostId, likeUserId });
+        
+        setOptimisticLikeCount(prevCount => {
+          const newCount = Math.max(0, prevCount - 1);
+          
+          // Call callback with the correct new count
+          if (onLikeToggled) {
+            setTimeout(() => {
+              onLikeToggled(postId, newCount);
+            }, 0);
+          }
+          
+          return newCount;
+        });
+      }
+    }
+  }, [postId, onLikeToggled, optimisticLikeCount]);
+
+  const { isConnected: realtimeConnected } = useRealtimePostLikes({
+    spaceId,
+    userId,
+    enabled: true,
+    onLikeAdded: handleRealtimeLikeAdded,
+    onLikeRemoved: handleRealtimeLikeRemoved
+  });
+
   const handleLikeToggle = useCallback(async () => {
     if (!userId || !postId || isLikingInProgress) {
       if (!userId) {
@@ -71,20 +166,34 @@ export const usePostLikes = ({
 
     setIsLikingInProgress(true);
     const currentlyLiked = hasLikedPost;
+    
+    // 🔥 FIX: Calculate new count once and use it consistently
+    const newCount = currentlyLiked ? Math.max(0, optimisticLikeCount - 1) : optimisticLikeCount + 1;
 
     // Optimistic update
     setHasLikedPost(!currentlyLiked);
-    setOptimisticLikeCount(prevCount => currentlyLiked ? prevCount - 1 : prevCount + 1);
+    setOptimisticLikeCount(newCount);
 
     try {
       if (currentlyLiked) {
         // Unlike
-        const { error } = await getSupabaseClient()
+        const { data, error } = await getSupabaseClient()
           .from('post_likes')
           .delete()
-          .match({ post_id: postId, user_id: userId });
+          .eq('post_id', postId)
+          .eq('user_id', userId)
+          .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ [usePostLikes] DELETE error:', error);
+          throw error;
+        }
+        
+        console.log(`✅ [usePostLikes] Deleted ${data?.length || 0} likes for post ${postId}`);
+        
+        if (!data || data.length === 0) {
+          console.warn('⚠️ [usePostLikes] No likes were deleted - may not exist in database');
+        }
       } else {
         // Like
         const { data, error } = await getSupabaseClient()
@@ -105,7 +214,8 @@ export const usePostLikes = ({
       }
       // Notify parent of like count change
       if (typeof onLikeToggled === 'function') {
-        onLikeToggled(postId, !currentlyLiked ? optimisticLikeCount + 1 : optimisticLikeCount - 1);
+        // 🔥 FIX: Use the newCount calculated during optimistic update
+        onLikeToggled(postId, newCount);
       }
     } catch (error: any) {
       console.error('Error toggling like:', error);
@@ -116,7 +226,7 @@ export const usePostLikes = ({
       });
       // Revert optimistic update on error
       setHasLikedPost(currentlyLiked);
-      setOptimisticLikeCount(prevCount => currentlyLiked ? prevCount + 1 : prevCount - 1);
+      setOptimisticLikeCount(optimisticLikeCount); // Revert to original count
     } finally {
       setIsLikingInProgress(false);
     }
@@ -127,5 +237,6 @@ export const usePostLikes = ({
     optimisticLikeCount,
     isLikingInProgress,
     handleLikeToggle,
+    realtimeConnected,
   };
 }; 

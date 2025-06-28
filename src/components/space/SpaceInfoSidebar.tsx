@@ -7,9 +7,10 @@ import { resolveImageUrl } from "@/utils/preloadAssets";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore"; // Added new store
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth'; // Added for userId
 import { Separator } from "@/components/ui/separator";
-import { useOptimizedMemberCounts } from "@/hooks/useOptimizedMemberCounts"; // Import optimized hook
+import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts"; // Import simplified hook
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { createManagedInterval } from '@/utils/pageVisibilityManager';
+import { OnlineAvatars } from "@/components/space/OnlineAvatars"; // Import online avatars component
 import {
   Dialog,
   DialogContent,
@@ -70,7 +71,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
     onlineMembers, // This now comes from database-centric presence system
     adminMembers, 
     loading: countsLoading 
-  } = useOptimizedMemberCounts(effectiveSpaceId);
+  } = useSimpleMemberCounts(effectiveSpaceId);
   
   // CRITICAL FIX: Always prioritize database-centric online count over props
   // The unified presence system is now the authoritative source
@@ -98,7 +99,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
       console.log(`🔄 [SpaceInfoSidebar] Space changed from ${lastSpaceId.current} to ${effectiveSpaceId}, triggering data refresh`);
       
       // Force re-render by temporarily resetting data
-      // The useOptimizedMemberCounts hook will automatically fetch new data
+      // The useSimpleMemberCounts hook will automatically fetch new data
       setTimeout(() => {
         console.log(`🔄 [SpaceInfoSidebar] Data refresh completed for space: ${effectiveSpaceId}`);
       }, 100);
@@ -304,6 +305,17 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
               <p className="text-xs text-gray-500 dark:text-gray-400">Admin{displayAdminCount !== 1 ? 's' : ''}</p>
             </div>
           </div>
+
+          {/* Online Member Avatars - Only show for authenticated members */}
+          {effectiveSpaceId && user && isMember && displayOnlineCount > 0 && (
+            <div className="mb-4">
+              <OnlineAvatars 
+                spaceId={effectiveSpaceId} 
+                maxDisplay={8}
+                className=""
+              />
+            </div>
+          )}
 
           {canAccessSettings ? (
             <Button 

@@ -57,24 +57,12 @@ export class DevelopmentTools {
     console.log('🔧 [DevelopmentTools] Loading Phase integrations...');
 
     try {
-      await import('@/utils/phase5bTestUtils');
-      await import('@/utils/phase5bPerformanceFix');
-      await import('@/utils/phase5bPerformanceFixV2');
-      await import('@/utils/smartRedirectValidation');
-      await import('@/utils/performanceTestUtils');
-      await import('@/utils/phase2cIntegration');
-      await import('@/utils/phase4aIntegration');
-      await import('@/utils/phase4bIntegration');
-      await import('@/utils/phase5Integration');
-      await import('@/utils/phase3PerformanceOptimizer');
+      // Only load essential Phase integrations
       await import('@/utils/phase3CacheStrategy');
       await import('@/utils/phase3RenderOptimizer');
       await import('@/utils/phase3UXPatterns');
-      await import('@/utils/phase3TestingFramework');
-      await import('@/utils/phase6Integration');
-      await import('@/utils/phase7Integration');
 
-      console.log('✅ [DevelopmentTools] Phase integrations loaded');
+      console.log('✅ [DevelopmentTools] Essential Phase integrations loaded');
     } catch (error) {
       console.warn('⚠️ [DevelopmentTools] Some Phase integrations failed to load:', error);
     }
@@ -84,20 +72,13 @@ export class DevelopmentTools {
     console.log('🔧 [DevelopmentTools] Setting up debug utilities...');
 
     try {
-      await import('@/utils/presenceDebugger');
-      await import('@/utils/presenceTestUtils');
-      await import('@/utils/mediaDebugger');
+      // Only load essential debug utilities
       await import('@/utils/developmentLogger');
       await import('@/utils/consoleCleanup');
-      await import('@/utils/consoleOptimizationReport');
-      await import('@/utils/presenceTestingUtility');
-      await import('@/utils/databaseConnectivityTest');
       await import('@/utils/mobileDetection');
       await import('@/utils/globalErrorInterceptor');
-      await import('@/utils/hmrMonitor');
-      await import('@/utils/mobileConsoleValidation');
 
-      console.log('✅ [DevelopmentTools] Debug utilities loaded');
+      console.log('✅ [DevelopmentTools] Essential debug utilities loaded');
     } catch (error) {
       console.warn('⚠️ [DevelopmentTools] Some debug utilities failed to load:', error);
     }
@@ -126,37 +107,8 @@ export class DevelopmentTools {
       }
     };
 
-    (window as any).debugMediaConversion = () => {
-      console.log('🧪 [Debug] Testing media conversion...');
-      if ((window as any).MediaDebugger?.testMediaConversionWithSamples) {
-        (window as any).MediaDebugger.testMediaConversionWithSamples();
-      } else {
-        console.log('❌ [Debug] MediaDebugger not available');
-      }
-    };
-
-    (window as any).testDatabaseFormats = () => {
-      console.log('🧪 [Debug] Testing database media formats...');
-      if ((window as any).MediaDebugger?.testDatabaseMediaFormats) {
-        return (window as any).MediaDebugger.testDatabaseMediaFormats();
-      } else {
-        console.log('❌ [Debug] MediaDebugger not available');
-      }
-    };
-
-    (window as any).devToolsStatus = () => {
-      console.log('🔧 [DevelopmentTools] Status:');
-      console.log('- Initialized:', this.isInitialized);
-      console.log('- Available debuggers:', ['debugPostsCache', 'debugMediaConversion', 'testDatabaseFormats']);
-      console.log('- Phase integrations: Loaded');
-      console.log('- Debug utilities: Loaded');
-    };
-
     console.log('✅ [DevelopmentTools] Console debuggers available:', [
-      'debugPostsCache()', 
-      'debugMediaConversion()', 
-      'testDatabaseFormats()', 
-      'devToolsStatus()'
+      'debugPostsCache()'
     ]);
   }
 
@@ -165,9 +117,6 @@ export class DevelopmentTools {
     
     if (typeof window !== 'undefined') {
       delete (window as any).debugPostsCache;
-      delete (window as any).debugMediaConversion;
-      delete (window as any).testDatabaseFormats;
-      delete (window as any).devToolsStatus;
     }
   }
 

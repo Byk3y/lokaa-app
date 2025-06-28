@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import type { PostCardProps } from '@/features/posts/types/postCard';
-import type { Attachment } from '@/features/posts/types/postTypes';
-import type { Category } from '@/features/posts/types/postCard';
-import { getPostUrl } from '@/utils/slugUtils';
-import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
+import { v4 as uuidv4 } from 'uuid';
+import type { PostCardProps } from '../types/postCard';
+import type { Attachment } from '../types';
+import { devLogger } from '@/utils/developmentLogger';
+import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
+
+// Simple category type to avoid import issues
+interface SpaceCategory {
+  id: string;
+  name: string;
+  icon?: string;
+}
 
 // Define a simplified Json type to avoid excessive depth error
 type SimpleJson = any;
@@ -16,7 +23,7 @@ export type SubmitPostParams = {
   categoryId?: string | null;
   attachments: Attachment[];
   pollData?: string[] | null;
-  categories?: Category[];
+  categories?: SpaceCategory[];
   content_gif_url?: string | null;
 }
 
@@ -52,65 +59,7 @@ export function usePostSubmission({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { space } = useSpaceSettingsStore();
 
-  /**
-   * Navigate to post based on device type
-   */
-  const navigateToPost = (post: { id: string; slug?: string | null; [key: string]: any }, space: { subdomain?: string | null }) => {
-    if (!space.subdomain) {
-      console.error("Cannot navigate: missing space.subdomain");
-      return;
-    }
-
-    // Verify we have a slug, and if not, log a warning
-    if (!post.slug) {
-      console.warn("Post slug is missing when navigating, using ID as fallback:", post.id);
-      // Here we could decide to abort navigation or fetch the slug again, but we'll continue with the ID for now
-    }
-
-    // Ensure we're using the slug if available
-    const postIdentifier = post.slug || post.id;
-    
-    // Create the complete URL
-    const postUrl = `/${space.subdomain}/space/${postIdentifier}`;
-    
-    console.log("Generated post URL:", postUrl, "from post:", { 
-      id: post.id, 
-      slug: post.slug || null 
-    });
-    
-    // Check if mobile (<768px)
-    const isMobile = window.innerWidth < 768;
-    
-    if (isMobile) {
-      // Navigate to full page view on mobile
-      console.log("Mobile detected, navigating to:", postUrl);
-      navigate(postUrl);
-    } else {
-      // On desktop, update URL without navigation and open modal
-      // Store minimal post data for history state
-      const postState = {
-        id: post.id,
-        slug: post.slug,
-        spaceId: post.space_id || post.spaceId,
-        content: post.content,
-        createdAt: post.created_at || post.createdAt,
-        author: post.author
-      };
-      
-      console.log("Desktop detected, updating history with:", postUrl);
-      // Update URL without navigation
-      window.history.pushState({ post: postState }, '', postUrl);
-      
-      // If we have an openPostModal function, use it to open the modal
-      if (openPostModal && post) {
-        console.log("Opening post modal with post data");
-        openPostModal(post as PostCardProps);
-      }
-    }
-  };
-  
   /**
    * Submit a post (create new or update existing)
    */
@@ -192,11 +141,6 @@ export function usePostSubmission({
         // Call the onPostUpdated callback
         if (onPostUpdated) {
           onPostUpdated(updatedPost);
-        }
-        
-        // Check if slug has changed and update URL
-        if (postData.slug && postData.slug !== post.slug && space?.subdomain) {
-          navigateToPost(postData, space);
         }
         
         return { success: true, postId: post.id, slug: postData.slug };
@@ -363,11 +307,6 @@ export function usePostSubmission({
           });
         }
         
-        // Call the onPostCreated callback to refresh the feed
-        if (onPostCreated) {
-          onPostCreated();
-        }
-        
         // Find the category from the provided categories array
         const category = categoryId 
           ? categories.find(cat => cat.id === categoryId) || null 
@@ -399,17 +338,10 @@ export function usePostSubmission({
             slug: finalPostData.slug,
           };
           
-          // Navigate to the post if we have space data
-          if (space?.subdomain) {
-            console.log("Navigating to post with data:", { 
-              id: finalPostData.id, 
-              slug: finalPostData.slug,
-              space: space
-            });
-            
-            navigateToPost(finalPostData, space);
-          } else {
-            console.error("Cannot navigate: missing space.subdomain");
+          // REMOVED: URL navigation behavior for strict modal mode
+          // Simply call onPostCreated callback to refresh the feed
+          if (onPostCreated) {
+            onPostCreated();
           }
         }
         

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2, Send } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { InstantAvatar } from '@/components/ui/InstantAvatar';
 import { cn } from '@/lib/utils';
 import type { CommentItemProps } from '@/features/posts/hooks/usePostComments';
 
@@ -58,20 +58,17 @@ export const CommentInput: React.FC<CommentInputProps> = ({
     }
   };
   
-  // Get initial for avatar fallback
-  const getInitial = () => {
-    if (!userName) return 'U';
-    return userName.charAt(0).toUpperCase();
-  };
-
   return (
     <form onSubmit={handleSubmit} className="mt-3 flex items-center space-x-2">
-      <Avatar className="h-8 w-8 rounded-full">
-        {userAvatarUrl ? <AvatarImage src={userAvatarUrl} /> : null}
-        <AvatarFallback className="bg-gray-200 text-gray-600 font-medium text-sm">
-          {getInitial()}
-        </AvatarFallback>
-      </Avatar>
+      <InstantAvatar
+        user={{
+          id: currentUserId,
+          full_name: userName,
+          avatar_url: userAvatarUrl
+        }}
+        size="sm"
+        className="h-8 w-8 flex-shrink-0"
+      />
       
       <div className="flex-1 relative">
         {replyingToComment && (
@@ -110,18 +107,18 @@ export const CommentInput: React.FC<CommentInputProps> = ({
       
       <button
         type="submit"
-        disabled={!newComment.trim() || isCommenting}
+        disabled={isCommenting || !newComment.trim()}
         className={cn(
-          "flex-shrink-0 rounded-full p-1.5",
-          newComment.trim() && !isCommenting
-            ? "text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-            : "text-gray-400 cursor-not-allowed"
+          "inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+          isCommenting || !newComment.trim()
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500"
         )}
       >
         {isCommenting ? (
-          <Loader2 size={18} className="animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <Send size={18} />
+          <Send className="h-4 w-4" />
         )}
       </button>
     </form>

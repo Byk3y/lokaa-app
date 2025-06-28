@@ -129,6 +129,16 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
   useEffect(() => {
     async function verifySession() {
       if (location.pathname === "/" && !user) {
+        // Check if we're coming from a sign out to skip verification
+        const isSignOutRedirect = sessionStorage.getItem('lokaa-signing-out') === 'true';
+        if (isSignOutRedirect) {
+          console.log('PublicRoute: Detected sign out redirect, skipping session verification');
+          sessionStorage.removeItem('lokaa-signing-out');
+          setHasActiveSession(false);
+          setIsCheckingActiveSession(false);
+          return;
+        }
+
         setIsCheckingActiveSession(true);
         try {
           const isActive = await checkActiveSession();

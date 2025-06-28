@@ -525,20 +525,37 @@ export default function Discover() {
     try {
       // Starting sign out process
       setIsLoggingOut(true);
-      await signOut();
       
-              // Adding fallback redirect for Safari
-      setTimeout(() => {
-        const currentPath = window.location.pathname;
-        if (currentPath.includes('/discover')) {
-          // Still on discover page after signOut, forcing hard redirect
-          window.location.replace(`/?from=discover&t=${Date.now()}`);
+      // Import the enhanced signOut function
+      const { signOut: enhancedSignOut } = await import('@/utils/auth/authActionsUtils');
+      
+      // Create a navigate function that uses React Router for smooth navigation
+      const navigateToHome = (path: string, options?: any) => {
+        console.log('🚀 Discover: Navigating smoothly to', path);
+        navigate(path, { replace: true, ...options });
+      };
+      
+      // Call enhanced signOut with proper state management
+      await enhancedSignOut(navigateToHome as any, {
+        setUser: () => {}, // Auth state handled by AuthProvider
+        setSession: () => {}, // Auth state handled by AuthProvider
+        setUserDetails: () => {}, // Not used in this context
+        setHasRouted: () => {}, // Not used in this context
+        setEarlyRedirectAttempted: () => {}, // Not used in this context
+        setRoutingInProgress: () => {}, // Handled internally
+        setAuthErrors: (errors) => {
+          console.warn('Auth errors during sign out:', errors);
         }
-      }, 1000);
+      });
+      
+      console.log('✅ Sign out completed successfully');
+      
     } catch (error) {
-      console.error('Discover: Sign out error:', error);
+      console.error('❌ Sign out failed:', error);
+      // On error, try direct navigation
+      navigate('/', { replace: true });
+    } finally {
       setIsLoggingOut(false);
-      window.location.replace('/');
     }
   };
 
@@ -677,7 +694,34 @@ export default function Discover() {
           </div>
           
           <div className="flex items-center space-x-4">
-            {user && !isLoggingOut ? (
+            {(isLoggingOut || !user) ? (
+              <div className="flex items-center space-x-2">
+                {isLoggingOut && (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+                    <span className="text-sm text-gray-600">Signing out...</span>
+                  </>
+                )}
+                {!isLoggingOut && !user && (
+                  <div className="flex space-x-3">
+                    <Link 
+                      to="/login" 
+                      onClick={handleSignInClick}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 text-sm font-medium"
+                    >
+                      Sign in
+                    </Link>
+                    <Link 
+                      to="/signup" 
+                      className="text-white bg-teal-600 hover:bg-teal-700 px-4 py-2 rounded-full font-medium"
+                      onClick={handleSignUpClick}
+                    >
+                      Sign up
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ) : (
               <>
                 {/* Mobile Actions */}
                 <div className="sm:hidden">
@@ -687,30 +731,6 @@ export default function Discover() {
                 {/* Desktop Actions */}
                 <HeaderActions className="hidden sm:flex" />
               </>
-            ) : isLoggingOut ? (
-              <div className="flex items-center space-x-2">
-                <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
-                <span className="text-sm text-gray-600">Signing out...</span>
-              </div>
-            ) : (
-              <div className="flex space-x-3">
-                <Link 
-                  to="/login" 
-                  onClick={handleSignInClick}
-                  className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 text-sm font-medium"
-                >
-                  Sign in
-                </Link>
-                <Link 
-                  to="/signup" 
-                  className="text-white bg-teal-600 hover:bg-teal-700 px-4 py-2 rounded-full font-medium"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                >
-                  Sign up
-                </Link>
-              </div>
             )}
           </div>
         </div>

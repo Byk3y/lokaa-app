@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import type { PostCardProps } from '@/components/space/PostCard';
+import { useRealtimeCommentsOptimized } from '@/hooks/useRealtimeCommentsOptimized';
+import type { PostCardProps } from '@/features/posts/types/postCard';
 import type { CommentAuthor } from '@/components/space/comments/CommentItem';
+
+// Note: Global type declaration for navigationAwareRealtimeService is in usePostComments.ts
 
 // Re-use FetchedComment type
 export interface FetchedComment {
@@ -22,7 +25,7 @@ export interface FetchedComment {
   currentUserId?: string | null;
 }
 
-interface CommentDataFromServer {
+type CommentDataFromServer = {
   id: string;
   content: string;
   created_at: string;
@@ -30,12 +33,12 @@ interface CommentDataFromServer {
   post_id: string;
   space_id: string;
   parent_comment_id: string | null;
-  author: CommentAuthor | null; // Assuming author is already in the correct FetchedComment structure or can be cast
-  // reply_count is NOT here
-}
+  author: CommentAuthor | null;
+};
 
 /**
  * Hook to handle post comments (fetching, posting, managing state)
+ * 🔔 NOW WITH REAL-TIME SUPPORT AND NAVIGATION-AWARE CACHING!
  */
 export function useComments(
   post: PostCardProps | null, 
@@ -49,18 +52,124 @@ export function useComments(
   const [optimisticCommentCount, setOptimisticCommentCount] = useState(post?.comments || 0);
   const [replyingToComment, setReplyingToComment] = useState<FetchedComment | null>(null);
 
-  // Load initial comment data when post changes
+  // 🔔 OPTIMIZED: Real-time comment subscription using NavigationAwareRealtimeService
+  const { isConnected: realtimeConnected } = useRealtimeCommentsOptimized({
+    postId: post?.id || '',
+    spaceId: post?.spaceId,
+    userId: currentUserId,
+    isEnabled: !!post?.id,
+    onNewComment: (newCommentData) => {
+      console.log('🔔 [useComments] Real-time comment received, refreshing comments...');
+      // 🔧 STABILIZED: Add delay to prevent overwriting optimistic updates
+      setTimeout(() => {
+        if (post?.id) {
+          fetchComments(post.id, true); // Force refresh for real-time updates
+        }
+      }, 1000); // 1-second delay to allow optimistic updates to settle
+    },
+    onCommentUpdate: (commentId) => {
+      console.log('🔔 [useComments] Comment updated, refreshing comments...', commentId);
+      // 🔧 STABILIZED: Add delay for update propagation
+      setTimeout(() => {
+        if (post?.id) {
+          fetchComments(post.id, true); // Force refresh for updates
+        }
+      }, 500); // 500ms delay for updates
+    }
+  });
+
+  // 🚀 NAVIGATION-AWARE: Check if we should skip fetching due to recent navigation
+  const shouldSkipFetch = useCallback(() => {
+    if (typeof window !== 'undefined' && window.navigationAwareRealtimeService) {
+      const stats = window.navigationAwareRealtimeService.getStats();
+      const timeSinceNavigation = Date.now() - stats.navigationState.lastNavigationTime;
+      const isRecentNavigation = timeSinceNavigation < 3000; // 3 seconds
+      
+      // EXPANDED PROTECTION: Cover more navigation scenarios
+      const previousRoute = stats.navigationState.previousRoute;
+      const currentRoute = stats.navigationState.currentRoute;
+      
+      // 1. Chat⟷Space navigation (original protection)
+      const isChatSpaceNavigation = (
+        (previousRoute.includes('/app/chat') && currentRoute.includes('/space')) ||
+        (previousRoute.includes('/space') && currentRoute.includes('/app/chat'))
+      );
+      
+      // 2. INITIAL SPACE LOAD PROTECTION (NEW) - Login flow navigation
+      const isInitialSpaceLoad = (
+        currentRoute.includes('/space') && (
+          previousRoute.includes('/login') ||
+          previousRoute.includes('/app') ||
+          previousRoute === '/' ||
+          previousRoute.includes('/auth') ||
+          previousRoute === '' ||
+          timeSinceNavigation < 10000 // EXPANDED: 10s window for initial space loads (was 5s)
+        )
+      );
+      
+      // 3. Space switching protection (NEW)
+      const isSpaceSwitching = (
+        previousRoute.includes('/space') && currentRoute.includes('/space') && 
+        previousRoute !== currentRoute
+      );
+      
+      // EXPANDED TIMING for initial space loads
+      const extendedRecentNavigation = isChatSpaceNavigation ? 
+        timeSinceNavigation < 3000 : // 3s for chat-space
+        timeSinceNavigation < 10000; // 10s for initial loads and space switching
+      
+      const shouldSkip = extendedRecentNavigation && (isChatSpaceNavigation || isInitialSpaceLoad || isSpaceSwitching);
+      
+      // ENHANCED DEBUGGING
+      console.log(`🔍 [useComments] shouldSkipFetch analysis for post ${post?.id}:`, {
+        timeSinceNavigation: `${timeSinceNavigation}ms`,
+        navigation: `${previousRoute} → ${currentRoute}`,
+        conditions: {
+          isRecentNavigation,
+          extendedRecentNavigation,
+          isChatSpaceNavigation,
+          isInitialSpaceLoad,
+          isSpaceSwitching
+        },
+        result: shouldSkip ? 'SKIP FETCH' : 'ALLOW FETCH'
+      });
+      
+      if (shouldSkip) {
+        const reason = isChatSpaceNavigation ? 'Chat⟷Space navigation' : 
+                      isInitialSpaceLoad ? 'initial space load' : 
+                      isSpaceSwitching ? 'space switching' : 'recent navigation';
+        console.log(`🛡️ [useComments] Skipping fetch for post ${post?.id} - ${reason} detected (${previousRoute} → ${currentRoute}, ${timeSinceNavigation}ms ago)`);
+        return true;
+      }
+    }
+    return false;
+  }, [post?.id]);
+
+  // 🚀 NAVIGATION-AWARE: Load initial comment data when post changes
   useEffect(() => {
     if (post?.id) {
-      fetchComments(post.id);
+      // Skip fetch if we're in a recent navigation scenario
+      if (!shouldSkipFetch()) {
+        console.log('🔔 [useComments] Loading comments for post:', post.id);
+        fetchComments(post.id);
+      } else {
+        console.log(`🛡️ [useComments] Skipped initial fetch for post ${post.id} due to navigation`);
+      }
     }
     setOptimisticCommentCount(post?.comments || 0);
-  }, [post?.id, post?.comments]);
+  }, [post?.id, post?.comments, shouldSkipFetch]);
 
-  // Fetch comments for the post
-  const fetchComments = async (postId: string) => {
+  // 🚀 NAVIGATION-AWARE: Fetch comments for the post
+  const fetchComments = async (postId: string, forceRefresh: boolean = false) => {
     if (!postId) return;
     
+    // Skip fetch if we're in a recent navigation scenario (unless forced)
+    if (!forceRefresh && shouldSkipFetch()) {
+      console.log(`🛡️ [useComments] Skipped fetch for post ${postId} due to navigation`);
+      return;
+    }
+    
+    console.log('🔔 [useComments] Fetching comments for post:', postId);
     setCommentsLoading(true);
     try {
       const { data, error } = await getSupabaseClient()
@@ -77,6 +186,8 @@ export function useComments(
       if (error) throw error;
       
       if (data) {
+        console.log(`🔔 [useComments] Fetched ${data.length} comments for post ${postId}`);
+        
         const commentIds = data.map(comment => comment.id);
         
         // Fetch reply counts
@@ -116,12 +227,15 @@ export function useComments(
           like_count: comment.like_count?.[0]?.count || 0,
           isLiked: likedCommentIds.has(comment.id),
         }));
+        
         setComments(commentsWithDetails);
+        console.log(`🔔 [useComments] Comments state updated with ${commentsWithDetails.length} comments`);
       } else {
         setComments([]);
+        console.log('🔔 [useComments] No comments found, clearing state');
       }
     } catch (err) {
-      console.error('Error fetching comments:', err);
+      console.error('🔔 [useComments] Error fetching comments:', err);
     } finally {
       setCommentsLoading(false);
     }
@@ -153,6 +267,12 @@ export function useComments(
     
     if (isCommenting) return;
 
+    console.log('🔔 [useComments] Submitting comment:', {
+      postId: post.id,
+      content: contentToSubmit.substring(0, 50) + '...',
+      parentId: replyingToComment?.id
+    });
+
     setIsCommenting(true);
     
     const parentId = replyingToComment ? replyingToComment.id : null;
@@ -168,6 +288,8 @@ export function useComments(
       }).select('id, content, created_at, user_id, post_id, parent_comment_id').single();
 
       if (error) throw error;
+
+      console.log('🔔 [useComments] Comment submitted successfully:', submittedCommentData.id);
 
       if (submittedCommentData?.id) {
         await getSupabaseClient().from('user_activity_log').insert({
@@ -212,9 +334,10 @@ export function useComments(
         handleReplyAdded(parentId, newCommentEntry);
         // The CommentItem itself will be responsible for re-fetching if its reply_count prop changes.
       } else {
-        // It's a new top-level comment
+        // It's a new top-level comment - add optimistically and real-time will confirm
         setComments(prevComments => [...prevComments, newCommentEntry]);
         setOptimisticCommentCount(prevCount => prevCount + 1); 
+        console.log('🔔 [useComments] Added optimistic comment, real-time will sync');
       }
       
       setNewComment("");
@@ -231,11 +354,13 @@ export function useComments(
         onCommentAddedForTopLevel(post.id, optimisticCommentCount); // optimisticCommentCount should be updated before this
       }
 
+      console.log('🔔 [useComments] Comment submission completed successfully');
+
     } catch (error: any) {
-      console.error(isReply ? "Error posting reply:" : "Error posting comment:", error);
+      console.error('🔔 [useComments] Error submitting comment:', error);
       toast({
         title: "Error",
-        description: error.message || (isReply ? "Could not post reply" : "Could not post comment"),
+        description: error.message || "Could not post comment",
         variant: "destructive",
       });
     } finally {
@@ -243,19 +368,17 @@ export function useComments(
     }
   };
 
-  // Handle when a reply is added to a comment
+  // Handle when a reply is added to a parent comment
   const handleReplyAdded = (commentId: string, newReply: any) => {
-    // Increment the optimistic comment count
-    setOptimisticCommentCount(prevCount => prevCount + 1);
-    
-    // Update the reply count for the parent comment
+    // Update the parent comment's reply count
     setComments(prevComments => 
       prevComments.map(comment => 
         comment.id === commentId 
-          ? { ...comment, reply_count: (comment.reply_count || 0) + 1 } 
+          ? { ...comment, reply_count: (comment.reply_count || 0) + 1 }
           : comment
       )
     );
+    setOptimisticCommentCount(prevCount => prevCount + 1);
   };
 
   // Fetch replies for a specific comment
@@ -302,22 +425,6 @@ export function useComments(
     }
   };
 
-  // Function to handle when a comment's like status is toggled
-  const handleCommentLikeToggled = (commentId: string, newLikedState: boolean, newLikeCount: number) => {
-    const updateCommentRecursive = (list: FetchedComment[]): FetchedComment[] => {
-      return list.map(comment => {
-        if (comment.id === commentId) {
-          return { ...comment, isLiked: newLikedState, like_count: newLikeCount };
-        }
-        if (comment.replies && comment.replies.length > 0) {
-          return { ...comment, replies: updateCommentRecursive(comment.replies) };
-        }
-        return comment;
-      });
-    };
-    setComments(prevComments => updateCommentRecursive(prevComments));
-  };
-
   return {
     comments,
     commentsLoading,
@@ -325,11 +432,13 @@ export function useComments(
     setNewComment,
     isCommenting,
     optimisticCommentCount,
-    handleCommentSubmit,
-    handleReplyAdded,
-    fetchReplies,
     replyingToComment,
     setReplyTarget,
-    handleCommentLikeToggled,
+    handleCommentSubmit,
+    handleReplyAdded,
+    fetchComments,
+    fetchReplies,
+    // 🔔 Real-time status
+    realtimeConnected,
   };
 } 

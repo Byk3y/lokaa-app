@@ -490,13 +490,13 @@ export function ChatListUnified({
    */
   const renderConversationList = () => (
     <div className={`flex-1 overflow-hidden ${variant === 'popover' ? 'px-1 pb-2' : ''}`}>
-      <ScrollArea className="h-full">
+      <ScrollArea className={`h-full ${variant === 'popover' ? 'max-h-[calc(70vh-140px)]' : ''}`}>
         {loading ? (
-          <div className="p-8 flex justify-center items-center h-full">
+          <div className="p-8 flex justify-center items-center h-full min-h-[200px]">
             <div className="animate-spin h-6 w-6 border-t-2 border-blue-500 rounded-full"></div>
           </div>
         ) : filteredConversations.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 text-base h-full flex flex-col justify-center items-center">
+          <div className="p-8 text-center text-gray-500 text-base h-full flex flex-col justify-center items-center min-h-[200px]">
             <MessageSquare className="h-12 w-12 text-gray-300 mb-3" />
             <p className="font-medium">No chats found</p>
             <p className="text-sm">
@@ -505,7 +505,7 @@ export function ChatListUnified({
             </p>
           </div>
         ) : (
-          <div className={variant === 'popover' ? 'space-y-1' : ''}>
+          <div className={`${variant === 'popover' ? 'space-y-1 py-2' : ''}`}>
             {filteredConversations.map(conv => (
               <ChatListItem
                 key={conv.conversation_id}
@@ -525,7 +525,7 @@ export function ChatListUnified({
    */
   const renderContent = () => (
     <div className={`flex flex-col min-h-0 h-full bg-white ${
-      variant === 'popover' ? 'h-[520px]' : 'flex-1'
+      variant === 'popover' ? 'max-h-[70vh] min-h-[400px]' : 'flex-1'
     }`}>
       {renderHeader()}
       {renderSearch()}
@@ -542,7 +542,7 @@ export function ChatListUnified({
         </PopoverTrigger>
         <PopoverContent 
           ref={popoverContentRef}
-          className={`w-[380px] p-0 shadow-2xl rounded-2xl border border-gray-200 bg-white chat-popover-immediate-close ${
+          className={`w-[380px] max-w-[90vw] p-0 shadow-2xl rounded-2xl border border-gray-200 bg-white overflow-hidden ${
             /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ? 'chat-modal-safari-fix' : ''
           }`}
           align="end"

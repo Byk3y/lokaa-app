@@ -23,7 +23,9 @@ const THROTTLED_CATEGORIES = [
   'PredictiveCache',
   'GlobalPresence',
   'FastPath',
-  'AuthFlowStateManager'
+  'AuthFlowStateManager',
+  'RealtimePostLikes',
+  'FeedLogic'
 ];
 
 // Critical patterns that should never be throttled
@@ -77,7 +79,9 @@ class ConsoleOptimizer {
         Phase5: { enabled: false, maxRepeat: 1, throttle: 60000 },
         Phase6: { enabled: false, maxRepeat: 1, throttle: 60000 },
         Phase7: { enabled: false, maxRepeat: 1, throttle: 60000 },
-        CrossBrowserFix: { enabled: true, maxRepeat: 2, throttle: 30000 }
+        ChatRealtime: { enabled: true, maxRepeat: 2, throttle: 10000 },
+        RealtimePostLikes: { enabled: false, maxRepeat: 1, throttle: 30000 },
+        FeedLogic: { enabled: false, maxRepeat: 1, throttle: 30000 }
       }
     };
 
@@ -234,18 +238,17 @@ if (typeof window !== 'undefined') {
     consoleOptimizer.enableCategory('UnifiedPresence', false);
     consoleOptimizer.enableCategory('CacheDebug', false);
     consoleOptimizer.enableCategory('GlobalPresence', false);
-    consoleOptimizer.enableCategory('CrossBrowserFix', false);
+    consoleOptimizer.enableCategory('ChatRealtime', false);
+    consoleOptimizer.enableCategory('RealtimePostLikes', false);
+    consoleOptimizer.enableCategory('FeedLogic', false);
     
     // Set aggressive throttling
     consoleOptimizer.setThrottleConfig('UnifiedPresence', 1, 60000);
     consoleOptimizer.setThrottleConfig('CacheDebug', 1, 30000);
     consoleOptimizer.setThrottleConfig('GlobalPresence', 1, 60000);
-    consoleOptimizer.setThrottleConfig('CrossBrowserFix', 1, 30000);
-    
-    // Disable cross-browser monitoring
-    if ((window as any).realtimeCrossBrowserFix?.disableMonitoring) {
-      (window as any).realtimeCrossBrowserFix.disableMonitoring();
-    }
+    consoleOptimizer.setThrottleConfig('ChatRealtime', 1, 10000);
+    consoleOptimizer.setThrottleConfig('RealtimePostLikes', 1, 30000);
+    consoleOptimizer.setThrottleConfig('FeedLogic', 1, 30000);
     
     console.log('✅ [ConsoleOptimizer] Phase 1 optimization applied! Console noise reduced by ~85%');
     console.log('🔧 [ConsoleOptimizer] Use window.consoleOptimizer.getStats() to see current settings');
@@ -314,7 +317,9 @@ if (typeof window !== 'undefined') {
     consoleOptimizer.enableCategory('UnifiedPresence', true);
     consoleOptimizer.enableCategory('CacheDebug', true); 
     consoleOptimizer.enableCategory('GlobalPresence', true);
-    consoleOptimizer.enableCategory('CrossBrowserFix', true);
+    consoleOptimizer.enableCategory('ChatRealtime', true);
+    consoleOptimizer.enableCategory('RealtimePostLikes', true);
+    consoleOptimizer.enableCategory('FeedLogic', true);
     
     // Restore all global flags (Phase 1, 2, and 3)
     if ((window as any).globalConsoleFlags) {
@@ -340,11 +345,7 @@ if (typeof window !== 'undefined') {
       (window as any).enableFullLogging();
     }
     
-    // Re-enable cross-browser monitoring
-    if ((window as any).realtimeCrossBrowserFix?.enableMonitoring) {
-      (window as any).realtimeCrossBrowserFix.enableMonitoring();
-    }
-    
+    // Clean up any legacy cross-browser monitoring flags
     (window as any).DISABLE_CROSS_BROWSER_MONITORING = false;
     
     console.log('✅ [ConsoleOptimizer] Full logging restored for all phases');

@@ -1,7 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useRealtimeCommentsOptimized } from '@/hooks/useRealtimeCommentsOptimized';
 import type { FetchedComment, CommentAuthor } from '../types/postCard';
+
+// Note: Global type declaration for navigationAwareRealtimeService is in useComments.ts
+/*
+declare global {
+  interface Window {
+    navigationAwareRealtimeService?: {
+      getStats(): {
+        totalSubscriptions: number;
+        protectedSubscriptions: number;
+        navigationState: {
+          lastNavigationTime: number;
+          previousRoute: string;
+          currentRoute: string;
+        };
+      };
+    };
+  }
+}
+*/
 
 // Extended type to include the callbacks that CommentItem expects
 export interface CommentItemProps extends FetchedComment {
@@ -35,11 +55,13 @@ interface UsePostCommentsReturn {
   fetchReplies: (commentId: string) => Promise<CommentItemProps[]>;
   setReplyTarget: (comment: CommentItemProps | null) => void;
   handleCommentLikeToggled: (commentId: string, isLiked: boolean, likeCount: number) => void;
-  fetchComments: () => Promise<void>;
+  fetchComments: (forceRefresh?: boolean, isForAvatars?: boolean) => Promise<void>;
+  realtimeConnected: boolean;
 }
 
 /**
  * Custom hook to manage post comments
+ * 🔔 NOW WITH REAL-TIME SUPPORT AND NAVIGATION-AWARE CACHING!
  */
 export const usePostComments = ({
   postId,
@@ -56,14 +78,130 @@ export const usePostComments = ({
   const [showComments, setShowComments] = useState(false);
   const [replyingToComment, setReplyingToComment] = useState<CommentItemProps | null>(null);
 
+  // 🔔 OPTIMIZED: Real-time comment subscription using NavigationAwareRealtimeService
+  const { isConnected: realtimeConnected } = useRealtimeCommentsOptimized({
+    postId: postId || '',
+    spaceId: spaceId,
+    userId: userId,
+    isEnabled: !!postId,
+    onNewComment: (newCommentData) => {
+      console.log('🔔 [usePostComments] Real-time comment received, refreshing comments...');
+      
+      // 🔥 FIX: Update comment count FIRST, then fetch after delay
+      setOptimisticCommentCount(prev => {
+        const newCount = prev + 1;
+        console.log('🔔 [usePostComments] Updated optimistic count from real-time:', newCount);
+        return newCount;
+      });
+      
+      // 🔧 STABILIZED: Add delay to prevent overwriting optimistic updates
+      setTimeout(() => {
+        // 🔥 FIX: Always fetch comments for real-time updates, not just when showComments is true
+        // This ensures PostCard avatars are updated when new comments arrive
+        if (postId) {
+          console.log('🔔 [usePostComments] Fetching comments due to real-time update');
+          fetchComments();
+        }
+      }, 1500); // Increased delay to 1.5 seconds to allow optimistic updates to settle
+    },
+    onCommentUpdate: (commentId) => {
+      console.log('🔔 [usePostComments] Comment updated, refreshing comments...', commentId);
+      // 🔧 STABILIZED: Add delay for update propagation
+      setTimeout(() => {
+        // 🔥 FIX: Always fetch comments for updates, not just when showComments is true
+        if (postId) {
+          console.log('🔔 [usePostComments] Fetching comments due to comment update');
+          fetchComments();
+        }
+      }, 500); // 500ms delay for updates
+    }
+  });
+
   // Keep optimistic comment count in sync with initialComments prop
+  // 🔥 FIX: Only update if initialComments is higher to prevent resetting optimistic counts
   useEffect(() => {
-    setOptimisticCommentCount(initialComments);
+    setOptimisticCommentCount(prevCount => {
+      // Only update if initialComments is higher or if prevCount is 0 (initial load)
+      const shouldUpdate = initialComments > prevCount || prevCount === 0;
+      if (shouldUpdate) {
+        console.log(`🔔 [usePostComments] Syncing optimistic count: ${prevCount} → ${initialComments}`);
+        return initialComments;
+      }
+      console.log(`🔔 [usePostComments] Preserving optimistic count: ${prevCount} (initialComments: ${initialComments})`);
+      return prevCount;
+    });
   }, [initialComments]);
 
-  // Fetch comments when requested
-  const fetchComments = useCallback(async () => {
+  // 🚀 NAVIGATION-AWARE: Check if we should skip fetching due to recent navigation
+  const shouldSkipFetch = useCallback((isForAvatars: boolean = false) => {
+    // 🔥 FIX: Don't skip fetches when they're specifically for avatar display
+    if (isForAvatars) {
+      return false;
+    }
+    
+    // Check if NavigationAwareRealtimeService exists and if we're in a recent navigation
+    if (typeof window !== 'undefined' && window.navigationAwareRealtimeService) {
+      const stats = window.navigationAwareRealtimeService.getStats();
+      const timeSinceNavigation = Date.now() - stats.navigationState.lastNavigationTime;
+      const isRecentNavigation = timeSinceNavigation < 3000; // 3 seconds
+      
+      // EXPANDED PROTECTION: Cover 3 navigation scenarios
+      const previousRoute = stats.navigationState.previousRoute;
+      const currentRoute = stats.navigationState.currentRoute;
+      
+      // 1. Chat⟷Space navigation (original protection)
+      const isChatSpaceNavigation = (
+        (previousRoute.includes('/app/chat') && currentRoute.includes('/space')) ||
+        (previousRoute.includes('/space') && currentRoute.includes('/app/chat'))
+      );
+      
+      // 2. INITIAL SPACE LOAD PROTECTION (NEW) - Login flow navigation
+      const isInitialSpaceLoad = (
+        currentRoute.includes('/space') && (
+          previousRoute.includes('/login') ||
+          previousRoute.includes('/app') ||
+          previousRoute === '/' ||
+          previousRoute.includes('/auth') ||
+          previousRoute === '' ||
+          timeSinceNavigation < 10000 // EXPANDED: 10s window for initial space loads (was 5s)
+        )
+      );
+      
+      // 3. Space switching protection (NEW)
+      const isSpaceSwitching = (
+        previousRoute.includes('/space') && currentRoute.includes('/space') && 
+        previousRoute !== currentRoute
+      );
+      
+      // EXPANDED TIMING for initial space loads
+      const extendedRecentNavigation = isChatSpaceNavigation ? 
+        timeSinceNavigation < 3000 : // 3s for chat-space
+        timeSinceNavigation < 10000; // 10s for initial loads and space switching
+      
+      const shouldSkip = extendedRecentNavigation && (isChatSpaceNavigation || isInitialSpaceLoad || isSpaceSwitching);
+      
+      if (shouldSkip) {
+        const reason = isChatSpaceNavigation ? 'Chat⟷Space navigation' : 
+                      isInitialSpaceLoad ? 'initial space load' : 
+                      isSpaceSwitching ? 'space switching' : 'recent navigation';
+        console.log(`🛡️ [usePostComments] Skipping fetch for post ${postId} - ${reason} detected`);
+        return true;
+      }
+    }
+    return false;
+  }, [postId]);
+
+  // 🚀 NAVIGATION-AWARE: Fetch comments with navigation awareness
+  const fetchComments = useCallback(async (forceRefresh: boolean = false, isForAvatars: boolean = false) => {
     if (!postId) return;
+    
+    // Skip fetch if we're in a recent navigation scenario (unless forced or for avatars)
+    if (!forceRefresh && shouldSkipFetch(isForAvatars)) {
+      console.log(`🛡️ [usePostComments] Skipped fetch for post ${postId} due to navigation`);
+      return;
+    }
+    
+    console.log(`🔔 [usePostComments] Fetching comments for post: ${postId}`);
     setCommentsLoading(true);
     try {
       // First, fetch top-level comments
@@ -86,6 +224,8 @@ export const usePostComments = ({
       }
 
       if (commentsData) {
+        console.log(`🔔 [usePostComments] Fetched ${commentsData.length} comments for post ${postId}`);
+        
         // Get the counts of replies for each comment
         const commentIds = commentsData.map(comment => comment.id);
         
@@ -158,15 +298,24 @@ export const usePostComments = ({
 
         setComments(commentsWithCallbacks);
         
-        // Update the total comment count including replies
-        const totalComments = processedComments.length + 
+        // 🔥 FIX: Update the total comment count including replies, but preserve optimistic count if higher
+        const fetchedTotalComments = processedComments.length + 
           processedComments.reduce((total, comment) => total + (comment.reply_count || 0), 0);
-        setOptimisticCommentCount(totalComments);
+        
+        setOptimisticCommentCount(prevCount => {
+          // Preserve higher optimistic count to prevent "0 flash" during real-time updates
+          const finalCount = Math.max(prevCount, fetchedTotalComments);
+          console.log(`🔔 [usePostComments] Comment count update: fetched=${fetchedTotalComments}, optimistic=${prevCount}, final=${finalCount}`);
+          return finalCount;
+        });
+        
+        console.log(`🔔 [usePostComments] Comments state updated with ${commentsWithCallbacks.length} comments`);
       } else {
         setComments([]);
+        console.log(`🔔 [usePostComments] No comments found, clearing state`);
       }
     } catch (error: any) {
-      console.error('Error fetching comments:', error);
+      console.error(`🔔 [usePostComments] Error fetching comments:`, error);
       toast({
         title: "Error",
         description: error.message || "Could not load comments.",
@@ -175,7 +324,7 @@ export const usePostComments = ({
     } finally {
       setCommentsLoading(false);
     }
-  }, [postId, spaceId, userId]);
+  }, [postId, spaceId, userId, shouldSkipFetch]);
 
   // Function to fetch replies for a comment
   const fetchReplies = useCallback(async (commentId: string): Promise<CommentItemProps[]> => {
@@ -272,6 +421,12 @@ export const usePostComments = ({
     }
     if (isCommenting) return;
 
+    console.log('🔔 [usePostComments] Submitting comment:', {
+      postId: postId,
+      content: newComment.trim().substring(0, 50) + '...',
+      parentId: replyingToComment?.id
+    });
+
     setIsCommenting(true);
     const originalCommentCount = optimisticCommentCount;
     const parentId = replyingToComment ? replyingToComment.id : null;
@@ -288,6 +443,8 @@ export const usePostComments = ({
 
       if (error) throw error;
 
+      console.log('🔔 [usePostComments] Comment submitted successfully:', data.id);
+
       // Insert into user_activity_log after comment creation
       if (data && data.id) {
         await getSupabaseClient().from('user_activity_log').insert({
@@ -302,36 +459,45 @@ export const usePostComments = ({
         });
       }
 
+      // Notify parent component if callback provided - CRITICAL: Call BEFORE refresh
+      if (onCommentAdded) {
+        console.log('🔔 [usePostComments] Notifying parent of comment addition:', {
+          postId,
+          newCount: optimisticCommentCount + 1
+        });
+        onCommentAdded(postId, optimisticCommentCount + 1);
+      }
+      
       setNewComment("");
       setReplyingToComment(null); // Clear reply target
       setOptimisticCommentCount(prev => prev + 1);
       
       // Refresh comments to show the new comment/reply
       if (showComments) {
+        console.log('🔔 [usePostComments] Refreshing comments after successful submission');
         fetchComments();
-      }
-      
-      // Notify parent component if callback provided
-      if (onCommentAdded) {
-        onCommentAdded(postId, optimisticCommentCount + 1);
       }
       
       toast({ 
         title: isReply ? "Reply posted!" : "Comment posted!", 
         variant: "default" 
       });
+
+      console.log('🔔 [usePostComments] Comment submission completed successfully');
+      
     } catch (error: any) {
-      console.error("Error posting comment:", error);
+      console.error('🔔 [usePostComments] Error submitting comment:', error);
+      // Reset optimistic count on error
+      setOptimisticCommentCount(originalCommentCount);
       toast({
         title: "Error",
         description: error.message || "Could not post comment.",
         variant: "destructive",
       });
-      setOptimisticCommentCount(originalCommentCount); // Revert optimistic update
     } finally {
       setIsCommenting(false);
     }
-  }, [userId, postId, spaceId, newComment, isCommenting, optimisticCommentCount, replyingToComment, showComments, fetchComments, onCommentAdded]);
+  }, [userId, newComment, isCommenting, postId, spaceId, replyingToComment, optimisticCommentCount, showComments, fetchComments, onCommentAdded]);
 
   // Function to handle when a comment's like status is toggled
   const handleCommentLikeToggled = useCallback((commentId: string, isLiked: boolean, likeCount: number) => {
@@ -345,20 +511,22 @@ export const usePostComments = ({
   }, []);
 
   return {
-    comments,
-    commentsLoading,
     newComment,
     setNewComment,
     isCommenting,
     optimisticCommentCount,
+    comments,
+    commentsLoading,
     showComments,
     setShowComments,
     replyingToComment,
+    setReplyTarget,
     handleCommentSubmit,
     handleReplyAdded,
-    fetchReplies,
-    setReplyTarget,
-    handleCommentLikeToggled,
     fetchComments,
+    fetchReplies,
+    handleCommentLikeToggled,
+    // 🔔 Real-time status
+    realtimeConnected,
   };
 }; 

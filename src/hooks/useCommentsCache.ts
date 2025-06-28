@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { CACHE_KEYS, QUERY_OPTIONS } from '@/utils/cacheKeys';
 import { optimisticUpdates, cacheInvalidation, cacheDebug } from '@/utils/cacheUtils';
+import { useOptimizedAuth } from '@/contexts/AuthContext';
 
 // Types
 interface Comment {
@@ -43,14 +44,16 @@ interface CommentLikeParams {
   currentlyLiked: boolean;
   currentLikeCount: number;
 }
-
 /**
  * Enhanced Comments Hook with TanStack Query
  * Provides optimized caching, pagination, and optimistic updates
  */
 export function useCommentsCache(postId: string, currentUserId?: string) {
   const queryClient = useQueryClient();
-
+  
+  // 🔥 FIX: Get current user data for optimistic updates
+  const { user: currentUser } = useOptimizedAuth();
+  
   // Comments query with infinite scroll support
   const {
     data: commentsData,
@@ -246,7 +249,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
         ? cachedData.pages.reduce((total: number, page: any) => total + (page.comments?.length || 0), 0)
         : 0;
 
-      // Create optimistic comment
+      // 🔥 FIX: Create optimistic comment with REAL user data instead of "You"
       const optimisticComment: Comment = {
         id: `temp-${Date.now()}`,
         content,
@@ -259,8 +262,10 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
         reply_count: 0,
         author: {
           id: userId,
-          full_name: 'You', // Will be updated when real data arrives
-          avatar_url: null,
+          // ✅ FIXED: Use real user name instead of "You"
+          full_name: currentUser?.user_metadata?.full_name || currentUser?.email || 'User',
+          // ✅ FIXED: Use real avatar URL instead of null
+          avatar_url: currentUser?.user_metadata?.avatar_url || null,
         },
         isLiked: false,
       };

@@ -62,21 +62,27 @@ export function generateConversationSlug(fullUuid: string): string {
  * First checks cache, then searches through available conversations
  * 
  * @param slug The shortened slug from URL
- * @param availableConversations List of conversations to search through
+ * @param availableConversations Optional list of conversations to search through
  * @returns Full UUID or null if not found
  */
 export function findConversationIdFromSlug(
   slug: string, 
-  availableConversations: Array<{ conversation_id: string }>
+  availableConversations?: Array<{ conversation_id: string }>
 ): string | null {
   if (!slug) return null;
   
-  // Check cache first
+  // Check cache first (primary lookup method)
   if (reverseConversationIdCache.has(slug)) {
     return reverseConversationIdCache.get(slug)!;
   }
   
-  // Search through available conversations
+  // If no conversations provided, only use cache
+  if (!availableConversations || availableConversations.length === 0) {
+    console.log('[ConversationUrlUtils] Cache miss for slug, no conversations to search:', slug);
+    return null;
+  }
+  
+  // Search through available conversations as fallback
   for (const conversation of availableConversations) {
     const conversationSlug = generateConversationSlug(conversation.conversation_id);
     if (conversationSlug === slug) {
@@ -143,8 +149,79 @@ export function parseConversationUrlParams(): {
 }
 
 /**
+ * Navigation Rate Limiter to prevent SecurityError
+ */
+class NavigationRateLimiter {
+  private navigationCalls: number[] = [];
+  private readonly maxCalls = 80; // Stay well below browser limit of 100
+  private readonly timeWindow = 10000; // 10 seconds
+
+  canNavigate(): boolean {
+    const now = Date.now();
+    
+    // Remove old calls outside the time window
+    this.navigationCalls = this.navigationCalls.filter(
+      timestamp => now - timestamp < this.timeWindow
+    );
+    
+    // Check if we're within the limit
+    if (this.navigationCalls.length >= this.maxCalls) {
+      console.warn('[NavigationRateLimiter] Rate limit exceeded, blocking navigation');
+      return false;
+    }
+    
+    // Record this navigation call
+    this.navigationCalls.push(now);
+    return true;
+  }
+
+  reset(): void {
+    this.navigationCalls = [];
+  }
+
+  getStatus(): { callsInWindow: number; maxCalls: number; canNavigate: boolean } {
+    return {
+      callsInWindow: this.navigationCalls.length,
+      maxCalls: this.maxCalls,
+      canNavigate: this.canNavigate()
+    };
+  }
+}
+
+const navigationRateLimiter = new NavigationRateLimiter();
+
+/**
+ * Navigation Debouncer to prevent rapid consecutive calls
+ */
+class NavigationDebouncer {
+  private debounceTimeout: NodeJS.Timeout | null = null;
+  private readonly debounceDelay = 100; // 100ms
+
+  debounce<T extends any[]>(fn: (...args: T) => void, ...args: T): void {
+    if (this.debounceTimeout) {
+      clearTimeout(this.debounceTimeout);
+    }
+    
+    this.debounceTimeout = setTimeout(() => {
+      fn(...args);
+      this.debounceTimeout = null;
+    }, this.debounceDelay);
+  }
+
+  cancel(): void {
+    if (this.debounceTimeout) {
+      clearTimeout(this.debounceTimeout);
+      this.debounceTimeout = null;
+    }
+  }
+}
+
+const navigationDebouncer = new NavigationDebouncer();
+
+/**
  * Navigate to conversation URL on mobile
  * Uses window.history.pushState to avoid full page reload
+ * Now includes rate limiting and debouncing
  * 
  * @param conversationId Full UUID of the conversation
  * @param replace Whether to replace current history entry
@@ -157,14 +234,36 @@ export function navigateToConversation(
     return false; // Desktop should use direct state management
   }
   
+  // Check rate limiting
+  if (!navigationRateLimiter.canNavigate()) {
+    console.error('[NavigationUtils] Navigation rate limited - too many calls');
+    return false;
+  }
+
   const url = generateConversationUrl(conversationId);
   if (!url) return false;
   
+  // Debounce the actual navigation
+  navigationDebouncer.debounce(performNavigation, conversationId, url, replace);
+  return true;
+}
+
+/**
+ * Internal function to perform the actual navigation
+ * This is debounced to prevent rapid consecutive calls
+ */
+function performNavigation(conversationId: string, url: string, replace: boolean): void {
   try {
+    // Check if URL is already current (prevent unnecessary navigation)
+    if (typeof window !== 'undefined' && window.location.pathname + window.location.search === url) {
+      console.log('[NavigationUtils] Already at target URL, skipping navigation');
+      return;
+    }
+
     if (replace) {
-      window.history.replaceState({}, '', url);
+      window.history.replaceState({ conversationId }, '', url);
     } else {
-      window.history.pushState({}, '', url);
+      window.history.pushState({ conversationId }, '', url);
     }
     
     // Dispatch custom event to notify components of URL change
@@ -173,10 +272,9 @@ export function navigateToConversation(
     });
     window.dispatchEvent(event);
     
-    return true;
+    console.log('[NavigationUtils] Navigation completed:', { conversationId, url });
   } catch (error) {
-    console.error('Failed to navigate to conversation:', error);
-    return false;
+    console.error('[NavigationUtils] Navigation failed:', error);
   }
 }
 
@@ -189,7 +287,30 @@ export function navigateToConversationList(): boolean {
     return false;
   }
   
+  // Check rate limiting
+  if (!navigationRateLimiter.canNavigate()) {
+    console.error('[NavigationUtils] Navigation rate limited - too many calls');
+    return false;
+  }
+  
+  // Debounce the navigation
+  navigationDebouncer.debounce(performListNavigation);
+  return true;
+}
+
+/**
+ * Internal function to perform conversation list navigation
+ */
+function performListNavigation(): void {
   try {
+    // Check if already at list URL
+    if (typeof window !== 'undefined' && 
+        window.location.pathname === '/app/chat' && 
+        !window.location.search.includes('ch=')) {
+      console.log('[NavigationUtils] Already at conversation list, skipping navigation');
+      return;
+    }
+
     window.history.pushState({}, '', '/app/chat');
     
     // Dispatch custom event
@@ -198,10 +319,9 @@ export function navigateToConversationList(): boolean {
     });
     window.dispatchEvent(event);
     
-    return true;
+    console.log('[NavigationUtils] Navigated to conversation list');
   } catch (error) {
-    console.error('Failed to navigate to conversation list:', error);
-    return false;
+    console.error('[NavigationUtils] Failed to navigate to conversation list:', error);
   }
 }
 
@@ -293,6 +413,17 @@ export const conversationUrlDebug = {
     
     const cacheStats = getConversationUrlCacheStats();
     console.log('Cache stats:', cacheStats);
+    
+    // Return state object for testing
+    return {
+      isMobile: detectMobileDevice(),
+      currentUrl: window.location.href,
+      conversationId: params.conversationId,
+      slug: params.slug,
+      isConversationUrl: isConversationUrl(),
+      urlParsingEnabled: detectMobileDevice(),
+      cacheStats
+    };
   },
   
   /**
@@ -301,10 +432,38 @@ export const conversationUrlDebug = {
   clearCaches: () => {
     clearConversationUrlCaches();
     console.log('✅ Conversation URL caches cleared');
+  },
+  
+  /**
+   * Test URL generation (for rate limiter testing)
+   */
+  testUrlGeneration: (conversationId = 'test-' + Date.now()) => {
+    console.log('🧪 Testing URL generation for rate limiter...');
+    const url = generateConversationUrl(conversationId);
+    console.log('Generated URL:', url);
+    return url;
   }
 };
 
 // Make debug utilities available globally in development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).conversationUrlDebug = conversationUrlDebug;
+  (window as any).getNavigationRateLimiterStatus = getNavigationRateLimiterStatus;
+  (window as any).resetNavigationRateLimiter = resetNavigationRateLimiter;
+} 
+
+/**
+ * Get navigation rate limiter status (for debugging)
+ */
+export function getNavigationRateLimiterStatus() {
+  return navigationRateLimiter.getStatus();
+}
+
+/**
+ * Reset navigation rate limiter (for testing)
+ */
+export function resetNavigationRateLimiter() {
+  navigationRateLimiter.reset();
+  navigationDebouncer.cancel();
+  console.log('[NavigationUtils] Rate limiter and debouncer reset');
 } 

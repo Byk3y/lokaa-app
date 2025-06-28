@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import SpaceCardPreview from "@/components/spaces/SpaceCardPreview";
 import { useSpaceAboutData, SpaceAboutData } from "@/hooks/useSpaceAboutData";
 import { Loader2, X } from "lucide-react";
+import { useEffect } from "react";
 
 interface SpacePreviewModalProps {
   open: boolean;
@@ -17,6 +18,22 @@ export function SpacePreviewModal({
   onJoin 
 }: SpacePreviewModalProps) {
   const { spaceAboutData, loading, error } = useSpaceAboutData({ spaceId });
+  
+  // Debug logging to track modal data flow
+  useEffect(() => {
+    if (open) {
+      console.log(`🔍 [SpacePreviewModal] Modal opened with:`, {
+        spaceId,
+        loading,
+        error,
+        spaceAboutData: spaceAboutData ? {
+          id: spaceAboutData.id,
+          name: spaceAboutData.name,
+          subdomain: spaceAboutData.subdomain
+        } : null
+      });
+    }
+  }, [open, spaceId, loading, error, spaceAboutData]);
   
   return (
     <>

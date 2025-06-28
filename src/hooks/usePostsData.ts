@@ -294,7 +294,8 @@ export function usePostsData({ spaceId, currentUserId, isAdmin }: UsePostsDataPr
               ...post,
               content: updatedPost.content,
               title: updatedPost.title,
-              edited_at: updatedPost.editedAt
+              edited_at: updatedPost.editedAt,
+              media_urls: updatedPost.media_urls || post.media_urls  // CRITICAL FIX: Include media_urls
             } 
           : post
       )
@@ -308,7 +309,8 @@ export function usePostsData({ spaceId, currentUserId, isAdmin }: UsePostsDataPr
               ...post,
               content: updatedPost.content,
               title: updatedPost.title,
-              edited_at: updatedPost.editedAt
+              edited_at: updatedPost.editedAt,
+              media_urls: updatedPost.media_urls || post.media_urls  // CRITICAL FIX: Include media_urls
             } 
           : post
       )

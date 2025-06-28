@@ -89,9 +89,13 @@ class SupabaseHealthMonitor {
       };
       
       // Track page visibility changes for mobile background detection
+      if (!(window as any).DISABLE_MOBILE_BROWSER_SERVICE) {
       document.addEventListener('visibilitychange', () => {
         (window as any).__lastVisibilityChange = Date.now();
       });
+      } else {
+        console.log('🔧 [SupabaseHealthMonitor] Visibility listener DISABLED - Mobile Event Coordinator is managing events');
+      }
     }
   }
 

@@ -92,6 +92,12 @@ class MobileSessionManager {
   private initializeVisibilityListeners(): void {
     if (typeof document === 'undefined') return;
 
+    // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
+    if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_SESSION_MANAGER) {
+      console.log('🔧 [MobileSessionManager] DISABLED - Mobile Event Coordinator is managing events');
+      return;
+    }
+
     // Only enable mobile session management on actual mobile devices
     if (!shouldEnableMobileFeatures()) {
       console.log('📱 [MobileSessionManager] Desktop detected - mobile session management disabled');
@@ -802,8 +808,60 @@ class MobileSessionManager {
   }
 }
 
-// Export singleton instance
-export const mobileSessionManager = MobileSessionManager.getInstance();
+// OPTION C FIX: Only create singleton instance if not disabled
+let mobileSessionManagerInstance: MobileSessionManager | null = null;
+
+function getMobileSessionManager(): MobileSessionManager {
+  if (!mobileSessionManagerInstance) {
+    // Check disable flag before creating instance
+    if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_SESSION_MANAGER) {
+      console.log('🔧 [MobileSessionManager] Singleton creation DISABLED - Mobile Event Coordinator is managing events');
+      // Return a no-op instance
+      mobileSessionManagerInstance = {
+        isReturningFromBackground: () => false,
+        getBackgroundTime: () => 0,
+        clearStaleStates: () => {},
+        quickMobileAuthCheck: async () => ({ authenticated: true }),
+        getCachedSpaceInfo: () => null,
+        validateSessionProactively: async () => ({ isValid: true, needsRefresh: false, action: 'valid' }),
+        performEnhancedMobileRecovery: async () => ({ success: true, action: 'recovered' }),
+        getSessionState: () => ({
+          lastActiveTimestamp: Date.now(),
+          backgroundTimestamp: 0,
+          authState: 'verified' as const,
+          lastActiveSpace: null,
+          userId: null,
+          isReturningFromBackground: false,
+          mobileRecoveryAttempts: 0
+        }),
+        isLikelyStuck: () => false,
+        resetRecoveryState: () => {},
+        getState: () => ({
+          lastActiveTimestamp: Date.now(),
+          backgroundTimestamp: 0,
+          authState: 'verified' as const,
+          lastActiveSpace: null,
+          userId: null,
+          isReturningFromBackground: false,
+          mobileRecoveryAttempts: 0
+        }),
+        updateSpaceCache: () => {}
+      } as unknown as MobileSessionManager;
+    } else {
+      mobileSessionManagerInstance = MobileSessionManager.getInstance();
+    }
+  }
+  return mobileSessionManagerInstance;
+}
+
+// Export lazy singleton using Proxy for deferred creation
+export const mobileSessionManager = new Proxy({} as MobileSessionManager, {
+  get(target, prop) {
+    const instance = getMobileSessionManager();
+    const value = (instance as any)[prop];
+    return typeof value === 'function' ? value.bind(instance) : value;
+  }
+});
 
 // Debug helpers for development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {

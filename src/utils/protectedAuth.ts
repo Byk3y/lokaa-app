@@ -5,7 +5,7 @@
  * to prevent "Fetch API cannot load" errors on mobile browsers.
  */
 
-import { supabaseIndexedDBBridge } from './supabaseIndexedDBBridge';
+import { migrationAdapter } from './indexeddb/migration/MigrationAdapter';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
 /**
@@ -16,7 +16,7 @@ export async function getProtectedCurrentUser(options: {
   forceNetwork?: boolean;
 } = {}) {
   try {
-    return await supabaseIndexedDBBridge.getCurrentUser(options);
+    return await migrationAdapter.getCurrentUser(options);
   } catch (error) {
     console.warn('Protected auth fallback to direct call:', error);
     
@@ -41,7 +41,7 @@ export async function updateProtectedPresence(
   } = {}
 ) {
   try {
-    return await supabaseIndexedDBBridge.updateGlobalPresence(userId, isOnline, options);
+    return await migrationAdapter.updateGlobalPresence(userId, isOnline, options);
   } catch (error) {
     console.warn('Protected presence update failed:', error);
     return { data: null, error, fromCache: false };
