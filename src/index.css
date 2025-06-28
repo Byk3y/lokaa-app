@@ -431,20 +431,40 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   
-  /* Ensure chat input is always visible above bottom navigation */
+  /* ✅ MOBILE KEYBOARD FIX: Robust CSS-based mobile chat layout */
   @media (max-width: 640px) {
     .mobile-chat-view {
       position: relative;
-      height: 100vh;
-      height: 100dvh; /* Use dynamic viewport height if supported */
-      max-height: 100vh;
+      /* Use dynamic viewport height that automatically adapts to keyboard */
+      height: 100dvh;
       max-height: 100dvh;
+      min-height: 100dvh;
       overflow: hidden;
+      /* Account for safe areas on iOS devices */
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
     
-    .mobile-chat-view.keyboard-open {
-      height: 100vh;
-      height: 100dvh;
+    .mobile-chat-messages {
+      /* Ensure smooth scrolling on mobile */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    
+    .mobile-chat-input {
+      /* Ensure input area accounts for safe areas */
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      flex-shrink: 0;
+    }
+    
+    /* Handle bottom navigation spacing when chat is in main app */
+    .mobile-chat-view:not(.modal-chat) {
+      /* Account for bottom nav height when not in modal */
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    }
+    
+    .mobile-chat-view:not(.modal-chat) .mobile-chat-input {
+      /* Adjust input position when bottom nav is present */
+      margin-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
     }
   }
   

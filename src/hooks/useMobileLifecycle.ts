@@ -11,6 +11,10 @@ import { mobileSessionManager } from '@/utils/mobileSessionManager';
 import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 
+// Singleton instance tracking
+let isInitialized = false;
+let activeInstance: string | null = null;
+
 interface MobileLifecycleState {
   isBackground: boolean;
   returnedFromBackground: boolean;
@@ -44,8 +48,58 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
   const location = useLocation();
   const { user, loading } = useOptimizedAuth();
   
+  // Early initialization check - before any state or effects
+  if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_LIFECYCLE) {
+    console.log('🔧 [MobileLifecycle] DISABLED - Mobile Event Coordinator is managing events');
+    // Return dummy implementation when disabled
+    return {
+      isBackground: false,
+      returnedFromBackground: false,
+      backgroundDuration: 0,
+      isRecovering: false,
+      needsRecovery: false,
+      loadingStuckDuration: 0,
+      recoveryAttempts: 0,
+      sessionValidated: true,
+      validationResult: null,
+      phase1RecoveryActive: false,
+      sessionValidationStatus: 'valid',
+      lastRecoveryResult: null,
+      triggerRecovery: async () => {},
+      resetRecoveryState: () => {},
+      markRecoveryComplete: () => {},
+      triggerEnhancedRecovery: async () => {},
+      validateSession: async () => ({ isValid: true })
+    };
+  }
+  
   // Only enable mobile lifecycle management on actual mobile devices
   const isMobileDevice = shouldEnableMobileFeatures();
+  
+  // Generate unique instance ID
+  const instanceId = useRef(Math.random().toString(36).substring(7));
+  
+  // Singleton enforcement
+  useEffect(() => {
+    if (!isMobileDevice) return;
+    
+    if (!isInitialized) {
+      isInitialized = true;
+      activeInstance = instanceId.current;
+      console.log(`📱 [MobileLifecycle] Initializing first instance: ${instanceId.current}`);
+    } else if (activeInstance !== instanceId.current) {
+      console.warn(`📱 [MobileLifecycle] Multiple instances detected. Active: ${activeInstance}, Current: ${instanceId.current}`);
+      return; // Don't initialize event listeners for duplicate instances
+    }
+    
+    return () => {
+      if (activeInstance === instanceId.current) {
+        isInitialized = false;
+        activeInstance = null;
+        console.log(`📱 [MobileLifecycle] Cleaning up instance: ${instanceId.current}`);
+      }
+    };
+  }, [isMobileDevice]);
   
   const [state, setState] = useState<MobileLifecycleState>({
     isBackground: false,
@@ -55,7 +109,6 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
     needsRecovery: false,
     loadingStuckDuration: 0,
     recoveryAttempts: 0,
-    // PHASE 1: Enhanced state
     sessionValidated: false,
     validationResult: null,
     phase1RecoveryActive: false,
@@ -67,24 +120,16 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
   const loadingStartRef = useRef<number>(0);
   const recoveryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stuckCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // PHASE 1: Enhanced refs for session validation
   const sessionValidationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastValidationTimeRef = useRef<number>(0);
 
   /**
    * PHASE 1: Enhanced page visibility changes with proactive session validation
-   * Only activates on mobile devices
+   * Only activates on mobile devices and for the active instance
    */
   useEffect(() => {
-    // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
-    if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_LIFECYCLE) {
-      console.log('🔧 [MobileLifecycle] DISABLED - Mobile Event Coordinator is managing events');
+    if (!isMobileDevice || activeInstance !== instanceId.current) {
       return;
-    }
-    
-    if (!isMobileDevice) {
-      return; // Not a mobile device, no need for mobile lifecycle management
     }
 
     const handleVisibilityChange = () => {
@@ -113,9 +158,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
           isBackground: false,
           returnedFromBackground: isSignificantBackground,
           backgroundDuration: duration,
-          // ENHANCED: Only trigger recovery for truly stuck loading states, not normal data refreshing
-          needsRecovery: false, // Don't immediately assume we need recovery
-          // PHASE 1: Reset session validation state on return
+          needsRecovery: false,
           sessionValidated: false,
           validationResult: null
         }));
@@ -161,8 +204,6 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
                 }
               } catch (error) {
                 console.warn('📱 [MobileLifecycle] Session validation failed:', error);
-                // ENHANCED: Don't immediately mark for recovery on validation failure
-                // Mobile browsers often block requests temporarily after long backgrounds
                 console.log('📱 [MobileLifecycle] Deferring recovery decision due to validation failure (network may be blocked)');
                 
                 setState(prev => ({
@@ -194,6 +235,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
       }
     };
 
+    // Only attach listeners for the active instance
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', () => {
       setState(prev => ({ ...prev, isBackground: false }));
@@ -201,14 +243,22 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', () => {});
+      window.removeEventListener('focus', () => {
+        setState(prev => ({ ...prev, isBackground: false }));
+      });
       
-      // PHASE 1: Cleanup validation timeouts
+      // Clear all timeouts on cleanup
       if (sessionValidationTimeoutRef.current) {
         clearTimeout(sessionValidationTimeoutRef.current);
       }
+      if (recoveryTimeoutRef.current) {
+        clearTimeout(recoveryTimeoutRef.current);
+      }
+      if (stuckCheckIntervalRef.current) {
+        clearInterval(stuckCheckIntervalRef.current);
+      }
     };
-  }, [state.isBackground, loading, user, isMobileDevice]);
+  }, [isMobileDevice, state.isBackground, user, loading]);
 
   /**
    * PHASE 1: Enhanced loading state monitoring

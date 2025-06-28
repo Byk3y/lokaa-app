@@ -48,7 +48,7 @@ export function useAppInitialization() {
       }
     };
   }, []);
-  
+
   return {
     appReady // Always true now - app renders immediately
   };
