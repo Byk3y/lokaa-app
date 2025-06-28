@@ -35,15 +35,11 @@ export function useModalState() {
   };
 
   const openCreatePostModal = () => {
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.set('action', 'create-post');
-    navigate({ search: searchParams.toString() }, { replace: true });
+    setIsCreatePostModalOpen(true);
   };
 
   const closeCreatePostModal = () => {
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.delete('action');
-    navigate({ search: searchParams.toString() }, { replace: true });
+    setIsCreatePostModalOpen(false);
   };
 
   const openCategoryModal = () => {
@@ -53,18 +49,6 @@ export function useModalState() {
   const closeCategoryModal = () => {
     setIsCategoryModalOpen(false);
   };
-
-  // Handle URL-based modal state
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    if (searchParams.get('action') === 'create-post') {
-      setIsCreatePostModalOpen(true);
-    } else {
-      if (isCreatePostModalOpen && !searchParams.get('action')) {
-         setIsCreatePostModalOpen(false);
-      }
-    }
-  }, [location.search, isCreatePostModalOpen]);
 
   // Cleanup modals on unmount
   const cleanupModals = () => {

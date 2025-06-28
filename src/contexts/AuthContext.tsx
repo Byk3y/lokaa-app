@@ -116,6 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const initializeAuth = async () => {
       try {
+        // Check if we're coming from a sign out to skip loading states
+        const isSignOutRedirect = sessionStorage.getItem('lokaa-signing-out') === 'true';
+        if (isSignOutRedirect) {
+          console.log('🚪 [AuthProvider] Detected sign out redirect, skipping initialization');
+          sessionStorage.removeItem('lokaa-signing-out');
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          setProviderReady(true);
+          return;
+        }
+
         // Mark provider as initializing
         setProviderReady(false);
         

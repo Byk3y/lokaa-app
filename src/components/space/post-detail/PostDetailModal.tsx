@@ -48,16 +48,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { getInitial } from '@/shared/utils/avatar-utils';
 import { CategoryTag } from '@/components/ui/category-tag';
 import { resolveImageUrl } from '@/utils/preloadAssets';
-
-// Convert text to title case (capitalize first letter of each word)
-function toTitleCase(text: string): string {
-  if (!text) return '';
-  return text
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
+import { toTitleCase } from '@/utils/textFormatting';
 
 interface PostDetailModalProps {
   isOpen: boolean;

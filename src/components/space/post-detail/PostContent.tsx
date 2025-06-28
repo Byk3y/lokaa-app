@@ -1,18 +1,10 @@
 import React, { useMemo } from 'react';
 import type { PostCardProps } from '@/features/posts/types';
+import { toTitleCase } from '@/utils/textFormatting';
 
 interface PostContentProps {
   post: PostCardProps;
   postTitleRef: React.RefObject<HTMLHeadingElement>;
-}
-
-// Convert text to title case (capitalize first letter of each word)
-function toTitleCase(text: string): string {
-  return text
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 export default function PostContent({ post, postTitleRef }: PostContentProps) {

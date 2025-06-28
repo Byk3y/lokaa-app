@@ -150,7 +150,13 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
   // The `ProtectedRoute` and `PublicRoute` components will use this state
   // to handle redirection, which is a much cleaner and more standard approach.
 
-  if (loading) {
+  // Check if we're coming from a sign out to skip loading screen
+  const isSignOutRedirect = sessionStorage.getItem('lokaa-signing-out') === 'true';
+  if (isSignOutRedirect) {
+    // Clear the flag and skip loading screen
+    sessionStorage.removeItem('lokaa-signing-out');
+    console.log('🚪 [ApplicationRouter] Detected sign out redirect, skipping loading screen');
+  } else if (loading) {
     return <AppLoadingScreen />;
   }
   

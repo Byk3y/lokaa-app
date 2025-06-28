@@ -331,6 +331,30 @@ export function useCreatePostModal({
     }
   }, [isEmptySpace, checkingPosts, editMode, setShowFunPostIdeas]);
 
+  // Auto-resize textarea
+  useEffect(() => {
+    if (contentTextareaRef.current) {
+      const textarea = contentTextareaRef.current;
+      
+      // Calculate max height (35% of viewport height)
+      const maxHeight = Math.floor(window.innerHeight * 0.35);
+      
+      // Reset height to auto to get accurate scrollHeight
+      textarea.style.height = 'auto';
+      
+      // Set height to scrollHeight but not exceeding maxHeight
+      const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+      textarea.style.height = `${newHeight}px`;
+      
+      // Ensure overflow is handled properly
+      if (textarea.scrollHeight > maxHeight) {
+        textarea.style.overflowY = 'auto';
+      } else {
+        textarea.style.overflowY = 'hidden';
+      }
+    }
+  }, [content]);
+
   // Helper function to format file size
   const formatFileSize = (bytes?: number): string => {
     if (bytes === undefined) return '';

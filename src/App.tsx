@@ -168,10 +168,6 @@ export default function App() {
     };
   }, []);
 
-  if (!appReady) {
-    return <AppLoadingScreen />;
-  }
-
   return (
     <AppErrorBoundary>
       <OptimizedProviderTree>

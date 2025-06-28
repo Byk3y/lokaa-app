@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -29,6 +29,8 @@ export interface CategorySelectorProps {
 /**
  * Component for selecting a post category
  * 🎉 REFACTORED to use DropdownMenu for proper layering
+ * 🔧 FIXED: Mobile z-index issues and default category handling
+ * 📱 ENHANCED: Better mobile touch handling
  */
 export const CategorySelector: React.FC<CategorySelectorProps> = ({
   selectedCategoryId,
@@ -41,13 +43,30 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
     ? categories.find(c => c.id === selectedCategoryId) 
     : null;
   
+  // Auto-select "General Discussion" when categories load if no category is selected
+  useEffect(() => {
+    if (!selectedCategoryId && categories.length > 0 && !loading) {
+      const generalDiscussionCategory = categories.find(
+        cat => cat.name.toLowerCase() === 'general discussion'
+      );
+      if (generalDiscussionCategory) {
+        console.log('🏷️ [CategorySelector] Auto-selecting General Discussion:', generalDiscussionCategory);
+        onCategoryChange(generalDiscussionCategory.id);
+      }
+    }
+  }, [categories, selectedCategoryId, loading, onCategoryChange]);
+  
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="flex items-center text-black dark:text-white font-medium text-sm transition-colors"
+          className="flex items-center text-black dark:text-white font-medium text-sm transition-colors touch-manipulation active:scale-95"
+          style={{ 
+            touchAction: 'manipulation',
+            WebkitTapHighlightColor: 'transparent'
+          }}
         >
-          <span className={`px-3 py-1.5 rounded-md text-sm font-semibold flex items-center ${
+          <span className={`px-3 py-2 rounded-md text-sm font-semibold flex items-center min-h-[44px] min-w-[44px] justify-center ${
             selectedCategory 
               ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' 
               : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
@@ -58,24 +77,36 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
         </button>
       </DropdownMenuTrigger>
       
-      {/* This content will be portaled outside the modal */}
-      <DropdownMenuContent className="w-56" align="end">
+      {/* Enhanced for mobile: Higher z-index and better positioning */}
+      <DropdownMenuContent 
+        className="w-56 z-[10000] shadow-lg" 
+        align="end"
+        sideOffset={8}
+        style={{ zIndex: 10000 }}
+      >
         <DropdownMenuLabel>Categories</DropdownMenuLabel>
         <DropdownMenuSeparator />
         
         {loading ? (
-          <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
+          <DropdownMenuItem disabled>Loading categories...</DropdownMenuItem>
         ) : error ? (
-          <DropdownMenuItem disabled className="text-red-500">Error loading</DropdownMenuItem>
+          <DropdownMenuItem disabled className="text-red-500">Error loading categories</DropdownMenuItem>
         ) : categories.length === 0 ? (
           <DropdownMenuItem disabled>No categories available</DropdownMenuItem>
         ) : (
           categories.map((category) => (
             <DropdownMenuItem 
               key={category.id}
-              onSelect={() => onCategoryChange(category.id)}
-              className={selectedCategoryId === category.id ? 'bg-gray-100 dark:bg-gray-700' : ''}
+              onSelect={() => {
+                console.log('🏷️ [CategorySelector] Category selected:', category);
+                onCategoryChange(category.id);
+              }}
+              className={`cursor-pointer touch-manipulation ${
+                selectedCategoryId === category.id ? 'bg-gray-100 dark:bg-gray-700' : ''
+              }`}
+              style={{ touchAction: 'manipulation' }}
             >
+              {category.icon && <span className="mr-2">{category.icon}</span>}
               {category.name}
             </DropdownMenuItem>
           ))

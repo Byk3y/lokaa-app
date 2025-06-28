@@ -19,6 +19,7 @@ export default function FeedHeader({
         onClick={onOpenCreatePostModal}
         tabIndex={0}
         role="button"
+        data-composer="true"
       >
         <div className="flex items-center space-x-2 sm:space-x-3">
           <OptimizedAvatar

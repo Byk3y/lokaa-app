@@ -29,7 +29,7 @@ export function useAttachments({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isVideoLinkModalOpen, setIsVideoLinkModalOpen] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
-  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  const [uploadingFiles, setUploadingFiles] = useState<Map<string, number>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Video player modal state
@@ -49,14 +49,14 @@ export function useAttachments({
       })));
     } else if (!isOpen) {
       setAttachments([]);
-      setUploadingFiles(new Set());
+      setUploadingFiles(new Map());
     }
   }, [isOpen, initialAttachments]);
 
   // Reset attachments
   const resetAttachments = () => {
     setAttachments([]);
-    setUploadingFiles(new Set());
+    setUploadingFiles(new Map());
   };
   
   // Add file attachment via file input
@@ -76,8 +76,8 @@ export function useAttachments({
       const file = files[i];
       const fileId = uuidv4();
       
-      // Add to uploading set
-      setUploadingFiles(prev => new Set(prev).add(fileId));
+      // Add to uploading map with initial progress of 0
+      setUploadingFiles(prev => new Map(prev).set(fileId, 0));
       
       try {
         console.log(`Starting upload for file: ${file.name} (${file.size} bytes)`);
@@ -90,7 +90,12 @@ export function useAttachments({
           .from('post-attachments')
           .upload(storagePath, file, {
             cacheControl: '3600',
-            upsert: false
+            upsert: false,
+            // @ts-ignore - onUploadProgress is not in the official types yet
+            onUploadProgress: (progress) => {
+              const percentage = Math.round((progress.loaded / progress.total) * 100);
+              setUploadingFiles(prev => new Map(prev).set(fileId, percentage));
+            }
           });
           
         if (uploadError) {
@@ -145,11 +150,11 @@ export function useAttachments({
         
         setAttachments(prev => [...prev, errorAttachment]);
       } finally {
-        // Remove from uploading set
+        // Remove from uploading map
         setUploadingFiles(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(fileId);
-          return newSet;
+          const newMap = new Map(prev);
+          newMap.delete(fileId);
+          return newMap;
         });
       }
     }

@@ -97,10 +97,11 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
   
   // Load categories
   useEffect(() => {
-    if (spaceId) {
+    if (spaceId && isOpen) {
+      console.log('🏷️ [usePostForm] Loading categories for space:', spaceId, 'isOpen:', isOpen);
       fetchCategories();
     }
-  }, [spaceId]);
+  }, [spaceId, isOpen]);
   
   // Fetch categories for the space
   const fetchCategories = async () => {
@@ -108,10 +109,10 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
       setCategoriesLoading(true);
       setCategoriesError(null);
       
-      console.log('Fetching categories for space ID:', spaceId);
+      console.log('🏷️ [usePostForm] Fetching categories for space ID:', spaceId);
       
       if (!spaceId) {
-        console.error('Space ID is undefined or null when trying to fetch categories');
+        console.error('🏷️ [usePostForm] Space ID is undefined or null when trying to fetch categories');
         setCategoriesLoading(false);
         return;
       }
@@ -120,10 +121,10 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
       let querySpaceId = spaceId;
       if (spaceId.includes('-')) {
         // Looks like a UUID, use it directly
-        console.log('Using UUID directly:', spaceId);
+        console.log('🏷️ [usePostForm] Using UUID directly:', spaceId);
       } else {
         // Might be a subdomain, try to find the corresponding space ID
-        console.log('Space ID might be a subdomain, trying to find the corresponding UUID');
+        console.log('🏷️ [usePostForm] Space ID might be a subdomain, trying to find the corresponding UUID');
         const { data: spaceData, error: spaceError } = await getSupabaseClient()
           .from('spaces')
           .select('id')
@@ -131,9 +132,9 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
           .single();
         
         if (spaceError) {
-          console.error('Error looking up space by subdomain:', spaceError);
+          console.error('🏷️ [usePostForm] Error looking up space by subdomain:', spaceError);
         } else if (spaceData) {
-          console.log('Found space ID for subdomain:', spaceData.id);
+          console.log('🏷️ [usePostForm] Found space ID for subdomain:', spaceData.id);
           querySpaceId = spaceData.id;
         }
       }
@@ -147,11 +148,11 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
         .order('created_at');
       
       if (error) {
-        console.error('Error fetching categories:', error);
+        console.error('🏷️ [usePostForm] Error fetching categories:', error);
         throw error;
       }
       
-      console.log('Categories fetched:', data);
+      console.log('🏷️ [usePostForm] Categories fetched successfully:', data);
       
       // Format the categories and update state
       const formattedCategories = data.map(cat => ({
@@ -174,10 +175,11 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
         return 0;
       });
       
+      console.log('🏷️ [usePostForm] Categories sorted and ready:', sortedCategories);
       setCategories(sortedCategories);
       
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error('🏷️ [usePostForm] Error fetching categories:', error);
       setCategoriesError(error as Error);
     } finally {
       setCategoriesLoading(false);
@@ -278,7 +280,29 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
   
   // Get category ID for submission (handling null vs undefined)
   const getSubmissionCategoryId = () => {
-    return categoryId || undefined;
+    if (categoryId) {
+      console.log('🏷️ [usePostForm] Using selected category ID:', categoryId);
+      return categoryId;
+    }
+    
+    // If no category is selected, try to find "General Discussion"
+    const generalDiscussionCategory = categories?.find(
+      cat => cat.name.toLowerCase() === 'general discussion'
+    );
+    
+    if (generalDiscussionCategory) {
+      console.log('🏷️ [usePostForm] Using default General Discussion category:', generalDiscussionCategory.id);
+      return generalDiscussionCategory.id;
+    }
+    
+    // If still no category found, use the first available category
+    if (categories && categories.length > 0) {
+      console.log('🏷️ [usePostForm] Using first available category:', categories[0].id);
+      return categories[0].id;
+    }
+    
+    console.warn('🏷️ [usePostForm] No categories available, returning undefined');
+    return undefined;
   };
   
   return {

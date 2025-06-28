@@ -142,100 +142,58 @@ export const signOut = async (
 ): Promise<void> => {
   console.log('🚪 Signing out user');
   
-  // Clear state and storage immediately using utility
-  clearAuthStorage();
-  
-  // CRITICAL: Clear membership store cache to prevent unauthorized access
   try {
-    const membershipStore = useMembershipStore.getState();
-    membershipStore.clearCache();
-    membershipStore.reset();
-    console.log('🧹 Cleared and reset membership store');
-  } catch (error) {
-    console.warn('Failed to clear membership store cache:', error);
-  }
-  
-  // CRITICAL: Reset all other Zustand stores to prevent stale data
-  try {
-    // ✅ UPDATED: Reset all new specialized chat stores instead of old monolithic chat store
-    const conversationStore = useConversationStore.getState();
-    conversationStore.reset();
-    
-    const messageStore = useMessageStore.getState();
-    messageStore.reset();
-    
-    const realtimeStore = useRealtimeStore.getState();
-    realtimeStore.reset();
-    
-    const navigationStore = useNavigationStore.getState();
-    navigationStore.reset();
-    
-    const spaceAboutStore = useSpaceAboutStore.getState();
-    spaceAboutStore.reset();
-    
-    const spaceSettingsStore = useSpaceSettingsStore.getState();
-    spaceSettingsStore.resetStore();
-    
-    console.log('🧹 Reset all Zustand stores including specialized chat stores');
-  } catch (error) {
-    console.warn('Failed to reset Zustand stores:', error);
-  }
-  
-  // Space state management is now handled by individual components
-  
-  // **CRITICAL SECURITY FIX**: Clear Simple Presence cache to prevent cross-user data contamination
-  try {
-    const { clearSpacePresenceCache } = await import('@/hooks/useSimpleSpacePresence');
-    clearSpacePresenceCache(); // Clear all spaces
-    console.log('🧹 SECURITY: Cleared Simple Presence cache');
-  } catch (error) {
-    console.warn('Failed to clear Simple Presence cache:', error);
-  }
-  
-  // Space component cache cleanup is now handled by individual components
-  
-  // **CRITICAL SECURITY FIX**: Clear Global Cache Coordinator to prevent cross-user data contamination
-  try {
-    const { clearGlobalCache } = await import('@/utils/globalCacheCoordinator');
-    clearGlobalCache();
-    console.log('🧹 SECURITY: Cleared Global Cache Coordinator');
-  } catch (error) {
-    console.warn('Failed to clear Global Cache Coordinator:', error);
-  }
-  
-  // **CRITICAL SECURITY FIX**: Clear Fast Path cache and other utility caches
-  try {
-    const { clearFastPathCache } = await import('@/utils/simpleFastPath');
-    const { clearSpaceCache } = await import('@/utils/cacheUtils');
-    clearFastPathCache();
-    clearSpaceCache();
-    console.log('🧹 SECURITY: Cleared FastPath and utility caches');
-  } catch (error) {
-    console.warn('Failed to clear FastPath and utility caches:', error);
-  }
-  
-  // **CRITICAL SECURITY FIX**: Clear Global Tab Components to prevent cross-user data contamination
-  try {
-    globalTabComponentManager.clearAllComponents();
-    console.log('🧹 SECURITY: Cleared global tab components');
-  } catch (error) {
-    console.warn('Failed to clear global tab components:', error);
-  }
-  
-  // Feed DOM state is now managed by components directly
-  
-  setters.setUser(null);
-  setters.setSession(null);
-  setters.setUserDetails(null);
-  setters.setHasRouted(false);
-  setters.setEarlyRedirectAttempted(false);
-  setters.setRoutingInProgress(false);
-  
-  try {
-    // Store the current pathname to determine if we need to manually refresh
+    // Store the current pathname to determine navigation strategy
     const currentPath = window.location.pathname;
     const isDiscoverPage = currentPath === '/discover';
     
+    // Set routing in progress first to prevent UI flashing
+    setters.setRoutingInProgress(true);
+    
+    // Clear auth state immediately to prevent flashing
+    setters.setUser(null);
+    setters.setSession(null);
+    setters.setUserDetails(null);
+    
+    // Clear state and storage immediately using utility
+    clearAuthStorage();
+    
+    // CRITICAL: Clear membership store cache to prevent unauthorized access
+    try {
+      const membershipStore = useMembershipStore.getState();
+      membershipStore.clearCache();
+      membershipStore.reset();
+      console.log('🧹 Cleared and reset membership store');
+    } catch (error) {
+      console.warn('Failed to clear membership store cache:', error);
+    }
+    
+    // CRITICAL: Reset all other Zustand stores to prevent stale data
+    try {
+      // ✅ UPDATED: Reset all new specialized chat stores instead of old monolithic chat store
+      const conversationStore = useConversationStore.getState();
+      conversationStore.reset();
+      
+      const messageStore = useMessageStore.getState();
+      messageStore.reset();
+      
+      const realtimeStore = useRealtimeStore.getState();
+      realtimeStore.reset();
+      
+      const navigationStore = useNavigationStore.getState();
+      navigationStore.reset();
+      
+      const spaceAboutStore = useSpaceAboutStore.getState();
+      spaceAboutStore.reset();
+      
+      const spaceSettingsStore = useSpaceSettingsStore.getState();
+      spaceSettingsStore.resetStore();
+      
+      console.log('🧹 Reset all Zustand stores including specialized chat stores');
+    } catch (error) {
+      console.warn('Failed to reset Zustand stores:', error);
+    }
+
     // Sign out from Supabase
     console.log('🔑 Calling Supabase signOut method');
     const { error } = await getSupabaseClient().auth.signOut();
@@ -246,43 +204,29 @@ export const signOut = async (
     
     console.log('✅ Supabase sign out successful');
     
-    // Safari-specific fix for Discover page - force redirect with page reload
-    if (isDiscoverPage) {
-      console.log('📱 Detected sign out from Discover page, using hard redirect');
-      // Use replace to avoid back button issues, and add timestamp to bust cache
-      window.location.replace(`/?t=${Date.now()}`);
-      return; // Exit early to allow the redirect to happen
-    }
+    // Use smooth navigation instead of hard redirect
+    console.log('🚀 Using smooth navigation to landing page');
+    navigate('/', { replace: true });
     
-    // For non-Discover pages, use React Router if possible, fallback to location
-    console.log('🔀 Navigating to landing page after sign out');
+    // Clear routing progress after navigation
+    setTimeout(() => {
+      setters.setRoutingInProgress(false);
+    }, 100);
+    
+  } catch (error) {
+    console.error('❌ Sign out error:', error);
+    setters.setAuthErrors(prev => [...prev, `Sign out failed: ${error.message || 'Unknown error'}`]);
+    
+    // On error, still try smooth navigation first
     try {
-      // Navigate with replace to avoid back button issues
       navigate('/', { replace: true });
-      
-      // Double-check with a delayed fallback for Safari
-      setTimeout(() => {
-        if (window.location.pathname !== '/') {
-          console.log('⚠️ Navigation may have failed, using fallback redirect');
-          window.location.replace('/');
-        }
-      }, 500);
+      setters.setRoutingInProgress(false);
     } catch (navError) {
-      console.error('❌ Navigation error:', navError);
-      // Fallback to direct location change
+      // Only fall back to hard redirect if navigation fails
+      console.warn('Navigation failed, using fallback redirect');
+      sessionStorage.setItem('lokaa-signing-out', 'true');
       window.location.replace('/');
     }
-  } catch (error: unknown) {
-    console.error('❌ Error signing out:', error);
-    setters.setAuthErrors(prev => [...prev, `Sign out error: ${error instanceof Error ? error.message : String(error)}`]);
-    
-    // Even on error, make sure we reset the app state
-    setters.setUser(null);
-    setters.setSession(null);
-    
-    // Force a hard redirect on error
-    console.log('⚠️ Error during sign out, using fallback redirect');
-    window.location.replace(`/?error=signout&t=${Date.now()}`);
   }
 };
 

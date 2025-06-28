@@ -590,16 +590,14 @@ export function useFeedLogic({
   // ============================================================================
   
   const openCreatePostModal = useCallback(() => {
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.set('action', 'create-post');
-    navigate({ search: searchParams.toString() }, { replace: true });
-  }, [location.search, navigate]);
+    console.log('[FeedLogic] Opening create post modal');
+    setIsCreatePostModalOpen(true);
+  }, []);
 
   const closeCreatePostModal = useCallback(() => {
-    const searchParams = new URLSearchParams(location.search);
-    searchParams.delete('action');
-    navigate({ search: searchParams.toString() }, { replace: true });
-  }, [location.search, navigate]);
+    console.log('[FeedLogic] Closing create post modal');
+    setIsCreatePostModalOpen(false);
+  }, []);
 
   const openCategoryModal = useCallback(() => {
     setIsCategoryModalOpen(true);
@@ -608,124 +606,6 @@ export function useFeedLogic({
   const closeCategoryModal = useCallback(() => {
     setIsCategoryModalOpen(false);
   }, []);
-
-  // Handle URL-based modal state
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    if (searchParams.get('action') === 'create-post') {
-      setIsCreatePostModalOpen(true);
-    } else {
-      if (isCreatePostModalOpen && !searchParams.get('action')) {
-         setIsCreatePostModalOpen(false);
-      }
-    }
-  }, [location.search, isCreatePostModalOpen]);
-
-  // NEW: URL-based post detection and modal synchronization via search params
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const postSlug = searchParams.get('post');
-    
-    console.log('[FeedLogic] URL Effect triggered:', {
-      pathname: location.pathname,
-      searchParams: location.search,
-      postSlug,
-      modalOpen: isPostModalOpen,
-      selectedPost: selectedPostForModal?.slug
-    });
-    
-    if (postSlug && stableSpaceId) {
-      // Skip if we already have this post selected or if we're in a loading state
-      if (selectedPostForModal?.slug === postSlug || isLoadingUrlPost) {
-        console.log('[FeedLogic] Skipping - already selected or loading:', {
-          currentSlug: selectedPostForModal?.slug,
-          targetSlug: postSlug,
-          isLoading: isLoadingUrlPost
-        });
-        return;
-      }
-      
-      // Fetch post by slug and open modal using PostService
-      const fetchAndOpenPost = async () => {
-        setIsLoadingUrlPost(true);
-        setUrlPostError(null);
-        
-        console.log('[FeedLogic] Detected post slug in URL:', postSlug, 'fetching post...');
-        
-        try {
-          // Use PostService with fallback space ID support
-          const effectiveSpaceId = stableSpaceId || PostService.getSpaceIdFromUrl(location.pathname);
-          
-          if (!effectiveSpaceId) {
-            throw new Error('Unable to determine space ID for post fetch');
-          }
-          
-          console.log('[FeedLogic] Using PostService to fetch post:', {
-            slug: postSlug,
-            spaceId: effectiveSpaceId,
-            fallbackUsed: !stableSpaceId
-          });
-          
-          // Use PostService for reliable fetching with timeout, retries, and error handling
-          const result = await PostService.fetchPostBySlug(postSlug, {
-            spaceId: effectiveSpaceId,
-            timeout: 15000,
-            maxRetries: 2
-          }, currentUser?.id);
-          
-          if (result.error || !result.data) {
-            throw new Error(result.error || 'Post not found');
-          }
-          
-          console.log('[FeedLogic] PostService successfully fetched post:', {
-            title: result.data.title || result.data.id,
-            source: result.source,
-            author: result.data.author.name
-          });
-          
-          // Set permissions based on user context
-          const mappedPost: PostCardProps = {
-            ...result.data,
-            isAdmin: effectivePermissions?.effectiveIsAdmin || effectivePermissions?.effectiveIsOwner || false,
-          };
-          
-          // Set modal state
-          setSelectedPostForModal(mappedPost);
-          setIsPostModalOpen(true);
-          
-          console.log('[FeedLogic] PostDetailModal opened successfully');
-          
-        } catch (error) {
-          console.error('[FeedLogic] PostService error:', error);
-          setUrlPostError('Failed to load post');
-          
-          // Clean up URL on failure to prevent infinite loops
-          console.log('[FeedLogic] Cleaning up URL after post fetch failure');
-          const searchParams = new URLSearchParams(location.search);
-          searchParams.delete('post');
-          navigate({ search: searchParams.toString() }, { replace: true });
-          
-          // Show error state for 3 seconds then close
-          setTimeout(() => {
-            setUrlPostError(null);
-            setIsLoadingUrlPost(false);
-          }, 3000);
-          
-          return; // Early return to prevent setting loading to false in finally
-        } finally {
-          setIsLoadingUrlPost(false);
-        }
-      };
-
-      fetchAndOpenPost();
-    } else if (!postSlug && isPostModalOpen && !isLoadingUrlPost) {
-      // Only close modal if we're not currently loading a URL post
-      // This prevents the modal from closing during navigation transitions
-      console.log('[FeedLogic] No post parameter in URL and modal is open, closing modal');
-      setIsPostModalOpen(false);
-      setSelectedPostForModal(null);
-    }
-  }, [location.search, stableSpaceId, isLoadingUrlPost, currentUser?.id]);
 
   // ============================================================================
   // UTILITY FUNCTIONS

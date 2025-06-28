@@ -161,8 +161,8 @@ export const AttachmentPreviewGrid: React.FC<AttachmentPreviewGridProps> = ({
         ))}
         
         {/* Upload Progress Indicators */}
-        {Array.from(uploadingFiles).map((fileId) => (
-          <UploadProgressIndicator key={`uploading-${fileId}`} fileId={fileId} />
+        {Array.from(uploadingFiles.entries()).map(([fileId, progress]) => (
+          <UploadProgressIndicator key={`uploading-${fileId}`} fileId={fileId} progress={progress} />
         ))}
       </div>
     </div>

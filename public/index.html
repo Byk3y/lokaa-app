@@ -3,19 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Lokaa - Connect with Spaces" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Lokaa Connect</title>
+    <meta name="description" content="Connect with your community on Lokaa" />
     
-    <!-- PWA Web App Manifest -->
+    <!-- PWA Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
-    
-    <!-- Apple PWA Meta Tags -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Lokaa" />
-    
-    <title>Lokaa</title>
     
     <!-- Page Lifecycle API & bfcache Optimization -->
     <script>
@@ -25,223 +23,25 @@
         console.log('🚀 [bfcache] Initializing Page Lifecycle API for mobile optimization...');
         
         // Page Lifecycle API implementation for bfcache optimization
-        // Based on Chrome team research and successful PWA implementations
         window.PageLifecycle = {
-          
-          // Connection tracking for bfcache eligibility
-          connections: {
-            indexedDB: [],
-            webSockets: [],
-            activeFetches: []
-          },
-          
-          // Initialize Page Lifecycle API
           init() {
-            console.log('🔧 [PageLifecycle] Setting up bfcache-compatible event handling...');
-            
             // Track page visibility changes
-            document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+            document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('📱 [PageLifecycle] Page hidden');
+            } else {
+                console.log('📱 [PageLifecycle] Page visible');
+            }
+            });
             
             // Track page show/hide for bfcache detection
-            window.addEventListener('pageshow', this.handlePageShow.bind(this));
-            window.addEventListener('pagehide', this.handlePageHide.bind(this));
-            
-            // Track freeze/resume events if supported
-            if ('onfreeze' in document) {
-              document.addEventListener('freeze', this.handleFreeze.bind(this));
-              document.addEventListener('resume', this.handleResume.bind(this));
-            }
-            
-            // Initialize connection tracking
-            this.setupConnectionTracking();
+            window.addEventListener('pageshow', (event) => {
+              if (event.persisted) {
+                console.log('🎉 [bfcache] Page restored from bfcache');
+              }
+            });
             
             console.log('✅ [PageLifecycle] bfcache optimization active');
-            
-            // Make available globally for testing
-            window.lokaaPageLifecycle = this;
-          },
-          
-          // Handle visibility changes (mobile backgrounding)
-          handleVisibilityChange() {
-            if (document.hidden) {
-              console.log('📱 [PageLifecycle] Page hidden - preparing for potential bfcache');
-              this.prepareForBackground();
-            } else {
-              console.log('📱 [PageLifecycle] Page visible - checking bfcache restoration');
-              this.handleForegroundReturn();
-            }
-          },
-          
-          // Handle page show (potential bfcache restoration)
-          handlePageShow(event) {
-            if (event.persisted) {
-              console.log('🎉 [bfcache] SUCCESS: Page restored from bfcache!');
-              this.handleBfcacheRestore();
-            } else {
-              console.log('📄 [bfcache] Normal page load (not from cache)');
-            }
-          },
-          
-          // Handle page hide (potential bfcache entry)
-          handlePageHide(event) {
-            if (event.persisted) {
-              console.log('💾 [bfcache] Page entering bfcache');
-            } else {
-              console.log('❌ [bfcache] Page will NOT be cached - checking for blockers');
-            }
-            this.prepareForBackground();
-          },
-          
-          // Handle freeze event (mobile browsers)
-          handleFreeze() {
-            console.log('🧊 [PageLifecycle] Page frozen - closing connections for bfcache');
-            this.closeConnections();
-          },
-          
-          // Handle resume event (mobile browsers)
-          handleResume() {
-            console.log('▶️ [PageLifecycle] Page resumed - restoring connections');
-            this.restoreConnections();
-          },
-          
-          // Prepare for background (close connections)
-          prepareForBackground() {
-            console.log('🔧 [PageLifecycle] Preparing for background - closing connections');
-            this.closeConnections();
-          },
-          
-          // Handle foreground return
-          handleForegroundReturn() {
-            console.log('🔧 [PageLifecycle] Returned from background - restoring connections');
-            this.restoreConnections();
-          },
-          
-          // Handle bfcache restoration
-          handleBfcacheRestore() {
-            console.log('🚀 [bfcache] Restored from cache - app should be instant!');
-            
-            // Record bfcache hit for analytics
-            this.recordBfcacheHit();
-            
-            // Restore connections if needed
-            this.restoreConnections();
-          },
-          
-          // Setup connection tracking for bfcache eligibility
-          setupConnectionTracking() {
-            // Override IndexedDB to track connections
-            const originalIndexedDBOpen = indexedDB.open;
-            indexedDB.open = (...args) => {
-              const request = originalIndexedDBOpen.apply(indexedDB, args);
-              this.connections.indexedDB.push(request);
-              return request;
-            };
-            
-            // Override WebSocket to track connections
-            const originalWebSocket = window.WebSocket;
-            window.WebSocket = function(...args) {
-              const ws = new originalWebSocket(...args);
-              window.PageLifecycle.connections.webSockets.push(ws);
-              return ws;
-            };
-            
-            // Override fetch to track active requests
-            const originalFetch = window.fetch;
-            window.fetch = async (...args) => {
-              const controller = new AbortController();
-              window.PageLifecycle.connections.activeFetches.push(controller);
-              
-              try {
-                const response = await originalFetch(...args);
-                // Remove from tracking on completion
-                const index = window.PageLifecycle.connections.activeFetches.indexOf(controller);
-                if (index > -1) {
-                  window.PageLifecycle.connections.activeFetches.splice(index, 1);
-                }
-                return response;
-              } catch (error) {
-                // Remove from tracking on error
-                const index = window.PageLifecycle.connections.activeFetches.indexOf(controller);
-                if (index > -1) {
-                  window.PageLifecycle.connections.activeFetches.splice(index, 1);
-                }
-                throw error;
-              }
-            };
-            
-            console.log('🔧 [PageLifecycle] Connection tracking enabled');
-          },
-          
-          // Close connections for bfcache eligibility
-          closeConnections() {
-            // Close IndexedDB connections
-            this.connections.indexedDB.forEach(db => {
-              try {
-                if (db.result && typeof db.result.close === 'function') {
-                  db.result.close();
-                }
-              } catch (e) {
-                // Ignore errors
-              }
-            });
-            
-            // Close WebSocket connections
-            this.connections.webSockets.forEach(ws => {
-              try {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.close();
-                }
-              } catch (e) {
-                // Ignore errors
-              }
-            });
-            
-            // Abort active fetch requests
-            this.connections.activeFetches.forEach(controller => {
-              try {
-                controller.abort();
-              } catch (e) {
-                // Ignore errors
-              }
-            });
-            
-            console.log('🔧 [PageLifecycle] Connections closed for bfcache');
-          },
-          
-          // Restore connections after backgrounding
-          restoreConnections() {
-            // Clear closed connections
-            this.connections.indexedDB = [];
-            this.connections.webSockets = [];
-            this.connections.activeFetches = [];
-            
-            console.log('🔧 [PageLifecycle] Connection tracking reset');
-          },
-          
-          // Record bfcache hit for analytics
-          recordBfcacheHit() {
-            try {
-              const hits = parseInt(sessionStorage.getItem('bfcache_hits') || '0') + 1;
-              sessionStorage.setItem('bfcache_hits', hits.toString());
-              
-              const total = parseInt(sessionStorage.getItem('total_navigations') || '0') + 1;
-              sessionStorage.setItem('total_navigations', total.toString());
-              
-              const hitRate = Math.round((hits / total) * 100);
-              console.log(`📊 [bfcache] Hit Rate: ${hits}/${total} (${hitRate}%) - Target: 80%+`);
-            } catch (e) {
-              // Ignore storage errors
-            }
-          },
-          
-          // Get status for debugging
-          getStatus() {
-            return {
-              connections: this.connections,
-              bfcacheSupported: 'onpageshow' in window,
-              freezeSupported: 'onfreeze' in document,
-              visibilitySupported: typeof document.hidden !== 'undefined'
-            };
           }
         };
         
@@ -251,136 +51,33 @@
         } else {
           window.PageLifecycle.init();
         }
-        
       })();
-    </script>
-    
-    <!-- PWA Service Worker Registration -->
-    <script>
-      // DISABLE PWA SERVICE WORKER IN DEVELOPMENT TO PREVENT FLASH DURING RELOADS
-      if ('serviceWorker' in navigator && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js')
-            .then(function(registration) {
-              console.log('✅ [PWA] Service Worker registered:', registration.scope);
-            })
-            .catch(function(error) {
-              console.log('❌ [PWA] Service Worker registration failed:', error);
-            });
-        });
-      } else {
-        console.log('🔧 [PWA] Service Worker registration skipped in development to prevent flash during reloads');
-      }
-    </script>
-    
-    <!-- ULTRA AGGRESSIVE MOBILE KILLER - PREVENTS ALL RELOADS -->
-    <script>
-      console.log('🚨 [UltraKiller] DEPLOYING MAXIMUM MOBILE PROTECTION...');
-      
-      // PHASE 1: COMPLETELY BLOCK ALL RELOAD METHODS
-      const originalLocation = window.location;
-      Object.defineProperty(window, 'location', {
-        value: new Proxy(originalLocation, {
-          set: function(target, property, value) {
-            if (property === 'href' || property === 'reload') {
-              console.log('🚨 [UltraKiller] BLOCKED: location.' + property + ' = ' + value);
-              return true; // Block but don't throw error
-            }
-            return Reflect.set(target, property, value);
-          },
-          get: function(target, property) {
-            if (property === 'reload') {
-              return function() {
-                console.log('🚨 [UltraKiller] BLOCKED: location.reload()');
-                return false;
-              };
-            }
-            return Reflect.get(target, property);
-          }
-        }),
-        configurable: false,
-        writable: false
-      });
-      
-      // PHASE 2: BLOCK ALL WINDOW METHODS THAT CAN CAUSE RELOADS
-      window.location.reload = function() { console.log('🚨 [UltraKiller] BLOCKED: window.location.reload()'); };
-      window.location.replace = function() { console.log('🚨 [UltraKiller] BLOCKED: window.location.replace()'); };
-      
-      // PHASE 3: BLOCK ALL HISTORY METHODS
-      const originalHistory = window.history;
-      window.history.go = function() { console.log('🚨 [UltraKiller] BLOCKED: history.go()'); };
-      window.history.back = function() { console.log('🚨 [UltraKiller] BLOCKED: history.back()'); };
-      window.history.forward = function() { console.log('🚨 [UltraKiller] BLOCKED: history.forward()'); };
-      
-      // PHASE 4: BLOCK ALL RELOAD-TRIGGERING EVENTS
-      const blockedEvents = ['beforeunload', 'unload', 'pagehide'];
-      const eventBlocker = function(e) {
-        console.log('🚨 [UltraKiller] BLOCKED event: ' + e.type);
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        return false;
-      };
-      
-      blockedEvents.forEach(eventType => {
-        window.addEventListener(eventType, eventBlocker, { capture: true, passive: false });
-        document.addEventListener(eventType, eventBlocker, { capture: true, passive: false });
-      });
-      
-      // PHASE 5: DISABLE ALL MOBILE SYSTEMS BEFORE REACT LOADS
-      window.__DISABLE_ALL_MOBILE_SYSTEMS__ = true;
-      window.__MOBILE_RECOVERY_DISABLED__ = true;
-      window.__HEALTH_MONITOR_DISABLED__ = true;
-      window.__MOBILE_SESSION_DISABLED__ = true;
-      window.__MOBILE_LIFECYCLE_DISABLED__ = true;
-      window.__MOBILE_BROWSER_SERVICE_DISABLED__ = true;
-      window.__PHASE1_MOBILE_RECOVERY_DISABLED__ = true;
-      window.__GLOBAL_ERROR_INTERCEPTOR_DISABLED__ = true;
-      
-      // PHASE 6: OVERRIDE FETCH TO HANDLE 401s WITHOUT RECOVERY
-      const originalFetch = window.fetch;
-      window.fetch = function(...args) {
-        return originalFetch.apply(this, args).catch(error => {
-          if (error.message.includes('401') || error.message.includes('access control')) {
-            console.log('🚨 [UltraKiller] 401 Error handled silently, no recovery triggered');
-            return Promise.resolve({
-              ok: false,
-              status: 401,
-              json: () => Promise.resolve({ error: 'Unauthorized', message: 'Load failed' })
-            });
-          }
-          throw error;
-        });
-      };
-      
-      // PHASE 7: BLOCK CONSOLE.ERROR THAT TRIGGERS RECOVERY
-      const originalConsoleError = console.error;
-      console.error = function(...args) {
-        const errorString = args.join(' ');
-        if (errorString.includes('Fetch API cannot load') || 
-            errorString.includes('access control checks') ||
-            errorString.includes('Load failed')) {
-          console.log('🚨 [UltraKiller] BLOCKED console.error that could trigger recovery:', errorString);
-          return;
-        }
-        return originalConsoleError.apply(this, args);
-      };
-      
-      console.log('✅ [UltraKiller] MAXIMUM PROTECTION DEPLOYED - ALL RELOAD METHODS BLOCKED');
     </script>
   </head>
   <body>
     <div id="root"></div>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('✅ [PWA] Service Worker registered:', registration.scope);
+            })
+            .catch(error => {
+              console.log('❌ [PWA] Service Worker registration failed:', error);
+            });
+        });
+      } else {
+        console.log('🔧 [PWA] Service Worker registration skipped in development');
+      }
+    </script>
+    
+    <!-- Sign Out Fix Test Script -->
+    <script src="/test-signout-fix.js"></script>
+    
+    <!-- Main Application -->
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Reload Fix Test (Monitors stability after fixes) -->
-    <script src="/reload-fix-test.js"></script>
-    
-    <!-- Persistent Reload Diagnostic (Survives page reloads) -->
-    <script src="/persistent-reload-diagnostic.js"></script>
-    
-    <!-- bfcache Test Suite (Development Only) -->
-    <script src="/bfcache-comprehensive-test.js"></script>
-    <script src="/bfcache-quick-test.js"></script>
   </body>
 </html>

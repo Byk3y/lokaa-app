@@ -265,6 +265,91 @@
     animation: none !important;
   }
   
+  /* ✅ DESKTOP CHAT POPOVER IMPROVEMENTS: Better scrollability and responsive design */
+  .chat-popover-scrollable {
+    /* Ensure proper scrolling container */
+    max-height: min(70vh, 600px);
+    min-height: 400px;
+    overflow: hidden;
+  }
+  
+  .chat-popover-content {
+    /* Responsive width with max viewport constraint */
+    width: min(380px, 90vw);
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .chat-conversation-list {
+    /* Optimized scroll area for conversation list */
+    max-height: calc(70vh - 140px); /* Account for header + search */
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    flex: 1;
+  }
+  
+  /* Improve scroll performance and visual feedback */
+  .chat-popover-scrollable [data-radix-scroll-area-viewport] {
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    /* Add subtle scrollbar styling for better UX */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+  
+  .chat-popover-scrollable [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .chat-popover-scrollable [data-radix-scroll-area-viewport]::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .chat-popover-scrollable [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+  }
+  
+  .chat-popover-scrollable [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7);
+  }
+  
+  /* Responsive breakpoints for chat popover */
+  @media (max-height: 600px) {
+    .chat-popover-scrollable {
+      max-height: 80vh;
+      min-height: 300px;
+    }
+    
+    .chat-conversation-list {
+      max-height: calc(80vh - 120px);
+    }
+  }
+  
+  @media (max-height: 500px) {
+    .chat-popover-scrollable {
+      max-height: 90vh;
+      min-height: 250px;
+    }
+    
+    .chat-conversation-list {
+      max-height: calc(90vh - 100px);
+    }
+  }
+  
+  /* Mobile-specific chat popover adjustments */
+  @media (max-width: 480px) {
+    .chat-popover-content {
+      width: min(95vw, 380px);
+      max-height: 85vh;
+    }
+    
+    .chat-conversation-list {
+      max-height: calc(85vh - 120px);
+    }
+  }
+  
   /* ✅ CHAT MODAL FIX: Ensure modal appears instantly */
   .chat-modal-instant {
     animation-duration: 0ms !important;

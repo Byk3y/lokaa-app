@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { extractFirstGifAndRest } from '@/utils/mediaUtils';
 import { cn } from '@/lib/utils';
+import { toTitleCase } from '@/utils/textFormatting';
 
 interface PostCardContentProps {
   title?: string | null;
@@ -8,15 +9,6 @@ interface PostCardContentProps {
   shouldTruncate?: boolean; 
   onReadMoreClick?: (e: React.MouseEvent) => void;
   className?: string;
-}
-
-// Convert text to title case (capitalize first letter of each word)
-function toTitleCase(text: string): string {
-  return text
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 /**

@@ -1,18 +1,18 @@
 /**
- * CreatePostModal - Refactored Component Architecture (In Progress)
+ * CreatePostModal - Refactored Component Architecture
  * 
- * Refactoring the 865-line CreatePostModal into manageable components.
- * This structure is now ready for the mobile version implementation.
+ * This index file exports the unified CreatePostModal component, which handles
+ * both desktop and mobile views, along with its supporting components and hooks.
  */
 
-// Export the original CreatePostModal for now while refactoring is in progress
-export { CreatePostModal } from '../CreatePostModal';
+// Export the new, unified CreatePostModal component
+export { CreatePostModal } from './CreatePostModal';
 
-// Form Components (Ready for use)
+// Form Components
 export { PostFormHeader } from './components/PostFormHeader';
 
-// Hooks (In Progress)
+// Hooks
 export { useCreatePostModal } from './hooks/useCreatePostModal';
 
-// Types (Ready)
+// Types
 export type * from './types'; 

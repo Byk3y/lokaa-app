@@ -69,7 +69,7 @@ export interface PostFormToolbarProps {
 export interface AttachmentPreviewGridProps {
   selectedContentGifUrls: string[];
   attachments: Attachment[];
-  uploadingFiles: Set<string>;
+  uploadingFiles: Map<string, number>;
   onRemoveContentGif: (index: number) => void;
   onRemoveAttachment: (id: string) => void;
   onVideoPreviewClick: (e: React.MouseEvent, attachment: Attachment) => void;
@@ -97,7 +97,7 @@ export interface PostFormActionsProps {
   onCancel: () => void;
   onSubmit: () => void;
   isSubmitting: boolean;
-  uploadingFiles: Set<string>;
+  uploadingFiles: Map<string, number>;
   hasContent: boolean;
   editMode?: boolean;
 } 

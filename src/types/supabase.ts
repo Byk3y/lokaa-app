@@ -77,175 +77,6 @@ export type Database = {
         }
         Relationships: []
       }
-      better_auth_accounts: {
-        Row: {
-          accesstoken: string | null
-          accesstokenexpiresat: string | null
-          accountid: string
-          createdat: string
-          id: string
-          idtoken: string | null
-          password: string | null
-          providerid: string
-          refreshtoken: string | null
-          refreshtokenexpiresat: string | null
-          scope: string | null
-          updatedat: string
-          userid: string
-        }
-        Insert: {
-          accesstoken?: string | null
-          accesstokenexpiresat?: string | null
-          accountid: string
-          createdat?: string
-          id: string
-          idtoken?: string | null
-          password?: string | null
-          providerid: string
-          refreshtoken?: string | null
-          refreshtokenexpiresat?: string | null
-          scope?: string | null
-          updatedat?: string
-          userid: string
-        }
-        Update: {
-          accesstoken?: string | null
-          accesstokenexpiresat?: string | null
-          accountid?: string
-          createdat?: string
-          id?: string
-          idtoken?: string | null
-          password?: string | null
-          providerid?: string
-          refreshtoken?: string | null
-          refreshtokenexpiresat?: string | null
-          scope?: string | null
-          updatedat?: string
-          userid?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "better_auth_accounts_userid_fkey"
-            columns: ["userid"]
-            isOneToOne: false
-            referencedRelation: "better_auth_users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      better_auth_sessions: {
-        Row: {
-          activeorganizationid: string | null
-          createdat: string
-          expiresat: string
-          id: string
-          impersonatedby: string | null
-          ipaddress: string | null
-          token: string
-          updatedat: string
-          useragent: string | null
-          userid: string
-        }
-        Insert: {
-          activeorganizationid?: string | null
-          createdat?: string
-          expiresat: string
-          id: string
-          impersonatedby?: string | null
-          ipaddress?: string | null
-          token: string
-          updatedat?: string
-          useragent?: string | null
-          userid: string
-        }
-        Update: {
-          activeorganizationid?: string | null
-          createdat?: string
-          expiresat?: string
-          id?: string
-          impersonatedby?: string | null
-          ipaddress?: string | null
-          token?: string
-          updatedat?: string
-          useragent?: string | null
-          userid?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "better_auth_sessions_userid_fkey"
-            columns: ["userid"]
-            isOneToOne: false
-            referencedRelation: "better_auth_users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      better_auth_users: {
-        Row: {
-          avatar_url: string | null
-          createdat: string
-          email: string
-          emailverified: boolean
-          full_name: string | null
-          id: string
-          image: string | null
-          name: string | null
-          updatedat: string
-          username: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          createdat?: string
-          email: string
-          emailverified?: boolean
-          full_name?: string | null
-          id: string
-          image?: string | null
-          name?: string | null
-          updatedat?: string
-          username?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          createdat?: string
-          email?: string
-          emailverified?: boolean
-          full_name?: string | null
-          id?: string
-          image?: string | null
-          name?: string | null
-          updatedat?: string
-          username?: string | null
-        }
-        Relationships: []
-      }
-      better_auth_verifications: {
-        Row: {
-          createdat: string
-          expiresat: string
-          id: string
-          identifier: string
-          updatedat: string
-          value: string
-        }
-        Insert: {
-          createdat?: string
-          expiresat: string
-          id: string
-          identifier: string
-          updatedat?: string
-          value: string
-        }
-        Update: {
-          createdat?: string
-          expiresat?: string
-          id?: string
-          identifier?: string
-          updatedat?: string
-          value?: string
-        }
-        Relationships: []
-      }
       chat_conversations: {
         Row: {
           created_at: string
@@ -1410,82 +1241,49 @@ export type Database = {
       }
       spaces: {
         Row: {
-          about_description: string | null
-          cover_image: string | null
-          created_at: string
-          description: string | null
-          feature_7_day_trial_enabled: boolean | null
-          feature_calendar_enabled: boolean | null
-          feature_classroom_enabled: boolean | null
-          feature_map_enabled: boolean | null
-          icon_image: string | null
           id: string
-          intro_media_thumbnail_url: string | null
-          intro_media_type: string | null
-          intro_media_url: string | null
-          is_private: boolean
-          member_count: number | null
+          created_at: string
           name: string
           owner_id: string
-          price_per_month: number | null
-          pricing_type: Database["public"]["Enums"]["pricing_type"]
-          primary_color: string | null
-          rules_list: Json | null
-          subdomain: string
-          support_email: string | null
           updated_at: string
+          description: string
+          subdomain: string
+          cover_image: string
+          primary_color: string
+          pricing_type: string
+          price_per_month: number
+          member_count: number
+          is_private: boolean
         }
         Insert: {
-          about_description?: string | null
-          cover_image?: string | null
-          created_at?: string
-          description?: string | null
-          feature_7_day_trial_enabled?: boolean | null
-          feature_calendar_enabled?: boolean | null
-          feature_classroom_enabled?: boolean | null
-          feature_map_enabled?: boolean | null
-          icon_image?: string | null
           id?: string
-          intro_media_thumbnail_url?: string | null
-          intro_media_type?: string | null
-          intro_media_url?: string | null
-          is_private?: boolean
-          member_count?: number | null
+          created_at?: string
           name: string
           owner_id: string
-          price_per_month?: number | null
-          pricing_type?: Database["public"]["Enums"]["pricing_type"]
-          primary_color?: string | null
-          rules_list?: Json | null
-          subdomain: string
-          support_email?: string | null
           updated_at?: string
+          description?: string
+          subdomain: string
+          cover_image?: string
+          primary_color?: string
+          pricing_type?: string
+          price_per_month?: number
+          member_count?: number
+          is_private?: boolean
         }
         Update: {
-          about_description?: string | null
-          cover_image?: string | null
-          created_at?: string
-          description?: string | null
-          feature_7_day_trial_enabled?: boolean | null
-          feature_calendar_enabled?: boolean | null
-          feature_classroom_enabled?: boolean | null
-          feature_map_enabled?: boolean | null
-          icon_image?: string | null
           id?: string
-          intro_media_thumbnail_url?: string | null
-          intro_media_type?: string | null
-          intro_media_url?: string | null
-          is_private?: boolean
-          member_count?: number | null
+          created_at?: string
           name?: string
           owner_id?: string
-          price_per_month?: number | null
-          pricing_type?: Database["public"]["Enums"]["pricing_type"]
-          primary_color?: string | null
-          rules_list?: Json | null
-          subdomain?: string
-          support_email?: string | null
           updated_at?: string
+          description?: string
+          subdomain?: string
+          cover_image?: string
+          primary_color?: string
+          pricing_type?: string
+          price_per_month?: number
+          member_count?: number
+          is_private?: boolean
         }
         Relationships: [
           {
@@ -1494,7 +1292,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       user_activity_log: {
