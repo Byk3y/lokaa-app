@@ -5,11 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useFormValidation } from "@/hooks/useFormValidation";
+import { loginSchema, signupSchema } from "@/schemas/validation/auth";
+import { Alert } from "@/components/ui/alert";
 
 interface AuthFormData {
   email: string;
   password: string;
-  name?: string; // Name is optional, present for signup
+  name?: string;
+  confirmPassword?: string;
 }
 
 interface AuthFormProps {
@@ -19,25 +23,47 @@ interface AuthFormProps {
 
 export default function AuthForm({ type, onSubmit }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<AuthFormData>({
     name: "",
     email: "",
     password: "",
+    confirmPassword: ""
   });
+
+  // Use our validation hook
+  const {
+    validateData,
+    handleChange: validateField,
+    errors,
+    isValid,
+    isValidating
+  } = useFormValidation(
+    type === "login" ? loginSchema : signupSchema,
+    { validateOnChange: true }
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const newFormData = { ...formData, [name]: value };
+    setFormData(newFormData);
+    validateField(name, value, newFormData);
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    const validationResult = await validateData(formData);
+    if (!validationResult.isValid) return;
+
     onSubmit(formData);
   };
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
+  // Helper to get field errors
+  const getFieldErrors = (field: string) => errors[field] || [];
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -57,6 +83,15 @@ export default function AuthForm({ type, onSubmit }: AuthFormProps) {
       </p>
       
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Show mobile network errors if any */}
+        {errors._mobile && (
+          <Alert variant="destructive">
+            {errors._mobile.map((error, i) => (
+              <p key={i} className="text-sm">{error}</p>
+            ))}
+          </Alert>
+        )}
+
         {type === "signup" && (
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
@@ -69,9 +104,14 @@ export default function AuthForm({ type, onSubmit }: AuthFormProps) {
                 placeholder="Your name"
                 value={formData.name}
                 onChange={handleChange}
-                className="pl-10 input-primary"
+                className={`pl-10 input-primary ${
+                  getFieldErrors('name').length > 0 ? 'border-red-500' : ''
+                }`}
                 required
               />
+              {getFieldErrors('name').map((error, i) => (
+                <p key={i} className="mt-1 text-sm text-red-500">{error}</p>
+              ))}
             </div>
           </div>
         )}
@@ -87,9 +127,14 @@ export default function AuthForm({ type, onSubmit }: AuthFormProps) {
               placeholder="name@example.com"
               value={formData.email}
               onChange={handleChange}
-              className="pl-10 input-primary"
+              className={`pl-10 input-primary ${
+                getFieldErrors('email').length > 0 ? 'border-red-500' : ''
+              }`}
               required
             />
+            {getFieldErrors('email').map((error, i) => (
+              <p key={i} className="mt-1 text-sm text-red-500">{error}</p>
+            ))}
           </div>
         </div>
         
@@ -111,7 +156,9 @@ export default function AuthForm({ type, onSubmit }: AuthFormProps) {
               placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
-              className="pl-10 input-primary"
+              className={`pl-10 input-primary ${
+                getFieldErrors('password').length > 0 ? 'border-red-500' : ''
+              }`}
               required
             />
             <button
@@ -121,11 +168,42 @@ export default function AuthForm({ type, onSubmit }: AuthFormProps) {
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
+            {getFieldErrors('password').map((error, i) => (
+              <p key={i} className="mt-1 text-sm text-red-500">{error}</p>
+            ))}
           </div>
         </div>
+
+        {type === "signup" && (
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className={`pl-10 input-primary ${
+                  getFieldErrors('confirmPassword').length > 0 ? 'border-red-500' : ''
+                }`}
+                required
+              />
+              {getFieldErrors('confirmPassword').map((error, i) => (
+                <p key={i} className="mt-1 text-sm text-red-500">{error}</p>
+              ))}
+            </div>
+          </div>
+        )}
         
-        <Button type="submit" className="w-full bg-lokaa-600 hover:bg-lokaa-700">
-          {type === "login" ? "Sign in" : "Create account"}
+        <Button 
+          type="submit" 
+          className="w-full bg-lokaa-600 hover:bg-lokaa-700"
+          disabled={!isValid || isValidating}
+        >
+          {isValidating ? "Validating..." : type === "login" ? "Sign in" : "Create account"}
         </Button>
       </form>
       

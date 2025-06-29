@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Import local fonts */
+@import './styles/fonts.css';
+
 /* HMR TEST COMMENT B: Test completed - CSS HMR optimized */
 @tailwind base;
 @tailwind components;
@@ -417,14 +419,6 @@
     overflow: hidden;
   }
   
-  .mobile-chat-input {
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
-    background: white;
-    border-top: 1px solid rgb(229 231 235);
-  }
-  
   .mobile-chat-messages {
     flex: 1;
     overflow-y: auto;
@@ -435,47 +429,30 @@
   @media (max-width: 640px) {
     .mobile-chat-view {
       position: relative;
-      /* Use dynamic viewport height that automatically adapts to keyboard */
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
       height: 100dvh;
-      max-height: 100dvh;
-      min-height: 100dvh;
-      overflow: hidden;
-      /* Account for safe areas on iOS devices */
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      overflow: hidden; /* Prevent any scrolling on the main container */
     }
-    
-    .mobile-chat-messages {
-      /* Ensure smooth scrolling on mobile */
+    .mobile-chat-view.keyboard-closed {
+      height: 100vh !important;
+    }
+    .mobile-chat-view .chat-messages-container {
+      flex-grow: 1;
+      overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
     }
-    
-    .mobile-chat-input {
-      /* Ensure input area accounts for safe areas */
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+    .mobile-chat-view .mobile-chat-input {
       flex-shrink: 0;
+      /* Prevent input container from being scrollable */
+      overflow: hidden;
+      touch-action: none;
+      position: relative;
+      z-index: 100;
     }
-    
-    /* Handle bottom navigation spacing when chat is in main app */
     .mobile-chat-view:not(.modal-chat) {
-      /* Account for bottom nav height when not in modal */
-      padding-bottom: 4rem; /* h-16 = 4rem for bottom nav */
-    }
-    
-    .mobile-chat-view:not(.modal-chat) .mobile-chat-messages {
-      /* Add bottom padding to prevent messages from being hidden behind input */
-      padding-bottom: 4rem; /* Reduced from 5rem to account for smaller input */
-    }
-    
-    .mobile-chat-view:not(.modal-chat) .mobile-chat-input {
-      /* Position input directly above bottom nav without gap */
-      position: absolute;
-      bottom: 4rem; /* Sit directly on top of bottom nav */
-      left: 0;
-      right: 0;
-      margin-bottom: 0;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-      z-index: 10; /* Ensure input stays above messages */
+      padding-bottom: 4rem;
     }
   }
   

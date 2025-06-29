@@ -277,6 +277,31 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
       });
 
     } catch (err) {
+      // Check if we're offline and provide a more specific error
+      if (!navigator.onLine) {
+        const offlineError = { code: 'OFFLINE', message: 'You are currently offline' };
+        setError('offline');
+        setLoading(false);
+        devLogger.warn('CacheDebug', `Posts fetch failed - offline`, { error: offlineError, subscriberId });
+        
+        // Try to return cached data if available
+        const regularKey = `posts:${spaceId}:${page}:25`;
+        const pinnedKey = `posts:${spaceId}:pinned`;
+        const cachedRegular = globalCache.getCachedData<any[]>(regularKey);
+        const cachedPinned = globalCache.getCachedData<any[]>(pinnedKey);
+        
+        if (cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned)) {
+          devLogger.log('CacheDebug', `Using cached posts while offline for space ${spaceId}`, { subscriberId });
+          const enrichedPosts = await enrichPostsWithMetadata(cachedRegular, spaceId, subscriberId).catch(() => cachedRegular as CachedPostType[]);
+          const enrichedPinnedPosts = await enrichPostsWithMetadata(cachedPinned, spaceId, subscriberId).catch(() => cachedPinned as CachedPostType[]);
+          
+          setPosts(enrichedPosts.filter(p => !p.is_pinned));
+          setPinnedPosts(enrichedPinnedPosts.filter(p => p.is_pinned));
+          setCurrentPage(page);
+        }
+        return;
+      }
+      
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch posts';
       setError(errorMessage);
       setLoading(false);

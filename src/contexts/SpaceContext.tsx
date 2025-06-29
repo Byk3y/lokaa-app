@@ -121,7 +121,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         console.log(`[Space] Fetching space data for ${subdomain}`);
         
         // OPTIMIZED: Realistic timeout for database operations
-        const QUERY_TIMEOUT = 15000; // Increased to 15 seconds for reliable database operations
+        const QUERY_TIMEOUT = 8000; // Reduced to 8 seconds for better mobile experience
         
         console.log('🔍 [SpaceContext] Query timeout:', {
           timeout: QUERY_TIMEOUT,

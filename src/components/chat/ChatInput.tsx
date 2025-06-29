@@ -69,10 +69,14 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
   return (
     <form 
       onSubmit={handleSubmit} 
-      className={`px-3 py-2 bg-white dark:bg-gray-900 shadow-md rounded-t-none rounded-b-2xl flex items-center transition-all duration-200 ${
+      className={`px-2 py-1 bg-white dark:bg-gray-900 shadow-md rounded-t-none rounded-b-2xl flex items-center transition-all duration-200 ${
         isFocused && isMobile ? 'shadow-lg' : ''
       }`} 
-      style={{minHeight: 48}}
+      style={{
+        minHeight: 32,
+        touchAction: 'none', // Prevent scrolling on the input form
+        overflow: 'hidden'    // Ensure no overflow
+      }}
     >
       <div className="relative flex-1 flex items-center">
         <Textarea
@@ -84,17 +88,17 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
           onBlur={handleBlur}
           placeholder={`Message ${recipientName}`}
           disabled={disabled || sending}
-          className={`w-full h-10 pl-4 pr-36 rounded-2xl bg-white dark:bg-gray-900 text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-none border-none resize-none transition-all duration-200 ${
-            isFocused ? 'ring-2 ring-teal-500' : ''
-          }`}
+          className={`w-full h-auto py-1.5 pl-3 pr-20 rounded-2xl bg-white dark:bg-gray-900 text-base placeholder-gray-400 focus:outline-none focus:ring-0 shadow-none border-none resize-none transition-all duration-200 overflow-y-hidden`}
           autoComplete="off"
           rows={1}
           style={{
             // Prevent zoom on iOS
             fontSize: isMobile ? '16px' : '14px',
+            lineHeight: '1.25rem', // 20px
+            touchAction: 'manipulation', // Prevent scrolling on textarea
           }}
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
           <button 
             type="button" 
             className="p-1 hover:bg-gray-100 rounded-full transition-colors" 
@@ -107,7 +111,7 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
           <Button 
             type="submit" 
             size="icon" 
-            className="h-8 w-8 rounded-full bg-teal-500 hover:bg-teal-600 transition-colors"
+            className="h-7 w-7 rounded-full bg-teal-500 hover:bg-teal-600 transition-colors"
             disabled={disabled || sending || !message.trim()}
           >
             {sending ? (

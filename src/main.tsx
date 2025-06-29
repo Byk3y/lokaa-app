@@ -12,6 +12,28 @@ import './utils/hmrOptimizer'
 // import './utils/authModals' // REMOVED
 // import { redirectToSpace } from './utils/spaceRedirect'
 
+// Initialize service worker manager
+import { ServiceWorkerManager } from './utils/serviceWorkerManager';
+
+// Initialize service worker based on environment
+if (import.meta.env.PROD) {
+  // Production: Initialize service worker
+  ServiceWorkerManager.getInstance().register();
+} else {
+  // Development: Clear any existing service workers
+  navigator.serviceWorker
+    .getRegistrations()
+    .then(registrations => {
+      registrations.forEach(registration => {
+        console.log('🧹 Unregistering service worker:', registration.scope);
+        registration.unregister();
+      });
+    })
+    .catch(err => {
+      console.warn('⚠️ Error clearing service workers:', err);
+    });
+}
+
 // Immediate space redirection for authenticated users
 // Run before React app initialization
 // This ensures users with spaces don't see the Discover page at all

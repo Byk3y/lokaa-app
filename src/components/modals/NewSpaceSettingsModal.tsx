@@ -13,6 +13,7 @@ import PricingSettingsTab from './settings_tabs/PricingSettingsTab';
 import RulesSettingsTab from './settings_tabs/RulesSettingsTab';
 import DangerZoneTab from './settings_tabs/DangerZoneTab';
 import { toast } from "@/hooks/use-toast";
+import { exposeValidationForTesting } from '@/utils/test-helpers';
 
 export type SettingsTabKey = "general" | "about_page" | "categories" | "tabs" | "pricing" | "rules" | "danger_zone";
 
@@ -35,6 +36,13 @@ export default function NewSpaceSettingsModal() {
   
   const { user } = useOptimizedAuth();
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("general");
+
+  // Expose validation functions in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      exposeValidationForTesting();
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen && user && space?.subdomain) {

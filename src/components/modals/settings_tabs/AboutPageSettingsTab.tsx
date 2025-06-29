@@ -14,6 +14,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import MediaGallery from "@/components/space/MediaGallery";
+import { useSettingsValidation } from '@/hooks/useSettingsValidation';
 
 // We might need a more sophisticated rich text editor later.
 // For now, a simple textarea will be used for the about_description.
@@ -21,6 +22,16 @@ import MediaGallery from "@/components/space/MediaGallery";
 export default function AboutPageSettingsTab() {
   const { space, formData, setFormDataField, permissions, loadingSpace } = useSpaceSettingsStore();
   const { user } = useOptimizedAuth();
+
+  // Add validation hook
+  const {
+    validateData,
+    validateField,
+    validateFile,
+    errors,
+    isValid,
+    isValidating
+  } = useSettingsValidation('about', { validateOnChange: true, validateFiles: true });
 
   // Local state for managing edits specifically within this tab
   const [currentAboutDescription, setCurrentAboutDescription] = useState<string>("");
@@ -59,6 +70,16 @@ export default function AboutPageSettingsTab() {
       if (formData.owner_id) {
         fetchOwnerData(formData.owner_id);
       }
+
+      // Validate initial data
+      validateData({
+        about_description: formData.about_description,
+        short_description: formData.description,
+        intro_media_type: formData.intro_media_type,
+        intro_media_url: formData.intro_media_url,
+        icon_image: formData.icon_image,
+        cover_image: formData.cover_image
+      });
     } else {
       setCurrentAboutDescription("");
       setCurrentShortDescription("");
@@ -68,7 +89,7 @@ export default function AboutPageSettingsTab() {
       setCurrentIntroMediaUrl("");
     }
     setIsDirty(false);
-  }, [formData]);
+  }, [formData, validateData]);
 
   // Fetch owner data
   const fetchOwnerData = async (ownerId: string) => {
@@ -122,19 +143,24 @@ export default function AboutPageSettingsTab() {
       case 'about_description':
         setCurrentAboutDescription(value as string);
         changed = (value as string) !== (formData?.about_description || "");
+        validateField('about_description', value as string, formData);
         break;
       case 'short_description':
         setCurrentShortDescription(value as string);
         changed = (value as string) !== (formData?.description || "");
+        validateField('short_description', value as string, formData);
         break;
       case 'icon_image':
-        // For file inputs, 'value' will be the file name or path, not the object yet.
-        // Real handling will involve File objects and upload.
+        if (value instanceof File) {
+          validateFile(value, 'icon');
+        }
         setCurrentIconImageUrl(typeof value === 'string' ? value : (value as File)?.name || "");
-        // This dirty check is a placeholder.
-        changed = true; 
+        changed = true;
         break;
       case 'cover_image':
+        if (value instanceof File) {
+          validateFile(value, 'cover');
+        }
         setCurrentCoverPhotoUrl(typeof value === 'string' ? value : (value as File)?.name || "");
         changed = true;
         break;
@@ -142,33 +168,49 @@ export default function AboutPageSettingsTab() {
         const mediaType = value as 'image' | 'video' | 'none';
         setCurrentIntroMediaType(mediaType);
         changed = mediaType !== (formData?.intro_media_type || 'none');
-        if (mediaType === 'none' || mediaType !== currentIntroMediaType) { // also reset URL if type changes to or from none
-            setCurrentIntroMediaUrl(""); 
-            if (formData?.intro_media_url) changed = true; // if URL was cleared, it's a change
+        validateField('intro_media_type', mediaType, formData);
+        if (mediaType === 'none' || mediaType !== currentIntroMediaType) {
+            setCurrentIntroMediaUrl("");
+            if (formData?.intro_media_url) changed = true;
         }
         break;
       case 'intro_media_url':
-         // Placeholder for file or URL
+        if (value instanceof File) {
+          validateFile(value, currentIntroMediaType === 'video' ? 'video' : 'image');
+        }
         setCurrentIntroMediaUrl(typeof value === 'string' ? value : (value as File)?.name || "");
+        validateField('intro_media_url', value, formData);
         changed = true;
         break;
     }
-    if (changed || isDirty) { // If any field has changed, mark as dirty
+    if (changed || isDirty) {
       setIsDirty(true);
     }
   };
 
   const handleSaveChangesToStore = () => {
-    if (isDirty) { // Only update if something actually changed from the store's perspective
-      setFormDataField('about_description', currentAboutDescription);
-      setFormDataField('description', currentShortDescription); // Assuming 'description' field for short_description
-      setFormDataField('icon_image', currentIconImageUrl); // Will store URL post-upload
-      setFormDataField('cover_image', currentCoverPhotoUrl); // Will store URL post-upload
-      setFormDataField('intro_media_type', currentIntroMediaType);
-      setFormDataField('intro_media_url', currentIntroMediaType === 'none' ? null : currentIntroMediaUrl); // Set URL to null if type is none
-      
-      setIsDirty(false); 
-      // toast({ title: "About page settings updated in form", description: "Click 'Save Changes' to finalize." });
+    if (isDirty) {
+      const updatedData = {
+        about_description: currentAboutDescription,
+        description: currentShortDescription,
+        icon_image: currentIconImageUrl,
+        cover_image: currentCoverPhotoUrl,
+        intro_media_type: currentIntroMediaType,
+        intro_media_url: currentIntroMediaType === 'none' ? null : currentIntroMediaUrl
+      };
+
+      // Validate before saving
+      validateData(updatedData).then(isValid => {
+        if (isValid) {
+          setFormDataField('about_description', currentAboutDescription);
+          setFormDataField('description', currentShortDescription);
+          setFormDataField('icon_image', currentIconImageUrl);
+          setFormDataField('cover_image', currentCoverPhotoUrl);
+          setFormDataField('intro_media_type', currentIntroMediaType);
+          setFormDataField('intro_media_url', currentIntroMediaType === 'none' ? null : currentIntroMediaUrl);
+          setIsDirty(false);
+        }
+      });
     }
   };
   
@@ -327,7 +369,7 @@ export default function AboutPageSettingsTab() {
     setActiveMediaIndex(index);
   };
 
-  if (loadingSpace && !formData?.name) { // Check formData.name as an indicator that formData might not be populated yet
+  if (loadingSpace && !formData?.name) {
     return <div className="p-6 flex justify-center items-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
   
@@ -625,6 +667,20 @@ export default function AboutPageSettingsTab() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Show validation errors if any */}
+      {Object.keys(errors).length > 0 && (
+        <Alert variant="destructive">
+          {Object.entries(errors).map(([field, fieldErrors]) => (
+            fieldErrors.map((error, i) => (
+              <p key={`${field}-${i}`} className="text-sm flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2" />
+                {error}
+              </p>
+            ))
+          ))}
+        </Alert>
       )}
     </div>
   );

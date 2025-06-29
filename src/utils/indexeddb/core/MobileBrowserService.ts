@@ -158,7 +158,7 @@ export class MobileBrowserService implements IMobileBrowserService {
         if (typeof window !== 'undefined') {
           (window as any).__mobileBackgroundState = false;
         }
-      }, 10000); // 10 seconds
+      }, 45000); // 45 seconds
     }
   }
 
