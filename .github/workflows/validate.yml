@@ -1,0 +1,104 @@
+name: Security-Validation CI
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+env:
+  COVERAGE_THRESHOLD: 90
+  NODE_VERSION: 18
+  PNPM_VERSION: 8
+
+jobs:
+  validate:
+    name: Validate Security & Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+            
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Run tests with coverage
+        id: tests
+        run: pnpm run ci:security
+        
+      - name: Check coverage threshold
+        id: coverage
+        run: node scripts/checkCoverage.js
+        
+      - name: Check for skipped validation tests
+        id: check-skipped
+        run: |
+          if grep -r "test.skip" tests/ | grep -i "validation"; then
+            echo "Found skipped validation tests!"
+            exit 1
+          fi
+          if grep -r "test.todo" tests/ | grep -i "validation"; then
+            echo "Found TODO validation tests!"
+            exit 1
+          fi
+          
+      - name: Trigger Bug Bot on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo, number } = context.issue;
+            const testResults = '${{ steps.tests.outputs.results }}';
+            const coverageResults = '${{ steps.coverage.outputs.results }}';
+            
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: number,
+              body: `## ❌ Security Validation Failed\n\n${testResults}\n\n${coverageResults}\n\nPlease fix the validation issues before merging.`
+            });
+            
+      - name: Post success summary
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo, number } = context.issue;
+            const runtime = process.env.GITHUB_RUN_TIME;
+            const coverage = '${{ steps.coverage.outputs.percentage }}';
+            const testCount = '${{ steps.tests.outputs.count }}';
+            
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: number,
+              body: `## ✅ Security Validation Passed\n\n- Coverage: ${coverage}%\n- Tests: ${testCount} passed\n- Runtime: ${runtime}s`
+            }); 

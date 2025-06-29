@@ -1,5 +1,7 @@
 # Lokaa Connect Spaces
 
+[![Security-Validation CI](https://github.com/lokaa/lokaa-connect-spaces/actions/workflows/validate.yml/badge.svg)](https://github.com/lokaa/lokaa-connect-spaces/actions/workflows/validate.yml)
+
 A platform for creating and managing collaborative spaces.
 
 ## Project Status
@@ -43,6 +45,16 @@ State management is being migrated to Zustand as documented in [ADR-002](./docs/
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
+
+### Security Validation
+
+All PRs must pass the Security-Validation CI workflow before merging. This ensures:
+
+- Test coverage remains above 90%
+- No validation tests are skipped
+- All security-related tests pass
+
+The workflow runs automatically on every PR and can be manually triggered. Check the [Security-Validation CI](.github/workflows/validate.yml) configuration for details.
 
 ## License
 
