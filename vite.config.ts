@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import path from "path";
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -87,237 +87,274 @@ const createDynamicChunks = (id: string) => {
   return null;
 };
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-    // HMR OPTIMIZATION: Reduce file watching sensitivity
-    hmr: {
-      overlay: true,
-      // Reduce HMR update frequency for better performance
-      port: 24678,
-    },
-    // Watch configuration to reduce excessive file watching
-    watch: {
-      // Reduce CPU usage by limiting file watching
-      ignored: [
-        '**/node_modules/**',
-        '**/dist/**',
-        '**/.git/**',
-        '**/coverage/**',
-        '**/temp/**',
-        '**/tmp/**'
-      ],
-      // Use polling fallback only when needed
-      usePolling: false,
-    },
-  },
-  plugins: [
-    react(),
-    // 🚀 Enhanced PWA configuration with vite-plugin-pwa as sole service worker manager
-    VitePWA({
-      registerType: 'autoUpdate',
-      strategies: 'generateSW', // Generate Workbox service worker
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Enhanced runtime caching for better offline experience
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => {
-              // Don't cache auth-sensitive requests
-              return url.href.match(/^https:\/\/.*\.supabase\.co\/rest\/v1\//) && 
-                     !url.pathname.includes('/auth/') && 
-                     !url.searchParams.has('apikey');
-            },
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 300, // 5 minutes
-              },
-            },
-          },
-          {
-            urlPattern: /\.(png|jpg|jpeg|svg|gif|webp|ico)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images',
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 2592000, // 30 days
-              },
-            },
-          },
-          {
-            urlPattern: /\.(?:js|css)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'static-assets',
-              expiration: {
-                maxEntries: 150,
-                maxAgeSeconds: 86400, // 1 day
-              },
-            },
-          },
-        ],
-        // Improved navigation fallback for offline
-        navigateFallback: '/index.html',
-        navigateFallbackAllowlist: [/.*/],
-        // Clean up old caches
-        cleanupOutdatedCaches: true,
-        // Skip waiting for immediate activation
-        skipWaiting: true,
-        clientsClaim: true,
-      },
-      includeAssets: ['favicon.ico', 'lokaa-logo.svg', 'robots.txt', 'offline.html'],
-      manifest: {
-        name: 'Lokaa Connect Spaces',
-        short_name: 'Lokaa Spaces',
-        description: 'Connect, collaborate, and build communities in your dedicated spaces',
-        theme_color: '#14b8a6',
-        background_color: '#ffffff',
-        display: 'standalone',
-        orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
-        lang: 'en',
-        icons: [
-          {
-            src: '/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable any'
-          },
-          {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable any'
-          }
-        ],
-        shortcuts: [
-          {
-            name: 'Discover Spaces',
-            short_name: 'Discover',
-            description: 'Find and join new spaces',
-            url: '/discover',
-            icons: [{ src: '/icons/discover-96x96.png', sizes: '96x96' }]
-          }
-        ],
-        // Enhanced PWA features
-        categories: ['social', 'productivity'],
-        prefer_related_applications: false,
-      },
-      devOptions: {
-        enabled: true, // Enable in development for testing
-        type: 'module', // Use ES modules for better debugging
-        navigateFallback: 'index.html',
-      },
+// CSP Configuration
+const getCSPConfig = (mode: 'development' | 'production') => {
+  const isDev = mode === 'development';
+  
+  // Base CSP directives
+  const directives = {
+    'default-src': ["'self'"],
+    'script-src': [
+      "'self'",
+      isDev && "'unsafe-eval'", // Required for Vite HMR
+      isDev && "'unsafe-inline'", // Required for React DevTools
+      'https://nmddvthcsyppyjncqfsk.supabase.co'
+    ],
+    'style-src': [
+      "'self'",
+      "'unsafe-inline'", // Required for styled-components and dynamic styles
+      'https://fonts.googleapis.com' // Allow Google Fonts CSS
+    ],
+    'img-src': [
+      "'self'",
+      'data:',
+      'blob:',
+      'https://nmddvthcsyppyjncqfsk.supabase.co',
+      'https://img.youtube.com',
+      'https://i.ytimg.com',
+      'https://i.vimeocdn.com',
+      'https://giphy.com',
+      'https://media.giphy.com',
+      'https://i.imgur.com',
+      'https://lovable.dev'
+    ],
+    'media-src': [
+      "'self'",
+      'https://nmddvthcsyppyjncqfsk.supabase.co'
+    ],
+    'connect-src': [
+      "'self'",
+      'https://nmddvthcsyppyjncqfsk.supabase.co',
+      isDev && 'ws:', // Required for Vite HMR WebSocket
+      'https://api.giphy.com',
+      'https://fonts.googleapis.com',
+      'https://fonts.gstatic.com'
+    ],
+    'frame-src': [
+      "'self'",
+      'https://www.youtube.com',
+      'https://youtube.com',
+      'https://player.vimeo.com'
+    ],
+    'font-src': [
+      "'self'",
+      'data:',
+      'https://fonts.gstatic.com' // Allow Google Fonts
+    ],
+    'object-src': ["'none'"],
+    'base-uri': ["'self'"],
+    'form-action': ["'self'"],
+    'manifest-src': ["'self'"]
+  };
+
+  // Filter out false values and join arrays
+  const policy = Object.entries(directives)
+    .map(([key, values]) => {
+      const filteredValues = values.filter(Boolean);
+      return filteredValues.length ? `${key} ${filteredValues.join(' ')}` : null;
     })
-  ],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+    .filter(Boolean)
+    .join('; ');
+
+  return policy;
+};
+
+// Get CSP Report-Only configuration
+const getCSPReportOnlyConfig = (mode: 'development' | 'production') => {
+  const basePolicy = getCSPConfig(mode);
+  return `${basePolicy}; report-uri https://nmddvthcsyppyjncqfsk.supabase.co/functions/v1/csp-report`;
+};
+
+// https://vitejs.dev/config/
+export default defineConfig(({ mode }) => {
+  const isProd = mode === "production";
+  
+  return {
+    server: {
+      host: "::",
+      port: 8080,
+      strictPort: false,
+      hmr: {
+        clientPort: 8080,
+        port: 8080,
+        overlay: true
+      },
+      headers: {
+        // Enforced CSP
+        'Content-Security-Policy': getCSPConfig('development'),
+        // Report-only CSP (separate header)
+        'Content-Security-Policy-Report-Only': getCSPReportOnlyConfig('development')
+      },
+      watch: {
+        ignored: [
+          '**/node_modules/**',
+          '**/dist/**',
+          '**/.git/**',
+          '**/coverage/**',
+          '**/temp/**',
+          '**/tmp/**'
+        ],
+        usePolling: false,
+      },
     },
-  },
-  define: {
-    global: "globalThis",
-  },
-  optimizeDeps: {
-    include: ["@supabase/supabase-js"],
-  },
-  // 🚀 Phase 6: Advanced Bundle Optimization
-  build: {
-    target: 'es2020',
-    minify: 'esbuild',
-    cssCodeSplit: true,
-    chunkSizeWarningLimit: 1000, // Increase warning limit temporarily
-    rollupOptions: {
-      output: {
-        // 🔹 Manual chunks for optimal caching and loading
-        manualChunks: (id) => {
-          // Vendor chunks (stable, long-term caching)
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react/jsx-runtime')) {
-              return 'react-vendor';
-            }
-            if (id.includes('react-router')) {
-              return 'router-vendor';
-            }
-            if (id.includes('@radix-ui') || id.includes('lucide-react')) {
-              return 'ui-vendor';
-            }
-            if (id.includes('@supabase')) {
-              return 'supabase-vendor';
-            }
-            if (id.includes('@tanstack/react-query')) {
-              return 'query-vendor';
-            }
-            if (id.includes('date-fns') || id.includes('clsx') || id.includes('tailwind-merge')) {
-              return 'utils-vendor';
-            }
-            return 'vendor';
-          }
-
-          // Apply dynamic chunking from existing function
-          const dynamicChunk = createDynamicChunks(id);
-          if (dynamicChunk) {
-            return dynamicChunk;
-          }
-
-          // Phase-specific chunks
-          if (id.includes('phase2') || id.includes('advancedQueryEngine') || id.includes('unifiedRealtimeSystem')) {
-            return 'phase2-systems';
-          }
-          if (id.includes('phase4') || id.includes('errorTracking') || id.includes('analytics')) {
-            return 'phase4-systems';
-          }
-          if (id.includes('phase5') || id.includes('mobile') || id.includes('pwa')) {
-            return 'phase5-systems';
-          }
-          if (id.includes('phase6') || id.includes('bundle') || id.includes('consolidation')) {
-            return 'phase6-systems';
-          }
-
-          return null;
+    plugins: [
+      react(),
+      isProd && VitePWA({
+        registerType: 'autoUpdate',
+        strategies: 'generateSW',
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          navigationPreload: true,
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/(posts|comments|space_members)/,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'lokaa-readonly',
+                expiration: { maxEntries: 150, maxAgeSeconds: 60 * 60 * 24 }
+              }
+            },
+            {
+              urlPattern: ({ url }) => {
+                return url.href.match(/^https:\/\/.*\.supabase\.co\/rest\/v1\//) && 
+                       !url.pathname.includes('/auth/') && 
+                       !url.searchParams.has('apikey');
+              },
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'supabase-api',
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 300,
+                },
+              },
+            },
+            {
+              urlPattern: /\.(png|jpg|jpeg|svg|gif|webp|ico)$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'images',
+                expiration: {
+                  maxEntries: 200,
+                  maxAgeSeconds: 2592000,
+                },
+              },
+            },
+            {
+              urlPattern: /\.(?:js|css)$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'static-assets',
+                expiration: {
+                  maxEntries: 150,
+                  maxAgeSeconds: 86400,
+                },
+              },
+            },
+          ],
+          navigateFallback: '/index.html',
+          navigateFallbackAllowlist: [/.*/],
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
         },
-        // Optimized file naming for better caching
-        chunkFileNames: 'js/[name]-[hash].js',
-        entryFileNames: 'js/[name]-[hash].js',
-        assetFileNames: (assetInfo) => {
-          const name = assetInfo.name || 'asset';
-          const info = name.split('.');
-          const ext = info[info.length - 1];
-          if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico)$/i.test(name)) {
-            return `images/[name]-[hash].${ext}`;
+        includeAssets: ['favicon.ico', 'lokaa-logo.svg', 'robots.txt', 'offline.html'],
+        manifest: {
+          name: 'Lokaa Connect Spaces',
+          short_name: 'Lokaa Spaces',
+          description: 'Connect, collaborate, and build communities in your dedicated spaces',
+          theme_color: '#14b8a6',
+          background_color: '#ffffff',
+          display: 'standalone',
+          orientation: 'portrait-primary',
+          scope: '/',
+          start_url: '/',
+          lang: 'en',
+          icons: [
+            {
+              src: '/icons/icon-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable any'
+            },
+            {
+              src: '/icons/icon-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable any'
+            }
+          ],
+          shortcuts: [
+            {
+              name: 'Discover Spaces',
+              short_name: 'Discover',
+              description: 'Find and join new spaces',
+              url: '/discover',
+              icons: [{ src: '/icons/discover-96x96.png', sizes: '96x96' }]
+            }
+          ],
+          categories: ['social', 'productivity'],
+          prefer_related_applications: false,
+        },
+        devOptions: {
+          enabled: false,
+          type: 'module',
+          navigateFallback: 'index.html',
+        },
+      })
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
+    optimizeDeps: {
+      include: [
+        "@supabase/supabase-js",
+        "@radix-ui/react-icons",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-dropdown-menu",
+        "lucide-react"
+      ],
+      force: true
+    },
+    build: {
+      target: 'es2020',
+      minify: 'esbuild',
+      cssCodeSplit: true,
+      chunkSizeWarningLimit: 1000, // Increase warning limit temporarily
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom')) {
+                return 'react-vendor';
+              }
+              if (id.includes('@radix-ui') || id.includes('lucide-react')) {
+                return 'ui-vendor';
+              }
+              return 'vendor';
+            }
+            return null;
           }
-          if (/\.css$/i.test(name)) {
-            return `css/[name]-[hash].${ext}`;
-          }
-          return `assets/[name]-[hash].${ext}`;
+        }
+      }
+    },
+    esbuild: {
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
+    },
+    css: {
+      devSourcemap: mode === 'development',
+      postcss: {
+        plugins: [tailwindcss, autoprefixer],
+      },
+      // Optimize CSS rebuilds during development
+      preprocessorOptions: {
+        css: {
+          // Reduce CSS dependency tracking sensitivity
+          hmrPartialAccept: false,
         },
       },
     },
-    // Production optimizations
-    sourcemap: false,
-  },
-  esbuild: {
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
-  },
-  css: {
-    // HMR OPTIMIZATION: Improve CSS processing
-    devSourcemap: mode === 'development',
-    postcss: {
-      plugins: [tailwindcss, autoprefixer],
-    },
-    // Optimize CSS rebuilds during development
-    preprocessorOptions: {
-      css: {
-        // Reduce CSS dependency tracking sensitivity
-        hmrPartialAccept: false,
-      },
-    },
-  },
-}));
+  };
+});
