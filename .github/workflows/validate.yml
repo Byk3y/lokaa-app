@@ -15,6 +15,10 @@ env:
   NODE_VERSION: 18
   PNPM_VERSION: 8
 
+permissions:
+  issues: write
+  pull-requests: write
+
 jobs:
   validate:
     name: Validate Security & Tests
