@@ -69,10 +69,10 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
   return (
     <form 
       onSubmit={handleSubmit} 
-      className={`px-2 py-2 bg-white dark:bg-gray-900 shadow-md rounded-t-none rounded-b-2xl flex items-center transition-all duration-200 ${
+      className={`px-3 py-2 bg-white dark:bg-gray-900 shadow-md rounded-t-none rounded-b-2xl flex items-center transition-all duration-200 ${
         isFocused && isMobile ? 'shadow-lg' : ''
       }`} 
-      style={{minHeight: 64}}
+      style={{minHeight: 48}}
     >
       <div className="relative flex-1 flex items-center">
         <Textarea
@@ -84,7 +84,7 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
           onBlur={handleBlur}
           placeholder={`Message ${recipientName}`}
           disabled={disabled || sending}
-          className={`w-full h-12 pl-4 pr-36 rounded-2xl bg-white dark:bg-gray-900 text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-none border-none resize-none transition-all duration-200 ${
+          className={`w-full h-10 pl-4 pr-36 rounded-2xl bg-white dark:bg-gray-900 text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-none border-none resize-none transition-all duration-200 ${
             isFocused ? 'ring-2 ring-teal-500' : ''
           }`}
           autoComplete="off"

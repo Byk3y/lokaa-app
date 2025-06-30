@@ -241,6 +241,7 @@ export default function ChatContainer({
           onExpand={onExpand}
           isExpanded={isExpanded}
           isFullScreen={effectiveIsFullScreen}
+          isModal={isModal}
           onConversationUpdated={fetchConversations}
         />
           );

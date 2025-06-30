@@ -115,15 +115,21 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    // 🚀 Phase 6: Fixed PWA configuration to prevent build errors
+    // 🚀 Enhanced PWA configuration with vite-plugin-pwa as sole service worker manager
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'generateSW', // Generate Workbox service worker
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Fix: Simplified runtime caching to prevent validation errors
+        // Enhanced runtime caching for better offline experience
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\//,
+            urlPattern: ({ url }) => {
+              // Don't cache auth-sensitive requests
+              return url.href.match(/^https:\/\/.*\.supabase\.co\/rest\/v1\//) && 
+                     !url.pathname.includes('/auth/') && 
+                     !url.searchParams.has('apikey');
+            },
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api',
@@ -134,7 +140,7 @@ export default defineConfig(({ mode }) => ({
             },
           },
           {
-            urlPattern: /\.(png|jpg|jpeg|svg|gif|webp)$/,
+            urlPattern: /\.(png|jpg|jpeg|svg|gif|webp|ico)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'images',
@@ -144,9 +150,28 @@ export default defineConfig(({ mode }) => ({
               },
             },
           },
+          {
+            urlPattern: /\.(?:js|css)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'static-assets',
+              expiration: {
+                maxEntries: 150,
+                maxAgeSeconds: 86400, // 1 day
+              },
+            },
+          },
         ],
+        // Improved navigation fallback for offline
+        navigateFallback: '/index.html',
+        navigateFallbackAllowlist: [/.*/],
+        // Clean up old caches
+        cleanupOutdatedCaches: true,
+        // Skip waiting for immediate activation
+        skipWaiting: true,
+        clientsClaim: true,
       },
-      includeAssets: ['favicon.ico', 'lokaa-logo.svg', 'robots.txt'],
+      includeAssets: ['favicon.ico', 'lokaa-logo.svg', 'robots.txt', 'offline.html'],
       manifest: {
         name: 'Lokaa Connect Spaces',
         short_name: 'Lokaa Spaces',
@@ -157,6 +182,7 @@ export default defineConfig(({ mode }) => ({
         orientation: 'portrait-primary',
         scope: '/',
         start_url: '/',
+        lang: 'en',
         icons: [
           {
             src: '/icons/icon-192x192.png',
@@ -179,10 +205,15 @@ export default defineConfig(({ mode }) => ({
             url: '/discover',
             icons: [{ src: '/icons/discover-96x96.png', sizes: '96x96' }]
           }
-        ]
+        ],
+        // Enhanced PWA features
+        categories: ['social', 'productivity'],
+        prefer_related_applications: false,
       },
       devOptions: {
-        enabled: false, // Disable in development to avoid conflicts
+        enabled: true, // Enable in development for testing
+        type: 'module', // Use ES modules for better debugging
+        navigateFallback: 'index.html',
       },
     })
   ],

@@ -14,6 +14,7 @@ interface ChatViewProps {
   onExpand?: () => void;
   isExpanded?: boolean;
   isFullScreen?: boolean;
+  isModal?: boolean;
   onConversationUpdated?: () => void;
 }
 
@@ -24,6 +25,7 @@ export default function ChatView({
   onExpand,
   isExpanded,
   isFullScreen = false,
+  isModal = false,
   onConversationUpdated
 }: ChatViewProps) {
   const { user } = useOptimizedAuth();
@@ -38,7 +40,6 @@ export default function ChatView({
   
   const [sending, setSending] = useState(false);
   const [currentConversation, setCurrentConversation] = useState(initialConversation);
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   
   // ✅ LAYOUT SHIFT FIX: Early stable determination of connection context
   const [shouldShowConnectionContext, setShouldShowConnectionContext] = useState(() => {
@@ -86,56 +87,6 @@ export default function ChatView({
     } : null,
     shouldShowConnectionContext
   });
-
-  // Mobile keyboard detection
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const handleResize = () => {
-      // On mobile, when keyboard opens, the visual viewport height decreases
-      const viewportHeight = window.visualViewport?.height || window.innerHeight;
-      const windowHeight = window.screen.height;
-      
-      // If viewport height is significantly smaller than screen height, keyboard is likely open
-      const keyboardThreshold = windowHeight * 0.75;
-      const keyboardIsOpen = viewportHeight < keyboardThreshold;
-      
-      setIsKeyboardOpen(keyboardIsOpen);
-    };
-
-    // Listen to visual viewport changes (better for keyboard detection)
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-      return () => window.visualViewport?.removeEventListener('resize', handleResize);
-    } else {
-      // Fallback for older browsers
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }
-  }, [isMobile]);
-
-  // ✅ MOBILE INPUT FIX: Force layout recalculation when viewport changes
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const handleViewportChange = () => {
-      // Force a small delay to let the viewport settle
-      setTimeout(() => {
-        console.log('🗨️ [ChatView] Viewport changed, recalculating layout');
-        // This will trigger a re-render with updated container styles
-      }, 100);
-    };
-
-    // Listen for viewport changes that might affect layout
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleViewportChange);
-      window.visualViewport.addEventListener('scroll', handleViewportChange);
-      return () => {
-        window.visualViewport?.removeEventListener('resize', handleViewportChange);
-        window.visualViewport?.removeEventListener('scroll', handleViewportChange);
-      };
-    }
-  }, [isMobile]); // ✅ INFINITE LOOP FIX: Removed isKeyboardOpen to prevent loops
 
   useEffect(() => {
     setCurrentConversation(initialConversation);
@@ -198,9 +149,7 @@ export default function ChatView({
             // Method 2: Also use scrollIntoView without animation as backup
             messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
             
-            isInitialLoad.current = false;
-            previousMessagesLength.current = currentMessagesLength;
-            console.log('🗨️ [ChatView] Initial load: Positioned at bottom instantly', {
+            console.log('🗨️ [ChatView] Initial load: Positioned at bottom', {
               scrollTop: container.scrollTop,
               scrollHeight: container.scrollHeight,
               clientHeight: container.clientHeight
@@ -279,7 +228,7 @@ export default function ChatView({
     }
   };
 
-  // ✅ MOBILE INPUT FIX: Improved mobile layout calculations (optimized to prevent infinite loops)
+  // ✅ MOBILE KEYBOARD FIX: Robust CSS-based layout that adapts automatically
   const getMobileContainerStyle = () => {
     if (!isMobile) {
       return {
@@ -288,44 +237,26 @@ export default function ChatView({
       };
     }
 
-    // Mobile-specific calculations
-    const viewportHeight = window.visualViewport?.height || window.innerHeight;
-    const bottomNavHeight = 64; // 16 * 4 = 64px (h-16 from BottomNav)
-    
-    // Get safe area from CSS custom properties (more reliable)
-    const safeAreaBottom = parseInt(
-      getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom')?.replace('px', '') || '0'
-    );
-    
-    if (isKeyboardOpen) {
-      // When keyboard is open, use full viewport height (no bottom nav visible)
-      return {
-        height: `${viewportHeight}px`,
-        maxHeight: `${viewportHeight}px`,
-        minHeight: `${viewportHeight}px`
-      };
-    } else {
-      // When keyboard is closed, account for bottom nav + safe area
-      const availableHeight = viewportHeight - bottomNavHeight - safeAreaBottom;
-      return {
-        height: `${availableHeight}px`,
-        maxHeight: `${availableHeight}px`,
-        minHeight: `${availableHeight}px`
-      };
-    }
+    // ✅ ROBUST SOLUTION: Use CSS dynamic viewport units and environment variables
+    // This automatically adapts to keyboard without fragile JavaScript detection
+    return {
+      height: '100dvh', // Dynamic viewport height - adapts to keyboard automatically
+      maxHeight: '100dvh',
+      minHeight: '100dvh'
+    };
   };
 
-  // Dynamic padding - simplified since height calculation now handles spacing
+  // Dynamic padding - simplified since CSS now handles all spacing
   const getContainerPadding = () => {
     if (isDesktop) return 'pb-0'; // No bottom nav on desktop
-    // For mobile, padding is handled by height calculation
+    // For mobile, padding is handled by CSS viewport units
     return 'pb-0';
   };
 
   return (
     <div 
       className={`flex flex-col bg-white dark:bg-gray-800 ${getContainerPadding()} ${
-        isMobile ? `mobile-chat-view ${isKeyboardOpen ? 'keyboard-open' : ''}` : ''
+        isMobile ? `mobile-chat-view ${isModal ? 'modal-chat' : ''}` : ''
       }`}
       style={getMobileContainerStyle()}
     >
