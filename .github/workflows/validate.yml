@@ -10,24 +10,34 @@ on:
       - 'pnpm-lock.yaml'
   workflow_dispatch:
 
+# Required PAT Scopes for ACTIONS_PAT:
+# - repo (Full control of private repositories)
+#   - repo:status (Access commit status)
+#   - repo:read (Read access to code)
+# - workflow (Update GitHub Action workflows)
+
 env:
   COVERAGE_THRESHOLD: 90
   NODE_VERSION: 18
   PNPM_VERSION: 8
-
-permissions:
-  issues: write
-  pull-requests: write
 
 jobs:
   validate:
     name: Validate Security & Tests
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      checks: write
+      statuses: write
+    
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.ACTIONS_PAT }}
+          fetch-depth: 0
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
