@@ -136,10 +136,13 @@ class MobileSessionManager {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', () => {
+    
+    const handleFocus = () => {
       this.state.lastActiveTimestamp = Date.now();
       this.persistState();
-    });
+    };
+    
+    window.addEventListener('focus', handleFocus);
   }
 
   /**

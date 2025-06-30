@@ -22,8 +22,16 @@ class PageVisibilityManager {
   private isVisible: boolean = true;
   private listeners: Set<(visible: boolean) => void> = new Set();
   private initialized: boolean = false;
+  private boundVisibilityHandler: (() => void) | null = null;
+  private boundFocusHandler: (() => void) | null = null;
+  private boundBlurHandler: (() => void) | null = null;
 
-  private constructor() {}
+  private constructor() {
+    // Bind event handlers once in constructor
+    this.boundVisibilityHandler = this.handleVisibilityChange.bind(this);
+    this.boundFocusHandler = this.handleFocus.bind(this);
+    this.boundBlurHandler = this.handleBlur.bind(this);
+  }
 
   static getInstance(): PageVisibilityManager {
     if (!PageVisibilityManager.instance) {
@@ -56,12 +64,10 @@ class PageVisibilityManager {
     // Set initial visibility state
     this.isVisible = !document.hidden;
 
-    // Listen for visibility changes
-    document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-
-    // Also listen for focus/blur as backup
-    window.addEventListener('focus', this.handleFocus.bind(this));
-    window.addEventListener('blur', this.handleBlur.bind(this));
+    // Listen for visibility changes using bound handlers
+    document.addEventListener('visibilitychange', this.boundVisibilityHandler!);
+    window.addEventListener('focus', this.boundFocusHandler!);
+    window.addEventListener('blur', this.boundBlurHandler!);
 
     this.initialized = true;
 
@@ -229,9 +235,15 @@ class PageVisibilityManager {
    * Cleanup - called when app unmounts
    */
   destroy(): void {
-    document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-    window.removeEventListener('focus', this.handleFocus.bind(this));
-    window.removeEventListener('blur', this.handleBlur.bind(this));
+    if (this.boundVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this.boundVisibilityHandler);
+    }
+    if (this.boundFocusHandler) {
+      window.removeEventListener('focus', this.boundFocusHandler);
+    }
+    if (this.boundBlurHandler) {
+      window.removeEventListener('blur', this.boundBlurHandler);
+    }
     
     this.activities.clear();
     this.listeners.clear();

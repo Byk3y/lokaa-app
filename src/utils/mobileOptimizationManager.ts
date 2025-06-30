@@ -49,7 +49,8 @@ class MobileOptimizationManager {
   private sessionId: string;
   private backgroundTimestamp = 0;
   private keepAliveInterval: NodeJS.Timeout | null = null;
-  private visibilityHandler?: () => void;
+  private visibilityHandler: (() => void) | null = null;
+  private focusHandler: (() => void) | null = null;
 
   private constructor() {
     this.sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -150,7 +151,7 @@ class MobileOptimizationManager {
    * Setup background/foreground detection
    */
   private setupBackgroundDetection(): void {
-    this.visibilityHandler = () => {
+    const handleVisibilityChange = () => {
       const now = Date.now();
       
       if (document.hidden) {
@@ -162,8 +163,14 @@ class MobileOptimizationManager {
       }
     };
 
-    document.addEventListener('visibilitychange', this.visibilityHandler);
-    window.addEventListener('focus', () => this.onAppForegrounded(0));
+    const handleFocus = () => this.onAppForegrounded(0);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Store handlers for cleanup
+    this.visibilityHandler = handleVisibilityChange;
+    this.focusHandler = handleFocus;
   }
 
   /**
@@ -391,7 +398,12 @@ class MobileOptimizationManager {
 
     if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
-      this.visibilityHandler = undefined;
+      this.visibilityHandler = null;
+    }
+
+    if (this.focusHandler) {
+      window.removeEventListener('focus', this.focusHandler);
+      this.focusHandler = null;
     }
 
     this.isInitialized = false;
