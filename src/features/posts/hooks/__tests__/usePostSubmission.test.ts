@@ -1,60 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react-hooks';
+import { renderHook } from '@testing-library/react';
 import { usePostSubmission } from '../usePostSubmission';
 import { generateSlug } from '@/utils/slugUtils';
 import type { PostCardProps } from '@/features/posts/types/postCard';
 
 // Mock react-router-dom's useNavigate
+const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate
 }));
 
-// Mock the Supabase client
+// Mock Supabase client
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
+  getSupabaseClient: () => ({
     from: vi.fn(() => ({
-      insert: vi.fn(() => ({
-        select: vi.fn(() => ({
-          single: vi.fn(() => ({
-            data: {
-              id: 'mock-post-id',
-              title: 'Test Post',
-              content: 'Test content',
-              created_at: '2023-01-01T00:00:00.000Z',
-              slug: 'test-post',
-              author: {
-                id: 'user-123',
-                full_name: 'Test User',
-                avatar_url: null,
-                profile_url: null
-              },
-              space: {
-                id: 'space-123',
-                subdomain: 'test-space'
-              }
-            },
-            error: null
-          }))
-        }))
-      })),
-      update: vi.fn(() => ({
+      insert: vi.fn(() => Promise.resolve({ data: { id: 'test-id', slug: 'test-slug' }, error: null })),
+      update: vi.fn(() => Promise.resolve({ data: { id: 'test-id', slug: 'test-slug' }, error: null })),
+      select: vi.fn(() => ({
         eq: vi.fn(() => ({
-          select: vi.fn(() => ({
-            single: vi.fn(() => ({
-              data: {
-                id: 'mock-post-id',
-                title: 'Updated Post',
-                content: 'Updated content',
-                edited_at: '2023-01-02T00:00:00.000Z',
-                slug: 'updated-post'
-              },
-              error: null
-            }))
-          }))
+          single: vi.fn(() => Promise.resolve({ data: { id: 'test-id', slug: 'test-slug' }, error: null }))
         }))
       }))
-    })
-  }
+    }))
+  })
 }));
 
 // Mock useSpaceSettingsStore
@@ -68,7 +36,6 @@ vi.mock('@/hooks/useSpaceSettingsStore', () => ({
 }));
 
 // Setup mocks
-const mockNavigate = vi.fn();
 const mockHistoryPushState = vi.fn();
 
 describe('usePostSubmission', () => {
@@ -189,5 +156,62 @@ describe('usePostSubmission', () => {
     
     // onPostUpdated should be called
     expect(mockProps.onPostUpdated).toHaveBeenCalled();
+  });
+
+  it('should handle post submission correctly', async () => {
+    const mockProps = {
+      spaceId: 'test-space',
+      userId: 'test-user',
+      onPostCreated: vi.fn(),
+    };
+
+    const { result } = renderHook(() => usePostSubmission(mockProps));
+
+    const post = {
+      title: 'Test Post',
+      content: 'Test content',
+      attachments: [],
+    };
+
+    const response = await result.current.submitPost(post);
+
+    expect(response.success).toBe(true);
+    expect(response.postId).toBe('test-id');
+    expect(response.slug).toBe('test-slug');
+    expect(mockProps.onPostCreated).toHaveBeenCalled();
+  });
+
+  it('should handle submission errors', async () => {
+    vi.mocked(getSupabaseClient).mockImplementationOnce(() => ({
+      from: vi.fn(() => ({
+        insert: vi.fn(() => Promise.resolve({ data: null, error: new Error('Submission failed') })),
+        update: vi.fn(() => Promise.resolve({ data: null, error: new Error('Submission failed') })),
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn(() => Promise.resolve({ data: null, error: new Error('Submission failed') }))
+          }))
+        }))
+      }))
+    }));
+
+    const mockProps = {
+      spaceId: 'test-space',
+      userId: 'test-user',
+      onPostCreated: vi.fn(),
+    };
+
+    const { result } = renderHook(() => usePostSubmission(mockProps));
+
+    const post = {
+      title: 'Test Post',
+      content: 'Test content',
+      attachments: [],
+    };
+
+    const response = await result.current.submitPost(post);
+
+    expect(response.success).toBe(false);
+    expect(response.error).toBe('Submission failed');
+    expect(mockProps.onPostCreated).not.toHaveBeenCalled();
   });
 }); 

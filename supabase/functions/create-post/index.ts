@@ -1,7 +1,9 @@
 import { serve } from 'std/http/server.ts';
-import { createClient } from 'supabase';
-import { z } from 'zod';
-import { APIValidation } from '../_shared/validation.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
+import { corsHeaders } from '../_shared/cors.ts';
+import { verifyToken } from '../_shared/csrf.ts';
+import { validateSessionAndGetUser, createErrorResponse } from '../_shared/session.ts';
+import { apiValidation } from '../_shared/validation.ts';
 
 // Create post request schema
 const createPostRequestSchema = z.object({
@@ -32,150 +34,119 @@ const createPostRequestSchema = z.object({
   })
 });
 
-// Initialize validation
-const apiValidation = APIValidation.getInstance();
-
 serve(async (req: Request) => {
+  // Handle CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
-    // Get Supabase client
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({
-          code: 'UNAUTHORIZED',
-          message: 'Missing authorization header',
-          timestamp: Date.now()
-        }),
-        { 
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+    // Verify request method
+    if (req.method !== 'POST') {
+      return createErrorResponse('Method not allowed', 405);
     }
+
+    // Verify CSRF token
+    const csrfToken = req.headers.get('x-csrf-token');
+    if (!csrfToken) {
+      // Log CSRF failure
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+
+      await supabaseAdmin.from('analytics_events').insert({
+        event_type: 'security.csrf_fail',
+        event_data: {
+          path: '/create-post',
+          ip: req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for'),
+          reason: 'missing_token'
+        }
+      });
+
+      return createErrorResponse('Missing CSRF token', 403);
+    }
+
+    const isValidToken = await verifyToken(csrfToken);
+    if (!isValidToken) {
+      // Log CSRF failure
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+
+      await supabaseAdmin.from('analytics_events').insert({
+        event_type: 'security.csrf_fail',
+        event_data: {
+          path: '/create-post',
+          ip: req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for'),
+          reason: 'invalid_token'
+        }
+      });
+
+      return createErrorResponse('Invalid CSRF token', 403);
+    }
+
+    // Validate session and get user
+    const result = await validateSessionAndGetUser(req);
+    if (result instanceof Response) {
+      return result;
+    }
+    const { user } = result;
 
     // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
-        global: { headers: { Authorization: authHeader } }
+        global: { headers: { Authorization: req.headers.get('Authorization')! } }
       }
     );
-
-    // Get user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({
-          code: 'UNAUTHORIZED',
-          message: 'Invalid authorization',
-          timestamp: Date.now()
-        }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
 
     // Check rate limit
     const rateLimit = await apiValidation.checkRateLimit('/create-post', user.id);
     if (!rateLimit.allowed) {
-      return new Response(
-        JSON.stringify({
-          code: 'RATE_LIMIT_EXCEEDED',
-          message: 'Too many requests',
-          details: {
-            resetAt: rateLimit.resetAt,
-            remaining: rateLimit.remaining
-          },
-          timestamp: Date.now()
-        }),
-        {
-          status: 429,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+      return createErrorResponse('Rate limit exceeded', 429);
     }
 
-    // Parse and validate request
-    const payload = await req.json();
-    const validation = await apiValidation.validateRequest(
-      '/create-post',
-      payload,
-      createPostRequestSchema
-    );
+    // Get request body
+    const body = await req.json();
 
-    if (!validation.isValid) {
-      return new Response(
-        JSON.stringify({
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid request payload',
-          details: { errors: validation.errors },
-          timestamp: Date.now()
-        }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+    // Validate post data
+    const validation = await apiValidation.validatePost(body);
+    if (!validation.success) {
+      return createErrorResponse(validation.error, 400);
     }
 
     // Create post
     const { data: post, error: postError } = await supabaseClient
       .from('posts')
       .insert({
-        title: validation.sanitizedData.data.title,
-        content: validation.sanitizedData.data.content,
-        space_id: validation.sanitizedData.data.spaceId,
-        media: validation.sanitizedData.data.media,
-        tags: validation.sanitizedData.data.tags,
-        is_draft: validation.sanitizedData.data.isDraft,
-        scheduled_for: validation.sanitizedData.data.scheduledFor,
-        author_id: user.id
+        ...validation.data,
+        user_id: user.id
       })
       .select()
       .single();
 
     if (postError) {
-      return new Response(
-        JSON.stringify({
-          code: 'DATABASE_ERROR',
-          message: 'Failed to create post',
-          timestamp: Date.now()
-        }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+      console.error('Error creating post:', postError);
+      return createErrorResponse('Error creating post', 500);
     }
 
     return new Response(
-      JSON.stringify({
-        data: post,
-        timestamp: Date.now()
-      }),
+      JSON.stringify(post),
       {
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     );
 
   } catch (error) {
-    return new Response(
-      JSON.stringify({
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred',
-        timestamp: Date.now()
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
+    console.error('Error in create-post function:', error);
+    return createErrorResponse('Internal server error', 500);
   }
 }); 

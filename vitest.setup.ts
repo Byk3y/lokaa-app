@@ -1,29 +1,224 @@
-// Setup file for Vitest
+import { vi } from 'vitest';
+import 'fake-indexeddb/auto';
+import { Blob } from 'fetch-blob';
 
-// Mock window.matchMedia for components that use media queries
+// Initialize fake-indexeddb first
+import FDBFactory from 'fake-indexeddb/lib/FDBFactory';
+import FDBKeyRange from 'fake-indexeddb/lib/FDBKeyRange';
+
+global.indexedDB = new FDBFactory() as any;
+global.IDBKeyRange = FDBKeyRange as any;
+
+// 1. File and Blob polyfills
+class MockFile extends Blob implements File {
+  name: string;
+  lastModified: number;
+  webkitRelativePath: string = '';
+  
+  constructor(fileBits: BlobPart[], fileName: string, options?: FilePropertyBag) {
+    super(fileBits, options);
+    this.name = fileName;
+    this.lastModified = options?.lastModified ?? Date.now();
+  }
+}
+
+global.Blob = Blob;
+global.File = MockFile as any;
+
+// 2. URL polyfill
+if (typeof global.URL === 'undefined') {
+  global.URL = require('url').URL;
+}
+
+// Polyfill crypto.randomUUID
+Object.defineProperty(global, 'crypto', {
+  value: {
+    ...global.crypto,
+    randomUUID: () => {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+  },
+  writable: true,
+  configurable: true
+});
+
+// 3. Storage stubs
+const createStorageStub = () => {
+  const store = new Map<string, string>();
+  return {
+    getItem: vi.fn((key: string) => store.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => store.set(key, value)),
+    removeItem: vi.fn((key: string) => store.delete(key)),
+    clear: vi.fn(() => store.clear()),
+    key: vi.fn((index: number) => Array.from(store.keys())[index] ?? null),
+    get length() { return store.size; }
+  } as Storage;
+};
+
+global.localStorage = createStorageStub();
+global.sessionStorage = createStorageStub();
+
+// 4. Supabase mock
+const supabaseMock = {
+  from: vi.fn(() => ({
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null }))
+        }))
+      }))
+    })),
+    insert: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    update: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    delete: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    rpc: vi.fn(() => Promise.resolve({ data: null, error: null }))
+  })),
+  auth: {
+    getSession: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+    refreshSession: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+    getUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: null }))
+  }
+};
+
+const getSupabaseClientMock = vi.fn(() => supabaseMock);
+
+vi.mock('@/integrations/supabase/client', () => ({
+  getSupabaseClient: getSupabaseClientMock
+}));
+
+// 5. Fetch mock
+const mockFetch = vi.fn((url: string, options?: RequestInit) => {
+  // CSRF token endpoint
+  if (url === '/api/auth/csrf') {
+    return Promise.resolve(new Response(JSON.stringify({ token: 'test-csrf-token' }), {
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'application/json' })
+    }));
+  }
+
+  // Auth refresh endpoint
+  if (url === '/api/auth/refresh') {
+    return Promise.resolve(new Response(JSON.stringify({ session: { access_token: 'new_token' } }), {
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'application/json' })
+    }));
+  }
+
+  // Posts endpoint
+  if (url === '/api/posts') {
+    const hasValidToken = options?.headers?.['x-csrf-token'] === 'test-csrf-token';
+    if (!hasValidToken) {
+      return Promise.resolve(new Response(JSON.stringify({ message: 'Invalid CSRF token' }), {
+        status: 403,
+        headers: new Headers({ 'Content-Type': 'application/json' })
+      }));
+    }
+    return Promise.resolve(new Response(JSON.stringify({ data: null }), {
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'application/json' })
+    }));
+  }
+
+  // Security events endpoint
+  if (url === '/api/security/events') {
+    return Promise.resolve(new Response(JSON.stringify({ data: null }), {
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'application/json' })
+    }));
+  }
+
+  // Security events aggregation endpoint
+  if (url === '/api/security/events/aggregate') {
+    return Promise.resolve(new Response(JSON.stringify([
+      { event_type: 'security.csrf_fail', count: 5 },
+      { event_type: 'security.session_anomaly', count: 3 }
+    ]), {
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'application/json' })
+    }));
+  }
+
+  // Default response
+  return Promise.resolve(new Response(JSON.stringify({ data: null }), {
+    status: 200,
+    headers: new Headers({ 'Content-Type': 'application/json' })
+  }));
+}) as any;
+
+global.fetch = mockFetch;
+
+// 6. Image and Video mocks for file validation
+global.Image = class {
+  onload: () => void = () => {};
+  onerror: () => void = () => {};
+  src: string = '';
+  width: number = 0;
+  height: number = 0;
+  
+  constructor() {
+    setTimeout(() => {
+      this.width = 800;
+      this.height = 600;
+      this.onload();
+    }, 100);
+  }
+} as any;
+
+global.HTMLVideoElement = class {
+  videoWidth: number = 1920;
+  videoHeight: number = 1080;
+  readyState: number = 4;
+} as any;
+
+// Mock other common dependencies
+vi.mock('@/utils/supabaseIndexedDBBridge', () => ({
+  supabaseIndexedDBBridge: {
+    getUserConversations: vi.fn(() => Promise.resolve({ data: [], error: null })),
+    initialize: vi.fn(() => Promise.resolve()),
+    cleanup: vi.fn(() => Promise.resolve())
+  }
+}));
+
+// Mock mobile validation service
+vi.mock('@/services/MobileValidationService', () => ({
+  MobileValidationService: {
+    getInstance: vi.fn(() => ({
+      validateNetworkConditions: vi.fn(() => ({ isValid: true, errors: [] }))
+    }))
+  }
+}));
+
+// Mock DOM elements that might not be available in test environment
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })),
 });
 
-// Mock the history API
-Object.defineProperty(window, 'history', {
-  writable: true,
-  value: {
-    ...window.history,
-    pushState: vi.fn(),
-    replaceState: vi.fn(),
-    go: vi.fn(),
-    back: vi.fn(),
-    forward: vi.fn(),
-  }
-}); 
+// Mock ResizeObserver
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
+// Mock IntersectionObserver
+global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
+console.log('✅ [Vitest Setup] Test environment initialized with unified mocks'); 

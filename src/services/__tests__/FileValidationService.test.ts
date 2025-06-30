@@ -10,21 +10,21 @@ describe('FileValidationService', () => {
 
   describe('validateFileMetadata', () => {
     it('validates valid image file', async () => {
-      const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      const file = new File([Uint8Array.of(0x89, 0x50, 0x4e, 0x47)], 'test.jpg', { type: 'image/jpeg' });
       const result = await service.validateFileMetadata(file, 'image');
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
     it('rejects oversized file', async () => {
-      const largeFile = new File(['x'.repeat(11 * 1024 * 1024)], 'large.jpg', { type: 'image/jpeg' });
+      const largeFile = new File([Uint8Array.from({ length: 11 * 1024 * 1024 }, () => 0)], 'large.jpg', { type: 'image/jpeg' });
       const result = await service.validateFileMetadata(largeFile, 'image');
       expect(result.isValid).toBe(false);
       expect(result.errors[0]).toContain('exceeds maximum allowed size');
     });
 
     it('rejects invalid MIME type', async () => {
-      const file = new File(['test'], 'test.exe', { type: 'application/x-msdownload' });
+      const file = new File([Uint8Array.of(0x4d, 0x5a)], 'test.exe', { type: 'application/x-msdownload' });
       const result = await service.validateFileMetadata(file, 'image');
       expect(result.isValid).toBe(false);
       expect(result.errors[0]).toContain('Invalid file type');
@@ -51,7 +51,7 @@ describe('FileValidationService', () => {
       window.URL.createObjectURL = vi.fn(() => 'mock-url');
       window.URL.revokeObjectURL = vi.fn();
 
-      const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      const file = new File([Uint8Array.of(0x89, 0x50, 0x4e, 0x47)], 'test.jpg', { type: 'image/jpeg' });
       const result = await service.validateImageDimensions(file);
 
       expect(result.isValid).toBe(true);
@@ -81,7 +81,7 @@ describe('FileValidationService', () => {
       window.URL.createObjectURL = vi.fn(() => 'mock-url');
       window.URL.revokeObjectURL = vi.fn();
 
-      const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      const file = new File([Uint8Array.of(0x89, 0x50, 0x4e, 0x47)], 'test.jpg', { type: 'image/jpeg' });
       const result = await service.validateImageDimensions(file);
 
       expect(result.isValid).toBe(false);
@@ -109,7 +109,7 @@ describe('FileValidationService', () => {
       window.URL.createObjectURL = vi.fn(() => 'mock-url');
       window.URL.revokeObjectURL = vi.fn();
 
-      const file = new File(['test'], 'test.mp4', { type: 'video/mp4' });
+      const file = new File([Uint8Array.of(0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70)], 'test.mp4', { type: 'video/mp4' });
       
       // Trigger metadata load
       setTimeout(() => mockVideo.onloadedmetadata(), 0);
@@ -142,7 +142,7 @@ describe('FileValidationService', () => {
       window.URL.createObjectURL = vi.fn(() => 'mock-url');
       window.URL.revokeObjectURL = vi.fn();
 
-      const file = new File(['test'], 'test.mp4', { type: 'video/mp4' });
+      const file = new File([Uint8Array.of(0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70)], 'test.mp4', { type: 'video/mp4' });
       
       // Trigger metadata load
       setTimeout(() => mockVideo.onloadedmetadata(), 0);
@@ -159,14 +159,14 @@ describe('FileValidationService', () => {
 
   describe('validateDocumentContent', () => {
     it('validates safe document', async () => {
-      const file = new File(['# Safe markdown\n\nNormal text'], 'test.md', { type: 'text/markdown' });
+      const file = new File([Uint8Array.from('# Safe markdown\n\nNormal text', c => c.charCodeAt(0))], 'test.md', { type: 'text/markdown' });
       const result = await service.validateDocumentContent(file);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
     it('rejects malicious content', async () => {
-      const file = new File(['<script>alert("xss")</script>'], 'test.md', { type: 'text/markdown' });
+      const file = new File([Uint8Array.from('<script>alert("xss")</script>', c => c.charCodeAt(0))], 'test.md', { type: 'text/markdown' });
       const result = await service.validateDocumentContent(file);
       expect(result.isValid).toBe(false);
       expect(result.errors[0]).toContain('malicious content');
@@ -187,7 +187,7 @@ describe('FileValidationService', () => {
       }
       window.Image = MockImage as any;
 
-      const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      const file = new File([Uint8Array.of(0x89, 0x50, 0x4e, 0x47)], 'test.jpg', { type: 'image/jpeg' });
       const result = await service.validateFile(file, 'image');
 
       expect(result.isValid).toBe(true);
@@ -198,7 +198,7 @@ describe('FileValidationService', () => {
     });
 
     it('handles validation errors', async () => {
-      const file = new File(['test'], 'test.exe', { type: 'application/x-msdownload' });
+      const file = new File([Uint8Array.of(0x4d, 0x5a)], 'test.exe', { type: 'application/x-msdownload' });
       const result = await service.validateFile(file, 'image');
       expect(result.isValid).toBe(false);
       expect(result.errors).toHaveLength(1);

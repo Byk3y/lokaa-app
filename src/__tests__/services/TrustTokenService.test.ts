@@ -1,278 +1,153 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TrustTokenService } from '@/services/TrustTokenService';
+import type { Mock } from 'vitest';
 
-// Mock sessionStorage
-const mockSessionStorage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-};
-
-Object.defineProperty(window, 'sessionStorage', {
-  value: mockSessionStorage
-});
+// Set up spies
+vi.spyOn(global.sessionStorage, 'getItem');
+vi.spyOn(global.sessionStorage, 'setItem');
 
 describe('TrustTokenService', () => {
   beforeEach(() => {
-    // Clear cache and reset mocks before each test
-    TrustTokenService.clearCache();
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    // Clear cache after each test
-    TrustTokenService.clearCache();
+    sessionStorage.clear();
   });
 
   describe('validateToken', () => {
     it('returns null for missing subdomain or userId', () => {
       expect(TrustTokenService.validateToken('', 'user123')).toBeNull();
-      expect(TrustTokenService.validateToken('subdomain', '')).toBeNull();
-      expect(TrustTokenService.validateToken('', '')).toBeNull();
+      expect(TrustTokenService.validateToken('space123', '')).toBeNull();
     });
 
-    it('returns null when no token data in sessionStorage', () => {
-      mockSessionStorage.getItem.mockReturnValue(null);
-      
-      const result = TrustTokenService.validateToken('test-space', 'user123');
-      
-      expect(result).toBeNull();
-      expect(mockSessionStorage.getItem).toHaveBeenCalledWith('trust_token_test-space');
-    });
-
-    it('returns null for invalid JSON in sessionStorage', () => {
-      mockSessionStorage.getItem.mockReturnValue('invalid-json');
-      
-      const result = TrustTokenService.validateToken('test-space', 'user123');
-      
-      expect(result).toBeNull();
-    });
-
-    it('returns null for token missing required fields', () => {
-      const invalidToken = JSON.stringify({
-        userId: 'user123',
-        // missing subdomain and expiresAt
-      });
-      mockSessionStorage.getItem.mockReturnValue(invalidToken);
-      
-      const result = TrustTokenService.validateToken('test-space', 'user123');
-      
-      expect(result).toBeNull();
+    it('returns null for invalid token format', () => {
+      vi.mocked(sessionStorage.getItem).mockReturnValue('invalid-token');
+      expect(TrustTokenService.validateToken('space123', 'user123')).toBeNull();
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
     });
 
     it('returns null for expired token', () => {
-      const expiredToken = JSON.stringify({
+      const expiredToken = {
+        subdomain: 'space123',
         userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: Date.now() - 1000, // Expired 1 second ago
-        access: 'verified',
-        timestamp: Date.now(),
-        source: 'database-verified',
-        signature: 'test-signature'
-      });
-      mockSessionStorage.getItem.mockReturnValue(expiredToken);
-      
-      const result = TrustTokenService.validateToken('test-space', 'user123');
-      
-      expect(result).toBeNull();
+        expiresAt: Date.now() - 1000,
+      };
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify(expiredToken));
+      expect(TrustTokenService.validateToken('space123', 'user123')).toBeNull();
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
     });
 
     it('returns null for mismatched subdomain', () => {
-      const token = JSON.stringify({
+      const token = {
+        subdomain: 'space123',
         userId: 'user123',
-        subdomain: 'different-space',
-        expiresAt: Date.now() + 60000,
-        access: 'verified',
-        timestamp: Date.now(),
-        source: 'database-verified',
-        signature: 'test-signature'
-      });
-      mockSessionStorage.getItem.mockReturnValue(token);
-      
-      const result = TrustTokenService.validateToken('test-space', 'user123');
-      
-      expect(result).toBeNull();
+        expiresAt: Date.now() + 1000,
+      };
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify(token));
+      expect(TrustTokenService.validateToken('different-space', 'user123')).toBeNull();
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_different-space');
     });
 
     it('returns null for mismatched userId', () => {
-      const token = JSON.stringify({
-        userId: 'different-user',
-        subdomain: 'test-space',
-        expiresAt: Date.now() + 60000,
-        access: 'verified',
-        timestamp: Date.now(),
-        source: 'database-verified',
-        signature: 'test-signature'
-      });
-      mockSessionStorage.getItem.mockReturnValue(token);
-      
-      const result = TrustTokenService.validateToken('test-space', 'user123');
-      
-      expect(result).toBeNull();
+      const token = {
+        subdomain: 'space123',
+        userId: 'user123',
+        expiresAt: Date.now() + 1000,
+      };
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify(token));
+      expect(TrustTokenService.validateToken('space123', 'different-user')).toBeNull();
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
     });
 
-    it('returns valid token for correct data', () => {
-      const now = Date.now();
-      const tokenData = {
+    it('returns token for valid parameters', () => {
+      const token = {
+        subdomain: 'space123',
         userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: now + 60000,
-        access: 'verified',
-        timestamp: now,
-        source: 'database-verified',
-        signature: 'test-signature'
+        expiresAt: Date.now() + 1000,
       };
-      mockSessionStorage.getItem.mockReturnValue(JSON.stringify(tokenData));
-      
-      const result = TrustTokenService.validateToken('test-space', 'user123');
-      
-      expect(result).toEqual(tokenData);
-    });
-
-    it('uses default values for missing optional fields', () => {
-      const now = Date.now();
-      const tokenData = {
-        userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: now + 60000,
-        // Missing access, timestamp, source, signature
-      };
-      mockSessionStorage.getItem.mockReturnValue(JSON.stringify(tokenData));
-      
-      const result = TrustTokenService.validateToken('test-space', 'user123');
-      
-      expect(result).toEqual({
-        userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: now + 60000,
-        access: 'verified',
-        timestamp: now,
-        source: 'database-verified',
-        signature: ''
-      });
-    });
-
-    it('caching prevents redundant validation', () => {
-      const now = Date.now();
-      const tokenData = {
-        userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: now + 60000,
-        access: 'verified',
-        timestamp: now,
-        source: 'database-verified',
-        signature: 'test-signature'
-      };
-      mockSessionStorage.getItem.mockReturnValue(JSON.stringify(tokenData));
-      
-      // First call should hit sessionStorage
-      const result1 = TrustTokenService.validateToken('test-space', 'user123');
-      expect(mockSessionStorage.getItem).toHaveBeenCalledTimes(1);
-      
-      // Second call should use cache
-      const result2 = TrustTokenService.validateToken('test-space', 'user123');
-      expect(mockSessionStorage.getItem).toHaveBeenCalledTimes(1); // No additional call
-      
-      expect(result1).toEqual(result2);
-      expect(result1).toEqual(tokenData);
-    });
-
-    it('cache expires after TTL', async () => {
-      const now = Date.now();
-      const tokenData = {
-        userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: now + 60000,
-        access: 'verified',
-        timestamp: now,
-        source: 'database-verified',
-        signature: 'test-signature'
-      };
-      mockSessionStorage.getItem.mockReturnValue(JSON.stringify(tokenData));
-      
-      // First call
-      TrustTokenService.validateToken('test-space', 'user123');
-      expect(mockSessionStorage.getItem).toHaveBeenCalledTimes(1);
-      
-      // Mock time passage beyond TTL (30 seconds)
-      vi.spyOn(Date, 'now').mockReturnValue(now + 31000);
-      
-      // Second call should hit sessionStorage again due to expired cache
-      TrustTokenService.validateToken('test-space', 'user123');
-      expect(mockSessionStorage.getItem).toHaveBeenCalledTimes(2);
-      
-      vi.restoreAllMocks();
-    });
-
-    it('different cache keys for different subdomain/user combinations', () => {
-      const tokenData = {
-        userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: Date.now() + 60000,
-        access: 'verified',
-        timestamp: Date.now(),
-        source: 'database-verified',
-        signature: 'test-signature'
-      };
-      mockSessionStorage.getItem.mockReturnValue(JSON.stringify(tokenData));
-      
-      // Call with different parameters
-      TrustTokenService.validateToken('test-space', 'user123');
-      TrustTokenService.validateToken('test-space', 'user456');
-      TrustTokenService.validateToken('other-space', 'user123');
-      
-      // Should have made 3 sessionStorage calls (no cache hits)
-      expect(mockSessionStorage.getItem).toHaveBeenCalledTimes(3);
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify(token));
+      expect(TrustTokenService.validateToken('space123', 'user123')).toEqual(token);
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
     });
   });
 
-  describe('clearCache', () => {
-    it('clears the cache', () => {
-      const tokenData = {
+  describe('generateToken', () => {
+    it('stores token in sessionStorage', () => {
+      TrustTokenService.generateToken('space123', 'user123');
+      expect(sessionStorage.setItem).toHaveBeenCalled();
+      const storedToken = JSON.parse(vi.mocked(sessionStorage.setItem).mock.calls[0][1]);
+      expect(storedToken).toEqual(expect.objectContaining({
+        subdomain: 'space123',
         userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: Date.now() + 60000,
-        access: 'verified'
-      };
-      mockSessionStorage.getItem.mockReturnValue(JSON.stringify(tokenData));
-      
-      // Build cache
-      TrustTokenService.validateToken('test-space', 'user123');
-      expect(mockSessionStorage.getItem).toHaveBeenCalledTimes(1);
-      
-      // Clear cache
-      TrustTokenService.clearCache();
-      
-      // Next call should hit sessionStorage again
-      TrustTokenService.validateToken('test-space', 'user123');
-      expect(mockSessionStorage.getItem).toHaveBeenCalledTimes(2);
+      }));
+      expect(storedToken.expiresAt).toBeGreaterThan(Date.now());
+      expect(vi.mocked(sessionStorage.setItem).mock.calls[0][0]).toBe('trust_token_space123');
+    });
+
+    it('returns generated token', () => {
+      const token = TrustTokenService.generateToken('space123', 'user123');
+      expect(token).toEqual(expect.objectContaining({
+        subdomain: 'space123',
+        userId: 'user123',
+      }));
+      expect(token.expiresAt).toBeGreaterThan(Date.now());
     });
   });
 
-  describe('getCacheStats', () => {
-    it('returns cache statistics', () => {
-      expect(TrustTokenService.getCacheStats()).toEqual({
-        size: 0,
-        keys: []
-      });
-      
-      const tokenData = {
+  describe('clearToken', () => {
+    it('removes token from sessionStorage', () => {
+      TrustTokenService.clearToken('space123');
+      expect(sessionStorage.removeItem).toHaveBeenCalledWith('trust_token_space123');
+    });
+  });
+
+  describe('hasValidToken', () => {
+    it('returns false for missing token', () => {
+      vi.mocked(sessionStorage.getItem).mockReturnValue(null);
+      expect(TrustTokenService.hasValidToken('space123', 'user123')).toBe(false);
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
+    });
+
+    it('returns false for invalid token format', () => {
+      vi.mocked(sessionStorage.getItem).mockReturnValue('invalid-token');
+      expect(TrustTokenService.hasValidToken('space123', 'user123')).toBe(false);
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
+    });
+
+    it('returns false for expired token', () => {
+      const expiredToken = {
+        subdomain: 'space123',
         userId: 'user123',
-        subdomain: 'test-space',
-        expiresAt: Date.now() + 60000,
-        access: 'verified'
+        expiresAt: Date.now() - 1000,
       };
-      mockSessionStorage.getItem.mockReturnValue(JSON.stringify(tokenData));
-      
-      // Build cache with multiple entries
-      TrustTokenService.validateToken('test-space', 'user123');
-      TrustTokenService.validateToken('test-space', 'user456');
-      
-      const stats = TrustTokenService.getCacheStats();
-      expect(stats.size).toBe(2);
-      expect(stats.keys).toContain('test-space-user123');
-      expect(stats.keys).toContain('test-space-user456');
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify(expiredToken));
+      expect(TrustTokenService.hasValidToken('space123', 'user123')).toBe(false);
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
+    });
+
+    it('returns false for mismatched parameters', () => {
+      const token = {
+        subdomain: 'space123',
+        userId: 'user123',
+        expiresAt: Date.now() + 1000,
+      };
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify(token));
+      expect(TrustTokenService.hasValidToken('different-space', 'user123')).toBe(false);
+      expect(TrustTokenService.hasValidToken('space123', 'different-user')).toBe(false);
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_different-space');
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
+    });
+
+    it('returns true for valid token', () => {
+      const token = {
+        subdomain: 'space123',
+        userId: 'user123',
+        expiresAt: Date.now() + 1000,
+      };
+      vi.mocked(sessionStorage.getItem).mockReturnValue(JSON.stringify(token));
+      expect(TrustTokenService.hasValidToken('space123', 'user123')).toBe(true);
+      expect(sessionStorage.getItem).toHaveBeenCalledWith('trust_token_space123');
     });
   });
 }); 

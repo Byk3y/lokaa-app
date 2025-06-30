@@ -7,6 +7,7 @@
 
 import { errorHandlingSystem, ErrorType } from './errorHandlingSystem';
 import { toast } from '@/hooks/use-toast';
+import { useSecureSession } from '@/hooks/useSecureSession';
 
 interface ServiceWorkerConfig {
   enableDebugMode?: boolean;
@@ -439,7 +440,8 @@ class ServiceWorkerManager {
    * Sync offline post
    */
   private async syncOfflinePost(data: any): Promise<void> {
-    const response = await fetch('/api/posts', {
+    const { fetchWithCsrf } = useSecureSession();
+    const response = await fetchWithCsrf('/api/posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -454,7 +456,8 @@ class ServiceWorkerManager {
    * Sync offline comment
    */
   private async syncOfflineComment(data: any): Promise<void> {
-    const response = await fetch('/api/comments', {
+    const { fetchWithCsrf } = useSecureSession();
+    const response = await fetchWithCsrf('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -469,7 +472,8 @@ class ServiceWorkerManager {
    * Sync offline like
    */
   private async syncOfflineLike(data: any): Promise<void> {
-    const response = await fetch(`/api/posts/${data.postId}/like`, {
+    const { fetchWithCsrf } = useSecureSession();
+    const response = await fetchWithCsrf(`/api/posts/${data.postId}/like`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -483,7 +487,8 @@ class ServiceWorkerManager {
    * Sync offline join action
    */
   private async syncOfflineJoin(data: any): Promise<void> {
-    const response = await fetch(`/api/spaces/${data.spaceId}/join`, {
+    const { fetchWithCsrf } = useSecureSession();
+    const response = await fetchWithCsrf(`/api/spaces/${data.spaceId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });

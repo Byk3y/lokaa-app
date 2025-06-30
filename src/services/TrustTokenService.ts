@@ -77,6 +77,48 @@ export class TrustTokenService {
   }
 
   /**
+   * Generates a new trust token for a user and subdomain
+   */
+  static generateToken(subdomain: string, userId: string): TrustToken {
+    const now = Date.now();
+    const token: TrustToken = {
+      userId,
+      subdomain,
+      access: 'verified',
+      timestamp: now,
+      source: 'database-verified',
+      signature: btoa(`${userId}-${subdomain}-${now}`),
+      expiresAt: now + (24 * 60 * 60 * 1000) // 24 hour expiry
+    };
+
+    sessionStorage.setItem(`trust_token_${subdomain}`, JSON.stringify(token));
+    return token;
+  }
+
+  /**
+   * Clears a trust token from storage
+   */
+  static clearToken(subdomain?: string): void {
+    if (subdomain) {
+      sessionStorage.removeItem(`trust_token_${subdomain}`);
+    } else {
+      // Clear all trust tokens if no subdomain specified
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('trust_token_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    }
+  }
+
+  /**
+   * Checks if a valid trust token exists for a user and subdomain
+   */
+  static hasValidToken(subdomain: string, userId: string): boolean {
+    return this.validateToken(subdomain, userId) !== null;
+  }
+
+  /**
    * Clears the token cache (useful for testing and logout scenarios)
    */
   static clearCache(): void {

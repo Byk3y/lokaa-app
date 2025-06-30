@@ -51,6 +51,62 @@ const fileMetadataSchema = z.object({
   lastModified: z.number()
 });
 
+// Internal helper for dimension checks - exported for testing
+export const validateImageDimensionsInternal = (file: File): Promise<{
+  isValid: boolean;
+  errors: string[];
+  dimensions?: { width: number; height: number };
+}> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      
+      const validation = dimensionsSchema.safeParse({
+        width: img.width,
+        height: img.height
+      });
+
+      if (!validation.success) {
+        resolve({
+          isValid: false,
+          errors: validation.error.errors.map(e => e.message)
+        });
+        return;
+      }
+
+      const config = FILE_CONFIGS.image;
+      if (img.width > config.maxDimensions.width || 
+          img.height > config.maxDimensions.height) {
+        resolve({
+          isValid: false,
+          errors: [`Image dimensions exceed maximum allowed (${config.maxDimensions.width}x${config.maxDimensions.height})`],
+          dimensions: { width: img.width, height: img.height }
+        });
+        return;
+      }
+
+      resolve({
+        isValid: true,
+        errors: [],
+        dimensions: { width: img.width, height: img.height }
+      });
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({
+        isValid: false,
+        errors: ['Failed to load image']
+      });
+    };
+
+    img.src = objectUrl;
+  });
+};
+
 export class FileValidationService {
   private static instance: FileValidationService;
   private mobileValidation: MobileValidationService;
@@ -103,7 +159,7 @@ export class FileValidationService {
       }
 
       // Check MIME type
-      if (!config.allowedTypes.includes(file.type)) {
+      if (!(config.allowedTypes as readonly string[]).includes(file.type)) {
         return {
           isValid: false,
           errors: [`Invalid file type. Allowed types: ${config.allowedTypes.join(', ')}`]
@@ -131,54 +187,7 @@ export class FileValidationService {
     errors: string[];
     dimensions?: { width: number; height: number };
   }> {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        
-        const validation = dimensionsSchema.safeParse({
-          width: img.width,
-          height: img.height
-        });
-
-        if (!validation.success) {
-          resolve({
-            isValid: false,
-            errors: validation.error.errors.map(e => e.message)
-          });
-          return;
-        }
-
-        const config = FILE_CONFIGS.image;
-        if (img.width > config.maxDimensions.width || 
-            img.height > config.maxDimensions.height) {
-          resolve({
-            isValid: false,
-            errors: [`Image dimensions exceed maximum allowed (${config.maxDimensions.width}x${config.maxDimensions.height})`],
-            dimensions: { width: img.width, height: img.height }
-          });
-          return;
-        }
-
-        resolve({
-          isValid: true,
-          errors: [],
-          dimensions: { width: img.width, height: img.height }
-        });
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        resolve({
-          isValid: false,
-          errors: ['Failed to load image']
-        });
-      };
-
-      img.src = objectUrl;
-    });
+    return validateImageDimensionsInternal(file);
   }
 
   /**

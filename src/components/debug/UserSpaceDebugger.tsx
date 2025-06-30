@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useSecureSession } from '@/hooks/useSecureSession';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Space } from '../../types/space';
 import { Database } from '../../types/supabase';
@@ -16,6 +17,7 @@ type DebugResult = {
 
 export const UserSpaceDebugger = () => {
   const { user } = useOptimizedAuth();
+  const { fetchWithCsrf } = useSecureSession();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DebugResult | null>(null);
   const [spaceId, setSpaceId] = useState('');
@@ -33,7 +35,7 @@ export const UserSpaceDebugger = () => {
       
       const targetUserId = userId || user.id;
       
-      const response = await fetch('/api/debug/user-space-access', {
+      const response = await fetchWithCsrf('/api/debug/user-space-access', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

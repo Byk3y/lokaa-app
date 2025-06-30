@@ -15,6 +15,7 @@ import { SEOManager } from './seoManager';
 import { pageVisibilityManager } from './pageVisibilityManager';
 import { logAnalyticsEvent } from './analytics';
 import { globalConsoleFlags } from '@/utils/developmentLogger';
+import { useSecureSession } from '@/hooks/useSecureSession';
 
 // Global interface for Phase 7 testing and debugging
 interface Phase7GlobalAPI {
@@ -327,8 +328,9 @@ class Phase7Integration {
    * Test analytics Edge Function
    */
   private async testAnalyticsFunction(): Promise<void> {
+    const { fetchWithCsrf } = useSecureSession();
     try {
-      const response = await fetch(`${this.edgeFunctionUrl}/advanced-user-analytics`, {
+      const response = await fetchWithCsrf(`${this.edgeFunctionUrl}/advanced-user-analytics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -351,8 +353,9 @@ class Phase7Integration {
    * Test SEO Edge Function
    */
   private async testSEOFunction(): Promise<void> {
+    const { fetchWithCsrf } = useSecureSession();
     try {
-      const response = await fetch(`${this.edgeFunctionUrl}/seo-metadata-generator`, {
+      const response = await fetchWithCsrf(`${this.edgeFunctionUrl}/seo-metadata-generator`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

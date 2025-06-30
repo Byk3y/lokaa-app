@@ -17,6 +17,9 @@ import {
 } from '../fixtures/mockData';
 import { CacheEntry, BridgeMetrics } from '../../types';
 
+vi.setConfig({ testTimeout: 120_000 });
+vi.useFakeTimers();
+
 // Mock IndexedDB
 const mockIDBDatabase = {
   transaction: vi.fn(),

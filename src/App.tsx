@@ -20,6 +20,13 @@ import { AuthModalRouter } from '@/features/auth/components/modals';
 // CRITICAL: Load Supabase error protection FIRST
 import { supabaseLoadFailedBlocker } from '@/utils/supabaseLoadFailedBlocker';
 
+// Dev-only console helpers
+if (import.meta.env.DEV) {
+  import('@/devtools/exposeForConsole').then(({ exposeForConsole }) => {
+    exposeForConsole().catch(console.error);
+  });
+}
+
 // Core services and Mobile Event Coordinator
 import { globalRealtimeService } from '@/services/GlobalRealtimeService';
 import { mobileEventCoordinator } from '@/utils/MobileEventCoordinator';
