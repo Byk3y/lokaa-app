@@ -2,19 +2,24 @@
  * 🛡️ Supabase Load Failed Error Blocker
  * 
  * Prevents "TypeError: Load failed" errors from Supabase JS library
- * from triggering React error boundaries and page reloads on mobile browsers.
- * 
- * This addresses the specific issue where mobile browsers block network requests
- * during app backgrounding, causing Supabase to throw "Load failed" errors
- * that trigger error boundary reloads.
+ * from triggering React error boundaries and implements intelligent 
+ * session refresh recovery instead of page reloads.
  */
+
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { globalRealtimeService } from '@/services/GlobalRealtimeService';
+import { MOBILE_SAFE_RELOAD_DELAY_MS, MAX_REFRESH_RETRIES } from '@/constants/mobile';
 
 class SupabaseLoadFailedBlocker {
   private static instance: SupabaseLoadFailedBlocker;
   private isInitialized = false;
+  private backgroundStartTime = 0;
+  private consecutiveFailedRefreshes = 0;
+  private isRefreshing = false;
   
   private constructor() {
     this.initializeErrorBlocking();
+    this.setupBackgroundTracking();
   }
   
   static getInstance(): SupabaseLoadFailedBlocker {
@@ -23,11 +28,118 @@ class SupabaseLoadFailedBlocker {
     }
     return SupabaseLoadFailedBlocker.instance;
   }
+
+  private setupBackgroundTracking(): void {
+    if (typeof window === 'undefined') return;
+    
+    // Track when app goes to background
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.backgroundStartTime = Date.now();
+        console.log('🛡️ [SupabaseLoadFailedBlocker] App backgrounded at', new Date().toLocaleTimeString());
+      } else {
+        const backgroundDuration = Date.now() - this.backgroundStartTime;
+        console.log(`🛡️ [SupabaseLoadFailedBlocker] App foregrounded after ${backgroundDuration}ms`);
+      }
+    });
+  }
+
+  private async handleLoadFailed(): Promise<void> {
+    // Check if we've been in background for less than the safe delay
+    const timeSinceBackground = Date.now() - this.backgroundStartTime;
+    
+    if (timeSinceBackground < MOBILE_SAFE_RELOAD_DELAY_MS) {
+      console.log(`🛡️ [SupabaseLoadFailedBlocker] Ignoring load failed - only ${timeSinceBackground}ms since background (< ${MOBILE_SAFE_RELOAD_DELAY_MS}ms)`);
+      return;
+    }
+
+    // Prevent concurrent refresh attempts
+    if (this.isRefreshing) {
+      console.log('🛡️ [SupabaseLoadFailedBlocker] Refresh already in progress, ignoring');
+      return;
+    }
+
+    this.isRefreshing = true;
+    
+    try {
+      console.log('🛡️ [SupabaseLoadFailedBlocker] Attempting session refresh...');
+      
+      const { data, error } = await getSupabaseClient().auth.refreshSession();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data?.session) {
+        console.log('✅ [SupabaseLoadFailedBlocker] Session refresh successful');
+        this.consecutiveFailedRefreshes = 0;
+        
+        // Reconnect all real-time subscriptions
+        console.log('🔔 [SupabaseLoadFailedBlocker] Reconnecting real-time subscriptions...');
+        globalRealtimeService.reconnectAll();
+        
+        console.log('✅ [SupabaseLoadFailedBlocker] Recovery complete');
+      } else {
+        throw new Error('No session returned from refresh');
+      }
+      
+    } catch (error) {
+      this.consecutiveFailedRefreshes++;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      console.error(`❌ [SupabaseLoadFailedBlocker] Session refresh failed (attempt ${this.consecutiveFailedRefreshes}/${MAX_REFRESH_RETRIES}):`, errorMessage);
+      
+      if (this.consecutiveFailedRefreshes >= MAX_REFRESH_RETRIES) {
+        // Show toast asking user to manually reload
+        this.showManualReloadToast();
+        // Reset counter to prevent spam
+        this.consecutiveFailedRefreshes = 0;
+      } else {
+        // Schedule retry with exponential backoff
+        this.scheduleRetryWithBackoff();
+      }
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  private scheduleRetryWithBackoff(): void {
+    const baseDelay = 5000; // 5 seconds
+    const maxDelay = 180000; // 3 minutes
+    const delay = Math.min(baseDelay * Math.pow(2, this.consecutiveFailedRefreshes - 1), maxDelay);
+    
+    console.log(`🔄 [SupabaseLoadFailedBlocker] Scheduling retry in ${delay}ms (attempt ${this.consecutiveFailedRefreshes}/${MAX_REFRESH_RETRIES})`);
+    
+    setTimeout(() => {
+      this.handleLoadFailed();
+    }, delay);
+  }
+
+  private showManualReloadToast(): void {
+    // Dynamic import to avoid circular dependencies
+    import('@/hooks/use-toast').then(({ useToast }) => {
+      // Since we can't use hooks in a class, we'll dispatch a custom event
+      // that the app can listen for to show the toast
+      const event = new CustomEvent('supabase-manual-reload-needed', {
+        detail: {
+          title: 'Connection Issue',
+          description: 'Please refresh the page to restore connection.',
+          variant: 'destructive'
+        }
+      });
+      
+      window.dispatchEvent(event);
+    }).catch(() => {
+      // Fallback: show browser alert
+      console.error('🛡️ [SupabaseLoadFailedBlocker] Failed to show toast, using alert fallback');
+      alert('Connection issue detected. Please refresh the page to restore connection.');
+    });
+  }
   
   private initializeErrorBlocking(): void {
     if (this.isInitialized || typeof window === 'undefined') return;
     
-    console.log('🛡️ [SupabaseLoadFailedBlocker] Initializing comprehensive protection...');
+    console.log('🛡️ [SupabaseLoadFailedBlocker] Initializing intelligent recovery protection...');
     
     // 1. BLOCK GLOBAL ERROR EVENTS FROM SUPABASE
     const originalAddEventListener = window.addEventListener;
@@ -36,6 +148,7 @@ class SupabaseLoadFailedBlocker {
         const wrappedListener = (event: ErrorEvent) => {
           if (SupabaseLoadFailedBlocker.isSupabaseLoadError(event.error || event.message)) {
             console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed error event');
+            SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
             event.preventDefault();
             event.stopPropagation();
             return false;
@@ -51,6 +164,7 @@ class SupabaseLoadFailedBlocker {
     window.addEventListener('unhandledrejection', (event) => {
       if (SupabaseLoadFailedBlocker.isSupabaseLoadError(event.reason)) {
         console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed promise rejection');
+        SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
         event.preventDefault();
         return false;
       }
@@ -63,7 +177,8 @@ class SupabaseLoadFailedBlocker {
       
       if (SupabaseLoadFailedBlocker.isSupabaseLoadError(errorMessage)) {
         console.warn('🛡️ [SupabaseLoadFailedBlocker] Suppressed Supabase Load failed console error');
-        console.warn('📱 [SupabaseLoadFailedBlocker] This is expected on mobile during backgrounding');
+        console.warn('📱 [SupabaseLoadFailedBlocker] Triggering intelligent session recovery');
+        SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
         return;
       }
       
@@ -75,6 +190,7 @@ class SupabaseLoadFailedBlocker {
     window.onerror = (message, source, lineno, colno, error) => {
       if (SupabaseLoadFailedBlocker.isSupabaseLoadError(error || message)) {
         console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed window.onerror');
+        SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
         return true; // Prevent default handling
       }
       
@@ -87,11 +203,8 @@ class SupabaseLoadFailedBlocker {
     // 5. INTERCEPT REACT ERROR BOUNDARY TRIGGERS
     this.interceptReactErrorBoundaries();
     
-    // 6. DISABLE ERROR BOUNDARY RELOADS ON MOBILE
-    this.disableMobileErrorBoundaryReloads();
-    
     this.isInitialized = true;
-    console.log('✅ [SupabaseLoadFailedBlocker] Comprehensive protection active');
+    console.log('✅ [SupabaseLoadFailedBlocker] Intelligent recovery protection active');
   }
   
   private static isSupabaseLoadError(error: any): boolean {
@@ -129,6 +242,7 @@ class SupabaseLoadFailedBlocker {
           descriptor.value = function(error: Error, errorInfo: any) {
             if (SupabaseLoadFailedBlocker.isSupabaseLoadError(error)) {
               console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase error from React boundary');
+              SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
               return; // Don't trigger error boundary
             }
             
@@ -141,59 +255,6 @@ class SupabaseLoadFailedBlocker {
     }
   }
   
-  private disableMobileErrorBoundaryReloads(): void {
-    if (typeof window === 'undefined') return;
-    
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      console.log('🛡️ [SupabaseLoadFailedBlocker] Setting up mobile-safe reload protection...');
-      
-      // SAFE APPROACH: Override history instead of location.reload (readonly in Safari)
-      let reloadAttempts = 0;
-      
-      // Intercept navigation-based reloads
-      const originalPushState = history.pushState;
-      const originalReplaceState = history.replaceState;
-      
-      // Track reload attempts through navigation
-      history.pushState = function(...args) {
-        const stack = new Error().stack || '';
-        
-        // Block navigation reloads from error boundaries
-        if (stack.includes('ErrorBoundary') || 
-            stack.includes('componentDidCatch') ||
-            stack.includes('handleReload') ||
-            stack.includes('handleRetry')) {
-          
-          console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked error boundary navigation reload on mobile');
-          console.log('📱 [SupabaseLoadFailedBlocker] Mobile browsers handle network recovery naturally');
-          return;
-        }
-        
-        return originalPushState.apply(this, args);
-      };
-      
-      // Set global flag to indicate reload protection is active
-      (window as any).MOBILE_RELOAD_PROTECTION_ACTIVE = true;
-      (window as any).MOBILE_ERROR_BOUNDARY_RELOAD_DISABLED = true;
-      
-      // Also override document methods that might trigger reloads
-      const originalWrite = document.write;
-      document.write = function(...args) {
-        const stack = new Error().stack || '';
-        if (stack.includes('ErrorBoundary')) {
-          console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked error boundary document.write on mobile');
-          return;
-        }
-        return originalWrite.apply(this, args);
-      };
-      
-      console.log('✅ [SupabaseLoadFailedBlocker] Mobile-safe reload protection active');
-      console.log('🛡️ [SupabaseLoadFailedBlocker] Using navigation interception instead of readonly override');
-    }
-  }
-  
   // Public method to check if an error should be blocked
   public shouldBlockError(error: any): boolean {
     return SupabaseLoadFailedBlocker.isSupabaseLoadError(error);
@@ -203,14 +264,32 @@ class SupabaseLoadFailedBlocker {
   public suppressError(error: any): void {
     if (this.shouldBlockError(error)) {
       console.log('🛡️ [SupabaseLoadFailedBlocker] Manually suppressed Supabase Load failed error');
+      this.handleLoadFailed();
     }
+  }
+
+  // Public method to manually trigger recovery (for testing)
+  public triggerRecovery(): void {
+    console.log('🛡️ [SupabaseLoadFailedBlocker] Manual recovery triggered');
+    this.handleLoadFailed();
+  }
+
+  // Public method to reset retry counter (for testing)
+  public resetRetryCounter(): void {
+    this.consecutiveFailedRefreshes = 0;
+    console.log('🛡️ [SupabaseLoadFailedBlocker] Retry counter reset');
+  }
+
+  // Public getter for testing
+  public getRetryCount(): number {
+    return this.consecutiveFailedRefreshes;
   }
 }
 
 // Create and export singleton instance
 const supabaseLoadFailedBlocker = SupabaseLoadFailedBlocker.getInstance();
 
-// Global access for debugging
+// Global access for debugging and testing
 if (typeof window !== 'undefined') {
   (window as any).supabaseLoadFailedBlocker = supabaseLoadFailedBlocker;
 }

@@ -5,6 +5,8 @@ import { Toaster } from '@/components/ui/toaster';
 // Core components and hooks
 import { AppLoadingScreen, UnifiedPresenceInitializer } from '@/components/app/AppComponents';
 import { useAppInitialization } from '@/hooks/useAppInitialization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useToast } from '@/hooks/use-toast';
 
 // Services and providers
 import AppErrorBoundary from '@/components/errors/AppErrorBoundary';
@@ -18,6 +20,13 @@ import { AuthModalRouter } from '@/features/auth/components/modals';
 // CRITICAL: Load Supabase error protection FIRST
 import { supabaseLoadFailedBlocker } from '@/utils/supabaseLoadFailedBlocker';
 
+// Dev-only console helpers
+if (import.meta.env.DEV) {
+  import('@/devtools/exposeForConsole').then(({ exposeForConsole }) => {
+    exposeForConsole().catch(console.error);
+  });
+}
+
 // Core services and Mobile Event Coordinator
 import { globalRealtimeService } from '@/services/GlobalRealtimeService';
 import { mobileEventCoordinator } from '@/utils/MobileEventCoordinator';
@@ -26,6 +35,46 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 
 export default function App() {
   const { appReady } = useAppInitialization();
+  const { isOffline, justCameOnline } = useNetworkStatus();
+  const { toast } = useToast();
+
+  // Handle network status changes
+  useEffect(() => {
+    if (isOffline) {
+      toast({
+        variant: 'destructive',
+        title: "🔌 You're offline",
+        description: "Changes will sync when you're back.",
+      });
+    }
+  }, [isOffline, toast]);
+
+  useEffect(() => {
+    if (justCameOnline) {
+      toast({
+        title: "✅ Back online",
+        description: "Syncing data…",
+        duration: 3000,
+      });
+    }
+  }, [justCameOnline, toast]);
+
+  // Listen for manual reload requests from supabaseLoadFailedBlocker
+  useEffect(() => {
+    const handleManualReloadNeeded = (event: CustomEvent) => {
+      toast({
+        variant: event.detail.variant || 'destructive',
+        title: event.detail.title,
+        description: event.detail.description,
+      });
+    };
+
+    window.addEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
+    
+    return () => {
+      window.removeEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
+    };
+  }, [toast]);
 
   useEffect(() => {
     // CRITICAL: Initialize Supabase error protection
@@ -177,6 +226,7 @@ export default function App() {
         <UnifiedPresenceInitializer />
         <PWAInitializer />
         <AuthModalRouter />
+        <Toaster />
       </OptimizedProviderTree>
     </AppErrorBoundary>
   );

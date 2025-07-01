@@ -44,6 +44,8 @@ class MobileOptimizationLayer {
   private isInitialized = false;
   private backgroundTimestamp = 0;
   private keepAliveInterval: NodeJS.Timeout | null = null;
+  private visibilityHandler: (() => void) | null = null;
+  private focusHandler: (() => void) | null = null;
 
   private constructor() {
     this.capabilities = this.detectCapabilities();
@@ -186,8 +188,14 @@ class MobileOptimizationLayer {
       }
     };
 
+    const handleFocus = () => this.onAppForegrounded(0);
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', () => this.onAppForegrounded(0));
+    window.addEventListener('focus', handleFocus);
+
+    // Store handlers for cleanup
+    this.visibilityHandler = handleVisibilityChange;
+    this.focusHandler = handleFocus;
   }
 
   /**
@@ -363,6 +371,17 @@ class MobileOptimizationLayer {
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
       this.keepAliveInterval = null;
+    }
+
+    // Remove event listeners
+    if (typeof document !== 'undefined' && this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+
+    if (typeof window !== 'undefined' && this.focusHandler) {
+      window.removeEventListener('focus', this.focusHandler);
+      this.focusHandler = null;
     }
 
     this.isInitialized = false;

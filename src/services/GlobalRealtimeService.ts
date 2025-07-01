@@ -258,6 +258,46 @@ class GlobalRealtimeService {
       clearInterval(this.cleanupInterval);
     }
   }
+
+  /**
+   * Reconnect all active subscriptions (for session refresh recovery)
+   */
+  reconnectAll() {
+    console.log('🔔 [GlobalRealtime] Reconnecting all subscriptions after session refresh');
+    
+    const existingSubscriptions = Array.from(this.subscriptions.entries());
+    
+    // Clear existing subscriptions
+    for (const [key, subscription] of existingSubscriptions) {
+      subscription.channel.unsubscribe();
+    }
+    this.subscriptions.clear();
+    
+    // Recreate subscriptions
+    for (const [key, subscription] of existingSubscriptions) {
+      console.log(`🔔 [GlobalRealtime] Recreating subscription: ${key}`);
+      
+      const newChannel = this.createChannel(
+        subscription.spaceId,
+        subscription.table,
+        '*', // Use default event type
+        undefined // Use default filter
+      );
+      
+      const newSubscription: SubscriptionData = {
+        channel: newChannel,
+        callbacks: subscription.callbacks,
+        refCount: subscription.refCount,
+        lastUsed: Date.now(),
+        spaceId: subscription.spaceId,
+        table: subscription.table
+      };
+      
+      this.subscriptions.set(key, newSubscription);
+    }
+    
+    console.log(`🔔 [GlobalRealtime] Reconnected ${existingSubscriptions.length} subscriptions`);
+  }
 }
 
 // Create singleton instance

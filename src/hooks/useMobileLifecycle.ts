@@ -237,15 +237,16 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
 
     // Only attach listeners for the active instance
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', () => {
+    
+    const handleFocus = () => {
       setState(prev => ({ ...prev, isBackground: false }));
-    });
+    };
+    
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', () => {
-        setState(prev => ({ ...prev, isBackground: false }));
-      });
+      window.removeEventListener('focus', handleFocus);
       
       // Clear all timeouts on cleanup
       if (sessionValidationTimeoutRef.current) {

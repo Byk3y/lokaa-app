@@ -14,13 +14,20 @@ function detectMobileDevice(): boolean {
     return false;
   }
 
-  // Simple, fast detection used by successful apps
+  // More accurate mobile detection
   const userAgent = navigator.userAgent || '';
-  const isMobileUserAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-  const isMobileViewport = window.innerWidth <= 768;
   
-  // Device is mobile if it has mobile user agent OR small viewport
-  const isMobile = isMobileUserAgent || isMobileViewport;
+  // Check for mobile user agent
+  const isMobileUserAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  
+  // Check for mobile platform
+  const isMobilePlatform = /Android|iOS|iPhone|iPad/i.test(navigator.platform || '');
+  
+  // Check for touch capability (but not just any touch screen)
+  const hasRealTouch = navigator.maxTouchPoints > 0 && /Android|iPhone|iPad/i.test(userAgent);
+  
+  // Device is mobile if it has mobile user agent AND (mobile platform OR real touch)
+  const isMobile = isMobileUserAgent && (isMobilePlatform || hasRealTouch);
   
   return isMobile;
 }

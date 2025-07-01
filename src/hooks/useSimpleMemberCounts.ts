@@ -18,14 +18,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useSimpleSpacePresence } from './useSimpleSpacePresence';
-import { useOptimizedAuth } from './useOptimizedAuth';
 
 interface MemberCounts {
   totalMembers: number;
-  onlineMembers: number;
   adminMembers: number;
+  onlineMembers: number;
   loading: boolean;
 }
+
+const debugMemberCounts = (message: string, data: any) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🔢 [SimpleMemberCounts] ${message}:`, {
+      ...data,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
 
 /**
  * 🚀 Simple hook for getting member counts with automatic fallback for unauthenticated users
@@ -33,184 +41,121 @@ interface MemberCounts {
 export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
   const [counts, setCounts] = useState<MemberCounts>({
     totalMembers: 0,
-    onlineMembers: 0,
     adminMembers: 0,
-    loading: true,
+    onlineMembers: 0,
+    loading: true
   });
 
-  const { user } = useOptimizedAuth();
-  const { onlineCount, loading: presenceLoading } = useSimpleSpacePresence(spaceId);
-  const retryCount = useRef(0);
-  const maxRetries = 3;
-  const hasInitialized = useRef(false);
+  const lastFetchRef = useRef<number>(0);
+  const fetchTimeoutRef = useRef<any>(null);
+  const mountedRef = useRef(true);
 
-  const fetchMemberCounts = async (attempt = 1) => {
-    if (!spaceId || !spaceId.trim()) return;
+  // Get online count and loading from presence system
+  const { onlineCount, loading: presenceLoading } = useSimpleSpacePresence(spaceId);
+
+  const fetchCounts = async () => {
+    if (!spaceId || !mountedRef.current) return;
 
     try {
-      const supabase = getSupabaseClient();
+      debugMemberCounts('Fetching member counts', { spaceId });
       
-      // For unauthenticated users, use the public function
-      if (!user) {
-        console.log(`🔢 [SimpleMemberCounts] Using public function for unauthenticated user (attempt ${attempt})`);
-        
-        const { data, error } = await supabase.rpc('get_public_space_stats', {
-          space_uuid: spaceId
-        });
-
-        if (error) {
-          console.error(`❌ [SimpleMemberCounts] Public function error for space ${spaceId}:`, error);
-          
-          if (attempt < maxRetries) {
-            retryCount.current = attempt;
-            console.log(`🔄 [SimpleMemberCounts] Retrying public query (${attempt}/${maxRetries})...`);
-            setTimeout(() => fetchMemberCounts(attempt + 1), 1000 * attempt);
-            return;
-          }
-          
-          // Set to 0 on final failure
-          setCounts({
-            totalMembers: 0,
-            onlineMembers: 0,
-            adminMembers: 0,
-            loading: false,
-          });
-          return;
-        }
-
-        const result = data?.[0] || { total_members: 0, online_members: 0, admin_members: 0 };
-        
-        console.log(`🔢 [SimpleMemberCounts] Public function success for space ${spaceId}:`, result);
-        
-        setCounts({
-          totalMembers: Number(result.total_members) || 0,
-          onlineMembers: Number(result.online_members) || 0,
-          adminMembers: Number(result.admin_members) || 0,
-          loading: false,
-        });
-        
-        retryCount.current = 0;
-        return;
-      }
-
-      // For authenticated users, use the regular query
-      console.log(`🔢 [SimpleMemberCounts] Fetching member counts for space ${spaceId} (attempt ${attempt})`);
-
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('space_members')
-        .select('user_id, role, status')
+        .select('role')
         .eq('space_id', spaceId)
         .eq('status', 'active');
 
       if (error) {
-        console.error(`❌ [SimpleMemberCounts] Database error for space ${spaceId}:`, error);
-        
-        if (attempt < maxRetries) {
-          retryCount.current = attempt;
-          console.log(`🔄 [SimpleMemberCounts] Retrying query (${attempt}/${maxRetries})...`);
-          setTimeout(() => fetchMemberCounts(attempt + 1), 1000 * attempt);
-          return;
+        console.error('Error fetching member counts:', error);
+        if (mountedRef.current) {
+          setCounts(prev => ({ ...prev, loading: false }));
         }
-        
-        // Set to 0 on final failure
-        setCounts({
-          totalMembers: 0,
-          onlineMembers: onlineCount, // Use presence count if available
-          adminMembers: 0,
-          loading: false,
-        });
         return;
       }
 
-      const totalMembers = data?.length || 0;
-      const adminMembers = data?.filter(member => member.role === 'admin').length || 0;
+      const totalCount = data?.length || 0;
+      const adminCount = data?.filter(member => member.role === 'admin')?.length || 0;
 
-      console.log(`🔢 [SimpleMemberCounts] Successfully fetched counts for space ${spaceId}: {total: ${totalMembers}, online: ${onlineCount}, admin: ${adminMembers}}`);
-
-      setCounts({
-        totalMembers,
-        onlineMembers: onlineCount, // Use real-time presence count
-        adminMembers,
-        loading: false,
+      debugMemberCounts('Successfully fetched counts', {
+        spaceId,
+        totalCount,
+        adminCount,
+        onlineCount,
+        presenceLoading
       });
 
-      retryCount.current = 0;
-      
+      lastFetchRef.current = Date.now();
+
+      // FIXED: Only update total/admin counts, preserve current online count from presence
+      if (mountedRef.current) {
+        setCounts(prev => ({
+          totalMembers: totalCount,
+          adminMembers: adminCount,
+          onlineMembers: prev.onlineMembers, // Preserve current online count from presence
+          loading: false
+        }));
+      }
     } catch (error) {
-      console.error(`❌ [SimpleMemberCounts] Fetch failed for space ${spaceId}:`, error);
-      
-      if (attempt < maxRetries) {
-        retryCount.current = attempt;
-        console.log(`🔄 [SimpleMemberCounts] Retrying after error (${attempt}/${maxRetries})...`);
-        setTimeout(() => fetchMemberCounts(attempt + 1), 1000 * attempt);
-        return;
+      console.error('Error in fetchCounts:', error);
+      if (mountedRef.current) {
+        setCounts(prev => ({ ...prev, loading: false }));
       }
-      
-      setCounts({
-        totalMembers: 0,
-        onlineMembers: user ? onlineCount : 0, // Only use presence count for authenticated users
-        adminMembers: 0,
-        loading: false,
-      });
     }
   };
 
+  // Fetch initial counts
   useEffect(() => {
-    if (!spaceId || !spaceId.trim()) {
-      setCounts({
-        totalMembers: 0,
-        onlineMembers: 0,
-        adminMembers: 0,
-        loading: false,
-      });
+    if (!spaceId) {
+      setCounts(prev => ({ ...prev, loading: false }));
       return;
     }
 
-    // Set loading state immediately
-    setCounts(prev => ({ ...prev, loading: true }));
-    
-    // Reset retry count for new space
-    retryCount.current = 0;
-    hasInitialized.current = false;
+    mountedRef.current = true;
+    debugMemberCounts('Initial fetch triggered', { spaceId });
+    fetchCounts();
 
-    // Small delay for authenticated users to wait for presence system
-    const delay = user && !hasInitialized.current ? 500 : 0;
-    
-    const timer = setTimeout(() => {
-      fetchMemberCounts(1);
-      hasInitialized.current = true;
-    }, delay);
+    return () => {
+      mountedRef.current = false;
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [spaceId]);
 
-    return () => clearTimeout(timer);
-  }, [spaceId, user?.id]); // Also depend on user ID changes
-
-  // For authenticated users, update online count when presence changes
+  // Update online count whenever it changes from presence system
   useEffect(() => {
-    if (user && !counts.loading && !presenceLoading) {
+    if (!mountedRef.current) return;
+
+    debugMemberCounts('Presence update received', {
+      spaceId,
+      onlineCount,
+      presenceLoading,
+      lastFetch: lastFetchRef.current ? Date.now() - lastFetchRef.current : 'never'
+    });
+
+    // Always update online count immediately
+    if (typeof onlineCount === 'number') {
       setCounts(prev => ({
         ...prev,
         onlineMembers: onlineCount,
+        loading: false
       }));
     }
-      // Listen for presence updates to refresh counts
-    const handlePresenceUpdate = (event: CustomEvent) => {
-      if (event.detail?.spaceId === spaceId) {
-        console.log(`🔢 [SimpleMemberCounts] Presence updated for space ${spaceId}, refreshing counts`);
-        // Re-fetch member counts when presence is updated
-        fetchMemberCounts(1);
+
+    // If it's been more than 30 seconds since last fetch, refresh all counts
+    if (Date.now() - lastFetchRef.current > 30000) {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
       }
-    };
-
-    // Add event listener for presence updates
-    window.addEventListener('presence-updated', handlePresenceUpdate as EventListener);
-
-    return () => {
-      window.removeEventListener('presence-updated', handlePresenceUpdate as EventListener);
-    };
-  }, [onlineCount, presenceLoading, user, counts.loading, spaceId]);
+      fetchTimeoutRef.current = setTimeout(fetchCounts, 100);
+    }
+  }, [onlineCount, spaceId, presenceLoading]);
 
   return counts;
 };
+
+export default useSimpleMemberCounts;
 
 /**
  * Hook for just total member count (lightweight)
@@ -229,7 +174,7 @@ export const useAdminCount = (spaceId: string): number => {
 };
 
 /**
- * Hook for just online count (uses presence system directly)
+ * Hook for just online count
  */
 export const useOnlineCount = (spaceId: string): number => {
   const { onlineCount } = useSimpleSpacePresence(spaceId);

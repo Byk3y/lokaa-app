@@ -31,6 +31,10 @@ class SessionLongevityManager {
   private refreshInProgress = false;
   private backgroundStartTime = 0;
   
+  private visibilityHandler: (() => void) | null = null;
+  private blurHandler: (() => void) | null = null;
+  private focusHandler: (() => void) | null = null;
+  
   static getInstance(): SessionLongevityManager {
     if (!SessionLongevityManager.instance) {
       SessionLongevityManager.instance = new SessionLongevityManager();
@@ -86,20 +90,30 @@ class SessionLongevityManager {
   private setupStandaloneListeners(): void {
     if (typeof document === 'undefined') return;
     
-    document.addEventListener('visibilitychange', () => {
+    const handleVisibilityChange = () => {
       if (document.hidden) {
         this.handleAppBackgrounded();
       } else {
         const backgroundDuration = Date.now() - this.backgroundStartTime;
         this.handleAppForegrounded(backgroundDuration);
       }
-    });
+    };
     
-    window.addEventListener('blur', () => this.handleAppBackgrounded());
-    window.addEventListener('focus', () => {
+    const handleBlur = () => this.handleAppBackgrounded();
+    
+    const handleFocus = () => {
       const backgroundDuration = Date.now() - this.backgroundStartTime;
       this.handleAppForegrounded(backgroundDuration);
-    });
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    
+    // Store handlers for cleanup
+    this.visibilityHandler = handleVisibilityChange;
+    this.blurHandler = handleBlur;
+    this.focusHandler = handleFocus;
   }
   
   /**
@@ -255,6 +269,39 @@ class SessionLongevityManager {
   updateConfig(newConfig: Partial<SessionLongevityConfig>): void {
     this.config = { ...this.config, ...newConfig };
     console.log('🛡️ [SessionLongevity] Configuration updated:', this.config);
+  }
+
+  /**
+   * Cleanup resources and remove event listeners
+   */
+  cleanup(): void {
+    console.log('🛡️ [SessionLongevity] Cleaning up...');
+    
+    if (typeof document !== 'undefined') {
+      if (this.visibilityHandler) {
+        document.removeEventListener('visibilitychange', this.visibilityHandler);
+        this.visibilityHandler = null;
+      }
+    }
+    
+    if (typeof window !== 'undefined') {
+      if (this.blurHandler) {
+        window.removeEventListener('blur', this.blurHandler);
+        this.blurHandler = null;
+      }
+      if (this.focusHandler) {
+        window.removeEventListener('focus', this.focusHandler);
+        this.focusHandler = null;
+      }
+      
+      // Remove debug helpers
+      if (process.env.NODE_ENV === 'development') {
+        delete (window as any).sessionLongevityManager;
+        delete (window as any).debugSessionLongevity;
+      }
+    }
+    
+    console.log('✅ [SessionLongevity] Cleanup complete');
   }
 }
 

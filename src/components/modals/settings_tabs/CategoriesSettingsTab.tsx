@@ -5,11 +5,13 @@ import type { SpaceCategory } from '@/hooks/useCategoriesCache';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { Loader2, Plus, Edit2, Trash2, Save, X, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Alert } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { getSupabaseClient } from '@/integrations/supabase/client'; // For direct DB operations
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useSettingsValidation } from '@/hooks/useSettingsValidation';
 
 const iconOptions = ['💬', '📢', '❓', '💡', '📚', '🔧', '🎯', '🎓', '🎨', '🎮', '💼', '🏆', '🎉', '💡', '⭐'];
 
@@ -28,12 +30,26 @@ export default function CategoriesSettingsTab() {
     refreshCategories
   } = useOptimizedCachedCategories(space?.id);
 
+  // Add validation hook
+  const {
+    validateData,
+    validateField,
+    errors,
+    isValid,
+    isValidating
+  } = useSettingsValidation('categories', { validateOnChange: true });
+
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryIcon, setNewCategoryIcon] = useState(iconOptions[0]);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<CategoryEditState>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Validate initial data
+  useEffect(() => {
+    validateData({ categories });
+  }, [categories, validateData]);
 
   const handleStartAddNew = () => {
     setIsAddingNew(true);
@@ -50,6 +66,22 @@ export default function CategoriesSettingsTab() {
       toast({ title: "Error", description: "Category name cannot be empty.", variant: "destructive" });
       return;
     }
+
+    // Validate new category
+    const newCategory = {
+      name: newCategoryName.trim(),
+      icon: newCategoryIcon,
+      id: 'temp', // Temporary ID for validation
+    };
+
+    const isValidCategory = await validateData({
+      categories: [...categories, newCategory]
+    });
+
+    if (!isValidCategory) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { error } = await getSupabaseClient().from('space_categories').insert({
@@ -87,7 +119,14 @@ export default function CategoriesSettingsTab() {
   };
 
   const handleEditFormChange = (field: keyof CategoryEditState, value: string) => {
-    setEditForm(prev => ({ ...prev, [field]: value }));
+    const newForm = { ...editForm, [field]: value };
+    setEditForm(newForm);
+
+    // Validate the edited category
+    const updatedCategories = categories.map(cat => 
+      cat.id === editForm.id ? { ...cat, [field]: value } : cat
+    );
+    validateData({ categories: updatedCategories });
   };
 
   const handleSaveEdit = async () => {
@@ -97,6 +136,17 @@ export default function CategoriesSettingsTab() {
       handleCancelEdit();
       return;
     }
+
+    // Validate the edited category
+    const updatedCategories = categories.map(cat => 
+      cat.id === editForm.id ? { ...cat, name: editForm.name, icon: editForm.icon } : cat
+    );
+    const isValidCategory = await validateData({ categories: updatedCategories });
+
+    if (!isValidCategory) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { error } = await getSupabaseClient().from('space_categories').update({
@@ -116,9 +166,17 @@ export default function CategoriesSettingsTab() {
 
   const handleDeleteCategory = async (categoryId: string) => {
     if (!confirm("Are you sure you want to delete this category? This action cannot be undone.")) return;
+
+    // Validate categories after deletion
+    const updatedCategories = categories.filter(cat => cat.id !== categoryId);
+    const isValidCategories = await validateData({ categories: updatedCategories });
+
+    if (!isValidCategories) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Instead of deleting, we mark as archived. Add is_archived to select if you want to hide them.
       const { error } = await getSupabaseClient().from('space_categories').update({ is_archived: true }).eq('id', categoryId);
       if (error) throw error;
       toast({ title: "Success", description: "Category archived successfully." });
@@ -140,6 +198,18 @@ export default function CategoriesSettingsTab() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Show validation errors if any */}
+      {errors._form && (
+        <Alert variant="destructive">
+          {errors._form.map((error, i) => (
+            <p key={i} className="text-sm flex items-center">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              {error}
+            </p>
+          ))}
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Manage Categories</h2>
         {!isAddingNew && permissions?.canEditSpace && (
@@ -152,24 +222,39 @@ export default function CategoriesSettingsTab() {
       {isAddingNew && (
         <div className="p-4 border rounded-md bg-slate-50 space-y-3">
           <h3 className="font-medium">Add New Category</h3>
-          <Input 
-            placeholder="Category Name" 
-            value={newCategoryName} 
-            onChange={(e) => setNewCategoryName(e.target.value)} 
-          />
+          <div className="space-y-2">
+            <Input 
+              placeholder="Category Name" 
+              value={newCategoryName} 
+              onChange={(e) => setNewCategoryName(e.target.value)} 
+              className={errors.name ? 'border-red-500' : ''}
+            />
+            {errors.name && (
+              <p className="text-sm text-red-500 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.name[0]}
+              </p>
+            )}
+          </div>
           <div className="flex items-center space-x-2">
             <Label className="text-sm">Icon:</Label>
             <select 
               value={newCategoryIcon} 
               onChange={(e) => setNewCategoryIcon(e.target.value)}
-              className="p-2 border rounded-md text-lg bg-white"
+              className={`p-2 border rounded-md text-lg bg-white ${errors.icon ? 'border-red-500' : ''}`}
             >
               {iconOptions.map(icon => <option key={icon} value={icon}>{icon}</option>)}
             </select>
+            {errors.icon && (
+              <p className="text-sm text-red-500 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.icon[0]}
+              </p>
+            )}
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="ghost" onClick={handleCancelAddNew} size="sm" disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleAddNewCategory} size="sm" disabled={isSubmitting}>
+            <Button onClick={handleAddNewCategory} size="sm" disabled={isSubmitting || !isValid}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save Category
             </Button>
           </div>
@@ -181,27 +266,43 @@ export default function CategoriesSettingsTab() {
           <p className="text-gray-500">No categories found. Add your first category!</p>
         )}
         {categories.map((category) => (
-          <div key={category.id} className="p-3 border rounded-md flex items-center justify-between hover:bg-slate-50">
+          <div key={category.id} className={`p-3 border rounded-md flex items-center justify-between hover:bg-slate-50 ${
+            errors[`categories.${category.id}`] ? 'border-red-500' : ''
+          }`}>
             {editingCategoryId === category.id ? (
               <div className="flex-grow space-y-2">
                 <Input 
                   value={editForm.name || ''} 
                   onChange={(e) => handleEditFormChange('name', e.target.value)} 
-                  className="text-base" 
+                  className={`text-base ${errors[`categories.${category.id}.name`] ? 'border-red-500' : ''}`}
                 />
+                {errors[`categories.${category.id}.name`] && (
+                  <p className="text-sm text-red-500 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {errors[`categories.${category.id}.name`][0]}
+                  </p>
+                )}
                 <div className="flex items-center space-x-2">
-                    <Label className="text-sm">Icon:</Label>
-                    <select 
-                        value={editForm.icon || iconOptions[0]} 
-                        onChange={(e) => handleEditFormChange('icon', e.target.value)}
-                        className="p-2 border rounded-md text-lg bg-white"
-                    >
-                        {iconOptions.map(icon => <option key={`edit-${icon}`} value={icon}>{icon}</option>)}
-                    </select>
+                  <Label className="text-sm">Icon:</Label>
+                  <select 
+                    value={editForm.icon || iconOptions[0]} 
+                    onChange={(e) => handleEditFormChange('icon', e.target.value)}
+                    className={`p-2 border rounded-md text-lg bg-white ${
+                      errors[`categories.${category.id}.icon`] ? 'border-red-500' : ''
+                    }`}
+                  >
+                    {iconOptions.map(icon => <option key={`edit-${icon}`} value={icon}>{icon}</option>)}
+                  </select>
+                  {errors[`categories.${category.id}.icon`] && (
+                    <p className="text-sm text-red-500 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors[`categories.${category.id}.icon`][0]}
+                    </p>
+                  )}
                 </div>
                 <div className="flex justify-end space-x-2 mt-2">
                   <Button variant="ghost" size="sm" onClick={handleCancelEdit} disabled={isSubmitting}>Cancel</Button>
-                  <Button size="sm" onClick={handleSaveEdit} disabled={isSubmitting}>
+                  <Button size="sm" onClick={handleSaveEdit} disabled={isSubmitting || !isValid}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save
                   </Button>
                 </div>

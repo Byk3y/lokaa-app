@@ -172,8 +172,9 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
             subdomain={subdomain}
             isOwner={isOwner}
             isMember={isMember}
-            actionButtonText={actionButtonText}
+            actionButtonText={actionButtonText || 'Join Space'}
             onAction={onAction}
+            hideOnlineAvatars={true}
           />
         </div>
       </div>

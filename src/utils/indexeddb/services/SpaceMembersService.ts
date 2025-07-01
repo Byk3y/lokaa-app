@@ -6,10 +6,9 @@
  */
 
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { ISpaceMembersService, SpaceMemberRecord, CacheEntry } from '../types';
-import { IndexedDBManager } from '../core/IndexedDBManager';
-import { CacheService } from './CacheService';
-import { MobileBrowserService } from '../core/MobileBrowserService';
+import { CacheEntry, SupabaseBridgeResult, CacheOptions } from '../types';
+import { spaceMembersCacheService } from '../core/CacheService';
+import { mobileBrowserService } from '../core/MobileBrowserService';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SpaceMember {

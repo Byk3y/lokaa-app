@@ -88,6 +88,8 @@ export default function ChatView({
     shouldShowConnectionContext
   });
 
+  const chatViewRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setCurrentConversation(initialConversation);
     
@@ -253,8 +255,27 @@ export default function ChatView({
     return 'pb-0';
   };
 
+  useEffect(() => {
+    if (!isMobile) return;
+    const chatView = chatViewRef.current;
+    if (!chatView) return;
+    // Start with keyboard closed
+    chatView.classList.add('keyboard-closed');
+    // Handler for focus/blur
+    const handleFocus = () => chatView.classList.remove('keyboard-closed');
+    const handleBlur = () => chatView.classList.add('keyboard-closed');
+    // Listen for focus/blur on any input/textarea inside chatView
+    chatView.addEventListener('focusin', handleFocus);
+    chatView.addEventListener('focusout', handleBlur);
+    return () => {
+      chatView.removeEventListener('focusin', handleFocus);
+      chatView.removeEventListener('focusout', handleBlur);
+    };
+  }, [isMobile]);
+
   return (
     <div 
+      ref={chatViewRef}
       className={`flex flex-col bg-white dark:bg-gray-800 ${getContainerPadding()} ${
         isMobile ? `mobile-chat-view ${isModal ? 'modal-chat' : ''}` : ''
       }`}

@@ -58,6 +58,9 @@ class MobileEventCoordinator {
     systemsNotified: 0
   };
 
+  private focusHandler: (() => void) | null = null;
+  private blurHandler: (() => void) | null = null;
+
   constructor() {
     this.isMobile = shouldEnableMobileFeatures();
     
@@ -208,21 +211,28 @@ class MobileEventCoordinator {
   private setupFocusListeners(): void {
     if (typeof window === 'undefined') return;
 
-    window.addEventListener('focus', () => {
+    const handleFocus = () => {
       this.notifySubscribers({
         isBackground: false,
         timestamp: Date.now(),
         eventType: 'focus'
       });
-    });
+    };
 
-    window.addEventListener('blur', () => {
+    const handleBlur = () => {
       this.notifySubscribers({
         isBackground: true,
         timestamp: Date.now(),
         eventType: 'blur'
       });
-    });
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    // Store handlers for cleanup
+    this.focusHandler = handleFocus;
+    this.blurHandler = handleBlur;
 
     console.log('✅ [MobileEventCoordinator] Focus/blur listeners setup');
   }
@@ -323,8 +333,18 @@ class MobileEventCoordinator {
     this.subscribers.clear();
     this.isInitialized = false;
     
-    // Remove global references
+    // Remove event listeners
     if (typeof window !== 'undefined') {
+      if (this.focusHandler) {
+        window.removeEventListener('focus', this.focusHandler);
+        this.focusHandler = null;
+      }
+      if (this.blurHandler) {
+        window.removeEventListener('blur', this.blurHandler);
+        this.blurHandler = null;
+      }
+      
+      // Remove global references
       delete (window as any).MobileEventCoordinator;
       delete (window as any).getMobileEventState;
       delete (window as any).getMobileSubscribers;

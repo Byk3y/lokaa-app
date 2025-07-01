@@ -208,11 +208,23 @@ export default function MembersTab() {
         return;
     }
     
+    console.log(`🗑️ [MembersTab] Removing member from cache: ${memberToRemove.user_id}`);
+    console.log(`🗑️ [MembersTab] Member details:`, {
+      id: memberToRemove.id,
+      user_id: memberToRemove.user_id,
+      full_name: memberToRemove.full_name,
+      role: memberToRemove.role
+    });
+    
     try {
       // Optimistic update
       handleMemberRemoved(memberToRemove.id);
       
+      console.log(`🔄 [MembersTab] Calling removeMember for space: ${currentSpaceData.id}`);
       const success = await removeMember(currentSpaceData.id, memberToRemove.user_id);
+      
+      console.log(`📊 [MembersTab] Remove member result: ${success ? 'SUCCESS' : 'FAILED'}`);
+      
       if (success) {
         toast({ title: "Member Removed", description: `${memberToRemove.full_name || 'Member'} has been removed.` });
         if (refreshMembership) {
@@ -223,11 +235,13 @@ export default function MembersTab() {
           handleCloseMemberModal();
         }
       } else {
+        console.log(`🔄 [MembersTab] Fetching members from Supabase for space: ${currentSpaceData.id}`);
         // Revert optimistic update on failure - refetch to get accurate state
         refetch(true);
         // The removeMember function in context already shows a toast on failure
       }
     } catch (err) {
+      console.error(`🚨 [MembersTab] Exception during member removal:`, err);
       // Revert optimistic update on error - refetch to get accurate state
       refetch(true);
       console.error("Error removing member:", err);

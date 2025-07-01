@@ -1,5 +1,7 @@
 # Lokaa Connect Spaces
 
+[![Security-Validation CI](https://github.com/lokaa/lokaa-connect-spaces/actions/workflows/validate.yml/badge.svg)](https://github.com/lokaa/lokaa-connect-spaces/actions/workflows/validate.yml)
+
 A platform for creating and managing collaborative spaces.
 
 ## Project Status
@@ -34,6 +36,75 @@ State management is being migrated to Zustand as documented in [ADR-002](./docs/
 - `npm run lint` - Run linting
 - `npm run test` - Run tests
 
+### DevTools
+
+The application includes development-only console helpers for testing and debugging. These are automatically loaded in development mode and exposed to `window.lokaaTest`.
+
+#### Available Tools
+
+**Bridge Testing:**
+```javascript
+// Test the SupabaseIndexedDBBridge mock
+await window.lokaaTest.bridge.initialize();
+window.lokaaTest.bridge.getHealthStatus();
+window.lokaaTest.bridge.getMetrics();
+
+// Test space operations
+await window.lokaaTest.bridge.getSpaceMembers('space-id');
+await window.lokaaTest.bridge.getMemberCounts('space-id');
+```
+
+**File Validation Testing:**
+```javascript
+// Create test files
+const testFile = window.lokaaTest.fileValidation.createTestFile('test.jpg', 'image/jpeg', 2048);
+
+// Test image validation
+await window.lokaaTest.fileValidation.testImageValidation(testFile);
+
+// Test file metadata validation
+await window.lokaaTest.fileValidation.testFileMetadata(testFile, 'image');
+
+// Get file type configurations
+window.lokaaTest.fileValidation.getConfigs();
+```
+
+**Supabase Mock Testing:**
+```javascript
+// Get mock information
+window.lokaaTest.supabase.mockInfo;
+
+// Test connection
+await window.lokaaTest.supabase.testConnection();
+
+// Access client directly
+window.lokaaTest.supabase.client;
+```
+
+**Utility Functions:**
+```javascript
+// Environment information
+window.lokaaTest.utils.getEnvInfo();
+
+// Storage helpers
+window.lokaaTest.utils.storage.inspect();
+window.lokaaTest.utils.storage.clear();
+
+// Generate test data
+window.lokaaTest.utils.generateTestData.user('user-123');
+window.lokaaTest.utils.generateTestData.space('test-space');
+window.lokaaTest.utils.generateTestData.post('test-post');
+```
+
+#### Usage
+
+1. Start the development server: `npm run dev`
+2. Open browser console
+3. Access tools via `window.lokaaTest`
+4. All operations are logged to console for debugging
+
+**Note:** DevTools are only available in development mode (`NODE_ENV=development`) and will not be loaded in production builds.
+
 ## Documentation
 
 - [Architecture Decision Records](./docs/adr/index.md)
@@ -43,6 +114,16 @@ State management is being migrated to Zustand as documented in [ADR-002](./docs/
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
+
+### Security Validation
+
+All PRs must pass the Security-Validation CI workflow before merging. This ensures:
+
+- Test coverage remains above 90%
+- No validation tests are skipped
+- All security-related tests pass
+
+The workflow runs automatically on every PR and can be manually triggered. Check the [Security-Validation CI](.github/workflows/validate.yml) configuration for details.
 
 ## License
 
@@ -175,6 +256,66 @@ Visit [http://localhost:3000](http://localhost:3000).
 2. Commit your changes: `git commit -am 'Add new feature'`
 3. Push to the branch: `git push origin feature/your-feature`
 4. Open a pull request
+
+### Security
+
+The application uses a dual-layer security system:
+
+1. Session Management
+   - JWT tokens stored in localStorage
+   - Automatic refresh every 15 minutes
+   - Token rotation on suspicious activity
+   - 440 status code indicates session expiry or token reuse
+
+2. CSRF Protection
+   - One-time use tokens with 15-minute expiry
+   - Required for all non-GET requests
+   - Automatic token handling via `fetchWithCsrf` wrapper
+
+#### Getting a CSRF Token
+
+```typescript
+// Using fetchWithCsrf wrapper (recommended)
+const { fetchWithCsrf } = useSecureSession();
+const response = await fetchWithCsrf('/api/posts', {
+  method: 'POST',
+  body: JSON.stringify(data)
+});
+
+// Manual token retrieval
+const response = await fetch('/api/auth/csrf');
+const { token } = await response.json();
+```
+
+#### Status Codes
+
+- `440`: Session expired or token reuse detected
+  - Client should redirect to login
+  - All cached data should be cleared
+  - New session required
+
+- `403`: CSRF validation failed
+  - Missing or invalid CSRF token
+  - Token expired
+  - New token required via `/api/auth/csrf`
+
+#### Security Events
+
+The following events are logged for monitoring:
+
+- `security.token_reuse`: Detected token reuse attempt
+- `security.csrf_fail`: CSRF validation failure
+- `session.refresh`: Successful session refresh
+- `session.expire`: Session expiration
+
+#### Development
+
+Run security tests:
+```bash
+npm run test:security
+```
+
+Security test coverage must be at least 90% to pass CI.
 
 ## License
 

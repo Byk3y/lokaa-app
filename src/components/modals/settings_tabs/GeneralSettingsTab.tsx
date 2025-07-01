@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
+import { useSettingsValidation } from '@/hooks/useSettingsValidation';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
-import { Globe, Lock, Image as ImageIcon, Camera, Upload } from 'lucide-react';
+import { Globe, Lock, Image as ImageIcon, Camera, Upload, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { Alert } from '@/components/ui/alert';
 
 async function uploadFile(bucketName: string, filePath: string, file: File, spaceId?: string): Promise<string> {
   if (!file) throw new Error("File not selected");
@@ -16,7 +18,7 @@ async function uploadFile(bucketName: string, filePath: string, file: File, spac
   // Sanitize filename
   const fileExtension = file.name.split('.').pop() || 'bin';
   const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-  const sanitizedBaseName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_'); // Replace special chars with underscore
+  const sanitizedBaseName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const sanitizedFileName = `${sanitizedBaseName}.${fileExtension}`;
 
   // Simplified path structure that works with the RLS policy
@@ -39,6 +41,16 @@ async function uploadFile(bucketName: string, filePath: string, file: File, spac
   return data.path;
 }
 
+// Add type for form data
+type FormDataField = 
+  | 'name'
+  | 'description'
+  | 'subdomain'
+  | 'is_private'
+  | 'support_email'
+  | 'icon_image'
+  | 'cover_image';
+
 export default function GeneralSettingsTab() {
   const { formData, setFormDataField, permissions, space } = useSpaceSettingsStore();
   const [subdomainInput, setSubdomainInput] = useState(formData.subdomain || "");
@@ -46,13 +58,26 @@ export default function GeneralSettingsTab() {
   const iconInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
+  // Use settings validation
+  const {
+    validateData,
+    validateFile,
+    handleChange: validateField,
+    errors,
+    isValid,
+    isValidating
+  } = useSettingsValidation('general', { validateOnChange: true });
+
   useEffect(() => {
+    // Validate initial data
+    validateData(formData);
     setSubdomainInput(formData.subdomain || "");
-  }, [formData.subdomain]);
+  }, [formData, validateData]);
 
   const handleSubdomainChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSubdomain = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
     setSubdomainInput(newSubdomain);
+    validateField('subdomain', newSubdomain, { ...formData, subdomain: newSubdomain });
   };
 
   const handleSubdomainBlur = () => {
@@ -60,10 +85,26 @@ export default function GeneralSettingsTab() {
       setFormDataField('subdomain', subdomainInput);
     }
   };
+
+  const handleInputChange = (field: FormDataField, value: string | boolean) => {
+    setFormDataField(field, value);
+    validateField(field, value, { ...formData, [field]: value });
+  };
   
   const handleFileUpload = async (file: File | null, type: 'icon' | 'cover') => {
     if (!file || !space?.id) {
       toast({ title: "Upload Error", description: "No file selected or space ID missing.", variant: "destructive" });
+      return;
+    }
+
+    // Validate file first
+    const validation = await validateFile(file, type);
+    if (!validation.isValid) {
+      toast({ 
+        title: "File Validation Failed", 
+        description: validation.errors.join('. '), 
+        variant: "destructive" 
+      });
       return;
     }
 
@@ -78,9 +119,11 @@ export default function GeneralSettingsTab() {
       
       if (type === 'icon') {
         setFormDataField('icon_image', fullUrl);
+        validateField('icon_image', fullUrl, { ...formData, icon_image: fullUrl });
         toast({ title: "Icon Updated", description: "New icon uploaded successfully." });
       } else {
         setFormDataField('cover_image', fullUrl);
+        validateField('cover_image', fullUrl, { ...formData, cover_image: fullUrl });
         toast({ title: "Cover Image Updated", description: "New cover image uploaded successfully." });
       }
     } catch (error: any) {
@@ -99,14 +142,33 @@ export default function GeneralSettingsTab() {
 
   const canEdit = permissions?.canEditSpace ?? false;
 
+  // Helper to get field errors
+  const getFieldErrors = (field: string) => errors[field] || [];
+
   return (
-    <div className="p-6 space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 items-start">
-        {/* Icon Section */}
+    <div className="space-y-8 p-6">
+      {/* Show mobile network errors if any */}
+      {errors._mobile && (
+        <Alert variant="destructive">
+          {errors._mobile.map((error, i) => (
+            <p key={i} className="text-sm flex items-center">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              {error}
+            </p>
+          ))}
+        </Alert>
+      )}
+
+      {/* Icon & Cover Images */}
+      <div className="space-y-6">
         <div className="flex items-center space-x-4">
           <div 
             onClick={canEdit ? triggerIconUpload : undefined} 
-            className={`w-[72px] h-[72px] rounded-md border border-gray-300 dark:border-slate-700 flex items-center justify-center text-xs font-medium transition-colors ${canEdit ? 'cursor-pointer bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-800'}`}
+            className={`w-[96px] h-[96px] rounded-md border ${
+              getFieldErrors('icon_image').length > 0 ? 'border-red-500' : 'border-gray-300 dark:border-slate-700'
+            } flex items-center justify-center text-xs font-medium transition-colors ${
+              canEdit ? 'cursor-pointer bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-800'
+            }`}
           >
             {formData.icon_image ? (
               <img src={formData.icon_image} alt="Icon" className="w-full h-full object-cover rounded-md" />
@@ -128,20 +190,23 @@ export default function GeneralSettingsTab() {
           />
           <div>
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Icon</p>
-            <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Recommended: 128x128</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Recommended: 96x96</p>
             {canEdit && (
-                <Button variant="outline" size="sm" onClick={triggerIconUpload} className="text-xs px-3 py-1 dark:border-slate-600 dark:hover:bg-slate-700">
-                    Change
-                </Button>
+              <Button variant="outline" size="sm" onClick={triggerIconUpload} className="text-xs px-3 py-1 dark:border-slate-600 dark:hover:bg-slate-700">
+                Change
+              </Button>
             )}
           </div>
         </div>
 
-        {/* Cover Section */}
         <div className="flex items-center space-x-4">
           <div 
             onClick={canEdit ? triggerCoverUpload : undefined} 
-            className={`w-[170px] h-[96px] rounded-md border border-gray-300 dark:border-slate-700 flex items-center justify-center text-xs font-medium transition-colors ${canEdit ? 'cursor-pointer bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-800'}`}
+            className={`w-[170px] h-[96px] rounded-md border ${
+              getFieldErrors('cover_image').length > 0 ? 'border-red-500' : 'border-gray-300 dark:border-slate-700'
+            } flex items-center justify-center text-xs font-medium transition-colors ${
+              canEdit ? 'cursor-pointer bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-800'
+            }`}
           >
             {formData.cover_image ? (
               <img src={formData.cover_image} alt="Cover" className="w-full h-full object-cover rounded-md" />
@@ -161,13 +226,13 @@ export default function GeneralSettingsTab() {
             }}
             disabled={!canEdit}
           />
-           <div>
+          <div>
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Cover</p>
             <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Recommended: 1084x576</p>
             {canEdit && (
-                 <Button variant="outline" size="sm" onClick={triggerCoverUpload} className="text-xs px-3 py-1 dark:border-slate-600 dark:hover:bg-slate-700">
-                    Change
-                 </Button>
+              <Button variant="outline" size="sm" onClick={triggerCoverUpload} className="text-xs px-3 py-1 dark:border-slate-600 dark:hover:bg-slate-700">
+                Change
+              </Button>
             )}
           </div>
         </div>
@@ -182,11 +247,16 @@ export default function GeneralSettingsTab() {
         <Input 
           id="spaceName" 
           value={formData.name || ""} 
-          onChange={(e) => setFormDataField('name', e.target.value.slice(0, 30))}
-          className="mt-1 w-full dark:bg-slate-700 dark:border-slate-600 dark:text-gray-50"
+          onChange={(e) => handleInputChange('name', e.target.value.slice(0, 30))}
+          className={`mt-1 w-full dark:bg-slate-700 dark:border-slate-600 dark:text-gray-50 ${
+            getFieldErrors('name').length > 0 ? 'border-red-500' : ''
+          }`}
           maxLength={30}
           disabled={!canEdit}
         />
+        {getFieldErrors('name').map((error, i) => (
+          <p key={i} className="mt-1 text-sm text-red-500">{error}</p>
+        ))}
       </div>
 
       {/* Group Description (Space Description) */}
@@ -198,12 +268,17 @@ export default function GeneralSettingsTab() {
         <Textarea 
           id="spaceDescription" 
           value={formData.description || ""} 
-          onChange={(e) => setFormDataField('description', e.target.value.slice(0, 150))}
+          onChange={(e) => handleInputChange('description', e.target.value.slice(0, 150))}
           rows={3}
-          className="mt-1 w-full dark:bg-slate-700 dark:border-slate-600 dark:text-gray-50 resize-none"
+          className={`mt-1 w-full dark:bg-slate-700 dark:border-slate-600 dark:text-gray-50 resize-none ${
+            getFieldErrors('description').length > 0 ? 'border-red-500' : ''
+          }`}
           maxLength={150}
           disabled={!canEdit}
         />
+        {getFieldErrors('description').map((error, i) => (
+          <p key={i} className="mt-1 text-sm text-red-500">{error}</p>
+        ))}
       </div>
 
       {/* Custom URL (Subdomain) */}
@@ -226,19 +301,24 @@ export default function GeneralSettingsTab() {
           value={subdomainInput} 
           onChange={handleSubdomainChange}
           onBlur={handleSubdomainBlur}
-          className="mt-1 w-full dark:bg-slate-700 dark:border-slate-600 dark:text-gray-50"
+          className={`mt-1 w-full dark:bg-slate-700 dark:border-slate-600 dark:text-gray-50 ${
+            getFieldErrors('subdomain').length > 0 ? 'border-red-500' : ''
+          }`}
           placeholder="your-space-name"
           disabled={!canEdit}
         />
+        {getFieldErrors('subdomain').map((error, i) => (
+          <p key={i} className="mt-1 text-sm text-red-500">{error}</p>
+        ))}
       </div>
       
       {/* Privacy */}
       <div>
-        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Privacy</Label>
+        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Privacy</Label>
         <RadioGroup 
-          value={formData.is_private ? 'private' : 'public'} 
-          onValueChange={(value) => setFormDataField('is_private', value === 'private')}
-          className="space-y-0 grid grid-cols-1 sm:grid-cols-2 gap-3"
+          value={formData.is_private ? "private" : "public"}
+          onValueChange={(value) => handleInputChange('is_private', value === "private")}
+          className="mt-2 space-y-3"
           disabled={!canEdit}
         >
           <Label htmlFor="private" className={`flex flex-col p-4 border rounded-lg cursor-pointer transition-colors ${formData.is_private ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-700' : 'border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'}`}>
@@ -247,8 +327,9 @@ export default function GeneralSettingsTab() {
               <Lock className={`h-4 w-4 mr-1.5 ${formData.is_private ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-slate-400'}`} />
               <span className={`font-semibold ${formData.is_private ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-100'}`}>Private</span>
             </div>
-            <p className="text-xs text-gray-500 dark:text-slate-400 ml-6">Only members can see who's in the group and what they post. Content is hidden from search engines.</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400 ml-6">Only members can see who's in the group and what they post. Content is not discoverable by search engines.</p>
           </Label>
+
           <Label htmlFor="public" className={`flex flex-col p-4 border rounded-lg cursor-pointer transition-colors ${!formData.is_private ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-700' : 'border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600'}`}>
             <div className="flex items-center mb-1">
               <RadioGroupItem value="public" id="public" className="mr-2" disabled={!canEdit} />
@@ -264,27 +345,26 @@ export default function GeneralSettingsTab() {
       <div>
         <Label htmlFor="supportEmail" className="text-sm font-medium text-gray-700 dark:text-gray-300">Support email</Label>
         <div className="mt-1 flex items-center">
-            <Input 
-                id="supportEmail" 
-                type="email"
-                value={formData.support_email || ""} 
-                onChange={(e) => setFormDataField('support_email', e.target.value)}
-                className="w-full dark:bg-slate-700 dark:border-slate-600 dark:text-gray-50"
-                placeholder="your-support@example.com"
-                disabled={!canEdit}
-            />
+          <Input 
+            id="supportEmail" 
+            type="email"
+            value={formData.support_email || ""} 
+            onChange={(e) => handleInputChange('support_email', e.target.value)}
+            className={`w-full dark:bg-slate-700 dark:border-slate-600 dark:text-gray-50 ${
+              getFieldErrors('support_email').length > 0 ? 'border-red-500' : ''
+            }`}
+            placeholder="your-support@example.com"
+            disabled={!canEdit}
+          />
         </div>
-         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            This email will be displayed publicly for members seeking support. 
-            If empty, the space owner's email might be used as a fallback (feature pending).
-          </p>
-      </div>
-
-      {!canEdit && (
-        <p className="text-sm text-center text-yellow-600 bg-yellow-50 p-3 rounded-md dark:bg-yellow-500/10 dark:text-yellow-400">
-          You do not have permission to edit these general settings.
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          This email will be displayed publicly for members seeking support. 
+          If empty, the space owner's email might be used as a fallback (feature pending).
         </p>
-      )}
+        {getFieldErrors('support_email').map((error, i) => (
+          <p key={i} className="mt-1 text-sm text-red-500">{error}</p>
+        ))}
+      </div>
     </div>
   );
 } 

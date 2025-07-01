@@ -7,6 +7,7 @@
 
 import { errorHandlingSystem, ErrorType } from './errorHandlingSystem';
 import { toast } from '@/hooks/use-toast';
+import { useSecureSession } from '@/hooks/useSecureSession';
 
 interface ServiceWorkerConfig {
   enableDebugMode?: boolean;
@@ -67,9 +68,7 @@ class ServiceWorkerManager {
       ...config
     };
     
-    this.isDevelopment = process.env.NODE_ENV === 'development' || 
-                         window.location.hostname === 'localhost' ||
-                         window.location.hostname === '127.0.0.1';
+    this.isDevelopment = import.meta.env.DEV;
     
     if (this.isDevelopment) {
       console.log('🔧 [ServiceWorkerManager] Development mode detected');
@@ -86,40 +85,59 @@ class ServiceWorkerManager {
   }
 
   /**
-   * Register the service worker
+   * Initialize service worker manager (works with vite-plugin-pwa auto-registration)
    */
-  async register(swPath: string = '/sw.js', options?: RegistrationOptions): Promise<boolean> {
+  async register(swPath?: string, options?: RegistrationOptions): Promise<boolean> {
     if (!this.isSupported()) {
       console.log('🚫 [ServiceWorkerManager] Service workers not supported');
       return false;
     }
 
+    // In development, unregister any existing service workers
+    if (this.isDevelopment) {
+      console.log('🧹 [ServiceWorkerManager] Development mode: Clearing service workers...');
+      await this.unregisterAll();
+      return false;
+    }
+
     try {
-      console.log('🔧 [ServiceWorkerManager] Registering service worker...');
+      console.log('🔧 [ServiceWorkerManager] Initializing with vite-plugin-pwa...');
       
-      // In development, check if we need to clear existing registrations
-      if (this.isDevelopment) {
-        await this.clearStaleRegistrations();
+      // Check for existing registration (from vite-plugin-pwa)
+      const existingRegistration = await navigator.serviceWorker.getRegistration();
+      
+      if (existingRegistration) {
+        console.log('✅ [ServiceWorkerManager] Found existing service worker registration');
+        this.registration = existingRegistration;
+      } else if (!this.isDevelopment) {
+        // Only wait for registration in production
+        console.log('🔄 [ServiceWorkerManager] Waiting for vite-plugin-pwa registration...');
+        
+        // Wait up to 5 seconds for registration
+        let attempts = 0;
+        while (attempts < 10 && !this.registration) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          this.registration = await navigator.serviceWorker.getRegistration();
+          attempts++;
+        }
+        
+        if (!this.registration) {
+          console.warn('⚠️ [ServiceWorkerManager] No service worker registration found');
+          return false;
+        }
+      }
+
+      // Only set up event listeners and check for updates in production
+      if (!this.isDevelopment && this.registration) {
+        this.setupEventListeners();
+        await this.checkForUpdates();
+        console.log('✅ [ServiceWorkerManager] Service worker manager initialized successfully');
+        this.handlers.onInstalled?.();
       }
       
-      this.registration = await navigator.serviceWorker.register(swPath, {
-        scope: '/',
-        updateViaCache: this.isDevelopment ? 'none' : 'imports',
-        ...options
-      });
-
-      // Set up event listeners
-      this.setupEventListeners();
-      
-      // Check for immediate updates
-      await this.checkForUpdates();
-      
-      console.log('✅ [ServiceWorkerManager] Service worker registered successfully');
-      this.handlers.onInstalled?.();
-      
-      return true;
+      return !this.isDevelopment;
     } catch (error) {
-      console.error('❌ [ServiceWorkerManager] Registration failed:', error);
+      console.error('❌ [ServiceWorkerManager] Initialization failed:', error);
       return false;
     }
   }
@@ -422,7 +440,8 @@ class ServiceWorkerManager {
    * Sync offline post
    */
   private async syncOfflinePost(data: any): Promise<void> {
-    const response = await fetch('/api/posts', {
+    const { fetchWithCsrf } = useSecureSession();
+    const response = await fetchWithCsrf('/api/posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -437,7 +456,8 @@ class ServiceWorkerManager {
    * Sync offline comment
    */
   private async syncOfflineComment(data: any): Promise<void> {
-    const response = await fetch('/api/comments', {
+    const { fetchWithCsrf } = useSecureSession();
+    const response = await fetchWithCsrf('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -452,7 +472,8 @@ class ServiceWorkerManager {
    * Sync offline like
    */
   private async syncOfflineLike(data: any): Promise<void> {
-    const response = await fetch(`/api/posts/${data.postId}/like`, {
+    const { fetchWithCsrf } = useSecureSession();
+    const response = await fetchWithCsrf(`/api/posts/${data.postId}/like`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -466,7 +487,8 @@ class ServiceWorkerManager {
    * Sync offline join action
    */
   private async syncOfflineJoin(data: any): Promise<void> {
-    const response = await fetch(`/api/spaces/${data.spaceId}/join`, {
+    const { fetchWithCsrf } = useSecureSession();
+    const response = await fetchWithCsrf(`/api/spaces/${data.spaceId}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
