@@ -2,6 +2,32 @@ import { vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { Blob } from 'fetch-blob';
 
+// Security event logging setup
+interface AnalyticsEvent {
+  type: string;
+  context?: {
+    path?: string;
+    [key: string]: any;
+  };
+  meta?: Record<string, any>;
+}
+
+export const securityEvents: Array<AnalyticsEvent> = [];
+const mockEventInsert = vi.fn((evt: AnalyticsEvent) => {
+  securityEvents.push(evt);
+  return Promise.resolve({ data: evt, error: null });
+});
+
+const mockAlertInsert = vi.fn((evt: AnalyticsEvent) => {
+  securityEvents.push(evt);
+  return Promise.resolve({ data: evt, error: null });
+});
+
+global.logSecurityEvent = mockEventInsert;
+global.logSecurityAlert = mockAlertInsert;
+
+
+
 // Initialize fake-indexeddb first
 import FDBFactory from 'fake-indexeddb/lib/FDBFactory';
 import FDBKeyRange from 'fake-indexeddb/lib/FDBKeyRange';
@@ -62,7 +88,7 @@ const createStorageStub = () => {
 global.localStorage = createStorageStub();
 global.sessionStorage = createStorageStub();
 
-// 4. Supabase mock
+// 4. Supabase mock with RLS support
 const supabaseMock = {
   from: vi.fn(() => ({
     select: vi.fn(() => ({
@@ -91,18 +117,15 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 // 5. Fetch mock
+const usedTokens = new Set<string>();
+const tokenTimestamps = new Map<string, number>();
+
 const mockFetch = vi.fn((url: string, options?: RequestInit) => {
   // CSRF token endpoint
   if (url === '/api/auth/csrf') {
-    return Promise.resolve(new Response(JSON.stringify({ token: 'test-csrf-token' }), {
-      status: 200,
-      headers: new Headers({ 'Content-Type': 'application/json' })
-    }));
-  }
-
-  // Auth refresh endpoint
-  if (url === '/api/auth/refresh') {
-    return Promise.resolve(new Response(JSON.stringify({ session: { access_token: 'new_token' } }), {
+    const token = 'test-csrf-token-' + Date.now();
+    tokenTimestamps.set(token, Date.now());
+    return Promise.resolve(new Response(JSON.stringify({ token }), {
       status: 200,
       headers: new Headers({ 'Content-Type': 'application/json' })
     }));
@@ -110,14 +133,153 @@ const mockFetch = vi.fn((url: string, options?: RequestInit) => {
 
   // Posts endpoint
   if (url === '/api/posts') {
-    const hasValidToken = options?.headers?.['x-csrf-token'] === 'test-csrf-token';
-    if (!hasValidToken) {
+    const token = options?.headers?.['x-csrf-token'];
+    if (!token) {
+      const event = {
+        type: 'security.csrf_fail',
+        context: {
+          path: '/api/posts',
+          method: options?.method || 'GET'
+        },
+        meta: {
+          reason: 'Missing CSRF token'
+        }
+      };
+      mockEventInsert(event);
+      return Promise.resolve(new Response(JSON.stringify({ message: 'Missing CSRF token' }), {
+        status: 403,
+        headers: new Headers({ 'Content-Type': 'application/json' })
+      }));
+    }
+
+    const timestamp = tokenTimestamps.get(token);
+    if (!timestamp) {
+      const event = {
+        type: 'security.csrf_fail',
+        context: {
+          path: '/api/posts',
+          method: options?.method || 'GET'
+        },
+        meta: {
+          reason: 'Invalid CSRF token'
+        }
+      };
+      mockEventInsert(event);
       return Promise.resolve(new Response(JSON.stringify({ message: 'Invalid CSRF token' }), {
         status: 403,
         headers: new Headers({ 'Content-Type': 'application/json' })
       }));
     }
+
+    // Check for token expiry (15 minutes)
+    if (Date.now() - timestamp > 15 * 60 * 1000) {
+      const event = {
+        type: 'security.csrf_fail',
+        context: {
+          path: '/api/posts',
+          method: options?.method || 'GET'
+        },
+        meta: {
+          reason: 'Token expired'
+        }
+      };
+      mockEventInsert(event);
+      return Promise.resolve(new Response(JSON.stringify({ message: 'Invalid CSRF token' }), {
+        status: 403,
+        headers: new Headers({ 'Content-Type': 'application/json' })
+      }));
+    }
+
+    // Check for token reuse
+    if (usedTokens.has(token)) {
+      const event = {
+        type: 'security.csrf_fail',
+        context: {
+          path: '/api/posts',
+          method: options?.method || 'GET'
+        },
+        meta: {
+          reason: 'Token reuse'
+        }
+      };
+      mockEventInsert(event);
+      return Promise.resolve(new Response(JSON.stringify({ message: 'Invalid CSRF token' }), {
+        status: 403,
+        headers: new Headers({ 'Content-Type': 'application/json' })
+      }));
+    }
+
+    // Valid token, mark as used
+    usedTokens.add(token);
     return Promise.resolve(new Response(JSON.stringify({ data: null }), {
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'application/json' })
+    }));
+  }
+
+  // Auth refresh endpoint
+  if (url === '/api/auth/refresh') {
+    const token = options?.headers?.['x-refresh-token'];
+    if (!token) {
+      const event = {
+        type: 'security.session_anomaly',
+        context: {
+          path: '/api/auth/refresh',
+          method: options?.method || 'GET'
+        },
+        meta: {
+          reason: 'Missing refresh token'
+        }
+      };
+      mockEventInsert(event);
+      return Promise.resolve(new Response(JSON.stringify({ message: 'Missing refresh token' }), {
+        status: 401,
+        headers: new Headers({ 'Content-Type': 'application/json' })
+      }));
+    }
+
+    const timestamp = tokenTimestamps.get(token);
+    if (!timestamp) {
+      const event = {
+        type: 'security.session_anomaly',
+        context: {
+          path: '/api/auth/refresh',
+          method: options?.method || 'GET'
+        },
+        meta: {
+          reason: 'Invalid refresh token'
+        }
+      };
+      mockEventInsert(event);
+      return Promise.resolve(new Response(JSON.stringify({ message: 'Invalid refresh token' }), {
+        status: 401,
+        headers: new Headers({ 'Content-Type': 'application/json' })
+      }));
+    }
+
+    // Check for token reuse after grace period
+    if (Date.now() - timestamp > 10 * 1000) {
+      const event = {
+        type: 'security.session_anomaly',
+        context: {
+          path: '/api/auth/refresh',
+          method: options?.method || 'GET'
+        },
+        meta: {
+          reason: 'Token reuse after grace period'
+        }
+      };
+      mockEventInsert(event);
+      return Promise.resolve(new Response(JSON.stringify({ message: 'Token reuse detected' }), {
+        status: 440,
+        headers: new Headers({ 
+          'Content-Type': 'application/json',
+          'x-refresh-token-reuse': 'true'
+        })
+      }));
+    }
+
+    return Promise.resolve(new Response(JSON.stringify({ session: { access_token: 'new_token' } }), {
       status: 200,
       headers: new Headers({ 'Content-Type': 'application/json' })
     }));
@@ -125,7 +287,10 @@ const mockFetch = vi.fn((url: string, options?: RequestInit) => {
 
   // Security events endpoint
   if (url === '/api/security/events') {
-    return Promise.resolve(new Response(JSON.stringify({ data: null }), {
+    const event = JSON.parse(options?.body as string);
+    mockEventInsert(event);
+    mockAlertInsert(event);
+    return Promise.resolve(new Response(JSON.stringify({ data: event }), {
       status: 200,
       headers: new Headers({ 'Content-Type': 'application/json' })
     }));

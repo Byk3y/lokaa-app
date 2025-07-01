@@ -110,7 +110,7 @@ export const useMessageStore = create<MessageStore>()(
           const result = await chatApiService.getMessages(conversationId);
           
           if (result.error) {
-            throw new Error(result.error);
+            throw result.error;
           }
 
           set(state => ({
@@ -153,7 +153,10 @@ export const useMessageStore = create<MessageStore>()(
         const tempId = get().addOptimisticMessageWithUser(conversationId, currentUser, content, attachmentUrl, attachmentType);
 
         try {
-          const result = await chatApiService.sendMessage(conversationId, currentUser.id, content, attachmentUrl, attachmentType);
+          const result = await chatApiService.sendMessage(conversationId, currentUser.id, content, {
+            attachmentUrl,
+            attachmentType
+          });
           
           if (result.error) {
             throw result.error;
@@ -244,7 +247,7 @@ export const useMessageStore = create<MessageStore>()(
             throw new Error('No authenticated user found');
           }
 
-          const result = await chatApiService.markAsRead(conversationId, currentUser.id);
+          const result = await chatApiService.markConversationAsRead(conversationId, currentUser.id);
           
           if (result.error) {
             throw result.error;
@@ -494,8 +497,10 @@ export const useMessageStore = create<MessageStore>()(
               item.conversationId,
               currentUser.id,
               item.content,
-              item.attachmentUrl,
-              item.attachmentType
+              {
+                attachmentUrl: item.attachmentUrl,
+                attachmentType: item.attachmentType
+              }
             );
 
             if (result.error) {

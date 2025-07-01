@@ -526,16 +526,17 @@ describe('ChatApiService', () => {
   });
 
   describe('transformConversationRecord', () => {
-    it('should transform conversation record correctly', async () => {
+    it('should transform conversation record with participants correctly', () => {
       const mockRecord = {
-        conversation_id: 'conv-123',
+        id: 'conv-123',
         is_group: false,
-        conversation_name: 'Test Chat',
+        name: 'Test Chat',
         created_at: '2024-01-01T00:00:00Z',
         latest_message_content: 'Hello',
         last_message_at: '2024-01-01T00:01:00Z',
+        latest_message_sender: 'user-123',
         unread_count: 2,
-        other_participants: [
+        participants: [
           {
             user_id: 'user-456',
             full_name: 'John Doe',
@@ -550,28 +551,82 @@ describe('ChatApiService', () => {
       expect(result.conversation_id).toBe('conv-123');
       expect(result.name).toBe('Test Chat');
       expect(result.last_message).toBe('Hello');
+      expect(result.latest_message_content).toBe('Hello');
+      expect(result.latest_message_sender).toBe('user-123');
       expect(result.unread_count).toBe(2);
       expect(result.participants).toHaveLength(1);
       expect(result.participants[0].user_id).toBe('user-456');
-      expect(result.participants[0].user!.full_name).toBe('John Doe');
+      expect(result.participants[0].user.full_name).toBe('John Doe');
+      expect(result.participants[0].user.avatar_url).toBe('https://example.com/avatar.jpg');
     });
 
-    it('should handle malformed other_participants gracefully', async () => {
+    it('should transform conversation record with other_participants correctly', () => {
       const mockRecord = {
         conversation_id: 'conv-123',
         is_group: false,
-        conversation_name: null,
+        conversation_name: 'Test Chat',
         created_at: '2024-01-01T00:00:00Z',
-        latest_message_content: null,
-        last_message_at: null,
-        unread_count: 0,
-        other_participants: 'invalid-json'
+        latest_message_content: 'Hello',
+        last_message_at: '2024-01-01T00:01:00Z',
+        latest_message_sender: 'user-123',
+        unread_count: 2,
+        other_participants: [
+          {
+            user_id: 'user-456',
+            full_name: 'John Doe',
+            avatar_url: 'https://example.com/avatar.jpg'
+          }
+        ]
       };
 
       const result = (apiService as any).transformConversationRecord(mockRecord);
 
       expect(result.conversation_id).toBe('conv-123');
+      expect(result.name).toBe('Test Chat');
+      expect(result.last_message).toBe('Hello');
+      expect(result.latest_message_content).toBe('Hello');
+      expect(result.latest_message_sender).toBe('user-123');
+      expect(result.unread_count).toBe(2);
+      expect(result.participants).toHaveLength(1);
+      expect(result.participants[0].user_id).toBe('user-456');
+      expect(result.participants[0].user.full_name).toBe('John Doe');
+      expect(result.participants[0].user.avatar_url).toBe('https://example.com/avatar.jpg');
+    });
+
+    it('should handle malformed participants gracefully', () => {
+      const mockRecord = {
+        conversation_id: 'conv-123',
+        is_group: false,
+        name: null,
+        created_at: '2024-01-01T00:00:00Z',
+        latest_message_content: null,
+        last_message_at: null,
+        unread_count: 0,
+        participants: 'invalid-json'
+      };
+
+      const result = (apiService as any).transformConversationRecord(mockRecord);
+
+      expect(result.conversation_id).toBe('conv-123');
+      expect(result.name).toBeNull();
       expect(result.participants).toEqual([]);
+    });
+
+    it('should handle missing fields with defaults', () => {
+      const mockRecord = {
+        id: 'conv-123'
+      };
+
+      const result = (apiService as any).transformConversationRecord(mockRecord);
+
+      expect(result.conversation_id).toBe('conv-123');
+      expect(result.name).toBeNull();
+      expect(result.is_group).toBe(false);
+      expect(result.unread_count).toBe(0);
+      expect(result.participants).toEqual([]);
+      expect(result.last_message).toBeNull();
+      expect(result.latest_message_content).toBeNull();
+      expect(result.latest_message_sender).toBeNull();
     });
   });
 }); 

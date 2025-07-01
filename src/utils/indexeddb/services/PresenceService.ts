@@ -137,7 +137,7 @@ export class PresenceService {
   }
 
   /**
-   * Cleanup stale presence data - set users offline if inactive for more than 5 minutes
+   * Cleanup stale presence data - remove users who haven't been active for more than 5 minutes
    */
   async cleanupStalePresence(spaceId: string): Promise<SupabaseBridgeResult<any>> {
     this.metrics.totalRequests++;
@@ -145,13 +145,12 @@ export class PresenceService {
     try {
       console.log('[PresenceService] Cleaning up stale presence for space', spaceId);
       
-      // Set users offline if they haven't been active in last 5 minutes
+      // Remove users who haven't been active in last 5 minutes
       const { data, error } = await getSupabaseClient()
-        .from('space_members')
-        .update({ is_online: false })
+        .from('presence')
+        .delete()
         .eq('space_id', spaceId)
-        .eq('status', 'active')
-        .or('last_active_at.is.null,last_active_at.lte.' + new Date(Date.now() - 5 * 60 * 1000).toISOString());
+        .lte('online_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
 
       if (error) {
         console.error('[PresenceService] Error cleaning stale presence:', error);
@@ -183,20 +182,20 @@ export class PresenceService {
       // First cleanup stale presence
       await this.cleanupStalePresence(spaceId);
       
-      // Then get current online members
+      // Then get current online members from presence table joined with space_members for role info
       const { data, error } = await getSupabaseClient()
-        .from('space_members')
+        .from('presence')
         .select(`
           user_id,
-          is_online,
-          last_active_at,
-          role,
-          users!inner(full_name, profile_url)
+          online_at,
+          space_members!inner(
+            role,
+            users!inner(full_name, profile_url)
+          )
         `)
         .eq('space_id', spaceId)
-        .eq('status', 'active')
-        .eq('is_online', true)
-        .gte('last_active_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+        .eq('space_members.status', 'active')
+        .gte('online_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
 
       if (error) {
         console.error('[PresenceService] Error fetching time-validated online members:', error);
@@ -204,10 +203,18 @@ export class PresenceService {
         return { data: [], error };
       }
 
-      console.log(`[PresenceService] Time-validated online members for ${spaceId}:`, data?.length || 0);
+      // Transform data to match expected format
+      const transformedData = data?.map((member: any) => ({
+        user_id: member.user_id,
+        last_active_at: member.online_at,
+        role: member.space_members?.role,
+        users: member.space_members?.users
+      })) || [];
+
+      console.log(`[PresenceService] Time-validated online members for ${spaceId}:`, transformedData.length);
       this.metrics.networkRequests++;
       
-      return { data: data || [], error: null };
+      return { data: transformedData, error: null };
     } catch (error) {
       console.error('[PresenceService] Exception in getOnlineMembersWithTimeValidation:', error);
       this.metrics.errors++;
@@ -370,7 +377,7 @@ export class PresenceService {
   // Private helper methods
 
   /**
-   * Execute presence update query against Supabase
+   * Execute presence update query against Supabase using new presence table
    */
   private async executePresenceUpdateQuery(
     userId: string, 
@@ -380,54 +387,48 @@ export class PresenceService {
     try {
       if (isOnline && spaceId) {
         // When going online in a specific space:
-        // 1. Set current space as online
-        // 2. Set all other spaces as offline
+        // 1. Remove presence from other spaces
+        // 2. Upsert presence for current space
         
-        // First, set all other spaces to offline
+        // First, remove from all other spaces
         await getSupabaseClient()
-          .from('space_members')
-          .update({
-            is_online: false
-          })
+          .from('presence')
+          .delete()
           .eq('user_id', userId)
-          .eq('status', 'active')
           .neq('space_id', spaceId);
         
-        // Then set current space as online
+        // Then upsert for current space
         const { error } = await getSupabaseClient()
-          .from('space_members')
-          .update({
-            is_online: true,
-            last_active_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('space_id', spaceId)
-          .eq('status', 'active');
+          .from('presence')
+          .upsert({
+            user_id: userId,
+            space_id: spaceId,
+            online_at: new Date().toISOString(),
+            metadata: { timestamp: new Date().toISOString() }
+          }, {
+            onConflict: 'user_id,space_id'
+          });
           
         return { data: null, error };
         
       } else if (!isOnline) {
-        // When going offline, set all spaces to offline
+        // When going offline, remove from all spaces
         const { error } = await getSupabaseClient()
-          .from('space_members')
-          .update({
-            is_online: false,
-            last_active_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('status', 'active');
+          .from('presence')
+          .delete()
+          .eq('user_id', userId);
           
         return { data: null, error };
         
       } else {
-        // Legacy fallback - update last_active_at only
+        // If no specific space provided but user is online, just update timestamp if exists
         const { error } = await getSupabaseClient()
-          .from('space_members')
+          .from('presence')
           .update({
-            last_active_at: new Date().toISOString()
+            online_at: new Date().toISOString(),
+            metadata: { timestamp: new Date().toISOString() }
           })
-          .eq('user_id', userId)
-          .eq('status', 'active');
+          .eq('user_id', userId);
 
         return { data: null, error };
       }

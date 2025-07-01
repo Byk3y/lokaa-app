@@ -1058,7 +1058,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
             isPrivate={currentSpaceData.is_private}
             memberCount={memberCounts.totalMembers} // Use the unified presence system counts
             adminCount={memberCounts.adminMembers} // Use the unified presence system counts
-            onlineCount={memberCounts.onlineMembers} // Use the unified presence system counts
+            // onlineCount removed - let SpaceInfoSidebar use its own hook for real-time presence
             canAccessSettings={storePermissions?.canAccessSettings} // This prop is used by SpaceInfoSidebar
             subdomain={currentSpaceData.subdomain}
             spaceId={currentSpaceData.id}

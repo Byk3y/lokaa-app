@@ -671,8 +671,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
             spaceId={sidebarSpaceData.id || ''} 
             isOwner={effectivePermissions.effectiveIsOwner || false}
             isMember={!!currentUser} // If user is viewing feed, they're likely a member
-            memberCount={memberCounts.totalMembers}
-            adminCount={memberCounts.adminMembers}
+            // memberCount, adminCount, onlineCount removed - let SpaceInfoSidebar use its own hook for real-time data
           />
         </div>
       )}

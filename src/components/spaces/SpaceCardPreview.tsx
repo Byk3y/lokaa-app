@@ -105,6 +105,18 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
   const isTooLong = aboutText.length > 300 || aboutLines.length > 8;
   const collapsedText = aboutLines.slice(0, 8).join('\n');
   const showViewMore = isTooLong;
+
+  // Debug logging before rendering sidebar
+  console.log(`🔍 [SpaceCardPreview] Sidebar props for ${space.name}:`, {
+    memberCount: activeMemberCount,
+    adminCount,
+    onlineCount,
+    totalMembers,
+    adminMembers,
+    onlineMembers,
+    countsLoading,
+    spaceId
+  });
   
   return (
     <div className="flex flex-col md:flex-row bg-white rounded-xl overflow-hidden shadow-md">
@@ -209,6 +221,7 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
           spaceId={space.id}
           actionButtonText={`Join ${space.name ? space.name.charAt(0).toUpperCase() + space.name.slice(1) : ""}`}
           onAction={onJoin}
+          hideOnlineAvatars={true}
         />
       </div>
     </div>
