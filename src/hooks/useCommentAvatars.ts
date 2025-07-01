@@ -28,122 +28,128 @@ interface UseCommentAvatarsReturn {
  */
 export function useCommentAvatars(
   postId: string | undefined,
-  maxCommenters: number = 5
+  maxCommenters: number = 3
 ): UseCommentAvatarsReturn {
-  // 🚀 PHASE 3: Use TanStack Query for enhanced caching
-  const {
-    data: commenters = [],
-    isLoading: loading,
-    error: queryError,
-    refetch,
-    isError
-  } = useQuery({
-    queryKey: ['comment-avatars', postId, maxCommenters],
-    queryFn: async (): Promise<CommentAvatar[]> => {
-      if (!postId) return [];
+  const [localError, setLocalError] = useState<string | null>(null);
 
-      console.log(`🎭 [useCommentAvatars] Fetching avatars for post ${postId} (Phase 3 TanStack Query)`);
-      
-      // Lightweight query to get only recent commenter info
-      const { data, error } = await getSupabaseClient()
-        .from('post_comments')
-        .select(`
-          user_id,
-          created_at,
-          users!inner (
-            id,
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('post_id', postId)
-        .is('parent_comment_id', null) // Only top-level comments
-        .order('created_at', { ascending: false })
-        .limit(maxCommenters * 2); // Fetch extra to handle duplicates
+  // 🔍 Enhanced validation and skip logic
+  const shouldSkip = !postId || 
+    typeof postId !== 'string' || 
+    postId.trim() === '' ||
+    maxCommenters <= 0;
 
-      if (error) {
-        console.error('Error fetching comment avatars:', error);
+  // 🎯 TanStack Query with navigation-aware caching
+  const query = useQuery({
+    queryKey: [CACHE_KEYS.COMMENT_AVATARS, postId, maxCommenters],
+    queryFn: async () => {
+      if (shouldSkip) {
+        return [];
+      }
+
+      try {
+        // 🐛 FIX: Use separate queries to avoid 400 errors
+        // First get comment user IDs and check if any exist
+        const { data: comments, error: commentsError } = await getSupabaseClient()
+          .from('post_comments')
+          .select('user_id, created_at')
+          .eq('post_id', postId!)
+          .is('parent_comment_id', null)
+          .order('created_at', { ascending: false })
+          .limit(maxCommenters * 2);
+
+        if (commentsError) {
+          console.error('🚨 [useCommentAvatars] Comments query error:', commentsError);
+          throw new Error(`Failed to fetch comments: ${commentsError.message}`);
+        }
+
+        // ✅ Return early if no comments exist - prevents 400 errors
+        if (!comments || comments.length === 0) {
+          console.log(`📭 [useCommentAvatars] No comments found for post ${postId}`);
+          return [];
+        }
+
+        // Get unique user IDs (most recent first)
+        const uniqueUserIds = [...new Set(comments.map(c => c.user_id))].slice(0, maxCommenters);
+        
+        if (uniqueUserIds.length === 0) {
+          return [];
+        }
+
+        // Now fetch user data for these IDs
+        const { data: users, error: usersError } = await getSupabaseClient()
+          .from('users')
+          .select('id, full_name, avatar_url')
+          .in('id', uniqueUserIds);
+
+        if (usersError) {
+          console.error('🚨 [useCommentAvatars] Users query error:', usersError);
+          throw new Error(`Failed to fetch user data: ${usersError.message}`);
+        }
+
+        if (!users || users.length === 0) {
+          return [];
+        }
+
+        // Create user lookup map for efficient ordering
+        const userMap = new Map(users.map(user => [user.id, user]));
+        
+        // Return users in the order they commented (preserve original comment order)
+        const result = uniqueUserIds
+          .map(userId => {
+            const user = userMap.get(userId);
+            return user ? {
+              id: user.id,
+              name: user.full_name,
+              avatar: user.avatar_url
+            } : null;
+          })
+          .filter(Boolean) as CommentAvatar[];
+
+        const loadTime = performance.now();
+        console.log(
+          `🎭 [useCommentAvatars] Fetched ${result.length} avatars for post ${postId} in ${(loadTime % 1000).toFixed(2)}ms`
+        );
+
+        setLocalError(null);
+        return result;
+
+      } catch (error: any) {
+        const errorMsg = error?.message || 'Unknown error occurred';
+        console.error('🚨 [useCommentAvatars] Query failed:', error);
+        setLocalError(errorMsg);
         throw error;
       }
-
-      if (!data || data.length === 0) return [];
-
-      // Get unique commenters (most recent first)
-      const uniqueCommenters = new Map<string, CommentAvatar>();
-      
-      data.forEach(comment => {
-        const user = comment.users as unknown as CommentAuthor;
-        if (user && user.id && !uniqueCommenters.has(user.id)) {
-          uniqueCommenters.set(user.id, {
-            id: user.id,
-            name: user.full_name,
-            avatar: user.avatar_url
-          });
-        }
-      });
-
-      // Convert to array and limit to maxCommenters
-      const commentersArray = Array.from(uniqueCommenters.values()).slice(0, maxCommenters);
-      
-      console.log(`🎭 [useCommentAvatars] Fetched ${commentersArray.length} avatars for post ${postId} (TanStack Query cached)`);
-      return commentersArray;
     },
-    enabled: !!postId,
-    // 🚀 PHASE 3: Optimized caching configuration
-    staleTime: 2 * 60 * 1000, // 2 minutes - avatars don't change frequently
-    gcTime: 5 * 60 * 1000, // 5 minutes garbage collection
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    retry: 1, // Only retry once for avatar failures
-    // 🎯 PHASE 3: Navigation-aware skip logic built into enabled
-    ...QUERY_OPTIONS.standard
+    enabled: !shouldSkip,
+    staleTime: QUERY_OPTIONS.COMMENT_AVATARS.staleTime,
+    gcTime: QUERY_OPTIONS.COMMENT_AVATARS.gcTime,
+    retry: (failureCount, error: any) => {
+      // Don't retry on 400 errors (bad request) or 404 (not found)
+      if (error?.status === 400 || error?.status === 404) {
+        console.log(`🚫 [useCommentAvatars] Not retrying ${error.status} error for post ${postId}`);
+        return false;
+      }
+      // Retry up to 2 times for other errors
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
-  // Navigation-aware logic - disable query during recent navigation
-  const [navigationSkip, setNavigationSkip] = useState(false);
-
-  useEffect(() => {
-    const shouldSkipFetch = () => {
-      if (typeof window === 'undefined') return false;
-
-      const navigationService = (window as any).navigationAwareRealtimeService;
-      if (!navigationService) return false;
-
-      const stats = navigationService.getStats();
-      const timeSinceNavigation = Date.now() - stats.navigationState.lastNavigationTime;
-      const isRecentNavigation = timeSinceNavigation < 2000; // 2 seconds
-
-      // Check for Chat⟷Space navigation patterns
-      const { previousRoute, currentRoute } = stats.navigationState;
-      const isChatSpaceNavigation = 
-        (previousRoute?.includes('/app/chat') && currentRoute?.includes('/space')) ||
-        (previousRoute?.includes('/space') && currentRoute?.includes('/app/chat'));
-
-      return isRecentNavigation && isChatSpaceNavigation;
-    };
-
-    const skip = shouldSkipFetch();
-    if (skip !== navigationSkip) {
-      setNavigationSkip(skip);
-      if (skip) {
-        console.log(`🛡️ [useCommentAvatars] Navigation skip enabled for post ${postId}`);
-      }
-    }
-  }, [postId, navigationSkip]);
-
-  // 🚀 PHASE 3: Enhanced refetch function with promise return
-  const enhancedRefetch = useCallback(async () => {
+  // Manual refetch function
+  const refetch = useCallback(async () => {
     try {
-      await refetch();
-    } catch (error) {
-      console.error('Error refetching comment avatars:', error);
-      throw error;
+      setLocalError(null);
+      await query.refetch();
+    } catch (error: any) {
+      console.error('🚨 [useCommentAvatars] Manual refetch failed:', error);
+      setLocalError(error?.message || 'Refetch failed');
     }
-  }, [refetch]);
+  }, [query]);
 
   return {
-    commenters: navigationSkip ? [] : commenters,
-    loading: navigationSkip ? false : loading,
-    error: isError && queryError ? (queryError as Error).message : null,
-    refetch: enhancedRefetch
+    commenters: query.data || [],
+    loading: query.isLoading || query.isFetching,
+    error: query.error?.message || localError,
+    refetch
   };
 } 

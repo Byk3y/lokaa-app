@@ -21,6 +21,9 @@ export const CACHE_KEYS = {
     replies: (commentId: string) => ['comments', 'replies', commentId] as const,
   },
   
+  // Comment Avatars cache keys (Phase 3 optimization)
+  COMMENT_AVATARS: (postId: string, maxCommenters: number) => ['comment-avatars', postId, maxCommenters] as const,
+  
   // Likes cache keys
   likes: {
     all: ['likes'] as const,
@@ -107,6 +110,14 @@ export const QUERY_OPTIONS = {
     gcTime: CACHE_TTL.userProfiles * 2,
     refetchOnWindowFocus: false,
     retry: 2,
+  },
+
+  // Comment avatars cache (Phase 3 optimization)
+  COMMENT_AVATARS: {
+    staleTime: 2 * 60 * 1000, // 2 minutes - avatars don't change frequently
+    gcTime: 5 * 60 * 1000,    // 5 minutes garbage collection
+    refetchOnWindowFocus: false,
+    retry: 1,
   },
 } as const;
 

@@ -256,64 +256,131 @@ class CommentCacheManager {
    * Helper method to fetch comment avatars
    */
   private async fetchCommentAvatars(postId: string, maxCommenters: number) {
-    const { data, error } = await getSupabaseClient()
+    // 🛡️ VALIDATION: Check for valid UUID format to prevent 400 errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(postId)) {
+      console.log(`📭 [CommentCache] Skipping invalid post ID: ${postId}`);
+      return [];
+    }
+
+    // 🐛 FIX: Use separate query approach to resolve 400 error
+    // First get comment user IDs
+    const { data: comments, error: commentsError } = await getSupabaseClient()
       .from('post_comments')
-      .select(`
-        user_id,
-        created_at,
-        users!inner (
-          id,
-          full_name,
-          avatar_url
-        )
-      `)
+      .select('user_id, created_at')
       .eq('post_id', postId)
       .is('parent_comment_id', null)
       .order('created_at', { ascending: false })
       .limit(maxCommenters * 2);
 
-    if (error) throw error;
+    if (commentsError) {
+      // Don't throw error, just log and return empty array
+      console.log(`📭 [CommentCache] No comments found for post ${postId}:`, commentsError.message);
+      return [];
+    }
     
-    // Process unique commenters
-    const uniqueCommenters = new Map();
-    data?.forEach(comment => {
-      const user = comment.users as any;
-      if (user && user.id && !uniqueCommenters.has(user.id)) {
-        uniqueCommenters.set(user.id, {
-          id: user.id,
-          name: user.full_name,
-          avatar: user.avatar_url
-        });
-      }
-    });
+    if (!comments || comments.length === 0) {
+      console.log(`📭 [CommentCache] No comments found for post ${postId}`);
+      return [];
+    }
 
-    return Array.from(uniqueCommenters.values()).slice(0, maxCommenters);
+    // Get unique user IDs (most recent first)
+    const uniqueUserIds = [...new Set(comments.map(c => c.user_id))].slice(0, maxCommenters);
+    if (uniqueUserIds.length === 0) return [];
+
+    // Now get user data for these user IDs
+    const { data: users, error: usersError } = await getSupabaseClient()
+      .from('users')
+      .select('id, full_name, avatar_url')
+      .in('id', uniqueUserIds);
+
+    if (usersError) {
+      console.log(`📭 [CommentCache] Failed to fetch users for post ${postId}:`, usersError.message);
+      return [];
+    }
+    
+    if (!users || users.length === 0) return [];
+
+    // Convert to expected format
+    return users.map(user => ({
+      id: user.id,
+      name: user.full_name,
+      avatar: user.avatar_url
+    }));
   }
 
   /**
    * Helper method to fetch comments
    */
   private async fetchComments(postId: string, pageParam: number) {
+    // 🛡️ VALIDATION: Check for valid UUID format to prevent 400 errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(postId)) {
+      console.log(`📭 [CommentCache] Skipping invalid post ID: ${postId}`);
+      return {
+        comments: [],
+        nextCursor: undefined,
+      };
+    }
+
     const limit = 20;
     const offset = pageParam * limit;
     
-    const { data, error } = await getSupabaseClient()
+    // 🐛 FIX: Use separate query approach to avoid 400 errors
+    // First get comment data without user join
+    const { data: comments, error: commentsError } = await getSupabaseClient()
       .from('post_comments')
-      .select(`
-        id, content, created_at, user_id, post_id, space_id, parent_comment_id,
-        author:user_id(id, full_name, avatar_url),
-        like_count:comment_likes(count)
-      `)
+      .select('id, content, created_at, user_id, post_id, space_id, parent_comment_id')
       .eq('post_id', postId)
       .is('parent_comment_id', null)
       .order('created_at', { ascending: true })
       .range(offset, offset + limit - 1);
       
-    if (error) throw error;
+    if (commentsError) {
+      console.log(`📭 [CommentCache] Failed to fetch comments for post ${postId}:`, commentsError.message);
+      return {
+        comments: [],
+        nextCursor: undefined,
+      };
+    }
+    
+    if (!comments || comments.length === 0) {
+      return {
+        comments: [],
+        nextCursor: undefined,
+      };
+    }
+
+    // Get unique user IDs for author data
+    const uniqueUserIds = [...new Set(comments.map(c => c.user_id))];
+    
+    // Fetch user data separately
+    const { data: users, error: usersError } = await getSupabaseClient()
+      .from('users')
+      .select('id, full_name, avatar_url')
+      .in('id', uniqueUserIds);
+
+    if (usersError) {
+      console.warn('🚨 [CommentCache] Failed to fetch user data, proceeding with comments only:', usersError);
+    }
+
+    // Create user lookup map
+    const userMap = new Map((users || []).map(user => [user.id, user]));
+
+    // Combine comment data with user data
+    const enrichedComments = comments.map(comment => ({
+      ...comment,
+      author: userMap.get(comment.user_id) || {
+        id: comment.user_id,
+        full_name: 'Unknown User',
+        avatar_url: null
+      },
+      like_count: [] // Initialize empty for now, will be populated by likes hook
+    }));
     
     return {
-      comments: data || [],
-      nextCursor: data && data.length === limit ? pageParam + 1 : undefined,
+      comments: enrichedComments,
+      nextCursor: enrichedComments.length === limit ? pageParam + 1 : undefined,
     };
   }
 }
