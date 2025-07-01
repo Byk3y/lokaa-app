@@ -19,6 +19,9 @@ import { ProfileImageProvider } from '../contexts/ProfileImageContext';
 import ModalProvider from '../shared/components/modals/ModalProvider';
 import { SupabaseProvider } from '../contexts/SupabaseContext';
 
+// 🚀 PHASE 3: Import comment cache system
+import { commentCache } from '../utils/commentCache';
+
 // FIXED: Create optimized query client with reduced overhead
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +33,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// 🚀 PHASE 3: Initialize comment cache system
+commentCache.init(queryClient);
 
 interface OptimizedProviderProps {
   children: React.ReactNode;
