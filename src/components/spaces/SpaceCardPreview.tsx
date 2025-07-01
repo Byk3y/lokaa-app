@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { fetchSpaceMediaFromSupabase, MediaItem } from "@/utils/mediaStorageUtils";
 import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts"; // Import simplified hook
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface SpaceCardPreviewProps {
   space: SpaceAboutData; // Use new type
@@ -117,11 +118,14 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
     countsLoading,
     spaceId
   });
-  
+
+  // Add mobile detection for conditional rendering
+  const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
+
   return (
-    <div className="flex flex-col md:flex-row bg-white rounded-xl overflow-hidden shadow-md">
-      {/* Left Column: Main content */}
-      <div className="flex-1 p-6 overflow-y-auto" style={{ maxHeight: "600px" }}>
+    <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-md max-w-6xl mx-auto p-4 sm:p-6 flex flex-col lg:flex-row gap-6 rounded-lg">
+      {/* Main Content */}
+      <div className="flex-1">
         {/* Media Gallery or fallback to intro/cover */}
         <div className="mb-6">
           {mediaItems.length > 0 ? (
@@ -206,24 +210,27 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
         </div>
       </div>
       
-      {/* Right Column: Use SpaceInfoSidebar instead of custom sidebar */}
-      <div className="hidden md:block md:w-[273px] bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB] p-0 shadow-sm self-start rounded-r-xl">
-        <SpaceInfoSidebar
-          spaceName={space.name ? space.name.charAt(0).toUpperCase() + space.name.slice(1) : ""}
-          spaceIcon={space.spaceIconUrl}
-          spaceDescription={space.shortDescription}
-          coverImage={space.coverPhotoUrl}
-          isPrivate={space.is_private}
-          memberCount={activeMemberCount}
-          adminCount={adminCount}
-          onlineCount={onlineCount}
-          subdomain={space.subdomain}
-          spaceId={space.id}
-          actionButtonText={`Join ${space.name ? space.name.charAt(0).toUpperCase() + space.name.slice(1) : ""}`}
-          onAction={onJoin}
-          hideOnlineAvatars={true}
-        />
-      </div>
+      {/* Right Sidebar */}
+      {/* Only render on desktop to prevent unnecessary mounting and hook execution on mobile */}
+      {isDesktop && (
+        <div className="w-[273px] flex-shrink-0">
+          <SpaceInfoSidebar
+            spaceName={space.name ? space.name.charAt(0).toUpperCase() + space.name.slice(1) : ""}
+            spaceIcon={space.spaceIconUrl}
+            spaceDescription={space.shortDescription}
+            coverImage={space.coverPhotoUrl}
+            isPrivate={space.is_private}
+            memberCount={activeMemberCount}
+            adminCount={adminCount}
+            onlineCount={onlineCount}
+            subdomain={space.subdomain}
+            spaceId={space.id}
+            actionButtonText={`Join ${space.name ? space.name.charAt(0).toUpperCase() + space.name.slice(1) : ""}`}
+            onAction={onJoin}
+            hideOnlineAvatars={true}
+          />
+        </div>
+      )}
     </div>
   );
 } 

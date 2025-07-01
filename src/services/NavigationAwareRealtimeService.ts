@@ -29,10 +29,14 @@ interface PersistentSubscription {
   lastUsed: number;
   route: string;
   isProtected: boolean; // Protected from navigation cleanup
+  priority: 'space' | 'post' | 'component'; // 🎯 PHASE 2: Subscription priority
+  refCount: number; // 🎯 PHASE 2: Reference counting for shared subscriptions
 }
 
 class NavigationAwareRealtimeService {
   private subscriptions = new Map<string, PersistentSubscription>();
+  private subscriptionIdToKey = new Map<string, string>(); // Map subscription IDs to keys
+  private subscriptionDeduplication = new Map<string, string>(); // 🎯 PHASE 2: Deduplication map
   private navigationState: NavigationState = {
     currentRoute: '',
     previousRoute: '',
@@ -141,7 +145,34 @@ class NavigationAwareRealtimeService {
   }
 
   /**
-   * Subscribe with navigation awareness
+   * 🎯 PHASE 2: Determine subscription priority based on table and context
+   */
+  private getSubscriptionPriority(table: string, spaceId: string): 'space' | 'post' | 'component' {
+    if (table === 'posts' || table === 'post_comments') {
+      return spaceId ? 'space' : 'post';
+    }
+    return 'component';
+  }
+
+  /**
+   * 🎯 PHASE 2: Check for existing compatible subscription
+   */
+  private findExistingSubscription(spaceId: string, table: string, options: any): string | null {
+    const baseKey = `${spaceId}:${table}`;
+    
+    // Look for existing subscriptions that can be shared
+    for (const [key, subscription] of this.subscriptions.entries()) {
+      if (key.startsWith(baseKey) && subscription.refCount > 0) {
+        console.log(`🎯 [NavigationAwareRealtime] Found existing subscription to reuse: ${key}`);
+        return key;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Subscribe with navigation awareness and deduplication
    */
   subscribe(
     spaceId: string,
@@ -150,12 +181,32 @@ class NavigationAwareRealtimeService {
     options: {
       event?: string;
       filter?: string;
+      priority?: 'space' | 'post' | 'component';
     } = {}
   ): string {
+    const key = `${spaceId}:${table}:${options.filter || 'all'}:${options.event || '*'}`;
+    
+    // 🎯 PHASE 2: Check for existing subscription to reuse
+    const existingKey = this.findExistingSubscription(spaceId, table, options);
+    if (existingKey && this.subscriptions.has(existingKey)) {
+      const existing = this.subscriptions.get(existingKey)!;
+      existing.refCount += 1;
+      existing.lastUsed = Date.now();
+      
+      console.log(`🎯 [NavigationAwareRealtime] Reusing subscription: ${existingKey} (refs: ${existing.refCount})`);
+      
+      // Map this new request to the existing subscription
+      this.subscriptionIdToKey.set(existing.subscriptionId, existingKey);
+      this.subscriptionDeduplication.set(key, existingKey);
+      
+      return existing.subscriptionId;
+    }
+    
+    // Create new subscription
     const subscriptionId = globalRealtimeService.subscribe(spaceId, table, callback, options);
     
     if (subscriptionId) {
-      const key = `${spaceId}:${table}:${options.filter || 'all'}:${options.event || '*'}`;
+      const priority = options.priority || this.getSubscriptionPriority(table, spaceId);
       
       this.subscriptions.set(key, {
         subscriptionId,
@@ -163,33 +214,39 @@ class NavigationAwareRealtimeService {
         table,
         lastUsed: Date.now(),
         route: this.navigationState.currentRoute,
-        isProtected: false
+        isProtected: false,
+        priority, // 🎯 PHASE 2: Add priority
+        refCount: 1 // 🎯 PHASE 2: Add reference counting
       });
 
-      console.log(`🧭 [NavigationAwareRealtime] Subscription created: ${key}`);
+      this.subscriptionIdToKey.set(subscriptionId, key);
+
+      console.log(`🎯 [NavigationAwareRealtime] New subscription created: ${key} (priority: ${priority})`);
     }
 
     return subscriptionId;
   }
 
   /**
-   * Navigation-aware unsubscribe
+   * 🎯 PHASE 2: Navigation-aware unsubscribe with reference counting
    */
   unsubscribe(subscriptionId: string): void {
-    // Find the subscription
-    let subscriptionKey = '';
-    let subscription: PersistentSubscription | undefined;
-    
-    for (const [key, sub] of this.subscriptions.entries()) {
-      if (sub.subscriptionId === subscriptionId) {
-        subscriptionKey = key;
-        subscription = sub;
-        break;
+    const key = this.subscriptionIdToKey.get(subscriptionId);
+
+    if (!key) {
+      // FIXED: Only warn if subscription should exist
+      if (this.subscriptions.size > 0) {
+        console.warn(`🧭 [NavigationAwareRealtime] Subscription not found for unsubscribe: ${subscriptionId}`);
       }
+      return;
     }
 
+    // 🎯 PHASE 2: Check if this is a deduplicated subscription
+    const actualKey = this.subscriptionDeduplication.get(key) || key;
+    const subscription = this.subscriptions.get(actualKey);
+
     if (!subscription) {
-      console.warn(`🧭 [NavigationAwareRealtime] Subscription not found for unsubscribe: ${subscriptionId}`);
+      console.warn(`🧭 [NavigationAwareRealtime] Subscription not found for unsubscribe: ${actualKey}`);
       return;
     }
 
@@ -202,7 +259,7 @@ class NavigationAwareRealtimeService {
 
     // Prevent cleanup during Chat⟷Space navigation
     if (subscription.isProtected || (isRecentNavigation && isChatSpaceTransition)) {
-      console.log(`🛡️ [NavigationAwareRealtime] Preventing cleanup during navigation: ${subscriptionKey}`);
+      console.log(`🛡️ [NavigationAwareRealtime] Preventing cleanup during navigation: ${actualKey}`);
       console.log(`🛡️ [NavigationAwareRealtime] Details:`, {
         isProtected: subscription.isProtected,
         isRecentNavigation,
@@ -216,39 +273,58 @@ class NavigationAwareRealtimeService {
       setTimeout(() => {
         if (subscription) {
           subscription.isProtected = false;
-          console.log(`🛡️ [NavigationAwareRealtime] Removed protection from: ${subscriptionKey}`);
+          console.log(`🛡️ [NavigationAwareRealtime] Removed protection from: ${actualKey}`);
         }
       }, 10000); // 10 seconds grace period
       
       return;
     }
 
-    // Normal cleanup for non-navigation scenarios
-    console.log(`🧭 [NavigationAwareRealtime] Normal cleanup: ${subscriptionKey}`);
-    globalRealtimeService.unsubscribe(subscriptionId);
-    this.subscriptions.delete(subscriptionKey);
+    // 🎯 PHASE 2: Decrement reference count
+    subscription.refCount -= 1;
+    subscription.lastUsed = Date.now();
+
+    console.log(`🎯 [NavigationAwareRealtime] Decremented refs for ${actualKey}: ${subscription.refCount}`);
+
+    // Only cleanup when no more references
+    if (subscription.refCount <= 0) {
+      console.log(`🎯 [NavigationAwareRealtime] Final cleanup: ${actualKey}`);
+      globalRealtimeService.unsubscribe(subscription.subscriptionId);
+      this.subscriptions.delete(actualKey);
+      this.subscriptionIdToKey.delete(subscriptionId);
+      
+      // Clean up deduplication map
+      this.subscriptionDeduplication.delete(key);
+    } else {
+      console.log(`🎯 [NavigationAwareRealtime] Keeping shared subscription: ${actualKey} (${subscription.refCount} refs remaining)`);
+    }
   }
 
   /**
    * Force cleanup (for app shutdown, logout, etc.)
    */
   forceCleanup(): void {
-    console.log('🧭 [NavigationAwareRealtime] Force cleanup of all subscriptions');
+    console.log('�� [NavigationAwareRealtime] Force cleanup of all subscriptions');
     
     for (const [key, subscription] of this.subscriptions.entries()) {
       globalRealtimeService.unsubscribe(subscription.subscriptionId);
     }
     
     this.subscriptions.clear();
+    this.subscriptionIdToKey.clear();
   }
 
   /**
-   * Get service statistics
+   * 🎯 PHASE 2: Enhanced service statistics with priority and reference counting
    */
   getStats() {
+    const subscriptions = Array.from(this.subscriptions.values());
     return {
       totalSubscriptions: this.subscriptions.size,
-      protectedSubscriptions: Array.from(this.subscriptions.values()).filter(s => s.isProtected).length,
+      protectedSubscriptions: subscriptions.filter(s => s.isProtected).length,
+      sharedSubscriptions: subscriptions.filter(s => s.refCount > 1).length, // 🎯 PHASE 2
+      totalReferences: subscriptions.reduce((sum, s) => sum + s.refCount, 0), // 🎯 PHASE 2
+      deduplicationMapSize: this.subscriptionDeduplication.size, // 🎯 PHASE 2
       navigationState: this.navigationState,
       subscriptionDetails: Array.from(this.subscriptions.entries()).map(([key, sub]) => ({
         key,
@@ -256,6 +332,8 @@ class NavigationAwareRealtimeService {
         table: sub.table,
         route: sub.route,
         isProtected: sub.isProtected,
+        priority: sub.priority, // 🎯 PHASE 2
+        refCount: sub.refCount, // 🎯 PHASE 2
         lastUsed: new Date(sub.lastUsed).toLocaleTimeString()
       }))
     };

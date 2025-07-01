@@ -63,7 +63,7 @@ export function useComments(
       // 🔧 STABILIZED: Add delay to prevent overwriting optimistic updates
       setTimeout(() => {
         if (post?.id) {
-          fetchComments(post.id, true); // Force refresh for real-time updates
+          fetchComments(post.id, true, true); // Force refresh for real-time updates (modal context)
         }
       }, 1000); // 1-second delay to allow optimistic updates to settle
     },
@@ -72,14 +72,20 @@ export function useComments(
       // 🔧 STABILIZED: Add delay for update propagation
       setTimeout(() => {
         if (post?.id) {
-          fetchComments(post.id, true); // Force refresh for updates
+          fetchComments(post.id, true, true); // Force refresh for updates (modal context)
         }
       }, 500); // 500ms delay for updates
     }
   });
 
   // 🚀 NAVIGATION-AWARE: Check if we should skip fetching due to recent navigation
-  const shouldSkipFetch = useCallback(() => {
+  const shouldSkipFetch = useCallback((isModalContext: boolean = false) => {
+    // 🎭 PHASE 1 FIX: Never skip fetch for PostDetailModal context
+    if (isModalContext) {
+      console.log(`🎭 [useComments] Modal context detected - allowing fetch for post ${post?.id}`);
+      return false;
+    }
+    
     if (typeof window !== 'undefined' && window.navigationAwareRealtimeService) {
       const stats = window.navigationAwareRealtimeService.getStats();
       const timeSinceNavigation = Date.now() - stats.navigationState.lastNavigationTime;
@@ -113,12 +119,15 @@ export function useComments(
         previousRoute !== currentRoute
       );
       
+      // 🎭 PHASE 1 FIX: Don't skip for same-route navigation (modal opening)
+      const isSameRouteNavigation = (previousRoute === currentRoute);
+      
       // EXPANDED TIMING for initial space loads
       const extendedRecentNavigation = isChatSpaceNavigation ? 
         timeSinceNavigation < 3000 : // 3s for chat-space
         timeSinceNavigation < 10000; // 10s for initial loads and space switching
       
-      const shouldSkip = extendedRecentNavigation && (isChatSpaceNavigation || isInitialSpaceLoad || isSpaceSwitching);
+      const shouldSkip = extendedRecentNavigation && (isChatSpaceNavigation || isInitialSpaceLoad || isSpaceSwitching) && !isSameRouteNavigation;
       
       // ENHANCED DEBUGGING
       console.log(`🔍 [useComments] shouldSkipFetch analysis for post ${post?.id}:`, {
@@ -129,7 +138,8 @@ export function useComments(
           extendedRecentNavigation,
           isChatSpaceNavigation,
           isInitialSpaceLoad,
-          isSpaceSwitching
+          isSpaceSwitching,
+          isSameRouteNavigation
         },
         result: shouldSkip ? 'SKIP FETCH' : 'ALLOW FETCH'
       });
@@ -148,10 +158,11 @@ export function useComments(
   // 🚀 NAVIGATION-AWARE: Load initial comment data when post changes
   useEffect(() => {
     if (post?.id) {
-      // Skip fetch if we're in a recent navigation scenario
-      if (!shouldSkipFetch()) {
+      // 🎭 PHASE 1 FIX: Always fetch for modal context (PostDetailModal)
+      const isModalContext = true; // This hook is used in PostDetailModal
+      if (!shouldSkipFetch(isModalContext)) {
         console.log('🔔 [useComments] Loading comments for post:', post.id);
-        fetchComments(post.id);
+        fetchComments(post.id, false, true); // Initial fetch with modal context
       } else {
         console.log(`🛡️ [useComments] Skipped initial fetch for post ${post.id} due to navigation`);
       }
@@ -160,11 +171,11 @@ export function useComments(
   }, [post?.id, post?.comments, shouldSkipFetch]);
 
   // 🚀 NAVIGATION-AWARE: Fetch comments for the post
-  const fetchComments = async (postId: string, forceRefresh: boolean = false) => {
+  const fetchComments = async (postId: string, forceRefresh: boolean = false, isModalContext: boolean = true) => {
     if (!postId) return;
     
-    // Skip fetch if we're in a recent navigation scenario (unless forced)
-    if (!forceRefresh && shouldSkipFetch()) {
+    // Skip fetch if we're in a recent navigation scenario (unless forced or modal context)
+    if (!forceRefresh && shouldSkipFetch(isModalContext)) {
       console.log(`🛡️ [useComments] Skipped fetch for post ${postId} due to navigation`);
       return;
     }

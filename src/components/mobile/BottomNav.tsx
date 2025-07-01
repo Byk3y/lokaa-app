@@ -7,19 +7,48 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileBackgroundDetection } from '@/hooks/useMobileLifecycle';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { extractTabFromPathname } from '@/utils/tabUtils';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
+import { navigateToProfileWithContext } from '@/utils/spaceContextUtils';
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { space } = useSpaceSettingsStore();
+  const { user } = useOptimizedAuth();
   const { unreadCount } = useConversations();
   const previousPathRef = useRef(location.pathname);
   const { returnedFromBackground } = useMobileBackgroundDetection();
   const isMobile = shouldEnableMobileFeatures(); // UNIFIED: Use centralized mobile detection
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [userProfileUrl, setUserProfileUrl] = useState<string | null>(null);
 
   const pathname = location.pathname;
   
+  // Fetch user's profile URL when component mounts
+  useEffect(() => {
+    const fetchUserProfileUrl = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await migrationAdapter.getUserProfile(user.id, ['profile_url']);
+        
+        if (error) {
+          console.error('Error fetching user profile URL:', error);
+          return;
+        }
+        
+        if (data && data.profile_url) {
+          setUserProfileUrl(data.profile_url);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile URL:', error);
+      }
+    };
+
+    fetchUserProfileUrl();
+  }, [user?.id]);
+
   // Mobile keyboard detection
   useEffect(() => {
     if (!isMobile) return;
@@ -74,6 +103,16 @@ export default function BottomNav() {
     // Chat button: active when on chat page
     if (path === '/app/chat') {
       return pathname === '/app/chat';
+    }
+    
+    // Profile button: active when on user's own profile page (with or without space context) OR settings/profile
+    if (path === '/profile') {
+      // Check if on user's own profile page (ignoring query parameters for space context)
+      if (userProfileUrl && pathname === `/profile/${userProfileUrl}`) {
+        return true;
+      }
+      // Also check for settings profile page or any other profile page
+      return pathname === '/settings/profile' || pathname.startsWith('/profile/');
     }
     
     // Other pages: use startsWith for flexibility
@@ -138,11 +177,29 @@ export default function BottomNav() {
     navigate('/app/chat');
   };
 
+  // Navigate to user's public profile with space context
+  const handleProfileClick = () => {
+    const fromRoute = location.pathname;
+    
+    if (userProfileUrl) {
+      // Use navigateToProfileWithContext to automatically detect current space and add ?space= query parameter
+      console.log('🔄 [BottomNav] Navigating to user profile with space context:', { from: fromRoute, profileUrl: userProfileUrl });
+      trackRouteChange(fromRoute, `/profile/${userProfileUrl}`);
+      navigateToProfileWithContext(userProfileUrl, navigate);
+    } else {
+      // Fallback to settings if user doesn't have a profile URL yet
+      console.log('🔄 [BottomNav] No profile URL found, falling back to settings');
+      const fallbackRoute = '/settings/profile';
+      trackRouteChange(fromRoute, fallbackRoute);
+      navigate(fallbackRoute);
+    }
+  };
+
   const navItems = [
     { path: '/', label: 'Home', icon: Home, onClick: handleHomeClick },
     { path: '/app/chat', label: 'Chat', icon: MessageSquare, onClick: handleChatClick, unreadCount },
     { path: '/notifications', label: 'Notifications', icon: Bell, onClick: () => handleNavigation('/notifications'), notification: true },
-    { path: '/profile', label: 'Profile', icon: User, onClick: () => handleNavigation('/profile'), notification: true },
+    { path: '/profile', label: 'Profile', icon: User, onClick: handleProfileClick, notification: true },
   ];
 
   // Hide bottom nav when keyboard is open on mobile

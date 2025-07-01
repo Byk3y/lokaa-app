@@ -23,14 +23,17 @@ import FeedHeader from "./FeedHeader";
 import PostCard from "./PostCard";
 import PostsPagination from './PostsPagination';
 import { NewPostNotification } from "@/components/feed/NewPostNotification";
+// 🎭 PHASE 1 FIX: Import PostDetailModal directly to fix import errors
+import PostDetailModal from "@/components/space/post-detail/PostDetailModal";
 
 // HMR OPTIMIZATION: Lazy load heavy/modal components to reduce initial bundle and HMR cascades
 const SimpleSpaceSetup = lazy(() => import("./SimpleSpaceSetup"));
 const CreatePostModal = lazy(() => import("@/features/posts/components/CreatePostModal").then(module => ({ default: module.CreatePostModal })));
-const PostDetailModal = lazy(() => import("@/components/space/post-detail/PostDetailModal"));
 const CreateCategoryModal = lazy(() => import("@/components/space/CreateCategoryModal"));
 
 // Preserved space data is now handled by individual components
+
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
   
@@ -381,7 +384,8 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
     return <div className="p-4 text-center">Loading feed...</div>;
   }
 
-
+  // Add mobile detection for conditional rendering
+  const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
 
   // ============================================================================
   // RENDER JSX - Pure presentation logic
@@ -658,8 +662,9 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
       </div>
 
       {/* Sidebar - with fallback space data when currentSpaceData is null */}
-      {sidebarSpaceData && (
-        <div className="hidden lg:block w-[273px] flex-shrink-0">
+      {/* Only render on desktop to prevent unnecessary mounting and hook execution on mobile */}
+      {isDesktop && sidebarSpaceData && (
+        <div className="w-[273px] flex-shrink-0">
           <SpaceInfoSidebar 
             spaceName={sidebarSpaceData.name || 'Space'}
             spaceDescription={sidebarSpaceData.description || undefined}

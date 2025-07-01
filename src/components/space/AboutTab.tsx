@@ -40,6 +40,7 @@ import {
 } from "@/utils/mediaStorageUtils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts";
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface AboutTabProps {
   // onSpaceUpdate?: (updatedSpace: Database['public']['Tables']['spaces']['Row'] | null) => void; // Removed
@@ -47,7 +48,7 @@ interface AboutTabProps {
 }
 
 export default function AboutTab(props: AboutTabProps) { // Use props instead of empty object pattern
-  const { spaceData, loading, error, fetchSpaceData } = useSpace(); // Keep for now, evaluate if storeSpace can replace entirely
+  const { space: spaceData, loading, error, fetchSpaceData } = useSpace(); // Keep for now, evaluate if storeSpace can replace entirely
   const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const { open: openSettingsModal } = useSpaceSettingsModal();
@@ -579,10 +580,10 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
   };
 
   // Default values for properties that might be missing
-  const memberCount = spaceData?.member_count ?? 1;
-  const pricingType = spaceData?.pricing_type ?? 'free';
-  const pricePerMonth = spaceData?.price_per_month ?? 0;
-  const primaryColor = spaceData?.primary_color ?? '#26A69A';
+  const memberCount = currentSpaceData?.member_count ?? 1;
+  const pricingType = currentSpaceData?.pricing_type ?? 'free';
+  const pricePerMonth = currentSpaceData?.price_per_month ?? 0;
+  const primaryColor = currentSpaceData?.primary_color ?? '#26A69A';
 
   // Get the active media item
   const activeMedia = activeMediaIndex !== null ? mediaItems[activeMediaIndex] : null;
@@ -717,6 +718,9 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
     }
   };
 
+  // Add mobile detection for conditional rendering
+  const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
+  
   // FIXED: Trust SpaceProtectedRoute - don't show loading screen since access is already verified
   // SpaceProtectedRoute ensures space data is available before rendering tabs
   // Only show error state if there was a critical error AND no fallback data
@@ -751,7 +755,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
   }
   
   // Add debug logging
-  console.log('🔧 [AboutTab] Data sources - storeSpace:', storeSpace ? 'available' : 'null', 'spaceData:', spaceData ? 'available' : 'null', 'currentSpaceData:', currentSpaceData?.id);
+  console.log('🔧 [AboutTab] Data sources - storeSpace:', storeSpace ? 'available' : 'null', 'currentSpaceData:', currentSpaceData?.id);
   
   // Ensure the component re-renders when currentSpaceData or its relevant properties change.
 
@@ -1048,8 +1052,9 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
       </motion.div>
 
       {/* Sidebar */}
-      {currentSpaceData && (
-        <div className="hidden sm:block w-[273px] flex-shrink-0">
+      {/* Only render on desktop to prevent unnecessary mounting and hook execution on mobile */}
+      {isDesktop && currentSpaceData && (
+        <div className="w-[273px] flex-shrink-0">
           <SpaceInfoSidebar 
             spaceName={currentSpaceData.name}
             spaceIcon={currentSpaceData.icon_image}

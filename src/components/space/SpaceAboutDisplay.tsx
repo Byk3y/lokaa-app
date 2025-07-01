@@ -7,6 +7,7 @@ import SpaceIntroDisplay from "@/components/space/SpaceIntroDisplay";
 import SpaceInfoSidebar from "@/components/space/SpaceInfoSidebar";
 import MediaGallery from "@/components/space/MediaGallery";
 import { MediaItem } from "@/utils/mediaStorageUtils";
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 // Removed MediaItem interface as it's replaced by direct props
 
@@ -71,6 +72,9 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
   actionButtonText,
   onAction,
 }) => {
+  // Add mobile detection for conditional rendering
+  const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
+  
   const ownerDisplayName = owner?.full_name || 'Space Creator';
 
   return (
@@ -158,25 +162,28 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
         </div>
 
         {/* Right sidebar */}
-        <div className="hidden sm:block w-[273px] flex-shrink-0">
-          <SpaceInfoSidebar
-            spaceName={name}
-            spaceIcon={spaceIconUrl}
-            spaceDescription={shortDescription}
-            coverImage={coverPhotoUrl}
-            isPrivate={isPrivate}
-            memberCount={memberCount}
-            adminCount={adminCount}
-            onlineCount={onlineCount}
-            canAccessSettings={isOwner}
-            subdomain={subdomain}
-            isOwner={isOwner}
-            isMember={isMember}
-            actionButtonText={actionButtonText || 'Join Space'}
-            onAction={onAction}
-            hideOnlineAvatars={true}
-          />
-        </div>
+        {/* Only render on desktop to prevent unnecessary mounting and hook execution on mobile */}
+        {isDesktop && (
+          <div className="w-[273px] flex-shrink-0">
+            <SpaceInfoSidebar
+              spaceName={name}
+              spaceIcon={spaceIconUrl}
+              spaceDescription={shortDescription}
+              coverImage={coverPhotoUrl}
+              isPrivate={isPrivate}
+              memberCount={memberCount}
+              adminCount={adminCount}
+              onlineCount={onlineCount}
+              canAccessSettings={isOwner}
+              subdomain={subdomain}
+              isOwner={isOwner}
+              isMember={isMember}
+              actionButtonText={actionButtonText || 'Join Space'}
+              onAction={onAction}
+              hideOnlineAvatars={true}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

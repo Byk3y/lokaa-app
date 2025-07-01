@@ -7,6 +7,7 @@ import {
   usePostComments,
   usePostPin,
 } from "@/features/posts/hooks";
+import { useCommentAvatars } from "@/hooks/useCommentAvatars";
 import { formatDistanceToNow } from "date-fns";
 import { OptimizedAvatar } from "@/components/ui/OptimizedAvatar";
 import { Badge } from "@/components/ui/badge";
@@ -228,63 +229,14 @@ const PostCard = memo(function PostCard({
     },
   });
   
-  const {
-    comments: postComments,
-    optimisticCommentCount,
-    fetchComments,
-  } = usePostComments({
-    postId: id,
-    spaceId,
-    userId: userIdForActions,
-    initialComments: comments,
-    onCommentAdded, // 🔥 CRITICAL FIX: Connect the callback to enable real-time updates
-  });
+  // 🎭 OPTIMIZED: Use lightweight avatar-only hook for commenter avatars
+  const { commenters: recentCommenters } = useCommentAvatars(
+    comments > 0 ? id : undefined, // Only fetch if there are comments
+    5 // Max 5 commenters
+  );
 
-  // 🔥 FIX: Improved comment fetching logic with better conditions
-  const [commentsFetched, setCommentsFetched] = useState(false);
-  
-  useEffect(() => {
-    // Reset fetched state when post ID changes
-    setCommentsFetched(false);
-  }, [id]);
-
-  // 🔥 FIX: Enhanced effect for fetching comments with better logic
-  useEffect(() => {
-    const shouldFetch = (
-      optimisticCommentCount > 0 && // Has comments to display
-      (!postComments || postComments.length === 0) && // No comments loaded yet
-      !commentsFetched && // Haven't attempted to fetch yet
-      fetchComments // fetchComments function is available
-    );
-
-    if (shouldFetch) {
-      setCommentsFetched(true);
-      // 🔥 FIX: Pass isForAvatars=true to bypass navigation skip logic
-      fetchComments(false, true).catch(error => {
-        console.error('Error fetching comments for avatars:', error);
-        // Reset on error so we can try again
-        setCommentsFetched(false);
-      });
-    }
-  }, [optimisticCommentCount, postComments, fetchComments, id, commentsFetched]);
-
-  // 🔥 FIX: Fallback effect to retry comment fetching if avatars are still missing
-  useEffect(() => {
-    // If we have comment count but no comments after 2 seconds, try fetching again
-    if (optimisticCommentCount > 0 && (!postComments || postComments.length === 0)) {
-      const retryTimer = setTimeout(() => {
-        setCommentsFetched(false); // Allow retry
-        if (fetchComments) {
-          // 🔥 FIX: Pass isForAvatars=true to bypass navigation skip logic
-          fetchComments(false, true).catch(error => {
-            console.error('Retry fetch failed:', error);
-          });
-        }
-      }, 2000);
-
-      return () => clearTimeout(retryTimer);
-    }
-  }, [optimisticCommentCount, postComments, fetchComments, id]);
+  // Keep optimistic comment count for display
+  const optimisticCommentCount = comments;
 
   // Detect media for display
   const firstMedia = useMemo(() => {
@@ -317,34 +269,7 @@ const PostCard = memo(function PostCard({
   }, [media_urls, id, title]);
   const hasMedia = !!(firstMedia || content_gif_url);
 
-  // Extract recent commenters from the comments data
-  const recentCommenters = useMemo(() => {
-    // 🔥 FIX: Better validation and error handling
-    if (!postComments || postComments.length === 0) {
-      return [];
-    }
-    
-    // Get unique commenters (avoid duplicates from same user)
-    const uniqueCommenters = new Map();
-    
-    // Process comments in reverse order to get most recent commenters first
-    const reversedComments = [...postComments].reverse();
-    
-    reversedComments.forEach(comment => {
-      if (comment.author && comment.author.id && !uniqueCommenters.has(comment.author.id)) {
-        uniqueCommenters.set(comment.author.id, {
-          avatar: comment.author.avatar_url,
-          name: comment.author.full_name || 'User',
-          id: comment.author.id
-        });
-      }
-    });
-    
-    const commenters = Array.from(uniqueCommenters.values()).slice(0, 5);
-    
-    // Return the most recent 5 commenters
-    return commenters;
-  }, [postComments, id, optimisticCommentCount]);
+  // 🎭 OPTIMIZED: recentCommenters now comes from useCommentAvatars hook
 
   // Handle card click
   const handleCardClick = useCallback(() => {
@@ -391,8 +316,9 @@ const PostCard = memo(function PostCard({
   const commentDisplayInfo = useMemo(() => {
     // You could make spaceActivity dynamic based on space data in the future
     const spaceActivity: 'high' | 'medium' | 'low' = 'medium';
-    return getSimpleCommentInfo(postComments || [], userIdForActions, spaceActivity);
-  }, [postComments, userIdForActions]);
+    // 🎭 OPTIMIZED: Comment display info disabled for now since we're using lightweight avatars
+    return null; // Will be re-enabled when we consolidate comment hooks
+  }, [userIdForActions]);
 
   // Format timestamp for post creation
   const timeAgo = useMemo(() => {

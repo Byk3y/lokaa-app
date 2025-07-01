@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getDisplaySpaceContext, clearSpaceContext, getBackToSpaceUrl, shouldShowSpaceContext, type SpaceContext } from '@/utils/spaceContextUtils';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface SpaceContextBannerProps {
   className?: string;
@@ -12,6 +13,9 @@ export const SpaceContextBanner: React.FC<SpaceContextBannerProps> = ({ classNam
   const [spaceContext, setSpaceContext] = useState<SpaceContext | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const navigate = useNavigate();
+  
+  // Only show the banner on desktop - mobile users have bottom nav for space navigation
+  const isDesktop = useMediaQuery('(min-width: 768px)'); // md breakpoint
 
   useEffect(() => {
     const context = getDisplaySpaceContext();
@@ -37,7 +41,8 @@ export const SpaceContextBanner: React.FC<SpaceContextBannerProps> = ({ classNam
     setIsVisible(false);
   };
 
-  if (!isVisible || !spaceContext) {
+  // Hide entire banner on mobile
+  if (!isVisible || !spaceContext || !isDesktop) {
     return null;
   }
 

@@ -20,18 +20,22 @@ if (import.meta.env.PROD) {
   // Production: Initialize service worker
   ServiceWorkerManager.getInstance().register();
 } else {
-  // Development: Clear any existing service workers
-  navigator.serviceWorker
-    .getRegistrations()
-    .then(registrations => {
-      registrations.forEach(registration => {
-        console.log('🧹 Unregistering service worker:', registration.scope);
-        registration.unregister();
+  // Development: Clear any existing service workers (with feature detection)
+  if ('serviceWorker' in navigator && navigator.serviceWorker) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then(registrations => {
+        registrations.forEach(registration => {
+          console.log('🧹 Unregistering service worker:', registration.scope);
+          registration.unregister();
+        });
+      })
+      .catch(err => {
+        console.warn('⚠️ Error clearing service workers:', err);
       });
-    })
-    .catch(err => {
-      console.warn('⚠️ Error clearing service workers:', err);
-    });
+  } else {
+    console.log('ℹ️ Service workers not supported in this environment');
+  }
 }
 
 // Immediate space redirection for authenticated users

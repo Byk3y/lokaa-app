@@ -6,12 +6,8 @@ interface UseRealtimeSpaceCommentsProps {
   spaceId: string;
   userId: string | null;
   isEnabled?: boolean;
-  onCommentAdded?: (data: {
-    postId: string;
-    commentId: string;
-    authorName: string;
-    spaceId: string;
-  }) => void;
+  onCommentAdded?: (data: any) => void;
+  onCommentUpdate?: (commentId: string) => void;
 }
 
 interface UseRealtimeSpaceCommentsReturn {
@@ -34,6 +30,7 @@ export const useRealtimeSpaceCommentsOptimized = ({
   userId,
   isEnabled = true,
   onCommentAdded,
+  onCommentUpdate,
 }: UseRealtimeSpaceCommentsProps): UseRealtimeSpaceCommentsReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -67,6 +64,18 @@ export const useRealtimeSpaceCommentsOptimized = ({
           authorName: newComment.author_name || 'Someone',
           spaceId: newComment.space_id
         });
+      }
+    } else if (payload.eventType === 'UPDATE' && payload.new) {
+      const updatedComment = payload.new;
+      
+      console.log('📝 [RealtimeSpaceCommentsOptimized] Processing comment update:', {
+        commentId: updatedComment.id,
+        postId: updatedComment.post_id
+      });
+
+      // Trigger update callback if provided
+      if (onCommentUpdate) {
+        onCommentUpdate(updatedComment.id);
       }
     }
   };

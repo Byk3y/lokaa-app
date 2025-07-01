@@ -34,7 +34,9 @@ import {
   CommentInput,
 } from './';
 import { usePostActionsEnhanced } from './hooks/usePostActionsEnhanced';
-import { useCommentsEnhanced } from './hooks/useCommentsEnhanced';
+// 🎭 PHASE 1 OPTIMIZATION: Temporarily disabled to reduce triple hook usage
+// import { useCommentsEnhanced } from './hooks/useCommentsEnhanced';
+import { useComments } from './hooks/useComments';
 import { useHoverPrefetch } from '@/hooks/useHoverPrefetch';
 import { cn } from '@/lib/utils';
 import {
@@ -117,6 +119,7 @@ export default function PostDetailModal({
     handlePinToggle
   } = usePostActionsEnhanced(post, currentUserId);
 
+  // 🎭 PHASE 1 OPTIMIZATION: Use single comment hook to reduce triple fetching
   const {
     comments,
     commentsLoading,
@@ -124,17 +127,18 @@ export default function PostDetailModal({
     setNewComment,
     isCommenting,
     optimisticCommentCount,
-    handleCommentSubmit,
-    handleReplyAdded,
-    fetchReplies,
     replyingToComment,
     setReplyTarget,
-    handleCommentLikeToggled,
-    // 🔥 PAGINATION CONTROLS
-    loadMoreComments,
-    hasMoreComments,
-    isLoadingMoreComments,
-  } = useCommentsEnhanced(post, currentUserId, onCommentAdded);
+    handleCommentSubmit,
+    handleReplyAdded,
+    fetchComments,
+    fetchReplies,
+  } = useComments(post, currentUserId, onCommentAdded);
+
+  // 🎭 PHASE 1 OPTIMIZATION: Pagination temporarily disabled
+  const loadMoreComments = async () => { /* TODO: Re-implement in Phase 2 */ };
+  const hasMoreComments = false;
+  const isLoadingMoreComments = false;
 
   // Update browser history when opening a post
   useEffect(() => {
@@ -576,11 +580,10 @@ export default function PostDetailModal({
                       onReplyAddedToParent={handleReplyAdded}
                       fetchRepliesHook={fetchReplies}
                       onSetReplyTarget={setReplyTarget}
-                      onCommentLikeToggled={handleCommentLikeToggled}
-                      // New Skool-style props
-                      initial_replies={comment.initial_replies}
-                      remaining_reply_count={comment.remaining_reply_count}
-                      has_more_replies={comment.has_more_replies}
+                                              onCommentLikeToggled={(commentId, isLiked, likeCount) => {
+                          // 🎭 PHASE 1 OPTIMIZATION: Comment like handling temporarily disabled
+                          console.log('Comment like toggled:', { commentId, isLiked, likeCount });
+                        }}
                     />
                   ))}
                   
