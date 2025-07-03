@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ChatApiService, type Conversation, type Message } from '../ChatApiService';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { getProtectedCurrentUser } from '@/utils/protectedAuth';
-import { supabaseIndexedDBBridge } from '@/utils/supabaseIndexedDBBridge';
+import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 
 // Mock dependencies
 vi.mock('@/integrations/supabase/client');

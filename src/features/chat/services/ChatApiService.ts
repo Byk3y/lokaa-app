@@ -93,20 +93,20 @@ export class ChatApiService {
     options: { forceNetwork?: boolean } = {}
   ): Promise<ApiResponse<Conversation[]>> {
     try {
-      console.log('[ChatApiService] 🖥️ Direct network call for user:', userId);
+      console.log('[ChatApiService] 📱 Using migration adapter for user:', userId);
       
-      const result = await getSupabaseClient()
-        .from('user_conversations')
-        .select('*')
-        .eq('user_id', userId)
-        .order('last_message_at', { ascending: false });
+      // Use migrationAdapter for mobile browser protection and caching
+      const result = await migrationAdapter.getUserConversations(userId, {
+        forceNetwork: options.forceNetwork
+      });
         
       if (result.error) {
-        console.error('[ChatApiService] Database error:', result.error);
+        console.error('[ChatApiService] Migration adapter error:', result.error);
         throw result.error;
       }
       
-      console.log('[ChatApiService] Raw data received:', result.data?.length || 0, 'conversations');
+      console.log('[ChatApiService] Data received from migration adapter:', result.data?.length || 0, 'conversations');
+      console.log('[ChatApiService] Source:', result.fromCache ? 'cache' : 'network', result.reason ? `(${result.reason})` : '');
       
       const transformedData: Conversation[] = (result.data || []).map((record: any) => 
         this.transformConversationRecord(record)
@@ -416,7 +416,16 @@ export class ChatApiService {
    */
   async getCurrentUser() {
     try {
-      const userResponse = await getProtectedCurrentUser();
+      // Use migrationAdapter for mobile browser protection and caching
+      const userResponse = await migrationAdapter.getCurrentUser();
+      
+      if (userResponse.error) {
+        console.error('[ChatApiService] Migration adapter error for current user:', userResponse.error);
+        // Fallback to protected auth if migration adapter fails
+        const fallbackResponse = await getProtectedCurrentUser();
+        return fallbackResponse?.data?.user || null;
+      }
+      
       return userResponse?.data?.user || null;
     } catch (error) {
       console.error('[ChatApiService] Error getting current user:', error);
