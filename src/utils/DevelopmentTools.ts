@@ -57,10 +57,12 @@ export class DevelopmentTools {
     console.log('🔧 [DevelopmentTools] Loading Phase integrations...');
 
     try {
-      // Only load essential Phase integrations
-      await import('@/utils/phase3CacheStrategy');
+      // Only load essential Phase integrations that provide production value
       await import('@/utils/phase3RenderOptimizer');
       await import('@/utils/phase3UXPatterns');
+      
+      // Note: Removed phase3CacheStrategy and phase3TestingFramework 
+      // as they are redundant with V2 system and experimental utilities
 
       console.log('✅ [DevelopmentTools] Essential Phase integrations loaded');
     } catch (error) {
