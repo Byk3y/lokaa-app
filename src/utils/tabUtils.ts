@@ -1,3 +1,7 @@
+import { z } from 'zod';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { devLogger } from '@/utils/developmentLogger';
+
 /**
  * Tab Utilities for Space Navigation
  * 
@@ -130,13 +134,15 @@ export function debugTabExtraction(pathname: string, tab?: string, activeTab?: s
     const extractedTab = extractTabFromPathname(pathname);
     const isRoot = isRootSpacePath(pathname);
     
-    console.log('🔍 [TabUtils] Debug info:', {
-      pathname,
-      tab,
-      activeTab,
-      extractedTab,
-      isRoot,
-      segments: pathname.split('/').filter(Boolean)
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 [TabUtils] Debug info:', {
+        pathname,
+        tab,
+        activeTab,
+        extractedTab,
+        isRoot,
+        segments: pathname.split('/').filter(Boolean)
+      });
+    }
   }
 } 

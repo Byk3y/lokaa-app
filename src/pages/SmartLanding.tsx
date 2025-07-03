@@ -7,6 +7,7 @@ import { checkActiveSession } from "@/utils/directAuth";
 import EmergencyDatabaseRecovery from '@/utils/emergencyDatabaseRecovery';
 import Discover from "./Discover";
 import type { User } from "@supabase/supabase-js";
+import { devLogger } from '@/utils/developmentLogger';
 
 export default function SmartLanding() {
   const navigate = useNavigate();
@@ -45,32 +46,34 @@ export default function SmartLanding() {
       }
       
       if (!user) {
-        console.log("No user found in SmartLanding context, checking for active session");
+        devLogger.log('Auth', "No user found in SmartLanding context, checking for active session");
         
         try {
           // Check if there's an active session despite no user in context
           const hasActiveSession = await checkActiveSession();
           
           if (hasActiveSession) {
-            console.log("SmartLanding: Active session found but no user in context");
+            devLogger.log('Auth', "SmartLanding: Active session found but no user in context");
             // Get current session to retrieve user ID
             const { data } = await getSupabaseClient().auth.getSession();
             
             if (data.session?.user) {
-              console.log("SmartLanding: Retrieved user from session:", data.session.user.email);
+              devLogger.log('Auth', "SmartLanding: Retrieved user from session:", data.session.user.email);
               // Check spaces for this user
               await checkSpacesForUser(data.session.user);
             } else {
-              console.log("SmartLanding: No valid user in session, showing discover");
+              devLogger.log('Auth', "SmartLanding: No valid user in session, showing discover");
               setShowDiscover(true);
               setIsChecking(false);
             }
           } else {
-            console.log("SmartLanding: No active session, showing landing page");
+            devLogger.log('Auth', "SmartLanding: No active session, showing landing page");
             navigate('/', { replace: true });
           }
         } catch (error) {
-          console.error("SmartLanding: Error checking session:", error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error("SmartLanding: Error checking session:", error);
+          }
           navigate('/', { replace: true });
         } finally {
           setIsChecking(false);
@@ -83,19 +86,19 @@ export default function SmartLanding() {
     }
     
     async function checkSpacesForUser(user: User) {
-      console.log("SmartLanding: Checking spaces for user", user.email, user.id);
+      devLogger.log('Auth', "SmartLanding: Checking spaces for user", user.email, user.id);
       
       try {
         // Special case for test account - redirect to discover page
         if (user.email === 'francischukwuma706@gmail.com') {
-          console.log("This is the creator account, redirecting to discover page");
+          devLogger.log('Auth', "This is the creator account, redirecting to discover page");
           setShowDiscover(true);
           setIsChecking(false);
           return;
         }
         
         // 🚨 PHASE 8: Use emergency recovery instead of direct database calls
-        console.log("SmartLanding: Using emergency recovery to find user spaces");
+        devLogger.log('Auth', "SmartLanding: Using emergency recovery to find user spaces");
         
         const recoveryResult = await EmergencyDatabaseRecovery.safeSpaceQuery(
           user.id,
@@ -115,24 +118,26 @@ export default function SmartLanding() {
             );
             
             if (membershipCheck.isMember || membershipCheck.isOwner) {
-              console.log("SmartLanding: Found user space:", space.name, space.subdomain);
+              devLogger.log('Auth', "SmartLanding: Found user space:", space.name, space.subdomain);
               const path = `/space/${space.subdomain}`;
-              console.log("SmartLanding: Navigation path:", path);
+              devLogger.log('Auth', "SmartLanding: Navigation path:", path);
               navigate(path, { replace: true });
               return;
             }
           }
           
           // If no membership found, show discover
-          console.log("SmartLanding: User has no accessible spaces, showing discover");
+          devLogger.log('Auth', "SmartLanding: User has no accessible spaces, showing discover");
           setShowDiscover(true);
         } else {
           // User has no spaces, show discover page
-          console.log("SmartLanding: No spaces found for user, showing discover");
+          devLogger.log('Auth', "SmartLanding: No spaces found for user, showing discover");
           setShowDiscover(true);
         }
       } catch (error) {
-        console.error('SmartLanding: Error checking user spaces:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('SmartLanding: Error checking user spaces:', error);
+        }
         // On error, default to discover page
         setShowDiscover(true);
       } finally {

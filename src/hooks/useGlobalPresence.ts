@@ -2,8 +2,10 @@
  * Global Presence Hook - PHASE 3D Migration
  */
 
-import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
+import { useEffect } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { devLogger } from '@/utils/developmentLogger';
+import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 
 /**
  * Hook for managing global user presence with mobile-safe operations

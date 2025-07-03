@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { redirectToSpace } from '../utils/spaceRedirect';
+import { devLogger } from '@/utils/developmentLogger';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -27,7 +28,7 @@ export default function Login() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   
-  console.log("Login component rendering with:", { 
+  devLogger.log('Auth', "Login component rendering with:", { 
     background: !!background, 
     from, 
     pathname: location.pathname,
@@ -51,7 +52,7 @@ export default function Login() {
   // Redirect if user is already logged in
   useEffect(() => {
     if (session) {
-      console.log('Login: User already logged in, redirect handled by AuthContext')
+      devLogger.log('Auth', 'User already logged in, redirect handled by AuthContext')
       // No additional logic needed - redirect handled in AuthContext
     }
   }, [session])
@@ -73,14 +74,16 @@ export default function Login() {
       const { error } = await signIn(values.email, values.password);
       
       if (error) {
-        console.error('Login error:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Login error:', error);
+        }
         setLoginError(
           typeof error === 'string' 
             ? error 
             : error.message || 'Sign in failed. Please check your credentials and try again.'
         );
       } else {
-        console.log('Login: Sign-in successful, attempting direct space redirection');
+        devLogger.log('Auth', 'Sign-in successful, attempting direct space redirection');
         
         // First try direct redirection to any user spaces
         // This can bypass potential React state issues
@@ -88,19 +91,23 @@ export default function Login() {
           // Using the streamlined, reliable redirection utility
           const redirected = await redirectToSpace();
           if (redirected) {
-            console.log('Login: Direct redirection to space successful');
+            devLogger.log('Auth', 'Direct redirection to space successful');
             return; // Skip React Router navigation if direct redirection worked
           }
         } catch (redirectErr) {
-          console.error('Login: Error during direct space redirection:', redirectErr);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Login: Error during direct space redirection:', redirectErr);
+          }
           // Continue with normal flow if direct redirection fails
         }
         
-        console.log('Login: Sign-in successful, redirecting handled by AuthContext');
+        devLogger.log('Auth', 'Sign-in successful, redirecting handled by AuthContext');
         // No additional logic needed here - redirect managed in AuthContext
       }
     } catch (err) {
-      console.error('Login exception:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Login exception:', err);
+      }
       setLoginError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoggingIn(false);

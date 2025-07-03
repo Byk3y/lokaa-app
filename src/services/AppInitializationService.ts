@@ -10,6 +10,7 @@ import { supabaseHealthMonitor } from '@/utils/supabaseHealthCheck';
 import { initializeCacheWarming } from '@/utils/cacheWarming';
 // DISABLED: import { phase1Recovery } from '@/utils/phase1MobileRecovery';
 import { spaceMembersService } from '@/utils/indexeddb/services/SpaceMembersService';
+import { devLogger } from '@/utils/developmentLogger';
 
 export interface AppInitializationOptions {
   isDevelopment?: boolean;
@@ -38,7 +39,7 @@ export class AppInitializationService {
 
   async initialize(options: AppInitializationOptions = {}): Promise<AppInitializationResult> {
     if (this.isInitialized) {
-      console.warn('🔧 [AppInitialization] Service already initialized');
+      devLogger.warn('AppInit', 'Service already initialized');
       return {
         success: true,
         errors: [],
@@ -61,7 +62,7 @@ export class AppInitializationService {
     } = options;
 
     try {
-      console.log('🚀 [AppInitialization] Starting app initialization...');
+      devLogger.log('AppInit', 'Starting app initialization...');
 
       // Core Supabase initialization
       await this.initializeSupabase(result);
@@ -82,7 +83,7 @@ export class AppInitializationService {
       if (enableMobileRecovery) {
         // DISABLED: Complex mobile recovery conflicts with simple reload prevention
         // await this.initializeMobileRecovery(result, enableDebugInterfaces);
-        console.log("📱 [AppInitialization] Mobile recovery disabled - using simple reload prevention system");
+        devLogger.log('AppInit', 'Mobile recovery disabled - using simple reload prevention system');
       }
 
       // Development debug interfaces
@@ -91,13 +92,15 @@ export class AppInitializationService {
       }
 
       this.isInitialized = true;
-      console.log('✅ [AppInitialization] App initialization completed successfully');
+      devLogger.log('AppInit', 'App initialization completed successfully');
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
       result.errors.push(errorMessage);
       result.success = false;
-      console.error('❌ [AppInitialization] Initialization failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [AppInitialization] Initialization failed:', error);
+      }
     }
 
     result.debugInterfaces = this.debugInterfaces;
@@ -106,40 +109,42 @@ export class AppInitializationService {
 
   private async initializeSupabase(result: AppInitializationResult): Promise<void> {
     try {
-      console.log('🔧 [AppInitialization] Initializing Supabase...');
+      devLogger.log('AppInit', 'Initializing Supabase...');
       // Check if Supabase client is available (it's already instantiated)
       if (!supabase) {
         throw new Error('Supabase client is not available');
       }
-      console.log('✅ [AppInitialization] Supabase client verified');
+      devLogger.log('AppInit', 'Supabase client verified');
     } catch (error) {
       const message = 'Supabase initialization failed';
       result.errors.push(message);
-      console.error('❌ [AppInitialization]', message, error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ [AppInitialization]', message, error);
+      }
     }
   }
 
   private async initializeEssentialServices(result: AppInitializationResult): Promise<void> {
     try {
-      console.log('🔧 [AppInitialization] Initializing essential services...');
+      devLogger.log('AppInit', 'Initializing essential services...');
       
       // DISABLED: Health monitor causes page reloads - mobile protection handled by comprehensive fix in index.html
       // supabaseHealthMonitor.startMonitoring();
-      console.log('🔧 [AppInitialization] Health monitor disabled - mobile protection handled by comprehensive fix');
+      devLogger.log('AppInit', 'Health monitor disabled - mobile protection handled by comprehensive fix');
       
     } catch (error) {
       const message = 'Essential services initialization failed';
       result.warnings.push(message);
-      console.warn('⚠️ [AppInitialization]', message, error);
+      devLogger.warn('AppInit', message, error);
     }
   }
 
   private async initializeCacheSystems(result: AppInitializationResult): Promise<void> {
     try {
-      console.log('🔧 [AppInitialization] Initializing cache systems...');
+      devLogger.log('AppInit', 'Initializing cache systems...');
       
       persistentCache.init().catch(err => {
-        console.warn('⚠️ [AppInitialization] Persistent cache failed:', err);
+        devLogger.warn('AppInit', 'Persistent cache failed:', err);
         result.warnings.push('Persistent cache initialization failed');
       });
       
@@ -148,20 +153,20 @@ export class AppInitializationService {
     } catch (error) {
       const message = 'Cache systems initialization failed';
       result.warnings.push(message);
-      console.warn('⚠️ [AppInitialization]', message, error);
+      devLogger.warn('AppInit', message, error);
     }
   }
 
   private async initializeSupabaseBridge(result: AppInitializationResult, isDevelopment: boolean): Promise<void> {
     try {
-      console.log('🔧 [AppInitialization] Initializing Supabase-IndexedDB bridge...');
+      devLogger.log('AppInit', 'Initializing Supabase-IndexedDB bridge...');
       
       const { supabaseIndexedDBBridge } = await import('@/utils/supabaseIndexedDBBridge');
-      console.log('🔧 [AppInitialization] Supabase-IndexedDB bridge initialized for mobile browser blocking protection');
+      devLogger.log('AppInit', 'Supabase-IndexedDB bridge initialized for mobile browser blocking protection');
       
       if (isDevelopment) {
         await import('@/utils/indexedDBDebugger');
-        console.log('🔧 [AppInitialization] IndexedDB debugger loaded for development');
+        devLogger.log('AppInit', 'IndexedDB debugger loaded for development');
       }
       
       if (isDevelopment) {
@@ -169,9 +174,9 @@ export class AppInitializationService {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         if (isMobile) {
           await import('@/utils/mobileBrowserProtectionTest');
-          console.log('🔧 [AppInitialization] Mobile browser protection test suite loaded');
+          devLogger.log('AppInit', 'Mobile browser protection test suite loaded');
         } else {
-          console.log('🖥️ [AppInitialization] Desktop detected - skipping mobile protection test suite');
+          devLogger.log('AppInit', 'Desktop detected - skipping mobile protection test suite');
         }
       }
       
@@ -192,23 +197,23 @@ export class AppInitializationService {
         const pathSegments = currentPath.split('/').filter(Boolean);
         if (pathSegments.length > 0 && pathSegments[0] !== 'spaces' && pathSegments[0] !== 'chat') {
           const spaceSubdomain = pathSegments[0];
-          console.log(`🔧 [AppInitialization] Skipping cache warming for subdomain: ${spaceSubdomain} (needs space ID)`);
+          devLogger.log('AppInit', `Skipping cache warming for subdomain: ${spaceSubdomain} (needs space ID)`);
         }
       }, 3000);
       
     } catch (error) {
       const message = 'Supabase-IndexedDB bridge initialization failed';
       result.warnings.push(message);
-      console.warn('⚠️ [AppInitialization]', message, error);
+      devLogger.warn('AppInit', message, error);
     }
   }
 
   private async initializeSpaceCoordinator(result: AppInitializationResult, enableDebugInterfaces: boolean): Promise<void> {
     try {
-      console.log('🎯 [AppInitialization] Initializing Event-Driven Space Coordinator...');
+      devLogger.log('AppInit', 'Initializing Event-Driven Space Coordinator...');
       
       const { spaceEventCoordinator } = await import('@/utils/spaceEventCoordinator');
-      console.log('🎯 [AppInitialization] Space Event Coordinator initialized');
+      devLogger.log('AppInit', 'Space Event Coordinator initialized');
       
       if (enableDebugInterfaces) {
         this.debugInterfaces.spaceEventCoordinator = spaceEventCoordinator;
@@ -232,14 +237,15 @@ export class AppInitializationService {
     } catch (error) {
       const message = 'Space Event Coordinator initialization failed';
       result.warnings.push(message);
-      console.warn('⚠️ [AppInitialization]', message, error);
+      devLogger.warn('AppInit', message, error);
     }
   }
 
   private async initializeMobileRecovery(result: AppInitializationResult, enableDebugInterfaces: boolean): Promise<void> {
     try {
-      console.log('📱 [AppInitialization] Initializing Enhanced Mobile Session Recovery...');
+      devLogger.log('AppInit', 'Initializing Enhanced Mobile Session Recovery...');
       
+      const { phase1Recovery } = await import('@/utils/phase1MobileRecovery');
       phase1Recovery.initialize({
         debugMode: import.meta.env.DEV,
         enableHealthMonitorIntegration: true,
@@ -247,26 +253,26 @@ export class AppInitializationService {
         sessionValidationThreshold: 30000,
         maxRecoveryAttempts: 3
       });
-      console.log('📱 [AppInitialization] Phase 1 mobile recovery initialized successfully');
+      devLogger.log('AppInit', 'Phase 1 mobile recovery initialized successfully');
       
       if (enableDebugInterfaces) {
         this.debugInterfaces.testPhase1 = {
           status: () => {
-            console.log('📱 Phase 1 Status Check:');
-            console.log('Available:', typeof (window as any).phase1Recovery !== 'undefined');
-            console.log('Mobile Features Enabled:', typeof (window as any).mobileSessionManager !== 'undefined');
-            console.log('Mobile Lifecycle Debug:', typeof (window as any).mobileLifecycleDebug !== 'undefined');
-            console.log('Phase 1 Component:', typeof (window as any).phase1Component !== 'undefined');
+            devLogger.log('AppInit', 'Phase 1 Status Check:');
+            devLogger.log('AppInit', 'Available:', typeof (window as any).phase1Recovery !== 'undefined');
+            devLogger.log('AppInit', 'Mobile Features Enabled:', typeof (window as any).mobileSessionManager !== 'undefined');
+            devLogger.log('AppInit', 'Mobile Lifecycle Debug:', typeof (window as any).mobileLifecycleDebug !== 'undefined');
+            devLogger.log('AppInit', 'Phase 1 Component:', typeof (window as any).phase1Component !== 'undefined');
             
             if ((window as any).phase1Recovery) {
-              console.log('Phase 1 Stats:', (window as any).phase1Recovery.getStats());
-              console.log('Phase 1 State:', (window as any).phase1Recovery.getState());
+              devLogger.log('AppInit', 'Phase 1 Stats:', (window as any).phase1Recovery.getStats());
+              devLogger.log('AppInit', 'Phase 1 State:', (window as any).phase1Recovery.getState());
             }
           },
           enableForTesting: () => {
             (window as any).phase1Recovery?.overrideMobileDetection(true);
             (window as any).phase1Recovery?.forceEnable();
-            console.log('📱 Phase 1 force enabled for testing');
+            devLogger.log('AppInit', 'Phase 1 force enabled for testing');
           },
           triggerRecovery: () => {
             return (window as any).phase1Recovery?.triggerRecovery();
@@ -279,7 +285,7 @@ export class AppInitializationService {
             setTimeout(() => {
               (window as any).mobileLifecycleDebug?.forceReturn();
             }, 2000);
-            console.log('📱 Simulated 2-second background session');
+            devLogger.log('AppInit', 'Simulated 2-second background session');
           }
         };
       }
@@ -287,36 +293,36 @@ export class AppInitializationService {
     } catch (error) {
       const message = 'Mobile recovery initialization failed';
       result.warnings.push(message);
-      console.warn('⚠️ [AppInitialization]', message, error);
+      devLogger.warn('AppInit', message, error);
     }
   }
 
   private async setupDebugInterfaces(result: AppInitializationResult): Promise<void> {
     try {
-      console.log('🔧 [AppInitialization] Setting up debug interfaces...');
+      devLogger.log('AppInit', 'Setting up debug interfaces...');
       
       if (typeof window !== 'undefined') {
         Object.entries(this.debugInterfaces).forEach(([key, value]) => {
           (window as any)[key] = value;
         });
         
-        console.log('🔧 [AppInitialization] Debug interfaces available on window:', Object.keys(this.debugInterfaces));
+        devLogger.log('AppInit', 'Debug interfaces available on window:', Object.keys(this.debugInterfaces));
       }
       
     } catch (error) {
       const message = 'Debug interfaces setup failed';
       result.warnings.push(message);
-      console.warn('⚠️ [AppInitialization]', message, error);
+      devLogger.warn('AppInit', message, error);
     }
   }
 
   cleanup(): void {
     try {
-      console.log('🧹 [AppInitialization] Cleaning up...');
+      devLogger.log('AppInit', 'Cleaning up...');
       persistentCache.cleanup();
       this.debugInterfaces = {};
     } catch (error) {
-      console.warn('⚠️ [AppInitialization] Cleanup error:', error);
+      devLogger.warn('AppInit', 'Cleanup error:', error);
     }
   }
 

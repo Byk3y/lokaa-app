@@ -7,6 +7,7 @@
  */
 
 import { globalRealtimeService } from './GlobalRealtimeService';
+import { devLogger } from '@/utils/developmentLogger';
 
 // Global window type declaration
 declare global {
@@ -53,7 +54,7 @@ class NavigationAwareRealtimeService {
       (window as any).navigationAwareRealtimeService = this;
     }
 
-    console.log('🧭 [NavigationAwareRealtime] Service initialized');
+    devLogger.startup('NavigationRealtime', 'Service initialized');
   }
 
   /**
@@ -71,7 +72,7 @@ class NavigationAwareRealtimeService {
       this.navigationState.isNavigating = true;
       this.navigationState.lastNavigationTime = Date.now();
 
-      console.log(`🧭 [NavigationAwareRealtime] Route change: ${this.navigationState.previousRoute} → ${currentPath}`);
+      devLogger.log('NavigationRealtime', `Route change: ${this.navigationState.previousRoute} → ${currentPath}`);
 
       // Check if this is Chat⟷Space navigation
       const isChatSpaceNavigation = this.isChatSpaceNavigation(
@@ -80,7 +81,7 @@ class NavigationAwareRealtimeService {
       );
 
       if (isChatSpaceNavigation) {
-        console.log('🛡️ [NavigationAwareRealtime] Chat⟷Space navigation detected - protecting subscriptions');
+        devLogger.log('NavigationRealtime', 'Chat⟷Space navigation detected - protecting subscriptions');
         this.protectSpaceSubscriptions();
       }
 
@@ -91,7 +92,7 @@ class NavigationAwareRealtimeService {
       
       this.routeChangeTimeout = setTimeout(() => {
         this.navigationState.isNavigating = false;
-        console.log('🧭 [NavigationAwareRealtime] Navigation settled');
+        devLogger.log('NavigationRealtime', 'Navigation settled');
       }, 2000);
     };
 
@@ -139,7 +140,7 @@ class NavigationAwareRealtimeService {
       if (subscription.spaceId && subscription.table === 'posts' || subscription.table === 'post_comments') {
         subscription.isProtected = true;
         subscription.lastUsed = Date.now();
-        console.log(`🛡️ [NavigationAwareRealtime] Protected subscription: ${key}`);
+        devLogger.log('NavigationRealtime', `Protected subscription: ${key}`);
       }
     }
   }
@@ -163,7 +164,7 @@ class NavigationAwareRealtimeService {
     // Look for existing subscriptions that can be shared
     for (const [key, subscription] of this.subscriptions.entries()) {
       if (key.startsWith(baseKey) && subscription.refCount > 0) {
-        console.log(`🎯 [NavigationAwareRealtime] Found existing subscription to reuse: ${key}`);
+        devLogger.log('NavigationRealtime', `Found existing subscription to reuse: ${key}`);
         return key;
       }
     }
@@ -193,7 +194,7 @@ class NavigationAwareRealtimeService {
       existing.refCount += 1;
       existing.lastUsed = Date.now();
       
-      console.log(`🎯 [NavigationAwareRealtime] Reusing subscription: ${existingKey} (refs: ${existing.refCount})`);
+      devLogger.log('NavigationRealtime', `Reusing subscription: ${existingKey} (refs: ${existing.refCount})`);
       
       // Map this new request to the existing subscription
       this.subscriptionIdToKey.set(existing.subscriptionId, existingKey);
@@ -221,7 +222,7 @@ class NavigationAwareRealtimeService {
 
       this.subscriptionIdToKey.set(subscriptionId, key);
 
-      console.log(`🎯 [NavigationAwareRealtime] New subscription created: ${key} (priority: ${priority})`);
+      devLogger.log('NavigationRealtime', `New subscription created: ${key} (priority: ${priority})`);
     }
 
     return subscriptionId;
@@ -236,7 +237,7 @@ class NavigationAwareRealtimeService {
     if (!key) {
       // FIXED: Only warn if subscription should exist
       if (this.subscriptions.size > 0) {
-        console.warn(`🧭 [NavigationAwareRealtime] Subscription not found for unsubscribe: ${subscriptionId}`);
+        devLogger.warn('NavigationRealtime', `Subscription not found for unsubscribe: ${subscriptionId}`);
       }
       return;
     }
@@ -246,7 +247,7 @@ class NavigationAwareRealtimeService {
     const subscription = this.subscriptions.get(actualKey);
 
     if (!subscription) {
-      console.warn(`🧭 [NavigationAwareRealtime] Subscription not found for unsubscribe: ${actualKey}`);
+      devLogger.warn('NavigationRealtime', `Subscription not found for unsubscribe: ${actualKey}`);
       return;
     }
 
@@ -259,8 +260,8 @@ class NavigationAwareRealtimeService {
 
     // Prevent cleanup during Chat⟷Space navigation
     if (subscription.isProtected || (isRecentNavigation && isChatSpaceTransition)) {
-      console.log(`🛡️ [NavigationAwareRealtime] Preventing cleanup during navigation: ${actualKey}`);
-      console.log(`🛡️ [NavigationAwareRealtime] Details:`, {
+      devLogger.log('NavigationRealtime', `Preventing cleanup during navigation: ${actualKey}`);
+      devLogger.log('NavigationRealtime', `Details:`, {
         isProtected: subscription.isProtected,
         isRecentNavigation,
         isChatSpaceTransition,
@@ -273,7 +274,7 @@ class NavigationAwareRealtimeService {
       setTimeout(() => {
         if (subscription) {
           subscription.isProtected = false;
-          console.log(`🛡️ [NavigationAwareRealtime] Removed protection from: ${actualKey}`);
+          devLogger.log('NavigationRealtime', `Removed protection from: ${actualKey}`);
         }
       }, 10000); // 10 seconds grace period
       
@@ -284,11 +285,11 @@ class NavigationAwareRealtimeService {
     subscription.refCount -= 1;
     subscription.lastUsed = Date.now();
 
-    console.log(`🎯 [NavigationAwareRealtime] Decremented refs for ${actualKey}: ${subscription.refCount}`);
+    devLogger.log('NavigationRealtime', `Decremented refs for ${actualKey}: ${subscription.refCount}`);
 
     // Only cleanup when no more references
     if (subscription.refCount <= 0) {
-      console.log(`🎯 [NavigationAwareRealtime] Final cleanup: ${actualKey}`);
+      devLogger.log('NavigationRealtime', `Final cleanup: ${actualKey}`);
       globalRealtimeService.unsubscribe(subscription.subscriptionId);
       this.subscriptions.delete(actualKey);
       this.subscriptionIdToKey.delete(subscriptionId);
@@ -296,7 +297,7 @@ class NavigationAwareRealtimeService {
       // Clean up deduplication map
       this.subscriptionDeduplication.delete(key);
     } else {
-      console.log(`🎯 [NavigationAwareRealtime] Keeping shared subscription: ${actualKey} (${subscription.refCount} refs remaining)`);
+      devLogger.log('NavigationRealtime', `Keeping shared subscription: ${actualKey} (${subscription.refCount} refs remaining)`);
     }
   }
 
@@ -304,7 +305,7 @@ class NavigationAwareRealtimeService {
    * Force cleanup (for app shutdown, logout, etc.)
    */
   forceCleanup(): void {
-    console.log('�� [NavigationAwareRealtime] Force cleanup of all subscriptions');
+    devLogger.log('NavigationRealtime', 'Force cleanup of all subscriptions');
     
     for (const [key, subscription] of this.subscriptions.entries()) {
       globalRealtimeService.unsubscribe(subscription.subscriptionId);
@@ -343,9 +344,9 @@ class NavigationAwareRealtimeService {
    * Debug method
    */
   listSubscriptions() {
-    console.log('🧭 [NavigationAwareRealtime] Active subscriptions:');
+    devLogger.log('NavigationRealtime', 'Active subscriptions:');
     for (const [key, subscription] of this.subscriptions.entries()) {
-      console.log(`  ${key}: ${subscription.isProtected ? '🛡️ PROTECTED' : '🔓'} | Route: ${subscription.route} | Last used: ${new Date(subscription.lastUsed).toLocaleTimeString()}`);
+      devLogger.log('NavigationRealtime', `  ${key}: ${subscription.isProtected ? '🛡️ PROTECTED' : '🔓'} | Route: ${subscription.route} | Last used: ${new Date(subscription.lastUsed).toLocaleTimeString()}`);
     }
   }
 }

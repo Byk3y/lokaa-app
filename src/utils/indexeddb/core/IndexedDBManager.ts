@@ -6,6 +6,7 @@
  */
 
 import { IIndexedDBManager, StoreConfig, ServiceHealthStatus } from '../types';
+import { devLogger } from '@/utils/developmentLogger';
 
 // Database Configuration
 const DB_NAME = 'lokaa-supabase-cache';
@@ -86,7 +87,9 @@ export class IndexedDBManager implements IIndexedDBManager {
     this.initPromise = new Promise((resolve, reject) => {
       // Check if IndexedDB is available
       if (typeof indexedDB === 'undefined') {
-        console.warn('[IndexedDBManager] IndexedDB not available - using fallback mode');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[IndexedDBManager] IndexedDB not available - using fallback mode');
+        }
         resolve();
         return;
       }
@@ -94,18 +97,22 @@ export class IndexedDBManager implements IIndexedDBManager {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
-        console.error('[IndexedDBManager] Failed to open database:', request.error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[IndexedDBManager] Failed to open database:', request.error);
+        }
         reject(request.error);
       };
 
       request.onsuccess = () => {
         this.db = request.result;
         this.isInitialized = true;
-        console.log('[IndexedDBManager] Database initialized successfully');
+        devLogger.log('IndexedDB', 'Database initialized successfully');
         
         // Setup error handlers
         this.db.onerror = (event) => {
-          console.error('[IndexedDBManager] Database error:', event);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[IndexedDBManager] Database error:', event);
+          }
         };
 
         resolve();
@@ -114,18 +121,20 @@ export class IndexedDBManager implements IIndexedDBManager {
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         
-        console.log('[IndexedDBManager] Upgrading database schema...');
+        devLogger.log('IndexedDB', 'Upgrading database schema...');
         
         // Create/update object stores
         for (const storeConfig of STORE_CONFIGS) {
           this.createOrUpdateStore(db, storeConfig);
         }
         
-        console.log('[IndexedDBManager] Database schema upgrade completed');
+        devLogger.log('IndexedDB', 'Database schema upgrade completed');
       };
 
       request.onblocked = () => {
-        console.warn('[IndexedDBManager] Database upgrade blocked - please close other tabs');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[IndexedDBManager] Database upgrade blocked - please close other tabs');
+        }
       };
     });
 
@@ -172,12 +181,12 @@ export class IndexedDBManager implements IIndexedDBManager {
     // Check if store exists
     if (db.objectStoreNames.contains(config.name)) {
       // Store exists, might need index updates
-      console.log(`[IndexedDBManager] Store '${config.name}' already exists`);
+      devLogger.log('IndexedDB', `Store '${config.name}' already exists`);
       return; // For now, don't modify existing stores
     } else {
       // Create new store
       store = db.createObjectStore(config.name, { keyPath: config.keyPath });
-      console.log(`[IndexedDBManager] Created store: ${config.name}`);
+      devLogger.log('IndexedDB', `Created store: ${config.name}`);
     }
 
     // Create indexes
@@ -189,7 +198,7 @@ export class IndexedDBManager implements IIndexedDBManager {
             indexConfig.keyPath,
             indexConfig.options || {}
           );
-          console.log(`[IndexedDBManager] Created index: ${indexConfig.name} on ${config.name}`);
+          devLogger.log('IndexedDB', `Created index: ${indexConfig.name} on ${config.name}`);
         }
       }
     }
@@ -274,7 +283,7 @@ export class IndexedDBManager implements IIndexedDBManager {
       this.db.close();
       this.db = null;
       this.isInitialized = false;
-      console.log('[IndexedDBManager] Database connection closed');
+      devLogger.log('IndexedDB', 'Database connection closed');
     }
   }
 
@@ -306,7 +315,9 @@ export class IndexedDBManager implements IIndexedDBManager {
           estimatedSize: estimate.usage || 0
         };
       } catch (error) {
-        console.warn('[IndexedDBManager] Could not get storage estimate:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[IndexedDBManager] Could not get storage estimate:', error);
+        }
       }
     }
 
@@ -317,7 +328,9 @@ export class IndexedDBManager implements IIndexedDBManager {
    * Force database refresh (for emergency situations)
    */
   async forceRefresh(): Promise<void> {
-    console.warn('[IndexedDBManager] Forcing database refresh...');
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[IndexedDBManager] Forcing database refresh...');
+    }
     
     // Close current connection
     this.close();
@@ -328,7 +341,7 @@ export class IndexedDBManager implements IIndexedDBManager {
     // Reinitialize
     await this.initialize();
     
-    console.log('[IndexedDBManager] Database refresh completed');
+    devLogger.log('IndexedDB', 'Database refresh completed');
   }
 }
 

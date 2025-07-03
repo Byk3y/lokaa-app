@@ -1,12 +1,13 @@
 /**
- * Protected Auth Utilities
+ * 🛡️ Protected Auth Utilities
  * 
- * Mobile-safe wrappers for Supabase auth calls that use IndexedDB bridge
- * to prevent "Fetch API cannot load" errors on mobile browsers.
+ * Provides safe wrappers around auth operations that might fail
+ * in mobile browser environments or during network issues
  */
 
-import { migrationAdapter } from './indexeddb/migration/MigrationAdapter';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { devLogger } from '@/utils/developmentLogger';
+import { migrationAdapter } from './indexeddb/migration/MigrationAdapter';
 
 /**
  * Mobile-safe replacement for getSupabaseClient().auth.getUser()
@@ -18,7 +19,9 @@ export async function getProtectedCurrentUser(options: {
   try {
     return await migrationAdapter.getCurrentUser(options);
   } catch (error) {
-    console.warn('Protected auth fallback to direct call:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Protected auth fallback to direct call:', error);
+    }
     
     // Final fallback to direct call
     try {
@@ -43,7 +46,9 @@ export async function updateProtectedPresence(
   try {
     return await migrationAdapter.updateGlobalPresence(userId, isOnline, options);
   } catch (error) {
-    console.warn('Protected presence update failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Protected presence update failed:', error);
+    }
     return { data: null, error, fromCache: false };
   }
 }

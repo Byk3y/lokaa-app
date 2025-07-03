@@ -9,6 +9,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { SupabaseBridgeResult, CacheOptions } from '../types';
 import { userProfilesCacheService } from '../core/CacheService';
 import { mobileBrowserService } from '../core/MobileBrowserService';
+import { devLogger } from '@/utils/developmentLogger';
 
 export interface UserProfile {
   id: string;
@@ -73,12 +74,12 @@ export class UserProfileService {
       const shouldUseCacheFirst = mobileBrowserService.shouldUseCacheFirst();
       
       if (!forceNetwork && shouldUseCacheFirst) {
-        console.log('[UserProfileService] Mobile blocking detected, checking cache first');
+        devLogger.log('IndexedDB', '[UserProfileService] Mobile blocking detected, checking cache first');
         
         const cachedData = await userProfilesCacheService.get(cacheKey);
         if (cachedData) {
           this.metrics.cacheHits++;
-          console.log('[UserProfileService] Returning cached user profile (mobile blocking)');
+          devLogger.log('IndexedDB', '[UserProfileService] Returning cached user profile (mobile blocking)');
           return {
             data: cachedData as unknown as UserProfile,
             error: null,
@@ -108,7 +109,7 @@ export class UserProfileService {
           };
           
           await userProfilesCacheService.set(cacheKey, networkResult.data, cacheOptions);
-          console.log('[UserProfileService] Cached fresh user profile data');
+          devLogger.log('IndexedDB', '[UserProfileService] Cached fresh user profile data');
         }
 
         this.metrics.cacheMisses++;
@@ -124,7 +125,7 @@ export class UserProfileService {
         // Check if this is mobile browser blocking
         if (mobileBrowserService.isMobileBrowserBlocking(error)) {
           this.metrics.mobileBlocking++;
-          console.log('[UserProfileService] Mobile browser blocking detected, using cache fallback');
+          devLogger.log('IndexedDB', '[UserProfileService] Mobile browser blocking detected, using cache fallback');
           
           // Return cached data if available (even if expired)
           const cachedData = await userProfilesCacheService.get(cacheKey, { skipCache: true });
@@ -172,12 +173,12 @@ export class UserProfileService {
       const shouldUseCacheFirst = mobileBrowserService.shouldUseCacheFirst();
       
       if (!forceNetwork && shouldUseCacheFirst) {
-        console.log('[UserProfileService] Mobile blocking detected, checking auth cache first');
+        devLogger.log('IndexedDB', '[UserProfileService] Mobile blocking detected, checking auth cache first');
         
         const cachedData = await userProfilesCacheService.get(cacheKey);
         if (cachedData) {
           this.metrics.cacheHits++;
-          console.log('[UserProfileService] Returning cached auth user (mobile blocking)');
+          devLogger.log('IndexedDB', '[UserProfileService] Returning cached auth user (mobile blocking)');
           return {
             data: cachedData as { user: AuthUser | null },
             error: null,
@@ -206,7 +207,7 @@ export class UserProfileService {
           };
           
           await userProfilesCacheService.set(cacheKey, networkResult.data, cacheOptions);
-          console.log('[UserProfileService] Cached fresh auth user data');
+          devLogger.log('IndexedDB', '[UserProfileService] Cached fresh auth user data');
         }
 
         this.metrics.cacheMisses++;
@@ -222,7 +223,7 @@ export class UserProfileService {
         // Check if this is mobile browser blocking
         if (mobileBrowserService.isMobileBrowserBlocking(error)) {
           this.metrics.mobileBlocking++;
-          console.log('[UserProfileService] Mobile auth blocking detected, using cache fallback');
+          devLogger.log('IndexedDB', '[UserProfileService] Mobile auth blocking detected, using cache fallback');
           
           // Return cached data if available (even if expired)
           const cachedData = await userProfilesCacheService.get(cacheKey, { skipCache: true });
@@ -368,9 +369,11 @@ export class UserProfileService {
         await userProfilesCacheService.invalidate(authCacheKey);
       }
 
-      console.log(`[UserProfileService] Invalidated cache for user: ${userId}`);
+      devLogger.log('IndexedDB', `[UserProfileService] Invalidated cache for user: ${userId}`);
     } catch (error) {
-      console.error('[UserProfileService] Error invalidating user cache:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[UserProfileService] Error invalidating user cache:', error);
+      }
     }
   }
 
@@ -393,7 +396,7 @@ export class UserProfileService {
    */
   async clearCache(): Promise<void> {
     await userProfilesCacheService.clear();
-    console.log('[UserProfileService] Cleared all user profile cache');
+    devLogger.log('IndexedDB', '[UserProfileService] Cleared all user profile cache');
   }
 
   // Private helper methods

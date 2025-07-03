@@ -4,6 +4,7 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import LoadingIndicator from "@/components/LoadingIndicator";
+import { devLogger } from '@/utils/developmentLogger';
 
 export default function CreateYourSpace() {
   const { user } = useOptimizedAuth();
@@ -40,11 +41,13 @@ export default function CreateYourSpace() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log("Starting space creation process...");
-    console.log("Current user:", user?.id, user?.email);
+    devLogger.log('SpaceManagement', "Starting space creation process...");
+    devLogger.log('SpaceManagement', "Current user:", user?.id, user?.email);
     
     if (!user) {
-      console.error("No authenticated user found");
+      if (process.env.NODE_ENV === 'development') {
+        console.error("No authenticated user found");
+      }
       toast({
         title: "Error",
         description: "You must be logged in to create a space",
@@ -54,7 +57,9 @@ export default function CreateYourSpace() {
     }
     
     if (!spaceName.trim()) {
-      console.error("Space name is empty");
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Space name is empty");
+      }
       toast({
         title: "Error",
         description: "Please enter a space name",
@@ -71,10 +76,10 @@ export default function CreateYourSpace() {
         .replace(/[^a-z0-9\s-]/g, "")
         .replace(/\s+/g, "-");
       
-      console.log("Generated slug for space:", slug);
+      devLogger.log('SpaceManagement', "Generated slug for space:", slug);
       
       // Check if space with this slug already exists
-      console.log("Checking if space with slug already exists:", slug);
+      devLogger.log('SpaceManagement', "Checking if space with slug already exists:", slug);
       const { data: existingSpace, error: checkError } = await getSupabaseClient()
         .from("spaces")
         .select("id")
@@ -82,11 +87,15 @@ export default function CreateYourSpace() {
         .single();
         
       if (checkError && !checkError.message.includes("No rows found")) {
-        console.error("Error checking for existing space:", checkError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Error checking for existing space:", checkError);
+        }
       }
       
       if (existingSpace) {
-        console.error("Space with this slug already exists:", existingSpace);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Space with this slug already exists:", existingSpace);
+        }
         toast({
           title: "Space name already taken",
           description: "Please try a different name",
@@ -102,7 +111,7 @@ export default function CreateYourSpace() {
       
       // First attempt - try using admin function
       try {
-        console.log("[CreateSpace] Attempting to create space with admin function");
+        devLogger.log('SpaceManagement', "[CreateSpace] Attempting to create space with admin function");
         
         // Use the admin_create_space function which bypasses RLS
         const { data, error: funcError } = await getSupabaseClient().rpc(
@@ -115,22 +124,24 @@ export default function CreateYourSpace() {
         );
           
         if (funcError) {
-          console.warn("[CreateSpace] Admin function attempt failed:", funcError);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn("[CreateSpace] Admin function attempt failed:", funcError);
+          }
           throw funcError; // Move to direct insert attempt
         }
         
         if (data) {
-          console.log("[CreateSpace] Admin function succeeded:", data);
+          devLogger.log('SpaceManagement', "[CreateSpace] Admin function succeeded:", data);
           // The admin function returns just the ID, so construct our object
           createdSpace = { id: data, subdomain: slug };
           creationSuccess = true;
         }
       } catch (adminAttemptError) {
-        console.log("[CreateSpace] Admin function failed, trying direct insert");
+        devLogger.log('SpaceManagement', "[CreateSpace] Admin function failed, trying direct insert");
         
         // Second attempt - standard approach
         try {
-          console.log("[CreateSpace] Attempting standard insert");
+          devLogger.log('SpaceManagement', "[CreateSpace] Attempting standard insert");
           
           // Standard direct insert
           const { data, error: insertError } = await getSupabaseClient()
@@ -145,17 +156,19 @@ export default function CreateYourSpace() {
             .single();
             
           if (insertError) {
-            console.warn("[CreateSpace] Standard insert failed:", insertError);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn("[CreateSpace] Standard insert failed:", insertError);
+            }
             throw insertError; // Move to minimal fields attempt
           }
           
           if (data) {
-            console.log("[CreateSpace] Standard insert succeeded:", data);
+            devLogger.log('SpaceManagement', "[CreateSpace] Standard insert succeeded:", data);
             createdSpace = data;
             creationSuccess = true;
           }
         } catch (firstAttemptError) {
-          console.log("[CreateSpace] Standard insert failed, trying minimal approach");
+          devLogger.log('SpaceManagement', "[CreateSpace] Standard insert failed, trying minimal approach");
           
           // Third attempt - even more minimal approach
           try {
@@ -175,7 +188,7 @@ export default function CreateYourSpace() {
                 (insertError.message.includes("recursion") || 
                  insertError.message.includes("policy"))) {
               
-              console.log("[CreateSpace] Minimal approach failed with policy error, showing emergency fix");
+              devLogger.log('SpaceManagement', "[CreateSpace] Minimal approach failed with policy error, showing emergency fix");
               
               // Request workaround from backend team
               toast({
@@ -225,16 +238,20 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
                 throw new Error("Database policy recursion error - need emergency SQL fix");
               }
             } else if (insertError) {
-              console.error("[CreateSpace] All attempts failed:", insertError);
+              if (process.env.NODE_ENV === 'development') {
+                console.error("[CreateSpace] All attempts failed:", insertError);
+              }
               throw insertError;
             } else if (data) {
-              console.log("[CreateSpace] Minimal fields attempt succeeded:", data);
+              devLogger.log('SpaceManagement', "[CreateSpace] Minimal fields attempt succeeded:", data);
               createdSpace = data;
               creationSuccess = true;
             }
           } catch (thirdAttemptError) {
             if (!creationSuccess) { // Only throw if not already successful
-              console.error("[CreateSpace] All attempts failed:", thirdAttemptError);
+              if (process.env.NODE_ENV === 'development') {
+                console.error("[CreateSpace] All attempts failed:", thirdAttemptError);
+              }
               throw thirdAttemptError;
             }
           }
@@ -249,13 +266,15 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
         });
         
         // Navigate to the new space page
-        console.log("Navigating to new space with subdomain:", createdSpace.subdomain);
+        devLogger.log('SpaceManagement', "Navigating to new space with subdomain:", createdSpace.subdomain);
         navigate(`/space/${createdSpace.subdomain}`);
       } else {
         throw new Error("Failed to create space due to database policy issues");
       }
     } catch (error: unknown) {
-      console.error("Error creating space:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error creating space:", error);
+      }
       
       // Provide more specific error messages based on error type
       let errorMessage = "Something went wrong. Please try again.";
@@ -270,7 +289,9 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
           errorMessage = "A space with this name already exists. Please try a different name.";
         } else if (error.message.includes("violates not-null constraint")) {
           errorMessage = "Missing required information. Please check console for details.";
-          console.error("Missing field error:", error.message);
+          if (process.env.NODE_ENV === 'development') {
+            console.error("Missing field error:", error.message);
+          }
         } 
         // Check for a 'code' property, common in Supabase errors
         else if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: unknown }).code === "42703") {
@@ -319,7 +340,9 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
         window.location.href = '/discover';
       }, 1500);
     } catch (error) {
-      console.error("Error clearing cache:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error clearing cache:", error);
+      }
       toast({
         title: "Error",
         description: "Failed to clear cache. Try again or contact support.",

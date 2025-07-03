@@ -6,6 +6,7 @@
  */
 
 import { CacheSource, UserType } from '@/managers/LoadingStateManager';
+import { devLogger } from '@/utils/developmentLogger';
 
 // Cache entry structure
 interface CacheEntry<T = any> {
@@ -131,7 +132,7 @@ class EnhancedCacheManager {
     // Enforce cache size limits
     this.enforceMemoryLimits();
 
-    console.log(`💾 [CacheManager] Cached: ${key} (TTL: ${ttl}ms, Source: ${source})`);
+    devLogger.log('CacheManager', `💾 Cached: ${key} (TTL: ${ttl}ms, Source: ${source})`);
   }
 
   /**
@@ -186,7 +187,7 @@ class EnhancedCacheManager {
       }
     }
 
-    console.log(`🧹 [CacheManager] Invalidated ${invalidatedCount} entries`);
+    devLogger.log('CacheManager', `🧹 Invalidated ${invalidatedCount} entries`);
     return invalidatedCount;
   }
 
@@ -196,7 +197,7 @@ class EnhancedCacheManager {
   predictiveCache(userId: string, userType: UserType): void {
     if (!this.config.enablePredictive) return;
 
-    console.log(`🔮 [CacheManager] Starting predictive caching for ${userType}`);
+    devLogger.log('CacheManager', `🔮 Starting predictive caching for ${userType}`);
 
     switch (userType) {
       case UserType.SPACE_OWNER:
@@ -321,7 +322,9 @@ class EnhancedCacheManager {
     try {
       localStorage.setItem(`enhanced-cache-${key}`, JSON.stringify(entry));
     } catch (error) {
-      console.warn('Failed to persist cache entry:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Failed to persist cache entry:', error);
+      }
     }
   }
 
@@ -347,7 +350,9 @@ class EnhancedCacheManager {
         const data = await loadFn();
         this.set(key, data, { source: 'background-load' });
       } catch (error) {
-        console.warn('Background cache load failed:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Background cache load failed:', error);
+        }
       }
     }, 100); // Small delay to not block main thread
   }
@@ -364,7 +369,7 @@ class EnhancedCacheManager {
       this.memoryCache.delete(key);
     }
 
-    console.log(`🧹 [CacheManager] Enforced memory limits, removed ${toRemove.length} entries`);
+    devLogger.log('CacheManager', `🧹 Enforced memory limits, removed ${toRemove.length} entries`);
   }
 
   private preloadOwnerData(userId: string): void {
@@ -427,7 +432,7 @@ class EnhancedCacheManager {
       }
 
       if (cleanedCount > 0) {
-        console.log(`🧹 [CacheManager] Cleaned up ${cleanedCount} expired entries`);
+        devLogger.log('CacheManager', `🧹 Cleaned up ${cleanedCount} expired entries`);
       }
     }, 5 * 60 * 1000);
   }

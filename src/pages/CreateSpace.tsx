@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSupabaseClient } from "@/integrations/supabase/client";
+import { redirectToSpace } from '../utils/spaceRedirect';
+import type { Space } from '@/types/space';
 import { toast } from "@/hooks/use-toast";
+import { devLogger } from '@/utils/developmentLogger';
 import { SpaceRedirectData } from "@/utils/spaceRedirect";
 
 export default function CreateSpace() {
@@ -97,89 +100,94 @@ export default function CreateSpace() {
         .single();
       
       if (accessError) {
-        console.error("Error adding owner access record:", accessError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Error adding owner access record:", accessError);
+        }
         // We don't throw here since the space was created successfully
         // and the database trigger should have added the access record
       }
       
       // Cache the newly created space in localStorage for future redirects
       try {
-        console.log('🚀 Caching newly created space:', newSpace.subdomain, newSpace.id);
+        devLogger.log('SpaceManagement', '🚀 Caching newly created space:', newSpace.subdomain, newSpace.id);
         
         // First clear any stale cached spaces to prevent confusion
-        localStorage.removeItem('lastVisitedSpace');
+        // Clear any outdated selections that might cause confusion
         localStorage.removeItem('selectedSpaceId');
-        localStorage.removeItem('lastCreatedSpace');
         
-        // Store as lastVisitedSpace
-        const lastVisitedSpace: SpaceRedirectData = {
-          subdomain: newSpace.subdomain,
+        // Store complete space data for redirection
+        const lastVisitedSpace = {
           id: newSpace.id,
-          name: newSpace.name
+          name: newSpace.name,
+          subdomain: newSpace.subdomain,
+          isOwner: true,
+          lastVisited: new Date().toISOString()
         };
         localStorage.setItem('lastVisitedSpace', JSON.stringify(lastVisitedSpace));
-        console.log('✅ lastVisitedSpace cached:', lastVisitedSpace);
+        devLogger.log('SpaceManagement', '✅ lastVisitedSpace cached:', lastVisitedSpace);
         
         // Also store as selectedSpaceId for components that use that
         localStorage.setItem('selectedSpaceId', newSpace.id);
-        console.log('✅ selectedSpaceId cached:', newSpace.id);
+        devLogger.log('SpaceManagement', '✅ selectedSpaceId cached:', newSpace.id);
         
         // Store additional identifying data as lastCreatedSpace (highest priority for redirects)
-        const lastCreatedSpace: SpaceRedirectData = {
+        const lastCreatedSpace = {
           id: newSpace.id,
           subdomain: newSpace.subdomain,
-          created_at: new Date().toISOString(),
-          owner_id: user.id,
-          name: newSpace.name
+          name: newSpace.name,
+          created_at: new Date().toISOString()
         };
         localStorage.setItem('lastCreatedSpace', JSON.stringify(lastCreatedSpace));
-        console.log('✅ lastCreatedSpace cached:', lastCreatedSpace);
+        devLogger.log('SpaceManagement', '✅ lastCreatedSpace cached:', lastCreatedSpace);
         
         // Verify the cache worked
         const verifyCachedSpace = localStorage.getItem('lastCreatedSpace');
-        console.log('✅ Cache verification:', verifyCachedSpace ? 'Space successfully cached' : 'Cache failed');
+        devLogger.log('SpaceManagement', '✅ Cache verification:', verifyCachedSpace ? 'Space successfully cached' : 'Cache failed');
       } catch (cacheError) {
-        console.error('⚠️ Failed to cache space in localStorage:', cacheError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('⚠️ Failed to cache space in localStorage:', cacheError);
+        }
         // Continue even if caching fails
       }
       
-      toast({
-        title: "Space created!",
-        description: "Your space has been successfully created.",
-      });
-      
       // Navigate to the new space with a small delay to ensure data is saved
-      console.log('➡️ Navigating to newly created space:', newSpace.subdomain);
+      devLogger.log('SpaceManagement', '➡️ Navigating to newly created space:', newSpace.subdomain);
       
       // Try the enhanced redirectToSpace utility
       try {
-        console.log('🔀 Attempting space redirection with enhanced utility...');
+        devLogger.log('SpaceManagement', '🔀 Attempting space redirection with enhanced utility...');
         const { redirectToSpace } = await import("@/utils/spaceRedirect");
         
-        // Use React Router navigation
+        // Use a brief delay to allow the database transaction to complete
         setTimeout(async () => {
           const redirected = await redirectToSpace(navigate, true);
           if (!redirected) {
-            console.log('⚠️ Direct redirection failed, using hard navigation to space');
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ Direct redirection failed, using hard navigation to space');
+            }
             navigate(`/space/${newSpace.subdomain}`, { replace: true });
           }
         }, 300);
       } catch (redirectError) {
-        console.error('⚠️ Error using redirectToSpace utility:', redirectError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('⚠️ Error using redirectToSpace utility:', redirectError);
+        }
         
         // Fallback to direct navigation
         setTimeout(() => {
-          console.log('➡️ Falling back to direct navigation to:', newSpace.subdomain);
+          devLogger.log('SpaceManagement', '➡️ Falling back to direct navigation to:', newSpace.subdomain);
           navigate(`/space/${newSpace.subdomain}`, { replace: true });
         }, 300);
       }
       
     } catch (error: unknown) {
-      console.error("Error creating space:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("Error creating space:", error);
+      }
       const message = error instanceof Error ? error.message : String(error);
       toast({
         title: "Error creating space",
-        description: message || "Something went wrong. Please try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {

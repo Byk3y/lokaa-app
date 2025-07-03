@@ -10,6 +10,7 @@
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { PostCardProps } from '@/features/posts/types/postCard';
 import type { Attachment } from '@/features/posts/types/postTypes';
+import { devLogger } from '@/utils/developmentLogger';
 
 export interface PostFetchOptions {
   timeout?: number;
@@ -76,7 +77,7 @@ export class PostService {
         }, timeout);
 
         try {
-          console.log(`[PostService] Attempt ${retryCount + 1}: Fetching post ${slug}...`);
+          devLogger.log('PostService', `Attempt ${retryCount + 1}: Fetching post ${slug}...`);
           
           // Step 1: Fetch the post (simple query, no relationships)
           let postData: any = null;
@@ -96,7 +97,9 @@ export class PostService {
           clearTimeout(timeoutId);
 
           if (postError || !postDataBySlug) {
-            console.log(`[PostService] Slug fetch failed: ${postError?.message}, trying ID fallback...`);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(`[PostService] Slug fetch failed: ${postError?.message}, trying ID fallback...`);
+            }
             
             // Try to fetch by ID as fallback for legacy URLs
             const { data: legacyPost, error: legacyError } = await getSupabaseClient()
@@ -114,11 +117,11 @@ export class PostService {
               throw new Error(`Post not found: ${postError?.message || legacyError?.message || 'Unknown error'}`);
             }
             
-            console.log(`[PostService] Found post by ID: ${legacyPost.id}`);
+            devLogger.log('PostService', `Found post by ID: ${legacyPost.id}`);
             postData = legacyPost;
             fetchSource = 'id';
           } else {
-            console.log(`[PostService] Found post by slug: ${postDataBySlug.id}`);
+            devLogger.log('PostService', `Found post by slug: ${postDataBySlug.id}`);
             postData = postDataBySlug;
             fetchSource = 'slug';
           }
@@ -137,7 +140,7 @@ export class PostService {
           };
 
           if (postData.user_id) {
-            console.log(`[PostService] Fetching user data for: ${postData.user_id}`);
+            devLogger.log('PostService', `Fetching user data for: ${postData.user_id}`);
             const { data: userData, error: userError } = await getSupabaseClient()
               .from('users')
               .select('id, full_name, avatar_url, profile_url, activity_score')
@@ -152,16 +155,18 @@ export class PostService {
                 profile_url: userData.profile_url,
                 activity_score: userData.activity_score || 0,
               };
-              console.log(`[PostService] Found author: ${author.name}`);
+              devLogger.log('PostService', `Found author: ${author.name}`);
             } else {
-              console.warn(`[PostService] User fetch failed: ${userError?.message}`);
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`[PostService] User fetch failed: ${userError?.message}`);
+              }
             }
           }
 
           // Step 3: Fetch category data separately (reliable)
           let category = null;
           if (postData.category_id) {
-            console.log(`[PostService] Fetching category data for: ${postData.category_id}`);
+            devLogger.log('PostService', `Fetching category data for: ${postData.category_id}`);
             const { data: categoryData, error: categoryError } = await getSupabaseClient()
               .from('space_categories')
               .select('id, name, icon')
@@ -174,9 +179,11 @@ export class PostService {
                 name: categoryData.name,
                 icon: categoryData.icon
               };
-              console.log(`[PostService] Found category: ${category.name}`);
+              devLogger.log('PostService', `Found category: ${category.name}`);
             } else {
-              console.warn(`[PostService] Category fetch failed: ${categoryError?.message}`);
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`[PostService] Category fetch failed: ${categoryError?.message}`);
+              }
             }
           }
 
@@ -209,7 +216,7 @@ export class PostService {
             slug: postData.slug,
           };
 
-          console.log(`[PostService] Successfully fetched post: ${mappedPost.title || mappedPost.id}`);
+          devLogger.log('PostService', `Successfully fetched post: ${mappedPost.title || mappedPost.id}`);
           return { 
             data: mappedPost, 
             error: null, 
@@ -226,7 +233,9 @@ export class PostService {
             error.message.includes('Post not found') ||
             error.name === 'AbortError'
           )) {
-            console.log(`[PostService] Non-retryable error: ${error.message}`);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(`[PostService] Non-retryable error: ${error.message}`);
+            }
             throw error;
           }
 
@@ -237,7 +246,9 @@ export class PostService {
             error.message.includes('relationship') ||
             error.message.includes('schema cache')
           )) {
-            console.warn(`[PostService] 400/relationship error on attempt ${retryCount + 1}, not retrying:`, error.message);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(`[PostService] 400/relationship error on attempt ${retryCount + 1}, not retrying:`, error.message);
+            }
             throw error;
           }
           
@@ -247,12 +258,16 @@ export class PostService {
           }
           
           const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s
-          console.warn(`[PostService] Attempt ${retryCount} failed, retrying in ${delay}ms:`, error.message);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`[PostService] Attempt ${retryCount} failed, retrying in ${delay}ms:`, error.message);
+          }
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       } catch (error) {
         if (retryCount >= maxRetries) {
-          console.error('[PostService] Error fetching post after retries:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[PostService] Error fetching post after retries:', error);
+          }
           return { 
             data: null, 
             error: error instanceof Error ? error.message : 'Failed to fetch post' 

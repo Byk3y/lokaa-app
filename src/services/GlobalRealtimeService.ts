@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { devLogger } from '@/utils/developmentLogger';
 
 interface SubscriptionData {
   channel: RealtimeChannel;
@@ -33,7 +34,7 @@ class GlobalRealtimeService {
       (window as any).globalRealtimeService = this;
     }
 
-    console.log('🔔 [GlobalRealtimeService] Initialized');
+    devLogger.startup('RealtimeService', 'Initialized');
   }
 
   /**
@@ -50,7 +51,7 @@ class GlobalRealtimeService {
     } = {}
   ): string {
     if (!this.isEnabled || !spaceId || !table) {
-      console.warn('[GlobalRealtimeService] Invalid subscription parameters');
+      devLogger.warn('RealtimeService', 'Invalid subscription parameters');
       return '';
     }
 
@@ -62,7 +63,7 @@ class GlobalRealtimeService {
 
     if (!subscription) {
       // Create new subscription
-      console.log(`🔔 [GlobalRealtime] Creating new subscription: ${key}`);
+      devLogger.log('RealtimeService', `Creating new subscription: ${key}`);
       
       const channel = this.createChannel(spaceId, table, event, filter);
       
@@ -78,7 +79,7 @@ class GlobalRealtimeService {
       this.subscriptions.set(key, subscription);
     } else {
       // Reuse existing subscription
-      console.log(`🔔 [GlobalRealtime] Reusing subscription: ${key} (refs: ${subscription.refCount + 1})`);
+      devLogger.log('RealtimeService', `Reusing subscription: ${key} (refs: ${subscription.refCount + 1})`);
       
       subscription.callbacks.add(callback);
       subscription.refCount++;
@@ -99,14 +100,14 @@ class GlobalRealtimeService {
       if (subscriptionId.startsWith(key)) {
         subscription.refCount--;
         
-        console.log(`🔔 [GlobalRealtime] Unsubscribing: ${key} (refs: ${subscription.refCount})`);
+        devLogger.log('RealtimeService', `Unsubscribing: ${key} (refs: ${subscription.refCount})`);
         
         if (subscription.refCount <= 0) {
           // Don't immediately cleanup - add grace period to prevent churn
           setTimeout(() => {
             const currentSubscription = this.subscriptions.get(key);
             if (currentSubscription && currentSubscription.refCount <= 0) {
-              console.log(`🔔 [GlobalRealtime] Cleaning up subscription: ${key}`);
+              devLogger.log('RealtimeService', `Cleaning up subscription: ${key}`);
               currentSubscription.channel.unsubscribe();
               this.subscriptions.delete(key);
             }
@@ -151,7 +152,9 @@ class GlobalRealtimeService {
               try {
                 callback(payload);
               } catch (error) {
-                console.error('[GlobalRealtime] Callback error:', error);
+                if (process.env.NODE_ENV === 'development') {
+                  console.error('[GlobalRealtime] Callback error:', error);
+                }
               }
             });
           }
@@ -159,7 +162,7 @@ class GlobalRealtimeService {
       )
       .subscribe((status) => {
         const key = `${spaceId}:${table}:${filter || 'all'}:${event}`;
-        console.log(`🔔 [GlobalRealtime] Channel status for ${key}: ${status}`);
+        devLogger.log('RealtimeService', `Channel status for ${key}: ${status}`);
       });
 
     return channel;
@@ -178,7 +181,7 @@ class GlobalRealtimeService {
       const hasNoRefs = subscription.refCount <= 0;
       
       if (isStale && hasNoRefs) {
-        console.log(`🔔 [GlobalRealtime] Cleaning up stale subscription: ${key}`);
+        devLogger.log('RealtimeService', `Cleaning up stale subscription: ${key}`);
         subscription.channel.unsubscribe();
         this.subscriptions.delete(key);
         cleanedCount++;
@@ -186,7 +189,7 @@ class GlobalRealtimeService {
     }
 
     if (cleanedCount > 0) {
-      console.log(`🔔 [GlobalRealtime] Cleaned up ${cleanedCount} stale subscriptions`);
+      devLogger.log('RealtimeService', `Cleaned up ${cleanedCount} stale subscriptions`);
     }
   }
 
@@ -220,9 +223,9 @@ class GlobalRealtimeService {
    * Debug method to list all active subscriptions
    */
   listSubscriptions() {
-    console.log('🔔 [GlobalRealtime] Active subscriptions:');
+    devLogger.log('RealtimeService', 'Active subscriptions:');
     for (const [key, subscription] of this.subscriptions.entries()) {
-      console.log(`  ${key}: ${subscription.refCount} refs, last used ${new Date(subscription.lastUsed).toLocaleTimeString()}`);
+      devLogger.log('RealtimeService', `  ${key}: ${subscription.refCount} refs, last used ${new Date(subscription.lastUsed).toLocaleTimeString()}`);
     }
   }
 
@@ -231,7 +234,7 @@ class GlobalRealtimeService {
    */
   disable() {
     this.isEnabled = false;
-    console.log('🔔 [GlobalRealtime] Service disabled');
+    devLogger.log('RealtimeService', 'Service disabled');
   }
 
   /**
@@ -239,14 +242,14 @@ class GlobalRealtimeService {
    */
   enable() {
     this.isEnabled = true;
-    console.log('🔔 [GlobalRealtime] Service enabled');
+    devLogger.log('RealtimeService', 'Service enabled');
   }
 
   /**
    * Cleanup all subscriptions (for shutdown)
    */
   destroy() {
-    console.log('🔔 [GlobalRealtime] Destroying all subscriptions');
+    devLogger.log('RealtimeService', 'Destroying all subscriptions');
     
     for (const [key, subscription] of this.subscriptions.entries()) {
       subscription.channel.unsubscribe();
@@ -263,7 +266,7 @@ class GlobalRealtimeService {
    * Reconnect all active subscriptions (for session refresh recovery)
    */
   reconnectAll() {
-    console.log('🔔 [GlobalRealtime] Reconnecting all subscriptions after session refresh');
+    devLogger.log('RealtimeService', 'Reconnecting all subscriptions after session refresh');
     
     const existingSubscriptions = Array.from(this.subscriptions.entries());
     
@@ -275,7 +278,7 @@ class GlobalRealtimeService {
     
     // Recreate subscriptions
     for (const [key, subscription] of existingSubscriptions) {
-      console.log(`🔔 [GlobalRealtime] Recreating subscription: ${key}`);
+      devLogger.log('RealtimeService', `Recreating subscription: ${key}`);
       
       const newChannel = this.createChannel(
         subscription.spaceId,
@@ -296,7 +299,7 @@ class GlobalRealtimeService {
       this.subscriptions.set(key, newSubscription);
     }
     
-    console.log(`🔔 [GlobalRealtime] Reconnected ${existingSubscriptions.length} subscriptions`);
+    devLogger.log('RealtimeService', `Reconnected ${existingSubscriptions.length} subscriptions`);
   }
 }
 

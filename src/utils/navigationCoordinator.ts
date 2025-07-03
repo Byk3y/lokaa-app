@@ -6,6 +6,7 @@
  */
 
 import { NavigateFunction } from 'react-router-dom';
+import { devLogger } from './developmentLogger';
 
 interface NavigationRequest {
   to: string;
@@ -57,7 +58,7 @@ class NavigationCoordinator {
    */
   initialize(navigateFunction: NavigateFunction): void {
     this.navigate = navigateFunction;
-    console.log('🚀 [NavigationCoordinator] Initialized with navigate function');
+    devLogger.startup('Navigation', 'Initialized with navigate function');
   }
 
   /**
@@ -74,25 +75,25 @@ class NavigationCoordinator {
     
     // 🔥 [AUTH FIX] Special handling for auth routes to prevent loops
     if (from === '/login' && to === '/' && source.includes('unauth-redirect')) {
-      console.log('🚫 [NavigationCoordinator] Blocked auth route loop:', navigationKey, 'from', source);
+      devLogger.log('Navigation', 'Blocked auth route loop:', navigationKey, 'from', source);
       return false;
     }
     
     // Check if we recently processed this exact navigation
     const lastNavigation = this.recentNavigations.get(navigationKey);
     if (lastNavigation && (now - lastNavigation) < this.duplicateThreshold) {
-      console.log('🚫 [NavigationCoordinator] Blocked duplicate navigation:', navigationKey, 'from', source);
+      devLogger.log('Navigation', 'Blocked duplicate navigation:', navigationKey, 'from', source);
       return false;
     }
     
     // Check if we're currently navigating
     if (this.state.activeNavigation === to) {
-      console.log('🚫 [NavigationCoordinator] Navigation to', to, 'already in progress, blocking duplicate from', source);
+      devLogger.log('Navigation', 'Navigation to', to, 'already in progress, blocking duplicate from', source);
       return false;
     }
     
     // Execute the navigation
-    console.log('🚀 [NavigationCoordinator] Executing navigation:', navigationKey, `(${source})`);
+    devLogger.log('Navigation', 'Executing navigation:', navigationKey, `(${source})`);
     this.state.activeNavigation = to;
     this.state.lastNavigation = {
       to,
@@ -114,17 +115,19 @@ class NavigationCoordinator {
         // Clear active navigation after a delay
         setTimeout(() => {
           this.state.activeNavigation = null;
-          console.log('✅ [NavigationCoordinator] Navigation completed:', to);
+          devLogger.log('Navigation', 'Navigation completed:', to);
         }, 100);
         
         return true;
       } else {
-        console.error('🚫 [NavigationCoordinator] Navigate function not initialized - falling back to window.location');
+        if (process.env.NODE_ENV === 'development') {
+          console.error('🚫 [NavigationCoordinator] Navigate function not initialized - falling back to window.location');
+        }
         this.state.activeNavigation = null;
         
         // Fallback to window.location for critical navigation
         if (typeof window !== 'undefined') {
-          console.log('🔄 [NavigationCoordinator] Using window.location fallback for:', to);
+          devLogger.log('Navigation', 'Using window.location fallback for:', to);
           window.location.href = to;
           return true;
         }
@@ -132,7 +135,9 @@ class NavigationCoordinator {
         return false;
       }
     } catch (error) {
-      console.error('🚫 [NavigationCoordinator] Navigation error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('🚫 [NavigationCoordinator] Navigation error:', error);
+      }
       this.state.activeNavigation = null;
       return false;
     }
@@ -149,7 +154,7 @@ class NavigationCoordinator {
       blockedNavigations: []
     };
     this.recentNavigations.clear();
-    console.log('🧹 [NavigationCoordinator] State cleared');
+    devLogger.log('Navigation', 'State cleared');
   }
 
   /**
@@ -164,7 +169,7 @@ class NavigationCoordinator {
    */
   forceAllowNext(): void {
     this.state.activeNavigation = null;
-    console.log('🔓 [NavigationCoordinator] Next navigation will be allowed');
+    devLogger.log('Navigation', 'Next navigation will be allowed');
   }
 }
 
@@ -183,7 +188,7 @@ export const useNavigationCoordinator = () => {
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).debugNavigation = () => {
     const state = navigationCoordinator.getState();
-    console.log('🔍 [NavigationCoordinator] Debug State:', {
+    devLogger.log('Navigation', 'Debug State:', {
       activeNavigation: state.activeNavigation,
       lastNavigation: state.lastNavigation,
       pendingCount: state.pendingNavigations.length,

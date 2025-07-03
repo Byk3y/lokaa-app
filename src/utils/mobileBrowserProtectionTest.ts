@@ -23,7 +23,17 @@ class MobileBrowserProtectionTest {
    * Run all protection tests
    */
   async runAllTests(): Promise<TestResult[]> {
-    console.log('🧪 [MobileProtectionTest] Starting comprehensive mobile browser protection tests...');
+    // Check if we're on desktop - only enable on mobile
+    if (!isMobile) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🖥️ [MobileProtectionTest] Desktop detected - mobile protection test suite disabled');
+      }
+      return;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🧪 [MobileProtectionTest] Starting comprehensive mobile browser protection tests...');
+    }
     
     this.results = [];
     
@@ -300,32 +310,34 @@ class MobileBrowserProtectionTest {
     const passedTests = this.results.filter(r => r.success).length;
     const failedTests = totalTests - passedTests;
     
-    console.log('\n🧪 [MobileProtectionTest] TEST SUMMARY');
-    console.log('============================================');
-    console.log(`✅ Passed: ${passedTests}/${totalTests}`);
-    console.log(`❌ Failed: ${failedTests}/${totalTests}`);
-    console.log(`📊 Success Rate: ${Math.round((passedTests / totalTests) * 100)}%`);
-    
-    if (failedTests > 0) {
-      console.log('\n❌ Failed Tests:');
-      this.results.filter(r => !r.success).forEach(result => {
-        console.log(`   - ${result.name}: ${result.errors?.join(', ') || 'Unknown error'}`);
-      });
-    }
-    
-    console.log('\n📋 Detailed Results:');
-    this.results.forEach(result => {
-      const status = result.success ? '✅' : '❌';
-      console.log(`   ${status} ${result.name} (${result.duration}ms)`);
-      if (result.details && typeof result.details === 'object') {
-        console.log(`      Details:`, result.details);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('\n🧪 [MobileProtectionTest] TEST SUMMARY');
+      console.log('============================================');
+      console.log(`✅ Passed: ${passedTests}/${totalTests}`);
+      console.log(`❌ Failed: ${failedTests}/${totalTests}`);
+      console.log(`📊 Success Rate: ${Math.round((passedTests / totalTests) * 100)}%`);
+      
+      if (failedTests > 0) {
+        console.log('\n❌ Failed Tests:');
+        this.results.filter(r => !r.success).forEach(result => {
+          console.log(`   - ${result.name}: ${result.errors?.join(', ') || 'Unknown error'}`);
+        });
       }
-    });
-    
-    console.log('\n🔧 Available Commands:');
-    console.log('   - window.mobileBrowserProtectionTest.runAllTests()');
-    console.log('   - window.debugSupabaseBridge.getMetrics()');
-    console.log('   - window.debugSupabaseBridge.testMobileBlocking()');
+      
+      console.log('\n📋 Detailed Results:');
+      this.results.forEach(result => {
+        const status = result.success ? '✅' : '❌';
+        console.log(`   ${status} ${result.name} (${result.duration}ms)`);
+        if (result.details && typeof result.details === 'object') {
+          console.log(`      Details:`, result.details);
+        }
+      });
+      
+      console.log('\n🔧 Available Commands:');
+      console.log('   - window.mobileBrowserProtectionTest.runAllTests()');
+      console.log('   - window.debugSupabaseBridge.getMetrics()');
+      console.log('   - window.debugSupabaseBridge.testMobileBlocking()');
+    }
   }
 
   /**
@@ -367,12 +379,16 @@ if (typeof window !== 'undefined') {
       getSummary: () => mobileBrowserProtectionTest.getSummary()
     };
     
-    console.log('🔧 [MobileProtectionTest] Test suite loaded. Available commands:');
-    console.log('  - window.mobileBrowserProtectionTest.runAllTests() - Run all protection tests');
-    console.log('  - window.mobileBrowserProtectionTest.getResults() - Get detailed test results');
-    console.log('  - window.mobileBrowserProtectionTest.getSummary() - Get test summary stats');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 [MobileProtectionTest] Test suite loaded. Available commands:');
+      console.log('  - window.mobileBrowserProtectionTest.runAllTests() - Run all protection tests');
+      console.log('  - window.mobileBrowserProtectionTest.getResults() - Get detailed test results');
+      console.log('  - window.mobileBrowserProtectionTest.getSummary() - Get test summary stats');
+    }
   } else {
-    console.log('🖥️ [MobileProtectionTest] Desktop detected - mobile protection test suite disabled');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🖥️ [MobileProtectionTest] Desktop detected - mobile protection test suite disabled');
+    }
   }
 }
 

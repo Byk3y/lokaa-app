@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { type SpaceTab } from "@/utils/tabUtils";
 import { getSpaceFallbackData } from '@/utils/spaceDataFallback';
 import { globalTabComponentManager } from "@/utils/globalTabComponentManager";
+import { devLogger } from '@/utils/developmentLogger';
 
 // Import all tab components
 import AboutTab from "@/components/space/AboutTab";
@@ -62,7 +63,7 @@ export class TabManagerService {
     const effectiveSpaceData = spaceData || getSpaceFallbackData(subdomain);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 [TabManagerService] Creating NEW ${tabKey} component for ${subdomain}`);
+      devLogger.log('TabManager', `Creating NEW ${tabKey} component for ${subdomain}`);
     }
 
     let component: JSX.Element | null = null;
@@ -152,7 +153,7 @@ export class TabManagerService {
       );
       
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🌐 [TabManagerService] Stored ${tabKey} component globally`);
+        devLogger.log('TabManager', `Stored ${tabKey} component globally`);
       }
     }
 
