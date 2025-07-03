@@ -7,6 +7,8 @@
 
 import { FileValidationService, validateImageDimensionsInternal } from '@/services/FileValidationService';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { chatApiService } from '@/features/chat/services/ChatApiService';
+import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 
 // Mock SupabaseIndexedDBBridge for development testing
 class DevSupabaseIndexedDBBridge {
@@ -225,6 +227,22 @@ export async function exposeForConsole() {
     // File validation helpers
     fileValidation: getFileValidationHelpers(),
     
+    // Chat services for adapter testing
+    chat: {
+      apiService: chatApiService,
+      migrationAdapter,
+      testUserConversations: async (userId = 'test-user') => {
+        try {
+          const result = await chatApiService.getUserConversations(userId);
+          console.log('[ChatTest] getUserConversations result:', result);
+          return result;
+        } catch (error) {
+          console.error('[ChatTest] Error:', error);
+          return { error: error.message };
+        }
+      }
+    },
+    
     // Supabase mock info
     supabase: {
       client: getSupabaseClient(),
@@ -310,12 +328,19 @@ export async function exposeForConsole() {
     }
   };
 
+  // Also expose individual services for direct testing access
+  (window as any).chatApiService = chatApiService;
+  (window as any).migrationAdapter = migrationAdapter;
+
   if (process.env.NODE_ENV === 'development') {
     console.log('🛠️ [DevTools] Console helpers exposed to window.lokaaTest');
     console.log('📖 Available commands:');
     console.log('  window.lokaaTest.bridge - SupabaseIndexedDBBridge instance');
     console.log('  window.lokaaTest.fileValidation - File validation helpers');
+    console.log('  window.lokaaTest.chat - Chat services and testing');
     console.log('  window.lokaaTest.supabase - Supabase client and mock info');
     console.log('  window.lokaaTest.utils - Environment and utility functions');
+    console.log('  window.chatApiService - Direct ChatApiService access');
+    console.log('  window.migrationAdapter - Direct MigrationAdapter access');
   }
 } 

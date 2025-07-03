@@ -14,8 +14,8 @@
 
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { getProtectedCurrentUser } from '@/utils/protectedAuth';
-import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 import { generateConversationSlug, findConversationIdFromSlug } from '@/utils/conversationUrlUtils';
+import { chatApiServiceAdapter } from './ChatApiServiceAdapter';
 
 /**
  * Message interface
@@ -82,7 +82,7 @@ interface ApiResponse<T> {
  */
 export class ChatApiService {
   /**
-   * Get user conversations with mobile browser protection
+   * Get user conversations with mobile browser protection via V2 adapter
    * 
    * @param userId User ID to fetch conversations for
    * @param options Optional parameters
@@ -93,20 +93,62 @@ export class ChatApiService {
     options: { forceNetwork?: boolean } = {}
   ): Promise<ApiResponse<Conversation[]>> {
     try {
-      console.log('[ChatApiService] 📱 Using migration adapter for user:', userId);
+      console.log('[ChatApiService] 📱 Using V2 adapter for user:', userId);
       
-      // Use migrationAdapter for mobile browser protection and caching
-      const result = await migrationAdapter.getUserConversations(userId, {
+      // Use the adapter to get data through V2 system with proper format transformation
+      const result = await chatApiServiceAdapter.getUserConversations(userId, {
         forceNetwork: options.forceNetwork
       });
         
       if (result.error) {
-        console.error('[ChatApiService] Migration adapter error:', result.error);
+        console.error('[ChatApiService] V2 adapter error:', result.error);
         throw result.error;
       }
       
-      console.log('[ChatApiService] Data received from migration adapter:', result.data?.length || 0, 'conversations');
+      console.log('[ChatApiService] Data received from V2 adapter:', result.data?.length || 0, 'conversations');
       console.log('[ChatApiService] Source:', result.fromCache ? 'cache' : 'network', result.reason ? `(${result.reason})` : '');
+      
+      const transformedData: Conversation[] = (result.data || []).map((record: any) => 
+        this.transformConversationRecord(record)
+      );
+      
+      console.log('[ChatApiService] Transformed data:', transformedData.length, 'conversations');
+      
+      return { data: transformedData, error: null };
+      
+    } catch (error) {
+      console.error('[ChatApiService] Error fetching conversations via V2:', error);
+      return { 
+        data: null, 
+        error: error instanceof Error ? error : new Error('Failed to fetch conversations')
+      };
+    }
+  }
+
+  /**
+   * Legacy method for direct database access (for testing/fallback)
+   * 
+   * @param userId User ID to fetch conversations for
+   * @returns Promise with conversations data
+   */
+  async getUserConversationsLegacy(
+    userId: string
+  ): Promise<ApiResponse<Conversation[]>> {
+    try {
+      console.log('[ChatApiService] 🖥️ Direct network call for user:', userId);
+      
+      const result = await getSupabaseClient()
+        .from('user_conversations')
+        .select('*')
+        .eq('user_id', userId)
+        .order('last_message_at', { ascending: false });
+        
+      if (result.error) {
+        console.error('[ChatApiService] Database error:', result.error);
+        throw result.error;
+      }
+      
+      console.log('[ChatApiService] Raw data received:', result.data?.length || 0, 'conversations');
       
       const transformedData: Conversation[] = (result.data || []).map((record: any) => 
         this.transformConversationRecord(record)
@@ -416,16 +458,7 @@ export class ChatApiService {
    */
   async getCurrentUser() {
     try {
-      // Use migrationAdapter for mobile browser protection and caching
-      const userResponse = await migrationAdapter.getCurrentUser();
-      
-      if (userResponse.error) {
-        console.error('[ChatApiService] Migration adapter error for current user:', userResponse.error);
-        // Fallback to protected auth if migration adapter fails
-        const fallbackResponse = await getProtectedCurrentUser();
-        return fallbackResponse?.data?.user || null;
-      }
-      
+      const userResponse = await getProtectedCurrentUser();
       return userResponse?.data?.user || null;
     } catch (error) {
       console.error('[ChatApiService] Error getting current user:', error);
