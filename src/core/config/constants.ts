@@ -20,20 +20,6 @@ export const API = {
 };
 
 /**
- * Authentication constants
- */
-export const AUTH = {
-  /** Local storage key for auth token */
-  TOKEN_KEY: 'lokaa_auth_token',
-  
-  /** Token expiration time in milliseconds */
-  TOKEN_EXPIRY: 24 * 60 * 60 * 1000, // 24 hours
-  
-  /** Refresh token threshold in milliseconds */
-  REFRESH_THRESHOLD: 30 * 60 * 1000, // 30 minutes
-};
-
-/**
  * UI constants
  */
 export const UI = {
