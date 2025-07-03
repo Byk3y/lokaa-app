@@ -8,6 +8,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { CACHE_KEYS, CACHE_TTL } from '@/utils/cacheKeys';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { isValidUUID } from '@/utils/uuid';
 
 // Types
 interface CommentCacheEntry {
@@ -257,8 +258,7 @@ class CommentCacheManager {
    */
   private async fetchCommentAvatars(postId: string, maxCommenters: number) {
     // 🛡️ VALIDATION: Check for valid UUID format to prevent 400 errors
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(postId)) {
+    if (!isValidUUID(postId)) {
       console.log(`📭 [CommentCache] Skipping invalid post ID: ${postId}`);
       return [];
     }
@@ -314,8 +314,7 @@ class CommentCacheManager {
    */
   private async fetchComments(postId: string, pageParam: number) {
     // 🛡️ VALIDATION: Check for valid UUID format to prevent 400 errors
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(postId)) {
+    if (!isValidUUID(postId)) {
       console.log(`📭 [CommentCache] Skipping invalid post ID: ${postId}`);
       return {
         comments: [],

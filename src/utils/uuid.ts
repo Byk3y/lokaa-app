@@ -18,4 +18,38 @@ export function generateUUID(): string {
  */
 export function generateShortUUID(): string {
   return Math.random().toString(36).substring(2, 10);
+}
+
+/**
+ * 🔥 CENTRALIZED: UUID validation with consistent error handling
+ * Replaces duplicate regex patterns across the codebase
+ */
+export function isValidUUID(value: string): boolean {
+  if (!value || typeof value !== 'string') {
+    return false;
+  }
+  
+  // RFC 4122 compliant UUID regex pattern
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
+/**
+ * 🔥 CENTRALIZED: UUID validation with detailed error information
+ * Provides structured validation results for better error handling
+ */
+export function validateUUID(value: string): { isValid: boolean; error?: string } {
+  if (!value) {
+    return { isValid: false, error: 'UUID cannot be empty' };
+  }
+  
+  if (typeof value !== 'string') {
+    return { isValid: false, error: 'UUID must be a string' };
+  }
+  
+  if (!isValidUUID(value)) {
+    return { isValid: false, error: 'Invalid UUID format' };
+  }
+  
+  return { isValid: true };
 } 
