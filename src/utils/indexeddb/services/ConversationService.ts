@@ -46,27 +46,33 @@ export interface ChatMessage {
   attachments?: any[];
 }
 
+// CORRECTED: Interface that matches the actual user_conversations view structure
 export interface UserConversation {
+  user_id: string;
   conversation_id: string;
+  conversation_name?: string | null;
+  is_group: boolean;
+  created_at: string;
+  last_message_at?: string | null;
+  latest_message_content?: string | null;
+  latest_message_time?: string | null;
+  latest_message_sender?: string | null;
+  unread_count: number;
+  other_participants: Array<{
+    user_id: string;
+    is_admin: boolean;
+    full_name: string | null;
+    joined_at: string;
+    avatar_url: string | null;
+    last_read_at?: string | null;
+  }>;
+}
+
+// Helper interface for backward compatibility with ChatApiService
+export interface ProcessedUserConversation extends UserConversation {
   conversation_type: 'direct' | 'group';
-  conversation_title?: string;
-  conversation_created_at: string;
-  conversation_updated_at: string;
-  conversation_space_id?: string;
-  conversation_created_by: string;
-  conversation_is_active: boolean;
-  conversation_last_message_at?: string;
-  participant_id: string;
-  participant_user_id: string;
-  participant_joined_at: string;
-  participant_role: 'member' | 'admin';
-  participant_is_active: boolean;
-  participant_last_read_at?: string;
-  last_message_id?: string;
-  last_message_content?: string;
-  last_message_user_id?: string;
-  last_message_created_at?: string;
-  last_message_type?: string;
+  conversation_title?: string | null;
+  participant_user_id?: string | null;
 }
 
 export interface ConversationOptions {
@@ -98,7 +104,7 @@ export class ConversationService {
   async getUserConversations(
     userId: string,
     options: ConversationOptions = {}
-  ): Promise<SupabaseBridgeResult<UserConversation[]>> {
+  ): Promise<SupabaseBridgeResult<ProcessedUserConversation[]>> {
     this.metrics.totalRequests++;
     
     try {
@@ -109,9 +115,12 @@ export class ConversationService {
         throw networkResult.error;
       }
 
+      // Process the raw data to add computed fields for backward compatibility
+      const processedData = this.processUserConversations(networkResult.data || [], userId);
+
       this.metrics.cacheMisses++;
       return {
-        data: networkResult.data,
+        data: processedData,
         error: null,
         fromCache: false
       };
@@ -455,6 +464,37 @@ export class ConversationService {
     } catch (error) {
       return { data: null, error };
     }
+  }
+
+  /**
+   * Process raw UserConversation data to add computed fields
+   */
+  private processUserConversations(
+    conversations: UserConversation[], 
+    currentUserId: string
+  ): ProcessedUserConversation[] {
+    return conversations.map(conv => {
+      // Convert is_group to conversation_type
+      const conversation_type: 'direct' | 'group' = conv.is_group ? 'group' : 'direct';
+      
+      // Use conversation_name as conversation_title
+      const conversation_title = conv.conversation_name;
+      
+      // For direct conversations, find the other participant
+      let participant_user_id: string | null = null;
+      if (!conv.is_group && conv.other_participants && conv.other_participants.length > 0) {
+        // Find the participant who is NOT the current user
+        const otherParticipant = conv.other_participants.find(p => p.user_id !== currentUserId);
+        participant_user_id = otherParticipant?.user_id || null;
+      }
+
+      return {
+        ...conv,
+        conversation_type,
+        conversation_title,
+        participant_user_id
+      } as ProcessedUserConversation;
+    });
   }
 }
 

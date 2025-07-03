@@ -6,7 +6,7 @@
  */
 
 import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
-import type { UserConversation } from '@/utils/indexeddb/services/ConversationService';
+import type { ProcessedUserConversation } from '@/utils/indexeddb/services/ConversationService';
 
 // ChatApiService expected format (matches user_conversations view)
 export interface LegacyChatConversation {
@@ -20,7 +20,7 @@ export interface LegacyChatConversation {
   latest_message_time?: string | null;
   latest_message_sender?: string | null;
   unread_count: number;
-  other_participants?: Array<{
+  other_participants: Array<{
     user_id: string;
     full_name: string | null;
     avatar_url: string | null;
@@ -50,6 +50,7 @@ export class ChatApiServiceAdapter {
       });
 
       if (result.error) {
+        console.warn('[ChatApiServiceAdapter] V2 system error:', result.error.message);
         return {
           data: null,
           error: result.error,
@@ -59,7 +60,7 @@ export class ChatApiServiceAdapter {
       }
 
       // Transform V2 format to ChatApiService expected format
-      const transformedData = this.transformUserConversations(result.data || []);
+      const transformedData = this.transformUserConversations(result.data || [], userId);
 
       return {
         data: transformedData,
@@ -69,6 +70,7 @@ export class ChatApiServiceAdapter {
       };
 
     } catch (error) {
+      console.error('[ChatApiServiceAdapter] Adapter error:', error);
       return {
         data: null,
         error: error instanceof Error ? error : new Error(String(error)),
@@ -78,30 +80,72 @@ export class ChatApiServiceAdapter {
   }
 
   /**
-   * Transform V2 UserConversation format to ChatApiService expected format
+   * Transform V2 ProcessedUserConversation format to ChatApiService expected format
    */
-  private transformUserConversations(v2Conversations: UserConversation[]): LegacyChatConversation[] {
-    return v2Conversations.map(conv => this.transformSingleConversation(conv));
+  private transformUserConversations(
+    v2Conversations: ProcessedUserConversation[], 
+    currentUserId: string
+  ): LegacyChatConversation[] {
+    return v2Conversations.map(conv => this.transformSingleConversation(conv, currentUserId));
   }
 
   /**
    * Transform a single conversation from V2 format to legacy format
    */
-  private transformSingleConversation(v2Conv: UserConversation): LegacyChatConversation {
-    return {
-      // Map V2 fields to ChatApiService expected fields
-      user_id: v2Conv.participant_user_id,
+  private transformSingleConversation(
+    v2Conv: ProcessedUserConversation, 
+    currentUserId: string
+  ): LegacyChatConversation {
+    // Create participant data from other_participants field
+    const participants = this.createParticipantsFromConversation(v2Conv, currentUserId);
+    
+    // Calculate unread count (use the provided unread_count)
+    const unreadCount = v2Conv.unread_count || 0;
+    
+    const result: LegacyChatConversation = {
+      // Use the correct field names from ProcessedUserConversation
+      user_id: v2Conv.user_id,
       conversation_id: v2Conv.conversation_id,
-      conversation_name: v2Conv.conversation_title || null,
-      is_group: v2Conv.conversation_type === 'group',
-      created_at: v2Conv.conversation_created_at,
-      last_message_at: v2Conv.conversation_last_message_at || null,
-      latest_message_content: v2Conv.last_message_content || null,
-      latest_message_time: v2Conv.last_message_created_at || v2Conv.conversation_last_message_at || null,
-      latest_message_sender: v2Conv.last_message_user_id || null,
-      unread_count: 0, // TODO: Calculate from message data
-      other_participants: [] // TODO: Get from participant data
+      conversation_name: v2Conv.conversation_title, // ProcessedUserConversation.conversation_title → conversation_name
+      is_group: v2Conv.is_group,
+      created_at: v2Conv.created_at,
+      last_message_at: v2Conv.last_message_at,
+      latest_message_content: v2Conv.latest_message_content,
+      latest_message_time: v2Conv.latest_message_time,
+      latest_message_sender: v2Conv.latest_message_sender,
+      unread_count: unreadCount,
+      other_participants: participants
     };
+
+    return result;
+  }
+
+  /**
+   * Create participant data from other_participants field
+   */
+  private createParticipantsFromConversation(
+    v2Conv: ProcessedUserConversation, 
+    currentUserId: string
+  ): Array<{
+    user_id: string;
+    full_name: string | null;
+    avatar_url: string | null;
+  }> {
+    // Use the other_participants field directly from the database
+    if (v2Conv.other_participants && Array.isArray(v2Conv.other_participants)) {
+      return v2Conv.other_participants.map(participant => ({
+        user_id: participant.user_id,
+        full_name: participant.full_name,
+        avatar_url: participant.avatar_url
+      }));
+    }
+
+    // Log warning only if we expect participants but don't find them
+    if (!v2Conv.is_group) {
+      console.warn('[ChatApiServiceAdapter] No participants found for direct conversation:', v2Conv.conversation_id);
+    }
+
+    return [];
   }
 
   /**
