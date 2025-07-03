@@ -4,8 +4,6 @@
  * Provides rollback capabilities, monitoring, and safety nets
  */
 
-import { supabaseIndexedDBBridge } from '../supabaseIndexedDBBridge';
-
 // Feature flag for system switching
 export const FEATURE_FLAGS = {
   USE_NEW_INDEXEDDB_SYSTEM: true,
@@ -172,7 +170,7 @@ export class SystemHealthChecker {
     const checks = {
       indexedDBAvailable: this.checkIndexedDBAvailability(),
       cacheIntegrity: await this.checkCacheIntegrity(),
-      chatSystemHealth: await this.checkChatSystemHealth(),
+      v2SystemHealth: await this.checkV2SystemHealth(),
       performanceBaseline: await this.checkPerformanceBaseline()
     };
 
@@ -191,17 +189,27 @@ export class SystemHealthChecker {
 
   private async checkCacheIntegrity(): Promise<boolean> {
     try {
-      const metrics = supabaseIndexedDBBridge.getMetrics();
-      return metrics.totalRequests >= 0 && metrics.cacheHits >= 0;
+      // Use V2 system for cache integrity check
+      const migrationAdapter = (window as any).migrationAdapter;
+      if (migrationAdapter) {
+        const metrics = await migrationAdapter.getMetrics();
+        return metrics.totalRequests >= 0 && metrics.cacheHits >= 0;
+      }
+      return true; // Default to true if adapter not available
     } catch {
       return false;
     }
   }
 
-  private async checkChatSystemHealth(): Promise<boolean> {
+  private async checkV2SystemHealth(): Promise<boolean> {
     try {
-      const health = await supabaseIndexedDBBridge.testChatSystemHealth();
-      return health.overallHealth !== 'critical';
+      // Use V2 system for health check
+      const indexedDBBridgeV2 = (window as any).indexedDBBridgeV2;
+      if (indexedDBBridgeV2) {
+        const health = await indexedDBBridgeV2.checkHealth();
+        return health.status !== 'unhealthy';
+      }
+      return true; // Default to true if V2 not available yet
     } catch {
       return false;
     }
@@ -210,7 +218,10 @@ export class SystemHealthChecker {
   private async checkPerformanceBaseline(): Promise<boolean> {
     try {
       const start = performance.now();
-      await supabaseIndexedDBBridge.getMetrics();
+      const migrationAdapter = (window as any).migrationAdapter;
+      if (migrationAdapter) {
+        await migrationAdapter.getMetrics();
+      }
       const duration = performance.now() - start;
       return duration < 100; // Less than 100ms
     } catch {

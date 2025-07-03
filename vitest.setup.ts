@@ -339,11 +339,35 @@ global.HTMLVideoElement = class {
   readyState: number = 4;
 } as any;
 
-// Mock other common dependencies
-vi.mock('@/utils/supabaseIndexedDBBridge', () => ({
-  supabaseIndexedDBBridge: {
+// Mock V2 IndexedDB bridge system instead of legacy
+vi.mock('@/utils/indexeddb/migration/MigrationAdapter', () => ({
+  migrationAdapter: {
     getUserConversations: vi.fn(() => Promise.resolve({ data: [], error: null })),
+    getSpaceMembers: vi.fn(() => Promise.resolve({ data: [], error: null })),
+    getUserProfile: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    getCurrentUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
+    updateGlobalPresence: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    clearCache: vi.fn(() => Promise.resolve()),
+    getMetrics: vi.fn(() => ({ totalRequests: 0, cacheHits: 0, cacheMisses: 0 })),
+    getSystemStatus: vi.fn(() => Promise.resolve({ 
+      currentSystem: 'modern',
+      health: { status: 'healthy' },
+      services: { 
+        spaceMembersService: true,
+        userProfileService: true,
+        conversationService: true,
+        presenceService: true
+      }
+    }))
+  }
+}));
+
+// Mock V2 bridge directly as well
+vi.mock('@/utils/indexeddb/IndexedDBBridgeV2', () => ({
+  indexedDBBridgeV2: {
     initialize: vi.fn(() => Promise.resolve()),
+    checkHealth: vi.fn(() => Promise.resolve({ status: 'healthy', services: {} })),
+    getMetrics: vi.fn(() => ({ responseTime: 50, cacheHitRate: 80 })),
     cleanup: vi.fn(() => Promise.resolve())
   }
 }));

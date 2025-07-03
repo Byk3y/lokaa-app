@@ -548,11 +548,11 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
           console.log(`🧹 [MembershipStore] Unsubscribed from memberCounts cache for space ${spaceId}`);
         }
         
-        // Clear supabase bridge cache (clear all since there's no space-specific method)
-        const { supabaseIndexedDBBridge } = await import('@/utils/supabaseIndexedDBBridge');
-        if (supabaseIndexedDBBridge?.clearCache) {
-          await supabaseIndexedDBBridge.clearCache();
-          console.log(`🧹 [MembershipStore] Cleared supabase bridge cache`);
+        // Clear supabase bridge cache (using V2 system)
+        const { migrationAdapter } = await import('@/utils/indexeddb/migration/MigrationAdapter');
+        if (migrationAdapter?.clearCache) {
+          await migrationAdapter.clearCache();
+          console.log(`🧹 [MembershipStore] Cleared V2 bridge cache`);
         }
         
         // Clear space data cleaner caches

@@ -159,10 +159,16 @@ export class AppInitializationService {
 
   private async initializeSupabaseBridge(result: AppInitializationResult, isDevelopment: boolean): Promise<void> {
     try {
-      devLogger.log('AppInit', 'Initializing Supabase-IndexedDB bridge...');
+      devLogger.log('AppInit', 'Initializing V2 IndexedDB Bridge System...');
       
-      const { supabaseIndexedDBBridge } = await import('@/utils/supabaseIndexedDBBridge');
-      devLogger.log('AppInit', 'Supabase-IndexedDB bridge initialized for mobile browser blocking protection');
+      // Import and initialize V2 system
+      const { indexedDBBridgeV2 } = await import('@/utils/indexeddb/IndexedDBBridgeV2');
+      await indexedDBBridgeV2.initialize();
+      
+      // Import migration adapter for unified interface
+      const { migrationAdapter } = await import('@/utils/indexeddb/migration/MigrationAdapter');
+      
+      devLogger.log('AppInit', 'V2 IndexedDB Bridge System initialized with mobile browser protection');
       
       if (isDevelopment) {
         await import('@/utils/indexedDBDebugger');
@@ -173,22 +179,38 @@ export class AppInitializationService {
         // DESKTOP GUARD: Only load mobile protection test suite on mobile devices
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         if (isMobile) {
-          await import('@/utils/mobileBrowserProtectionTest');
-          devLogger.log('AppInit', 'Mobile browser protection test suite loaded');
+          devLogger.log('AppInit', 'Mobile device detected - V2 system includes mobile browser protection');
         } else {
-          devLogger.log('AppInit', 'Desktop detected - skipping mobile protection test suite');
+          devLogger.log('AppInit', 'Desktop detected - V2 system with standard caching');
         }
       }
       
       if (isDevelopment) {
         this.debugInterfaces.debugSupabaseBridge = {
-          getMetrics: () => supabaseIndexedDBBridge.getMetrics(),
-          testMobileBlocking: () => supabaseIndexedDBBridge.testMobileBlockingDetection(),
-          clearCache: () => supabaseIndexedDBBridge.clearCache(),
-          warmCache: (spaceId: string) => supabaseIndexedDBBridge.warmCache(spaceId),
-          getCacheStatus: (spaceId: string) => supabaseIndexedDBBridge.getCacheStatus(spaceId),
-          testAuthUser: () => supabaseIndexedDBBridge.getCurrentUser(),
-          testPresenceUpdate: (userId: string, isOnline: boolean) => supabaseIndexedDBBridge.updateGlobalPresence(userId, isOnline)
+          getMetrics: () => migrationAdapter.getMetrics(),
+          testMobileBlocking: () => migrationAdapter.testMobileBlockingDetection(),
+          clearCache: () => migrationAdapter.clearCache(),
+          getSystemStatus: () => migrationAdapter.getSystemStatus(),
+          getCurrentSystem: () => migrationAdapter.getCurrentSystem(),
+          testSpaceMembers: (spaceId: string) => migrationAdapter.getSpaceMembers(spaceId),
+          testUserProfile: (userId: string) => migrationAdapter.getUserProfile(userId),
+          testCurrentUser: () => migrationAdapter.getCurrentUser(),
+          testPresenceUpdate: (userId: string, isOnline: boolean) => 
+            migrationAdapter.updateGlobalPresence(userId, isOnline)
+        };
+
+        // V2-specific debugging interfaces
+        this.debugInterfaces.debugV2Bridge = {
+          checkHealth: () => indexedDBBridgeV2.checkHealth(),
+          getServiceMetrics: () => indexedDBBridgeV2.getMetrics(),
+          testAllServices: async () => {
+            const health = await indexedDBBridgeV2.checkHealth();
+            return {
+              overall: health.status,
+              services: health.services,
+              metrics: await indexedDBBridgeV2.getMetrics()
+            };
+          }
         };
       }
       
@@ -197,12 +219,12 @@ export class AppInitializationService {
         const pathSegments = currentPath.split('/').filter(Boolean);
         if (pathSegments.length > 0 && pathSegments[0] !== 'spaces' && pathSegments[0] !== 'chat') {
           const spaceSubdomain = pathSegments[0];
-          devLogger.log('AppInit', `Skipping cache warming for subdomain: ${spaceSubdomain} (needs space ID)`);
+          devLogger.log('AppInit', `V2 system active for subdomain: ${spaceSubdomain}`);
         }
       }, 3000);
       
     } catch (error) {
-      const message = 'Supabase-IndexedDB bridge initialization failed';
+      const message = 'V2 IndexedDB Bridge initialization failed';
       result.warnings.push(message);
       devLogger.warn('AppInit', message, error);
     }
