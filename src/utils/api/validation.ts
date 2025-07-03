@@ -2,10 +2,12 @@
  * API Validation Utility
  * 
  * Provides validation for API requests and responses
+ * 🔥 PHASE 2: Enhanced with centralized UUID validation
  */
 
 import { z } from 'zod';
 import { MobileValidationService } from '../../services/MobileValidationService';
+import { UUIDSchema, SpaceIdSchema, UserIdSchema, PostIdSchema } from '../../schemas/validation/uuid';
 
 // Base request metadata schema
 const requestMetadataSchema = z.object({

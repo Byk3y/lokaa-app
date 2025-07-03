@@ -1,5 +1,11 @@
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
+// Centralized UUID validation for Edge Functions
+export const UUIDSchema = z.string().uuid('Invalid UUID format');
+export const SpaceIdSchema = UUIDSchema.describe('Space ID must be a valid UUID');
+export const UserIdSchema = UUIDSchema.describe('User ID must be a valid UUID');
+export const PostIdSchema = UUIDSchema.describe('Post ID must be a valid UUID');
+
 // Base request metadata schema
 const requestMetadataSchema = z.object({
   timestamp: z.number(),

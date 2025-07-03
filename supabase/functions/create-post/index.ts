@@ -3,7 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { corsHeaders } from '../_shared/cors.ts';
 import { verifyToken } from '../_shared/csrf.ts';
 import { validateSessionAndGetUser, createErrorResponse } from '../_shared/session.ts';
-import { apiValidation } from '../_shared/validation.ts';
+import { apiValidation, SpaceIdSchema } from '../_shared/validation.ts';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 // Create post request schema
 const createPostRequestSchema = z.object({
@@ -21,7 +22,7 @@ const createPostRequestSchema = z.object({
     content: z.string()
       .min(1, 'Content is required')
       .max(50000, 'Content must be less than 50,000 characters'),
-    spaceId: z.string().uuid('Invalid space ID'),
+    spaceId: SpaceIdSchema,
     media: z.array(z.object({
       url: z.string().url('Invalid media URL'),
       type: z.enum(['image', 'video', 'document']),

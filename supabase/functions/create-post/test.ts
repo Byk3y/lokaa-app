@@ -1,5 +1,5 @@
 import { assertEquals } from 'std/testing/asserts.ts';
-import { APIValidation } from '../_shared/validation.ts';
+import { APIValidation, SpaceIdSchema } from '../_shared/validation.ts';
 import { z } from 'zod';
 
 // Mock data
@@ -38,7 +38,7 @@ const testSchema = z.object({
   content: z.string()
     .min(1, 'Content is required')
     .max(50000, 'Content must be less than 50,000 characters'),
-  spaceId: z.string().uuid('Invalid space ID'),
+  spaceId: SpaceIdSchema,
   tags: z.array(z.string()).max(5, 'Maximum 5 tags allowed').optional()
 });
 

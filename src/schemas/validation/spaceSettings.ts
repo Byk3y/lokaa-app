@@ -2,10 +2,12 @@
  * Space Settings Validation Schemas
  * 
  * Central validation schemas for space settings
+ * 🔥 PHASE 2: Updated to use centralized UUID validation
  */
 
 import { z } from 'zod';
 import { FileValidationService } from '../../services/FileValidationService';
+import { SpaceOwnerIdSchema, UUIDSchema } from './uuid';
 
 // Base space settings schema
 const baseSpaceSettingsSchema = z.object({
@@ -26,7 +28,7 @@ const baseSpaceSettingsSchema = z.object({
     .email('Invalid email address')
     .optional()
     .nullable(),
-  owner_id: z.string().uuid('Invalid owner ID')
+  owner_id: SpaceOwnerIdSchema
 });
 
 // About page settings schema
@@ -46,7 +48,7 @@ export const aboutSchema = z.object({
 // Rules settings schema
 export const rulesSchema = z.object({
   rules_list: z.array(z.object({
-    id: z.string().uuid('Invalid rule ID'),
+    id: UUIDSchema.describe('Rule ID must be a valid UUID'),
     text: z.string()
       .min(1, 'Rule text is required')
       .max(500, 'Rule text must be less than 500 characters')
@@ -56,7 +58,7 @@ export const rulesSchema = z.object({
 // Categories settings schema
 export const categoriesSchema = z.object({
   categories: z.array(z.object({
-    id: z.string().uuid('Invalid category ID'),
+    id: UUIDSchema.describe('Category ID must be a valid UUID'),
     name: z.string()
       .min(2, 'Category name must be at least 2 characters')
       .max(50, 'Category name must be less than 50 characters'),

@@ -2,9 +2,17 @@
  * Post Validation Schemas
  * 
  * Central validation schemas for post-related forms
+ * 🔥 PHASE 2: Updated to use centralized UUID validation
  */
 
 import { z } from 'zod';
+import { 
+  SpaceIdSchema, 
+  PostIdSchema, 
+  CommentIdSchema, 
+  ParentCommentIdSchema, 
+  UserIdSchema 
+} from './uuid';
 
 // Media validation
 const mediaSchema = z.object({
@@ -23,7 +31,7 @@ export const basePostSchema = z.object({
   content: z.string()
     .min(1, 'Content is required')
     .max(50000, 'Content must be less than 50,000 characters'),
-  spaceId: z.string().uuid('Invalid space ID'),
+  spaceId: SpaceIdSchema,
   media: z.array(mediaSchema).max(10, 'Maximum 10 media items allowed').optional(),
   tags: z.array(z.string()).max(5, 'Maximum 5 tags allowed').optional()
 });
@@ -36,7 +44,7 @@ export const createPostSchema = basePostSchema.extend({
 
 // Update post schema
 export const updatePostSchema = basePostSchema.extend({
-  id: z.string().uuid('Invalid post ID'),
+  id: PostIdSchema,
   version: z.number().int().positive('Invalid version number')
 });
 
@@ -45,14 +53,14 @@ export const commentSchema = z.object({
   content: z.string()
     .min(1, 'Comment cannot be empty')
     .max(5000, 'Comment must be less than 5,000 characters'),
-  postId: z.string().uuid('Invalid post ID'),
-  parentId: z.string().uuid('Invalid parent comment ID').optional(),
+  postId: PostIdSchema,
+  parentId: ParentCommentIdSchema,
   media: z.array(mediaSchema).max(2, 'Maximum 2 media items allowed').optional()
 });
 
 // Post reaction schema
 export const reactionSchema = z.object({
-  postId: z.string().uuid('Invalid post ID'),
+  postId: PostIdSchema,
   type: z.enum(['like', 'heart', 'celebrate', 'insightful', 'curious']),
-  userId: z.string().uuid('Invalid user ID')
+  userId: UserIdSchema
 }); 
