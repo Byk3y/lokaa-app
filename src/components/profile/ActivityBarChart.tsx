@@ -61,7 +61,6 @@ const ActivityBarChart: React.FC<ActivityBarChartProps> = ({ userId }) => {
     <div className="w-full">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <div className="text-sm text-gray-500 font-medium mb-1">Activity</div>
           <div className="text-3xl font-bold text-gray-900 flex items-center">
             {currentValue}
             <span className="ml-2 text-xs py-1 px-2 bg-blue-100 text-blue-700 rounded-full font-medium">

@@ -165,8 +165,14 @@ export class AppInitializationService {
       }
       
       if (isDevelopment) {
-        await import('@/utils/mobileBrowserProtectionTest');
-        console.log('🔧 [AppInitialization] Mobile browser protection test suite loaded');
+        // DESKTOP GUARD: Only load mobile protection test suite on mobile devices
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+          await import('@/utils/mobileBrowserProtectionTest');
+          console.log('🔧 [AppInitialization] Mobile browser protection test suite loaded');
+        } else {
+          console.log('🖥️ [AppInitialization] Desktop detected - skipping mobile protection test suite');
+        }
       }
       
       if (isDevelopment) {

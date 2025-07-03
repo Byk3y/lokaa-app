@@ -1,309 +1,288 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { Session, User as SupabaseUser } from '@supabase/supabase-js'
-import { supabase } from '@/integrations/supabase/client'
-import { useUserSpacesStore } from '@/hooks/useUserSpacesStore'
-import { useNavigate } from 'react-router-dom'
-// DISABLED: Mobile system conflicts with comprehensive fix in index.html
-// import { simpleMobileManager } from '@/utils/SimpleMobileManager' // ✅ Phase 2: Simplified mobile manager
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { Session, User } from '@supabase/supabase-js';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
-// Simple user interface
-export interface User extends SupabaseUser {}
+import { useUserSpacesStore } from '@/hooks/useUserSpacesStore';
+import { authMigrationHelper } from '@/utils/auth/authMigrationHelper';
+// import { simpleMobileManager } from '@/utils/SimpleMobileManager' // ✅ Simplified mobile manager
 
-// Define the shape of the context
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signOut: () => Promise<void>;
-  fastPathEnabled: boolean;
-  lastFastPathResult: any;
+  routingInProgress: boolean;
+  signOut: (path?: string) => Promise<void>;
+  // Enhanced authentication utilities
+  refreshSession: () => Promise<boolean>;
+  validateSession: () => Promise<boolean>;
 }
 
-// Create the context with a clear undefined default value
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// Mobile-safe error boundary for auth provider
-class AuthProviderErrorBoundary extends React.Component<
-  { children: ReactNode; fallback?: ReactNode },
-  { hasError: boolean; error: Error | null; retryCount: number }
-> {
-  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null, retryCount: 0 };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    // Check if this is a mobile browser timing issue
-    const isMobileTimingError = (
-      error.message.includes('useOptimizedAuth must be used within an AuthProvider') ||
-      error.message.includes('Cannot read properties of undefined') ||
-      error.message.includes('Provider not ready')
-    );
-
-    if (isMobileTimingError) {
-      console.warn('🔒 [AuthProvider] Mobile timing error detected:', error.message);
-      return { hasError: true, error };
-    }
-
-    // For other errors, let them bubble up
-    throw error;
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('🔒 [AuthProvider] Error caught by boundary:', { error, errorInfo });
-  }
-
-  handleRetry = () => {
-    this.setState(prevState => ({
-      hasError: false,
-      error: null,
-      retryCount: prevState.retryCount + 1
-    }));
-  };
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback || (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-            <div className="text-blue-500 text-6xl mb-4">🔒</div>
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Auth Provider Loading</h2>
-            <p className="text-gray-600 mb-4">
-              The authentication system is initializing. This is common on mobile browsers.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <button 
-                onClick={this.handleRetry}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                disabled={this.state.retryCount >= 3}
-              >
-                🔄 Retry {this.state.retryCount > 0 && `(${this.state.retryCount}/3)`}
-              </button>
-              <button 
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                ↻ Refresh Page
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-4">
-              Mobile browsers may need a moment to initialize properly
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
+interface AuthProviderProps {
+  children: React.ReactNode;
 }
 
-// Provider component that wraps your app and makes auth object available to any
-// child component that calls useAuth().
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [providerReady, setProviderReady] = useState(false)
-  
-  // MOBILE OPTIMIZATION: Get space preloading function
-  const preloadSpaces = useUserSpacesStore(state => state.preloadSpaces)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-  // Mobile-safe initialization with retry logic
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [routingInProgress, setRoutingInProgress] = useState(false);
+  const preloadSpaces = useUserSpacesStore(state => state.preloadSpaces);
+
+  // Initialize auth state
+  const initializeAuth = useCallback(async (maxRetries = 3) => {
+    let retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        const { data, error } = await getSupabaseClient().auth.getSession();
+        
+        if (error) {
+          console.error('[AuthProvider] Session retrieval error:', error);
+          throw error;
+        }
+
+        setSession(data.session);
+        setUser(data.session?.user || null);
+        setLoading(false);
+        return;
+        
+      } catch (error) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          console.error('[AuthProvider] Failed to initialize auth after', maxRetries, 'attempts:', error);
+          setLoading(false);
+          return;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const location = window.location;
+    
+    // Check for sign out redirect scenario
+    if (location.pathname === '/' && !location.search) {
+      setLoading(false);
+      return;
+    }
+
+    const initializeWithMigration = async () => {
+      try {
+        // Run authentication migration helper
+        const migrationResult = await authMigrationHelper.runMigration({
+          retries: 2,
+          emergencyFallback: true
+        });
+        
+        if (migrationResult.success && migrationResult.keysCleared.length > 0) {
+          // Migration cleaned up problematic keys
+        }
+        
+      } catch (error) {
+        console.warn('[AuthProvider] Migration helper failed:', error);
+      }
+      
+      // Initialize auth regardless of migration result
+      await initializeAuth();
+    };
+
+    initializeWithMigration();
+  }, [initializeAuth]);
+
   useEffect(() => {
     let retryCount = 0;
     const maxRetries = 3;
-    
-    const initializeAuth = async () => {
+
+    const checkSession = async () => {
       try {
-        // Check if we're coming from a sign out to skip loading states
-        const isSignOutRedirect = sessionStorage.getItem('lokaa-signing-out') === 'true';
-        if (isSignOutRedirect) {
-          console.log('🚪 [AuthProvider] Detected sign out redirect, skipping initialization');
-          sessionStorage.removeItem('lokaa-signing-out');
-          setSession(null);
-          setUser(null);
-          setLoading(false);
-          setProviderReady(true);
-          return;
-        }
-
-        // Mark provider as initializing
-        setProviderReady(false);
+        const { data, error } = await getSupabaseClient().auth.getSession();
         
-        // Add small delay for mobile browsers to settle
-        await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Immediately check for an existing session
-        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
         
-        if (error) {
-          console.warn('🔒 [AuthProvider] Session check error:', error);
-          if (retryCount < maxRetries) {
-            retryCount++;
-            console.log(`🔒 [AuthProvider] Retrying session check (${retryCount}/${maxRetries})`);
-            setTimeout(initializeAuth, 1000 * retryCount);
-            return;
-          }
+        setSession(data.session);
+        setUser(data.session?.user || null);
+        
+        if (data.session?.user) {
+          preloadSpaces(data.session.user.id);
+          // Mobile manager disabled - handled by comprehensive fix
         }
         
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-        setProviderReady(true)
-      
-      // MOBILE OPTIMIZATION: Preload spaces when user is authenticated
-      if (session?.user?.id) {
-          console.log('🚀 [AuthProvider] Preloading spaces for authenticated user');
-        preloadSpaces(session.user.id);
-        // DISABLED: Mobile manager conflicts with comprehensive fix
-        // simpleMobileManager.setUser(session.user.id);
-        console.log('🔧 [AuthProvider] Mobile manager disabled - handled by comprehensive fix');
-      } else {
-        // DISABLED: Mobile manager conflicts with comprehensive fix
-        // simpleMobileManager.setUser(null);
-        console.log('🔧 [AuthProvider] Mobile manager disabled - handled by comprehensive fix');
-      }
-
-      // Set up the listener for future auth events
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        (_event, session) => {
-            console.log(`[AuthProvider] Auth state changed: ${_event}`, session)
-          setSession(session)
-          setUser(session?.user ?? null)
-          
-          // ✅ Phase 2: Update mobile manager with user changes
-          if (_event === 'SIGNED_IN' && session?.user?.id) {
-              console.log('🚀 [AuthProvider] User signed in, preloading spaces');
-            preloadSpaces(session.user.id);
-            // DISABLED: Mobile manager conflicts with comprehensive fix
-            // simpleMobileManager.setUser(session.user.id);
-            console.log('🔧 [AuthProvider] Mobile manager disabled - handled by comprehensive fix');
-          } else if (_event === 'SIGNED_OUT') {
-            console.log('🚪 [AuthProvider] User signed out, clearing mobile manager');
-            // DISABLED: Mobile manager conflicts with comprehensive fix  
-            // simpleMobileManager.setUser(null);
-            console.log('🔧 [AuthProvider] Mobile manager disabled - handled by comprehensive fix');
-          }
-        }
-      )
-  
-      // Return a cleanup function to unsubscribe from the listener on unmount
-      return () => {
-        subscription.unsubscribe()
-      }
+        // Mobile manager disabled - handled by comprehensive fix
       } catch (error) {
-        console.error('🔒 [AuthProvider] Initialization error:', error);
+        retryCount++;
         if (retryCount < maxRetries) {
-          retryCount++;
-          console.log(`🔒 [AuthProvider] Retrying initialization (${retryCount}/${maxRetries})`);
-          setTimeout(initializeAuth, 1000 * retryCount);
+          setTimeout(() => checkSession(), 1000);
         } else {
-          setLoading(false);
-          setProviderReady(true); // Still mark as ready to prevent infinite loading
+          console.error('[AuthProvider] Session check failed after retries:', error);
         }
       }
     };
-    
-    initializeAuth();
-  }, [preloadSpaces]) // Add preloadSpaces to dependencies
 
-  const signOut = async () => {
-    console.log('🚪 [AuthProvider] Starting comprehensive signOut with cache clearing...');
-    
-    // **CRITICAL SECURITY FIX**: Use enhanced signOut with comprehensive cache clearing
-    try {
-      // Import the enhanced signOut function dynamically
-      const { signOut: enhancedSignOut } = await import('@/utils/auth/authActionsUtils');
-      
-      // Create a mock navigate function since we can't use useNavigate in context
-      const mockNavigate = (path: string, options?: any) => {
-        console.log('🔀 [AuthProvider] Navigating to:', path);
-        if (options?.replace) {
-          window.location.replace(path);
-        } else {
-          window.location.href = path;
+    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
+      async (event, session) => {
+        // Handle auth state changes directly in AuthContext
+        setSession(session);
+        setUser(session?.user || null);
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          preloadSpaces(session.user.id);
+          setLoading(false);
+          setRoutingInProgress(false);
+          // Mobile manager disabled - handled by comprehensive fix
+        } else if (event === 'SIGNED_OUT') {
+          setLoading(false);
+          setRoutingInProgress(false);
+          // Mobile manager disabled - handled by comprehensive fix
+        }
+      }
+    );
+
+    checkSession();
+
+    // Return a cleanup function to unsubscribe from the listener on unmount
+    return () => subscription.unsubscribe();
+  }, [preloadSpaces]);
+
+  useEffect(() => {
+    if (loading && session === null) {
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      const retryInit = () => {
+        retryCount++;
+        if (retryCount <= maxRetries) {
+          setTimeout(() => {
+            initializeAuth(maxRetries - retryCount + 1);
+          }, 1000 * retryCount);
         }
       };
-      
-      // Call enhanced signOut with all cache clearing
-      await enhancedSignOut(mockNavigate as any, {
-        setUser,
-        setSession,
-        setUserDetails: () => {}, // Not used in this context
-        setHasRouted: () => {}, // Not used in this context
-        setEarlyRedirectAttempted: () => {}, // Not used in this context
-        setRoutingInProgress: () => {}, // Not used in this context
-        setAuthErrors: () => {}, // Not used in this context
-      });
-      
-      console.log('✅ [AuthProvider] Enhanced signOut completed with cache clearing');
-    } catch (error) {
-      console.error('❌ [AuthProvider] Enhanced signOut failed, falling back to basic signOut:', error);
-      
-      // Fallback to basic signOut if enhanced fails
-      await supabase.auth.signOut();
-      
-      // Basic cleanup for fallback scenario
-      console.log('🧹 [AuthProvider] FALLBACK: Using basic signOut cleanup');
+
+      retryInit();
     }
-    
-    // The onAuthStateChange listener will automatically update user and session to null
-  }
+  }, [loading, session, initializeAuth]);
 
-
-  
-  // The value provided to the context consumers
-  const value = {
-    session,
-    user,
-    loading: loading || !providerReady, // Include provider readiness in loading state
-    signOut,
-    fastPathEnabled: !!user,
-    lastFastPathResult: null,
-  }
-
-  return (
-    <AuthProviderErrorBoundary>
-      <AuthContext.Provider value={value}>
-        {children}
-      </AuthContext.Provider>
-    </AuthProviderErrorBoundary>
-  )
-}
-
-// Custom hook to use the auth context - ✅ FIXED: Fast Refresh compatible export
-function useOptimizedAuthInternal(): AuthContextType {
-  const context = useContext(AuthContext)
-  
-  // Enhanced mobile-safe error handling
-  if (context === undefined) {
-    // Check if we're in a mobile browser environment
-    const isMobileBrowser = typeof window !== 'undefined' && 
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    // On mobile browsers, provide more context about the timing issue
-    if (isMobileBrowser) {
-      console.warn('🔒 [useOptimizedAuth] Mobile browser detected - context not ready yet');
+  // Enhanced session refresh functionality
+  const refreshSession = useCallback(async (): Promise<boolean> => {
+    try {
+      const { data, error } = await getSupabaseClient().auth.refreshSession();
       
-      // Check if this might be a race condition during provider mounting
-      const isLikelyRaceCondition = typeof window !== 'undefined' && 
-        document.readyState !== 'complete';
+      if (error) {
+        console.warn('[AuthProvider] Session refresh error:', error);
+        return false;
+      }
       
-      if (isLikelyRaceCondition) {
-        throw new Error(
-          'useOptimizedAuth must be used within an AuthProvider. ' +
-          'Mobile browser detected: This may be a timing issue during app initialization. ' +
-          'Try refreshing the page if this persists.'
-        );
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('[AuthProvider] Session refresh failed:', error);
+      return false;
+    }
+  }, []);
+
+  // Enhanced session validation functionality
+  const validateSession = useCallback(async (): Promise<boolean> => {
+    try {
+      const { clearAllAuthTokens, validateAuthSession } = await import('@/utils/auth/authTokenUtils');
+      
+      // Use enhanced validation from authTokenUtils
+      const validation = await validateAuthSession();
+      
+      if (validation.hasInconsistentKeys) {
+        // Clean up inconsistent auth keys during validation
+        clearAllAuthTokens();
+      }
+      
+      if (validation.isValid) {
+        setSession(validation.session);
+        setUser(validation.session?.user || null);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('[AuthProvider] Session validation failed:', error);
+      return false;
+    }
+  }, []);
+
+  // Enhanced signOut with direct clearAllAuthTokens integration
+  const signOut = useCallback(async (path?: string) => {
+    try {
+      // Use direct clearAllAuthTokens integration for immediate cleanup
+      const { clearAllAuthTokens } = await import('@/utils/auth/authTokenUtils');
+      
+      // Clear auth tokens immediately
+      clearAllAuthTokens();
+
+      // Sign out from Supabase
+      const { error } = await getSupabaseClient().auth.signOut();
+      
+      if (error) {
+        console.error('[AuthProvider] Supabase signOut error:', error);
+      }
+
+      // Clear auth state
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+      setRoutingInProgress(false);
+
+      // Navigate to specified path or landing page
+      const targetPath = path || '/';
+      window.location.href = targetPath;
+
+    } catch (error) {
+      console.error('[AuthProvider] Enhanced signOut error:', error);
+      
+      // Fallback: Basic Supabase signOut
+      try {
+        await getSupabaseClient().auth.signOut();
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        setRoutingInProgress(false);
+        window.location.href = '/';
+      } catch (fallbackError) {
+        console.error('[AuthProvider] Fallback signOut failed:', fallbackError);
+        window.location.href = '/';
       }
     }
-    
-    throw new Error('useOptimizedAuth must be used within an AuthProvider')
-  }
-  
-  return context
-}
+  }, []);
 
-// ✅ FAST REFRESH COMPATIBLE: Export as const
-export const useOptimizedAuth = useOptimizedAuthInternal;
+  const contextValue = useMemo(() => ({
+    session,
+    user,
+    loading,
+    routingInProgress,
+    signOut,
+    // Enhanced authentication utilities
+    refreshSession,
+    validateSession
+  }), [session, user, loading, routingInProgress, signOut, refreshSession, validateSession]);
+
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const useOptimizedAuth = useAuth;

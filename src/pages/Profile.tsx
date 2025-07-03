@@ -574,18 +574,21 @@ export default function Profile() {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Activity Section - Similar to Skool's calendar */}
-            <div className="px-4 pb-6">
-              <h3 className="text-lg font-medium mb-4 text-gray-800">Activity</h3>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <ActivityBarChart userId={profile.id} />
-              </div>
+          {/* Activity Section - Similar to Skool's calendar */}
+          <div className="bg-white mt-2">
+            <h3 className="text-2xl font-semibold text-gray-900 px-4 pt-4 pb-2">Activity</h3>
+            <div className="p-4">
+              <ActivityBarChart userId={profile.id} />
             </div>
+          </div>
 
-            {/* Powered by Lokaa */}
-            <div className="text-center py-4 border-t border-gray-200">
-              <p className="text-sm text-gray-400">Powered by <span className="font-semibold text-teal-600">Lokaa</span></p>
+          {/* Memberships Section */}
+          <div className="bg-white mt-2 pb-20">
+            <h3 className="text-2xl font-semibold text-gray-900 px-4 pt-4 pb-2">Memberships</h3>
+            <div className="p-4">
+              <MembershipSpacesList userId={profile.id} />
             </div>
           </div>
         </div>
@@ -666,14 +669,14 @@ export default function Profile() {
             {profile.role === 'creator' && (
               <div className="bg-white rounded-xl shadow-[0_10px_40px_rgba(0,_0,_0,_0.06)] p-6 transform transition-all duration-300 hover:translate-y-[-5px]">
                 <h3 className="text-lg font-medium mb-4 text-gray-800">Owned Spaces</h3>
-          <OwnedSpacesList userId={profile.id} />
+                <OwnedSpacesList userId={profile.id} />
               </div>
             )}
 
             {/* Memberships card */}
             <div className="bg-white rounded-xl shadow-[0_10px_40px_rgba(0,_0,_0,_0.06)] p-6 transform transition-all duration-300 hover:translate-y-[-5px]">
               <h3 className="text-lg font-medium mb-4 text-gray-800">Memberships</h3>
-          <MembershipSpacesList userId={profile.id} />
+              <MembershipSpacesList userId={profile.id} />
             </div>
 
             {/* Rewards section */}

@@ -24,8 +24,9 @@ export async function directLogin(email: string, password: string) {
     
     console.log("Direct login successful, user:", data.user?.email);
     
-    // Store the session data for immediate use
-    localStorage.setItem('getSupabaseClient().auth.token', JSON.stringify(data.session));
+    // PHASE 3 FIX: Let Supabase handle session storage automatically
+    // Removed: localStorage.setItem('getSupabaseClient().auth.token', JSON.stringify(data.session));
+    // Supabase automatically stores the session using the correct key pattern: sb-nmddvthcsyppyjncqfsk-auth-token
     
     // Give a moment for the auth state to be processed
     return new Promise((resolve) => {

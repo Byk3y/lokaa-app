@@ -176,9 +176,6 @@ const MembershipSpacesList: React.FC<MembershipSpacesListProps> = ({
 
   return (
     <div className={`w-full ${className}`}>
-      <div className="mb-4">
-        <h3 className="text-lg font-medium text-gray-800">{sectionTitle}</h3>
-      </div>
       {loading ? (
         <div className="h-20 flex items-center justify-center text-gray-400">
           <span className="animate-pulse">Loading...</span>

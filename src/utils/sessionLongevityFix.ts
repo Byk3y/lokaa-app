@@ -46,6 +46,13 @@ class SessionLongevityManager {
    * Initialize session longevity improvements
    */
   initialize(): void {
+    // DESKTOP GUARD: Only initialize on mobile devices
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (!isMobile) {
+      console.log('🖥️ [SessionLongevity] Desktop detected - session longevity management disabled');
+      return;
+    }
+
     // OPTION C INTEGRATION: Only initialize if Mobile Event Coordinator allows
     if (typeof window !== 'undefined' && (window as any).MOBILE_EVENT_COORDINATOR_ACTIVE) {
       console.log('🛡️ [SessionLongevity] Integrating with Mobile Event Coordinator...');
@@ -308,10 +315,18 @@ class SessionLongevityManager {
 // Export singleton instance
 export const sessionLongevityManager = SessionLongevityManager.getInstance();
 
-// Debug helpers
+// Debug helpers - ONLY ON MOBILE DEVICES
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as any).sessionLongevityManager = sessionLongevityManager;
-  (window as any).debugSessionLongevity = () => {
-    console.log('🛡️ [SessionLongevity] Status:', sessionLongevityManager.getStatus());
-  };
+  // DESKTOP GUARD: Only expose debug helpers on mobile devices
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    (window as any).sessionLongevityManager = sessionLongevityManager;
+    (window as any).debugSessionLongevity = () => {
+      console.log('🛡️ [SessionLongevity] Status:', sessionLongevityManager.getStatus());
+    };
+    console.log('🔧 [SessionLongevity] Debug helpers exposed for mobile development');
+  } else {
+    console.log('🖥️ [SessionLongevity] Desktop detected - debug helpers disabled');
+  }
 } 

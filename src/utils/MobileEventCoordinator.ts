@@ -91,6 +91,16 @@ class MobileEventCoordinator {
     console.log('🏗️ [MobileEventCoordinator] Initializing central mobile event system...');
     console.log(`🏗️ [MobileEventCoordinator] Mobile device detected: ${this.isMobile}`);
 
+    // DESKTOP GUARD: Don't initialize mobile systems on desktop
+    if (!this.isMobile) {
+      console.log('🖥️ [MobileEventCoordinator] Desktop detected - mobile systems disabled');
+      this.isInitialized = true;
+      
+      // Still set disable flags to prevent competing mobile systems from running
+      this.disableCompetingSystems();
+      return;
+    }
+
     // SINGLE visibilitychange listener for entire app
     this.setupVisibilityListener();
     
@@ -357,10 +367,15 @@ class MobileEventCoordinator {
 // Export singleton instance
 export const mobileEventCoordinator = MobileEventCoordinator.getInstance();
 
-// Auto-initialize if in browser
+// Auto-initialize only on mobile devices
 if (typeof window !== 'undefined') {
-  // Initialize on next tick to ensure all modules are loaded
-  setTimeout(() => {
-    mobileEventCoordinator.initialize();
-  }, 0);
+  // Only initialize on mobile devices to prevent unnecessary desktop overhead
+  if (shouldEnableMobileFeatures()) {
+    // Initialize on next tick to ensure all modules are loaded
+    setTimeout(() => {
+      mobileEventCoordinator.initialize();
+    }, 0);
+  } else {
+    console.log('🖥️ [MobileEventCoordinator] Desktop detected - skipping mobile event coordination');
+  }
 } 

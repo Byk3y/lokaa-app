@@ -259,28 +259,24 @@ class SupabaseHealthMonitor {
       if (sessionError || !sessionData.session) {
         console.log('🔄 [HealthMonitor] Invalid session detected, attempting restoration...');
         
-        // Try to restore from localStorage
-        const authToken = localStorage.getItem('supabase.auth.token');
-        if (authToken) {
-          try {
-            const tokenData = JSON.parse(authToken);
-            if (tokenData.expires_at * 1000 > Date.now()) {
-              await existingClient.auth.setSession({
-                access_token: tokenData.access_token,
-                refresh_token: tokenData.refresh_token
-              });
-              console.log('✅ [HealthMonitor] Session restored from localStorage');
-            } else {
-              console.log('⚠️ [HealthMonitor] Stored session expired, clearing...');
-              await existingClient.auth.signOut({ scope: 'local' });
-              localStorage.removeItem('supabase.auth.token');
-            }
-          } catch (e) {
-            console.warn('⚠️ [HealthMonitor] Session restoration failed:', e);
+        // PHASE 3 FIX: Use Supabase's automatic session management instead of custom localStorage
+        // Removed: const authToken = localStorage.getItem('supabase.auth.token');
+        // Let Supabase handle session restoration from its own storage
+        
+        try {
+          // Try to refresh the session using Supabase's built-in mechanism
+          const { data: refreshData, error: refreshError } = await existingClient.auth.refreshSession();
+          
+          if (refreshError || !refreshData.session) {
+            console.log('⚠️ [HealthMonitor] Session refresh failed, session may be expired');
             await existingClient.auth.signOut({ scope: 'local' });
+            // PHASE 3 FIX: Removed manual localStorage.removeItem - Supabase handles cleanup
+          } else {
+            console.log('✅ [HealthMonitor] Session restored via refresh');
           }
-        } else {
-          console.log('⚠️ [HealthMonitor] No stored session found');
+        } catch (e) {
+          console.warn('⚠️ [HealthMonitor] Session restoration failed:', e);
+          await existingClient.auth.signOut({ scope: 'local' });
         }
       } else {
         console.log('✅ [HealthMonitor] Session is valid, checking connectivity...');

@@ -580,7 +580,11 @@ export default function PostDetailModal({
                       onReplyAddedToParent={handleReplyAdded}
                       fetchRepliesHook={fetchReplies}
                       onSetReplyTarget={setReplyTarget}
-                                              onCommentLikeToggled={(commentId, isLiked, likeCount) => {
+                      // 🔥 FIX: Pass Skool-style fields for reply display
+                      initial_replies={comment.initial_replies}
+                      remaining_reply_count={comment.remaining_reply_count}
+                      has_more_replies={comment.has_more_replies}
+                      onCommentLikeToggled={(commentId, isLiked, likeCount) => {
                           // 🎭 PHASE 1 OPTIMIZATION: Comment like handling temporarily disabled
                           console.log('Comment like toggled:', { commentId, isLiked, likeCount });
                         }}

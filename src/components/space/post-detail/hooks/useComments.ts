@@ -23,6 +23,10 @@ export interface FetchedComment {
   isLiked?: boolean;
   onReplyAdded?: (commentId: string, newReply: any) => void;
   currentUserId?: string | null;
+  // 🔥 FIX: Add missing Skool-style fields that CommentItem expects
+  initial_replies?: FetchedComment[];
+  remaining_reply_count?: number;
+  has_more_replies?: boolean;
 }
 
 type CommentDataFromServer = {
@@ -217,30 +221,104 @@ export function useComments(
           }
         });
 
-        // Fetch like status for each comment
-        let likedCommentIds = new Set<string>();
-        if (currentUserId && commentIds.length > 0) {
-          const { data: likeStatusData, error: likeStatusError } = await getSupabaseClient()
-            .from('comment_likes')
-            .select('comment_id')
-            .eq('user_id', currentUserId)
-            .in('comment_id', commentIds);
-          if (likeStatusError) console.warn("Error fetching comment like statuses:", likeStatusError);
-          else {
-            likeStatusData?.forEach(like => likedCommentIds.add(like.comment_id));
+        // 🔥 FIX: Fetch initial replies for each comment (Skool-style)
+        const INITIAL_REPLIES_LIMIT = 3;
+        const initialRepliesMap = new Map<string, any[]>();
+        
+        if (commentIds.length > 0) {
+          console.log(`🔔 [useComments] Fetching initial replies for ${commentIds.length} comments`);
+          
+          // Fetch the first few replies for each comment
+          const { data: initialRepliesData, error: repliesError } = await getSupabaseClient()
+            .from('post_comments')
+            .select(`
+              id, content, created_at, user_id, post_id, space_id, parent_comment_id,
+              author:user_id(id, full_name, avatar_url, profile_url, activity_score),
+              like_count:comment_likes(count)
+            `)
+            .in('parent_comment_id', commentIds)
+            .order('created_at', { ascending: true }) as { data: (CommentDataFromServer & { like_count: { count: number }[] })[] | null; error: any };
+
+          if (repliesError) {
+            console.warn("🔔 [useComments] Error fetching initial replies:", repliesError);
+          } else if (initialRepliesData) {
+            console.log(`🔔 [useComments] Fetched ${initialRepliesData.length} initial replies`);
+            
+            // Group replies by parent comment and limit to first N per comment
+            const groupedReplies = new Map<string, any[]>();
+            initialRepliesData.forEach(reply => {
+              const parentId = reply.parent_comment_id;
+              if (parentId) {
+                if (!groupedReplies.has(parentId)) {
+                  groupedReplies.set(parentId, []);
+                }
+                const currentReplies = groupedReplies.get(parentId)!;
+                if (currentReplies.length < INITIAL_REPLIES_LIMIT) {
+                  currentReplies.push(reply);
+                }
+              }
+            });
+            
+            // Store in our map
+            groupedReplies.forEach((replies, parentId) => {
+              initialRepliesMap.set(parentId, replies);
+            });
           }
         }
 
-        const commentsWithDetails: FetchedComment[] = data.map(comment => ({
-          ...comment,
-          author: comment.author as CommentAuthor | null,
-          reply_count: replyCountMap.get(comment.id) || 0,
-          like_count: comment.like_count?.[0]?.count || 0,
-          isLiked: likedCommentIds.has(comment.id),
-        }));
+        // Fetch like status for comments AND their initial replies
+        let likedCommentIds = new Set<string>();
+        if (currentUserId) {
+          // Get all comment IDs (parent comments + their initial replies)
+          const allCommentIds = [...commentIds];
+          initialRepliesMap.forEach(replies => {
+            replies.forEach(reply => allCommentIds.push(reply.id));
+          });
+
+          if (allCommentIds.length > 0) {
+            const { data: likeStatusData, error: likeStatusError } = await getSupabaseClient()
+              .from('comment_likes')
+              .select('comment_id')
+              .eq('user_id', currentUserId)
+              .in('comment_id', allCommentIds);
+            if (likeStatusError) console.warn("Error fetching comment like statuses:", likeStatusError);
+            else {
+              likeStatusData?.forEach(like => likedCommentIds.add(like.comment_id));
+            }
+          }
+        }
+
+        const commentsWithDetails: FetchedComment[] = data.map(comment => {
+          const totalReplyCount = replyCountMap.get(comment.id) || 0;
+          const initialReplies = initialRepliesMap.get(comment.id) || [];
+          
+          // Process initial replies with like status
+          const processedInitialReplies = initialReplies.map(reply => ({
+            ...reply,
+            author: reply.author as CommentAuthor | null,
+            reply_count: 0, // Replies don't have sub-replies in this structure
+            like_count: reply.like_count?.[0]?.count || 0,
+            isLiked: likedCommentIds.has(reply.id),
+          }));
+
+          return {
+            ...comment,
+            author: comment.author as CommentAuthor | null,
+            reply_count: totalReplyCount,
+            like_count: comment.like_count?.[0]?.count || 0,
+            isLiked: likedCommentIds.has(comment.id),
+            // 🔥 FIX: Add Skool-style fields that CommentItem expects
+            initial_replies: processedInitialReplies,
+            remaining_reply_count: Math.max(0, totalReplyCount - processedInitialReplies.length),
+            has_more_replies: totalReplyCount > processedInitialReplies.length,
+          };
+        });
         
         setComments(commentsWithDetails);
-        console.log(`🔔 [useComments] Comments state updated with ${commentsWithDetails.length} comments`);
+        
+        // 🔥 FIX: Log reply loading success
+        const totalRepliesLoaded = commentsWithDetails.reduce((total, comment) => total + (comment.initial_replies?.length || 0), 0);
+        console.log(`🔔 [useComments] Comments state updated with ${commentsWithDetails.length} comments and ${totalRepliesLoaded} initial replies loaded`);
       } else {
         setComments([]);
         console.log('🔔 [useComments] No comments found, clearing state');

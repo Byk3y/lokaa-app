@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { clearAllAuthTokens, validateAuthSession } from '@/utils/auth/authTokenUtils';
 
 // 15 minutes in milliseconds
 const REFRESH_INTERVAL = 15 * 60 * 1000;
@@ -22,6 +23,9 @@ interface SessionHealth {
   refreshAttempts: number;
   consecutiveFailures: number;
   lastError?: string;
+  // Phase 4: Enhanced session health tracking
+  lastValidation: number;
+  validationAttempts: number;
 }
 
 export function useSecureSession(options: UseSecureSessionOptions = {}) {
@@ -35,7 +39,10 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
     lastCheck: Date.now(),
     lastRefresh: Date.now(),
     refreshAttempts: 0,
-    consecutiveFailures: 0
+    consecutiveFailures: 0,
+    // Phase 4: Enhanced session health tracking
+    lastValidation: Date.now(),
+    validationAttempts: 0
   });
 
   // Clean up timers on unmount
@@ -50,8 +57,14 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
     };
   }, []);
 
+  // Phase 4: Enhanced signOut with authTokenUtils integration
   const signOut = useCallback(async () => {
     try {
+      console.log('🚪 [SecureSession] Enhanced signOut with token cleanup...');
+      
+      // Phase 4: Clear all auth tokens before signing out
+      await clearAllAuthTokens(false);
+      
       await getSupabaseClient().auth.signOut();
       queryClient.clear(); // Clear React Query cache
       navigate('/login');
@@ -60,8 +73,10 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
         description: 'Please sign in again to continue.',
         variant: 'destructive',
       });
+      
+      console.log('✅ [SecureSession] Enhanced signOut completed');
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('❌ [SecureSession] Error during enhanced signOut:', error);
     }
   }, [navigate, queryClient, toast]);
 
@@ -77,20 +92,93 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
     }
   }, []);
 
+  // Phase 4: Enhanced session refresh with better validation
+  const refreshSession = useCallback(async () => {
+    if (isRefreshingRef.current) return;
+    
+    try {
+      isRefreshingRef.current = true;
+      sessionHealthRef.current.refreshAttempts++;
+      
+      console.log('🔄 [SecureSession] Phase 4: Enhanced session refresh...');
+      
+      // Phase 4: Use Supabase's built-in refresh instead of custom endpoint
+      const { data, error } = await getSupabaseClient().auth.refreshSession();
+      
+      if (error) {
+        if (error.message.includes('refresh_token_not_found') || error.message.includes('Invalid refresh token')) {
+          await logSecurityEvent('session_expired', {
+            reason: 'invalid_refresh_token',
+            attempts: sessionHealthRef.current.refreshAttempts
+          });
+          await signOut();
+          return;
+        }
+        throw error;
+      }
+
+      if (!data.session) {
+        throw new Error('Session refresh returned no session');
+      }
+
+      // Reset all React Query cache timestamps to trigger refetches
+      queryClient.invalidateQueries();
+
+      // Update session health
+      sessionHealthRef.current.lastRefresh = Date.now();
+      sessionHealthRef.current.refreshAttempts = 0;
+      sessionHealthRef.current.consecutiveFailures = 0;
+
+      await logSecurityEvent('session_refresh', {
+        success: true,
+        timestamp: Date.now()
+      });
+
+      console.log('✅ [SecureSession] Session refresh completed successfully');
+
+    } catch (error) {
+      console.error('❌ [SecureSession] Session refresh error:', error);
+      options.onRefreshError?.(error as Error);
+      
+      await logSecurityEvent('session_refresh_fail', {
+        error: (error as Error).message,
+        attempts: sessionHealthRef.current.refreshAttempts
+      });
+      
+      if ((error as Error).message.includes('No active session')) {
+        await signOut();
+      }
+    } finally {
+      isRefreshingRef.current = false;
+    }
+  }, [queryClient, signOut, options, logSecurityEvent]);
+
+  // Phase 4: Enhanced session health check with validation
   const checkSessionHealth = useCallback(async () => {
     try {
-      const { data: currentData } = await getSupabaseClient().auth.getSession();
-      const now = Date.now();
+      console.log('🔍 [SecureSession] Phase 4: Enhanced session health check...');
       
+      const now = Date.now();
       sessionHealthRef.current.lastCheck = now;
+      sessionHealthRef.current.validationAttempts++;
 
-      if (!currentData.session) {
+      // Phase 4: Use enhanced validation from authTokenUtils
+      const validationResult = await validateAuthSession();
+      
+      if (!validationResult.isValid) {
         sessionHealthRef.current.consecutiveFailures++;
-        sessionHealthRef.current.lastError = 'No active session';
+        sessionHealthRef.current.lastError = 'Session validation failed';
+        
+        // Clean up any inconsistent keys found
+        if (validationResult.hasInconsistentKeys) {
+          console.log('🧹 [SecureSession] Cleaning up inconsistent auth keys...');
+          await clearAllAuthTokens(true); // Preserve Supabase keys during health check
+        }
         
         await logSecurityEvent('session_health_fail', {
-          reason: 'no_session',
-          consecutive_failures: sessionHealthRef.current.consecutiveFailures
+          reason: 'validation_failed',
+          consecutive_failures: sessionHealthRef.current.consecutiveFailures,
+          has_inconsistent_keys: validationResult.hasInconsistentKeys
         });
 
         if (sessionHealthRef.current.consecutiveFailures >= 3) {
@@ -100,13 +188,20 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
         return false;
       }
 
-      // Check if session expires within 15 minutes
-      const expiresAt = currentData.session.expires_at * 1000;
-      if (expiresAt - now <= REFRESH_INTERVAL) {
-        await refreshSession();
+      // Check session expiration and refresh if needed
+      const { data: currentData } = await getSupabaseClient().auth.getSession();
+      if (currentData.session) {
+        const expiresAt = currentData.session.expires_at * 1000;
+        if (expiresAt - now <= REFRESH_INTERVAL) {
+          console.log('🔄 [SecureSession] Session expires soon, refreshing...');
+          await refreshSession();
+        }
       }
 
       sessionHealthRef.current.consecutiveFailures = 0;
+      sessionHealthRef.current.lastValidation = now;
+      
+      console.log('✅ [SecureSession] Session health check passed');
       return true;
     } catch (error) {
       sessionHealthRef.current.consecutiveFailures++;
@@ -125,82 +220,6 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
       return false;
     }
   }, [signOut, refreshSession, logSecurityEvent, options]);
-
-  const refreshSession = useCallback(async () => {
-    if (isRefreshingRef.current) return;
-    
-    try {
-      isRefreshingRef.current = true;
-      sessionHealthRef.current.refreshAttempts++;
-      
-      // Get current session first to check if refresh needed
-      const { data: currentData } = await getSupabaseClient().auth.getSession();
-      if (!currentData.session) {
-        throw new Error('No active session');
-      }
-
-      // Check if session expires within 15 minutes
-      const expiresAt = currentData.session.expires_at * 1000;
-      const now = Date.now();
-      if (expiresAt - now > REFRESH_INTERVAL) {
-        return; // No refresh needed yet
-      }
-
-      // Call auth/refresh Edge Function with CSRF token
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // CSRF token will be added by fetchWithCsrf
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        if (response.status === 440) {
-          await logSecurityEvent('session_expired', {
-            reason: 'refresh_440',
-            attempts: sessionHealthRef.current.refreshAttempts
-          });
-          await signOut();
-          return;
-        }
-        throw new Error(`Session refresh failed: ${response.statusText}`);
-      }
-
-      // Update Supabase session with new tokens
-      const { session } = await response.json();
-      await getSupabaseClient().auth.setSession(session);
-
-      // Reset all React Query cache timestamps to trigger refetches
-      queryClient.invalidateQueries();
-
-      // Update session health
-      sessionHealthRef.current.lastRefresh = Date.now();
-      sessionHealthRef.current.refreshAttempts = 0;
-      sessionHealthRef.current.consecutiveFailures = 0;
-
-      await logSecurityEvent('session_refresh', {
-        success: true,
-        timestamp: Date.now()
-      });
-
-    } catch (error) {
-      console.error('Session refresh error:', error);
-      options.onRefreshError?.(error as Error);
-      
-      await logSecurityEvent('session_refresh_fail', {
-        error: (error as Error).message,
-        attempts: sessionHealthRef.current.refreshAttempts
-      });
-      
-      if ((error as Error).message.includes('No active session')) {
-        await signOut();
-      }
-    } finally {
-      isRefreshingRef.current = false;
-    }
-  }, [queryClient, signOut, options, logSecurityEvent]);
 
   // Set up automatic refresh interval
   useEffect(() => {

@@ -4,6 +4,7 @@
  */
 
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { clearAllAuthTokens } from '@/utils/auth/authTokenUtils';
 
 interface AuthRecoveryOptions {
   clearCache?: boolean;
@@ -24,7 +25,9 @@ export class AuthRecovery {
       // Step 1: Clear localStorage cache if requested
       if (clearCache) {
         console.log('🧹 [AuthRecovery] Clearing authentication cache...');
-        localStorage.removeItem('getSupabaseClient().auth.token');
+        // PHASE 3 FIX: Use centralized auth token cleanup instead of manual localStorage removal
+        // Removed: localStorage.removeItem('getSupabaseClient().auth.token');
+        clearAllAuthTokens(true); // Clear problematic keys but preserve Supabase's automatic keys
         localStorage.removeItem('lokaa-auth-cache');
         localStorage.removeItem('lokaa-space-cache');
       }

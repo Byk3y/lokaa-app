@@ -2,6 +2,7 @@ import { PostgrestError } from '@supabase/supabase-js'
 import { getSupabaseClient } from '@/integrations/supabase/client'
 import { generateSlug } from '@/utils/slugUtils'
 import { Database } from "@/types/supabase"
+import { clearAllAuthTokens } from '@/utils/auth/authTokenUtils'
 
 // Import User type from sessionUtils to maintain consistency
 import { User } from './sessionUtils'
@@ -181,13 +182,17 @@ export const ensureUserUrl = async (
 export const clearAuthStorage = (): void => {
   console.log('🧹 Immediately clearing client-side session state and storage...');
   
+  // PHASE 3 FIX: Use centralized auth token cleanup for consistent localStorage management
+  console.log('🧹 [Phase 3] Clearing problematic auth tokens...');
+  clearAllAuthTokens(false); // Clear all auth tokens including Supabase keys during logout
+  
   // Clear localStorage items
   const localItemsToClear = [
     'selectedSpaceId', 
     'lastVisitedSpace',
     'lastCreatedSpace',
     'spaceData',
-    'getSupabaseClient().auth.token', // Specific Supabase token key
+    // PHASE 3 FIX: Removed problematic key 'getSupabaseClient().auth.token' - handled by clearAllAuthTokens()
     // Smart redirect cache keys - CRITICAL for preventing cross-user space access
     'lastActiveSpace',
     'ownedSpaces',
@@ -246,29 +251,8 @@ export const clearAuthStorage = (): void => {
     }
   });
   
-  // Clear any Supabase keys in localStorage (important for Safari and general cleanup)
-  try {
-    Object.keys(localStorage)
-      .filter(key => key.startsWith('sb-')) // Catches all Supabase-related keys
-      .forEach(key => {
-        console.log(`Removing Supabase localStorage key: ${key}`);
-        localStorage.removeItem(key);
-      });
-  } catch (e) {
-    console.warn('Failed to clear Supabase local storage items:', e);
-  }
-
-  // Also try to clear any items in sessionStorage that might be prefixed with sb-
-  try {
-    Object.keys(sessionStorage)
-      .filter(key => key.startsWith('sb-'))
-      .forEach(key => {
-        console.log(`Removing Supabase sessionStorage key: ${key}`);
-        sessionStorage.removeItem(key);
-      });
-  } catch (e) {
-    console.warn('Failed to clear Supabase session storage items:', e);
-  }
+  // PHASE 3 FIX: Supabase key cleanup now handled by clearAllAuthTokens() above
+  // This eliminates duplicate and inconsistent localStorage management
   
   console.log('✅ Storage cleanup completed - all user-specific data cleared');
 }; 

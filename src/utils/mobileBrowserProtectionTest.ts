@@ -355,18 +355,25 @@ class MobileBrowserProtectionTest {
 // Create global instance
 const mobileBrowserProtectionTest = new MobileBrowserProtectionTest();
 
-// Expose to window for browser console access
+// Expose to window for browser console access - ONLY ON MOBILE DEVICES
 if (typeof window !== 'undefined') {
-  (window as any).mobileBrowserProtectionTest = {
-    runAllTests: () => mobileBrowserProtectionTest.runAllTests(),
-    getResults: () => mobileBrowserProtectionTest.getResults(),
-    getSummary: () => mobileBrowserProtectionTest.getSummary()
-  };
+  // DESKTOP GUARD: Only expose mobile protection test interface on mobile devices
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  console.log('🔧 [MobileProtectionTest] Test suite loaded. Available commands:');
-  console.log('  - window.mobileBrowserProtectionTest.runAllTests() - Run all protection tests');
-  console.log('  - window.mobileBrowserProtectionTest.getResults() - Get detailed test results');
-  console.log('  - window.mobileBrowserProtectionTest.getSummary() - Get test summary stats');
+  if (isMobile) {
+    (window as any).mobileBrowserProtectionTest = {
+      runAllTests: () => mobileBrowserProtectionTest.runAllTests(),
+      getResults: () => mobileBrowserProtectionTest.getResults(),
+      getSummary: () => mobileBrowserProtectionTest.getSummary()
+    };
+    
+    console.log('🔧 [MobileProtectionTest] Test suite loaded. Available commands:');
+    console.log('  - window.mobileBrowserProtectionTest.runAllTests() - Run all protection tests');
+    console.log('  - window.mobileBrowserProtectionTest.getResults() - Get detailed test results');
+    console.log('  - window.mobileBrowserProtectionTest.getSummary() - Get test summary stats');
+  } else {
+    console.log('🖥️ [MobileProtectionTest] Desktop detected - mobile protection test suite disabled');
+  }
 }
 
 export default mobileBrowserProtectionTest; 

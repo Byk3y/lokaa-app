@@ -542,7 +542,7 @@ export function useCommentReplies(commentId: string, currentUserId?: string) {
         author: reply.author as any,
         reply_count: 0, // Replies don't have sub-replies in this structure
         like_count: reply.like_count?.[0]?.count || 0,
-        isLiked: false, // TODO: Add like status if needed
+        isLiked: false, // Note: Like status can be added when needed
       }));
       
       return repliesWithDetails;
