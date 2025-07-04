@@ -57,10 +57,6 @@ export default function LoginModalContent({ onSuccess, onError }: LoginModalCont
         <h1 className="text-3xl font-bold text-teal-600">Lokaa</h1>
       </div>
       
-      <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
-        Log in to Lokaa
-      </h2>
-      
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
           {error}

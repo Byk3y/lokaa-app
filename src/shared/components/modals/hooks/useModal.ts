@@ -46,7 +46,7 @@ export const useModal = () => {
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.history.pushState(null, '', '/login');
       }
-      return openModal('auth-login', null, { title: 'Log in to Lokaa', size: 'sm' });
+      return openModal('auth-login', null, { size: 'sm' });
     },
     openSignupModal: () => {
       // Update URL to reflect modal state

@@ -694,34 +694,7 @@ export default function Discover() {
           </div>
           
           <div className="flex items-center space-x-4">
-            {(isLoggingOut || !user) ? (
-              <div className="flex items-center space-x-2">
-                {isLoggingOut && (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
-                    <span className="text-sm text-gray-600">Signing out...</span>
-                  </>
-                )}
-                {!isLoggingOut && !user && (
-                  <div className="flex space-x-3">
-                    <Link 
-                      to="/login" 
-                      onClick={handleSignInClick}
-                      className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 text-sm font-medium"
-                    >
-                      Sign in
-                    </Link>
-                    <Link 
-                      to="/signup" 
-                      className="text-white bg-teal-600 hover:bg-teal-700 px-4 py-2 rounded-full font-medium"
-                      onClick={handleSignUpClick}
-                    >
-                      Sign up
-                    </Link>
-                  </div>
-                )}
-              </div>
-            ) : (
+            {user ? (
               <>
                 {/* Mobile Actions */}
                 <div className="sm:hidden">
@@ -731,6 +704,15 @@ export default function Discover() {
                 {/* Desktop Actions */}
                 <HeaderActions className="hidden sm:flex" />
               </>
+            ) : (
+              <div className="flex items-center space-x-2">
+                {isLoggingOut && (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+                    <span className="text-sm text-gray-600">Signing out...</span>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>

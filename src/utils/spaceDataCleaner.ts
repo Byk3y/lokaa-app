@@ -3,75 +3,10 @@
  * 
  * This utility ensures complete cleanup of all space-related data when switching
  * between spaces to prevent cross-space data contamination.
- * 
- * CRITICAL FOR: Fixing SpaceInfoSidebar showing wrong space data after switching
  */
 
 import { clearSpacePresenceCache } from '@/hooks/useSimpleSpacePresence';
 import { globalCache } from '@/utils/globalCacheCoordinator';
-
-// Track which space we're currently cleaning to prevent loops
-let currentlyCleaningSpace: string | null = null;
-
-/**
- * Clear presence data for a specific space
- */
-export const clearSpacePresence = async (spaceId: string): Promise<void> => {
-  if (!spaceId) return;
-  
-  try {
-    console.log(`🧹 [SpaceDataCleaner] Clearing presence data for space: ${spaceId}`);
-    
-    // Call the unified presence cache clearer with space filter
-    if (typeof window !== 'undefined' && (window as any).clearSpacePresenceData) {
-      await (window as any).clearSpacePresenceData(spaceId);
-    }
-    
-    // Clear global cache entries for this space
-    if (globalCache && typeof globalCache.invalidatePattern === 'function') {
-      globalCache.invalidatePattern(spaceId);
-    }
-    
-    console.log(`✅ [SpaceDataCleaner] Presence data cleared for space: ${spaceId}`);
-  } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Failed to clear presence for space ${spaceId}:`, error);
-  }
-};
-
-/**
- * Clear member counts cache for a specific space
- */
-export const clearSpaceMemberCounts = async (spaceId: string): Promise<void> => {
-  if (!spaceId) return;
-  
-  try {
-    console.log(`🧹 [SpaceDataCleaner] Clearing member counts for space: ${spaceId}`);
-    
-    // Clear from global cache coordinator
-    if (globalCache && typeof globalCache.unsubscribe === 'function') {
-      globalCache.unsubscribe(`memberCounts:${spaceId}`, 'space-switch-cleanup');
-    }
-    
-    // Clear from localStorage cache if any
-    const memberCountKeys = [
-      `memberCounts_${spaceId}`,
-      `space_members_cache_${spaceId}`,
-      `optimized_member_counts_${spaceId}`
-    ];
-    
-    memberCountKeys.forEach(key => {
-      try {
-        localStorage.removeItem(key);
-      } catch (e) {
-        console.warn(`Failed to clear localStorage key: ${key}`, e);
-      }
-    });
-    
-    console.log(`✅ [SpaceDataCleaner] Member counts cleared for space: ${spaceId}`);
-  } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Failed to clear member counts for space ${spaceId}:`, error);
-  }
-};
 
 /**
  * Clear all cached data for a specific space
@@ -82,7 +17,7 @@ export const clearSpaceCache = async (spaceId: string): Promise<void> => {
   try {
     console.log(`🧹 [SpaceDataCleaner] Clearing all cache for space: ${spaceId}`);
     
-    // Clear various cache stores
+    // Clear localStorage/sessionStorage cache stores
     const cacheKeys = [
       `space_fallback_${spaceId}`,
       `space_data_${spaceId}`,
@@ -98,117 +33,108 @@ export const clearSpaceCache = async (spaceId: string): Promise<void> => {
         localStorage.removeItem(key);
         sessionStorage.removeItem(key);
       } catch (e) {
-        console.warn(`Failed to clear cache key: ${key}`, e);
+        console.warn(`Failed to clear ${key}:`, e);
       }
     });
+
+    // Invalidate global cache coordinator for this space
+    if (globalCache?.invalidate) {
+      globalCache.invalidate(`categories:${spaceId}`);
+      globalCache.invalidate(`posts:${spaceId}`);
+      console.log(`✅ [SpaceDataCleaner] Global cache invalidated for space: ${spaceId}`);
+    }
+
+    // Clear categories cache from Zustand store
+    if ((window as any).useCategoriesCache) {
+      (window as any).useCategoriesCache.getState().invalidateCache(spaceId);
+    }
     
     console.log(`✅ [SpaceDataCleaner] Cache cleared for space: ${spaceId}`);
   } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Failed to clear cache for space ${spaceId}:`, error);
+    console.error(`❌ [SpaceDataCleaner] Error clearing cache for space ${spaceId}:`, error);
   }
 };
 
 /**
- * Clear hook states for space switching
+ * Clear member counts for a specific space
  */
-export const clearSpaceHookStates = async (): Promise<void> => {
+export const clearMemberCountsForSpace = async (spaceId: string): Promise<void> => {
+  if (!spaceId) return;
+  
+  try {
+    console.log(`🧹 [SpaceDataCleaner] Clearing member counts for space: ${spaceId}`);
+    
+    // Clear UnifiedPresence cache for this space
+    if (clearSpacePresenceCache) {
+      await clearSpacePresenceCache(spaceId);
+    }
+    
+    // Clear member counts from singleton if available
+    if ((window as any).getSingletonMemberStates) {
+      const states = (window as any).getSingletonMemberStates();
+      if (states[spaceId]) {
+        delete states[spaceId];
+      }
+    }
+    
+    console.log(`✅ [SpaceDataCleaner] Member counts cleared for space: ${spaceId}`);
+  } catch (error) {
+    console.error(`❌ [SpaceDataCleaner] Error clearing member counts for space ${spaceId}:`, error);
+  }
+};
+
+/**
+ * Clear hook states during space switching
+ */
+export const clearHookStates = (): void => {
   try {
     console.log(`🧹 [SpaceDataCleaner] Clearing hook states for space switch`);
     
-    // Clear member counts hook states if accessible
-    if (typeof window !== 'undefined') {
-      // Signal to hooks that they should reset their state (actual space switch)
-      window.dispatchEvent(new CustomEvent('spaceSwitch', {
-        detail: { action: 'clearStates', timestamp: Date.now(), source: 'spaceSwitch' }
-      }));
-      
-      // Clear any global hook caches
-      if ((window as any).clearMemberCountsCache) {
-        (window as any).clearMemberCountsCache();
-      }
-      
-      if ((window as any).clearSpaceHookStates) {
-        (window as any).clearSpaceHookStates();
-      }
-    }
+    // Dispatch space switch event to notify hooks
+    const event = new CustomEvent('spaceSwitch', {
+      detail: { action: 'clearStates' }
+    });
+    window.dispatchEvent(event);
     
     console.log(`✅ [SpaceDataCleaner] Hook states cleared`);
   } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Failed to clear hook states:`, error);
+    console.error(`❌ [SpaceDataCleaner] Error clearing hook states:`, error);
   }
 };
 
 /**
- * MAIN FUNCTION: Comprehensive space data cleanup
- * This is called when switching between spaces
+ * Comprehensive cleanup for space switching
  */
-export const clearAllSpaceData = async (options: {
-  currentSpaceId?: string;
-  targetSpaceId?: string;
-  clearAll?: boolean;
-} = {}): Promise<void> => {
-  const { currentSpaceId, targetSpaceId, clearAll = false } = options;
+export const clearAllSpaceData = async (
+  currentSpaceId?: string, 
+  targetSpaceId?: string,
+  clearAll: boolean = false
+): Promise<void> => {
+  const timestamp = new Date().toISOString();
   
-  // Prevent recursive calls
-  const cleanupId = currentSpaceId || 'all';
-  if (currentlyCleaningSpace === cleanupId) {
-    console.log(`🔄 [SpaceDataCleaner] Already cleaning ${cleanupId}, skipping duplicate`);
-    return;
-  }
-  
-  currentlyCleaningSpace = cleanupId;
+  console.log(`🧹 [SpaceDataCleaner] Starting comprehensive space cleanup:`, {
+    currentSpaceId,
+    targetSpaceId,
+    clearAll,
+    timestamp
+  });
   
   try {
-    console.log(`🧹 [SpaceDataCleaner] Starting comprehensive space cleanup:`, {
-      currentSpaceId,
-      targetSpaceId,
-      clearAll,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Phase 1: Clear presence data
-    if (clearAll) {
-      console.log(`🧹 [SpaceDataCleaner] Clearing ALL presence data`);
-      clearSpacePresenceCache(); // Clear all spaces
-    } else if (currentSpaceId) {
-      clearSpacePresenceCache(currentSpaceId); // Clear specific space
-    }
-    
-    // Phase 2: Clear member counts
+    // Clear member counts for current space
     if (currentSpaceId) {
-      await clearSpaceMemberCounts(currentSpaceId);
+      await clearMemberCountsForSpace(currentSpaceId);
     }
     
-    // Phase 3: Clear general cache
+    // Clear cache for current space
     if (currentSpaceId) {
       await clearSpaceCache(currentSpaceId);
     }
     
-    // Phase 4: Clear hook states
-    await clearSpaceHookStates();
-    
-    // Phase 5: Clear global cache coordinator
-    if (globalCache && typeof globalCache.clearAll === 'function' && clearAll) {
-      globalCache.clearAll();
-    }
-    
-    // Small delay to ensure all async operations complete
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Clear hook states
+    clearHookStates();
     
     console.log(`✅ [SpaceDataCleaner] Comprehensive cleanup completed successfully`);
-    
   } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Cleanup failed:`, error);
-  } finally {
-    currentlyCleaningSpace = null;
+    console.error(`❌ [SpaceDataCleaner] Error during comprehensive cleanup:`, error);
   }
-};
-
-/**
- * Export for emergency manual cleanup from console
- */
-if (typeof window !== 'undefined') {
-  (window as any).clearAllSpaceData = clearAllSpaceData;
-  (window as any).clearSpacePresence = clearSpacePresence;
-  (window as any).clearSpaceMemberCounts = clearSpaceMemberCounts;
-} 
+}; 

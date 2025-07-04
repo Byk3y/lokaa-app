@@ -107,6 +107,31 @@ export function useOptimizedCachedCategories(spaceId: string | undefined): UseOp
     }
   }, [spaceId, fetchCategories]);
 
+  // Listen for space switching events to force refetch
+  useEffect(() => {
+    if (!spaceId) return;
+
+    const handleSpaceSwitch = (event: CustomEvent) => {
+      const { action } = event.detail || {};
+      if (action === 'clearStates') {
+        devLogger.log('CacheDebug', `Space switch detected for ${spaceId}, forcing categories refetch`);
+        
+        // Clear auto-fetch tracking to allow refetch
+        hasAutoFetched.current.delete(spaceId);
+        
+        // Force immediate refetch
+        fetchCategories(true);
+      }
+    };
+
+    // Listen for spaceSwitch events
+    window.addEventListener('spaceSwitch', handleSpaceSwitch as EventListener);
+
+    return () => {
+      window.removeEventListener('spaceSwitch', handleSpaceSwitch as EventListener);
+    };
+  }, [spaceId, fetchCategories]);
+
   // Refresh categories function
   const refreshCategories = useCallback(async () => {
     await fetchCategories(true);

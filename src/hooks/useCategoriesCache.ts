@@ -581,4 +581,9 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
     console.log('🏷️ [CategoriesCache] Clearing all categories cache');
     set({ cache: {} });
   },
-})); 
+}));
+
+// Export for access by SpaceDataCleaner during space switching
+if (typeof window !== 'undefined') {
+  (window as any).useCategoriesCache = useCategoriesCache;
+} 

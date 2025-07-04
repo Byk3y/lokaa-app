@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from "@/contexts/AuthContext";
 import PublicRoute from "@/components/auth/PublicRoute";
-import { Search, Menu, ChevronDown, ChevronUp, Plus, Compass, Apple, Play, X } from "lucide-react";
+import { Search, Menu, Plus, Compass, Apple, Play, X } from "lucide-react";
 import CategoriesFilter from "@/components/spaces/CategoriesFilter";
 import SpaceCardGrid from "@/components/spaces/SpaceCardGrid";
 import useSpacesData from "@/hooks/useSpacesData";
@@ -10,6 +10,9 @@ import DottedBackground from "@/components/ui/DottedBackground";
 import { SpacePreviewModal } from "@/components/modals/SpacePreviewModal";
 import { useSpacePreviewStore } from "@/stores/useSpacePreviewStore";
 import { useModal } from '@/shared/components/modals/hooks/useModal';
+import ModernDropdownTrigger from '@/components/ModernDropdownTrigger';
+import StickyNoteVisual from '@/components/ui/StickyNoteVisual';
+import UpcomingActivityCard from '@/components/ui/UpcomingActivityCard';
 
 // Categories for the discovery section - refined selection for desktop view
 const categories = [
@@ -195,17 +198,13 @@ export default function LandingPage() {
               <h1 className="text-4xl font-bold leading-none" style={{ color: '#00A389' }}>Lokaa</h1>
               
               {/* Desktop Dropdown Trigger */}
-              <button 
-                className="flex items-center text-gray-400 hover:text-gray-600 transition-colors ml-0.5"
+              <div 
                 onClick={toggleNavMenu}
                 aria-expanded={navMenuOpen}
+                className="ml-1 cursor-pointer"
               >
-                {navMenuOpen ? (
-                  <ChevronUp size={15} strokeWidth={2} />
-                ) : (
-                  <ChevronDown size={15} strokeWidth={2} />
-                )}
-              </button>
+                <ModernDropdownTrigger open={navMenuOpen} />
+              </div>
             </div>
             
             {/* Sign In - right-aligned */}
@@ -267,24 +266,36 @@ export default function LandingPage() {
             </Link>
             </li>
             <li className="px-5 py-2">
-            <Link 
-              to="/discover?force=discover" 
-                className="flex items-center text-gray-700 hover:text-teal-600"
-                onClick={toggleNavMenu}
+              <button 
+                onClick={() => {
+                  if (user) {
+                    navigate('/discover?force=discover');
+                  } else {
+                    openSignupModal();
+                  }
+                  toggleNavMenu();
+                }}
+                className="flex items-center text-gray-700 hover:text-teal-600 w-full text-left"
               >
                 <Compass className="mr-2 h-5 w-5" />
                 <span className="text-lg">Discover</span>
-              </Link>
+              </button>
             </li>
             <li className="px-5 py-2">
-              <Link 
-                to="/signup" 
-                className="flex items-center text-gray-700 hover:text-teal-600"
-                onClick={toggleNavMenu}
+              <button 
+                onClick={() => {
+                  if (user) {
+                    navigate('/create-space');
+                  } else {
+                    openSignupModal();
+                  }
+                  toggleNavMenu();
+                }}
+                className="flex items-center text-gray-700 hover:text-teal-600 w-full text-left"
               >
                 <Plus className="mr-2 h-5 w-5" />
                 <span className="text-lg">Create a Space</span>
-            </Link>
+              </button>
             </li>
           </ul>
         </nav>
@@ -294,6 +305,21 @@ export default function LandingPage() {
         <DottedBackground className="mt-6 mx-4 md:mx-8 lg:mx-12 mb-8">
           {/* Hero section with reduced empty space */}
           <section className="relative pt-8 pb-6 md:pt-12 md:pb-10">
+            {/* Sticky Note Visual - Left Side */}
+            <div className="hidden lg:block absolute left-4 top-8 z-10">
+              <StickyNoteVisual text="Highlight key ideas, and bring your space to life." />
+            </div>
+
+            {/* Upcoming Activity Card - Right Side */}
+            <div className="hidden lg:block absolute right-4 top-8 z-10">
+              <UpcomingActivityCard 
+                title="Upcoming Activity"
+                eventTitle="Weekly AMA"
+                description="Q&A with the Founder"
+                startTime="18:00 WAT"
+              />
+            </div>
+
             <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-10 text-center">
               <div className="mb-6">
                 <h1 className="text-5xl md:text-6xl lg:text-8xl font-bold text-black tracking-tight leading-none">

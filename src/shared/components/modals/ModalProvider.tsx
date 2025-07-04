@@ -102,7 +102,6 @@ const ModalProvider = ({ children }: ModalProviderProps) => {
   // Auth-specific convenience functions for bridge
   const openLoginModal = useCallback((config?: Partial<ModalConfig>) => {
     openModal('auth-login', null, {
-      title: 'Log in to Lokaa',
       size: 'sm',
       ...config
     });
