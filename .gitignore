@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dev-dist
 *.local
 
 # Editor directories and files
@@ -40,6 +41,14 @@ tmp_*
 temp_*
 *.orig
 *.rej
+
+# Build artifacts and archives
+*.zip
+*.tar.gz
+*.tgz
+build/
+out/
+temp_fonts/
 
 # OS generated files
 .DS_Store
