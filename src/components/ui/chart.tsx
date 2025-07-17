@@ -76,6 +76,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 
   return (
     <style
+      // Safe: CSS generation from controlled config object, not user input
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)
           .map(

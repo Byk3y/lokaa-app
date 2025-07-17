@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { PostCardProps } from '@/features/posts/types';
 import { toTitleCase } from '@/utils/textFormatting';
+import { sanitizePostContent } from '@/utils/htmlSanitizer';
 
 interface PostContentProps {
   post: PostCardProps;
@@ -8,15 +9,9 @@ interface PostContentProps {
 }
 
 export default function PostContent({ post, postTitleRef }: PostContentProps) {
-  // Sanitize content to prevent XSS
+  // Sanitize content to prevent XSS attacks
   const sanitizedContent = useMemo(() => {
-    // A more robust library like DOMPurify should be used in a real app
-    if (typeof DOMParser === 'undefined') {
-      return post.content;
-    }
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(post.content, 'text/html');
-    return doc.body.innerHTML;
+    return sanitizePostContent(post.content || '');
   }, [post.content]);
 
   return (

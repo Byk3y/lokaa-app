@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button";
 import { Video, Edit } from "lucide-react";
 import type { CourseLessonData } from '@/types/classroom';
+import { sanitizeLessonContent } from '@/utils/htmlSanitizer';
 
 interface LessonContentDialogProps {
   isOpen: boolean;
@@ -58,7 +59,7 @@ export default function LessonContentDialog({
             <div className="prose prose-lg max-w-none dark:prose-invert">
               {isRichText ? (
                 <div 
-                  dangerouslySetInnerHTML={{ __html: lesson.content_text || "" }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeLessonContent(lesson.content_text || "") }}
                   className="rich-text-content"
                 />
               ) : (

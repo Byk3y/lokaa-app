@@ -2,6 +2,7 @@ import React, { memo, useMemo, useCallback, useRef, useEffect } from 'react';
 import { performanceMonitor } from '../../utils/performanceMonitor';
 import { useCleanupTracker } from '../../hooks/useCleanupTracker';
 import { getInitials } from '@/shared/utils/avatar-utils';
+import { sanitizePostContent } from '@/utils/htmlSanitizer';
 
 /**
  * Higher-order component for automatic performance memoization
@@ -161,11 +162,14 @@ export const OptimizedPostCard = withPerformanceMemo(
     const processedContent = useExpensiveMemo(() => {
       if (!content) return '';
       
-      // Simulate expensive content processing (markdown, mentions, etc.)
-      return content
+      // Process content with markdown-like formatting
+      const processed = content
         .replace(/@(\w+)/g, '<mention>@$1</mention>')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+      // Sanitize the processed content to prevent XSS
+      return sanitizePostContent(processed);
     }, [content], 'processContent');
     
     // Memoize media configuration
