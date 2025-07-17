@@ -17,7 +17,8 @@ const baseSpaceSettingsSchema = z.object({
     .regex(/^[\w\s\-.,!?'"()]+$/, 'Name contains invalid characters'),
   description: z.string()
     .max(150, 'Description must be less than 150 characters')
-    .optional(),
+    .optional()
+    .nullable(),
   subdomain: z.string()
     .min(3, 'Subdomain must be at least 3 characters')
     .max(63, 'Subdomain must be less than 63 characters')
@@ -35,10 +36,12 @@ const baseSpaceSettingsSchema = z.object({
 export const aboutSchema = z.object({
   about_description: z.string()
     .max(50000, 'About description must be less than 50,000 characters')
-    .optional(),
+    .optional()
+    .nullable(),
   short_description: z.string()
     .max(200, 'Short description must be less than 200 characters')
-    .optional(),
+    .optional()
+    .nullable(),
   intro_media_type: z.enum(['none', 'image', 'video']).default('none'),
   intro_media_url: z.string().url('Invalid media URL').optional().nullable(),
   icon_image: z.string().url('Invalid icon URL').optional().nullable(),

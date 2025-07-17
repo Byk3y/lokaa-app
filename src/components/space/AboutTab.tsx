@@ -3,7 +3,7 @@ import { Globe, Lock, Users, Tag, Upload, X, Play, Plus, AlertCircle, Loader2, G
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dialog, DialogContent, DialogTitle, DialogClose, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
@@ -15,7 +15,7 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useNavigate } from "react-router-dom";
 import { useSpace } from "@/contexts/SpaceContext";
 import { useMembership } from "@/contexts/MembershipContext";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database } from "@/types/database.types";
 import useSpaceDescriptionManager from "@/hooks/useSpaceDescriptionManager";
 import useSpaceSettingsStore, { SpaceSettingsData } from "@/hooks/useSpaceSettingsStore";
 import { resolveImageUrl } from "@/utils/preloadAssets";
@@ -790,20 +790,8 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
                     onReorder={canEditSpace ? handleReorderMedia : undefined}
                     ownerData={ownerData}
                     showOwner={true}
+                    setShowMediaModal={setShowMediaModal}
                   />
-                  {canEditSpace && mediaItems.length < MAX_MEDIA_ITEMS && (
-                    <div className="flex justify-center p-4 border-t">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setShowMediaModal(true)}
-                        className="flex items-center gap-2"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add Media
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
@@ -817,10 +805,10 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
               className="shadow-md"
             />
                 
-                {/* Show thumbnails with the + button if there are no media items yet */}
+                {/* Show small + button for empty state */}
                 {canEditSpace && (
                   <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center space-x-2">
                       <div 
                         className="w-16 h-16 rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
                         onClick={() => setShowMediaModal(true)}
@@ -920,6 +908,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
           <Dialog open={showMediaModal} onOpenChange={handleCloseModal}>
             <DialogContent className="sm:max-w-md">
               <DialogTitle>Add Media</DialogTitle>
+              <DialogDescription>Add a YouTube video or upload an image to your space gallery</DialogDescription>
               
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -1035,6 +1024,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
               }}>
             <DialogContent className="sm:max-w-md">
               <DialogTitle>Delete Media</DialogTitle>
+              <DialogDescription>Confirm deletion of the selected media item</DialogDescription>
               <p className="py-4">Are you sure you want to delete this media? This cannot be undone.</p>
               <DialogFooter>
                     <Button variant="outline" onClick={() => { setShowDeleteConfirm(false); setMediaToDelete(null); }} disabled={deleting}>Cancel</Button>
@@ -1065,6 +1055,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
             adminCount={memberCounts.adminMembers} // Use the unified presence system counts
             // onlineCount removed - let SpaceInfoSidebar use its own hook for real-time presence
             canAccessSettings={storePermissions?.canAccessSettings} // This prop is used by SpaceInfoSidebar
+            permissionsLoading={membershipLoading || loading}
             subdomain={currentSpaceData.subdomain}
             spaceId={currentSpaceData.id}
             isOwner={isSpaceOwner} // Pass the derived isSpaceOwner

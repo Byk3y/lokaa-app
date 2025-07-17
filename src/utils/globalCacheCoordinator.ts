@@ -40,7 +40,7 @@ class GlobalCacheCoordinator {
   // Enhanced default configurations with better debouncing
   private defaultConfigs: Record<string, QueryConfig> = {
     posts: {
-      maxAge: 2 * 60 * 1000, // 2 minutes
+      maxAge: 5 * 60 * 1000, // EGRESS FIX: Increased from 2 to 5 minutes
       backgroundRefresh: true,
       priority: 'high',
       timeout: 15000
@@ -52,7 +52,7 @@ class GlobalCacheCoordinator {
       timeout: 10000
     },
     memberCounts: {
-      maxAge: 30 * 1000, // 30 seconds - reduced for real-time feel
+      maxAge: 5 * 60 * 1000, // EGRESS FIX: Increased from 30 seconds to 5 minutes
       backgroundRefresh: false, // Disable background refresh to reduce load
       priority: 'normal',
       timeout: 8000

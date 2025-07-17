@@ -7,6 +7,7 @@ export interface CourseDisplayData {
   title: string;
   description?: string | null;
   image_url?: string | null;
+  slug?: string | null; // URL-friendly slug for course routing
   access_type: 'open' | 'paid';
   price?: number | null;
   is_published: boolean;
@@ -171,14 +172,22 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       // POSTS PATTERN: Increased timeout to match working queries
       const TIMEOUT_MS = 15000; // Increased from 4000 to match working queries
       
-      const coursesQuery = (getSupabaseClient() as any)
+      // Check if user is owner to determine query filter
+      const isOwner = userId === ownerId;
+      
+      let coursesQuery = (getSupabaseClient() as any)
         .from('courses')
         .select(
-          'id, title, description, image_url, access_type, price, is_published, creator_id, space_id, currency'
+          'id, title, description, image_url, cover_image_url, access_type, price, is_published, creator_id, space_id, currency'
         )
-        .eq('space_id', spaceId)
-        .eq('is_published', true)
-        .order('created_at', { ascending: false });
+        .eq('space_id', spaceId);
+      
+      // Only filter by is_published if user is not the owner
+      if (!isOwner) {
+        coursesQuery = coursesQuery.eq('is_published', true);
+      }
+      
+      coursesQuery = coursesQuery.order('created_at', { ascending: false });
 
       const { data: coursesData, error: coursesError } = await Promise.race([
         coursesQuery,
@@ -242,7 +251,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         id: course.id,
         title: course.title,
         description: course.description,
-        image_url: course.image_url,
+        image_url: course.cover_image_url || course.image_url, // Use cover_image_url first, fallback to image_url
         access_type: course.access_type as 'open' | 'paid',
         price: course.price,
         is_published: course.is_published,

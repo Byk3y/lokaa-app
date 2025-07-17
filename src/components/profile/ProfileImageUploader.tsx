@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import Cropper from 'react-easy-crop';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useProfileImage } from '@/contexts/ProfileImageContext';
 
 // This type defines the expected return from Cropper
@@ -382,6 +382,9 @@ export default function ProfileImageUploader({
             <DialogTitle className="text-center text-xl font-semibold">
               {isEditingExistingImage ? 'Crop profile photo' : 'Crop profile photo'}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Crop and adjust your profile photo to fit the circular frame
+            </DialogDescription>
           </div>
           
           <div className="relative h-[280px] w-full bg-black">

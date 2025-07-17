@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import ChatContainer from '@/components/chat/ChatContainer';
-import BottomNav from '@/components/mobile/BottomNav';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useConversations } from '@/features/chat';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { 
   parseConversationUrlParams, 
   findConversationIdFromSlug
@@ -16,7 +16,7 @@ export default function ChatPage() {
   const { user } = useOptimizedAuth();
   const { space, loadActiveSpace } = useSpaceSettingsStore();
   const { legacyConversations: conversations } = useConversations();
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = shouldEnableMobileFeatures();
   const [resolvedConversationId, setResolvedConversationId] = useState<string | undefined>();
 
   // Handle URL parameter parsing with new conversation URL system
@@ -87,11 +87,8 @@ export default function ChatPage() {
   }, [user?.id, space?.subdomain, loadActiveSpace]);
 
   return (
-    <div className="h-screen w-screen bg-white flex flex-col">
-      <div className="flex-1 min-h-0">
-        <ChatContainer initialConversationId={resolvedConversationId} />
-      </div>
-      <BottomNav />
+    <div className={`h-full w-full bg-white ${isMobile ? 'mobile-chat-page' : ''}`}>
+      <ChatContainer initialConversationId={resolvedConversationId} />
     </div>
   );
 } 

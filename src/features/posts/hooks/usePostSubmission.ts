@@ -114,7 +114,7 @@ export function usePostSubmission({
             poll_data: pollData,
           })
           .eq('id', post.id)
-          .select('*, slug')
+          .select('*')
           .single();
 
         if (postError) {
@@ -159,7 +159,7 @@ export function usePostSubmission({
             // Explicitly setting slug to null to ensure the trigger fires
             slug: null
           })
-          .select('*, slug')
+          .select('*')
           .single();
 
         if (postError) {
@@ -183,7 +183,7 @@ export function usePostSubmission({
             // Fetch the post again to get the slug
             const { data: refreshedPost, error: refreshError } = await getSupabaseClient()
               .from('posts')
-              .select('*, slug')
+              .select('*')
               .eq('id', postData.id)
               .single();
               
@@ -297,16 +297,6 @@ export function usePostSubmission({
           }
         }
 
-        // Insert into user_activity_log after post creation
-        if (finalPostData && finalPostData.id) {
-          await getSupabaseClient().from('user_activity_log').insert({
-            user_id: userId,
-            type: 'post',
-            ref_id: finalPostData.id,
-            meta: { space_id: spaceId, title: title.trim(), slug: finalPostData.slug }
-          });
-        }
-        
         // Find the category from the provided categories array
         const category = categoryId 
           ? categories.find(cat => cat.id === categoryId) || null 

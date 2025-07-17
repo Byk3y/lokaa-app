@@ -43,15 +43,9 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
 
   const handleFocus = () => {
     setIsFocused(true);
-    // On mobile, scroll the input into view when focused
-    if (isMobile && inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
-      }, 300); // Wait for keyboard animation
-    }
+    
+    // ✅ SKOOL-STYLE: Input is fixed overlay, no scrolling needed
+    // Mobile keyboard will automatically adjust viewport, input stays above nav
   };
 
   const handleBlur = () => {
@@ -69,13 +63,13 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
   return (
     <form 
       onSubmit={handleSubmit} 
-      className={`px-2 py-1 bg-white dark:bg-gray-900 shadow-md rounded-t-none rounded-b-2xl flex items-center transition-all duration-200 ${
+      className={`px-2 py-2 bg-white dark:bg-gray-900 shadow-md flex items-center transition-all duration-200 ${
         isFocused && isMobile ? 'shadow-lg' : ''
-      }`} 
+      } ${isMobile ? 'mobile-chat-input-overlay' : 'rounded-t-none rounded-b-2xl'}`} 
       style={{
-        minHeight: 32,
-        touchAction: 'none', // Prevent scrolling on the input form
-        overflow: 'hidden'    // Ensure no overflow
+        minHeight: isMobile ? 60 : 32, // Appropriate height for mobile
+        touchAction: 'manipulation', // Allow touch but prevent unwanted scrolling
+        overflow: 'hidden',    // Ensure no overflow
       }}
     >
       <div className="relative flex-1 flex items-center">

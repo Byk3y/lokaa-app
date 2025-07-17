@@ -48,8 +48,11 @@ const SpaceTabContent = () => {
   // Ref for the post input field in FeedTab
   const postInputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
   
-  // Tab determination
-  const currentTab = activeTab || extractTabFromPathname(window.location.pathname);
+  // FIXED: Use window.location.pathname directly to avoid stale activeTab from context
+  const extractedTab = extractTabFromPathname(window.location.pathname);
+  
+  // Always prefer the extracted tab from current URL over potentially stale activeTab from context
+  const currentTab = extractedTab;
   
   // Tab dependencies for service
   const tabDependencies: TabDependencies = {
@@ -67,6 +70,23 @@ const SpaceTabContent = () => {
     visitedTabs,
     addTab,
   } = useTabManager(tabDependencies);
+  
+  // DEBUGGING: Log tab determination logic
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 [SpaceTabContent] Tab determination:', {
+      activeTab,
+      extractedTab,
+      currentTab,
+      pathname: window.location.pathname,
+      windowPathname: window.location.pathname,
+      subdomain,
+      usingExtractedTab: true,
+      visitedTabsArray: Array.from(visitedTabs),
+      availableComponents: Object.keys(persistentTabComponents),
+      currentTabHasComponent: !!persistentTabComponents[currentTab],
+      willAddTab: currentTab && !visitedTabs.has(currentTab as SpaceTab)
+    });
+  }
   
   // Mark tab as visited when it becomes active
   useEffect(() => {

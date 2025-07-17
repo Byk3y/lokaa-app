@@ -26,7 +26,7 @@ const SPACE_FALLBACK_DATA: Record<string, SpaceFallbackData> = {
     name: 'Nocode Devils',
     subdomain: 'nocode-architects',
     description: 'A community for no-code architects and builders',
-    owner_id: 'f6064ebb-564a-49d2-a146-fb8615fd7ae2', // Correct owner ID for Francis Swift
+    owner_id: '1fca49da-3a53-4a0f-aeb3-63b567f35f84', // FIXED: Updated to correct owner ID
     member_count: 6,
     admin_count: 1,
     online_count: 2,
@@ -38,8 +38,20 @@ const SPACE_FALLBACK_DATA: Record<string, SpaceFallbackData> = {
     name: 'Nextpath-ai',
     subdomain: 'nextpath-ai',
     description: 'AI-powered learning and development community',
-    owner_id: 'f6064ebb-564a-49d2-a146-fb8615fd7ae2', // Same owner as nocode-architects
+    owner_id: '1fca49da-3a53-4a0f-aeb3-63b567f35f84', // FIXED: Updated to correct owner ID
     member_count: 1,
+    admin_count: 1,
+    online_count: 1,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  'aqua-space': {
+    id: 'c1f7c014-ed72-4c9b-bd88-9dcd23343104',
+    name: 'aqua space',
+    subdomain: 'aqua-space',
+    description: 'A community space for collaboration and discussion',
+    owner_id: '13468c2b-cd4c-42c8-81f8-bb5373e0456e', // FIXED: Correct owner ID for aqua-space
+    member_count: 5,
     admin_count: 1,
     online_count: 1,
     created_at: new Date().toISOString(),

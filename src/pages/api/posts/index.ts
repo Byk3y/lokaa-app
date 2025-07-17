@@ -51,14 +51,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error creating post' });
     }
 
-    // Insert into user_activity_log
-    await supabase.from('user_activity_log').insert({
-      user_id: user.id,
-      type: 'post',
-      ref_id: post.id,
-      meta: { space_id, title }
-    });
-
     return res.status(200).json(post);
   } catch (error) {
     console.error('Error in posts API:', error);

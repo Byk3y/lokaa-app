@@ -216,7 +216,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
   // Add comment mutation with optimistic updates
   const addCommentMutation = useMutation({
     mutationFn: async ({ postId, content, userId, spaceId, parentId }: CommentAddParams) => {
-      const { data, error } = await getSupabaseClient()
+      const { error } = await getSupabaseClient()
         .from('post_comments')
         .insert({
           post_id: postId,
@@ -224,19 +224,29 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
           user_id: userId,
           space_id: spaceId,
           parent_comment_id: parentId,
-        })
-        .select(`
-          id, content, created_at, user_id, post_id, space_id, parent_comment_id,
-          author:user_id(id, full_name, avatar_url, profile_url, activity_score)
-        `)
-        .single();
+        });
         
       if (error) throw error;
+      
+      // Generate temporary ID for optimistic update - real-time will provide actual data
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       return { 
-        ...data, 
+        id: tempId,
+        content,
+        created_at: new Date().toISOString(),
+        user_id: userId,
+        post_id: postId,
+        space_id: spaceId,
+        parent_comment_id: parentId,
         isLiked: false,
         like_count: 0,
-        reply_count: 0
+        reply_count: 0,
+        author: {
+          id: userId,
+          full_name: currentUser?.user_metadata?.full_name || currentUser?.email || 'User',
+          avatar_url: currentUser?.user_metadata?.avatar_url || null,
+        }
       };
     },
     onMutate: async ({ postId, content, userId, spaceId }) => {
@@ -526,22 +536,18 @@ export function useCommentReplies(commentId: string, currentUserId?: string) {
     queryFn: async () => {
       const { data, error } = await getSupabaseClient()
         .from('post_comments')
-        .select(`
-          id, content, created_at, user_id, post_id, space_id, parent_comment_id,
-          author:user_id(id, full_name, avatar_url, profile_url, activity_score),
-          like_count:comment_likes(count)
-        `)
+        .select('id, content, created_at, user_id, post_id, space_id, parent_comment_id')
         .eq('parent_comment_id', commentId)
         .order('created_at', { ascending: true });
         
               if (error) throw error;
       
-      // Process replies data similar to main comments
+      // Process replies data - fetch author info separately if needed
       const repliesWithDetails = (data || []).map(reply => ({
         ...reply,
-        author: reply.author as any,
+        author: null, // Note: Author info would need to be fetched separately if needed
         reply_count: 0, // Replies don't have sub-replies in this structure
-        like_count: reply.like_count?.[0]?.count || 0,
+        like_count: 0, // Note: Like count would need to be fetched separately if needed
         isLiked: false, // Note: Like status can be added when needed
       }));
       

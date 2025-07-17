@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, X } from 'lucide-react';
+import { Play, X, Plus } from 'lucide-react';
 import { MediaItem } from "@/utils/mediaStorageUtils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
@@ -19,6 +19,7 @@ interface MediaGalleryProps {
   onActiveChange?: (index: number) => void;
   ownerData?: OwnerInfo | null;
   showOwner?: boolean;
+  setShowMediaModal?: (show: boolean) => void;
 }
 
 export default function MediaGallery({ 
@@ -30,7 +31,8 @@ export default function MediaGallery({
   activeIndex: externalActiveIndex,
   onActiveChange,
   ownerData,
-  showOwner = true
+  showOwner = true,
+  setShowMediaModal
 }: MediaGalleryProps) {
   // Use internal state if no external control is provided
   const [internalActiveIndex, setInternalActiveIndex] = useState<number>(
@@ -122,10 +124,9 @@ export default function MediaGallery({
           )}
           
           {/* Combined thumbnails and owner info row */}
-          <div className="flex items-center px-4 py-3 border-t">
+          <div className="flex items-center justify-between px-4 py-3 border-t">
             {/* Thumbnails */}
-            {mediaItems.length > 1 && (
-              <div className="flex overflow-x-auto space-x-2 flex-grow">
+            <div className="flex overflow-x-auto space-x-2 flex-grow">
                 {mediaItems.map((item, index) => (
                   <div 
                     key={item.id} 
@@ -159,19 +160,27 @@ export default function MediaGallery({
                     )}
                   </div>
                 ))}
-              </div>
-            )}
+              {/* Add button */}
+              {!readOnly && mediaItems.length < 10 && (
+                <div 
+                  className="w-16 h-16 rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors flex-shrink-0"
+                  onClick={() => setShowMediaModal?.(true)}
+                >
+                  <Plus className="w-6 h-6 text-gray-400 hover:text-teal-500" />
+                </div>
+              )}
+            </div>
             
             {/* Owner info */}
-            {ownerData && showOwner && (
+            {showOwner && ownerData && (
               <div className="flex items-center gap-3 ml-auto">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={ownerData.avatar_url || undefined} alt={ownerDisplayName} />
-                  <AvatarFallback>{(ownerDisplayName || 'O').substring(0, 1)}</AvatarFallback>
+                  <AvatarImage src={ownerData.avatar_url} alt={ownerData.full_name} />
+                  <AvatarFallback>{ownerData.full_name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col justify-center">
                   <span className="text-xs text-gray-500 dark:text-gray-400">Created by</span>
-                  <span className="font-semibold text-gray-800 dark:text-gray-200 text-base">{ownerDisplayName}</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200 text-base">{ownerData.full_name}</span>
                 </div>
               </div>
             )}

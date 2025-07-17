@@ -374,24 +374,14 @@ export function useComments(
         space_id: post.spaceId,
         content: contentToSubmit,
         parent_comment_id: parentId,
-      }).select('id, content, created_at, user_id, post_id, parent_comment_id').single();
+      });
 
-      if (error) throw error;
-
-      console.log('🔔 [useComments] Comment submitted successfully:', submittedCommentData.id);
-
-      if (submittedCommentData?.id) {
-        await getSupabaseClient().from('user_activity_log').insert({
-          user_id: currentUserId,
-          type: isReply ? 'reply' : 'comment',
-          ref_id: submittedCommentData.id,
-          meta: { 
-            post_id: post.id, 
-            space_id: post.spaceId, 
-            ...(parentId && { parent_comment_id: parentId })
-          }
-        });
+      if (error) {
+        console.error('🔔 [useComments] INSERT error details:', error);
+        throw error;
       }
+
+      console.log('🔔 [useComments] Comment submitted successfully');
 
       const { data: userData } = await getSupabaseClient()
         .from('users')
@@ -399,10 +389,13 @@ export function useComments(
         .eq('id', currentUserId)
         .single();
 
+      // Generate a temporary ID for optimistic update
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       const newCommentEntry: FetchedComment = {
-        id: submittedCommentData.id,
-        content: submittedCommentData.content,
-        created_at: submittedCommentData.created_at,
+        id: tempId,
+        content: contentToSubmit,
+        created_at: new Date().toISOString(),
         author: {
           id: currentUserId,
           full_name: userData?.full_name || null,
@@ -447,9 +440,20 @@ export function useComments(
 
     } catch (error: any) {
       console.error('🔔 [useComments] Error submitting comment:', error);
+      
+      // Provide more specific error messages based on the error code
+      let errorMessage = "Could not post comment";
+      if (error.code === '42703') {
+        errorMessage = "Database schema issue - please try again";
+      } else if (error.code === '42501') {
+        errorMessage = "Permission denied - please check your membership";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Could not post comment",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

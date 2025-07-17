@@ -13,7 +13,6 @@ import { MobileValidationService } from '../services/MobileValidationService';
 import { FileValidationService } from '../services/FileValidationService';
 import { 
   generalSchema,
-  aboutSchema,
   rulesSchema,
   categoriesSchema,
   pricingSchema,
@@ -24,7 +23,6 @@ import {
 
 type SettingsType = 
   | 'general'
-  | 'about'
   | 'rules'
   | 'categories'
   | 'pricing'
@@ -55,8 +53,6 @@ export function useSettingsValidation(type: SettingsType, options: ValidationOpt
     switch (type) {
       case 'general':
         return generalSchema;
-      case 'about':
-        return aboutSchema;
       case 'rules':
         return rulesSchema;
       case 'categories':

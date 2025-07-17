@@ -81,7 +81,23 @@ export default function SpaceSettings() {
         // Type assertion to safely handle the data
         const spaceData = data as SpaceSettingsData; // Use defined interface
         
-        if (!spaceData || spaceData.owner_id !== user.id) {
+        // Check if user is owner or admin
+        let hasPermission = spaceData.owner_id === user.id;
+        
+        if (!hasPermission) {
+          // Check if user is admin via space_members table
+          const { data: memberData } = await getSupabaseClient()
+            .from('space_members')
+            .select('role')
+            .eq('space_id', spaceData.id)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .single();
+            
+          hasPermission = memberData?.role === 'admin';
+        }
+        
+        if (!hasPermission) {
           toast({ title: "Unauthorized", description: "You don't have permission to edit these settings.", variant: "destructive" });
           navigate(`/space/${subdomain}`);
           return;

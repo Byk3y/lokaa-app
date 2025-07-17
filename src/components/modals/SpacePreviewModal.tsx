@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import SpaceCardPreview from "@/components/spaces/SpaceCardPreview";
 import { useSpaceAboutData, SpaceAboutData } from "@/hooks/useSpaceAboutData";
 import { Loader2, X } from "lucide-react";
@@ -67,6 +67,7 @@ export function SpacePreviewModal({
         <DialogContent className="max-w-5xl p-0 overflow-hidden max-h-[80vh] w-[90vw] rounded-xl" hideCloseButton={true}>
           <DialogHeader className="sr-only">
             <DialogTitle>{spaceAboutData?.name || 'Space Preview'}</DialogTitle>
+            <DialogDescription>Preview space information and details</DialogDescription>
           </DialogHeader>
           {loading ? (
             <div className="flex items-center justify-center p-12">

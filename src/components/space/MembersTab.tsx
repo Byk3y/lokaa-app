@@ -74,7 +74,7 @@ export default function MembersTab() {
         name: fallbackData.name,
         subdomain: fallbackData.subdomain,
         description: fallbackData.description || 'Community space',
-        owner_id: fallbackData.owner_id || 'f6064ebb-564a-49d2-a146-fb8615fd7ae2',
+        owner_id: fallbackData.owner_id,
         is_private: false,
         icon_image: '🏗️',
         cover_image: '',

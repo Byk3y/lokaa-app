@@ -32,6 +32,7 @@ interface SpaceInfoSidebarProps {
   adminCount?: number | null;
   onlineCount?: number | null;
   canAccessSettings?: boolean;
+  permissionsLoading?: boolean;
   subdomain?: string;
   spaceId?: string;
   isOwner?: boolean;
@@ -46,9 +47,11 @@ const DEFAULT_COVER_IMAGE = '/default-space-cover.jpg';
 
 const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   spaceName,
+  spaceIcon,
   spaceDescription,
   coverImage,
   canAccessSettings,
+  permissionsLoading,
   subdomain,
   spaceId,
   isOwner,
@@ -78,19 +81,6 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   const displayAdminCount = adminCount ?? adminMembers ?? 0;
   const displayOnlineCount = onlineCount ?? onlineMembers ?? 0;
 
-  // Debug logging
-  console.log(`🔍 [SpaceInfoSidebar] Displaying counts for ${spaceName}:`, {
-    memberCount,
-    adminCount, 
-    onlineCount,
-    totalMembers,
-    adminMembers,
-    onlineMembers,
-    displayMemberCount,
-    displayAdminCount,
-    displayOnlineCount,
-    countsLoading
-  });
 
   const handleOpenSettings = async () => {
     // SECURITY CHECK: Double-verify user has settings access (owner or admin)
@@ -106,9 +96,32 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
     }
 
     if (subdomain && spaceId && user?.id) {
-      // Ensure the store is loaded with the current space context before opening the modal
-      await storeActions.loadActiveSpace({ subdomain, spaceId: spaceId }, user.id, true);
+      // Load space data without forcing if we already have it
+      await storeActions.loadActiveSpace({ subdomain, spaceId: spaceId }, user.id, false);
       storeActions.openModal(); // Open modal using the new store
+    } else {
+      console.warn("Subdomain, SpaceId, or UserID not available for opening settings.");
+      // Optionally, show a toast message to the user
+    }
+  };
+
+  const handleOpenGeneralSettings = async () => {
+    // SECURITY CHECK: Double-verify user has settings access (owner or admin)
+    if (!canAccessSettings) {
+      console.error("🚨 SECURITY VIOLATION: User without settings access attempted to open settings", {
+        userId: user?.id,
+        spaceId: spaceId,
+        canAccessSettings,
+        isOwner,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    if (subdomain && spaceId && user?.id) {
+      // Load space data without forcing if we already have it
+      await storeActions.loadActiveSpace({ subdomain, spaceId: spaceId }, user.id, false);
+      storeActions.openModalToTab("general"); // Open modal to the general tab specifically
     } else {
       console.warn("Subdomain, SpaceId, or UserID not available for opening settings.");
       // Optionally, show a toast message to the user
@@ -136,7 +149,8 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   };
 
   // Determine default button text based on context
-  const defaultActionButtonText = canAccessSettings || isOwner || isMember ? 'Invite Friends' : 'Join Space';
+  // Only show invite for members who can't access settings, otherwise show join
+  const defaultActionButtonText = (isMember && !canAccessSettings) ? 'Invite Friends' : 'Join Space';
   const finalActionButtonText = actionButtonText || defaultActionButtonText;
 
   return (
@@ -165,7 +179,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
           className={`aspect-video flex items-center justify-center text-xl font-medium relative 
                     ${!resolvedCoverUrl && canAccessSettings ? 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600' 
                                                               : 'bg-yellow-500 text-white'}`}
-          onClick={!resolvedCoverUrl && canAccessSettings ? handleOpenSettings : undefined}
+          onClick={!resolvedCoverUrl && canAccessSettings ? handleOpenGeneralSettings : undefined}
         >
           {resolvedCoverUrl ? (
             <img 
@@ -174,18 +188,9 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
               className="w-full h-full object-cover" 
             />
           ) : canAccessSettings ? (
-            <div className="flex flex-col items-center p-8">
-              <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center mb-3">
-                <ImageIcon className="h-6 w-6 text-teal-600 dark:text-teal-400" />
-              </div>
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Add a cover photo</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-3">
-                Make your space more welcoming with a custom cover image
-              </p>
-              <div className="flex items-center text-xs text-teal-600 dark:text-teal-400">
-                <Edit3 className="h-3 w-3 mr-1" />
-                Click to upload
-              </div>
+            <div className="flex items-center justify-center w-full h-full px-2 py-1">
+              <ImageIcon className="h-4 w-4 text-teal-600 dark:text-teal-400 mr-1" />
+              <span className="text-xs font-medium text-teal-700 dark:text-teal-300 cursor-pointer select-none">Add cover</span>
             </div>
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
@@ -210,18 +215,41 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
               {spaceDescription}
             </p>
           ) : canAccessSettings ? (
-            <div className="mb-2 p-3 bg-teal-50 dark:bg-teal-900/20 rounded-lg border border-teal-200 dark:border-teal-800">
-              <p className="text-teal-700 dark:text-teal-300 text-xs font-medium mb-1">
-                Add a description
-              </p>
-              <p className="text-teal-600 dark:text-teal-400 text-xs">
-                Help visitors understand what your space is about
-              </p>
+            <div className="flex items-center mb-2 cursor-pointer select-none" onClick={handleOpenGeneralSettings}>
+              <Edit3 className="h-4 w-4 text-teal-600 dark:text-teal-400 mr-1" />
+              <span className="text-xs font-medium text-teal-700 dark:text-teal-300">Add description</span>
             </div>
           ) : (
             <p className="text-gray-500 dark:text-gray-400 mb-2 text-sm italic">
               No description available yet.
             </p>
+          )}
+
+          {/* Incentive text for missing elements */}
+          {canAccessSettings && (!spaceIcon || !resolvedCoverUrl || !spaceDescription) && (
+            <div className="mb-4 p-3 bg-gradient-to-r from-teal-50 to-blue-50 dark:from-teal-900/20 dark:to-blue-900/20 border border-teal-100 dark:border-teal-800 rounded-lg">
+              <p className="text-xs text-teal-700 dark:text-teal-300 font-medium mb-2">✨ Complete your space profile:</p>
+              <div className="space-y-1">
+                {!spaceIcon && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    • <span className="font-medium">Space icon</span> makes your space recognizable and professional
+                  </p>
+                )}
+                {!resolvedCoverUrl && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    • <span className="font-medium">Cover image</span> helps visitors understand what your space is about
+                  </p>
+                )}
+                {!spaceDescription && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    • <span className="font-medium">Description</span> increases engagement and helps with discovery
+                  </p>
+                )}
+              </div>
+              <p className="text-xs text-teal-600 dark:text-teal-400 mt-2 font-medium cursor-pointer hover:underline" onClick={handleOpenGeneralSettings}>
+                Complete in Settings →
+              </p>
+            </div>
           )}
           
           {/* Member Stats */}
@@ -261,7 +289,13 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
             )}
           </div>
 
-          {canAccessSettings ? (
+          {/* Show loading state while permissions are being determined */}
+          {permissionsLoading ? (
+            /* Loading state - show skeleton button */
+            <div className="w-full mt-1.5 py-3 px-4 bg-gray-100 dark:bg-gray-700 rounded-md animate-pulse">
+              <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>
+            </div>
+          ) : canAccessSettings ? (
             <Button 
               variant="outline" 
               className="w-full mt-1.5 py-3 text-sm font-semibold border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"

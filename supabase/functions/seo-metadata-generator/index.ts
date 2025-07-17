@@ -184,7 +184,7 @@ serve(async (req: Request) => {
 });
 
 function generateSEOMetadata(type: string, spaceData?: any): any {
-  const baseUrl = 'https://app.lokaa.io';
+  const baseUrl = 'https://lokaa.app';
   const defaultDescription = 'Lokaa Connect - Create and manage collaborative spaces';
   const defaultImage = `${baseUrl}/og-image.png`;
 

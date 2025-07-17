@@ -14,6 +14,7 @@ import ChatModal from '@/components/chat/ChatModal';
 import ChatListPopover from '@/components/chat/ChatListPopover';
 import ChatButton from '@/components/chat/ChatButton';
 import HeaderActions from '@/components/common/HeaderActions';
+import MemberSettingsModal from '@/components/modals/MemberSettingsModal';
 
 interface SpaceHeaderProps {
   subdomain: string | undefined;
@@ -36,6 +37,7 @@ export default function SpaceHeader({
   const navigate = useNavigate();
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showMobileMore, setShowMobileMore] = useState(false);
+  const [memberSettingsOpen, setMemberSettingsOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export default function SpaceHeader({
                 className="px-4 py-3 text-gray-900 text-base font-semibold text-left hover:bg-gray-50"
                 onClick={() => {
                   setShowMobileMore(false);
-                  // TODO: Implement group settings action
+                  setMemberSettingsOpen(true);
                 }}
               >
                 Group settings
@@ -224,6 +226,20 @@ export default function SpaceHeader({
         isOpen={isChatModalOpen} 
         onClose={handleCloseChatModal} 
         initialConversationId={selectedConversationId}
+      />
+
+      {/* Member Settings Modal */}
+      <MemberSettingsModal
+        isOpen={memberSettingsOpen}
+        onClose={() => setMemberSettingsOpen(false)}
+        space={storeSpace ? {
+          id: storeSpace.id,
+          name: storeSpace.name,
+          subdomain: storeSpace.subdomain,
+          icon_image: storeSpace.icon_image,
+          userRole: 'member'
+        } : null}
+        user={user}
       />
     </header>
   );

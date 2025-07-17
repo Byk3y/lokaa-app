@@ -204,13 +204,6 @@ export const usePostLikes = ({
 
         if (error) throw error;
 
-        // Log activity in user_activity_log
-        await getSupabaseClient().from('user_activity_log').insert({
-          user_id: userId,
-          type: 'like',
-          ref_id: postId, // The post ID
-          meta: { post_id: postId, space_id: spaceId }
-        });
       }
       // Notify parent of like count change
       if (typeof onLikeToggled === 'function') {

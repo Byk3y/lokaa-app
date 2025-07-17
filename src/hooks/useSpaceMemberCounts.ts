@@ -19,6 +19,21 @@ interface MemberCounts {
 
 export function useSpaceMemberCounts(spaceId: string | undefined): MemberCounts {
   const { onlineCount, loading: presenceLoading } = useSpacePresence(spaceId);
+  
+  // EGRESS EMERGENCY FIX: Temporarily disable to reduce database calls
+  // Return static data to prevent hitting Supabase limits
+  const DISABLE_FOR_EGRESS = true;
+  
+  if (DISABLE_FOR_EGRESS) {
+    return {
+      totalMembers: 0,
+      onlineMembers: 0,
+      adminMembers: 0,
+      loading: false,
+      error: null
+    };
+  }
+  
   const [counts, setCounts] = useState<MemberCounts>({
     totalMembers: 0,
     onlineMembers: 0,

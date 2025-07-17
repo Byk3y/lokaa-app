@@ -548,9 +548,11 @@ export function ChatListUnified({
           align="end"
           sideOffset={8}
           onInteractOutside={(e) => {
-            // ✅ PREVENT FLICKER: Stop any transition when clicking outside
-            e.preventDefault();
-            handleOpenChange(false);
+            // Only handle actual outside clicks, not clicks on the trigger
+            const target = e.target as Element;
+            if (target && !target.closest('[data-chat-trigger]')) {
+              handleOpenChange(false);
+            }
           }}
         >
           {renderContent()}

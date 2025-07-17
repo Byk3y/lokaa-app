@@ -262,7 +262,7 @@ class Phase7Integration {
 
       // Test social sharing URLs
       const sharingUrls = this.seoManager.generateSharingUrls(
-        'https://app.lokaa.io/test',
+        'https://lokaa.app/test',
         'Test Page',
         'Test description'
       );

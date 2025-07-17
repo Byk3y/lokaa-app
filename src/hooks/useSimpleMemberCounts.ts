@@ -15,9 +15,11 @@
  * UNAUTHENTICATED FIX: Uses public function for space preview modals
  */
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useSimpleSpacePresence } from './useSimpleSpacePresence';
+import { useTabVisibility } from '@/contexts/TabVisibilityContext';
+import { debounce } from '@/utils/debounce';
 
 interface MemberCounts {
   totalMembers: number;
@@ -25,6 +27,12 @@ interface MemberCounts {
   onlineMembers: number;
   loading: boolean;
 }
+
+// Member counts cache to preserve state on tab returns
+const memberCountsCache = new Map<string, { data: Omit<MemberCounts, 'onlineMembers'>, timestamp: number }>();
+
+// Singleton pattern to prevent multiple hook instances for the same spaceId
+const activeMemberCountInstances = new Map<string, boolean>();
 
 const debugMemberCounts = (message: string, data: any) => {
   if (process.env.NODE_ENV === 'development') {
@@ -49,11 +57,20 @@ export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
   const lastFetchRef = useRef<number>(0);
   const fetchTimeoutRef = useRef<any>(null);
   const mountedRef = useRef(true);
+  
+  // Safe tab visibility hook usage
+  let tabVisibility: ReturnType<typeof useTabVisibility> | null = null;
+  try {
+    tabVisibility = useTabVisibility();
+  } catch (error) {
+    // TabVisibilityProvider not available, use null checks
+    tabVisibility = null;
+  }
 
   // Get online count and loading from presence system
   const { onlineCount, loading: presenceLoading } = useSimpleSpacePresence(spaceId);
 
-  const fetchCounts = async () => {
+  const fetchCounts = useCallback(async () => {
     if (!spaceId || !mountedRef.current) return;
 
     try {
@@ -95,6 +112,17 @@ export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
           onlineMembers: prev.onlineMembers, // Preserve current online count from presence
           loading: false
         }));
+        
+        // Cache the non-online counts for future tab returns
+        memberCountsCache.set(spaceId, {
+          data: { totalMembers: totalCount, adminMembers: adminCount, loading: false },
+          timestamp: Date.now()
+        });
+        
+        // Update centralized fetch time
+        if (tabVisibility) {
+          tabVisibility.updateLastFetchTime('feed', spaceId);
+        }
       }
     } catch (error) {
       console.error('Error in fetchCounts:', error);
@@ -102,7 +130,13 @@ export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
         setCounts(prev => ({ ...prev, loading: false }));
       }
     }
-  };
+  }, [spaceId]);
+  
+  // Debounced version for frequent updates
+  const debouncedFetchCounts = useCallback(
+    debounce(fetchCounts, 200),
+    [fetchCounts]
+  );
 
   // Fetch initial counts
   useEffect(() => {
@@ -112,11 +146,84 @@ export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
     }
 
     mountedRef.current = true;
-    debugMemberCounts('Initial fetch triggered', { spaceId });
+    
+    // 🔧 HOOK DEDUPLICATION: Prevent multiple instances for same spaceId
+    const hookKey = `memberCounts_${spaceId}`;
+    const currentlyActive = activeMemberCountInstances.get(hookKey);
+    
+    // 🚀 SMART DEDUPLICATION: Only block if there's an active instance AND we have cached data
+    if (currentlyActive && memberCountsCache.has(spaceId)) {
+      debugMemberCounts('Hook instance already active, using cached data only', { spaceId, hookKey });
+      
+      // Restore cached data and exit - don't run any effects
+      const cached = memberCountsCache.get(spaceId);
+      if (cached && cached.data) {
+        setCounts(prev => ({
+          ...cached.data,
+          onlineMembers: prev.onlineMembers // Keep current online count
+        }));
+      }
+      return;
+    }
+    
+    // Mark this hook instance as active (allows first instance or cache-miss scenarios)
+    activeMemberCountInstances.set(hookKey, true);
+    
+    // 🚀 TAB VISIBILITY FIX: Check if this is a cached tab return
+    const isTabCached = tabVisibility?.isTabCached('feed', spaceId) || false;
+    const isTabInitialized = tabVisibility?.isTabInitialized('feed', spaceId) || false;
+    
+    if (tabVisibility && isTabCached && isTabInitialized) {
+      const lastFetchTime = tabVisibility.getLastFetchTime('feed', spaceId);
+      const timeSinceLastFetch = lastFetchTime ? Date.now() - lastFetchTime : 0;
+      
+      debugMemberCounts('Cached tab return detected - skipping initial fetch', { 
+        spaceId, 
+        isTabCached, 
+        isTabInitialized,
+        lastFetch: lastFetchTime,
+        timeSinceLastFetch: timeSinceLastFetch > 0 ? timeSinceLastFetch : 'never'
+      });
+      
+      // 🔧 FIX: Initialize state with cached data instead of defaults
+      const cached = memberCountsCache.get(spaceId);
+      if (cached && cached.data) {
+        debugMemberCounts('Restoring cached member counts data', { spaceId, cachedData: cached.data });
+        // Use React.startTransition for non-urgent state updates to reduce flashing
+        React.startTransition(() => {
+          setCounts(prev => ({
+            ...cached.data,
+            onlineMembers: prev.onlineMembers // Keep current online count from presence
+          }));
+        });
+      }
+      
+      // Use cached data with minimal refresh
+      if (lastFetchTime && timeSinceLastFetch > 60000) { // Only if more than 1 minute old
+        debugMemberCounts('Cache too old, performing background refresh', { spaceId });
+        setTimeout(fetchCounts, 100);
+      } else {
+        debugMemberCounts('Cache still fresh, skipping background refresh', { spaceId });
+      }
+      return;
+    }
+    
+    debugMemberCounts('Initial fetch triggered', { spaceId, isTabCached, isTabInitialized });
     fetchCounts();
+    
+    // Mark as initialized after first fetch
+    if (tabVisibility && !isTabInitialized) {
+      tabVisibility.markTabAsInitialized('feed', spaceId);
+      tabVisibility.updateLastFetchTime('feed', spaceId);
+    }
 
     return () => {
       mountedRef.current = false;
+      
+      // Clean up hook instance tracking
+      const hookKey = `memberCounts_${spaceId}`;
+      activeMemberCountInstances.delete(hookKey);
+      
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
@@ -126,6 +233,16 @@ export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
   // Update online count whenever it changes from presence system
   useEffect(() => {
     if (!mountedRef.current) return;
+
+    // 🔧 PREVENT DUPLICATE FETCHES: Check if this hook instance should run effects
+    const hookKey = `memberCounts_${spaceId}`;
+    const isActiveInstance = activeMemberCountInstances.get(hookKey);
+    
+    // Skip effects if we're not the active instance for this space
+    if (!isActiveInstance) {
+      debugMemberCounts('Skipping presence effect - not active instance', { spaceId, hookKey });
+      return;
+    }
 
     debugMemberCounts('Presence update received', {
       spaceId,
@@ -148,7 +265,7 @@ export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
-      fetchTimeoutRef.current = setTimeout(fetchCounts, 100);
+      fetchTimeoutRef.current = setTimeout(debouncedFetchCounts, 100);
     }
   }, [onlineCount, spaceId, presenceLoading]);
 

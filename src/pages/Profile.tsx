@@ -18,10 +18,12 @@ import ChatButton from '@/components/chat/ChatButton';
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
 import SpaceContextBanner from '@/components/profile/SpaceContextBanner';
+import MobileProfileEditModal from '@/components/profile/MobileProfileEditModal';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { Space } from "@/types/space";
 import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { getCurrentSpaceContext } from '@/utils/spaceContextUtils';
 
 // Modified Header component for Profile page to show Lokaa logo instead of space
@@ -221,28 +223,26 @@ function ProfileHeader({ user }: { user: any }) {
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Modern Icon Buttons with elevated design */}
-            <div className="flex items-center space-x-3">
-              {/* Chat Button */}
-              <div className="relative">
-                <ChatButton 
-                  variant="icon" 
-                  className="h-10 w-10 bg-white/80 backdrop-blur-sm hover:bg-white border border-gray-200/70 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl hover:scale-105 [&_svg]:w-5 [&_svg]:h-5 [&_button]:h-10 [&_button]:w-10 [&_button]:rounded-xl [&_button]:shadow-lg [&_button]:border-gray-200/70"
-                />
-              </div>
-              
-              {/* Bell Icon */}
-        <Button
-          variant="ghost"
-                size="sm" 
-                className="relative h-10 w-10 p-0 bg-white/80 backdrop-blur-sm hover:bg-white border border-gray-200/70 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl hover:scale-105"
-        >
-                <Bell size={20} className="text-gray-700 hover:text-gray-900 transition-colors duration-200" />
-        </Button>
-      </div>
-      
-            <div className="ml-3">
-              <ProfileDropdown variant="default" size="sm" />
+            {/* Clean simple buttons matching main space page */}
+            {/* Chat Button */}
+            <ChatButton 
+              variant="icon" 
+              className="text-gray-500 p-2"
+            />
+            
+            {/* Bell Icon */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-gray-500"
+              aria-label="Notifications"
+            >
+              <Bell className="h-7 w-7" />
+            </Button>
+            
+            {/* Profile Dropdown */}
+            <div className="relative">
+              <ProfileDropdown variant="default" size="md" />
             </div>
           </div>
         </div>
@@ -281,9 +281,10 @@ export default function Profile() {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [spaceDrawerOpen, setSpaceDrawerOpen] = useState(false);
+  const [showMobileProfileEdit, setShowMobileProfileEdit] = useState(false);
   
-  // Detect mobile vs desktop for different layouts
-  const isMobile = useMediaQuery('(max-width: 1023px)'); // Below lg breakpoint
+  // Detect mobile vs desktop for different layouts - use same detection as BottomNav
+  const isMobile = shouldEnableMobileFeatures();
   
   // Get space data from store for mobile header icon (must be at top level)
   const { space: storeSpace, loadActiveSpace } = useSpaceSettingsStore();
@@ -538,7 +539,13 @@ export default function Profile() {
                 <Button 
                   variant="outline" 
                   className="w-full max-w-sm mx-auto mb-4"
-                  onClick={() => navigate('/settings/profile')}
+                  onClick={() => {
+                    if (isMobile) {
+                      setShowMobileProfileEdit(true);
+                    } else {
+                      navigate('/settings/profile');
+                    }
+                  }}
                 >
                   Edit Profile
                 </Button>
@@ -617,6 +624,13 @@ export default function Profile() {
           onClose={() => setShowFollowingModal(false)} 
           type="following" 
           userId={profile.id} 
+        />
+        
+        {/* Mobile Profile Edit Modal */}
+        <MobileProfileEditModal
+          isOpen={showMobileProfileEdit}
+          onClose={() => setShowMobileProfileEdit(false)}
+          user={user}
         />
       </div>
     );
@@ -702,6 +716,7 @@ export default function Profile() {
         type="following" 
         userId={profile.id} 
       />
+      
     </div>
   );
 }

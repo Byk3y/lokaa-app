@@ -171,7 +171,7 @@ export default function PricingSettingsTab() {
                 <div className="flex items-center">
                   <DollarSign className="h-6 w-6 text-gray-700 dark:text-gray-300 mr-2" />
                   <span className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
-                    ${formData.price_per_month}
+                    {formData.price_per_month}
                   </span>
                   <span className="ml-1.5 text-sm text-gray-500 dark:text-gray-400">per month</span>
                   <Badge variant="default" className="ml-3 bg-green-600 text-white">Current price</Badge>

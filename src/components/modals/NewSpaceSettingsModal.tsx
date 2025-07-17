@@ -1,21 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, X } from 'lucide-react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import SettingsSidebar from './SettingsSidebar';
 import GeneralSettingsTab from './settings_tabs/GeneralSettingsTab';
-import AboutPageSettingsTab from './settings_tabs/AboutPageSettingsTab';
 import CategoriesSettingsTab from './settings_tabs/CategoriesSettingsTab';
 import TabsSettingsTab from './settings_tabs/TabsSettingsTab';
 import PricingSettingsTab from './settings_tabs/PricingSettingsTab';
 import RulesSettingsTab from './settings_tabs/RulesSettingsTab';
 import DangerZoneTab from './settings_tabs/DangerZoneTab';
+import InviteSettingsTab from './settings_tabs/InviteSettingsTab';
+import DashboardSettingsTab from './settings_tabs/DashboardSettingsTab';
+import MetricsSettingsTab from './settings_tabs/MetricsSettingsTab';
 import { toast } from "@/hooks/use-toast";
 import { exposeValidationForTesting } from '@/utils/test-helpers';
 
-export type SettingsTabKey = "general" | "about_page" | "categories" | "tabs" | "pricing" | "rules" | "danger_zone";
+export type SettingsTabKey = "dashboard" | "general" | "categories" | "tabs" | "pricing" | "rules" | "invite" | "metrics" | "danger_zone";
 
 export default function NewSpaceSettingsModal() {
   const { 
@@ -28,6 +30,7 @@ export default function NewSpaceSettingsModal() {
     isSubmitting,
     isDirty,
     isOpen,
+    initialTab,
     closeModal,
     openModal,
     loadActiveSpace,
@@ -35,7 +38,7 @@ export default function NewSpaceSettingsModal() {
   } = useSpaceSettingsStore();
   
   const { user } = useOptimizedAuth();
-  const [activeTab, setActiveTab] = useState<SettingsTabKey>("general");
+  const [activeTab, setActiveTab] = useState<SettingsTabKey>("dashboard");
 
   // Expose validation functions in development
   useEffect(() => {
@@ -51,6 +54,15 @@ export default function NewSpaceSettingsModal() {
       console.warn("SpaceSettingsModal opened but no space context (subdomain) available in store to load.");
     }
   }, [isOpen, user, space?.subdomain, loadActiveSpace]);
+
+  // Set initial tab when modal opens with initialTab
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab as SettingsTabKey);
+    } else if (isOpen && !initialTab) {
+      setActiveTab("dashboard");
+    }
+  }, [isOpen, initialTab]);
 
   const handleSaveChanges = async () => {
     if (!isDirty || isSubmitting) return;
@@ -76,18 +88,22 @@ export default function NewSpaceSettingsModal() {
     }
 
     switch (activeTab) {
+      case "dashboard":
+        return <DashboardSettingsTab />;
       case "general":
         return <GeneralSettingsTab />;
       case "pricing":
         return <PricingSettingsTab />;
-      case "about_page":
-        return <AboutPageSettingsTab />;
       case "categories":
         return <CategoriesSettingsTab />;
       case "rules":
         return <RulesSettingsTab />;
       case "tabs":
         return <TabsSettingsTab />;
+      case "invite":
+        return <InviteSettingsTab />;
+      case "metrics":
+        return <MetricsSettingsTab />;
       case "danger_zone":
         if (permissions.isOwner) {
           return <DangerZoneTab />;
@@ -109,20 +125,20 @@ export default function NewSpaceSettingsModal() {
       }
     }}>
       <DialogContent 
-        className="max-w-6xl h-[calc(100vh-40px)] flex flex-col p-0 gap-0 dark:bg-slate-900"
+        className="max-w-6xl h-[calc(100vh-40px)] flex flex-col p-0 gap-0 dark:bg-slate-900 [&>button]:hidden"
         onPointerDownOutside={(e) => { if (isDirty) e.preventDefault(); }}
         onInteractOutside={(e) => { if (isDirty) e.preventDefault(); }}
       >
         <DialogHeader className="px-6 py-4 border-b dark:border-slate-700 flex-row items-center justify-between">
           <div>
             <DialogTitle className="text-xl font-semibold text-gray-800 dark:text-gray-100">Space Settings</DialogTitle>
-            {space && <p className="text-sm text-gray-500 dark:text-gray-400">Manage your space: {space.name}</p>}
+            <DialogDescription className="text-sm text-gray-500 dark:text-gray-400">
+              {space ? `Manage your space: ${space.name}` : 'Configure and customize your space settings'}
+            </DialogDescription>
           </div>
-          <DialogClose asChild>
-            <Button variant="ghost" size="icon" onClick={closeModal} className="rounded-full dark:text-gray-400 dark:hover:bg-slate-700">
-              <X className="h-5 w-5" />
-            </Button>
-          </DialogClose>
+          <Button variant="ghost" size="icon" onClick={closeModal} className="rounded-full dark:text-gray-400 dark:hover:bg-slate-700">
+            <X className="h-5 w-5" />
+          </Button>
         </DialogHeader>
 
         <div className="flex flex-grow overflow-hidden">

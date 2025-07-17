@@ -12,6 +12,8 @@ import { extractTabFromPathname, buildSpaceUrl, type SpaceTab, debugTabExtractio
 // Removed setCurrentSpaceForPresence - new simple system doesn't need manual space tracking
 import { AvatarCacheService } from "@/services/AvatarCacheService"; // 🚀 NEW: Avatar cache service
 import { useAutoPresenceUpdater } from "@/hooks/useAutoPresenceUpdater"; // 🎯 NEW: Auto presence updater
+import { getSupabaseClient } from "@/integrations/supabase/client"; // Add for category verification
+import { devLogger } from "@/utils/developmentLogger"; // Add for logging
 /**
  * SpaceShellLayout - A shell layout for space pages
  * 
@@ -136,6 +138,56 @@ export default function SpaceShellLayout() {
             console.warn('⚠️ [SpaceShellLayout] Avatar cache initialization failed:', error);
           }
         });
+      
+      // 🛡️ SAFEGUARD: Verify and create missing General Discussion category
+      const verifySpaceCategories = async () => {
+        try {
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Verifying categories for space ${storeSpace.id}`);
+          
+          // Check if space has any categories
+          const { data: existingCategories, error: categoriesError } = await getSupabaseClient()
+            .from('space_categories')
+            .select('id, name')
+            .eq('space_id', storeSpace.id)
+            .eq('is_archived', false);
+          
+          if (categoriesError) {
+            devLogger.log('SpaceManagement', `[SpaceShellLayout] Error checking categories:`, categoriesError);
+            return;
+          }
+          
+          // Check if General Discussion category exists
+          const hasGeneralDiscussion = existingCategories?.some(cat => cat.name === 'General Discussion');
+          
+          if (!hasGeneralDiscussion) {
+            devLogger.log('SpaceManagement', `[SpaceShellLayout] Creating missing General Discussion category for space ${storeSpace.id}`);
+            
+            // Create the missing General Discussion category
+            const { data: newCategory, error: createError } = await getSupabaseClient()
+              .from('space_categories')
+              .insert({
+                space_id: storeSpace.id,
+                name: 'General Discussion',
+                created_by: storeSpace.owner_id || user.id
+              })
+              .select('id, name')
+              .single();
+            
+            if (createError) {
+              devLogger.log('SpaceManagement', `[SpaceShellLayout] Failed to create General Discussion category:`, createError);
+            } else {
+              devLogger.log('SpaceManagement', `[SpaceShellLayout] Successfully created General Discussion category:`, newCategory);
+            }
+          } else {
+            devLogger.log('SpaceManagement', `[SpaceShellLayout] General Discussion category already exists for space ${storeSpace.id}`);
+          }
+        } catch (error) {
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Category verification error:`, error);
+        }
+      };
+      
+      // Run category verification after a short delay to ensure space is fully loaded
+      setTimeout(verifySpaceCategories, 1000);
     }
   }, [storeSpace, subdomain, user?.id]);
 

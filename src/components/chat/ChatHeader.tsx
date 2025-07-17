@@ -74,8 +74,10 @@ export default function ChatHeader({
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={onBack} 
-            className="mr-2 h-8 w-8 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={onBack}
+            onTouchStart={(e) => e.stopPropagation()} // Ensure touch events work
+            className="mr-2 h-8 w-8 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 touch-manipulation"
+            style={{ touchAction: 'manipulation' }} // Better touch handling
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>

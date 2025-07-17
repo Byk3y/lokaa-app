@@ -37,6 +37,38 @@ export default function CreateYourSpace() {
     navigate(-1); // This will go back to the previous page in the browser history
   };
 
+  // Helper function to ensure session is available before navigation
+  const waitForSessionReady = async (maxRetries = 5, retryDelay = 500): Promise<boolean> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { data: sessionCheck, error } = await getSupabaseClient().auth.getSession();
+        
+        if (error) {
+          devLogger.log('SpaceManagement', `[CreateSpace] Session check error (attempt ${attempt}):`, error);
+        } else if (sessionCheck.session?.user) {
+          devLogger.log('SpaceManagement', `[CreateSpace] Session validated successfully on attempt ${attempt}`);
+          return true;
+        }
+        
+        devLogger.log('SpaceManagement', `[CreateSpace] Session not ready, attempt ${attempt}/${maxRetries}`);
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff delay
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+        }
+      } catch (sessionError) {
+        devLogger.log('SpaceManagement', `[CreateSpace] Session validation error (attempt ${attempt}):`, sessionError);
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+        }
+      }
+    }
+    
+    devLogger.log('SpaceManagement', `[CreateSpace] Session validation failed after ${maxRetries} attempts`);
+    return false;
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,9 +297,25 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
           description: "Your space has been successfully created.",
         });
         
-        // Navigate to the new space page
-        devLogger.log('SpaceManagement', "Navigating to new space with subdomain:", createdSpace.subdomain);
-        navigate(`/space/${createdSpace.subdomain}`);
+        // Wait for session to be ready before navigation to prevent 406 race condition
+        devLogger.log('SpaceManagement', "[CreateSpace] Validating session before navigation...");
+        
+        const sessionReady = await waitForSessionReady();
+        
+        if (sessionReady) {
+          // Navigate to the new space page
+          devLogger.log('SpaceManagement', "Session ready - navigating to new space with subdomain:", createdSpace.subdomain);
+          navigate(`/${createdSpace.subdomain}/space`);
+        } else {
+          // Fallback navigation with warning
+          devLogger.log('SpaceManagement', "Session validation failed, attempting navigation anyway:", createdSpace.subdomain);
+          toast({
+            title: "Space created successfully",
+            description: "If you encounter loading issues, please refresh the page.",
+            variant: "default",
+          });
+          navigate(`/${createdSpace.subdomain}/space`);
+        }
       } else {
         throw new Error("Failed to create space due to database policy issues");
       }

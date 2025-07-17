@@ -18,6 +18,7 @@ import { MembershipProvider } from '../contexts/MembershipContext';
 import { ProfileImageProvider } from '../contexts/ProfileImageContext';
 import ModalProvider from '../shared/components/modals/ModalProvider';
 import { SupabaseProvider } from '../contexts/SupabaseContext';
+import { TabVisibilityProvider } from '../contexts/TabVisibilityContext';
 
 // 🚀 PHASE 3: Import comment cache system
 import { commentCache } from '../utils/commentCache';
@@ -203,15 +204,17 @@ export const OptimizedProviderTree = memo(function OptimizedProviderTree({
             <MemoizedAuthProvider>
               <ProfileImageProvider>
                 <MemoizedSpaceProvider>
-                  <MembershipProvider>
-                    <UserProfileProvider>
-                      <MemoizedPresenceProvider>
-                        <SupabaseProvider>
-                          {children}
-                        </SupabaseProvider>
-                      </MemoizedPresenceProvider>
-                    </UserProfileProvider>
-                  </MembershipProvider>
+                  <TabVisibilityProvider>
+                    <MembershipProvider>
+                      <UserProfileProvider>
+                        <MemoizedPresenceProvider>
+                          <SupabaseProvider>
+                            {children}
+                          </SupabaseProvider>
+                        </MemoizedPresenceProvider>
+                      </UserProfileProvider>
+                    </MembershipProvider>
+                  </TabVisibilityProvider>
                 </MemoizedSpaceProvider>
               </ProfileImageProvider>
             </MemoizedAuthProvider>

@@ -52,8 +52,8 @@ interface MetaTag {
 export class SEOManager {
   private static instance: SEOManager;
   private currentMeta: Map<string, HTMLMetaElement> = new Map();
-  private baseUrl: string = 'https://app.lokaa.io';
-  private defaultImage: string = 'https://app.lokaa.io/og-default.png';
+  private baseUrl: string = 'https://lokaa.app';
+  private defaultImage: string = 'https://lokaa.app/og-default.png';
   private edgeFunctionUrl: string = 'https://nmddvthcsyppyjncqfsk.supabase.co/functions/v1/seo-metadata-generator';
 
   private constructor() {

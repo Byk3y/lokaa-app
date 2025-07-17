@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
@@ -413,6 +413,9 @@ const ErrorAnalyticsDashboard: React.FC<ErrorAnalyticsDashboardProps> = ({
                   {selectedError.severity.level.toUpperCase()}
                 </Badge>
               </DialogTitle>
+              <DialogDescription>
+                Detailed information about the selected error including context and stack trace
+              </DialogDescription>
             </DialogHeader>
             
             <div className="flex-1 overflow-y-auto space-y-4 pr-2">

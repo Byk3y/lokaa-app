@@ -20,7 +20,7 @@ export default function BottomNav() {
   const previousPathRef = useRef(location.pathname);
   const { returnedFromBackground } = useMobileBackgroundDetection();
   const isMobile = shouldEnableMobileFeatures(); // UNIFIED: Use centralized mobile detection
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  // ✅ SKOOL-STYLE: Removed keyboard detection - nav stays visible always
   const [userProfileUrl, setUserProfileUrl] = useState<string | null>(null);
 
   const pathname = location.pathname;
@@ -49,32 +49,7 @@ export default function BottomNav() {
     fetchUserProfileUrl();
   }, [user?.id]);
 
-  // Mobile keyboard detection
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const handleResize = () => {
-      // On mobile, when keyboard opens, the visual viewport height decreases
-      const viewportHeight = window.visualViewport?.height || window.innerHeight;
-      const windowHeight = window.screen.height;
-      
-      // If viewport height is significantly smaller than screen height, keyboard is likely open
-      const keyboardThreshold = windowHeight * 0.75;
-      const keyboardIsOpen = viewportHeight < keyboardThreshold;
-      
-      setIsKeyboardOpen(keyboardIsOpen);
-    };
-
-    // Listen to visual viewport changes (better for keyboard detection)
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-      return () => window.visualViewport?.removeEventListener('resize', handleResize);
-    } else {
-      // Fallback for older browsers
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }
-  }, [isMobile]);
+  // ✅ SKOOL-STYLE: Removed keyboard detection - overlay input handles positioning itself
   
   // Track route changes for cache optimization
   useEffect(() => {
@@ -202,10 +177,8 @@ export default function BottomNav() {
     { path: '/profile', label: 'Profile', icon: User, onClick: handleProfileClick, notification: true },
   ];
 
-  // Hide bottom nav when keyboard is open on mobile
-  if (isKeyboardOpen) {
-    return null;
-  }
+  // ✅ SKOOL-STYLE: Keep bottom nav always visible - no hiding when keyboard opens
+  // Input will overlay on top of nav instead of nav disappearing
   
   return (
     <div 

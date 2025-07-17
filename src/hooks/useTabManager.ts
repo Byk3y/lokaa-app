@@ -27,6 +27,9 @@ interface TabStats {
   creationsByTab: Record<SpaceTab, number>;
 }
 
+// Singleton pattern to prevent multiple useTabManager instances for same space
+const activeTabManagerInstances = new Map<string, boolean>();
+
 /**
  * useTabManager - Manages tab component creation and lifecycle
  * 
@@ -64,7 +67,8 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
   }), [dependencies.user, permissions, spaceData, subdomain, hasInstantAccess, postInputRef]);
   
   // Core state
-  const [visitedTabs, setVisitedTabs] = useState<Set<SpaceTab>>(new Set(['feed'])); // Feed is always mounted
+  const [visitedTabs, setVisitedTabs] = useState<Set<SpaceTab>>(new Set()); // Start empty, add tabs as they're visited
+  const [tabComponents, setTabComponents] = useState<Partial<Record<SpaceTab, JSX.Element | null>>>({});
   const tabComponentsRef = useRef<Partial<Record<SpaceTab, JSX.Element | null>>>({});
   const statsRef = useRef<TabStats>({
     totalCreated: 0,
@@ -114,8 +118,13 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
       return newSet;
     });
     
-    // Clear from local ref
+    // Clear from local ref and state
     delete tabComponentsRef.current[tabKey];
+    setTabComponents(prev => {
+      const newState = {...prev};
+      delete newState[tabKey];
+      return newState;
+    });
     
     // Clear from global manager if we have user and subdomain
     if (userId && subdomain) {
@@ -123,10 +132,11 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     }
   }, [userId, subdomain]);
 
-  // Clear all tabs except feed
+  // Clear all tabs
   const clearTabs = useCallback(() => {
-    setVisitedTabs(new Set(['feed']));
+    setVisitedTabs(new Set());
     tabComponentsRef.current = {} as Partial<Record<SpaceTab, JSX.Element | null>>;
+    setTabComponents({});
     
     if (userId && subdomain) {
       globalTabComponentManager.clearSpaceComponents(subdomain, userId);
@@ -138,30 +148,77 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     return visitedTabs.has(tabKey);
   }, [visitedTabs]);
 
-  // 🚀 FIXED: Get tab component with stable dependencies
+  // Helper function to update both ref and state
+  const updateTabComponent = useCallback((tabKey: SpaceTab, component: JSX.Element | null) => {
+    tabComponentsRef.current[tabKey] = component;
+    setTabComponents(prev => ({
+      ...prev,
+      [tabKey]: component
+    }));
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔧 [useTabManager] Updated tab component state for ${tabKey}`);
+    }
+  }, []);
+
+  // 🚀 FIXED: Get tab component with global cache check first
   const getTabComponent = useCallback((tabKey: SpaceTab): JSX.Element | null => {
     // Check if already exists in local ref
     if (tabComponentsRef.current[tabKey]) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔧 [useTabManager] Using LOCAL ref for ${tabKey}`);
+      }
       return tabComponentsRef.current[tabKey];
     }
 
-    // Try to create component with stable dependencies
+    // CRITICAL FIX: Check global cache BEFORE creating new component
+    if (userId && subdomain) {
+      const cachedComponent = globalTabComponentManager.getTabComponent(subdomain, tabKey, userId);
+      if (cachedComponent) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔧 [useTabManager] Using GLOBAL cache for ${tabKey}`);
+        }
+        // Store in local ref and update state for rendering
+        updateTabComponent(tabKey, cachedComponent);
+        // Update stats to reflect cache hit
+        updateStats(tabKey, { component: cachedComponent, cached: true, created: false });
+        
+        // Emit cache event for TabVisibilityContext
+        if (spaceData?.id) {
+          window.dispatchEvent(new CustomEvent('tabCacheEvent', {
+            detail: { tabKey, spaceId: spaceData.id, cached: true }
+          }));
+        }
+        
+        return cachedComponent;
+      }
+    }
+
+    // Only create new component if not found in local ref OR global cache
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔧 [useTabManager] Creating NEW component for ${tabKey} (not in cache)`);
+    }
     const result = TabManagerService.createTabComponent(tabKey, stableDependencies);
     updateStats(tabKey, result);
 
     if (result.component) {
-      // Store in local ref
-      tabComponentsRef.current[tabKey] = result.component;
+      // Store in local ref and update state for rendering
+      updateTabComponent(tabKey, result.component);
       return result.component;
     }
 
     return null;
-  }, [stableDependencies, updateStats]); // Use stable dependencies
+  }, [stableDependencies, updateStats, userId, subdomain, updateTabComponent]); // Add userId and subdomain for cache checks
 
   // Refresh a specific tab component
   const refreshTab = useCallback((tabKey: SpaceTab): boolean => {
-    // Clear from local ref
+    // Clear from local ref and state
     delete tabComponentsRef.current[tabKey];
+    setTabComponents(prev => {
+      const newState = {...prev};
+      delete newState[tabKey];
+      return newState;
+    });
     
     // Clear from global manager
     if (userId && subdomain) {
@@ -181,6 +238,7 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
   const refreshAllTabs = useCallback(() => {
     const tabs = Array.from(visitedTabs);
     tabComponentsRef.current = {} as Partial<Record<SpaceTab, JSX.Element | null>>;
+    setTabComponents({});
     
     if (userId && subdomain) {
       globalTabComponentManager.clearSpaceComponents(subdomain, userId);
@@ -195,6 +253,20 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
   // 🚀 FIXED: Auto-create components for visited tabs with stable dependencies
   useEffect(() => {
     if (!userId || !subdomain) return;
+
+    // 🔧 HOOK DEDUPLICATION: Prevent multiple tab managers for same space
+    const managerKey = `tabManager_${subdomain}_${userId}`;
+    const currentlyActive = activeTabManagerInstances.get(managerKey);
+    
+    if (currentlyActive && visitedTabs.size === 0) {
+      if (!globalConsoleFlags?.QUIET_MODE) {
+        console.log(`🔧 [useTabManager] Instance already active for ${subdomain}, skipping tab creation`);
+      }
+      return;
+    }
+    
+    // Mark this tab manager instance as active
+    activeTabManagerInstances.set(managerKey, true);
 
     const debugInfo = {
       visitedTabsCount: visitedTabs.size,
@@ -241,6 +313,10 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
   useEffect(() => {
     return () => {
       if (userId && subdomain) {
+        // Clean up tab manager instance tracking
+        const managerKey = `tabManager_${subdomain}_${userId}`;
+        activeTabManagerInstances.delete(managerKey);
+        
         // Don't clear immediately - let them persist for quick return
         setTimeout(() => {
           // Only clear if user hasn't returned to this space within 30 seconds
@@ -253,8 +329,6 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     };
   }, [subdomain, userId]); // 🚀 FIXED: Use individual stable properties
 
-  // Get stable tab components reference
-  const tabComponents = tabComponentsRef.current;
 
   return {
     tabComponents,

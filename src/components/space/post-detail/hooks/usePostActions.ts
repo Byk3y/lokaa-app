@@ -77,14 +77,6 @@ export function usePostActions(post: PostCardProps | null, userId: string | unde
           .single();
 
         if (error) throw error;
-
-        // Log activity
-        await getSupabaseClient().from('user_activity_log').insert({
-          user_id: userId,
-          type: 'like',
-          ref_id: post.id,
-          meta: { post_id: post.id, space_id: post.spaceId }
-        });
       }
     } catch (error: any) {
       console.error('Error toggling like:', error);

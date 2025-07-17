@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { cn } from '@/lib/utils';
 
 interface CategoryTagProps {
@@ -38,7 +38,7 @@ function getCategoryColor(name: string) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export function CategoryTag({ name, variant = 'default', className }: CategoryTagProps) {
+export const CategoryTag = memo(function CategoryTag({ name, variant = 'default', className }: CategoryTagProps) {
   const baseClasses = "inline-flex items-center font-medium rounded-full transition-colors";
   const color = getCategoryColor(name);
   
@@ -52,4 +52,4 @@ export function CategoryTag({ name, variant = 'default', className }: CategoryTa
       {toTitleCase(name)}
     </span>
   );
-} 
+}); 

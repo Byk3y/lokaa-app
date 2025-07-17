@@ -223,6 +223,7 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
             memberCount={activeMemberCount}
             adminCount={adminCount}
             onlineCount={onlineCount}
+            permissionsLoading={false} // SpaceCardPreview is a preview without complex permissions
             subdomain={space.subdomain}
             spaceId={space.id}
             actionButtonText={`Join ${space.name ? space.name.charAt(0).toUpperCase() + space.name.slice(1) : ""}`}

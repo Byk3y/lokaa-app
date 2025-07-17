@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useSettingsValidation } from '@/hooks/useSettingsValidation';
+import { useMembershipStore } from '@/features/spaces/store/membership-store';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
-import { Globe, Lock, Image as ImageIcon, Camera, Upload, AlertCircle } from 'lucide-react';
+import { Globe, Lock, Image as ImageIcon, Camera, Upload, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Alert } from '@/components/ui/alert';
@@ -52,17 +53,23 @@ type FormDataField =
   | 'cover_image';
 
 export default function GeneralSettingsTab() {
-  const { formData, setFormDataField, permissions, space } = useSpaceSettingsStore();
+  const { space, formData, setFormDataField, permissions } = useSpaceSettingsStore();
+  const { triggerSpacesRefresh } = useMembershipStore();
   const [subdomainInput, setSubdomainInput] = useState(formData.subdomain || "");
-
+  
+  // File input refs
   const iconInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  
+  // Loading states for uploads
+  const [iconUploading, setIconUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
 
   // Use settings validation
   const {
     validateData,
+    validateField,
     validateFile,
-    handleChange: validateField,
     errors,
     isValid,
     isValidating
@@ -97,38 +104,171 @@ export default function GeneralSettingsTab() {
       return;
     }
 
-    // Validate file first
-    const validation = await validateFile(file, type);
-    if (!validation.isValid) {
-      toast({ 
-        title: "File Validation Failed", 
-        description: validation.errors.join('. '), 
-        variant: "destructive" 
-      });
-      return;
+    // Set loading state
+    if (type === 'icon') {
+      setIconUploading(true);
+    } else {
+      setCoverUploading(true);
     }
 
-    const bucketName = type === 'icon' ? 'space-icons' : 'space-covers';
-    const filePathSuffix = type === 'icon' ? 'icon_image' : 'cover_image';
-    
     try {
+      // Validate file first
+      const isValidFile = await validateFile(file, type);
+      if (!isValidFile) {
+        toast({ 
+          title: "File Validation Failed", 
+          description: "Invalid file. Please check file size and format.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+
+      const bucketName = type === 'icon' ? 'space-icons' : 'space-covers';
+      const filePathSuffix = type === 'icon' ? 'icon_image' : 'cover_image';
+      
       const uploadedPath = await uploadFile(bucketName, filePathSuffix, file, space.id);
       
       // Construct URL with the bucket name
       const fullUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/${bucketName}/${uploadedPath}`;
       
+      // CRITICAL FIX: Update all cache layers immediately to prevent disappearing on mobile background/foreground
+      const updateAllCaches = async (field: 'icon_image' | 'cover_image', url: string) => {
+        if (!space?.subdomain) return;
+        
+        try {
+          // 1. Update lastActiveSpace cache (used by mobile recovery system)
+          const lastActiveSpace = localStorage.getItem('lastActiveSpace');
+          if (lastActiveSpace) {
+            const parsed = JSON.parse(lastActiveSpace);
+            parsed[field] = url;
+            parsed.timestamp = Date.now(); // Mark as fresh data
+            localStorage.setItem('lastActiveSpace', JSON.stringify(parsed));
+            console.log(`🔄 [${type}Upload] Updated lastActiveSpace cache with new ${field}`);
+          }
+          
+          // 2. Update space settings store cache (primary cache used by components)
+          try {
+            const { enhancedSpaceCache } = await import('@/hooks/useSpaceSettingsStore');
+            const cacheKey = space.subdomain;
+            const cached = enhancedSpaceCache?.get(cacheKey);
+            if (cached && cached.data) {
+              cached.data[field] = url;
+              cached.timestamp = Date.now(); // Mark as fresh
+              enhancedSpaceCache.set(cacheKey, cached);
+              console.log(`🔄 [${type}Upload] Updated enhancedSpaceCache with new ${field}`);
+            }
+          } catch (importError) {
+            console.warn(`⚠️ [${type}Upload] Could not update space settings cache:`, importError);
+          }
+          
+          // 3. Update fallback cache (used during mobile recovery)
+          const fallbackKey = `space_fallback_${space.subdomain}`;
+          const fallbackCache = localStorage.getItem(fallbackKey);
+          if (fallbackCache) {
+            const parsed = JSON.parse(fallbackCache);
+            if (parsed.data) {
+              parsed.data[field] = url;
+              parsed.timestamp = Date.now();
+              localStorage.setItem(fallbackKey, JSON.stringify(parsed));
+              console.log(`🔄 [${type}Upload] Updated fallback cache with new ${field}`);
+            }
+          }
+          
+          // 4. Update sessionStorage space_data cache (used by mobile recovery)
+          const sessionKey = `space_data_${space.subdomain}`;
+          const sessionCache = sessionStorage.getItem(sessionKey);
+          if (sessionCache) {
+            const parsed = JSON.parse(sessionCache);
+            if (parsed.space) {
+              parsed.space[field] = url;
+              parsed.timestamp = Date.now();
+              sessionStorage.setItem(sessionKey, JSON.stringify(parsed));
+              console.log(`🔄 [${type}Upload] Updated sessionStorage cache with new ${field}`);
+            }
+          }
+          
+        } catch (error) {
+          console.warn(`⚠️ [${type}Upload] Failed to update cache:`, error);
+        }
+      };
+      
       if (type === 'icon') {
         setFormDataField('icon_image', fullUrl);
         validateField('icon_image', fullUrl, { ...formData, icon_image: fullUrl });
+        await updateAllCaches('icon_image', fullUrl);
+        
+        // CRITICAL: Update database with new icon URL
+        try {
+          const { error: dbError } = await getSupabaseClient()
+            .from('spaces')
+            .update({ icon_image: fullUrl })
+            .eq('id', space.id);
+            
+          if (dbError) {
+            console.error('Failed to update database with icon URL:', dbError);
+            throw dbError;
+          }
+          console.log(`✅ [iconUpload] Database updated successfully with new icon_image`);
+          
+          // CRITICAL: Trigger spaces refresh to update SpaceSwitcher icon
+          try {
+            await triggerSpacesRefresh();
+            console.log(`🔄 [iconUpload] Triggered spaces refresh for SpaceSwitcher update`);
+          } catch (refreshError) {
+            console.warn('Failed to trigger spaces refresh:', refreshError);
+            // Non-fatal error, don't block the upload success
+          }
+        } catch (dbError: any) {
+          console.error('Database update failed:', dbError);
+          toast({ title: "Database Update Failed", description: "Icon uploaded but not saved to database. Please try again.", variant: "destructive" });
+          return;
+        }
+        
         toast({ title: "Icon Updated", description: "New icon uploaded successfully." });
       } else {
         setFormDataField('cover_image', fullUrl);
         validateField('cover_image', fullUrl, { ...formData, cover_image: fullUrl });
+        await updateAllCaches('cover_image', fullUrl);
+        
+        // CRITICAL: Update database with new cover URL  
+        try {
+          const { error: dbError } = await getSupabaseClient()
+            .from('spaces')
+            .update({ cover_image: fullUrl })
+            .eq('id', space.id);
+            
+          if (dbError) {
+            console.error('Failed to update database with cover URL:', dbError);
+            throw dbError;
+          }
+          console.log(`✅ [coverUpload] Database updated successfully with new cover_image`);
+          
+          // CRITICAL: Trigger spaces refresh to update SpaceSwitcher (in case it shows cover)
+          try {
+            await triggerSpacesRefresh();
+            console.log(`🔄 [coverUpload] Triggered spaces refresh for SpaceSwitcher update`);
+          } catch (refreshError) {
+            console.warn('Failed to trigger spaces refresh:', refreshError);
+            // Non-fatal error, don't block the upload success
+          }
+        } catch (dbError: any) {
+          console.error('Database update failed:', dbError);
+          toast({ title: "Database Update Failed", description: "Cover uploaded but not saved to database. Please try again.", variant: "destructive" });
+          return;
+        }
+        
         toast({ title: "Cover Image Updated", description: "New cover image uploaded successfully." });
       }
     } catch (error: any) {
       console.error("[handleFileUpload] Error during upload process:", error);
       toast({ title: "Upload Failed", description: error.message || "Could not upload file.", variant: "destructive" });
+    } finally {
+      // Clear loading state
+      if (type === 'icon') {
+        setIconUploading(false);
+      } else {
+        setCoverUploading(false);
+      }
     }
   };
 
@@ -160,28 +300,31 @@ export default function GeneralSettingsTab() {
       )}
 
       {/* Icon & Cover Images */}
-      <div className="space-y-6">
+      <div className="flex flex-row items-start gap-8 mb-6 flex-wrap">
+        {/* Icon Uploader */}
         <div className="flex items-center space-x-4">
-          <div 
-            onClick={canEdit ? triggerIconUpload : undefined} 
-            className={`w-[96px] h-[96px] rounded-md border ${
+          <div
+            onClick={canEdit && !iconUploading ? triggerIconUpload : undefined}
+            className={`w-14 h-14 rounded-md border ${
               getFieldErrors('icon_image').length > 0 ? 'border-red-500' : 'border-gray-300 dark:border-slate-700'
             } flex items-center justify-center text-xs font-medium transition-colors ${
-              canEdit ? 'cursor-pointer bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-800'
-            }`}
+              canEdit && !iconUploading ? 'cursor-pointer bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-800'
+            } ${iconUploading ? 'opacity-70' : ''}`}
           >
-            {formData.icon_image ? (
+            {iconUploading ? (
+              <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+            ) : formData.icon_image ? (
               <img src={formData.icon_image} alt="Icon" className="w-full h-full object-cover rounded-md" />
             ) : (
               <span className="text-gray-500 dark:text-slate-400">Upload</span>
             )}
           </div>
-          <Input 
-            id="icon-upload" 
-            type="file" 
+          <Input
+            id="icon-upload"
+            type="file"
             ref={iconInputRef}
-            className="hidden" 
-            accept="image/*" 
+            className="hidden"
+            accept="image/*"
             onChange={(e) => {
               handleFileUpload(e.target.files ? e.target.files[0] : null, 'icon');
               if (e.target) e.target.value = '';
@@ -192,34 +335,49 @@ export default function GeneralSettingsTab() {
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Icon</p>
             <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Recommended: 96x96</p>
             {canEdit && (
-              <Button variant="outline" size="sm" onClick={triggerIconUpload} className="text-xs px-3 py-1 dark:border-slate-600 dark:hover:bg-slate-700">
-                Change
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={triggerIconUpload} 
+                disabled={iconUploading}
+                className="text-xs px-3 py-1 dark:border-slate-600 dark:hover:bg-slate-700"
+              >
+                {iconUploading ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Uploading...
+                  </>
+                ) : (
+                  'Change'
+                )}
               </Button>
             )}
           </div>
         </div>
-
+        {/* Cover Uploader */}
         <div className="flex items-center space-x-4">
-          <div 
-            onClick={canEdit ? triggerCoverUpload : undefined} 
+          <div
+            onClick={canEdit && !coverUploading ? triggerCoverUpload : undefined}
             className={`w-[170px] h-[96px] rounded-md border ${
               getFieldErrors('cover_image').length > 0 ? 'border-red-500' : 'border-gray-300 dark:border-slate-700'
             } flex items-center justify-center text-xs font-medium transition-colors ${
-              canEdit ? 'cursor-pointer bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-800'
-            }`}
+              canEdit && !coverUploading ? 'cursor-pointer bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700' : 'bg-gray-50 dark:bg-slate-800'
+            } ${coverUploading ? 'opacity-70' : ''}`}
           >
-            {formData.cover_image ? (
+            {coverUploading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            ) : formData.cover_image ? (
               <img src={formData.cover_image} alt="Cover" className="w-full h-full object-cover rounded-md" />
             ) : (
               <span className="text-gray-500 dark:text-slate-400">Upload</span>
             )}
           </div>
-          <Input 
-            id="cover-upload" 
-            type="file" 
+          <Input
+            id="cover-upload"
+            type="file"
             ref={coverInputRef}
-            className="hidden" 
-            accept="image/*" 
+            className="hidden"
+            accept="image/*"
             onChange={(e) => {
               handleFileUpload(e.target.files ? e.target.files[0] : null, 'cover');
               if (e.target) e.target.value = '';
@@ -230,8 +388,21 @@ export default function GeneralSettingsTab() {
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Cover</p>
             <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Recommended: 1084x576</p>
             {canEdit && (
-              <Button variant="outline" size="sm" onClick={triggerCoverUpload} className="text-xs px-3 py-1 dark:border-slate-600 dark:hover:bg-slate-700">
-                Change
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={triggerCoverUpload} 
+                disabled={coverUploading}
+                className="text-xs px-3 py-1 dark:border-slate-600 dark:hover:bg-slate-700"
+              >
+                {coverUploading ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Uploading...
+                  </>
+                ) : (
+                  'Change'
+                )}
               </Button>
             )}
           </div>

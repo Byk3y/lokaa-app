@@ -134,14 +134,20 @@ export function debugTabExtraction(pathname: string, tab?: string, activeTab?: s
     const extractedTab = extractTabFromPathname(pathname);
     const isRoot = isRootSpacePath(pathname);
     
+    // ENHANCED DEBUG: Show both provided pathname and window.location.pathname
+    const windowPathname = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
+    
     if (process.env.NODE_ENV === 'development') {
       console.log('🔍 [TabUtils] Debug info:', {
         pathname,
+        windowPathname,
+        pathnameDifference: pathname !== windowPathname ? 'DIFFERENT!' : 'same',
         tab,
         activeTab,
         extractedTab,
         isRoot,
-        segments: pathname.split('/').filter(Boolean)
+        segments: pathname.split('/').filter(Boolean),
+        windowSegments: windowPathname !== 'N/A' ? windowPathname.split('/').filter(Boolean) : []
       });
     }
   }

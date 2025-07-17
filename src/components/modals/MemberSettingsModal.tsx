@@ -1,0 +1,331 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { X } from 'lucide-react';
+import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
+
+export type MemberSettingsTabKey = "membership" | "notifications" | "chat" | "invite";
+
+interface MemberSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  space: {
+    id: string;
+    name: string;
+    subdomain: string;
+    icon_image?: string;
+    userRole?: 'member';
+  } | null;
+  user: {
+    id: string;
+  } | null;
+}
+
+export default function MemberSettingsModal({ isOpen, onClose, space, user }: MemberSettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<MemberSettingsTabKey>("membership");
+  const [chatEnabled, setChatEnabled] = useState(true); // Default to enabled, will be loaded from user preferences
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(shouldEnableMobileFeatures());
+  }, []);
+
+  // Prevent body scroll when modal is open on mobile
+  useEffect(() => {
+    if (isOpen && isMobile) {
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isOpen, isMobile]);
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "membership":
+        return (
+          <div className={`${isMobile ? 'p-4' : 'p-6'}`}>
+            {!isMobile && <h3 className="text-lg font-semibold mb-4">Membership</h3>}
+            <div className="space-y-4">
+              <p className={`${isMobile ? 'text-base' : 'text-sm'} text-gray-600`}>
+                You've been a member of {space?.name} since <span className="font-semibold text-gray-900">03/16/2025</span>.
+              </p>
+              <div className={`${isMobile ? 'mt-8' : 'mt-6'}`}>
+                <Button 
+                  variant="destructive" 
+                  className={`bg-red-500 hover:bg-red-600 text-white font-semibold ${
+                    isMobile ? 'w-full py-4 text-base' : ''
+                  }`}
+                  onClick={() => {
+                    // TODO: Implement leave group functionality
+                    console.log('Leave group clicked');
+                  }}
+                >
+                  LEAVE THIS GROUP
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      case "notifications":
+        return (
+          <div className={`${isMobile ? 'p-4' : 'p-6'}`}>
+            {!isMobile && <h3 className="text-lg font-semibold mb-4">Notifications</h3>}
+            <p className={`${isMobile ? 'text-base' : 'text-sm'} text-gray-600`}>Notification settings coming soon...</p>
+          </div>
+        );
+      case "chat":
+        return (
+          <div className={`${isMobile ? 'p-4' : 'p-6'}`}>
+            {!isMobile && <h3 className="text-lg font-semibold mb-6">Chat</h3>}
+            <p className={`${isMobile ? 'text-base' : 'text-sm'} text-gray-600 ${isMobile ? 'mb-4' : 'mb-6'}`}>
+              Choose whether members of this group can message you or not.
+            </p>
+            
+            {/* Space Chat Setting */}
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex items-center gap-3">
+                {space?.icon_image ? (
+                  <img 
+                    src={space.icon_image} 
+                    alt={space.name} 
+                    className="w-10 h-10 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-sm">
+                    {space?.name?.charAt(0)?.toUpperCase() || 'S'}
+                  </div>
+                )}
+                <span className="font-medium text-gray-900">
+                  {space?.name || 'This Space'}
+                </span>
+              </div>
+              
+              {/* Toggle Switch */}
+              <div className="flex items-center gap-2">
+                <span className={`text-sm ${!chatEnabled ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                  OFF
+                </span>
+                <button 
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 ${
+                    chatEnabled 
+                      ? 'bg-teal-500 hover:bg-teal-600' 
+                      : 'bg-gray-200 hover:bg-gray-300'
+                  }`}
+                  onClick={() => {
+                    setChatEnabled(!chatEnabled);
+                    // TODO: Save preference to backend
+                    console.log('Chat permissions toggled:', !chatEnabled);
+                  }}
+                  aria-label={`${chatEnabled ? 'Disable' : 'Enable'} chat messages from ${space?.name} members`}
+                >
+                  <span 
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                      chatEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`} 
+                  />
+                </button>
+                <span className={`text-sm ${chatEnabled ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                  ON
+                </span>
+              </div>
+            </div>
+            
+            {/* Help Text */}
+            <p className="text-xs text-gray-500 mt-3">
+              {chatEnabled 
+                ? `Members of ${space?.name || 'this space'} can send you direct messages.`
+                : `Members of ${space?.name || 'this space'} cannot send you direct messages.`
+              }
+            </p>
+          </div>
+        );
+      case "invite":
+        return (
+          <div className={`${isMobile ? 'p-4' : 'p-6'}`}>
+            {!isMobile && <h3 className="text-lg font-semibold mb-6">Invite</h3>}
+            <p className={`${isMobile ? 'text-base' : 'text-sm'} text-gray-600 ${isMobile ? 'mb-4' : 'mb-6'}`}>
+              Share a link to {space?.name || 'this space'} with your friends.
+            </p>
+            
+            {/* Invite Link Section */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={`https://lokaa.com/${space?.subdomain || 'space'}/about?ref=${user?.id?.slice(0, 8) || 'invite'}`}
+                readOnly
+                className="flex-1 px-3 py-2 text-sm bg-blue-50 border border-blue-200 rounded-md text-blue-700 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onClick={(e) => e.currentTarget.select()}
+              />
+              <button
+                onClick={async () => {
+                  const inviteUrl = `https://lokaa.com/${space?.subdomain || 'space'}/about?ref=${user?.id?.slice(0, 8) || 'invite'}`;
+                  try {
+                    await navigator.clipboard.writeText(inviteUrl);
+                    // TODO: Add visual feedback for successful copy
+                    console.log('Invite link copied:', inviteUrl);
+                  } catch (error) {
+                    console.error('Failed to copy invite link:', error);
+                    // Fallback: select the text for manual copy
+                    const input = document.querySelector('input[readonly]') as HTMLInputElement;
+                    if (input) {
+                      input.select();
+                      document.execCommand('copy');
+                    }
+                  }
+                }}
+                className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-semibold text-sm rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+              >
+                COPY
+              </button>
+            </div>
+            
+            {/* Optional: Additional invite info */}
+            <p className="text-xs text-gray-500 mt-3">
+              Anyone with this link can view the about page for {space?.name || 'this space'}.
+            </p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const tabs = [
+    { key: "membership" as MemberSettingsTabKey, label: "Membership" },
+    { key: "notifications" as MemberSettingsTabKey, label: "Notifications" },
+    { key: "chat" as MemberSettingsTabKey, label: "Chat" },
+    { key: "invite" as MemberSettingsTabKey, label: "Invite" },
+  ];
+
+  // Mobile: Full-screen layout, Desktop: Modal layout
+  if (isMobile) {
+    return (
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogPortal>
+          <div className="fixed inset-0 z-[60] h-screen w-screen flex flex-col bg-white overflow-hidden">
+            {/* Hidden accessibility elements */}
+            <DialogTitle className="sr-only">Settings</DialogTitle>
+            <DialogDescription className="sr-only">
+              Membership settings for {space?.name || 'this space'}
+            </DialogDescription>
+            
+            {/* Mobile Header - Skool Style */}
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onClose} 
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="h-5 w-5 text-gray-600" />
+                </Button>
+                {space?.icon_image ? (
+                  <img 
+                    src={space.icon_image} 
+                    alt={space.name} 
+                    className="w-8 h-8 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-white font-bold text-sm">
+                    {space?.name?.charAt(0)?.toUpperCase() || 'S'}
+                  </div>
+                )}
+                <span className="font-semibold text-gray-900 text-base">Settings</span>
+              </div>
+            </div>
+
+            {/* Mobile Tab Navigation */}
+            <div className="flex border-b bg-white overflow-x-auto">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === tab.key
+                      ? 'border-gray-900 text-gray-900'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Mobile Content */}
+            <div className="flex-grow bg-white overflow-y-auto pb-20"> {/* Add bottom padding to avoid bottom nav overlap */}
+              {renderTabContent()}
+            </div>
+          </div>
+        </DialogPortal>
+      </Dialog>
+    );
+  }
+
+  // Desktop layout (unchanged)
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[700px] flex flex-col p-0 gap-0 [&>button]:hidden">
+        <DialogHeader className="px-6 py-4 border-b flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            {space?.icon_image ? (
+              <img 
+                src={space.icon_image} 
+                alt={space.name} 
+                className="w-10 h-10 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold">
+                {space?.name?.charAt(0)?.toUpperCase() || 'S'}
+              </div>
+            )}
+            <div>
+              <DialogTitle className="text-lg font-semibold text-gray-800">
+                {space?.name || 'Space Settings'}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                Membership settings
+              </DialogDescription>
+            </div>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose} 
+            className="rounded-full"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </DialogHeader>
+
+        <div className="flex flex-grow overflow-hidden min-h-[500px]">
+          {/* Left Sidebar */}
+          <div className="w-48 border-r bg-gray-50 flex-shrink-0">
+            <nav className="p-4 space-y-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? 'bg-teal-100 text-teal-800 font-semibold'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-grow bg-white overflow-y-auto">
+            {renderTabContent()}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

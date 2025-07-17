@@ -12,7 +12,7 @@
  */
 
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database } from '@/types/database.types';
 import { PostgrestError } from '@supabase/supabase-js';
 import { User as AuthUser } from "@/contexts/AuthContext";
 

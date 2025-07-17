@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/shared/components';
 import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { User } from '@supabase/supabase-js';
@@ -7,7 +8,7 @@ interface FeedHeaderProps {
   onOpenCreatePostModal: () => void;
 }
 
-export default function FeedHeader({
+const FeedHeader = memo(function FeedHeader({
   currentUser,
   onOpenCreatePostModal,
 }: FeedHeaderProps) {
@@ -45,4 +46,6 @@ export default function FeedHeader({
       </div>
     </div>
   );
-} 
+});
+
+export default FeedHeader; 

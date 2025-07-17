@@ -175,16 +175,15 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
   } else {
     // Icon button variant with unread count badge - clean style matching post cards
     triggerButtonContent = (
-      <div className="relative">
+      <div className="relative" data-chat-trigger>
         <Button
           variant="ghost"
           size="icon"
           className={`h-10 w-10 text-gray-500 ${className || ''}`}
           aria-label={`Messages${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
           onClick={() => {
-            console.log('[ChatButton] Icon clicked, toggling popover');
+            console.log('[ChatButton] Icon clicked, toggling popover:', !isPopoverOpenForIcon);
             setIsPopoverOpenForIcon(prev => !prev);
-            // Let ChatListUnified handle the fetching to avoid double-fetch
           }}
         >
           <TopNavChatIcon className="h-7 w-7" />

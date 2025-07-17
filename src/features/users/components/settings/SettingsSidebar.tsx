@@ -29,10 +29,13 @@ const MenuItem: React.FC<MenuItemProps> = ({ id, label, icon, onClick, isActive,
   return (
     <button
       onClick={onClick}
-      className={`flex items-center py-3 px-5 w-full mb-2 transition-colors rounded-[20px] mx-2`}
+      className={`flex items-center py-3 px-5 w-full mb-2 transition-all duration-300 rounded-[20px] mx-2 hover:scale-105 hover:shadow-xl`}
       style={{ 
         backgroundColor: isActive ? `${brandColor}15` : 'transparent',
-        transition: 'background-color 150ms ease'
+        boxShadow: isActive ? '0 4px 12px rgba(0, 163, 137, 0.15)' : '0 2px 4px rgba(0, 0, 0, 0.05)',
+        border: isActive ? `1px solid ${brandColor}30` : '1px solid transparent',
+        backdropFilter: 'blur(10px)',
+        transition: 'all 300ms ease'
       }}
     >
       <div className="mr-3" style={{ color: isActive ? brandColor : '#888888' }}>
@@ -73,7 +76,7 @@ interface SettingsSidebarProps {
 
 export default function SettingsSidebar({ activeTab, onTabChange }: SettingsSidebarProps) {
   return (
-    <div className="w-[280px] bg-white rounded-[16px] shadow-[0px_2px_12px_rgba(0,0,0,0.06)] overflow-hidden">
+    <div className="w-[280px] bg-white/90 backdrop-blur-sm rounded-[16px] shadow-[0px_8px_32px_rgba(0,0,0,0.12)] border border-gray-100/50 overflow-hidden">
       <nav className="py-4">
         <div className="space-y-1">
           {settingsMenuItems.map((item) => {

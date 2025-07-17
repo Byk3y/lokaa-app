@@ -27,9 +27,9 @@ interface ConnectionHealth {
 }
 
 const PERFORMANCE_CONFIGS = {
-  standard: { debounceMs: 2000, maxBatch: 10, heartbeat: 30000 },
-  performance: { debounceMs: 1000, maxBatch: 15, heartbeat: 15000 },
-  battery: { debounceMs: 5000, maxBatch: 5, heartbeat: 60000 },
+  standard: { debounceMs: 5000, maxBatch: 10, heartbeat: 60000 }, // EGRESS FIX: Increased debounce and heartbeat
+  performance: { debounceMs: 3000, maxBatch: 15, heartbeat: 30000 }, // EGRESS FIX: Increased intervals
+  battery: { debounceMs: 10000, maxBatch: 5, heartbeat: 120000 }, // EGRESS FIX: Increased intervals
 };
 
 export const useAdvancedRealtimePosts = ({
@@ -98,7 +98,7 @@ export const useAdvancedRealtimePosts = ({
 
     const startTime = Date.now();
     
-    const channel = supabase
+    const channel = getSupabaseClient()
       .channel(`posts_${spaceId}_advanced`)
       .on(
         'postgres_changes',

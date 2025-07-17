@@ -4,7 +4,7 @@ import { IconUser, IconSettings, IconPhoto, IconPalette, IconLock, IconCreditCar
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useSpaceSettingsModal } from '@/contexts/SpaceSettingsModalContext';
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/components/ui/use-toast';
@@ -152,6 +152,7 @@ const SpaceSettingsModal = () => {
            <IconAlertTriangle className="h-12 w-12 text-yellow-500" />
           <DialogHeader>
             <DialogTitle>Space Settings</DialogTitle>
+            <DialogDescription>Manage your space settings and preferences</DialogDescription>
           </DialogHeader>
           <p className="mt-4 text-lg text-gray-600">Space data is not available. It might still be loading or an error occurred.</p>
           {isLoading && <p>Loading...</p>}
@@ -168,6 +169,7 @@ const SpaceSettingsModal = () => {
            <IconAlertTriangle className="h-12 w-12 text-yellow-500" />
           <DialogHeader>
             <DialogTitle>Space Settings</DialogTitle>
+            <DialogDescription>Manage your space settings and preferences</DialogDescription>
           </DialogHeader>
           <p className="mt-4 text-lg text-gray-600">Space data is not available. It might still be loading or an error occurred.</p>
           {isLoading && <p>Loading...</p>}

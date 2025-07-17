@@ -175,6 +175,7 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
               adminCount={adminCount}
               onlineCount={onlineCount}
               canAccessSettings={isOwner}
+              permissionsLoading={false} // SpaceAboutDisplay doesn't have complex loading states
               subdomain={subdomain}
               isOwner={isOwner}
               isMember={isMember}

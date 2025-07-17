@@ -8,6 +8,8 @@ import ChatButton from '@/components/chat/ChatButton';
 import SettingsSidebar from './SettingsSidebar';
 import SettingsTabRouter from './SettingsTabRouter';
 import { useSettingsNavigation } from '../../hooks/useSettingsNavigation';
+import SpaceSwitcher from '@/components/spaces/SpaceSwitcher';
+import NewSpaceSettingsModal from '@/components/modals/NewSpaceSettingsModal';
 
 export default function UserSettingsLayout() {
   const { user, signOut } = useOptimizedAuth();
@@ -34,34 +36,39 @@ export default function UserSettingsLayout() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="page-container max-w-[1200px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo/Brand */}
-            <Link to="/" className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">Lokaa</h1>
-            </Link>
+            {/* Logo/Brand - custom styling for settings with SpaceSwitcher functionality */}
+            <div className="flex items-center">
+              <div className="flex items-center">
+                <h1 className="text-4xl font-bold leading-none text-[#14b8a6] mr-2">Lokaa</h1>
+                <SpaceSwitcher
+                  currentSpaceSubdomain="_settings_"
+                  currentSpaceName="Lokaa"
+                  userId={user?.id || ''}
+                  hideTriggerLabel={true}
+                />
+              </div>
+            </div>
             
             <div className="flex items-center space-x-4">
-              {/* Modern Icon Buttons with elevated design */}
-              <div className="flex items-center space-x-3">
-                {/* Chat Button */}
-                <div className="relative">
-                  <ChatButton 
-                    variant="icon" 
-                    className="h-10 w-10 bg-white/80 backdrop-blur-sm hover:bg-white border border-gray-200/70 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl hover:scale-105 [&_svg]:w-5 [&_svg]:h-5 [&_button]:h-10 [&_button]:w-10 [&_button]:rounded-xl [&_button]:shadow-lg [&_button]:border-gray-200/70"
-                  />
-                </div>
-                
-                {/* Bell Icon */}
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="relative h-10 w-10 p-0 bg-white/80 backdrop-blur-sm hover:bg-white border border-gray-200/70 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl hover:scale-105"
-                >
-                  <Bell size={20} className="text-gray-700 hover:text-gray-900 transition-colors duration-200" />
-                </Button>
-              </div>
+              {/* Clean simple buttons matching main space page */}
+              {/* Chat Button */}
+              <ChatButton 
+                variant="icon" 
+                className="text-gray-500 p-2"
+              />
               
-              {/* Profile Icon with Dropdown */}
-              <div className="relative ml-3" ref={profileRef}>
+              {/* Bell Icon */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 text-gray-500"
+                aria-label="Notifications"
+              >
+                <Bell className="h-7 w-7" />
+              </Button>
+              
+              {/* Profile Dropdown */}
+              <div className="relative">
                 <ProfileDropdown 
                   variant="default" 
                   size="md" 
@@ -102,6 +109,9 @@ export default function UserSettingsLayout() {
           </div>
         </div>
       </div>
+      
+      {/* Space Settings Modal - available from user settings context */}
+      <NewSpaceSettingsModal />
     </div>
   );
 } 

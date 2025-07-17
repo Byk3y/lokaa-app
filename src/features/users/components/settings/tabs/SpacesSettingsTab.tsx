@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Eye } from 'lucide-react';
+import { Search, Eye, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { SettingsTabProps } from '../../../types/settings';
 import { Space } from '@/types/space';
 import { useMembershipStore } from '@/features/spaces/store/membership-store';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
+import MemberSettingsModal from '@/components/modals/MemberSettingsModal';
 
 // Pin icon component
 const PinIcon = () => (
@@ -15,14 +18,65 @@ const PinIcon = () => (
 // Interface for space member records from database
 interface SpaceMemberRecord {
   space_id: string;
+  role: string;
   spaces: Space | null; // The nested space object
+}
+
+// Extended space interface with user role
+interface SpaceWithRole extends Space {
+  userRole?: 'owner' | 'admin' | 'member';
 }
 
 export default function SpacesSettingsTab({ user }: SettingsTabProps) {
   const { refreshSpacesTrigger } = useMembershipStore();
+  const navigate = useNavigate();
   const [spaceSearchQuery, setSpaceSearchQuery] = useState("");
-  const [userSpaces, setUserSpaces] = useState<Space[]>([]);
+  const [userSpaces, setUserSpaces] = useState<SpaceWithRole[]>([]);
   const [loadingSpaces, setLoadingSpaces] = useState(true);
+  
+  // State for member settings modal
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [selectedMemberSpace, setSelectedMemberSpace] = useState<SpaceWithRole | null>(null);
+  
+  // Cache management for preventing unnecessary refetches
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
+  // Handler for opening settings modal (admin/owner)
+  const handleOpenSpaceSettings = async (space: SpaceWithRole) => {
+    if (!user?.id) {
+      console.warn("User ID not available for opening space settings");
+      return;
+    }
+
+    try {
+      const storeActions = useSpaceSettingsStore.getState();
+      // Load the space context first, then open the modal
+      await storeActions.loadActiveSpace({ 
+        subdomain: space.subdomain, 
+        spaceId: space.id 
+      }, user.id, true);
+      storeActions.openModal();
+    } catch (error) {
+      console.error("Failed to open space settings:", error);
+    }
+  };
+
+  // Handler for opening member settings modal
+  const handleOpenMemberSettings = (space: SpaceWithRole) => {
+    setSelectedMemberSpace(space);
+    setMemberModalOpen(true);
+  };
+
+  // Main handler that determines which modal to show
+  const handleSettingsClick = (space: SpaceWithRole) => {
+    if (space.userRole === 'owner' || space.userRole === 'admin') {
+      handleOpenSpaceSettings(space);
+    } else {
+      handleOpenMemberSettings(space);
+    }
+  };
 
   // Fetch user spaces
   useEffect(() => {
@@ -30,10 +84,28 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
       if (!user || !user.id) {
         setUserSpaces([]);
         setLoadingSpaces(false);
+        setLastUserId(null);
         return;
       }
 
-      setLoadingSpaces(true);
+      // Smart cache check to prevent unnecessary refetches
+      const now = Date.now();
+      const timeSinceLastFetch = now - lastFetchTime;
+      const isSameUser = lastUserId === user.id;
+      const isCacheValid = timeSinceLastFetch < CACHE_DURATION;
+      const hasExistingData = userSpaces.length > 0;
+
+      // Skip fetch if we have valid cached data and same user
+      if (isSameUser && isCacheValid && hasExistingData && document.visibilityState === 'visible') {
+        console.log(`[SpacesSettingsTab] Using cached spaces data (${Math.round(timeSinceLastFetch / 1000)}s old)`);
+        setLoadingSpaces(false);
+        return;
+      }
+
+      // Only show loading if we don't have existing data or user changed
+      if (!hasExistingData || !isSameUser) {
+        setLoadingSpaces(true);
+      }
 
       try {
         // Fetch spaces owned by the user
@@ -51,9 +123,11 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
           .from('space_members')
           .select(`
             space_id,
+            role,
             spaces:space_id(id, name, subdomain, owner_id, icon_image, member_count, description)
           `)
           .eq('user_id', user.id)
+          .eq('status', 'active')
           .returns<SpaceMemberRecord[]>();
 
         if (memberError) {
@@ -63,16 +137,31 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
         const ownedSpacesArray = ownedSpaces || [];
         const joinedSpaces = memberRecords
           ?.filter((record) => record.spaces !== null)
-          .map((record) => record.spaces as Space) || [];
+          .map((record) => ({
+            ...record.spaces as Space,
+            userRole: record.role as 'admin' | 'member'
+          })) || [];
 
-        // Combine and deduplicate spaces
-        const allSpacesMap = new Map<string, Space>();
+        // Combine and deduplicate spaces with role information
+        const allSpacesMap = new Map<string, SpaceWithRole>();
         
-        ownedSpacesArray.forEach(space => allSpacesMap.set(space.id, space));
-        joinedSpaces.forEach(space => allSpacesMap.set(space.id, space));
+        // Add owned spaces with 'owner' role
+        ownedSpacesArray.forEach(space => 
+          allSpacesMap.set(space.id, { ...space, userRole: 'owner' })
+        );
+        
+        // Add joined spaces with their actual roles (admin/member)
+        joinedSpaces.forEach(space => 
+          allSpacesMap.set(space.id, space)
+        );
         
         const allSpaces = Array.from(allSpacesMap.values());
         setUserSpaces(allSpaces);
+        
+        // Update cache metadata
+        setLastFetchTime(Date.now());
+        setLastUserId(user.id);
+        console.log(`[SpacesSettingsTab] Fetched ${allSpaces.length} spaces and updated cache`);
       } catch (error) {
         console.error('Error fetching user spaces:', error);
         setUserSpaces([]);
@@ -81,7 +170,12 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
       }
     };
 
-    fetchUserSpaces();
+    // Debounce rapid consecutive calls (e.g., from visibility changes)
+    const timeoutId = setTimeout(() => {
+      fetchUserSpaces();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [user, refreshSpacesTrigger]);
 
   // Filter spaces based on search query
@@ -134,7 +228,19 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
                   <div className="text-[14px] text-gray-500">{space.member_count || 0} members</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                {/* Show SETTINGS button for all users - different modals based on role */}
+                <button 
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+                  onClick={() => handleSettingsClick(space)}
+                  title={
+                    space.userRole === 'owner' || space.userRole === 'admin' 
+                      ? `Space ${space.userRole === 'owner' ? 'Owner' : 'Admin'} - Access Settings`
+                      : 'Member Settings - Manage your membership'
+                  }
+                >
+                  SETTINGS
+                </button>
                 <button className="p-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors">
                   <PinIcon />
                 </button>
@@ -154,6 +260,17 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
           </div>
         )}
       </div>
+
+      {/* Member Settings Modal */}
+      <MemberSettingsModal
+        isOpen={memberModalOpen}
+        onClose={() => {
+          setMemberModalOpen(false);
+          setSelectedMemberSpace(null);
+        }}
+        space={selectedMemberSpace}
+        user={user}
+      />
     </div>
   );
 } 

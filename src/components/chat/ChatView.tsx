@@ -88,7 +88,7 @@ export default function ChatView({
     shouldShowConnectionContext
   });
 
-  const chatViewRef = useRef<HTMLDivElement>(null);
+  // ✅ SKOOL-STYLE: Removed chatViewRef - no longer needed for keyboard detection
 
   useEffect(() => {
     setCurrentConversation(initialConversation);
@@ -230,58 +230,17 @@ export default function ChatView({
     }
   };
 
-  // ✅ MOBILE KEYBOARD FIX: Robust CSS-based layout that adapts automatically
-  const getMobileContainerStyle = () => {
-    if (!isMobile) {
-      return {
-        height: '100%',
-        maxHeight: 'none'
-      };
-    }
-
-    // ✅ ROBUST SOLUTION: Use CSS dynamic viewport units and environment variables
-    // This automatically adapts to keyboard without fragile JavaScript detection
-    return {
-      height: '100dvh', // Dynamic viewport height - adapts to keyboard automatically
-      maxHeight: '100dvh',
-      minHeight: '100dvh'
-    };
-  };
-
-  // Dynamic padding - simplified since CSS now handles all spacing
-  const getContainerPadding = () => {
-    if (isDesktop) return 'pb-0'; // No bottom nav on desktop
-    // For mobile, padding is handled by CSS viewport units
-    return 'pb-0';
-  };
-
-  useEffect(() => {
-    if (!isMobile) return;
-    const chatView = chatViewRef.current;
-    if (!chatView) return;
-    // Start with keyboard closed
-    chatView.classList.add('keyboard-closed');
-    // Handler for focus/blur
-    const handleFocus = () => chatView.classList.remove('keyboard-closed');
-    const handleBlur = () => chatView.classList.add('keyboard-closed');
-    // Listen for focus/blur on any input/textarea inside chatView
-    chatView.addEventListener('focusin', handleFocus);
-    chatView.addEventListener('focusout', handleBlur);
-    return () => {
-      chatView.removeEventListener('focusin', handleFocus);
-      chatView.removeEventListener('focusout', handleBlur);
-    };
-  }, [isMobile]);
+  // ✅ SKOOL-STYLE: Simplified - no complex keyboard detection needed
+  // Input overlay handles its own positioning
 
   return (
     <div 
-      ref={chatViewRef}
-      className={`flex flex-col bg-white dark:bg-gray-800 ${getContainerPadding()} ${
-        isMobile ? `mobile-chat-view ${isModal ? 'modal-chat' : ''}` : ''
+      className={`flex flex-col bg-white dark:bg-gray-800 ${
+        isMobile ? 'mobile-chat-view-simplified' : ''
       }`}
-      style={getMobileContainerStyle()}
+      style={isMobile ? { height: '100dvh' } : { height: '100%' }}
     >
-      <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className={`${isMobile ? '' : 'sticky top-0'} z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700`}>
         <ChatHeader 
           conversation={currentConversation}
           onBack={onBack}
@@ -296,8 +255,9 @@ export default function ChatView({
       <div 
         ref={messagesContainerRef}
         className={`flex-1 overflow-y-auto p-4 space-y-4 chat-messages-container ${
-          isMobile ? 'mobile-chat-messages' : ''
+          isMobile ? 'mobile-chat-messages-simplified' : ''
         }`}
+        style={isMobile ? { paddingBottom: '8rem' } : {}}
       >
         {/* ✅ LAYOUT SHIFT FIX: Stable ConnectionContext rendering with reserved space */}
         {shouldShowConnectionContext ? (
@@ -348,16 +308,27 @@ export default function ChatView({
         <div ref={messagesEndRef} />
       </div>
       
-      <div className={`border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${
-        isMobile ? 'mobile-chat-input' : ''
-      }`}>
+      {/* ✅ SKOOL-STYLE: Input overlay - only render wrapper on desktop, mobile input handles its own positioning */}
+      {!isMobile && (
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <ChatInput 
+            onSendMessage={handleSendMessage}
+            sending={sending}
+            recipientName={currentConversation.other_participants?.[0]?.full_name || currentConversation.conversation_name || 'user'}
+            disabled={loading}
+          />
+        </div>
+      )}
+      
+      {/* ✅ MOBILE: Input renders as overlay with fixed positioning */}
+      {isMobile && (
         <ChatInput 
           onSendMessage={handleSendMessage}
           sending={sending}
           recipientName={currentConversation.other_participants?.[0]?.full_name || currentConversation.conversation_name || 'user'}
           disabled={loading}
         />
-      </div>
+      )}
     </div>
   );
 } 

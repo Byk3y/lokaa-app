@@ -35,9 +35,16 @@ const CreateCategoryModal = lazy(() => import("@/components/space/CreateCategory
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
-export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
+function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
   
   // 🧪 HMR TEST COMMENT: Testing HMR optimization effectiveness (Test 3A)
+  // ============================================================================
+  // HOOKS MUST BE AT THE TOP - CRITICAL FIX FOR HOOK ORDER ERROR
+  // ============================================================================
+  
+  // Add mobile detection FIRST - before any conditional logic
+  const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
+  
   // ============================================================================
   // BUSINESS LOGIC HOOK - All state and handlers extracted here
   // ============================================================================
@@ -384,8 +391,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
     return <div className="p-4 text-center">Loading feed...</div>;
   }
 
-  // Add mobile detection for conditional rendering
-  const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
+  // Mobile detection moved to top of component to fix hook order
 
   // ============================================================================
   // RENDER JSX - Pure presentation logic
@@ -672,6 +678,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
             coverImage={sidebarSpaceData.cover_image || undefined}
             isPrivate={sidebarSpaceData.is_private || false}
             canAccessSettings={effectivePermissions.canAccessSettings}
+            permissionsLoading={authLoading || storeLoadingSpace}
             subdomain={sidebarSpaceData.subdomain || 'space'} 
             spaceId={sidebarSpaceData.id || ''} 
             isOwner={effectivePermissions.effectiveIsOwner || false}
@@ -730,4 +737,7 @@ export default function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin:
       )}
     </div>
   );
-} 
+}
+
+// 🚀 PERFORMANCE FIX: Wrap with React.memo to prevent unnecessary re-renders
+export default memo(FeedTab); 

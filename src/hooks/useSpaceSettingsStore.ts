@@ -54,8 +54,10 @@ interface SpaceSettingsState {
   isOpen: boolean;
   isSubmitting: boolean;
   isDirty: boolean;
+  initialTab: string | null;
   
   openModal: () => void;
+  openModalToTab: (tab: string) => void;
   closeModal: () => void;
   
   loadActiveSpace: (
@@ -87,7 +89,7 @@ interface SpaceMemberRow {
   status: string;
 }
 
-const initialState: Pick<SpaceSettingsState, 'space' | 'permissions' | 'formData' | 'loadingSpace' | 'loadingPermissions' | 'error' | 'isOpen' | 'isSubmitting' | 'isDirty'> = {
+const initialState: Pick<SpaceSettingsState, 'space' | 'permissions' | 'formData' | 'loadingSpace' | 'loadingPermissions' | 'error' | 'isOpen' | 'isSubmitting' | 'isDirty' | 'initialTab'> = {
   space: null,
   permissions: null,
   formData: {},
@@ -97,6 +99,7 @@ const initialState: Pick<SpaceSettingsState, 'space' | 'permissions' | 'formData
   isOpen: false,
   isSubmitting: false,
   isDirty: false,
+  initialTab: null,
 };
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -115,7 +118,7 @@ const navigationState: NavigationState = {
 };
 
 // Enhanced cache with route-aware persistence
-const enhancedSpaceCache = new Map<string, { 
+export const enhancedSpaceCache = new Map<string, { 
   data: SpaceSettingsData, 
   timestamp: number,
   routeTransitionData?: { fromRoute: string; toRoute: string; preserveUntil: number; }
@@ -124,8 +127,9 @@ const enhancedSpaceCache = new Map<string, {
 const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
   ...initialState,
 
-  openModal: () => set({ isOpen: true }),
-  closeModal: () => set({ isOpen: false, formData: get().space ? { ...get().space } : {}, isDirty: false }),
+  openModal: () => set({ isOpen: true, initialTab: null }),
+  openModalToTab: (tab: string) => set({ isOpen: true, initialTab: tab }),
+  closeModal: () => set({ isOpen: false, formData: get().space ? { ...get().space } : {}, isDirty: false, initialTab: null }),
 
   loadActiveSpace: async (identifier, userId, force = false) => {
     if (!userId) {
@@ -190,17 +194,17 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
                                identifier.subdomain && 
                                existingSpace.subdomain === identifier.subdomain;
     
+    // FIXED: Don't show loading state if we already have the correct space data
     if (shouldPreserveSpace) {
-      console.log(`🔒 [Phase1] Preserving existing space data for ${identifier.subdomain} during refresh`);
-      // Only set loading state, KEEP existing space data visible
-      set({ 
-        loadingSpace: true, 
-        loadingPermissions: !existingPermissions,
-        error: null 
-        // CRITICAL: Don't touch space data - keep it visible
-      });
+      console.log(`🔒 [SpaceSettings] Already have space data for ${identifier.subdomain}, skipping loading state`);
+      // Don't set loading state if we already have the correct data
+      // Only load permissions if missing
+      if (!existingPermissions) {
+        set({ loadingPermissions: true, error: null });
+      }
     } else {
-      // Only set loading state, KEEP existing data
+      // Only set loading state when we don't have matching data
+      console.log(`🔄 [SpaceSettings] Loading new space data for ${cacheKey}`);
       set({ 
         loadingSpace: true, 
         loadingPermissions: !existingPermissions, 

@@ -11,9 +11,11 @@
  * - Automatic cleanup of stale presence
  */
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useTabVisibility } from '@/contexts/TabVisibilityContext';
+import { debounce } from '@/utils/debounce';
 
 interface SpacePresenceResult {
   onlineCount: number;
@@ -29,6 +31,9 @@ const activeSubscriptions = new Map<string, any>();
 
 // Cache for presence data to prevent duplicate fetches
 const presenceCache = new Map<string, { data: SpacePresenceResult, timestamp: number }>();
+
+// Singleton pattern to prevent multiple hook instances for the same spaceId
+const activeHookInstances = new Map<string, boolean>();
 
 // Debug helper
 const debugPresence = (message: string, data: any) => {
@@ -57,9 +62,19 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
   const supabase = getSupabaseClient();
   const mountedRef = useRef(true);
   const currentChannel = useRef<any>(null);
+  const lastFetchRef = useRef<number>(0);
+  
+  // Safe tab visibility hook usage
+  let tabVisibility: ReturnType<typeof useTabVisibility> | null = null;
+  try {
+    tabVisibility = useTabVisibility();
+  } catch (error) {
+    // TabVisibilityProvider not available, use null checks
+    tabVisibility = null;
+  }
 
   // Fetch presence data from database
-  const fetchPresenceData = async () => {
+  const fetchPresenceData = useCallback(async () => {
     if (!spaceId || !mountedRef.current) return;
 
     try {
@@ -107,6 +122,12 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
       if (mountedRef.current) {
         setPresence(newData);
         presenceCache.set(spaceId, { data: newData, timestamp: Date.now() });
+        lastFetchRef.current = Date.now();
+        
+        // Update centralized fetch time
+        if (tabVisibility) {
+          tabVisibility.updateLastFetchTime('feed', spaceId);
+        }
       }
 
     } catch (error: any) {
@@ -115,7 +136,13 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
         setPresence(prev => ({ ...prev, loading: false, error: error.message }));
       }
     }
-  };
+  }, [spaceId]);
+  
+  // Debounced version for real-time updates
+  const debouncedFetchPresenceData = useCallback(
+    debounce(fetchPresenceData, 300),
+    [fetchPresenceData]
+  );
 
   // Update current user's presence in database
   const updateUserPresence = async () => {
@@ -157,12 +184,78 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
       return;
     }
 
-    // Initial fetch
+    // 🔧 HOOK DEDUPLICATION: Prevent multiple instances for same spaceId
+    const hookKey = `presence_${spaceId}`;
+    const currentlyActive = activeHookInstances.get(hookKey);
+    
+    // 🚀 SMART DEDUPLICATION: Only block if there's an active instance AND we have cached data
+    if (currentlyActive && presenceCache.has(spaceId)) {
+      debugPresence('Hook instance already active, using cached data only', { spaceId, hookKey });
+      
+      // Restore cached data and exit - don't run any effects
+      const cached = presenceCache.get(spaceId);
+      if (cached && cached.data) {
+        setPresence(cached.data);
+      }
+      return;
+    }
+    
+    // Mark this hook instance as active (allows first instance or cache-miss scenarios)
+    activeHookInstances.set(hookKey, true);
+
+    // 🚀 TAB VISIBILITY FIX: Check if this is a cached tab return
+    const isTabCached = tabVisibility?.isTabCached('feed', spaceId) || false;
+    const isTabInitialized = tabVisibility?.isTabInitialized('feed', spaceId) || false;
+    
+    if (tabVisibility && isTabCached && isTabInitialized) {
+      const lastFetchTime = tabVisibility.getLastFetchTime('feed', spaceId);
+      const timeSinceLastFetch = lastFetchTime ? Date.now() - lastFetchTime : 0;
+      
+      debugPresence('Cached tab return detected - skipping initial fetch', { 
+        spaceId, 
+        isTabCached, 
+        isTabInitialized,
+        lastFetch: lastFetchTime,
+        timeSinceLastFetch: timeSinceLastFetch > 0 ? timeSinceLastFetch : 'never'
+      });
+      
+      // 🔧 FIX: Initialize state with cached data instead of defaults
+      const cached = presenceCache.get(spaceId);
+      if (cached && cached.data) {
+        debugPresence('Restoring cached presence data', { spaceId, cachedData: cached.data });
+        // Use React.startTransition for non-urgent state updates to reduce flashing
+        React.startTransition(() => {
+          setPresence(cached.data);
+        });
+      }
+      
+      // Use cached data with minimal refresh
+      if (lastFetchTime && timeSinceLastFetch > 60000) { // Only if more than 1 minute old
+        debugPresence('Cache too old, performing background refresh', { spaceId });
+        setTimeout(fetchPresenceData, 200);
+      } else {
+        debugPresence('Cache still fresh, skipping background refresh', { spaceId });
+      }
+      // Still update user presence but don't fetch all data
+      if (user?.id) {
+        updateUserPresence();
+      }
+      return;
+    }
+
+    // Initial fetch for new or non-cached tabs
+    debugPresence('Initial fetch triggered', { spaceId, isTabCached, isTabInitialized });
     fetchPresenceData();
 
     // Update user presence if authenticated
     if (user?.id) {
       updateUserPresence();
+    }
+    
+    // Mark as initialized after first fetch
+    if (tabVisibility && !isTabInitialized) {
+      tabVisibility.markTabAsInitialized('feed', spaceId);
+      tabVisibility.updateLastFetchTime('feed', spaceId);
     }
 
     // Set up real-time subscription to presence table
@@ -183,8 +276,8 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
             data: payload.new || payload.old
           });
           
-          // Refetch data after a short delay to debounce rapid changes
-          setTimeout(fetchPresenceData, 500);
+          // Use debounced fetch to prevent excessive re-renders
+          debouncedFetchPresenceData();
         }
       )
       .subscribe();
@@ -200,11 +293,16 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
           updateUserPresence();
         }
       }
-    }, 2 * 60 * 1000);
+    }, 10 * 60 * 1000); // EGRESS FIX: Changed from 2 minutes to 10 minutes to reduce database calls
 
     // Cleanup
     return () => {
       mountedRef.current = false;
+      
+      // Clean up hook instance tracking
+      const hookKey = `presence_${spaceId}`;
+      activeHookInstances.delete(hookKey);
+      
       if (activeSubscriptions.get(spaceId) === channel) {
         debugPresence('Cleaning up presence subscription', { spaceId });
         channel.unsubscribe();

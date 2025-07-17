@@ -11,7 +11,7 @@ import FeedTab from "@/components/space/FeedTab";
 import CalendarTab from "@/components/space/CalendarTab";
 import MembersTab from "@/components/space/MembersTab";
 import LeaderboardsTab from "@/components/space/LeaderboardsTab";
-import ClassroomTab from "@/components/space/ClassroomTab";
+import { ClassroomTabRefactored as ClassroomTab } from "@/components/classroom/ClassroomTabRefactored";
 
 // Dependencies required for tab creation
 export interface TabDependencies {
@@ -49,21 +49,64 @@ export class TabManagerService {
   ): TabCreationResult {
     const { user, permissions, spaceData, subdomain, hasInstantAccess, postInputRef } = dependencies;
 
-    if (!user?.id || !subdomain) {
+    if (!user?.id) {
       return { component: null, cached: false, created: false };
     }
 
-    // Try to get existing component from global manager first
-    const existingComponent = globalTabComponentManager.getTabComponent(subdomain, tabKey, user.id);
+    // Handle subdomain extraction with fallback for navigation transitions
+    let effectiveSubdomain = subdomain;
+    if (!effectiveSubdomain) {
+      // Fallback: Extract subdomain from current URL during navigation transitions
+      const pathSegments = window.location.pathname.split('/').filter(Boolean);
+      effectiveSubdomain = pathSegments[0]; // First segment should be subdomain
+      
+      if (process.env.NODE_ENV === 'development') {
+        devLogger.log('TabManager', `Subdomain fallback used: ${effectiveSubdomain} (original: ${subdomain})`);
+      }
+    }
+    
+    if (!effectiveSubdomain) {
+      return { component: null, cached: false, created: false };
+    }
+
+    // Re-enabled: Component caching is now safe since Phase 1 moved state to Zustand stores.
+    // Components get fresh data from stores rather than stale JSX state.
+    // CRITICAL FIX: Try multiple cache lookups to handle subdomain timing issues
+    let existingComponent = globalTabComponentManager.getTabComponent(effectiveSubdomain, tabKey, user.id);
+    
+    // If cache miss with effectiveSubdomain, try original subdomain as fallback
+    if (!existingComponent && subdomain && subdomain !== effectiveSubdomain) {
+      existingComponent = globalTabComponentManager.getTabComponent(subdomain, tabKey, user.id);
+      if (existingComponent && process.env.NODE_ENV === 'development') {
+        devLogger.log('TabManager', `Cache hit with original subdomain: ${subdomain} (effective: ${effectiveSubdomain})`);
+      }
+    }
+    
+    // If still no cache hit, try checking by partial key match for robustness
+    if (!existingComponent) {
+      // Try both possible subdomains from window.location for comprehensive fallback
+      const currentPathSegments = window.location.pathname.split('/').filter(Boolean);
+      const currentSubdomain = currentPathSegments[0];
+      if (currentSubdomain && currentSubdomain !== effectiveSubdomain && currentSubdomain !== subdomain) {
+        existingComponent = globalTabComponentManager.getTabComponent(currentSubdomain, tabKey, user.id);
+        if (existingComponent && process.env.NODE_ENV === 'development') {
+          devLogger.log('TabManager', `Cache hit with window location subdomain: ${currentSubdomain}`);
+        }
+      }
+    }
+    
     if (existingComponent) {
+      if (process.env.NODE_ENV === 'development') {
+        devLogger.log('TabManager', `Using CACHED ${tabKey} component for ${effectiveSubdomain}`);
+      }
       return { component: existingComponent, cached: true, created: false };
     }
 
     // Create new component if it doesn't exist
-    const effectiveSpaceData = spaceData || getSpaceFallbackData(subdomain);
+    const effectiveSpaceData = spaceData || getSpaceFallbackData(effectiveSubdomain);
     
     if (process.env.NODE_ENV === 'development') {
-      devLogger.log('TabManager', `Creating NEW ${tabKey} component for ${subdomain}`);
+      devLogger.log('TabManager', `Creating NEW ${tabKey} component for ${effectiveSubdomain}`);
     }
 
     let component: JSX.Element | null = null;
@@ -103,7 +146,7 @@ export class TabManagerService {
             space: {
               id: effectiveSpaceData.id,
               name: effectiveSpaceData.name,
-              owner_id: effectiveSpaceData.owner_id || 'f6064ebb-564a-49d2-a146-fb8615fd7ae2',
+              owner_id: effectiveSpaceData.owner_id,
             }
           });
         } else {
@@ -142,10 +185,11 @@ export class TabManagerService {
         return { component: null, cached: false, created: false };
     }
 
+    // Re-enabled: Component caching with Zustand state management
     // Store in global manager for persistence across remounts
     if (component && effectiveSpaceData?.id) {
       globalTabComponentManager.setTabComponent(
-        subdomain, 
+        effectiveSubdomain, 
         tabKey, 
         user.id, 
         effectiveSpaceData.id, 
@@ -153,7 +197,7 @@ export class TabManagerService {
       );
       
       if (process.env.NODE_ENV === 'development') {
-        devLogger.log('TabManager', `Stored ${tabKey} component globally`);
+        devLogger.log('TabManager', `Stored ${tabKey} component globally for ${effectiveSubdomain}`);
       }
     }
 

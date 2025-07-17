@@ -345,6 +345,13 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
               <Route path="classroom" element={<SpaceTabContent />} />
               <Route path="calendar" element={<SpaceTabContent />} />
               <Route path="leaderboard" element={<SpaceTabContent />} />
+              
+              {/* Course routes - nested under classroom */}
+              <Route path="classroom/:courseSlug" element={
+                <Suspense fallback={<SpaceLoadingFallback />}>
+                  <LazyRoutes.CourseDetailPage />
+                </Suspense>
+              } />
             </Route>
             {/* Keep the debug route separate as it's not a tab */}
             <Route path="debug" element={

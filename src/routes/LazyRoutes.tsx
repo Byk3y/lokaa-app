@@ -28,6 +28,7 @@ export const CreateSpaceWrapper = lazy(() => import('@/pages/CreateSpaceWrapper'
 export const SpaceAboutPage = lazy(() => import('@/pages/SpaceAboutPage'));
 export const SpaceJoinPage = lazy(() => import('@/pages/SpaceJoinPage'));
 export const PostDetailPage = lazy(() => import('@/pages/PostDetailPage'));
+export const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
 
 // Landing and marketing pages (can afford loading delay)
 export const SmartLanding = lazy(() => import('@/pages/SmartLanding'));

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Settings, Palette, FileText, ListTree, AlertTriangle, LayoutList, DollarSign, ClipboardList } from 'lucide-react';
+import { Settings, Palette, ListTree, AlertTriangle, LayoutList, DollarSign, ClipboardList, UserPlus, BarChart3, TrendingUp } from 'lucide-react';
 import type { SettingsTabKey } from './NewSpaceSettingsModal'; // Import the type
 
 interface SettingsSidebarProps {
@@ -11,12 +11,14 @@ interface SettingsSidebarProps {
 }
 
 const sidebarTabs: { key: SettingsTabKey; label: string; icon: React.ElementType }[] = [
+  { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+  { key: "invite", label: "Invite", icon: UserPlus },
   { key: "general", label: "General", icon: Settings },
   { key: "pricing", label: "Pricing", icon: DollarSign },
-  { key: "about_page", label: "About Page", icon: FileText },
   { key: "categories", label: "Categories", icon: ListTree },
   { key: "rules", label: "Rules", icon: ClipboardList },
   { key: "tabs", label: "Tabs", icon: LayoutList },
+  { key: "metrics", label: "Metrics", icon: TrendingUp },
   // Danger Zone will be added conditionally
 ];
 

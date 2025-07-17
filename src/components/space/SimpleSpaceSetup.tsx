@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { CheckCircle, Users, FileText, Settings, X, Copy, Check, ChevronRight, PartyPopper, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Check, Users, FileText, ImageIcon, X, ChevronUp, ChevronDown, MessageCircle, Edit3 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useOptimizedAuth } from "@/contexts/AuthContext";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
 import { toast } from '@/hooks/use-toast';
+import { useSetupProgressStore, useTaskCompletion } from '@/stores/useSetupProgressStore';
 
 interface SimpleSpaceSetupProps {
   spaceId: string;
@@ -19,7 +19,7 @@ interface SimpleSpaceSetupProps {
 interface SetupTask {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   icon: React.ElementType;
   completed: boolean;
   action?: () => void;
@@ -35,42 +35,60 @@ export default function SimpleSpaceSetup({
   onCreatePost
 }: SimpleSpaceSetupProps) {
   const { user } = useOptimizedAuth();
-  const { space: storeSpace, openModal } = useSpaceSettingsStore();
+  const { space: storeSpace, openModal, openModalToTab } = useSpaceSettingsStore();
   
-  // Simple dismissal state - localStorage only
-  const dismissalKey = `setup-dismissed-${spaceId}`;
-  const [isDismissed, setIsDismissed] = useState(() => {
-    return localStorage.getItem(dismissalKey) === 'true';
-  });
+  // Use the new setup progress store with individual selectors to avoid infinite loops
+  const progress = useSetupProgressStore((state) => state.progressBySpace[spaceId]) || {
+    tasks: { invite: false, description: false, cover: false, post: false },
+    setupDismissed: false,
+    lastUpdated: null
+  };
+  const loading = useSetupProgressStore((state) => state.loading[spaceId]) || false;
+  const error = useSetupProgressStore((state) => state.error[spaceId]) || null;
+  const { loadSetupProgress, dismissSetupGuide } = useSetupProgressStore();
   
-  // Simple invite modal state
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [copied, setCopied] = useState(false);
+  // Individual task completion states using the store
+  const inviteTaskCompleted = useTaskCompletion(spaceId, 'invite');
   
+  // Collapse state
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // Load setup progress when component mounts or user/space changes
+  useEffect(() => {
+    if (user?.id && spaceId) {
+      loadSetupProgress(user.id, spaceId);
+    }
+  }, [user?.id, spaceId]); // Removed loadSetupProgress dependency to prevent infinite loops
+
   // Simple permission check - only show for owners/admins
   const canSeeSetup = isOwner || isAdmin;
   
-  // Don't render if dismissed or no permission
-  if (isDismissed || !canSeeSetup) {
-    return null;
-  }
-  
-  // Simple task definitions
+  // Simple task definitions using persistent progress state
   const tasks: SetupTask[] = [
     {
       id: 'invite',
-      title: 'Invite members',
-      description: '',
+      title: 'Invite 3 people',
       icon: Users,
-      completed: false, // This remains manual for simplicity
-      action: () => setShowInviteModal(true)
+      completed: progress.tasks.invite,
+      action: () => {
+        if (user?.id && spaceSubdomain) {
+          const actions = useSpaceSettingsStore.getState();
+          actions.loadActiveSpace({ subdomain: spaceSubdomain, spaceId }, user.id, true)
+            .then(() => {
+              openModalToTab("invite");
+              toast({ title: "Settings opened", description: "Start inviting people in the Invite tab." });
+            })
+            .catch(() => {
+              toast({ title: "Error", description: "Could not open settings.", variant: "destructive" });
+            });
+        }
+      }
     },
     {
       id: 'description',
-      title: 'Add description',
-      description: '',
-      icon: MessageSquare,
-      completed: !!(storeSpace?.description),
+      title: 'Add group description',
+      icon: Edit3,
+      completed: progress.tasks.description || !!(storeSpace?.description),
       action: () => {
         if (user?.id && spaceSubdomain) {
           const actions = useSpaceSettingsStore.getState();
@@ -87,10 +105,9 @@ export default function SimpleSpaceSetup({
     },
     {
       id: 'cover',
-      title: 'Add cover image',
-      description: '',
-      icon: Settings,
-      completed: !!(storeSpace?.cover_image),
+      title: 'Set cover image',
+      icon: ImageIcon,
+      completed: progress.tasks.cover || !!(storeSpace?.cover_image),
       action: () => {
         if (user?.id && spaceSubdomain) {
           const actions = useSpaceSettingsStore.getState();
@@ -107,166 +124,197 @@ export default function SimpleSpaceSetup({
     },
     {
       id: 'post',
-      title: 'Create first post',
-      description: '',
-      icon: FileText,
-      completed: hasAnyPosts,
+      title: 'Write your first post',
+      icon: MessageCircle,
+      completed: progress.tasks.post || hasAnyPosts,
       action: onCreatePost
     }
   ];
   
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
-  const isComplete = completedTasks === totalTasks;
+  const progressPercentage = Math.round((completedTasks / totalTasks) * 100);
+  const allTasksCompleted = completedTasks === totalTasks;
+
+  // Auto-dismiss when all tasks are completed
+  useEffect(() => {
+    if (allTasksCompleted && !progress.setupDismissed && user?.id) {
+      // Add a slight delay for better UX - let user see 100% completion briefly
+      const timer = setTimeout(async () => {
+        try {
+          await dismissSetupGuide(user.id, spaceId);
+          toast({ 
+            title: "🎉 Setup Complete!", 
+            description: "Your space is now fully set up and ready for your community!" 
+          });
+        } catch (error) {
+          console.error('Error auto-dismissing setup guide:', error);
+        }
+      }, 2000); // 2 second delay
+
+      return () => clearTimeout(timer);
+    }
+  }, [allTasksCompleted, progress.setupDismissed, user?.id, spaceId]); // Removed dismissSetupGuide dependency to prevent infinite loops
   
-  // Generate invite link
-  const inviteLink = `${window.location.origin}/${spaceSubdomain}`;
-  
-  const handleDismiss = () => {
-    localStorage.setItem(dismissalKey, 'true');
-    setIsDismissed(true);
-  };
-  
-  const handleCopyInvite = async () => {
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopied(true);
-      toast({ title: "Copied!", description: "Invite link copied to clipboard." });
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to copy link.", variant: "destructive" });
+  const handleDismiss = async () => {
+    if (user?.id) {
+      try {
+        await dismissSetupGuide(user.id, spaceId);
+      } catch (error) {
+        console.error('Error dismissing setup guide:', error);
+        toast({ 
+          title: "Error", 
+          description: "Could not dismiss setup guide.", 
+          variant: "destructive" 
+        });
+      }
     }
   };
   
+  // Don't render if dismissed, no permission, or still loading
+  if (progress.setupDismissed || !canSeeSetup || loading) {
+    return null;
+  }
+  
   return (
     <>
-      {/* Main Setup Card - Redesigned */}
-      <div className="w-full md:w-[768px] flex-shrink-0 flex-grow-0 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden p-4 mb-4">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-              Setup your group
-            </h3>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDismiss}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1 -mr-1"
-          >
-            <X className="h-3 w-3" />
-          </Button>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-3">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Progress</span>
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{Math.round((completedTasks / totalTasks) * 100)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-            <div
-              className="bg-gray-600 dark:bg-gray-400 h-1.5 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${(completedTasks / totalTasks) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Task List */}
-        <div className="space-y-2">
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              className={`flex items-center p-1.5 rounded transition-all ${
-                task.completed
-                  ? 'bg-gray-50 dark:bg-gray-800/50'
-                  : 'bg-white dark:bg-gray-800'
-              } ${
-                task.action && !task.completed
-                  ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer'
-                  : ''
-              }`}
-              onClick={task.action && !task.completed ? task.action : undefined}
-            >
-              <div className="flex-shrink-0 mr-2">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  task.completed ? 'bg-gray-200 dark:bg-gray-700' : 'bg-gray-100 dark:bg-gray-700'
-                }`}>
-                  {task.completed ? (
-                    <Check className="h-3 w-3 text-gray-600 dark:text-gray-400" />
-                  ) : (
-                    <task.icon className="h-3 w-3 text-gray-500 dark:text-gray-400" />
-                  )}
-                </div>
-              </div>
-              <div className="flex-grow">
-                <p className={`text-xs font-semibold ${
-                  task.completed ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'
-                }`}>
-                  {task.title}
-                </p>
-              </div>
-              {!task.completed && task.action && (
-                <div className="flex-shrink-0 ml-2">
-                  <ChevronRight className="h-3 w-3 text-gray-400" />
+      {/* Main Setup Card - Compact design matching post card width */}
+      <div className="w-full md:w-[768px] flex-shrink-0 flex-grow-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden mb-4">
+        {/* Header with Progress Indicator */}
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center space-x-3">
+            {/* Circular Progress Indicator */}
+            <div className="relative w-6 h-6">
+              <svg className="w-6 h-6 transform -rotate-90" viewBox="0 0 36 36">
+                {/* Background circle */}
+                <path
+                  className="text-gray-200 dark:text-gray-700"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                  d="M18 2.0845
+                    a 15.9155 15.9155 0 0 1 0 31.831
+                    a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                {/* Progress circle */}
+                <path
+                  className="text-emerald-500"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeDasharray={`${progressPercentage}, 100`}
+                  d="M18 2.0845
+                    a 15.9155 15.9155 0 0 1 0 31.831
+                    a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              {/* Checkmark when complete */}
+              {progressPercentage === 100 && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-emerald-600" />
                 </div>
               )}
             </div>
-          ))}
+            
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                Set up your group
+              </h3>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="
+                text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 
+                hover:bg-gray-100 dark:hover:bg-gray-700/50 
+                rounded-full h-8 w-8 p-0 
+                transition-all duration-200 ease-in-out
+                hover:scale-105 active:scale-95
+                focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600
+              "
+              title={isCollapsed ? "Expand setup tasks" : "Collapse setup tasks"}
+            >
+              {isCollapsed ? (
+                <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+              ) : (
+                <ChevronUp className="h-4 w-4 transition-transform duration-200" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDismiss}
+              className="
+                text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 
+                hover:bg-red-50 dark:hover:bg-red-900/20 
+                rounded-full h-8 w-8 p-0 
+                transition-all duration-200 ease-in-out
+                hover:scale-105 active:scale-95
+                focus:outline-none focus:ring-2 focus:ring-red-300 dark:focus:ring-red-600
+              "
+              title="Dismiss setup guide"
+            >
+              <X className="h-4 w-4 transition-transform duration-200 hover:rotate-90" />
+            </Button>
+          </div>
         </div>
 
-        {/* Completion Message */}
-        {isComplete && (
-          <div className="mt-4 text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800/50">
-            <div className="flex justify-center items-center">
-              <PartyPopper className="h-5 w-5 text-blue-500 mr-2" />
-              <p className="text-blue-800 dark:text-blue-200 text-sm font-semibold">
-                All done! Your space is ready to shine.
-              </p>
+        {/* Task List - Collapsible */}
+        {!isCollapsed && (
+          <div className="px-4 pb-4">
+            <div className="space-y-0 border border-gray-100 dark:border-gray-700 rounded-lg overflow-hidden">
+              {tasks.map((task, index) => (
+                <div
+                  key={task.id}
+                  className={`
+                    flex items-center px-3 py-2.5 transition-all duration-200
+                    ${index !== tasks.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}
+                    ${task.action && !task.completed 
+                      ? 'hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer' 
+                      : 'cursor-default'
+                    }
+                    ${task.completed ? 'bg-gray-50/50 dark:bg-gray-800/30' : 'bg-white dark:bg-gray-800'}
+                  `}
+                  onClick={task.action && !task.completed ? task.action : undefined}
+                >
+                  {/* Circular Checkbox */}
+                  <div className="flex-shrink-0 mr-3">
+                    <div className={`
+                      w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200
+                      ${task.completed 
+                        ? 'border-emerald-500 bg-emerald-500' 
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                      }
+                    `}>
+                      {task.completed && (
+                        <Check className="w-3 h-3 text-white" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Task Content */}
+                  <div className="flex-grow">
+                    <p className={`
+                      text-sm font-medium transition-colors duration-200
+                      ${task.completed 
+                        ? 'text-gray-500 dark:text-gray-400 line-through' 
+                        : 'text-blue-600 dark:text-blue-400'
+                      }
+                    `}>
+                      {task.title}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
       </div>
-      
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Invite members to {spaceName}
-              </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowInviteModal(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Share this link with anyone you want to invite to your space.
-            </p>
-            
-            <div className="flex items-center space-x-2 mb-4">
-              <Input
-                value={inviteLink}
-                readOnly
-                className="flex-1"
-              />
-              <Button onClick={handleCopyInvite} variant="outline">
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-            
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Anyone with this link can join your space.
-            </p>
-          </div>
-        </div>
-      )}
     </>
   );
-} 
+}

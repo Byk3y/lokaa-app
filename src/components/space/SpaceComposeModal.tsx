@@ -86,16 +86,6 @@ export default function SpaceComposeModal() {
         description: "Your post has been published",
       });
       
-      // Insert into user_activity_log after post creation
-      if (data && data.id) {
-        await getSupabaseClient().from('user_activity_log').insert({
-          user_id: user.id,
-          type: 'post',
-          ref_id: data.id,
-          meta: { space_id: space.id, title }
-        });
-      }
-      
       // Navigate to feed
       closeModal();
     } catch (error) {
