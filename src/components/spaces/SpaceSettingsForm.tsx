@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -113,7 +114,7 @@ export default function SpaceSettingsForm({ space }: SpaceSettingsFormProps) {
       });
       
     } catch (error: unknown) {
-      console.error('Error updating space:', error);
+      log.error('Component', 'Error updating space:', error);
       toast({
         title: "Error updating space",
         description: (error instanceof Error ? error.message : String(error)) || "Something went wrong. Please try again.",

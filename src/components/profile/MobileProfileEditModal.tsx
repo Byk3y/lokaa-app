@@ -5,8 +5,9 @@ import { X } from 'lucide-react';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import MobileProfileEditForm from './MobileProfileEditForm';
+import NotificationsSettingsTab from '@/features/users/components/settings/tabs/NotificationsSettingsTab';
 
-export type ProfileEditTabKey = "communities" | "profile" | "affiliates" | "payouts" | "account";
+export type ProfileEditTabKey = "communities" | "profile" | "notifications" | "affiliates" | "payouts" | "account";
 
 interface MobileProfileEditModalProps {
   isOpen: boolean;
@@ -37,6 +38,8 @@ export default function MobileProfileEditModal({ isOpen, onClose, user }: Mobile
     switch (activeTab) {
       case "profile":
         return <MobileProfileEditForm user={user} onClose={onClose} />;
+      case "notifications":
+        return <NotificationsSettingsTab user={user} />;
       case "communities":
         return (
           <div className="p-6">
@@ -73,6 +76,7 @@ export default function MobileProfileEditModal({ isOpen, onClose, user }: Mobile
   const tabs = [
     { key: "communities" as ProfileEditTabKey, label: "Communities" },
     { key: "profile" as ProfileEditTabKey, label: "Profile" },
+    { key: "notifications" as ProfileEditTabKey, label: "Notifications" },
     { key: "affiliates" as ProfileEditTabKey, label: "Affiliates" },
     { key: "payouts" as ProfileEditTabKey, label: "Payouts" },
     { key: "account" as ProfileEditTabKey, label: "Account" },

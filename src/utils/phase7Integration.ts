@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 7: Advanced Features & Production Readiness Integration
  * 
@@ -72,7 +73,7 @@ class Phase7Integration {
     if (this.initialized) return;
 
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🚀 [Phase 7] Initializing Advanced Features & Production Readiness...');
+      log.debug('Utils', '🚀 [Phase 7] Initializing Advanced Features & Production Readiness...');
     }
 
     // Initialize page visibility manager
@@ -86,7 +87,7 @@ class Phase7Integration {
 
     this.initialized = true;
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('✅ [Phase 7] Integration completed successfully');
+      log.debug('Utils', '✅ [Phase 7] Integration completed successfully');
     }
   }
 
@@ -121,14 +122,14 @@ class Phase7Integration {
     (window as any).phase7 = phase7API;
     
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🔧 [Phase 7] Global API available at window.phase7');
-      console.log('🧪 Available commands:');
-      console.log('  - window.phase7.getStatus() - Get comprehensive status');
-      console.log('  - window.phase7.runAllTests() - Run all Phase 7 tests');
-      console.log('  - window.phase7.getCacheStats() - Get cache performance');
-      console.log('  - window.phase7.getSEOStatus() - Get SEO status');
-      console.log('  - window.phase7.testEdgeFunctions() - Test Edge Functions');
-      console.log('  - window.phase7.validatePhase7() - Validate implementation');
+      log.debug('Utils', '🔧 [Phase 7] Global API available at window.phase7');
+      log.debug('Utils', '🧪 Available commands:');
+      log.debug('Utils', '  - window.phase7.getStatus() - Get comprehensive status');
+      log.debug('Utils', '  - window.phase7.runAllTests() - Run all Phase 7 tests');
+      log.debug('Utils', '  - window.phase7.getCacheStats() - Get cache performance');
+      log.debug('Utils', '  - window.phase7.getSEOStatus() - Get SEO status');
+      log.debug('Utils', '  - window.phase7.testEdgeFunctions() - Test Edge Functions');
+      log.debug('Utils', '  - window.phase7.validatePhase7() - Validate implementation');
     }
   }
 
@@ -215,7 +216,7 @@ class Phase7Integration {
    * Test cache operations
    */
   private async testCacheOperations(): Promise<void> {
-    console.log('🧪 [Phase 7] Testing cache operations...');
+    log.debug('Utils', '🧪 [Phase 7] Testing cache operations...');
 
     // Test basic operations
     const testKey = 'phase7-cache-test';
@@ -243,22 +244,22 @@ class Phase7Integration {
     // Test tag-based clearing
     const clearedCount = this.advancedCache.clearByTags(['test']);
     
-    console.log('✅ [Phase 7] Cache operations test passed');
-    console.log(`   - Basic operations: working`);
-    console.log(`   - Batch operations: working`);
-    console.log(`   - Tag-based clearing: ${clearedCount} items cleared`);
+    log.debug('Utils', '✅ [Phase 7] Cache operations test passed');
+    log.debug('Utils', `   - Basic operations: working`);
+    log.debug('Utils', `   - Batch operations: working`);
+    log.debug('Utils', `   - Tag-based clearing: ${clearedCount} items cleared`);
   }
 
   /**
    * Test SEO generation
    */
   private async testSEOGeneration(): Promise<void> {
-    console.log('🧪 [Phase 7] Testing SEO generation...');
+    log.debug('Utils', '🧪 [Phase 7] Testing SEO generation...');
 
     try {
       // Test different SEO types
       await this.seoManager.updateSEO('landing');
-      console.log('   ✅ Landing page SEO: working');
+      log.debug('Utils', '   ✅ Landing page SEO: working');
 
       // Test social sharing URLs
       const sharingUrls = this.seoManager.generateSharingUrls(
@@ -271,13 +272,13 @@ class Phase7Integration {
         throw new Error('Social sharing URL generation failed');
       }
 
-      console.log('✅ [Phase 7] SEO generation test passed');
-      console.log(`   - Metadata generation: working`);
-      console.log(`   - Social sharing URLs: working`);
-      console.log(`   - Fallback handling: working`);
+      log.debug('Utils', '✅ [Phase 7] SEO generation test passed');
+      log.debug('Utils', `   - Metadata generation: working`);
+      log.debug('Utils', `   - Social sharing URLs: working`);
+      log.debug('Utils', `   - Fallback handling: working`);
 
     } catch (error) {
-      console.warn('⚠️ [Phase 7] SEO test completed with fallback:', error);
+      log.warn('Utils', '⚠️ [Phase 7] SEO test completed with fallback:', error);
     }
   }
 
@@ -285,12 +286,12 @@ class Phase7Integration {
    * Test visibility management
    */
   private async testVisibilityManagement(): Promise<void> {
-    console.log('🧪 [Phase 7] Testing visibility management...');
+    log.debug('Utils', '🧪 [Phase 7] Testing visibility management...');
 
     const testActivity = {
       id: 'phase7-visibility-test',
-      pause: () => console.log('   📱 Test activity paused'),
-      resume: () => console.log('   📱 Test activity resumed'),
+      pause: () => log.debug('Utils', '   📱 Test activity paused'),
+      resume: () => log.debug('Utils', '   📱 Test activity resumed'),
       type: 'polling' as const
     };
 
@@ -300,17 +301,17 @@ class Phase7Integration {
     
     pageVisibilityManager.unregisterActivity('phase7-visibility-test');
 
-    console.log('✅ [Phase 7] Visibility management test passed');
-    console.log(`   - Activity registration: working`);
-    console.log(`   - Page visibility detection: ${status.pageVisible ? 'visible' : 'hidden'}`);
-    console.log(`   - Activity management: working`);
+    log.debug('Utils', '✅ [Phase 7] Visibility management test passed');
+    log.debug('Utils', `   - Activity registration: working`);
+    log.debug('Utils', `   - Page visibility detection: ${status.pageVisible ? 'visible' : 'hidden'}`);
+    log.debug('Utils', `   - Activity management: working`);
   }
 
   /**
    * Test Edge Functions
    */
   private async testEdgeFunctions(): Promise<void> {
-    console.log('🧪 [Phase 7] Testing Edge Functions...');
+    log.debug('Utils', '🧪 [Phase 7] Testing Edge Functions...');
 
     try {
       await Promise.all([
@@ -318,9 +319,9 @@ class Phase7Integration {
         this.testSEOFunction()
       ]);
 
-      console.log('✅ [Phase 7] Edge Functions test passed');
+      log.debug('Utils', '✅ [Phase 7] Edge Functions test passed');
     } catch (error) {
-      console.warn('⚠️ [Phase 7] Edge Functions test completed with warnings:', error);
+      log.warn('Utils', '⚠️ [Phase 7] Edge Functions test completed with warnings:', error);
     }
   }
 
@@ -340,12 +341,12 @@ class Phase7Integration {
       });
 
       if (response.ok) {
-        console.log('   ✅ Analytics Edge Function: working');
+        log.debug('Utils', '   ✅ Analytics Edge Function: working');
       } else {
         throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
-      console.log('   ⚠️ Analytics Edge Function: offline or restricted');
+      log.debug('Utils', '   ⚠️ Analytics Edge Function: offline or restricted');
     }
   }
 
@@ -364,12 +365,12 @@ class Phase7Integration {
       });
 
       if (response.ok) {
-        console.log('   ✅ SEO Edge Function: working');
+        log.debug('Utils', '   ✅ SEO Edge Function: working');
       } else {
         throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
-      console.log('   ⚠️ SEO Edge Function: offline or restricted');
+      log.debug('Utils', '   ⚠️ SEO Edge Function: offline or restricted');
     }
   }
 
@@ -426,7 +427,7 @@ class Phase7Integration {
    * Run health checks
    */
   private async runHealthChecks(): Promise<any> {
-    console.log('🏥 [Phase 7] Running production health checks...');
+    log.debug('Utils', '🏥 [Phase 7] Running production health checks...');
 
     const checks = {
       cache: this.advancedCache.getHealthReport(),
@@ -439,7 +440,7 @@ class Phase7Integration {
       check.status === 'healthy' || check.status === 'active'
     );
 
-    console.log(`🏥 [Phase 7] Health check ${allHealthy ? 'PASSED' : 'WARNING'}`);
+    log.debug('Utils', `🏥 [Phase 7] Health check ${allHealthy ? 'PASSED' : 'WARNING'}`);
     
     return {
       overall: allHealthy ? 'healthy' : 'warning',
@@ -523,7 +524,7 @@ class Phase7Integration {
    * Run all Phase 7 tests
    */
   public async runAllTests(): Promise<void> {
-    console.log('🧪 [Phase 7] Running comprehensive test suite...');
+    log.debug('Utils', '🧪 [Phase 7] Running comprehensive test suite...');
     
     const startTime = performance.now();
 
@@ -535,8 +536,8 @@ class Phase7Integration {
 
       const duration = performance.now() - startTime;
       
-      console.log('🎉 [Phase 7] All tests passed!');
-      console.log(`⏱️ Test duration: ${duration.toFixed(2)}ms`);
+      log.debug('Utils', '🎉 [Phase 7] All tests passed!');
+      log.debug('Utils', `⏱️ Test duration: ${duration.toFixed(2)}ms`);
       
       // Log analytics event
       logAnalyticsEvent({
@@ -550,7 +551,7 @@ class Phase7Integration {
       });
 
     } catch (error) {
-      console.error('❌ [Phase 7] Test suite failed:', error);
+      log.error('Utils', '❌ [Phase 7] Test suite failed:', error);
       throw error;
     }
   }
@@ -559,7 +560,7 @@ class Phase7Integration {
    * Validate Phase 7 implementation
    */
   public async validatePhase7(): Promise<boolean> {
-    console.log('🔍 [Phase 7] Validating implementation...');
+    log.debug('Utils', '🔍 [Phase 7] Validating implementation...');
 
     try {
       const status = await this.getStatus();
@@ -575,17 +576,17 @@ class Phase7Integration {
 
       const allValid = Object.values(validations).every(Boolean);
 
-      console.log('📊 [Phase 7] Validation results:');
+      log.debug('Utils', '📊 [Phase 7] Validation results:');
       Object.entries(validations).forEach(([key, valid]) => {
-        console.log(`   ${valid ? '✅' : '❌'} ${key}: ${valid ? 'valid' : 'invalid'}`);
+        log.debug('Utils', `   ${valid ? '✅' : '❌'} ${key}: ${valid ? 'valid' : 'invalid'}`);
       });
 
-      console.log(`🎯 [Phase 7] Overall validation: ${allValid ? 'PASSED' : 'FAILED'}`);
+      log.debug('Utils', `🎯 [Phase 7] Overall validation: ${allValid ? 'PASSED' : 'FAILED'}`);
 
       return allValid;
 
     } catch (error) {
-      console.error('❌ [Phase 7] Validation failed:', error);
+      log.error('Utils', '❌ [Phase 7] Validation failed:', error);
       return false;
     }
   }
@@ -644,13 +645,13 @@ class Phase7Integration {
    */
   private logIntegrationStatus(): void {
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('📊 [Phase 7] Integration Status:');
-      console.log('   ✅ Advanced Cache Manager: Active');
-      console.log('   ✅ SEO Manager: Active');
-      console.log('   ✅ Page Visibility Manager: Active');
-      console.log('   ✅ Edge Functions: Deployed');
-      console.log('   ✅ Global Interface: Available');
-      console.log('🚀 [Phase 7] Production readiness: ENTERPRISE-GRADE');
+      log.debug('Utils', '📊 [Phase 7] Integration Status:');
+      log.debug('Utils', '   ✅ Advanced Cache Manager: Active');
+      log.debug('Utils', '   ✅ SEO Manager: Active');
+      log.debug('Utils', '   ✅ Page Visibility Manager: Active');
+      log.debug('Utils', '   ✅ Edge Functions: Deployed');
+      log.debug('Utils', '   ✅ Global Interface: Available');
+      log.debug('Utils', '🚀 [Phase 7] Production readiness: ENTERPRISE-GRADE');
     }
   }
 
@@ -672,7 +673,7 @@ const phase7Integration = new Phase7Integration();
 // Initialize Phase 7 when module loads
 export function initializePhase7(): void {
   if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-    console.log('🚀 [Phase 7] Advanced Features & Production Readiness initialized');
+    log.debug('Utils', '🚀 [Phase 7] Advanced Features & Production Readiness initialized');
   }
 }
 

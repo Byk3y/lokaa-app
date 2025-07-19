@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -77,7 +78,7 @@ export const usePostPin = ({
         onPinToggled(postId, !currentlyPinned, !currentlyPinned ? (categoryName || 'general') : null);
       }
     } catch (error: any) {
-      console.error('Error toggling pin:', error);
+      log.error('Hook', 'Error toggling pin:', error);
       toast({
         title: "Error",
         description: error.message || "Could not update pin status.",

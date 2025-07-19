@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Mobile Console Validation - Phase 6 Critical Error Fix
  * 
@@ -92,25 +93,25 @@ export class MobileConsoleValidator {
   static logValidation(): void {
     const result = this.validate();
     
-    console.log('📱 Mobile Console Validation - Phase 6');
-    console.log('=====================================');
-    console.log(`✅ Phase 6 Active: ${result.phase6Active ? 'YES' : 'NO'}`);
-    console.log(`✅ Errors Free: ${result.errorsFree ? 'YES' : 'NO'}`);
-    console.log(`✅ Unified System: ${result.unifiedSystemLoaded ? 'LOADED' : 'MISSING'}`);
-    console.log(`✅ Mobile Optimization: ${result.mobileOptimizationActive ? 'ACTIVE' : 'INACTIVE'}`);
-    console.log(`✅ Bundle Optimizer: ${result.bundleOptimizerActive ? 'ACTIVE' : 'INACTIVE'}`);
+    log.debug('Utils', '📱 Mobile Console Validation - Phase 6');
+    log.debug('Utils', '=====================================');
+    log.debug('Utils', `✅ Phase 6 Active: ${result.phase6Active ? 'YES' : 'NO'}`);
+    log.debug('Utils', `✅ Errors Free: ${result.errorsFree ? 'YES' : 'NO'}`);
+    log.debug('Utils', `✅ Unified System: ${result.unifiedSystemLoaded ? 'LOADED' : 'MISSING'}`);
+    log.debug('Utils', `✅ Mobile Optimization: ${result.mobileOptimizationActive ? 'ACTIVE' : 'INACTIVE'}`);
+    log.debug('Utils', `✅ Bundle Optimizer: ${result.bundleOptimizerActive ? 'ACTIVE' : 'INACTIVE'}`);
     
     if (result.debugCommandsAvailable.length > 0) {
-      console.log('\n🔧 Available Debug Commands:');
-      result.debugCommandsAvailable.forEach(cmd => console.log(`   - ${cmd}`));
+      log.debug('Utils', '\n🔧 Available Debug Commands:');
+      result.debugCommandsAvailable.forEach(cmd => log.debug('Utils', `   - ${cmd}`));
     }
     
     if (result.issues.length > 0) {
-      console.log('\n⚠️ Issues Found:');
-      result.issues.forEach(issue => console.log(`   - ${issue}`));
+      log.debug('Utils', '\n⚠️ Issues Found:');
+      result.issues.forEach(issue => log.debug('Utils', `   - ${issue}`));
     }
     
-    console.log(`\n📊 Validation completed at: ${result.timestamp}`);
+    log.debug('Utils', `\n📊 Validation completed at: ${result.timestamp}`);
   }
   
   /**
@@ -120,9 +121,9 @@ export class MobileConsoleValidator {
     const result = this.validate();
     const success = result.phase6Active && result.errorsFree;
     
-    console.log(`📱 Quick Check: ${success ? '✅ PASS' : '❌ FAIL'}`);
+    log.debug('Utils', `📱 Quick Check: ${success ? '✅ PASS' : '❌ FAIL'}`);
     if (!success && result.issues.length > 0) {
-      console.log('Issues:', result.issues.join(', '));
+      log.debug('Utils', 'Issues:', result.issues.join(', '));
     }
     
     return success;
@@ -137,12 +138,12 @@ if (typeof window !== 'undefined') {
   
   // 🔧 HMR Module Error Recovery Tools
   (window as any).fixModuleError = () => {
-    console.log('🔄 [FixModuleError] Attempting to recover from module import failures...');
+    log.debug('Utils', '🔄 [FixModuleError] Attempting to recover from module import failures...');
     
     // Clear Vite's module cache
     if ((window as any).__vite_plugin_react_preamble_installed__) {
       (window as any).__vite_plugin_react_preamble_installed__ = false;
-      console.log('🔄 [FixModuleError] Vite cache cleared');
+      log.debug('Utils', '🔄 [FixModuleError] Vite cache cleared');
     }
     
     // Clear localStorage entries that might be corrupted
@@ -151,19 +152,19 @@ if (typeof window !== 'undefined') {
       const key = localStorage.key(i);
       if (key && problematicKeys.some(pattern => key.includes(pattern))) {
         localStorage.removeItem(key);
-        console.log(`🗑️ [FixModuleError] Removed: ${key}`);
+        log.debug('Utils', `🗑️ [FixModuleError] Removed: ${key}`);
       }
     }
     
     // Force reload after a brief delay
-    console.log('🔄 [FixModuleError] Reloading page in 1 second...');
+    log.debug('Utils', '🔄 [FixModuleError] Reloading page in 1 second...');
     setTimeout(() => {
       window.location.reload();
     }, 1000);
   };
   
   (window as any).emergencyReload = () => {
-    console.log('🚑 [EmergencyReload] Hard reloading to fix development issues...');
+    log.debug('Utils', '🚑 [EmergencyReload] Hard reloading to fix development issues...');
     window.location.href = window.location.href;
   };
   
@@ -175,13 +176,13 @@ if (typeof window !== 'undefined') {
     };
     
     if (isMobileBrowser()) {
-      console.log('🤖 [HMRAutoRecovery] Auto-recovery DISABLED on mobile browser');
-      console.log('📱 [HMRAutoRecovery] Mobile browsers block network requests during backgrounding');
-      console.log('🔧 [HMRAutoRecovery] This prevents false "module import failed" errors');
+      log.debug('Utils', '🤖 [HMRAutoRecovery] Auto-recovery DISABLED on mobile browser');
+      log.debug('Utils', '📱 [HMRAutoRecovery] Mobile browsers block network requests during backgrounding');
+      log.debug('Utils', '🔧 [HMRAutoRecovery] This prevents false "module import failed" errors');
       return;
     }
     
-    console.log('🤖 [HMRAutoRecovery] Enabling automatic recovery for module errors (desktop browser)...');
+    log.debug('Utils', '🤖 [HMRAutoRecovery] Enabling automatic recovery for module errors (desktop browser)...');
     
     let errorCount = 0;
     const maxErrors = 3;
@@ -191,15 +192,15 @@ if (typeof window !== 'undefined') {
           error.message.includes('Importing a module script failed')) {
         
         errorCount++;
-        console.warn(`🔄 [HMRAutoRecovery] Module error detected from ${source} (${errorCount}/${maxErrors}):`, error.message);
+        log.warn('Utils', `🔄 [HMRAutoRecovery] Module error detected from ${source} (${errorCount}/${maxErrors}):`, error.message);
         
         if (errorCount <= maxErrors) {
-          console.log(`🔄 [HMRAutoRecovery] Auto-fixing in 2 seconds...`);
+          log.debug('Utils', `🔄 [HMRAutoRecovery] Auto-fixing in 2 seconds...`);
           setTimeout(() => {
             (window as any).fixModuleError();
           }, 2000);
         } else {
-          console.error(`❌ [HMRAutoRecovery] Too many module errors (${errorCount}). Please restart dev server.`);
+          log.error('Utils', `❌ [HMRAutoRecovery] Too many module errors (${errorCount}). Please restart dev server.`);
         }
         
         return true;
@@ -223,7 +224,7 @@ if (typeof window !== 'undefined') {
       }
     });
     
-    console.log('✅ [HMRAutoRecovery] Auto-recovery enabled');
+    log.debug('Utils', '✅ [HMRAutoRecovery] Auto-recovery enabled');
   };
   
   // Enable auto-recovery by default in development
@@ -232,12 +233,12 @@ if (typeof window !== 'undefined') {
   }
   
   // Add to console help
-  const originalConsoleLog = console.log;
+  const originalConsoleLog = log.debug('Utils',;
   setTimeout(() => {
-    console.log('\n🔧 [Mobile Debug] Additional HMR Recovery Tools:');
-    console.log('   - window.fixModuleError() - Fix module import failures');
-    console.log('   - window.emergencyReload() - Hard reload for development issues');
-    console.log('   - window.enableHMRAutoRecovery() - Auto-fix module errors (already enabled)');
+    log.debug('Utils', '\n🔧 [Mobile Debug] Additional HMR Recovery Tools:');
+    log.debug('Utils', '   - window.fixModuleError() - Fix module import failures');
+    log.debug('Utils', '   - window.emergencyReload() - Hard reload for development issues');
+    log.debug('Utils', '   - window.enableHMRAutoRecovery() - Auto-fix module errors (already enabled)');
   }, 3000);
 }
 
@@ -248,7 +249,7 @@ if (typeof window !== 'undefined' && import.meta.env?.DEV) {
     if (isMobile()) {
       // Run validation after a short delay to ensure all systems are loaded
       setTimeout(() => {
-        console.log('🔧 Auto-running mobile validation...');
+        log.debug('Utils', '🔧 Auto-running mobile validation...');
         MobileConsoleValidator.logValidation();
       }, 2000);
     }

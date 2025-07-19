@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space Members Service
  * 
@@ -63,16 +64,16 @@ export class SpaceMembersService {
       
       // If mobile browser is likely blocking requests, try cache first
       // if (shouldUseCacheFirst) {
-      //   console.log('[SpaceMembersService] Mobile browser detected, trying cache first');
+      //   log.debug('Utils', '[SpaceMembersService] Mobile browser detected, trying cache first');
       //   
       //   try {
       //     const cachedData = await this.getCachedMembers(spaceId);
       //     if (cachedData.length > 0) {
-      //       console.log(`[SpaceMembersService] Using cached data: ${cachedData.length} members`);
+      //       log.debug('Utils', `[SpaceMembersService] Using cached data: ${cachedData.length} members`);
       //       return { success: true, data: cachedData, source: 'cache' };
       //     }
       //   } catch (cacheError) {
-      //     console.log('[SpaceMembersService] Cache read failed, proceeding to network');
+      //     log.debug('Utils', '[SpaceMembersService] Cache read failed, proceeding to network');
       //   }
       // }
 
@@ -97,7 +98,7 @@ export class SpaceMembersService {
           };
           
           await spaceMembersCacheService.set(cacheKey, networkResult.data, cacheOptions);
-          console.log('[SpaceMembersService] Cached fresh space members data');
+          log.debug('Utils', '[SpaceMembersService] Cached fresh space members data');
         }
 
         this.metrics.cacheMisses++;
@@ -113,7 +114,7 @@ export class SpaceMembersService {
         // Check if this is mobile browser blocking
         if (mobileBrowserService.isMobileBrowserBlocking(error)) {
           this.metrics.mobileBlocking++;
-          console.log('[SpaceMembersService] Mobile browser blocking detected, using cache fallback');
+          log.debug('Utils', '[SpaceMembersService] Mobile browser blocking detected, using cache fallback');
           
           // Return cached data if available (even if expired)
           const cachedData = await spaceMembersCacheService.get(cacheKey, { skipCache: true });
@@ -256,9 +257,9 @@ export class SpaceMembersService {
         await spaceMembersCacheService.invalidate(entry.key);
       }
 
-      console.log(`[SpaceMembersService] Invalidated cache for space: ${spaceId}`);
+      log.debug('Utils', `[SpaceMembersService] Invalidated cache for space: ${spaceId}`);
     } catch (error) {
-      console.error('[SpaceMembersService] Error invalidating space cache:', error);
+      log.error('Utils', '[SpaceMembersService] Error invalidating space cache:', error);
     }
   }
 
@@ -281,7 +282,7 @@ export class SpaceMembersService {
    */
   async clearCache(): Promise<void> {
     await spaceMembersCacheService.clear();
-    console.log('[SpaceMembersService] Cleared all space members cache');
+    log.debug('Utils', '[SpaceMembersService] Cleared all space members cache');
   }
 
   // Private helper methods

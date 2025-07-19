@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // Global Tab Component Manager - Prevents tab component recreation across SpaceShellLayout remounts
 // This solves the Chat→Feed "reappearing" issue by persisting tab components globally
 
@@ -41,7 +42,7 @@ class GlobalTabComponentManager {
     });
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 [GlobalTabManager] Stored ${tabKey} component for ${subdomain} (total: ${this.components.size})`);
+      log.debug('Utils', `🌐 [GlobalTabManager] Stored ${tabKey} component for ${subdomain} (total: ${this.components.size})`);
     }
     
     // Cleanup old components
@@ -63,7 +64,7 @@ class GlobalTabComponentManager {
     if (now - data.createdAt > this.MAX_AGE) {
       this.components.delete(key);
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🌐 [GlobalTabManager] Expired ${tabKey} component for ${subdomain}`);
+        log.debug('Utils', `🌐 [GlobalTabManager] Expired ${tabKey} component for ${subdomain}`);
       }
       return null;
     }
@@ -72,7 +73,7 @@ class GlobalTabComponentManager {
     data.lastAccessed = now;
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 [GlobalTabManager] Retrieved ${tabKey} component for ${subdomain}`);
+      log.debug('Utils', `🌐 [GlobalTabManager] Retrieved ${tabKey} component for ${subdomain}`);
     }
     
     return data.component;
@@ -108,7 +109,7 @@ class GlobalTabComponentManager {
     keysToDelete.forEach(key => this.components.delete(key));
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 [GlobalTabManager] Cleared ${keysToDelete.length} components for ${subdomain}`);
+      log.debug('Utils', `🌐 [GlobalTabManager] Cleared ${keysToDelete.length} components for ${subdomain}`);
     }
   }
 
@@ -125,7 +126,7 @@ class GlobalTabComponentManager {
     keysToDelete.forEach(key => this.components.delete(key));
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 [GlobalTabManager] Cleared ${keysToDelete.length} components for user logout`);
+      log.debug('Utils', `🌐 [GlobalTabManager] Cleared ${keysToDelete.length} components for user logout`);
     }
   }
 
@@ -135,7 +136,7 @@ class GlobalTabComponentManager {
     this.components.clear();
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🌐 [GlobalTabManager] Cleared all ${count} components for emergency logout`);
+      log.debug('Utils', `🌐 [GlobalTabManager] Cleared all ${count} components for emergency logout`);
     }
   }
 
@@ -162,7 +163,7 @@ class GlobalTabComponentManager {
       toRemove.forEach(([key]) => this.components.delete(key));
       
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🌐 [GlobalTabManager] Removed ${toRemove.length} old components (limit: ${this.MAX_COMPONENTS})`);
+        log.debug('Utils', `🌐 [GlobalTabManager] Removed ${toRemove.length} old components (limit: ${this.MAX_COMPONENTS})`);
       }
     }
   }

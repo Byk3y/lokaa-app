@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import type { Conversation as StoreConversation } from './store';
 // 🎯 PHASE 3 FIX: Import global console flags
 import { globalConsoleFlags } from '@/utils/developmentLogger';
@@ -81,12 +82,12 @@ export function transformConversationToLegacy(conversation: Conversation, curren
         }));
     }
   } catch (error) {
-    console.error('Error transforming conversation participants:', error);
+    log.error('App', 'Error transforming conversation participants:', error);
   }
 
   // Handle direct conversations with no participants
   if (!conversation.is_group && otherParticipants.length === 0) {
-    console.warn('⚠️ [ConversationTransform] Direct conversation has no participants:', conversation.conversation_id);
+    log.warn('App', '⚠️ [ConversationTransform] Direct conversation has no participants:', conversation.conversation_id);
     
     // Try to create a fallback participant from conversation name
     if (conversation.name) {

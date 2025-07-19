@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useCommentsCache } from '@/hooks/useCommentsCache';
 import { toast } from '@/hooks/use-toast';
@@ -159,7 +160,7 @@ export function useCommentsEnhanced(
         });
       }
     } catch (error: any) {
-      console.error('Error submitting comment:', error);
+      log.error('Component', 'Error submitting comment:', error);
       toast({
         title: "Error",
         description: error.message || "Could not post comment",
@@ -204,7 +205,7 @@ export function useCommentsEnhanced(
           .select('comment_id')
           .eq('user_id', currentUserId)
           .in('comment_id', replyIds);
-        if (likeStatusError) console.warn("Error fetching reply like statuses:", likeStatusError);
+        if (likeStatusError) log.warn('Component', "Error fetching reply like statuses:", likeStatusError);
         else {
           likeStatusData?.forEach(like => likedReplyIds.add(like.comment_id));
         }
@@ -221,7 +222,7 @@ export function useCommentsEnhanced(
       
       return fetchedReplies;
     } catch (err) {
-      console.error('Error fetching additional replies:', err);
+      log.error('Component', 'Error fetching additional replies:', err);
       return [];
     }
   }, [currentUserId]);
@@ -239,7 +240,7 @@ export function useCommentsEnhanced(
       // Use the cached like toggle function instead of direct database calls
       await toggleCommentLike(commentId);
     } catch (error) {
-      console.error('Error toggling comment like:', error);
+      log.error('Component', 'Error toggling comment like:', error);
       throw error; // Re-throw so CommentItem can handle the error and revert optimistic updates
     }
   }, [currentUserId, toggleCommentLike]);
@@ -247,7 +248,7 @@ export function useCommentsEnhanced(
   // 🔥 NEW: Load more comments function
   const loadMoreComments = useCallback(async () => {
     if (hasNextPage && !isFetchingNextPage) {
-      console.log('🔔 [useCommentsEnhanced] Loading more comments...');
+      log.debug('Component', '🔔 [useCommentsEnhanced] Loading more comments...');
       await fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);

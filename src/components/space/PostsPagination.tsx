@@ -71,7 +71,7 @@ export const PostsPagination: React.FC<PostsPaginationProps> = ({
 
   return (
     <div 
-      className="!flex !flex-row !items-center !justify-between gap-2 py-4 px-2 sm:px-4 border-t border-gray-200 bg-white rounded-lg w-full md:w-[768px] max-w-full overflow-hidden"
+      className="!flex !flex-row !items-center !justify-between gap-2 py-4 px-2 sm:px-4 mb-20 sm:mb-0 border-t border-gray-200 bg-white rounded-lg w-full md:w-[768px] max-w-full overflow-hidden"
       style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
     >
       {/* Previous button */}

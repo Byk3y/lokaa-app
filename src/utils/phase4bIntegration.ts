@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Phase 4B: User Analytics & A/B Testing Integration
  * 
@@ -9,7 +10,7 @@ import { logAnalyticsEvent } from './analytics';
 
 // Initialize analytics and expose global API
 function initializePhase4B() {
-  console.log('🔍 [Phase 4B] Initializing User Analytics & A/B Testing...');
+  log.debug('Utils', '🔍 [Phase 4B] Initializing User Analytics & A/B Testing...');
   
   // The analytics utility automatically exposes window.analytics
   // Let's add some additional testing helpers
@@ -28,7 +29,7 @@ function initializePhase4B() {
             phase: '4B'
           }
         });
-        console.log('✅ [Phase 4B] Test event logged');
+        log.debug('Utils', '✅ [Phase 4B] Test event logged');
       },
       
       // Test different event types
@@ -41,7 +42,7 @@ function initializePhase4B() {
         ];
         
         events.forEach(event => logAnalyticsEvent(event));
-        console.log(`✅ [Phase 4B] ${events.length} test events logged`);
+        log.debug('Utils', `✅ [Phase 4B] ${events.length} test events logged`);
       },
       
       // Test A/B experiment logging
@@ -53,21 +54,21 @@ function initializePhase4B() {
           ab_experiment: 'test_experiment',
           ab_variant: 'variant_a'
         });
-        console.log('✅ [Phase 4B] A/B test event logged');
+        log.debug('Utils', '✅ [Phase 4B] A/B test event logged');
       },
       
       // Force flush events
       flush: () => {
         if ((window as any).analytics?.flush) {
           (window as any).analytics.flush();
-          console.log('✅ [Phase 4B] Events flushed to database');
+          log.debug('Utils', '✅ [Phase 4B] Events flushed to database');
         }
       },
       
       // Get current queue status
       getStatus: () => {
         const queue = (window as any).analytics?._queue || [];
-        console.log(`📊 [Phase 4B] Analytics Status:`, {
+        log.debug('Utils', `📊 [Phase 4B] Analytics Status:`, {
           queueLength: queue.length,
           analyticsLoaded: typeof (window as any).analytics !== 'undefined',
           phase4bLoaded: typeof (window as any).phase4b !== 'undefined'
@@ -80,8 +81,8 @@ function initializePhase4B() {
       }
     };
     
-    console.log('✅ [Phase 4B] Global testing API exposed at window.phase4b');
-    console.log('🧪 [Phase 4B] Try: window.phase4b.testEvent() or window.phase4b.getStatus()');
+    log.debug('Utils', '✅ [Phase 4B] Global testing API exposed at window.phase4b');
+    log.debug('Utils', '🧪 [Phase 4B] Try: window.phase4b.testEvent() or window.phase4b.getStatus()');
   }
 }
 

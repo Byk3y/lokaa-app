@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect } from 'react';
 import { useCategoriesCache, type SpaceCategory } from './useCategoriesCache';
 
@@ -30,7 +31,7 @@ export function useCachedCategories(spaceId: string | undefined): UseCachedCateg
 
   const refreshCategories = async () => {
     if (spaceId) {
-      console.log('🏷️ [useCachedCategories] Refreshing categories for space:', spaceId);
+      log.debug('Hook', '🏷️ [useCachedCategories] Refreshing categories for space:', spaceId);
       invalidateCache(spaceId);
       await fetchCategories(spaceId);
     }

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { Building2, Users, UserRoundCheck, UserRoundPlus, Loader2 } from 'lucide-react';
@@ -53,7 +54,7 @@ export default function UserProfileCard({ user, isSelected = false, onClick }: U
         if (error) throw error;
         setConnectionInfo(data as ConnectionInfo);
       } catch (err) {
-        console.error('Error fetching connection info:', err);
+        log.error('Component', 'Error fetching connection info:', err);
         setConnectionInfo(null);
       } finally {
         setLoading(false);

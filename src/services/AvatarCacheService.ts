@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🧠 SMART AVATAR CACHING SERVICE
  * 
@@ -129,7 +130,7 @@ export class AvatarCacheService {
     try {
       // Only log in development with verbose flag
       if (process.env.NODE_ENV === 'development' && (window as any).__AVATAR_VERBOSE_LOGS__) {
-        console.log(`🚀 [AvatarCache] Starting preload for space: ${spaceId}`);
+        log.debug('Service', `🚀 [AvatarCache] Starting preload for space: ${spaceId}`);
       }
 
       // Get space members with avatars - using separate queries to avoid foreign key issues
@@ -142,7 +143,7 @@ export class AvatarCacheService {
         .eq('space_id', spaceId);
 
       if (membersError) {
-        console.error('❌ [AvatarCache] Failed to fetch space members:', membersError);
+        log.error('Service', '❌ [AvatarCache] Failed to fetch space members:', membersError);
         return { loaded: 0, failed: 1, cached: 0, duration: Date.now() - startTime };
       }
 
@@ -160,7 +161,7 @@ export class AvatarCacheService {
         .not('avatar_url', 'is', null);
 
       if (usersError) {
-        console.error('❌ [AvatarCache] Failed to fetch user avatars:', usersError);
+        log.error('Service', '❌ [AvatarCache] Failed to fetch user avatars:', usersError);
         return { loaded: 0, failed: 1, cached: 0, duration: Date.now() - startTime };
       }
 
@@ -184,7 +185,7 @@ export class AvatarCacheService {
 
       // Only log success in development with minimal info
       if (process.env.NODE_ENV === 'development') {
-        console.log(`⚡ [AvatarCache] Instant cache status: ${cached} cached, ${newAvatars.length} need loading`);
+        log.debug('Service', `⚡ [AvatarCache] Instant cache status: ${cached} cached, ${newAvatars.length} need loading`);
       }
 
       // 🚀 INSTANT RETURN: If we have cached avatars, return immediately
@@ -192,7 +193,7 @@ export class AvatarCacheService {
       if (cached > 0 && newAvatars.length === 0) {
         const duration = Date.now() - startTime;
         if (process.env.NODE_ENV === 'development') {
-          console.log(`⚡ [AvatarCache] INSTANT complete: 0 loaded, ${cached} cached, 0 failed (${duration}ms)`);
+          log.debug('Service', `⚡ [AvatarCache] INSTANT complete: 0 loaded, ${cached} cached, 0 failed (${duration}ms)`);
         }
         return { loaded: 0, failed: 0, cached, duration };
       }
@@ -209,7 +210,7 @@ export class AvatarCacheService {
           const backgroundAvatars = newAvatars.slice(3);
           
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🔄 [AvatarCache] INCOGNITO MODE: Loading ${syncAvatars.length} avatars synchronously, ${backgroundAvatars.length} in background`);
+            log.debug('Service', `🔄 [AvatarCache] INCOGNITO MODE: Loading ${syncAvatars.length} avatars synchronously, ${backgroundAvatars.length} in background`);
           }
           
           // Load first batch synchronously
@@ -219,11 +220,11 @@ export class AvatarCacheService {
             failed += syncResult.failed;
             
             if (process.env.NODE_ENV === 'development') {
-              console.log(`⚡ [AvatarCache] SYNC COMPLETE: ${syncResult.loaded} loaded, ${syncResult.failed} failed`);
+              log.debug('Service', `⚡ [AvatarCache] SYNC COMPLETE: ${syncResult.loaded} loaded, ${syncResult.failed} failed`);
             }
           } catch (error) {
             if (process.env.NODE_ENV === 'development') {
-              console.warn('⚠️ [AvatarCache] Sync loading failed:', error);
+              log.warn('Service', '⚠️ [AvatarCache] Sync loading failed:', error);
             }
             failed += syncAvatars.length;
           }
@@ -232,11 +233,11 @@ export class AvatarCacheService {
           if (backgroundAvatars.length > 0) {
             this.loadAvatarsInBackground(backgroundAvatars).then(result => {
               if (process.env.NODE_ENV === 'development') {
-                console.log(`🔄 [AvatarCache] Background loading complete: ${result.loaded} loaded, ${result.failed} failed`);
+                log.debug('Service', `🔄 [AvatarCache] Background loading complete: ${result.loaded} loaded, ${result.failed} failed`);
               }
             }).catch(error => {
               if (process.env.NODE_ENV === 'development') {
-                console.warn('⚠️ [AvatarCache] Background loading failed:', error);
+                log.warn('Service', '⚠️ [AvatarCache] Background loading failed:', error);
               }
             });
           }
@@ -244,11 +245,11 @@ export class AvatarCacheService {
           // Normal background loading for when we have some cache
           this.loadAvatarsInBackground(newAvatars).then(result => {
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🔄 [AvatarCache] Background loading complete: ${result.loaded} loaded, ${result.failed} failed`);
+            log.debug('Service', `🔄 [AvatarCache] Background loading complete: ${result.loaded} loaded, ${result.failed} failed`);
           }
         }).catch(error => {
           if (process.env.NODE_ENV === 'development') {
-            console.warn('⚠️ [AvatarCache] Background loading failed:', error);
+            log.warn('Service', '⚠️ [AvatarCache] Background loading failed:', error);
           }
         });
         }
@@ -257,9 +258,9 @@ export class AvatarCacheService {
         const duration = Date.now() - startTime;
         if (process.env.NODE_ENV === 'development') {
           if (shouldLoadSomeSync) {
-            console.log(`⚡ [AvatarCache] HYBRID LOADING: ${loaded} loaded, ${cached} cached, ${failed} failed (${duration}ms) + ${newAvatars.length - loaded} loading in background`);
+            log.debug('Service', `⚡ [AvatarCache] HYBRID LOADING: ${loaded} loaded, ${cached} cached, ${failed} failed (${duration}ms) + ${newAvatars.length - loaded} loading in background`);
           } else {
-            console.log(`⚡ [AvatarCache] INSTANT with background: ${loaded} loaded, ${cached} cached, ${failed} failed (${duration}ms) + ${newAvatars.length} loading in background`);
+            log.debug('Service', `⚡ [AvatarCache] INSTANT with background: ${loaded} loaded, ${cached} cached, ${failed} failed (${duration}ms) + ${newAvatars.length} loading in background`);
           }
         }
         return { loaded, failed, cached, duration };
@@ -269,12 +270,12 @@ export class AvatarCacheService {
       
       // Only log success in development with minimal info
       if (process.env.NODE_ENV === 'development') {
-        console.log(`✅ [AvatarCache] Preload complete: ${loaded} loaded, ${cached} cached, ${failed} failed (${duration}ms)`);
+        log.debug('Service', `✅ [AvatarCache] Preload complete: ${loaded} loaded, ${cached} cached, ${failed} failed (${duration}ms)`);
       }
 
       return { loaded, failed, cached, duration };
     } catch (error) {
-      console.error('❌ [AvatarCache] Preload failed:', error);
+      log.error('Service', '❌ [AvatarCache] Preload failed:', error);
       return { loaded: 0, failed: 1, cached: 0, duration: Date.now() - startTime };
     }
   }
@@ -311,7 +312,7 @@ export class AvatarCacheService {
             failed++;
             // Only log errors in development
             if (process.env.NODE_ENV === 'development') {
-              console.warn('⚠️ [AvatarCache] Background load failed for avatar:', error);
+              log.warn('Service', '⚠️ [AvatarCache] Background load failed for avatar:', error);
             }
           }
         });
@@ -326,7 +327,7 @@ export class AvatarCacheService {
 
       return { loaded, failed };
     } catch (error) {
-      console.error('❌ [AvatarCache] Background loading failed:', error);
+      log.error('Service', '❌ [AvatarCache] Background loading failed:', error);
       return { loaded, failed: failed + 1 };
     }
   }
@@ -361,7 +362,7 @@ export class AvatarCacheService {
     if (oldestKey) {
       this.cache.delete(oldestKey);
       this.stats.evictionCount++;
-      console.debug(`🗑️ [AvatarCache] Evicted LRU entry: ${oldestKey}`);
+      log.debug('Service', `🗑️ [AvatarCache] Evicted LRU entry: ${oldestKey}`);
     }
   }
 
@@ -378,7 +379,7 @@ export class AvatarCacheService {
     }
 
     keysToDelete.forEach(key => this.cache.delete(key));
-    console.log(`🧹 [AvatarCache] Invalidated ${keysToDelete.length} entries for user: ${userId}`);
+    log.debug('Service', `🧹 [AvatarCache] Invalidated ${keysToDelete.length} entries for user: ${userId}`);
   }
 
   /**
@@ -397,10 +398,10 @@ export class AvatarCacheService {
         members.forEach(member => {
           this.invalidateUser(member.user_id);
         });
-        console.log(`🧹 [AvatarCache] Invalidated cache for ${members.length} space members`);
+        log.debug('Service', `🧹 [AvatarCache] Invalidated cache for ${members.length} space members`);
       }
     } catch (error) {
-      console.warn('⚠️ [AvatarCache] Failed to invalidate space cache:', error);
+      log.warn('Service', '⚠️ [AvatarCache] Failed to invalidate space cache:', error);
     }
   }
 
@@ -479,7 +480,7 @@ export class AvatarCacheService {
    * 🎯 Initialize cache for a space (call this when user enters a space)
    */
   static async initializeSpace(spaceId: string): Promise<void> {
-    console.log(`🚀 [AvatarCache] Initializing cache for space: ${spaceId}`);
+    log.debug('Service', `🚀 [AvatarCache] Initializing cache for space: ${spaceId}`);
     await this.preloadSpaceAvatars(spaceId);
   }
 
@@ -487,9 +488,9 @@ export class AvatarCacheService {
    * 🧪 Test cache performance
    */
   static runPerformanceTest(): void {
-    console.log('🧪 [AvatarCache] Performance Test Results:');
-    console.log('📊 Cache Stats:', this.getStats());
-    console.log('💡 Recommendations:', this.generateRecommendations());
+    log.debug('Service', '🧪 [AvatarCache] Performance Test Results:');
+    log.debug('Service', '📊 Cache Stats:', this.getStats());
+    log.debug('Service', '💡 Recommendations:', this.generateRecommendations());
   }
 
   /**
@@ -520,7 +521,7 @@ export class AvatarCacheService {
           failed++;
           // Only log errors in development
           if (process.env.NODE_ENV === 'development') {
-            console.warn('⚠️ [AvatarCache] Sync load failed for avatar:', error);
+            log.warn('Service', '⚠️ [AvatarCache] Sync load failed for avatar:', error);
           }
         }
       });
@@ -528,7 +529,7 @@ export class AvatarCacheService {
       await Promise.all(promises);
       return { loaded, failed };
     } catch (error) {
-      console.error('❌ [AvatarCache] Synchronous loading failed:', error);
+      log.error('Service', '❌ [AvatarCache] Synchronous loading failed:', error);
       return { loaded, failed: failed + 1 };
     }
   }

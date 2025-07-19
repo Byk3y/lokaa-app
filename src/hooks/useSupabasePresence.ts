@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -38,7 +39,7 @@ export function useSupabasePresence(spaceId: string | undefined): PresenceState 
           p_metadata: {}
         });
       } catch (error) {
-        console.error('Error updating presence:', error);
+        log.error('Hook', 'Error updating presence:', error);
       }
     };
 
@@ -49,7 +50,7 @@ export function useSupabasePresence(spaceId: string | undefined): PresenceState 
           p_user_id: user.id
         });
       } catch (error) {
-        console.error('Error setting user offline:', error);
+        log.error('Hook', 'Error setting user offline:', error);
       }
     };
 
@@ -75,7 +76,7 @@ export function useSupabasePresence(spaceId: string | undefined): PresenceState 
           loading: false
         });
       } catch (error) {
-        console.error('Error fetching online users:', error);
+        log.error('Hook', 'Error fetching online users:', error);
         setState(prev => ({ ...prev, loading: false }));
       }
     };

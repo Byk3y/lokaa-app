@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ const StorageDebugger = () => {
       setBucketFiles(filesData || []);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('Error checking bucket:', message);
+      log.error('Page', 'Error checking bucket:', message);
       setBucketError(message);
     }
   }, []);
@@ -61,7 +62,7 @@ const StorageDebugger = () => {
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('Error checking session:', message);
+      log.error('Page', 'Error checking session:', message);
     } finally {
       setLoading(false);
     }
@@ -88,7 +89,7 @@ const StorageDebugger = () => {
       checkBucket(); // Refresh bucket info
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('Error creating directory:', message);
+      log.error('Page', 'Error creating directory:', message);
       setDirectoryStatus(`Error: ${message}`);
     }
   }, [directoryName, checkBucket]);
@@ -116,7 +117,7 @@ const StorageDebugger = () => {
       checkBucket(); // Refresh bucket info
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('Error uploading test file:', message);
+      log.error('Page', 'Error uploading test file:', message);
       setUploadStatus(`Error: ${message}`);
     }
   }, [directoryName, checkBucket]);
@@ -149,7 +150,7 @@ const StorageDebugger = () => {
       checkBucket(); // Refresh bucket info
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('Error uploading file:', message);
+      log.error('Page', 'Error uploading file:', message);
       setUploadStatus(`Error: ${message}`);
     }
   }, [selectedFile, directoryName, checkBucket]);
@@ -174,7 +175,7 @@ const StorageDebugger = () => {
       checkBucket(); // Refresh bucket info
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('Error deleting file:', message);
+      log.error('Page', 'Error deleting file:', message);
       setDeleteStatus(`Error: ${message}`);
     }
   }, [deleteFileName, checkBucket]);
@@ -229,7 +230,7 @@ const StorageDebugger = () => {
       setPermissionsResult(results.join('\n'));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('Error testing permissions:', message);
+      log.error('Page', 'Error testing permissions:', message);
       setPermissionsResult(`Error testing permissions: ${message}`);
     }
   }, []);

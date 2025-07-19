@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Core media storage service for Supabase operations
  */
@@ -14,7 +15,7 @@ export const checkStorageAvailability = async (): Promise<boolean> => {
     // Check session first
     const { data: session } = await getSupabaseClient().auth.getSession();
     if (!session.session) {
-      console.log('User not logged in - storage unavailable');
+      log.debug('Service', 'User not logged in - storage unavailable');
       return false;
     }
 
@@ -24,13 +25,13 @@ export const checkStorageAvailability = async (): Promise<boolean> => {
       .list('', { limit: 1 });
     
     if (error) {
-      console.error('Storage bucket not accessible:', error);
+      log.error('Service', 'Storage bucket not accessible:', error);
       return false;
     }
 
     return true;
   } catch (err) {
-    console.error('Failed to check storage availability:', err);
+    log.error('Service', 'Failed to check storage availability:', err);
     return false;
   }
 };
@@ -73,7 +74,7 @@ export const uploadFileToStorage = async (
       });
 
     if (error) {
-      console.error('Supabase storage upload failed:', error);
+      log.error('Service', 'Supabase storage upload failed:', error);
       throw error;
     }
 
@@ -91,7 +92,7 @@ export const uploadFileToStorage = async (
       path: filePath
     };
   } catch (error) {
-    console.error('Error uploading file:', error);
+    log.error('Service', 'Error uploading file:', error);
     throw error;
   }
 };
@@ -106,7 +107,7 @@ export const deleteFileFromStorage = async (storagePath: string): Promise<boolea
     const storageAvailable = await checkStorageAvailability();
     
     if (!storageAvailable) {
-      console.warn('Storage not available for deletion');
+      log.warn('Service', 'Storage not available for deletion');
       return false;
     }
 
@@ -115,13 +116,13 @@ export const deleteFileFromStorage = async (storagePath: string): Promise<boolea
       .remove([storagePath]);
 
     if (error) {
-      console.error('Failed to delete file from storage:', error);
+      log.error('Service', 'Failed to delete file from storage:', error);
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error('Error deleting file:', error);
+    log.error('Service', 'Error deleting file:', error);
     return false;
   }
 }; 

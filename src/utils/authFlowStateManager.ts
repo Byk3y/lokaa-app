@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 3: Auth Flow State Manager
  * 
@@ -84,7 +85,7 @@ class AuthFlowStateManager {
       timestamp: Date.now()
     };
 
-    console.log(`🎯 [AuthFlowStateManager] Stage: ${stage}, Loading UI: ${shouldShowLoading}`, context);
+    log.debug('Utils', `🎯 [AuthFlowStateManager] Stage: ${stage}, Loading UI: ${shouldShowLoading}`, context);
     
     // Notify subscribers
     this.notifySubscribers();
@@ -103,7 +104,7 @@ class AuthFlowStateManager {
       timestamp: Date.now()
     };
 
-    console.log(`✅ [AuthFlowStateManager] Flow completed:`, result);
+    log.debug('Utils', `✅ [AuthFlowStateManager] Flow completed:`, result);
     
     // Clear blocked components on completion
     this.state.blockedComponents.clear();
@@ -117,7 +118,7 @@ class AuthFlowStateManager {
    */
   blockComponent(componentName: string): void {
     this.state.blockedComponents.add(componentName);
-    console.log(`🚫 [AuthFlowStateManager] Blocked component: ${componentName}`);
+    log.debug('Utils', `🚫 [AuthFlowStateManager] Blocked component: ${componentName}`);
   }
 
   /**
@@ -125,7 +126,7 @@ class AuthFlowStateManager {
    */
   unblockComponent(componentName: string): void {
     this.state.blockedComponents.delete(componentName);
-    console.log(`✅ [AuthFlowStateManager] Unblocked component: ${componentName}`);
+    log.debug('Utils', `✅ [AuthFlowStateManager] Unblocked component: ${componentName}`);
   }
 
   /**
@@ -170,7 +171,7 @@ class AuthFlowStateManager {
       try {
         callback({ ...this.state });
       } catch (error) {
-        console.error('🚫 [AuthFlowStateManager] Subscriber error:', error);
+        log.error('Utils', '🚫 [AuthFlowStateManager] Subscriber error:', error);
       }
     });
   }
@@ -194,7 +195,7 @@ class AuthFlowStateManager {
       timestamp: Date.now()
     };
     
-    console.log('🧹 [AuthFlowStateManager] State reset');
+    log.debug('Utils', '🧹 [AuthFlowStateManager] State reset');
     this.notifySubscribers();
   }
 
@@ -237,7 +238,7 @@ export const useComponentLoading = (componentName: string) => {
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).debugAuthFlow = () => {
     const state = authFlowStateManager.getState();
-    console.log('🔍 [AuthFlowStateManager] Debug State:', {
+    log.debug('Utils', '🔍 [AuthFlowStateManager] Debug State:', {
       stage: state.stage,
       isLoading: state.isLoading,
       showLoadingUI: state.showLoadingUI,

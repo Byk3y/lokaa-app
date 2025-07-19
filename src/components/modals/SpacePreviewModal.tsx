@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import SpaceCardPreview from "@/components/spaces/SpaceCardPreview";
 import { useSpaceAboutData, SpaceAboutData } from "@/hooks/useSpaceAboutData";
@@ -22,7 +23,7 @@ export function SpacePreviewModal({
   // Debug logging to track modal data flow
   useEffect(() => {
     if (open) {
-      console.log(`🔍 [SpacePreviewModal] Modal opened with:`, {
+      log.debug('Component', `🔍 [SpacePreviewModal] Modal opened with:`, {
         spaceId,
         loading,
         error,

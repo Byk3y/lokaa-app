@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space Data Fallback System
  * Provides fallback data when database queries timeout to ensure all tabs work
@@ -72,7 +73,7 @@ export function getSpaceFallbackData(subdomain: string): SpaceFallbackData | nul
   
   // CRITICAL FIX: Don't generate invalid fallback IDs that cause database errors
   // Instead, return null to indicate no fallback is available
-  console.warn(`⚠️ [SpaceFallback] No fallback data available for ${subdomain} - returning null to prevent invalid database queries`);
+  log.warn('Utils', `⚠️ [SpaceFallback] No fallback data available for ${subdomain} - returning null to prevent invalid database queries`);
   return null;
 }
 
@@ -106,19 +107,19 @@ export async function fetchSpaceWithFallback(
     const result = await fetchFunction();
     
     if (result && result.data && result.data.length > 0) {
-      console.log(`✅ [SpaceFallback] Successfully fetched ${subdomain} from database`);
+      log.debug('Utils', `✅ [SpaceFallback] Successfully fetched ${subdomain} from database`);
       return result.data[0];
     }
     
     // No data found, use fallback
-    console.log(`📦 [SpaceFallback] No data found for ${subdomain}, using fallback`);
+    log.debug('Utils', `📦 [SpaceFallback] No data found for ${subdomain}, using fallback`);
     return getSpaceFallbackData(subdomain)!;
     
   } catch (error) {
-    console.error(`❌ [SpaceFallback] Error fetching ${subdomain}:`, error);
+    log.error('Utils', `❌ [SpaceFallback] Error fetching ${subdomain}:`, error);
     
     if (shouldUseFallback(error)) {
-      console.log(`🔄 [SpaceFallback] Using fallback due to error: ${error.message}`);
+      log.debug('Utils', `🔄 [SpaceFallback] Using fallback due to error: ${error.message}`);
       return getSpaceFallbackData(subdomain)!;
     }
     

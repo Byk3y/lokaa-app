@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔧 Phase 6A: Service Worker Manager
  * 
@@ -71,7 +72,7 @@ class ServiceWorkerManager {
     this.isDevelopment = import.meta.env.DEV;
     
     if (this.isDevelopment) {
-      console.log('🔧 [ServiceWorkerManager] Development mode detected');
+      log.debug('Utils', '🔧 [ServiceWorkerManager] Development mode detected');
     }
     
     this.setupOnlineOfflineListeners();
@@ -89,29 +90,29 @@ class ServiceWorkerManager {
    */
   async register(swPath?: string, options?: RegistrationOptions): Promise<boolean> {
     if (!this.isSupported()) {
-      console.log('🚫 [ServiceWorkerManager] Service workers not supported');
+      log.debug('Utils', '🚫 [ServiceWorkerManager] Service workers not supported');
       return false;
     }
 
     // In development, unregister any existing service workers
     if (this.isDevelopment) {
-      console.log('🧹 [ServiceWorkerManager] Development mode: Clearing service workers...');
+      log.debug('Utils', '🧹 [ServiceWorkerManager] Development mode: Clearing service workers...');
       await this.unregisterAll();
       return false;
     }
 
     try {
-      console.log('🔧 [ServiceWorkerManager] Initializing with vite-plugin-pwa...');
+      log.debug('Utils', '🔧 [ServiceWorkerManager] Initializing with vite-plugin-pwa...');
       
       // Check for existing registration (from vite-plugin-pwa)
       const existingRegistration = await navigator.serviceWorker.getRegistration();
       
       if (existingRegistration) {
-        console.log('✅ [ServiceWorkerManager] Found existing service worker registration');
+        log.debug('Utils', '✅ [ServiceWorkerManager] Found existing service worker registration');
         this.registration = existingRegistration;
       } else if (!this.isDevelopment) {
         // Only wait for registration in production
-        console.log('🔄 [ServiceWorkerManager] Waiting for vite-plugin-pwa registration...');
+        log.debug('Utils', '🔄 [ServiceWorkerManager] Waiting for vite-plugin-pwa registration...');
         
         // Wait up to 5 seconds for registration
         let attempts = 0;
@@ -122,7 +123,7 @@ class ServiceWorkerManager {
         }
         
         if (!this.registration) {
-          console.warn('⚠️ [ServiceWorkerManager] No service worker registration found');
+          log.warn('Utils', '⚠️ [ServiceWorkerManager] No service worker registration found');
           return false;
         }
       }
@@ -131,13 +132,13 @@ class ServiceWorkerManager {
       if (!this.isDevelopment && this.registration) {
         this.setupEventListeners();
         await this.checkForUpdates();
-        console.log('✅ [ServiceWorkerManager] Service worker manager initialized successfully');
+        log.debug('Utils', '✅ [ServiceWorkerManager] Service worker manager initialized successfully');
         this.handlers.onInstalled?.();
       }
       
       return !this.isDevelopment;
     } catch (error) {
-      console.error('❌ [ServiceWorkerManager] Initialization failed:', error);
+      log.error('Utils', '❌ [ServiceWorkerManager] Initialization failed:', error);
       return false;
     }
   }
@@ -155,12 +156,12 @@ class ServiceWorkerManager {
         const currentUrl = new URL(window.location.href);
         
         if (registrationScope.port !== currentUrl.port && this.isDevelopment) {
-          console.log('🗑️ [ServiceWorkerManager] Clearing stale registration:', registration.scope);
+          log.debug('Utils', '🗑️ [ServiceWorkerManager] Clearing stale registration:', registration.scope);
           await registration.unregister();
         }
       }
     } catch (error) {
-      console.warn('⚠️ [ServiceWorkerManager] Failed to clear stale registrations:', error);
+      log.warn('Utils', '⚠️ [ServiceWorkerManager] Failed to clear stale registrations:', error);
     }
   }
 
@@ -173,7 +174,7 @@ class ServiceWorkerManager {
       
       await Promise.all(
         registrations.map(registration => {
-          console.log('🗑️ [ServiceWorkerManager] Unregistering:', registration.scope);
+          log.debug('Utils', '🗑️ [ServiceWorkerManager] Unregistering:', registration.scope);
           return registration.unregister();
         })
       );
@@ -182,15 +183,15 @@ class ServiceWorkerManager {
       const cacheNames = await caches.keys();
       await Promise.all(
         cacheNames.map(cacheName => {
-          console.log('🗑️ [ServiceWorkerManager] Deleting cache:', cacheName);
+          log.debug('Utils', '🗑️ [ServiceWorkerManager] Deleting cache:', cacheName);
           return caches.delete(cacheName);
         })
       );
       
-      console.log('✅ [ServiceWorkerManager] All service workers and caches cleared');
+      log.debug('Utils', '✅ [ServiceWorkerManager] All service workers and caches cleared');
       return true;
     } catch (error) {
-      console.error('❌ [ServiceWorkerManager] Failed to unregister:', error);
+      log.error('Utils', '❌ [ServiceWorkerManager] Failed to unregister:', error);
       return false;
     }
   }
@@ -206,11 +207,11 @@ class ServiceWorkerManager {
       const newWorker = this.registration?.installing;
       if (!newWorker) return;
 
-      console.log('🔄 [ServiceWorkerManager] Update found, installing new version...');
+      log.debug('Utils', '🔄 [ServiceWorkerManager] Update found, installing new version...');
 
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          console.log('🆕 [ServiceWorkerManager] New version available');
+          log.debug('Utils', '🆕 [ServiceWorkerManager] New version available');
           this.handlers.onUpdateAvailable?.();
         }
       });
@@ -218,13 +219,13 @@ class ServiceWorkerManager {
 
     // Listen for controller changes
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('🔄 [ServiceWorkerManager] Controller changed');
+      log.debug('Utils', '🔄 [ServiceWorkerManager] Controller changed');
       this.handlers.onControllerChanged?.();
     });
 
     // Listen for messages from service worker
     navigator.serviceWorker.addEventListener('message', (event) => {
-      console.log('📨 [ServiceWorkerManager] Message from SW:', event.data);
+      log.debug('Utils', '📨 [ServiceWorkerManager] Message from SW:', event.data);
     });
   }
 
@@ -237,7 +238,7 @@ class ServiceWorkerManager {
     try {
       await this.registration.update();
     } catch (error) {
-      console.warn('⚠️ [ServiceWorkerManager] Update check failed:', error);
+      log.warn('Utils', '⚠️ [ServiceWorkerManager] Update check failed:', error);
     }
   }
 
@@ -294,7 +295,7 @@ class ServiceWorkerManager {
    */
   async sendMessage(message: any): Promise<void> {
     if (!navigator.serviceWorker.controller) {
-      console.warn('⚠️ [ServiceWorkerManager] No active service worker to send message to');
+      log.warn('Utils', '⚠️ [ServiceWorkerManager] No active service worker to send message to');
       return;
     }
 
@@ -316,7 +317,7 @@ class ServiceWorkerManager {
       );
       return cacheInfo;
     } catch (error) {
-      console.error('❌ [ServiceWorkerManager] Failed to get cache info:', error);
+      log.error('Utils', '❌ [ServiceWorkerManager] Failed to get cache info:', error);
       return [];
     }
   }
@@ -336,7 +337,7 @@ class ServiceWorkerManager {
    */
   private setupOnlineOfflineListeners(): void {
     window.addEventListener('online', () => {
-      console.log('🌐 [ServiceWorkerManager] Back online');
+      log.debug('Utils', '🌐 [ServiceWorkerManager] Back online');
       this.isOnline = true;
       this.processPendingActions();
       
@@ -348,7 +349,7 @@ class ServiceWorkerManager {
     });
 
     window.addEventListener('offline', () => {
-      console.log('📴 [ServiceWorkerManager] Gone offline');
+      log.debug('Utils', '📴 [ServiceWorkerManager] Gone offline');
       this.isOnline = false;
       
       toast({
@@ -375,9 +376,9 @@ class ServiceWorkerManager {
         payload: action
       });
 
-      console.log('📋 [ServiceWorkerManager] Action queued for offline sync:', action.type);
+      log.debug('Utils', '📋 [ServiceWorkerManager] Action queued for offline sync:', action.type);
     } catch (error) {
-      console.error('❌ [ServiceWorkerManager] Failed to queue action:', error);
+      log.error('Utils', '❌ [ServiceWorkerManager] Failed to queue action:', error);
     }
   }
 
@@ -387,7 +388,7 @@ class ServiceWorkerManager {
   private async processPendingActions(): Promise<void> {
     if (this.pendingActions.length === 0) return;
 
-    console.log(`🔄 [ServiceWorkerManager] Processing ${this.pendingActions.length} pending actions`);
+    log.debug('Utils', `🔄 [ServiceWorkerManager] Processing ${this.pendingActions.length} pending actions`);
 
     const processedActions: OfflineAction[] = [];
 
@@ -396,7 +397,7 @@ class ServiceWorkerManager {
         await this.processAction(action);
         processedActions.push(action);
       } catch (error) {
-        console.error('❌ [ServiceWorkerManager] Failed to process action:', error);
+        log.error('Utils', '❌ [ServiceWorkerManager] Failed to process action:', error);
       }
     }
 
@@ -432,7 +433,7 @@ class ServiceWorkerManager {
         await this.syncOfflineJoin(action.data);
         break;
       default:
-        console.warn('Unknown action type:', action.type);
+        log.warn('Utils', 'Unknown action type:', action.type);
     }
   }
 
@@ -527,7 +528,7 @@ class ServiceWorkerManager {
         isOnline: () => this.isUserOnline()
       };
       
-      console.log('🔧 [ServiceWorkerManager] Debug methods exposed to window.serviceWorkerManager');
+      log.debug('Utils', '🔧 [ServiceWorkerManager] Debug methods exposed to window.serviceWorkerManager');
     }
   }
 
@@ -541,9 +542,9 @@ class ServiceWorkerManager {
       this.stopUpdateChecks();
       await this.registration.unregister();
       this.registration = null;
-      console.log('🗑️ [ServiceWorkerManager] Service worker unregistered');
+      log.debug('Utils', '🗑️ [ServiceWorkerManager] Service worker unregistered');
     } catch (error) {
-      console.error('❌ [ServiceWorkerManager] Unregister failed:', error);
+      log.error('Utils', '❌ [ServiceWorkerManager] Unregister failed:', error);
     }
   }
 }
@@ -571,14 +572,14 @@ if (process.env.NODE_ENV === 'development') {
   // Add keyboard shortcut for quick unregister
   window.addEventListener('keydown', (event) => {
     if (event.ctrlKey && event.shiftKey && event.key === 'U') {
-      console.log('🔧 [ServiceWorkerManager] Keyboard shortcut: Unregistering all service workers...');
+      log.debug('Utils', '🔧 [ServiceWorkerManager] Keyboard shortcut: Unregistering all service workers...');
       serviceWorkerManager.unregisterAll();
     }
   });
   
-  console.log('🔧 [ServiceWorkerManager] Development helpers available:');
-  console.log('  - window.serviceWorkerManager - Access manager in console');
-  console.log('  - Ctrl+Shift+U - Unregister all service workers');
+  log.debug('Utils', '🔧 [ServiceWorkerManager] Development helpers available:');
+  log.debug('Utils', '  - window.serviceWorkerManager - Access manager in console');
+  log.debug('Utils', '  - Ctrl+Shift+U - Unregister all service workers');
 }
 
 export default serviceWorkerManager; 

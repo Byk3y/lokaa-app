@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🛡️ Session Longevity Fix
  * 
@@ -49,23 +50,23 @@ class SessionLongevityManager {
     // DESKTOP GUARD: Only initialize on mobile devices
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (!isMobile) {
-      console.log('🖥️ [SessionLongevity] Desktop detected - session longevity management disabled');
+      log.debug('Utils', '🖥️ [SessionLongevity] Desktop detected - session longevity management disabled');
       return;
     }
 
     // OPTION C INTEGRATION: Only initialize if Mobile Event Coordinator allows
     if (typeof window !== 'undefined' && (window as any).MOBILE_EVENT_COORDINATOR_ACTIVE) {
-      console.log('🛡️ [SessionLongevity] Integrating with Mobile Event Coordinator...');
+      log.debug('Utils', '🛡️ [SessionLongevity] Integrating with Mobile Event Coordinator...');
       this.integrateWithCoordinator();
     } else {
-      console.log('🛡️ [SessionLongevity] Mobile Event Coordinator not active, using standalone mode');
+      log.debug('Utils', '🛡️ [SessionLongevity] Mobile Event Coordinator not active, using standalone mode');
       this.setupStandaloneListeners();
     }
     
     // Proactive session health monitoring
     this.startSessionHealthMonitor();
     
-    console.log('🛡️ [SessionLongevity] Session longevity improvements active');
+    log.debug('Utils', '🛡️ [SessionLongevity] Session longevity improvements active');
   }
   
   /**
@@ -88,7 +89,7 @@ class SessionLongevityManager {
       }
     });
     
-    console.log('🛡️ [SessionLongevity] Integrated with Mobile Event Coordinator');
+    log.debug('Utils', '🛡️ [SessionLongevity] Integrated with Mobile Event Coordinator');
   }
   
   /**
@@ -129,7 +130,7 @@ class SessionLongevityManager {
   private async handleAppBackgrounded(): Promise<void> {
     this.backgroundStartTime = Date.now();
     
-    console.log('🛡️ [SessionLongevity] App backgrounded - preparing session protection');
+    log.debug('Utils', '🛡️ [SessionLongevity] App backgrounded - preparing session protection');
     
     // Proactively refresh session if it expires soon
     await this.proactiveSessionRefresh();
@@ -139,7 +140,7 @@ class SessionLongevityManager {
    * Handle app returning from background
    */
   private async handleAppForegrounded(backgroundDuration: number): Promise<void> {
-    console.log(`🛡️ [SessionLongevity] App returned after ${Math.round(backgroundDuration/1000)}s`);
+    log.debug('Utils', `🛡️ [SessionLongevity] App returned after ${Math.round(backgroundDuration/1000)}s`);
     
     // If background was longer than threshold, validate session
     if (backgroundDuration > this.config.backgroundThreshold) {
@@ -164,12 +165,12 @@ class SessionLongevityManager {
       
       // Check if session expires within proactive window
       if (expiresAt - now < this.config.proactiveRefreshWindow) {
-        console.log('🛡️ [SessionLongevity] Proactively refreshing session before background');
+        log.debug('Utils', '🛡️ [SessionLongevity] Proactively refreshing session before background');
         await this.performSilentRefresh('proactive_background');
       }
       
     } catch (error) {
-      console.warn('🛡️ [SessionLongevity] Proactive refresh check failed:', error);
+      log.warn('Utils', '🛡️ [SessionLongevity] Proactive refresh check failed:', error);
     }
   }
   
@@ -183,7 +184,7 @@ class SessionLongevityManager {
       const { data, error } = await getSupabaseClient().auth.getSession();
       
       if (error || !data.session) {
-        console.log(`🛡️ [SessionLongevity] No valid session found (${reason})`);
+        log.debug('Utils', `🛡️ [SessionLongevity] No valid session found (${reason})`);
         return;
       }
       
@@ -193,14 +194,14 @@ class SessionLongevityManager {
       
       // Check if session expired or expires soon
       if (expiresAt <= now || expiresAt - now < 300000) { // 5 minutes buffer
-        console.log(`🛡️ [SessionLongevity] Session needs refresh (${reason})`);
+        log.debug('Utils', `🛡️ [SessionLongevity] Session needs refresh (${reason})`);
         await this.performSilentRefresh(reason);
       } else {
-        console.log(`🛡️ [SessionLongevity] Session valid for ${Math.round((expiresAt - now)/60000)} minutes`);
+        log.debug('Utils', `🛡️ [SessionLongevity] Session valid for ${Math.round((expiresAt - now)/60000)} minutes`);
       }
       
     } catch (error) {
-      console.warn(`🛡️ [SessionLongevity] Session validation failed (${reason}):`, error);
+      log.warn('Utils', `🛡️ [SessionLongevity] Session validation failed (${reason}):`, error);
     }
   }
   
@@ -214,20 +215,20 @@ class SessionLongevityManager {
     this.lastRefreshTime = Date.now();
     
     try {
-      console.log(`🛡️ [SessionLongevity] Performing silent refresh (${reason})`);
+      log.debug('Utils', `🛡️ [SessionLongevity] Performing silent refresh (${reason})`);
       
       const { data, error } = await getSupabaseClient().auth.refreshSession();
       
       if (error || !data.session) {
-        console.warn(`🛡️ [SessionLongevity] Silent refresh failed (${reason}):`, error);
+        log.warn('Utils', `🛡️ [SessionLongevity] Silent refresh failed (${reason}):`, error);
         return false;
       }
       
-      console.log(`✅ [SessionLongevity] Silent refresh successful (${reason})`);
+      log.debug('Utils', `✅ [SessionLongevity] Silent refresh successful (${reason})`);
       return true;
       
     } catch (error) {
-      console.error(`🛡️ [SessionLongevity] Silent refresh error (${reason}):`, error);
+      log.error('Utils', `🛡️ [SessionLongevity] Silent refresh error (${reason}):`, error);
       return false;
     } finally {
       this.refreshInProgress = false;
@@ -243,7 +244,7 @@ class SessionLongevityManager {
       await this.validateAndRefreshSession('periodic_health_check');
     }, 300000); // 5 minutes
     
-    console.log('🛡️ [SessionLongevity] Session health monitoring started');
+    log.debug('Utils', '🛡️ [SessionLongevity] Session health monitoring started');
   }
   
   /**
@@ -275,14 +276,14 @@ class SessionLongevityManager {
    */
   updateConfig(newConfig: Partial<SessionLongevityConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    console.log('🛡️ [SessionLongevity] Configuration updated:', this.config);
+    log.debug('Utils', '🛡️ [SessionLongevity] Configuration updated:', this.config);
   }
 
   /**
    * Cleanup resources and remove event listeners
    */
   cleanup(): void {
-    console.log('🛡️ [SessionLongevity] Cleaning up...');
+    log.debug('Utils', '🛡️ [SessionLongevity] Cleaning up...');
     
     if (typeof document !== 'undefined') {
       if (this.visibilityHandler) {
@@ -308,7 +309,7 @@ class SessionLongevityManager {
       }
     }
     
-    console.log('✅ [SessionLongevity] Cleanup complete');
+    log.debug('Utils', '✅ [SessionLongevity] Cleanup complete');
   }
 }
 
@@ -323,10 +324,10 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   if (isMobile) {
     (window as any).sessionLongevityManager = sessionLongevityManager;
     (window as any).debugSessionLongevity = () => {
-      console.log('🛡️ [SessionLongevity] Status:', sessionLongevityManager.getStatus());
+      log.debug('Utils', '🛡️ [SessionLongevity] Status:', sessionLongevityManager.getStatus());
     };
-    console.log('🔧 [SessionLongevity] Debug helpers exposed for mobile development');
+    log.debug('Utils', '🔧 [SessionLongevity] Debug helpers exposed for mobile development');
   } else {
-    console.log('🖥️ [SessionLongevity] Desktop detected - debug helpers disabled');
+    log.debug('Utils', '🖥️ [SessionLongevity] Desktop detected - debug helpers disabled');
   }
 } 

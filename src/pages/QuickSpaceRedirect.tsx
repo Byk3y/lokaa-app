@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Quick Space Redirect - PHASE 3 Enhanced with State Management
  * 
@@ -38,7 +39,7 @@ export default function QuickSpaceRedirect() {
             const data = JSON.parse(cached);
             // Remove cache entries older than 1 hour
             if (data.timestamp && (Date.now() - data.timestamp) > 3600000) {
-              console.log(`🧹 [QuickSpaceRedirect] Removing stale cache: ${key}`);
+              log.debug('Page', `🧹 [QuickSpaceRedirect] Removing stale cache: ${key}`);
               localStorage.removeItem(key);
             }
           } catch {
@@ -48,12 +49,12 @@ export default function QuickSpaceRedirect() {
         }
       });
     } catch (error) {
-      console.warn('Cache cleanup failed:', error);
+      log.warn('Page', 'Cache cleanup failed:', error);
     }
   };
 
   useEffect(() => {
-    console.log('🎯 [Phase 3] QuickSpaceRedirect mounted');
+    log.debug('Page', '🎯 [Phase 3] QuickSpaceRedirect mounted');
     
     // 🚀 [Phase 3] Update auth flow stage
     authFlowStateManager.updateStage('fast-path', { source: 'QuickSpaceRedirect' });
@@ -67,7 +68,7 @@ export default function QuickSpaceRedirect() {
     // SAFETY: Set up timeout protection (8 seconds max - reduced for better UX)
     timeoutRef.current = setTimeout(() => {
       if (!executedRef.current) {
-        console.warn('🎯 [Phase 3] QuickSpaceRedirect timeout, falling back to discover');
+        log.warn('Page', '🎯 [Phase 3] QuickSpaceRedirect timeout, falling back to discover');
         authFlowStateManager.completeFlow({
           success: false,
           stage: 'error',
@@ -96,7 +97,7 @@ export default function QuickSpaceRedirect() {
   useEffect(() => {
     // If no user and not loading, redirect to landing page
     if (!user && !loading) {
-      console.log('🎯 [Phase 3] QuickSpaceRedirect no user, redirecting to landing');
+      log.debug('Page', '🎯 [Phase 3] QuickSpaceRedirect no user, redirecting to landing');
       authFlowStateManager.completeFlow({
         success: false,
         stage: 'error',
@@ -119,7 +120,7 @@ export default function QuickSpaceRedirect() {
       
       // Check if AuthContext or another component is already executing
       if (isOtherComponentHandlingFastPath('QuickSpaceRedirect')) {
-        console.log('🚦 [Phase 3] QuickSpaceRedirect - another component handling fast path');
+        log.debug('Page', '🚦 [Phase 3] QuickSpaceRedirect - another component handling fast path');
         authFlowStateManager.completeFlow({
           success: false,
           stage: 'error',
@@ -136,7 +137,7 @@ export default function QuickSpaceRedirect() {
         return;
       }
       
-      console.log('🎯 [Phase 3] QuickSpaceRedirect executing coordinated fast path...');
+      log.debug('Page', '🎯 [Phase 3] QuickSpaceRedirect executing coordinated fast path...');
       
       setRedirecting(true);
       executedRef.current = true;
@@ -146,7 +147,7 @@ export default function QuickSpaceRedirect() {
         const lockResult = acquireFastPathLock('QuickSpaceRedirect');
         
         if (!lockResult.acquired) {
-          console.log(`🚦 [Phase 3] QuickSpaceRedirect lock failed, ${lockResult.conflictingComponent} is active`);
+          log.debug('Page', `🚦 [Phase 3] QuickSpaceRedirect lock failed, ${lockResult.conflictingComponent} is active`);
           authFlowStateManager.completeFlow({
             success: false,
             stage: 'error',
@@ -163,7 +164,7 @@ export default function QuickSpaceRedirect() {
         }
         
         const executionId = lockResult.executionId!;
-        console.log(`🚦 [Phase 3] QuickSpaceRedirect lock acquired: ${executionId.substr(-9)}`);
+        log.debug('Page', `🚦 [Phase 3] QuickSpaceRedirect lock acquired: ${executionId.substr(-9)}`);
         
         try {
           // 🚀 [Phase 3] Update to fast-path execution stage
@@ -171,10 +172,10 @@ export default function QuickSpaceRedirect() {
             source: 'QuickSpaceRedirect'
           });
           
-          console.log('🚀 [Phase 3] QuickSpaceRedirect starting fast path execution...');
+          log.debug('Page', '🚀 [Phase 3] QuickSpaceRedirect starting fast path execution...');
           const result = await executeFastPath(user.id, navigate, '/app');
           
-          console.log(`🎯 [Phase 3] QuickSpaceRedirect fast path completed: ${result.strategy} in ${result.timing}ms`);
+          log.debug('Page', `🎯 [Phase 3] QuickSpaceRedirect fast path completed: ${result.strategy} in ${result.timing}ms`);
           
           // 🚦 STEP 2: Release lock with success result
           const success = result.strategy !== 'error';
@@ -200,7 +201,7 @@ export default function QuickSpaceRedirect() {
           
           // Handle various result scenarios
           if (result.strategy === 'db-no-spaces' || result.strategy === 'cache-no-spaces') {
-            console.log('🎯 [Phase 3] QuickSpaceRedirect user has no spaces, redirecting to discover');
+            log.debug('Page', '🎯 [Phase 3] QuickSpaceRedirect user has no spaces, redirecting to discover');
             
             // 🚀 [Phase 3] Use NavigationCoordinator
             navigationCoordinator.requestNavigation(
@@ -209,7 +210,7 @@ export default function QuickSpaceRedirect() {
               'QuickSpaceRedirect-nospaces'
             );
           } else if (result.strategy === 'error') {
-            console.error('🎯 [Phase 3] QuickSpaceRedirect fast path failed, falling back to discover');
+            log.error('Page', '🎯 [Phase 3] QuickSpaceRedirect fast path failed, falling back to discover');
             
             // 🚀 [Phase 3] Use NavigationCoordinator
             navigationCoordinator.requestNavigation(
@@ -218,7 +219,7 @@ export default function QuickSpaceRedirect() {
               'QuickSpaceRedirect-error'
             );
           } else if (result.strategy === 'already-on-destination') {
-            console.log('🎯 [Phase 3] QuickSpaceRedirect already on destination, redirecting to discover');
+            log.debug('Page', '🎯 [Phase 3] QuickSpaceRedirect already on destination, redirecting to discover');
             
             // 🚀 [Phase 3] Use NavigationCoordinator
             navigationCoordinator.requestNavigation(
@@ -230,7 +231,7 @@ export default function QuickSpaceRedirect() {
           // For successful redirects (cache-has-spaces, db-has-spaces), navigation is already handled
           
         } catch (error) {
-          console.error('🎯 [Phase 3] QuickSpaceRedirect fast path execution failed:', error);
+          log.error('Page', '🎯 [Phase 3] QuickSpaceRedirect fast path execution failed:', error);
           
           // 🚦 STEP 2: Release lock with failure result
           releaseFastPathLock(executionId, {
@@ -269,7 +270,7 @@ export default function QuickSpaceRedirect() {
     
     // ENHANCED: Show loading state while still waiting for auth
     if (loading && !user) {
-      console.log('🎯 [Phase 3] QuickSpaceRedirect waiting for auth completion...');
+      log.debug('Page', '🎯 [Phase 3] QuickSpaceRedirect waiting for auth completion...');
     }
   }, [user, loading, redirecting, error, navigate]);
 

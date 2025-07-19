@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { globalCache, cacheQueries } from '@/utils/globalCacheCoordinator';
 import { devLogger } from '@/utils/developmentLogger';
@@ -477,7 +478,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
 
   const handleCommentAdded = useCallback((postId: string, newCommentCount: number) => {
     // CRITICAL FIX: Force immediate UI update for real-time comment count display
-    console.log(`🔔 [CacheDebug] Updating comment count for post ${postId}: ${newCommentCount}`);
+    log.debug('Hook', `🔔 [CacheDebug] Updating comment count for post ${postId}: ${newCommentCount}`);
     
     // 1. Update the post in both regular and pinned posts arrays immediately
     setPosts(prev => prev.map(post => 
@@ -495,7 +496,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
     // 2. Also call the existing handlePostUpdated for cache consistency
     handlePostUpdated(postId, { comment_count: newCommentCount });
     
-    console.log(`✅ [CacheDebug] Comment count updated successfully for post ${postId}`);
+    log.debug('Hook', `✅ [CacheDebug] Comment count updated successfully for post ${postId}`);
   }, [handlePostUpdated]);
 
   const handlePinToggled = useCallback((postId: string, isPinned: boolean, pinPosition?: number) => {

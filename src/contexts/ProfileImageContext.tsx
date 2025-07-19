@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -52,7 +53,7 @@ export function ProfileImageProvider({ children }: { children: React.ReactNode }
         setProfileImageUrl(user.user_metadata.avatar_url);
       }
     } catch (error) {
-      console.error('Error fetching profile image:', error);
+      log.error('Context', 'Error fetching profile image:', error);
     }
   };
 

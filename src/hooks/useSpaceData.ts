@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -96,7 +97,7 @@ export const useSpaceData = (spaceId: string | null) => {
             mediaItems = JSON.parse(savedMedia);
           }
         } catch (e) {
-          console.error("Failed to parse saved media", e);
+          log.error('Hook', "Failed to parse saved media", e);
         }
         
         // Get member count
@@ -120,7 +121,7 @@ export const useSpaceData = (spaceId: string | null) => {
             adminCount = count;
           }
         } catch (e) {
-          console.error("Error fetching admin count:", e);
+          log.error('Hook', "Error fetching admin count:", e);
         }
         
         // For online count, we'd ideally use a presence system
@@ -162,7 +163,7 @@ export const useSpaceData = (spaceId: string | null) => {
         setSpaceData(spaceDataObj);
         
       } catch (err: unknown) {
-        console.error('Error fetching space data:', err);
+        log.error('Hook', 'Error fetching space data:', err);
         const message = err instanceof Error ? err.message : String(err);
         setError(message || 'Failed to load space data');
         setSpaceData(null);

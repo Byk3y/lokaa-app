@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // This file was created to resolve a build error due to its absence.
 // Please populate it with the necessary code for the Create Course Dialog. 
 
@@ -55,7 +56,7 @@ export default function CreateCourseDialog({
     // Validate the file first
     const validation = validateCourseImage(file);
     if (!validation.isValid) {
-      console.error("Invalid file:", validation.error);
+      log.error('Component', "Invalid file:", validation.error);
       return;
     }
 
@@ -66,7 +67,7 @@ export default function CreateCourseDialog({
         setCoverImageUrl(uploadedUrl);
       }
     } catch (error) {
-      console.error("Upload failed:", error);
+      log.error('Component', "Upload failed:", error);
     } finally {
       setIsUploadingImage(false);
     }

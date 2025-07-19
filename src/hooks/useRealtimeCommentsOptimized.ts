@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { navigationAwareRealtimeService } from '@/services/NavigationAwareRealtimeService';
 
@@ -118,7 +119,7 @@ export const useRealtimeCommentsOptimized = ({
     const isFirstSubscriber = subscriptionManager.addSubscriber(postId, handleRealtimeEvent);
     
     if (isFirstSubscriber) {
-      console.log(`🔔 [RealtimeCommentsOptimized] Setting up subscription for post: ${postId}`);
+      log.debug('Hook', `🔔 [RealtimeCommentsOptimized] Setting up subscription for post: ${postId}`);
       
       // Only create subscription if this is the first subscriber
       navigationAwareRealtimeService.subscribe(
@@ -131,7 +132,7 @@ export const useRealtimeCommentsOptimized = ({
         }
       );
     } else {
-      console.log(`🔔 [RealtimeCommentsOptimized] Reusing existing subscription for post: ${postId}`);
+      log.debug('Hook', `🔔 [RealtimeCommentsOptimized] Reusing existing subscription for post: ${postId}`);
     }
 
     setIsConnected(true);
@@ -142,10 +143,10 @@ export const useRealtimeCommentsOptimized = ({
       const shouldCleanup = subscriptionManager.removeSubscriber(postId, handleRealtimeEvent);
       
       if (shouldCleanup) {
-        console.log(`🔔 [RealtimeCommentsOptimized] Cleaning up subscription for post: ${postId}`);
+        log.debug('Hook', `🔔 [RealtimeCommentsOptimized] Cleaning up subscription for post: ${postId}`);
         navigationAwareRealtimeService.unsubscribe(`post:${postId}`);
       } else {
-        console.log(`🔔 [RealtimeCommentsOptimized] Keeping subscription for post: ${postId} (${subscriptionManager.subscribers.get(postId)?.size} subscribers remaining)`);
+        log.debug('Hook', `🔔 [RealtimeCommentsOptimized] Keeping subscription for post: ${postId} (${subscriptionManager.subscribers.get(postId)?.size} subscribers remaining)`);
       }
       
       setIsConnected(false);

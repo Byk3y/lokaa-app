@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 
 /**
@@ -20,7 +21,7 @@ export async function createMinimalSpace(
   subdomain: string, 
   ownerId: string
 ): Promise<SpaceCreationResult> {
-  console.log("Creating minimal space with:", { name, subdomain, ownerId });
+  log.debug('Service', "Creating minimal space with:", { name, subdomain, ownerId });
   
   try {
     // Use a direct, minimal insert to avoid policy issues
@@ -36,14 +37,14 @@ export async function createMinimalSpace(
       .single();
     
     if (error) {
-      console.error("Error creating minimal space:", error);
+      log.error('Service', "Error creating minimal space:", error);
       return { success: false, error };
     }
     
-    console.log("Space created successfully:", data);
+    log.debug('Service', "Space created successfully:", data);
     return { success: true, data };
   } catch (err) {
-    console.error("Unexpected error creating space:", err);
+    log.error('Service', "Unexpected error creating space:", err);
     return { 
       success: false, 
       error: err instanceof Error ? err : new Error(String(err)) 
@@ -64,7 +65,7 @@ export async function createSpace(
     settings?: Record<string, any>;
   } = {}
 ): Promise<SpaceCreationResult> {
-  console.log("Creating complete space with:", { name, subdomain, ownerId, options });
+  log.debug('Service', "Creating complete space with:", { name, subdomain, ownerId, options });
   
   try {
     const { data, error } = await getSupabaseClient()
@@ -82,14 +83,14 @@ export async function createSpace(
       .single();
     
     if (error) {
-      console.error("Error creating space:", error);
+      log.error('Service', "Error creating space:", error);
       return { success: false, error };
     }
     
-    console.log("Space created successfully:", data);
+    log.debug('Service', "Space created successfully:", data);
     return { success: true, data };
   } catch (err) {
-    console.error("Unexpected error creating space:", err);
+    log.error('Service', "Unexpected error creating space:", err);
     return { 
       success: false, 
       error: err instanceof Error ? err : new Error(String(err)) 

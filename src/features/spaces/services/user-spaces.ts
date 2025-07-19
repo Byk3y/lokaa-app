@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * User spaces service
  * Handles user space relationships, counts, and queries
@@ -40,7 +41,7 @@ export async function userHasSpaces(userId: string): Promise<boolean> {
     // Return true if user has at least one joined space
     return (memberRecords?.length || 0) > 0;
   } catch (error) {
-    console.error('Error checking if user has spaces:', error);
+    log.error('Service', 'Error checking if user has spaces:', error);
     return false;
   }
 }
@@ -79,7 +80,7 @@ export async function getUserSpaceCounts(userId: string): Promise<UserSpaceCount
       totalCount: ownedCount + joinedCount
     };
   } catch (error) {
-    console.error('Error getting user space counts:', error);
+    log.error('Service', 'Error getting user space counts:', error);
     return { ownedCount: 0, joinedCount: 0, totalCount: 0 };
   }
 }
@@ -126,7 +127,7 @@ export async function getFirstUserSpaceId(userId: string): Promise<string | null
     // No spaces found
     return null;
   } catch (error) {
-    console.error('Error getting user\'s first space ID:', error);
+    log.error('Service', 'Error getting user\'s first space ID:', error);
     return null;
   }
 }
@@ -138,7 +139,7 @@ export async function getFirstUserSpaceId(userId: string): Promise<string | null
  */
 export async function getFirstUserSpace(userId: string): Promise<UserSpaceInfo | null> {
   if (!userId) {
-    console.warn('getFirstUserSpace: Called with empty userId');
+    log.warn('Service', 'getFirstUserSpace: Called with empty userId');
     return null;
   }
   
@@ -176,7 +177,7 @@ export async function getAllUserSpaces(userId: string): Promise<UserSpaceInfo[]>
       .order('created_at', { ascending: false });
       
     if (ownedError) {
-      console.error('Error fetching owned spaces:', ownedError);
+      log.error('Service', 'Error fetching owned spaces:', ownedError);
     } else if (ownedSpaces) {
       spaces.push(...ownedSpaces.map(space => ({
         id: space.id,
@@ -196,7 +197,7 @@ export async function getAllUserSpaces(userId: string): Promise<UserSpaceInfo[]>
       .order('created_at', { ascending: false });
       
     if (memberError) {
-      console.error('Error fetching accessible spaces:', memberError);
+      log.error('Service', 'Error fetching accessible spaces:', memberError);
     } else if (memberRecords) {
       memberRecords.forEach(record => {
         if (record.spaces) {
@@ -212,7 +213,7 @@ export async function getAllUserSpaces(userId: string): Promise<UserSpaceInfo[]>
     
     return spaces;
   } catch (error) {
-    console.error('Error getting all user spaces:', error);
+    log.error('Service', 'Error getting all user spaces:', error);
     return [];
   }
 } 

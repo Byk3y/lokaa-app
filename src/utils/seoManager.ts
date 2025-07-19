@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // =====================================
 // SEO & METADATA MANAGEMENT SYSTEM
 // =====================================
@@ -76,7 +77,7 @@ export class SEOManager {
     spaceSubdomain?: string
   ): Promise<void> {
     try {
-      console.log(`[SEO] Updating metadata for ${type}:`, identifier);
+      log.debug('Utils', `[SEO] Updating metadata for ${type}:`, identifier);
 
       // Fetch metadata from Edge Function
       const metadata = await this.fetchMetadata(type, identifier, spaceSubdomain);
@@ -85,12 +86,12 @@ export class SEOManager {
         this.applySEOData(metadata);
         this.trackPageView(type, identifier);
       } else {
-        console.warn('[SEO] No metadata received, using fallback');
+        log.warn('Utils', '[SEO] No metadata received, using fallback');
         this.applyFallbackSEO(type);
       }
 
     } catch (error) {
-      console.error('[SEO] Failed to update metadata:', error);
+      log.error('Utils', '[SEO] Failed to update metadata:', error);
       this.applyFallbackSEO(type);
     }
   }
@@ -123,14 +124,14 @@ export class SEOManager {
       const { success, metadata } = await response.json();
       
       if (success && metadata) {
-        console.log('[SEO] Metadata fetched successfully');
+        log.debug('Utils', '[SEO] Metadata fetched successfully');
         return metadata;
       }
 
       return null;
 
     } catch (error) {
-      console.error('[SEO] Edge Function request failed:', error);
+      log.error('Utils', '[SEO] Edge Function request failed:', error);
       return null;
     }
   }
@@ -198,7 +199,7 @@ export class SEOManager {
       this.setJsonLdSchema(seoData.schema);
     }
 
-    console.log('[SEO] Metadata applied successfully');
+    log.debug('Utils', '[SEO] Metadata applied successfully');
   }
 
   /**
@@ -331,7 +332,7 @@ export class SEOManager {
     this.setMetaTag('theme-color', '#14b8a6');
     this.setMetaTag('msapplication-TileColor', '#14b8a6');
 
-    console.log('[SEO] Default meta tags initialized');
+    log.debug('Utils', '[SEO] Default meta tags initialized');
   }
 
   /**
@@ -389,7 +390,7 @@ export class SEOManager {
       title: document.title
     };
 
-    console.log('[SEO] Page view tracked:', eventData);
+    log.debug('Utils', '[SEO] Page view tracked:', eventData);
 
     // Send to analytics service (implement as needed)
     this.sendAnalyticsEvent('page_view', eventData);
@@ -402,7 +403,7 @@ export class SEOManager {
     try {
       // This could integrate with your analytics service
       // For now, we'll just log it
-      console.log(`[Analytics] ${event}:`, data);
+      log.debug('Utils', `[Analytics] ${event}:`, data);
       
       // Example: Send to custom analytics endpoint
       // await fetch('/api/analytics', {
@@ -411,7 +412,7 @@ export class SEOManager {
       //   body: JSON.stringify({ event, data })
       // });
     } catch (error) {
-      console.error('[Analytics] Failed to send event:', error);
+      log.error('Utils', '[Analytics] Failed to send event:', error);
     }
   }
 
@@ -451,7 +452,7 @@ export class SEOManager {
    */
   destroy(): void {
     this.clearDynamicMeta();
-    console.log('[SEO] Manager destroyed');
+    log.debug('Utils', '[SEO] Manager destroyed');
   }
 }
 
@@ -463,5 +464,5 @@ if (typeof window !== 'undefined') {
   (window as any).seoManager = seoManager;
   (window as any).getSEOStatus = () => seoManager.getSEOStatus();
   
-  console.log('🚀 [SEO] SEO manager initialized');
+  log.debug('Utils', '🚀 [SEO] SEO manager initialized');
 } 

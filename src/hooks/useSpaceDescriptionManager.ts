@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -75,7 +76,7 @@ export default function useSpaceDescriptionManager(): UseSpaceDescriptionManager
         description: "Your space description has been updated.",
       });
     } catch (error) {
-      console.error("Error saving description:", error);
+      log.error('Hook', "Error saving description:", error);
       toast({
         title: "Error",
         description: "Failed to save description. Please try again.",

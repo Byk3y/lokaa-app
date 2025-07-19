@@ -146,7 +146,7 @@ export default function MobileProfileEditForm({ user, onClose }: MobileProfileEd
           id="profileUrl"
           type="text"
           className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
-          value={profileUrl ? `lokaa.com/@${profileUrl}` : 'lokaa.com/@username-not-set'}
+          value={profileUrl ? `lokaa.app/@${profileUrl}` : 'lokaa.app/@username-not-set'}
           disabled
           readOnly
         />

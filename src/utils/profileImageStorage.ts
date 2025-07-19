@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 
 /**
@@ -10,7 +11,7 @@ export async function uploadProfileImage(file: File): Promise<string | null> {
     // Get current user
     const { data: { user } } = await getSupabaseClient().auth.getUser();
     if (!user) {
-      console.error("User not authenticated");
+      log.error('Utils', "User not authenticated");
       return null;
     }
     
@@ -22,14 +23,14 @@ export async function uploadProfileImage(file: File): Promise<string | null> {
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      console.error("Invalid file type. Only JPEG, PNG, GIF, and WEBP are allowed.");
+      log.error('Utils', "Invalid file type. Only JPEG, PNG, GIF, and WEBP are allowed.");
       return null;
     }
     
     // Validate file size (max 2MB)
     const maxSize = 2 * 1024 * 1024; // 2MB
     if (file.size > maxSize) {
-      console.error("File too large. Maximum size is 2MB.");
+      log.error('Utils', "File too large. Maximum size is 2MB.");
       return null;
     }
     
@@ -43,7 +44,7 @@ export async function uploadProfileImage(file: File): Promise<string | null> {
       });
       
     if (error) {
-      console.error('Error uploading image:', error);
+      log.error('Utils', 'Error uploading image:', error);
       return null;
     }
     
@@ -61,13 +62,13 @@ export async function uploadProfileImage(file: File): Promise<string | null> {
     });
     
     if (updateError) {
-      console.error('Error updating user metadata:', updateError);
+      log.error('Utils', 'Error updating user metadata:', updateError);
       // Even if metadata update fails, return the URL
     }
     
     return publicUrl;
   } catch (error) {
-    console.error('Error in uploadProfileImage:', error);
+    log.error('Utils', 'Error in uploadProfileImage:', error);
     return null;
   }
 }
@@ -85,10 +86,10 @@ export async function deleteOldProfileImage(filePath: string): Promise<void> {
       .remove([filePath]);
       
     if (error) {
-      console.error('Error deleting old image:', error);
+      log.error('Utils', 'Error deleting old image:', error);
     }
   } catch (error) {
-    console.error('Error in deleteOldProfileImage:', error);
+    log.error('Utils', 'Error in deleteOldProfileImage:', error);
   }
 }
 
@@ -103,7 +104,7 @@ export async function getProfileImageUrl(): Promise<string | null> {
     
     return user.user_metadata?.avatar_url || null;
   } catch (error) {
-    console.error('Error in getProfileImageUrl:', error);
+    log.error('Utils', 'Error in getProfileImageUrl:', error);
     return null;
   }
 } 

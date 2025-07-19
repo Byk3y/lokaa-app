@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cacheHealth, cacheDebug } from '@/utils/cacheUtils';
@@ -83,7 +84,7 @@ export function useCachePerformance() {
     collectMetrics();
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 Cache performance monitoring started');
+      log.debug('Hook', '🔍 Cache performance monitoring started');
     }
     
     return () => {

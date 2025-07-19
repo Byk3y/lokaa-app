@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -60,7 +61,7 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
   // Phase 4: Enhanced signOut with authTokenUtils integration
   const signOut = useCallback(async () => {
     try {
-      console.log('🚪 [SecureSession] Enhanced signOut with token cleanup...');
+      log.debug('Hook', '🚪 [SecureSession] Enhanced signOut with token cleanup...');
       
       // Phase 4: Clear all auth tokens before signing out
       await clearAllAuthTokens(false);
@@ -74,9 +75,9 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
         variant: 'destructive',
       });
       
-      console.log('✅ [SecureSession] Enhanced signOut completed');
+      log.debug('Hook', '✅ [SecureSession] Enhanced signOut completed');
     } catch (error) {
-      console.error('❌ [SecureSession] Error during enhanced signOut:', error);
+      log.error('Hook', '❌ [SecureSession] Error during enhanced signOut:', error);
     }
   }, [navigate, queryClient, toast]);
 
@@ -88,7 +89,7 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
         event_data: eventData
       });
     } catch (error) {
-      console.error('Error logging security event:', error);
+      log.error('Hook', 'Error logging security event:', error);
     }
   }, []);
 
@@ -100,7 +101,7 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
       isRefreshingRef.current = true;
       sessionHealthRef.current.refreshAttempts++;
       
-      console.log('🔄 [SecureSession] Phase 4: Enhanced session refresh...');
+      log.debug('Hook', '🔄 [SecureSession] Phase 4: Enhanced session refresh...');
       
       // Phase 4: Use Supabase's built-in refresh instead of custom endpoint
       const { data, error } = await getSupabaseClient().auth.refreshSession();
@@ -134,10 +135,10 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
         timestamp: Date.now()
       });
 
-      console.log('✅ [SecureSession] Session refresh completed successfully');
+      log.debug('Hook', '✅ [SecureSession] Session refresh completed successfully');
 
     } catch (error) {
-      console.error('❌ [SecureSession] Session refresh error:', error);
+      log.error('Hook', '❌ [SecureSession] Session refresh error:', error);
       options.onRefreshError?.(error as Error);
       
       await logSecurityEvent('session_refresh_fail', {
@@ -156,7 +157,7 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
   // Phase 4: Enhanced session health check with validation
   const checkSessionHealth = useCallback(async () => {
     try {
-      console.log('🔍 [SecureSession] Phase 4: Enhanced session health check...');
+      log.debug('Hook', '🔍 [SecureSession] Phase 4: Enhanced session health check...');
       
       const now = Date.now();
       sessionHealthRef.current.lastCheck = now;
@@ -171,7 +172,7 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
         
         // Clean up any inconsistent keys found
         if (validationResult.hasInconsistentKeys) {
-          console.log('🧹 [SecureSession] Cleaning up inconsistent auth keys...');
+          log.debug('Hook', '🧹 [SecureSession] Cleaning up inconsistent auth keys...');
           await clearAllAuthTokens(true); // Preserve Supabase keys during health check
         }
         
@@ -193,7 +194,7 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
       if (currentData.session) {
         const expiresAt = currentData.session.expires_at * 1000;
         if (expiresAt - now <= REFRESH_INTERVAL) {
-          console.log('🔄 [SecureSession] Session expires soon, refreshing...');
+          log.debug('Hook', '🔄 [SecureSession] Session expires soon, refreshing...');
           await refreshSession();
         }
       }
@@ -201,7 +202,7 @@ export function useSecureSession(options: UseSecureSessionOptions = {}) {
       sessionHealthRef.current.consecutiveFailures = 0;
       sessionHealthRef.current.lastValidation = now;
       
-      console.log('✅ [SecureSession] Session health check passed');
+      log.debug('Hook', '✅ [SecureSession] Session health check passed');
       return true;
     } catch (error) {
       sessionHealthRef.current.consecutiveFailures++;

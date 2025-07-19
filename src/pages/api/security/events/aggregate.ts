@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { NextApiRequest, NextApiResponse } from 'next';
 
@@ -14,13 +15,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .throwOnError();
 
     if (error) {
-      console.error('Failed to aggregate security events:', error);
+      log.error('Page', 'Failed to aggregate security events:', error);
       return res.status(500).json({ error: 'Failed to aggregate security events' });
     }
 
     return res.status(200).json(data);
   } catch (error) {
-    console.error('Error aggregating security events:', error);
+    log.error('Page', 'Error aggregating security events:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 } 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 PHASE 3: Advanced Comment Data Caching Strategy
  * 
@@ -45,7 +46,7 @@ class CommentCacheManager {
    */
   init(queryClient: QueryClient) {
     this.queryClient = queryClient;
-    console.log('🎯 [CommentCache] Initialized with TanStack Query client');
+    log.debug('Utils', '🎯 [CommentCache] Initialized with TanStack Query client');
   }
 
   /**
@@ -56,14 +57,14 @@ class CommentCacheManager {
     options: CommentCacheOptions = {}
   ): Promise<PreloadResult[]> {
     if (!this.queryClient) {
-      console.warn('🎯 [CommentCache] QueryClient not initialized');
+      log.warn('Utils', '🎯 [CommentCache] QueryClient not initialized');
       return [];
     }
 
     const { warmAvatars = true, warmComments = false, priority = 'normal' } = options;
     const results: PreloadResult[] = [];
 
-    console.log(`🎯 [CommentCache] Warming cache for ${postIds.length} posts (avatars: ${warmAvatars}, comments: ${warmComments})`);
+    log.debug('Utils', `🎯 [CommentCache] Warming cache for ${postIds.length} posts (avatars: ${warmAvatars}, comments: ${warmComments})`);
 
     for (const postId of postIds) {
       const startTime = Date.now();
@@ -115,7 +116,7 @@ class CommentCacheManager {
         });
 
       } catch (error) {
-        console.error(`🎯 [CommentCache] Failed to warm cache for post ${postId}:`, error);
+        log.error('Utils', `🎯 [CommentCache] Failed to warm cache for post ${postId}:`, error);
         results.push({
           success: false,
           postId,
@@ -126,7 +127,7 @@ class CommentCacheManager {
       }
     }
 
-    console.log(`🎯 [CommentCache] Cache warming complete: ${results.filter(r => r.success).length}/${results.length} successful`);
+    log.debug('Utils', `🎯 [CommentCache] Cache warming complete: ${results.filter(r => r.success).length}/${results.length} successful`);
     return results;
   }
 
@@ -136,7 +137,7 @@ class CommentCacheManager {
   invalidatePostComments(postId: string, reason: 'new_comment' | 'comment_updated' | 'comment_deleted' = 'new_comment') {
     if (!this.queryClient) return;
 
-    console.log(`🔄 [CommentCache] Invalidating cache for post ${postId} (reason: ${reason})`);
+    log.debug('Utils', `🔄 [CommentCache] Invalidating cache for post ${postId} (reason: ${reason})`);
 
     // Invalidate avatar cache immediately
     this.queryClient.invalidateQueries({
@@ -168,7 +169,7 @@ class CommentCacheManager {
     this.isPreloading = true;
     
     try {
-      console.log(`🔄 [CommentCache] Background refresh for ${postIds.length} posts`);
+      log.debug('Utils', `🔄 [CommentCache] Background refresh for ${postIds.length} posts`);
       
       for (const postId of postIds) {
         const entry = this.cacheRegistry.get(postId);
@@ -188,7 +189,7 @@ class CommentCacheManager {
         }
       }
     } catch (error) {
-      console.error('🔄 [CommentCache] Background refresh failed:', error);
+      log.error('Utils', '🔄 [CommentCache] Background refresh failed:', error);
     } finally {
       this.isPreloading = false;
     }
@@ -250,7 +251,7 @@ class CommentCacheManager {
       }
     });
 
-    console.log(`🧹 [CommentCache] Cleanup completed: ${cleanedCount} queries, ${registryBefore - this.cacheRegistry.size} registry entries removed`);
+    log.debug('Utils', `🧹 [CommentCache] Cleanup completed: ${cleanedCount} queries, ${registryBefore - this.cacheRegistry.size} registry entries removed`);
   }
 
   /**
@@ -259,7 +260,7 @@ class CommentCacheManager {
   private async fetchCommentAvatars(postId: string, maxCommenters: number) {
     // 🛡️ VALIDATION: Check for valid UUID format to prevent 400 errors
     if (!isValidUUID(postId)) {
-      console.log(`📭 [CommentCache] Skipping invalid post ID: ${postId}`);
+      log.debug('Utils', `📭 [CommentCache] Skipping invalid post ID: ${postId}`);
       return [];
     }
 
@@ -275,12 +276,12 @@ class CommentCacheManager {
 
     if (commentsError) {
       // Don't throw error, just log and return empty array
-      console.log(`📭 [CommentCache] No comments found for post ${postId}:`, commentsError.message);
+      log.debug('Utils', `📭 [CommentCache] No comments found for post ${postId}:`, commentsError.message);
       return [];
     }
     
     if (!comments || comments.length === 0) {
-      console.log(`📭 [CommentCache] No comments found for post ${postId}`);
+      log.debug('Utils', `📭 [CommentCache] No comments found for post ${postId}`);
       return [];
     }
 
@@ -295,7 +296,7 @@ class CommentCacheManager {
       .in('id', uniqueUserIds);
 
     if (usersError) {
-      console.log(`📭 [CommentCache] Failed to fetch users for post ${postId}:`, usersError.message);
+      log.debug('Utils', `📭 [CommentCache] Failed to fetch users for post ${postId}:`, usersError.message);
       return [];
     }
     
@@ -315,7 +316,7 @@ class CommentCacheManager {
   private async fetchComments(postId: string, pageParam: number) {
     // 🛡️ VALIDATION: Check for valid UUID format to prevent 400 errors
     if (!isValidUUID(postId)) {
-      console.log(`📭 [CommentCache] Skipping invalid post ID: ${postId}`);
+      log.debug('Utils', `📭 [CommentCache] Skipping invalid post ID: ${postId}`);
       return {
         comments: [],
         nextCursor: undefined,
@@ -336,7 +337,7 @@ class CommentCacheManager {
       .range(offset, offset + limit - 1);
       
     if (commentsError) {
-      console.log(`📭 [CommentCache] Failed to fetch comments for post ${postId}:`, commentsError.message);
+      log.debug('Utils', `📭 [CommentCache] Failed to fetch comments for post ${postId}:`, commentsError.message);
       return {
         comments: [],
         nextCursor: undefined,
@@ -360,7 +361,7 @@ class CommentCacheManager {
       .in('id', uniqueUserIds);
 
     if (usersError) {
-      console.warn('🚨 [CommentCache] Failed to fetch user data, proceeding with comments only:', usersError);
+      log.warn('Utils', '🚨 [CommentCache] Failed to fetch user data, proceeding with comments only:', usersError);
     }
 
     // Create user lookup map

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { BellRing, MessageCircle, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Upload, Lock, Check, Globe, Loader2, Trophy, GraduationCap, Camera } from "lucide-react";
@@ -41,7 +42,7 @@ const DEFAULT_COVER_IMAGE_URL = '/default-space-cover.jpg'; // Define a default
 
 // Debug logging for space loading
 const logSpaceDebug = (message: string, data?: any) => {
-  console.log(`🏠 [Space] ${message}`, data || '');
+  log.debug('Page', `🏠 [Space] ${message}`, data || '');
 };
 
 interface SpaceDetails {
@@ -384,19 +385,19 @@ export default function Space({ initialTab }: SpaceProps) {
       const currentUserId = user.id; // Capture for closure
       window.spaceDebug = {
         checkAccess: async () => {
-          if (!currentUserId || !currentSubdomain) return console.error('Missing user or subdomain for checkAccess');
+          if (!currentUserId || !currentSubdomain) return log.error('Page', 'Missing user or subdomain for checkAccess');
           return await checkSpaceAccessForUser(currentUserId, currentSubdomain);
         },
         directCheck: async () => {
-          if (!currentSubdomain) return console.error('Missing subdomain for directCheck');
+          if (!currentSubdomain) return log.error('Page', 'Missing subdomain for directCheck');
           return await directSpaceAccessCheck(currentSubdomain);
         },
         forceUpdateStore: () => {
-          if (!currentSubdomain || !currentUserId) return console.error('Missing subdomain or user ID for forceUpdateStore');
+          if (!currentSubdomain || !currentUserId) return log.error('Page', 'Missing subdomain or user ID for forceUpdateStore');
           loadActiveSpace({ subdomain: currentSubdomain }, currentUserId, true);
         },
         fixAccess: async () => {
-          if (!currentSubdomain || !currentUserId) return console.error('Missing subdomain or user ID for fixAccess');
+          if (!currentSubdomain || !currentUserId) return log.error('Page', 'Missing subdomain or user ID for fixAccess');
           await fixSpaceAccessBySubdomain(currentSubdomain);
           toast({ title: "Access Fix Attempted", description: "Please refresh and check access." });
         },
@@ -428,7 +429,7 @@ export default function Space({ initialTab }: SpaceProps) {
     try {
       sessionStorage.setItem(`active_tab_${subdomain}`, tabKey);
     } catch (err) {
-      console.warn('Failed to store active tab:', err);
+      log.warn('Page', 'Failed to store active tab:', err);
     }
     // Navigation logic is now handled by SpaceNav.tsx
     /*

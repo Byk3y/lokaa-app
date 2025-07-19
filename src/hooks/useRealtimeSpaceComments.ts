@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -55,13 +56,13 @@ export const useRealtimeSpaceComments = ({
         .eq('post_id', postId);
 
       if (error) {
-        console.error('[RealtimeSpaceComments] Error getting comment count:', error);
+        log.error('Hook', '[RealtimeSpaceComments] Error getting comment count:', error);
         return 0;
       }
 
       return count || 0;
     } catch (error) {
-      console.error('[RealtimeSpaceComments] Error getting comment count:', error);
+      log.error('Hook', '[RealtimeSpaceComments] Error getting comment count:', error);
       return 0;
     }
   }, []);
@@ -72,9 +73,9 @@ export const useRealtimeSpaceComments = ({
       return;
     }
 
-    console.log(`🔔 [RealtimeSpaceComments] Setting up subscription for space: ${spaceId}`);
-    console.log(`🔔 [RealtimeSpaceComments] Filter: space_id=eq.${spaceId}`);
-    console.log(`🔔 [RealtimeSpaceComments] Current user ID: ${userId}`);
+    log.debug('Hook', `🔔 [RealtimeSpaceComments] Setting up subscription for space: ${spaceId}`);
+    log.debug('Hook', `🔔 [RealtimeSpaceComments] Filter: space_id=eq.${spaceId}`);
+    log.debug('Hook', `🔔 [RealtimeSpaceComments] Current user ID: ${userId}`);
 
     // Create channel for ALL comments in this space
     const channel = getSupabaseClient()
@@ -88,12 +89,12 @@ export const useRealtimeSpaceComments = ({
           filter: `space_id=eq.${spaceId}`, // 🔥 CRITICAL FIX: Filter by space_id directly!
         },
         async (payload) => {
-          console.log('🔔 [RealtimeSpaceComments] New comment detected:', payload);
+          log.debug('Hook', '🔔 [RealtimeSpaceComments] New comment detected:', payload);
           
           if (payload.new && typeof payload.new === 'object') {
             const newComment = payload.new as NewCommentData;
             
-            console.log('🔔 [RealtimeSpaceComments] Processing new comment:', {
+            log.debug('Hook', '🔔 [RealtimeSpaceComments] Processing new comment:', {
               id: newComment.id,
               post_id: newComment.post_id,
               user_id: newComment.user_id,
@@ -103,21 +104,21 @@ export const useRealtimeSpaceComments = ({
 
             // Don't trigger for own comments (to prevent double updates)
             if (newComment.user_id === userId) {
-              console.log('🔔 [RealtimeSpaceComments] Ignoring own comment');
+              log.debug('Hook', '🔔 [RealtimeSpaceComments] Ignoring own comment');
               return;
             }
 
             // Get the updated comment count for this post
             const newCommentCount = await getPostCommentCount(newComment.post_id);
 
-            console.log(`🔔 [RealtimeSpaceComments] Updating comment count for post ${newComment.post_id}: ${newCommentCount}`);
+            log.debug('Hook', `🔔 [RealtimeSpaceComments] Updating comment count for post ${newComment.post_id}: ${newCommentCount}`);
 
             // Call the callback to update the cached posts
             if (callbackRef.current) {
               callbackRef.current(newComment.post_id, newCommentCount);
             }
           } else {
-            console.warn('🔔 [RealtimeSpaceComments] Invalid payload.new:', payload.new);
+            log.warn('Hook', '🔔 [RealtimeSpaceComments] Invalid payload.new:', payload.new);
           }
         }
       )
@@ -130,7 +131,7 @@ export const useRealtimeSpaceComments = ({
           filter: `space_id=eq.${spaceId}`, // 🔥 CRITICAL FIX: Filter by space_id directly!
         },
         async (payload) => {
-          console.log('🔔 [RealtimeSpaceComments] Comment deleted:', payload);
+          log.debug('Hook', '🔔 [RealtimeSpaceComments] Comment deleted:', payload);
           
           if (payload.old && typeof payload.old === 'object') {
             const deletedComment = payload.old as NewCommentData;
@@ -138,7 +139,7 @@ export const useRealtimeSpaceComments = ({
             // Get the updated comment count for this post
             const newCommentCount = await getPostCommentCount(deletedComment.post_id);
 
-            console.log(`🔔 [RealtimeSpaceComments] Updating comment count after deletion for post ${deletedComment.post_id}: ${newCommentCount}`);
+            log.debug('Hook', `🔔 [RealtimeSpaceComments] Updating comment count after deletion for post ${deletedComment.post_id}: ${newCommentCount}`);
 
             // Call the callback to update the cached posts
             if (callbackRef.current) {
@@ -148,7 +149,7 @@ export const useRealtimeSpaceComments = ({
         }
       )
       .subscribe((status) => {
-        console.log(`🔔 [RealtimeSpaceComments] Subscription status: ${status}`);
+        log.debug('Hook', `🔔 [RealtimeSpaceComments] Subscription status: ${status}`);
         
         const isSubscribed = status === 'SUBSCRIBED';
         setIsConnected(isSubscribed);
@@ -164,7 +165,7 @@ export const useRealtimeSpaceComments = ({
 
     // Cleanup function
     return () => {
-      console.log('🔔 [RealtimeSpaceComments] Cleaning up subscription');
+      log.debug('Hook', '🔔 [RealtimeSpaceComments] Cleaning up subscription');
       if (channelRef.current) {
         getSupabaseClient().removeChannel(channelRef.current);
         channelRef.current = null;

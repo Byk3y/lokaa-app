@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -70,7 +71,7 @@ export const useAdvancedRealtimePosts = ({
     setNewPostIds(prev => {
       const newIds = uniqueIds.filter(id => !prev.includes(id));
       if (newIds.length > 0) {
-        console.log(`✨ [AdvancedRealtime] Processed ${newIds.length} new posts`);
+        log.debug('Hook', `✨ [AdvancedRealtime] Processed ${newIds.length} new posts`);
         return [...prev, ...newIds].slice(-20); // Keep only last 20 for memory efficiency
       }
       return prev;
@@ -123,7 +124,7 @@ export const useAdvancedRealtimePosts = ({
         }
       )
       .subscribe((status) => {
-        console.log(`🔔 [AdvancedRealtime] Status: ${status}`);
+        log.debug('Hook', `🔔 [AdvancedRealtime] Status: ${status}`);
         
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
@@ -131,7 +132,7 @@ export const useAdvancedRealtimePosts = ({
           
           // Start heartbeat
           heartbeatTimer.current = setInterval(() => {
-            console.log('💓 [AdvancedRealtime] Heartbeat');
+            log.debug('Hook', '💓 [AdvancedRealtime] Heartbeat');
           }, config.heartbeat);
           
         } else if (status === 'CHANNEL_ERROR') {

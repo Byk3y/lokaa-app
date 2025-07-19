@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import React, { useCallback, useMemo, memo, useState, useEffect } from "react";
@@ -115,7 +116,7 @@ const PostCardMedia = memo(({ media, contentGifUrl, onClick }: {
             className="w-full h-full object-cover"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              console.log('🎬 [PostCardMedia] Video thumbnail failed to load:', displayMedia.thumbnailUrl || displayMedia.url);
+              log.debug('Component', '🎬 [PostCardMedia] Video thumbnail failed to load:', displayMedia.thumbnailUrl || displayMedia.url);
               // Fallback to a simple placeholder if thumbnail fails
               target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyIiBoZWlnaHQ9IjEwMiIgdmlld0JveD0iMCAwIDEwMiAxMDIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDIiIGhlaWdodD0iMTAyIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik00MSAzNUw2MSA1MUw0MSA2N1YzNVoiIGZpbGw9IiM2QjdGODAiLz4KPC9zdmc+';
             }}
@@ -221,8 +222,10 @@ const PostCard = memo(function PostCard({
     spaceId,
     userId: userIdForActions,
     initialLikes: likes,
+    postTitle: title, // 🚀 NEW: Pass post title for notifications
+    postAuthorId: author?.id, // 🚀 NEW: Pass post author ID for notifications
     onLikeToggled: (postId, newLikeCount) => {
-      console.log('🔔 [PostCard] Like toggled via real-time:', { postId, newLikeCount });
+      log.debug('Component', '🔔 [PostCard] Like toggled via real-time:', { postId, newLikeCount });
       if (onLikeToggled) {
         onLikeToggled(postId, newLikeCount);
       }
@@ -308,7 +311,7 @@ const PostCard = memo(function PostCard({
       await handleLikeToggle();
       // The onLikeToggled callback is already handled within usePostLikes hook
     } catch (error) {
-      console.error('Error toggling like in PostCard:', error);
+      log.error('Component', 'Error toggling like in PostCard:', error);
     }
   }, [handleLikeToggle]);
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useMemo, useRef, useEffect } from 'react';
 import { TrustToken } from '@/utils/simpleFastPath';
 import { TrustTokenService } from '@/services/TrustTokenService';
@@ -59,7 +60,7 @@ export function useTrustToken(subdomain: string | undefined, userId: string | un
   useEffect(() => {
     if (result.token && !loggedRef.current) {
       loggedRef.current = true;
-      console.log('🔒 [useTrustToken] Trust token access confirmed');
+      log.debug('Hook', '🔒 [useTrustToken] Trust token access confirmed');
     }
   }, [result.token]);
 

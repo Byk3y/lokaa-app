@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🛡️ Phase 4: Error Handling and Fallback Systems
  * 
@@ -246,7 +247,7 @@ class ErrorHandlingSystem {
         this.activeRetries.delete(operationId);
         
         if (attempt > 0) {
-          console.log(`✅ [ErrorHandling] Operation succeeded on attempt ${attempt + 1}`);
+          log.debug('Utils', `✅ [ErrorHandling] Operation succeeded on attempt ${attempt + 1}`);
         }
         
         return result;
@@ -273,7 +274,7 @@ class ErrorHandlingSystem {
         // Add jitter to prevent thundering herd
         delay += Math.random() * 1000;
 
-        console.warn(`⚠️ [ErrorHandling] Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, lastError.message);
+        log.warn('Utils', `⚠️ [ErrorHandling] Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, lastError.message);
         
         // Track active retries
         this.activeRetries.set(operationId, attempt + 1);
@@ -310,16 +311,16 @@ class ErrorHandlingSystem {
     }
 
     try {
-      console.log(`🔧 [ErrorHandling] Attempting recovery for ${error.type} error`);
+      log.debug('Utils', `🔧 [ErrorHandling] Attempting recovery for ${error.type} error`);
       const recovered = await recoveryStrategy(error);
       
       if (recovered) {
-        console.log(`✅ [ErrorHandling] Successfully recovered from ${error.type} error`);
+        log.debug('Utils', `✅ [ErrorHandling] Successfully recovered from ${error.type} error`);
       }
       
       return recovered;
     } catch (recoveryError) {
-      console.error(`❌ [ErrorHandling] Recovery failed for ${error.type}:`, recoveryError);
+      log.error('Utils', `❌ [ErrorHandling] Recovery failed for ${error.type}:`, recoveryError);
       return false;
     }
   }
@@ -526,7 +527,7 @@ class ErrorHandlingSystem {
   public reset(): void {
     this.errorLog = [];
     this.activeRetries.clear();
-    console.log('🧹 [ErrorHandling] System reset completed');
+    log.debug('Utils', '🧹 [ErrorHandling] System reset completed');
   }
 }
 

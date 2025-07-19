@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Chat Realtime Service
  * 
@@ -86,7 +87,7 @@ export class ChatRealtimeService {
    * Initialize real-time subscriptions
    */
   initializeRealtime(): void {
-    console.log('[ChatRealtimeService] Initializing real-time subscriptions');
+    log.debug('Service', '[ChatRealtimeService] Initializing real-time subscriptions');
 
     // Clean up existing subscriptions first
     this.cleanupGlobalSubscription();
@@ -99,7 +100,7 @@ export class ChatRealtimeService {
         schema: 'public',
         table: 'chat_conversations'
       }, (payload) => {
-        console.log('[ChatRealtimeService] Conversation change detected:', payload);
+        log.debug('Service', '[ChatRealtimeService] Conversation change detected:', payload);
         this.emitEvent({
           type: 'conversation_change',
           payload
@@ -115,7 +116,7 @@ export class ChatRealtimeService {
           await this.handleNewMessage(payload);
         })
       .subscribe((status) => {
-        console.log('[ChatRealtimeService] Global subscription status:', status);
+        log.debug('Service', '[ChatRealtimeService] Global subscription status:', status);
         const isConnected = status === 'SUBSCRIBED';
         const error = status === 'CHANNEL_ERROR' ? 'Connection failed' : null;
         
@@ -133,7 +134,7 @@ export class ChatRealtimeService {
     // Set up periodic validation timer (every 3 minutes)
     this.setupValidationTimer();
     
-    console.log('[ChatRealtimeService] Real-time subscriptions initialized');
+    log.debug('Service', '[ChatRealtimeService] Real-time subscriptions initialized');
   }
 
   /**
@@ -141,25 +142,25 @@ export class ChatRealtimeService {
    */
   private async handleNewMessage(payload: any): Promise<void> {
     try {
-      console.log('[ChatRealtimeService] New message detected:', payload);
+      log.debug('Service', '[ChatRealtimeService] New message detected:', payload);
       const newMessage = payload.new as any;
       
       if (!newMessage?.sender_id || !newMessage?.conversation_id) {
-        console.warn('[ChatRealtimeService] Invalid message payload, skipping');
+        log.warn('Service', '[ChatRealtimeService] Invalid message payload, skipping');
         return;
       }
 
       // Get current user for unread count logic
       const currentUser = await this.getCurrentUser();
       if (!currentUser) {
-        console.warn('[ChatRealtimeService] No current user, skipping message processing');
+        log.warn('Service', '[ChatRealtimeService] No current user, skipping message processing');
         return;
       }
       
       // Check if message is from another user
       const isFromOtherUser = newMessage.sender_id !== currentUser.id;
       
-      console.log('[ChatRealtimeService] Message sender analysis:', {
+      log.debug('Service', '[ChatRealtimeService] Message sender analysis:', {
         conversationId: newMessage.conversation_id,
         senderId: newMessage.sender_id,
         currentUserId: currentUser.id,
@@ -171,7 +172,7 @@ export class ChatRealtimeService {
       // Their own messages are already handled optimistically by the message store
       // But we still need to update conversation metadata for proper ordering
       if (!isFromOtherUser) {
-        console.log('[ChatRealtimeService] Processing own message for conversation metadata update only');
+        log.debug('Service', '[ChatRealtimeService] Processing own message for conversation metadata update only');
         
         // Emit a conversation change event to update conversation metadata for ordering
         this.emitEvent({
@@ -189,7 +190,7 @@ export class ChatRealtimeService {
       }
 
       // Only process messages from OTHER users for real-time updates
-      console.log('[ChatRealtimeService] Processing message from other user for real-time updates');
+      log.debug('Service', '[ChatRealtimeService] Processing message from other user for real-time updates');
       
       // Fetch the sender information for the new message
       try {
@@ -215,7 +216,7 @@ export class ChatRealtimeService {
           } : undefined
         };
 
-        console.log('[ChatRealtimeService] Emitting real-time event for message from other user:', {
+        log.debug('Service', '[ChatRealtimeService] Emitting real-time event for message from other user:', {
           conversationId: newMessage.conversation_id,
           senderId: newMessage.sender_id,
           content: newMessage.content
@@ -230,7 +231,7 @@ export class ChatRealtimeService {
         });
 
       } catch (error) {
-        console.error('[ChatRealtimeService] Error fetching sender for real-time message:', error);
+        log.error('Service', '[ChatRealtimeService] Error fetching sender for real-time message:', error);
         
         // Still emit the event even if sender fetch fails
         const messageWithoutSender: Message = {
@@ -252,7 +253,7 @@ export class ChatRealtimeService {
         });
       }
     } catch (error) {
-      console.error('[ChatRealtimeService] Error handling new message:', error);
+      log.error('Service', '[ChatRealtimeService] Error handling new message:', error);
     }
   }
 
@@ -265,21 +266,21 @@ export class ChatRealtimeService {
     }
     
     this.subscriptions.validationTimer = setInterval(() => {
-      console.log('[ChatRealtimeService] Triggering periodic unread count validation...');
+      log.debug('Service', '[ChatRealtimeService] Triggering periodic unread count validation...');
       this.emitEvent({
         type: 'conversation_change',
         payload: { type: 'validation_trigger' }
       });
     }, 180000); // 3 minutes
     
-    console.log('[ChatRealtimeService] Periodic validation timer started (3 minute intervals)');
+    log.debug('Service', '[ChatRealtimeService] Periodic validation timer started (3 minute intervals)');
   }
 
   /**
    * Clean up real-time subscriptions
    */
   cleanupRealtime(): void {
-    console.log('[ChatRealtimeService] Cleaning up real-time subscriptions');
+    log.debug('Service', '[ChatRealtimeService] Cleaning up real-time subscriptions');
     
     this.cleanupGlobalSubscription();
     this.cleanupConversationSubscriptions();
@@ -321,7 +322,7 @@ export class ChatRealtimeService {
     if (this.subscriptions.validationTimer) {
       clearInterval(this.subscriptions.validationTimer);
       this.subscriptions.validationTimer = undefined;
-      console.log('[ChatRealtimeService] Periodic validation timer cleaned up');
+      log.debug('Service', '[ChatRealtimeService] Periodic validation timer cleaned up');
     }
   }
 
@@ -330,11 +331,11 @@ export class ChatRealtimeService {
    */
   subscribeToConversation(conversationId: string): void {
     if (this.subscriptions.conversations[conversationId]) {
-      console.log('[ChatRealtimeService] Already subscribed to conversation:', conversationId);
+      log.debug('Service', '[ChatRealtimeService] Already subscribed to conversation:', conversationId);
       return;
     }
 
-    console.log('[ChatRealtimeService] Subscribing to conversation:', conversationId);
+    log.debug('Service', '[ChatRealtimeService] Subscribing to conversation:', conversationId);
 
     const channel = getSupabaseClient()
       .channel(`conversation-${conversationId}`)
@@ -344,14 +345,14 @@ export class ChatRealtimeService {
         table: 'chat_messages',
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
-        console.log('[ChatRealtimeService] Conversation message change:', payload);
+        log.debug('Service', '[ChatRealtimeService] Conversation message change:', payload);
         this.emitEvent({
           type: 'message_update',
           payload
         });
       })
       .subscribe((status) => {
-        console.log(`[ChatRealtimeService] Conversation ${conversationId} subscription status:`, status);
+        log.debug('Service', `[ChatRealtimeService] Conversation ${conversationId} subscription status:`, status);
       });
 
     this.subscriptions.conversations[conversationId] = channel;
@@ -363,7 +364,7 @@ export class ChatRealtimeService {
   unsubscribeFromConversation(conversationId: string): void {
     const channel = this.subscriptions.conversations[conversationId];
     if (channel) {
-      console.log('[ChatRealtimeService] Unsubscribing from conversation:', conversationId);
+      log.debug('Service', '[ChatRealtimeService] Unsubscribing from conversation:', conversationId);
       getSupabaseClient().removeChannel(channel);
       delete this.subscriptions.conversations[conversationId];
     }
@@ -396,7 +397,7 @@ export class ChatRealtimeService {
       try {
         listener(event);
       } catch (error) {
-        console.error('[ChatRealtimeService] Error in event listener:', error);
+        log.error('Service', '[ChatRealtimeService] Error in event listener:', error);
       }
     });
   }
@@ -419,7 +420,7 @@ export class ChatRealtimeService {
       const userResponse = await getProtectedCurrentUser();
       return userResponse?.data?.user || null;
     } catch (error) {
-      console.error('[ChatRealtimeService] Error getting current user:', error);
+      log.error('Service', '[ChatRealtimeService] Error getting current user:', error);
       return null;
     }
   }
@@ -428,7 +429,7 @@ export class ChatRealtimeService {
    * Force reconnection (useful for recovery scenarios)
    */
   reconnect(): void {
-    console.log('[ChatRealtimeService] Forcing reconnection...');
+    log.debug('Service', '[ChatRealtimeService] Forcing reconnection...');
     this.cleanupRealtime();
     
     // Wait a bit before reconnecting

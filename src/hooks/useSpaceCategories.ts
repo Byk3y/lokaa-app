@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client'; // Assuming supabase client is exported from here
 import { PostgrestError } from '@supabase/supabase-js';
@@ -48,7 +49,7 @@ export const useSpaceCategories = (spaceId: string | undefined): UseSpaceCategor
         .order('created_at', { ascending: true });
 
       if (fetchError) {
-        console.error('Error fetching space categories:', fetchError);
+        log.error('Hook', 'Error fetching space categories:', fetchError);
         setError(fetchError);
         setCategories([]);
       } else {
@@ -73,7 +74,7 @@ export const useSpaceCategories = (spaceId: string | undefined): UseSpaceCategor
           return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
         });
         
-        console.log('📋 Categories ordered for space:', spaceId, 'Sorted:', sortedData.map(c => c.name));
+        log.debug('Hook', '📋 Categories ordered for space:', spaceId, 'Sorted:', sortedData.map(c => c.name));
         
         // Ensure the fetched data conforms to SpaceCategory[] before setting state
         setCategories(sortedData as SpaceCategory[] || []);
@@ -90,7 +91,7 @@ export const useSpaceCategories = (spaceId: string | undefined): UseSpaceCategor
       } else {
         processedError = new Error('An unknown error occurred');
       }
-      console.error('Unexpected error fetching space categories:', processedError.message);
+      log.error('Hook', 'Unexpected error fetching space categories:', processedError.message);
       setError(processedError as PostgrestError); // Still need to cast for setError type if it's specific
       setCategories([]);
     } finally {

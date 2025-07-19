@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -95,7 +96,7 @@ export default function PostLegacyRedirect() {
           setRedirectPath(`/${spaceSubdomain}/space/${postData.id}`);
         }
       } catch (err) {
-        console.error('Error redirecting to slug URL:', err);
+        log.error('Component', 'Error redirecting to slug URL:', err);
         setError('The post you are looking for could not be found');
       } finally {
         setIsLoading(false);

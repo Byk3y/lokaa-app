@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -12,7 +13,7 @@ export default function NotFound() {
       await signOut();
       navigate("/");
     } catch (error) {
-      console.error("Error signing out:", error);
+      log.error('Page', "Error signing out:", error);
       // Force refresh as a last resort
       window.location.href = "/";
     }
@@ -59,7 +60,7 @@ export default function NotFound() {
         )}
         
         <p className="text-xs text-gray-400 mt-8">
-          If you continue to experience issues, please contact support at help@lokaa.com
+          If you continue to experience issues, please contact support at help@lokaa.app
         </p>
       </div>
     </div>

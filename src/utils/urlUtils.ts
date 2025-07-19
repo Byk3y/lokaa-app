@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * URL Utilities for Space Navigation
  */
@@ -54,7 +55,7 @@ export function cacheSpaceData(spaceData: {
       timestamp: Date.now()
     }));
   } catch (error) {
-    console.warn('Failed to cache space selection:', error);
+    log.warn('Utils', 'Failed to cache space selection:', error);
   }
 }
 
@@ -80,7 +81,7 @@ export function getCachedSpaceData(maxAgeMs = 5 * 60 * 1000): {
     
     return parsed;
   } catch (error) {
-    console.warn('Failed to retrieve cached space data:', error);
+    log.warn('Utils', 'Failed to retrieve cached space data:', error);
     return null;
   }
 } 

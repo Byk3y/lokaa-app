@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Session, User, PostgrestError } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -14,13 +15,13 @@ export const fetchUserDetails = async (userId: string | undefined) => {
       .single();
 
     if (error) {
-      console.error('Error fetching user details:', error);
+      log.error('Utils', 'Error fetching user details:', error);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error('Error in fetchUserDetails:', error);
+    log.error('Utils', 'Error in fetchUserDetails:', error);
     return null;
   }
 };
@@ -66,14 +67,14 @@ export const handleSignUp = async (email: string, password: string, username: st
       .maybeSingle();
 
     if (profileError) {
-      console.error("Error checking profile URL during generation:", profileError.message);
+      log.error('Utils', "Error checking profile URL during generation:", profileError.message);
       return username; // Fallback to original username if error
     }
 
     if (profileData) {
       // If user_url is taken, append a random suffix
       const newUsername = `${username}-${Math.random().toString(36).substring(2, 7)}`;
-      console.log(`Username ${username} taken, generated new one: ${newUsername}`);
+      log.debug('Utils', `Username ${username} taken, generated new one: ${newUsername}`);
       const potential_profile_url = `/profile/${newUsername}`; // New format
       return newUsername; // Return the suffixed username, not the full path
     }

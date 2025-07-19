@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { devLogger } from '@/utils/developmentLogger';
@@ -153,7 +154,7 @@ class GlobalRealtimeService {
                 callback(payload);
               } catch (error) {
                 if (process.env.NODE_ENV === 'development') {
-                  console.error('[GlobalRealtime] Callback error:', error);
+                  log.error('Service', '[GlobalRealtime] Callback error:', error);
                 }
               }
             });

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Session, User as SupabaseUser, AuthError } from '@supabase/supabase-js'
 import { getSupabaseClient } from '@/integrations/supabase/client'
 import { NavigateFunction } from 'react-router-dom'
@@ -44,14 +45,14 @@ export const signIn = async (
     });
 
     if (error) {
-      console.warn('⚠️ [AuthActions] Sign in error:', error.message);
+      log.warn('Utils', '⚠️ [AuthActions] Sign in error:', error.message);
       setters.setAuthErrors(prev => [...prev, `Sign in failed: ${error.message}`]);
       const errorToReturn: AppError = { message: error.message };
       return { error: errorToReturn, success: false };
     }
 
     if (!data.session || !data.user) {
-      console.warn('⚠️ [AuthActions] Sign in attempt returned no session or user.');
+      log.warn('Utils', '⚠️ [AuthActions] Sign in attempt returned no session or user.');
       const noSessionError: AppError = { message: 'Sign in failed: No session or user returned.' };
       setters.setAuthErrors(prev => [...prev, noSessionError.message]);
       return { error: noSessionError, success: false };
@@ -61,7 +62,7 @@ export const signIn = async (
     const validationResult = await validateAuthSession();
     
     if (!validationResult.isValid) {
-      console.warn('⚠️ [AuthActions] Session validation failed after sign in');
+      log.warn('Utils', '⚠️ [AuthActions] Session validation failed after sign in');
       const validationError: AppError = { message: 'Sign in succeeded but session validation failed.' };
       setters.setAuthErrors(prev => [...prev, validationError.message]);
       return { error: validationError, success: false };
@@ -73,7 +74,7 @@ export const signIn = async (
 
     return { error: null, success: true };
   } catch (err: unknown) {
-    console.error('❌ [AuthActions] Exception during sign in:', err);
+    log.error('Utils', '❌ [AuthActions] Exception during sign in:', err);
     const message = err instanceof Error ? err.message : String(err);
     setters.setAuthErrors(prev => [...prev, `Sign in exception: ${message}`]);
     const errorResult: { error: AppError; success: boolean } = { error: { message }, success: false };
@@ -122,7 +123,7 @@ export const signUp = async (
     });
     
     if (error) {
-      console.error('❌ [AuthActions] Sign up error:', error.message);
+      log.error('Utils', '❌ [AuthActions] Sign up error:', error.message);
       setters.setAuthErrors(prev => [...prev, `Sign up error: ${error.message}`]);
       return { error, data: null };
     }
@@ -132,7 +133,7 @@ export const signUp = async (
       const validationResult = await validateAuthSession();
       
       if (!validationResult.isValid) {
-        console.warn('⚠️ [AuthActions] Session validation failed after sign up');
+        log.warn('Utils', '⚠️ [AuthActions] Session validation failed after sign up');
         const validationError: AppError = { message: 'Sign up succeeded but session validation failed.' };
         setters.setAuthErrors(prev => [...prev, validationError.message]);
         return { error: validationError, data: null };
@@ -141,7 +142,7 @@ export const signUp = async (
     
     return { error: null, data, success: true };
   } catch (err: unknown) {
-    console.error('❌ [AuthActions] Exception during sign up:', err);
+    log.error('Utils', '❌ [AuthActions] Exception during sign up:', err);
     const message = err instanceof Error ? err.message : String(err);
     setters.setAuthErrors(prev => [...prev, `Sign up exception: ${message}`]);
     return { error: { message } as AppError, data: null, success: false };
@@ -189,7 +190,7 @@ export const signOut = async (
       membershipStore.clearCache();
       membershipStore.reset();
     } catch (error) {
-      console.warn('⚠️ [AuthActions] Failed to clear membership store cache:', error);
+      log.warn('Utils', '⚠️ [AuthActions] Failed to clear membership store cache:', error);
     }
     
     // Reset all other Zustand stores to prevent stale data
@@ -213,7 +214,7 @@ export const signOut = async (
       spaceSettingsStore.resetStore();
       
     } catch (error) {
-      console.warn('⚠️ [AuthActions] Failed to reset Zustand stores:', error);
+      log.warn('Utils', '⚠️ [AuthActions] Failed to reset Zustand stores:', error);
     }
 
     // Sign out from Supabase
@@ -227,7 +228,7 @@ export const signOut = async (
     try {
       const postSignOutValidation = await validateAuthSession();
       if (postSignOutValidation.isValid) {
-        console.warn('⚠️ [AuthActions] Session still valid after signout, force clearing...');
+        log.warn('Utils', '⚠️ [AuthActions] Session still valid after signout, force clearing...');
         await clearAllAuthTokens(false);
       }
     } catch (validationError) {
@@ -243,7 +244,7 @@ export const signOut = async (
     }, 100);
     
   } catch (error) {
-    console.error('❌ [AuthActions] Enhanced signOut error:', error);
+    log.error('Utils', '❌ [AuthActions] Enhanced signOut error:', error);
     setters.setAuthErrors(prev => [...prev, `Sign out failed: ${error.message || 'Unknown error'}`]);
     
     // Enhanced error recovery
@@ -255,7 +256,7 @@ export const signOut = async (
       setters.setRoutingInProgress(false);
     } catch (emergencyError) {
       // Only fall back to hard redirect if everything fails
-      console.warn('🚨 [AuthActions] Emergency cleanup failed, using fallback redirect');
+      log.warn('Utils', '🚨 [AuthActions] Emergency cleanup failed, using fallback redirect');
       sessionStorage.setItem('lokaa-signing-out', 'true');
       window.location.replace('/');
     }
@@ -285,7 +286,7 @@ export const resetTestAccountState = async (
     
     return Promise.resolve();
   } catch (error: unknown) {
-    console.error('❌ [AuthActions] Error resetting test account state:', error);
+    log.error('Utils', '❌ [AuthActions] Error resetting test account state:', error);
     const message = error instanceof Error ? error.message : String(error);
     setters.setAuthErrors(prev => [...prev, `Reset test account error: ${message || 'Unknown error'}`]);
     return Promise.reject({ message });
@@ -309,14 +310,14 @@ export const resetPassword = async (
       redirectTo: `${window.location.origin}/update-password`,
     });
     if (error) {
-      console.warn('⚠️ [AuthActions] Password reset error:', error.message);
+      log.warn('Utils', '⚠️ [AuthActions] Password reset error:', error.message);
       setters.setAuthErrors(prev => [...prev, `Password reset failed: ${error.message}`]);
       const errorToReturn: AppError = { message: error.message };
       return { error: errorToReturn, success: false };
     }
     return { error: null, success: true };
   } catch (err: unknown) {
-    console.error('❌ [AuthActions] Exception during password reset:', err);
+    log.error('Utils', '❌ [AuthActions] Exception during password reset:', err);
     const message = err instanceof Error ? err.message : String(err);
     setters.setAuthErrors(prev => [...prev, `Password reset exception: ${message}`]);
     const errorResult: { error: AppError; success: boolean } = { error: { message }, success: false };

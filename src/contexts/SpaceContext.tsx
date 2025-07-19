@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from 'react'
 import { getSupabaseClient } from '@/integrations/supabase/client'
 import { useOptimizedAuth } from './AuthContext'
@@ -89,7 +90,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
       setError(null);
       return data;
     } catch (err) {
-      console.error('Error fetching space:', err);
+      log.error('Context', 'Error fetching space:', err);
       setError(err as Error);
       return null;
     } finally {
@@ -142,11 +143,11 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
             
             if (cacheAge < maxFallbackAge && parsed.data) {
               foundCachedData = parsed.data;
-              console.log(`⚡ [SpaceContext] Using persistent cache to avoid fetch (${Math.round(cacheAge / 60000)} minutes old)`);
+              log.debug('Context', `⚡ [SpaceContext] Using persistent cache to avoid fetch (${Math.round(cacheAge / 60000)} minutes old)`);
             }
           }
         } catch (e) {
-          console.warn('[SpaceContext] Failed to read persistent cache:', e);
+          log.warn('Context', '[SpaceContext] Failed to read persistent cache:', e);
         }
         
         // Strategy 2: Check lastActiveSpace cache
@@ -157,17 +158,17 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
               const parsed = JSON.parse(lastActiveData);
               if (parsed.subdomain === currentSubdomain) {
                 foundCachedData = parsed;
-                console.log(`⚡ [SpaceContext] Using lastActiveSpace cache to avoid fetch`);
+                log.debug('Context', `⚡ [SpaceContext] Using lastActiveSpace cache to avoid fetch`);
               }
             }
           } catch (e) {
-            console.warn('[SpaceContext] Failed to read lastActiveSpace:', e);
+            log.warn('Context', '[SpaceContext] Failed to read lastActiveSpace:', e);
           }
         }
         
         // If we found cached data, use it immediately and skip database fetch
         if (foundCachedData) {
-          console.log(`🚀 [SpaceContext] LOGIN OPTIMIZATION: Using cached data instead of database fetch for ${currentSubdomain}`);
+          log.debug('Context', `🚀 [SpaceContext] LOGIN OPTIMIZATION: Using cached data instead of database fetch for ${currentSubdomain}`);
           setSpace(foundCachedData as Space);
           setError(null);
           // Update memory cache for future use
@@ -176,7 +177,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         }
         
         // Only proceed with database fetch if no cached data was found
-        console.log(`⚠️ [SpaceContext] No cached data found for ${currentSubdomain}, proceeding with database fetch`);
+        log.debug('Context', `⚠️ [SpaceContext] No cached data found for ${currentSubdomain}, proceeding with database fetch`);
       }
       
       // IMPROVED: Only fetch if we actually need new data and don't have it cached
@@ -184,7 +185,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         // If we have cached data, use it immediately to prevent loading states
         if (hasCachedData) {
           const cached = spaceCache.current.get(currentSubdomain)!;
-          console.log(`⚡ [SpaceContext] Using immediate cache for navigation to ${currentSubdomain}`);
+          log.debug('Context', `⚡ [SpaceContext] Using immediate cache for navigation to ${currentSubdomain}`);
           setSpace(cached as Space);
           setError(null);
           return; // Don't fetch again if we have valid cache
@@ -196,14 +197,14 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         }
         
         if (lastFetchSubdomain.current === currentSubdomain) {
-          console.log(`🔄 [SpaceContext] Debouncing duplicate fetch for ${currentSubdomain}`);
+          log.debug('Context', `🔄 [SpaceContext] Debouncing duplicate fetch for ${currentSubdomain}`);
           return;
         }
         
         fetchDebounceTimer.current = setTimeout(() => {
-          console.log(`[SpaceContext] Auto-fetching space data for URL subdomain: ${currentSubdomain}`);
+          log.debug('Context', `[SpaceContext] Auto-fetching space data for URL subdomain: ${currentSubdomain}`);
           
-          console.log(`[SpaceContext] Auto-fetch debug for ${currentSubdomain}:`, {
+          log.debug('Context', `[SpaceContext] Auto-fetch debug for ${currentSubdomain}:`, {
             hasExistingData: !!space,
             existingSubdomain: space?.subdomain,
             authUser: !!authUser,
@@ -220,9 +221,9 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         }, 100); // 100ms debounce for navigation
         
       } else if (needsNewData && hasActiveRequest) {
-        console.log(`⏳ [SpaceContext] Fetch already in progress for ${currentSubdomain}, waiting...`);
+        log.debug('Context', `⏳ [SpaceContext] Fetch already in progress for ${currentSubdomain}, waiting...`);
       } else if (!needsNewData) {
-        console.log(`✅ [SpaceContext] Current space data already matches ${currentSubdomain}, no fetch needed`);
+        log.debug('Context', `✅ [SpaceContext] Current space data already matches ${currentSubdomain}, no fetch needed`);
       }
     }
     
@@ -242,7 +243,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
     spaceCache.current.clear();
     setSpace(null);
     setError(null);
-    console.log('[Space] Cleared all space cache');
+    log.debug('Context', '[Space] Cleared all space cache');
   }, []);
 
   const value: SpaceContextValue = {

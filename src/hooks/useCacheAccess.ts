@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useMemo } from 'react';
 import { CacheAccessService, type CacheAccessResult } from '@/services/CacheAccessService';
 
@@ -50,7 +51,7 @@ export function useCacheAccess(
 
   // Debug logging in development
   if (process.env.NODE_ENV === 'development' && result.hasInstantAccess) {
-    console.log('🚀 [useCacheAccess] Instant access granted:', {
+    log.debug('Hook', '🚀 [useCacheAccess] Instant access granted:', {
       subdomain,
       userId: user?.id,
       source: result.source,

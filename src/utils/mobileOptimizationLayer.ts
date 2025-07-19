@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { devLogger } from './developmentLogger';
 
@@ -72,15 +73,15 @@ class MobileOptimizationLayer {
   public initialize(): void {
     if (this.isInitialized || !this.capabilities.isMobile) return;
 
-    console.log('📱 [MobileOptimizer] Initializing optimizations...');
-    console.log('📱 [MobileOptimizer] Capabilities:', this.capabilities);
-    console.log('📱 [MobileOptimizer] Strategy:', this.strategy);
+    log.debug('Utils', '📱 [MobileOptimizer] Initializing optimizations...');
+    log.debug('Utils', '📱 [MobileOptimizer] Capabilities:', this.capabilities);
+    log.debug('Utils', '📱 [MobileOptimizer] Strategy:', this.strategy);
 
     this.applyOptimizations();
     this.setupMonitoring();
     
     this.isInitialized = true;
-    console.log('✅ [MobileOptimizer] Initialization complete');
+    log.debug('Utils', '✅ [MobileOptimizer] Initialization complete');
   }
 
   /**
@@ -149,7 +150,7 @@ class MobileOptimizationLayer {
       this.metrics.optimizationsApplied.push('reduced-animations');
     }
 
-    console.log('📱 [MobileOptimizer] Applied optimizations:', this.metrics.optimizationsApplied);
+    log.debug('Utils', '📱 [MobileOptimizer] Applied optimizations:', this.metrics.optimizationsApplied);
   }
 
   /**
@@ -161,12 +162,12 @@ class MobileOptimizationLayer {
         await getSupabaseClient().from('posts').select('id', { count: 'exact', head: true }).limit(1);
         
         if (import.meta.env.DEV) {
-          console.log('📱 [MobileOptimizer] Keep-alive successful');
+          log.debug('Utils', '📱 [MobileOptimizer] Keep-alive successful');
         }
       } catch (error) {
         this.metrics.connectionFailures++;
         if (import.meta.env.DEV) {
-          console.warn('📱 [MobileOptimizer] Keep-alive failed:', error);
+          log.warn('Utils', '📱 [MobileOptimizer] Keep-alive failed:', error);
         }
       }
     }, 90000); // 90 seconds - safely under Safari's timeout
@@ -250,7 +251,7 @@ class MobileOptimizationLayer {
     try {
       observer.observe({ entryTypes: ['navigation'] });
     } catch (error) {
-      console.warn('📱 [MobileOptimizer] Performance observer not supported:', error);
+      log.warn('Utils', '📱 [MobileOptimizer] Performance observer not supported:', error);
     }
   }
 
@@ -261,7 +262,7 @@ class MobileOptimizationLayer {
     this.metrics.backgroundTransitions++;
     
     if (import.meta.env.DEV) {
-      console.log('📱 [MobileOptimizer] App backgrounded');
+      log.debug('Utils', '📱 [MobileOptimizer] App backgrounded');
     }
     
     // Pause non-critical operations
@@ -270,7 +271,7 @@ class MobileOptimizationLayer {
 
   private onAppForegrounded(timeInBackground: number): void {
     if (import.meta.env.DEV) {
-      console.log(`📱 [MobileOptimizer] App foregrounded after ${Math.round(timeInBackground / 1000)}s`);
+      log.debug('Utils', `📱 [MobileOptimizer] App foregrounded after ${Math.round(timeInBackground / 1000)}s`);
     }
     
     // Resume operations and refresh stale data if needed
@@ -283,7 +284,7 @@ class MobileOptimizationLayer {
     this.metrics.memoryPressureEvents++;
     
     if (import.meta.env.DEV) {
-      console.warn(`📱 [MobileOptimizer] Memory pressure: ${usagePercent.toFixed(1)}%`);
+      log.warn('Utils', `📱 [MobileOptimizer] Memory pressure: ${usagePercent.toFixed(1)}%`);
     }
     
     // Perform emergency cleanup
@@ -332,7 +333,7 @@ class MobileOptimizationLayer {
     }
 
     if (import.meta.env.DEV && duration > 5000) {
-      console.warn(`📱 [MobileOptimizer] Slow load: ${duration.toFixed(0)}ms`);
+      log.warn('Utils', `📱 [MobileOptimizer] Slow load: ${duration.toFixed(0)}ms`);
     }
   }
 
@@ -385,7 +386,7 @@ class MobileOptimizationLayer {
     }
 
     this.isInitialized = false;
-    console.log('🧹 [MobileOptimizer] Cleaned up');
+    log.debug('Utils', '🧹 [MobileOptimizer] Cleaned up');
   }
 }
 

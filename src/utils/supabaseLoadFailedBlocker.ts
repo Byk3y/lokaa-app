@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🛡️ Supabase Load Failed Error Blocker
  * 
@@ -36,10 +37,10 @@ class SupabaseLoadFailedBlocker {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         this.backgroundStartTime = Date.now();
-        console.log('🛡️ [SupabaseLoadFailedBlocker] App backgrounded at', new Date().toLocaleTimeString());
+        log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] App backgrounded at', new Date().toLocaleTimeString());
       } else {
         const backgroundDuration = Date.now() - this.backgroundStartTime;
-        console.log(`🛡️ [SupabaseLoadFailedBlocker] App foregrounded after ${backgroundDuration}ms`);
+        log.debug('Utils', `🛡️ [SupabaseLoadFailedBlocker] App foregrounded after ${backgroundDuration}ms`);
       }
     });
   }
@@ -49,20 +50,20 @@ class SupabaseLoadFailedBlocker {
     const timeSinceBackground = Date.now() - this.backgroundStartTime;
     
     if (timeSinceBackground < MOBILE_SAFE_RELOAD_DELAY_MS) {
-      console.log(`🛡️ [SupabaseLoadFailedBlocker] Ignoring load failed - only ${timeSinceBackground}ms since background (< ${MOBILE_SAFE_RELOAD_DELAY_MS}ms)`);
+      log.debug('Utils', `🛡️ [SupabaseLoadFailedBlocker] Ignoring load failed - only ${timeSinceBackground}ms since background (< ${MOBILE_SAFE_RELOAD_DELAY_MS}ms)`);
       return;
     }
 
     // Prevent concurrent refresh attempts
     if (this.isRefreshing) {
-      console.log('🛡️ [SupabaseLoadFailedBlocker] Refresh already in progress, ignoring');
+      log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Refresh already in progress, ignoring');
       return;
     }
 
     this.isRefreshing = true;
     
     try {
-      console.log('🛡️ [SupabaseLoadFailedBlocker] Attempting session refresh...');
+      log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Attempting session refresh...');
       
       const { data, error } = await getSupabaseClient().auth.refreshSession();
       
@@ -71,14 +72,14 @@ class SupabaseLoadFailedBlocker {
       }
       
       if (data?.session) {
-        console.log('✅ [SupabaseLoadFailedBlocker] Session refresh successful');
+        log.debug('Utils', '✅ [SupabaseLoadFailedBlocker] Session refresh successful');
         this.consecutiveFailedRefreshes = 0;
         
         // Reconnect all real-time subscriptions
-        console.log('🔔 [SupabaseLoadFailedBlocker] Reconnecting real-time subscriptions...');
+        log.debug('Utils', '🔔 [SupabaseLoadFailedBlocker] Reconnecting real-time subscriptions...');
         globalRealtimeService.reconnectAll();
         
-        console.log('✅ [SupabaseLoadFailedBlocker] Recovery complete');
+        log.debug('Utils', '✅ [SupabaseLoadFailedBlocker] Recovery complete');
       } else {
         throw new Error('No session returned from refresh');
       }
@@ -87,7 +88,7 @@ class SupabaseLoadFailedBlocker {
       this.consecutiveFailedRefreshes++;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      console.error(`❌ [SupabaseLoadFailedBlocker] Session refresh failed (attempt ${this.consecutiveFailedRefreshes}/${MAX_REFRESH_RETRIES}):`, errorMessage);
+      log.error('Utils', `❌ [SupabaseLoadFailedBlocker] Session refresh failed (attempt ${this.consecutiveFailedRefreshes}/${MAX_REFRESH_RETRIES}):`, errorMessage);
       
       if (this.consecutiveFailedRefreshes >= MAX_REFRESH_RETRIES) {
         // Show toast asking user to manually reload
@@ -108,7 +109,7 @@ class SupabaseLoadFailedBlocker {
     const maxDelay = 180000; // 3 minutes
     const delay = Math.min(baseDelay * Math.pow(2, this.consecutiveFailedRefreshes - 1), maxDelay);
     
-    console.log(`🔄 [SupabaseLoadFailedBlocker] Scheduling retry in ${delay}ms (attempt ${this.consecutiveFailedRefreshes}/${MAX_REFRESH_RETRIES})`);
+    log.debug('Utils', `🔄 [SupabaseLoadFailedBlocker] Scheduling retry in ${delay}ms (attempt ${this.consecutiveFailedRefreshes}/${MAX_REFRESH_RETRIES})`);
     
     setTimeout(() => {
       this.handleLoadFailed();
@@ -131,7 +132,7 @@ class SupabaseLoadFailedBlocker {
       window.dispatchEvent(event);
     }).catch(() => {
       // Fallback: show browser alert
-      console.error('🛡️ [SupabaseLoadFailedBlocker] Failed to show toast, using alert fallback');
+      log.error('Utils', '🛡️ [SupabaseLoadFailedBlocker] Failed to show toast, using alert fallback');
       alert('Connection issue detected. Please refresh the page to restore connection.');
     });
   }
@@ -139,7 +140,7 @@ class SupabaseLoadFailedBlocker {
   private initializeErrorBlocking(): void {
     if (this.isInitialized || typeof window === 'undefined') return;
     
-    console.log('🛡️ [SupabaseLoadFailedBlocker] Initializing intelligent recovery protection...');
+    log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Initializing intelligent recovery protection...');
     
     // 1. BLOCK GLOBAL ERROR EVENTS FROM SUPABASE
     const originalAddEventListener = window.addEventListener;
@@ -147,7 +148,7 @@ class SupabaseLoadFailedBlocker {
       if (type === 'error') {
         const wrappedListener = (event: ErrorEvent) => {
           if (SupabaseLoadFailedBlocker.isSupabaseLoadError(event.error || event.message)) {
-            console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed error event');
+            log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed error event');
             SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
             event.preventDefault();
             event.stopPropagation();
@@ -163,7 +164,7 @@ class SupabaseLoadFailedBlocker {
     // 2. BLOCK UNHANDLED PROMISE REJECTIONS FROM SUPABASE
     window.addEventListener('unhandledrejection', (event) => {
       if (SupabaseLoadFailedBlocker.isSupabaseLoadError(event.reason)) {
-        console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed promise rejection');
+        log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed promise rejection');
         SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
         event.preventDefault();
         return false;
@@ -176,8 +177,8 @@ class SupabaseLoadFailedBlocker {
       const errorMessage = args.join(' ');
       
       if (SupabaseLoadFailedBlocker.isSupabaseLoadError(errorMessage)) {
-        console.warn('🛡️ [SupabaseLoadFailedBlocker] Suppressed Supabase Load failed console error');
-        console.warn('📱 [SupabaseLoadFailedBlocker] Triggering intelligent session recovery');
+        log.warn('Utils', '🛡️ [SupabaseLoadFailedBlocker] Suppressed Supabase Load failed console error');
+        log.warn('Utils', '📱 [SupabaseLoadFailedBlocker] Triggering intelligent session recovery');
         SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
         return;
       }
@@ -189,7 +190,7 @@ class SupabaseLoadFailedBlocker {
     const originalOnError = window.onerror;
     window.onerror = (message, source, lineno, colno, error) => {
       if (SupabaseLoadFailedBlocker.isSupabaseLoadError(error || message)) {
-        console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed window.onerror');
+        log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed window.onerror');
         SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
         return true; // Prevent default handling
       }
@@ -204,7 +205,7 @@ class SupabaseLoadFailedBlocker {
     this.interceptReactErrorBoundaries();
     
     this.isInitialized = true;
-    console.log('✅ [SupabaseLoadFailedBlocker] Intelligent recovery protection active');
+    log.debug('Utils', '✅ [SupabaseLoadFailedBlocker] Intelligent recovery protection active');
   }
   
   private static isSupabaseLoadError(error: any): boolean {
@@ -241,7 +242,7 @@ class SupabaseLoadFailedBlocker {
           
           descriptor.value = function(error: Error, errorInfo: any) {
             if (SupabaseLoadFailedBlocker.isSupabaseLoadError(error)) {
-              console.log('🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase error from React boundary');
+              log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase error from React boundary');
               SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
               return; // Don't trigger error boundary
             }
@@ -263,21 +264,21 @@ class SupabaseLoadFailedBlocker {
   // Public method to manually suppress an error
   public suppressError(error: any): void {
     if (this.shouldBlockError(error)) {
-      console.log('🛡️ [SupabaseLoadFailedBlocker] Manually suppressed Supabase Load failed error');
+      log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Manually suppressed Supabase Load failed error');
       this.handleLoadFailed();
     }
   }
 
   // Public method to manually trigger recovery (for testing)
   public triggerRecovery(): void {
-    console.log('🛡️ [SupabaseLoadFailedBlocker] Manual recovery triggered');
+    log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Manual recovery triggered');
     this.handleLoadFailed();
   }
 
   // Public method to reset retry counter (for testing)
   public resetRetryCounter(): void {
     this.consecutiveFailedRefreshes = 0;
-    console.log('🛡️ [SupabaseLoadFailedBlocker] Retry counter reset');
+    log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Retry counter reset');
   }
 
   // Public getter for testing

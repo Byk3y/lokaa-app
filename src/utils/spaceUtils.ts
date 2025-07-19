@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Space } from '../types/space';
 
@@ -9,7 +10,7 @@ import { Space } from '../types/space';
  */
 export const fetchUserSpaces = async (userId: string): Promise<Space[]> => {
   if (!userId) {
-    console.warn('fetchUserSpaces called without userId');
+    log.warn('Utils', 'fetchUserSpaces called without userId');
     return [];
   }
   try {
@@ -20,7 +21,7 @@ export const fetchUserSpaces = async (userId: string): Promise<Space[]> => {
       .eq('owner_id', userId);
       
     if (ownedError) {
-      console.error("Error fetching owned spaces:", ownedError);
+      log.error('Utils', "Error fetching owned spaces:", ownedError);
       // Depending on desired behavior, might return [] or throw error
     }
     const ownedSpaces: Space[] = ownedSpacesData || [];
@@ -33,7 +34,7 @@ export const fetchUserSpaces = async (userId: string): Promise<Space[]> => {
       .eq('status', 'active');
 
     if (memberError) {
-      console.error("Error fetching member spaces:", memberError);
+      log.error('Utils', "Error fetching member spaces:", memberError);
       // Depending on desired behavior
     }
 
@@ -59,7 +60,7 @@ export const fetchUserSpaces = async (userId: string): Promise<Space[]> => {
     return Array.from(allSpacesMap.values());
 
   } catch (error) {
-    console.error("Error in fetchUserSpaces:", error);
+    log.error('Utils', "Error in fetchUserSpaces:", error);
     return [];
   }
 }; 

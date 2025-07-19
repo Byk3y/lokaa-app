@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Presence Service
  * 
@@ -67,7 +68,7 @@ export class PresenceService {
     
     const { forceNetwork = false, spaceId, skipMobileProtection = false } = options;
     
-    console.log('[PresenceService] Global presence update request', { 
+    log.debug('Utils', '[PresenceService] Global presence update request', { 
       userId, 
       isOnline, 
       spaceId,
@@ -82,7 +83,7 @@ export class PresenceService {
         this.isRecentMobileBackgroundActivity();
 
       if (shouldSkipNetwork) {
-        console.log('[PresenceService] Skipping network call due to mobile blocking, caching intent');
+        log.debug('Utils', '[PresenceService] Skipping network call due to mobile blocking, caching intent');
         this.metrics.mobileSkipped++;
         
         // Store presence intention for later sync
@@ -101,7 +102,7 @@ export class PresenceService {
       
       if (result.error) {
         this.metrics.failedUpdates++;
-        console.warn('[PresenceService] Presence update failed:', result.error);
+        log.warn('Utils', '[PresenceService] Presence update failed:', result.error);
         
         // Store as pending for retry
         await this.storePendingPresenceUpdate(userId, isOnline, spaceId);
@@ -110,7 +111,7 @@ export class PresenceService {
       }
 
       this.metrics.successfulUpdates++;
-      console.log('[PresenceService] Presence update successful');
+      log.debug('Utils', '[PresenceService] Presence update successful');
       
       // CRITICAL: Invalidate member counts cache to refresh UI
       if (spaceId) {
@@ -121,7 +122,7 @@ export class PresenceService {
 
     } catch (error: any) {
       this.metrics.errors++;
-      console.error('[PresenceService] Exception in updateGlobalPresence:', error);
+      log.error('Utils', '[PresenceService] Exception in updateGlobalPresence:', error);
       
       // Store as pending for retry
       if (spaceId) {
@@ -143,7 +144,7 @@ export class PresenceService {
     this.metrics.totalRequests++;
     
     try {
-      console.log('[PresenceService] Cleaning up stale presence for space', spaceId);
+      log.debug('Utils', '[PresenceService] Cleaning up stale presence for space', spaceId);
       
       // Remove users who haven't been active in last 5 minutes
       const { data, error } = await getSupabaseClient()
@@ -153,17 +154,17 @@ export class PresenceService {
         .lte('online_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
 
       if (error) {
-        console.error('[PresenceService] Error cleaning stale presence:', error);
+        log.error('Utils', '[PresenceService] Error cleaning stale presence:', error);
         this.metrics.errors++;
         return { data: null, error };
       }
 
-      console.log('[PresenceService] Stale presence cleanup completed', { spaceId, affectedRows: data });
+      log.debug('Utils', '[PresenceService] Stale presence cleanup completed', { spaceId, affectedRows: data });
       this.metrics.successfulUpdates++;
       
       return { data, error: null };
     } catch (error) {
-      console.error('[PresenceService] Exception in cleanupStalePresence:', error);
+      log.error('Utils', '[PresenceService] Exception in cleanupStalePresence:', error);
       this.metrics.errors++;
       return { 
         data: null, 
@@ -198,7 +199,7 @@ export class PresenceService {
         .gte('online_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
 
       if (error) {
-        console.error('[PresenceService] Error fetching time-validated online members:', error);
+        log.error('Utils', '[PresenceService] Error fetching time-validated online members:', error);
         this.metrics.errors++;
         return { data: [], error };
       }
@@ -211,12 +212,12 @@ export class PresenceService {
         users: member.space_members?.users
       })) || [];
 
-      console.log(`[PresenceService] Time-validated online members for ${spaceId}:`, transformedData.length);
+      log.debug('Utils', `[PresenceService] Time-validated online members for ${spaceId}:`, transformedData.length);
       this.metrics.networkRequests++;
       
       return { data: transformedData, error: null };
     } catch (error) {
-      console.error('[PresenceService] Exception in getOnlineMembersWithTimeValidation:', error);
+      log.error('Utils', '[PresenceService] Exception in getOnlineMembersWithTimeValidation:', error);
       this.metrics.errors++;
       return { 
         data: [], 
@@ -271,7 +272,7 @@ export class PresenceService {
       return { data: presenceData, error: null };
       
     } catch (error) {
-      console.error('[PresenceService] Error getting space presence stats:', error);
+      log.error('Utils', '[PresenceService] Error getting space presence stats:', error);
       this.metrics.errors++;
       return { 
         data: null as any, 
@@ -293,7 +294,7 @@ export class PresenceService {
       };
     }
 
-    console.log(`[PresenceService] Syncing ${pendingCount} pending presence updates`);
+    log.debug('Utils', `[PresenceService] Syncing ${pendingCount} pending presence updates`);
     
     let synced = 0;
     let failed = 0;
@@ -308,20 +309,20 @@ export class PresenceService {
         
         if (result.error) {
           failed++;
-          console.warn(`[PresenceService] Failed to sync presence for user ${userId}:`, result.error);
+          log.warn('Utils', `[PresenceService] Failed to sync presence for user ${userId}:`, result.error);
         } else {
           synced++;
           this.pendingUpdates.delete(userId);
         }
       } catch (error) {
         failed++;
-        console.error(`[PresenceService] Exception syncing presence for user ${userId}:`, error);
+        log.error('Utils', `[PresenceService] Exception syncing presence for user ${userId}:`, error);
       }
     });
 
     await Promise.all(updatePromises);
 
-    console.log(`[PresenceService] Sync completed: ${synced} synced, ${failed} failed`);
+    log.debug('Utils', `[PresenceService] Sync completed: ${synced} synced, ${failed} failed`);
     
     return { 
       data: { synced, failed }, 
@@ -341,7 +342,7 @@ export class PresenceService {
    */
   clearPendingUpdates(): void {
     this.pendingUpdates.clear();
-    console.log('[PresenceService] Cleared all pending presence updates');
+    log.debug('Utils', '[PresenceService] Cleared all pending presence updates');
   }
 
   /**
@@ -371,7 +372,7 @@ export class PresenceService {
    */
   async clearCache(): Promise<void> {
     this.clearPendingUpdates();
-    console.log('[PresenceService] Cleared all presence cache');
+    log.debug('Utils', '[PresenceService] Cleared all presence cache');
   }
 
   // Private helper methods
@@ -456,7 +457,7 @@ export class PresenceService {
       return debugInfo.mobileBackgroundState;
       
     } catch (error) {
-      console.warn('[PresenceService] Error checking mobile background activity:', error);
+      log.warn('Utils', '[PresenceService] Error checking mobile background activity:', error);
       return false;
     }
   }
@@ -483,9 +484,9 @@ export class PresenceService {
       const cacheKey = `pending_presence_${userId}_${spaceId || 'global'}`;
       await spaceMembersCacheService.set(cacheKey, pendingUpdate, { ttl: 300000 }); // 5 minutes
       
-      console.log('[PresenceService] Stored pending presence update for later sync');
+      log.debug('Utils', '[PresenceService] Stored pending presence update for later sync');
     } catch (error) {
-      console.warn('[PresenceService] Failed to store pending presence update:', error);
+      log.warn('Utils', '[PresenceService] Failed to store pending presence update:', error);
     }
   }
 
@@ -507,7 +508,7 @@ export class PresenceService {
           await spaceMembersCacheService.invalidate(key);
         } catch (error) {
           // Continue with other keys if one fails
-          console.warn(`[PresenceService] Failed to invalidate cache key ${key}:`, error);
+          log.warn('Utils', `[PresenceService] Failed to invalidate cache key ${key}:`, error);
         }
       }
       
@@ -518,9 +519,9 @@ export class PresenceService {
         }));
       }
       
-      console.log('[PresenceService] Invalidated member counts cache for space:', spaceId);
+      log.debug('Utils', '[PresenceService] Invalidated member counts cache for space:', spaceId);
     } catch (error) {
-      console.warn('[PresenceService] Failed to invalidate member counts cache:', error);
+      log.warn('Utils', '[PresenceService] Failed to invalidate member counts cache:', error);
     }
   }
 }

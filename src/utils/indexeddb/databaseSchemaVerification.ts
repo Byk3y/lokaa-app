@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Database Schema Verification for IndexedDB System
  * 
@@ -59,7 +60,7 @@ export class DatabaseSchemaVerifier {
    * Perform comprehensive schema verification
    */
   async verifySchema(): Promise<DatabaseSchemaStatus> {
-    console.log('🔍 [DatabaseSchemaVerifier] Starting schema verification...');
+    log.debug('Utils', '🔍 [DatabaseSchemaVerifier] Starting schema verification...');
     
     const results: SchemaVerificationResult[] = [];
     
@@ -97,7 +98,7 @@ export class DatabaseSchemaVerifier {
       summary
     };
     
-    console.log(`✅ [DatabaseSchemaVerifier] Verification complete: ${overall} (${Math.round(score * 100)}%)`);
+    log.debug('Utils', `✅ [DatabaseSchemaVerifier] Verification complete: ${overall} (${Math.round(score * 100)}%)`);
     
     return status;
   }
@@ -402,7 +403,7 @@ if (typeof window !== 'undefined') {
     generateReport: async () => {
       const status = await databaseSchemaVerifier.verifySchema();
       const report = databaseSchemaVerifier.generateReport(status);
-      console.log(report);
+      log.debug('Utils', report);
       return status;
     }
   };

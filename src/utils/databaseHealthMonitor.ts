@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // =====================================
 // DATABASE HEALTH MONITORING UTILITY
 // =====================================
@@ -41,7 +42,7 @@ export class DatabaseHealthMonitor {
    * Initialize automatic database health monitoring
    */
   async initialize(): Promise<void> {
-    console.log('🔍 [DatabaseHealthMonitor] Initializing database health monitoring...');
+    log.debug('Utils', '🔍 [DatabaseHealthMonitor] Initializing database health monitoring...');
     
     try {
       // Initial health check
@@ -57,7 +58,7 @@ export class DatabaseHealthMonitor {
         'polling'
       );
       
-      console.log('✅ [DatabaseHealthMonitor] Health monitoring active');
+      log.debug('Utils', '✅ [DatabaseHealthMonitor] Health monitoring active');
       
       // Expose to window for debugging
       (window as any).databaseHealthMonitor = this;
@@ -65,7 +66,7 @@ export class DatabaseHealthMonitor {
       (window as any).generateDatabaseReport = () => this.generatePerformanceReport();
       
     } catch (error) {
-      console.error('❌ [DatabaseHealthMonitor] Failed to initialize:', error);
+      log.error('Utils', '❌ [DatabaseHealthMonitor] Failed to initialize:', error);
     }
   }
 
@@ -74,7 +75,7 @@ export class DatabaseHealthMonitor {
    */
   async performHealthCheck(): Promise<DatabaseHealthReport> {
     try {
-      console.log('🔍 [DatabaseHealthMonitor] Performing health check...');
+      log.debug('Utils', '🔍 [DatabaseHealthMonitor] Performing health check...');
       
       // Get basic counts from key tables
       const [usersResult, spacesResult, membersResult, postsResult] = await Promise.allSettled([
@@ -123,17 +124,17 @@ export class DatabaseHealthMonitor {
       
       // Log status
       if (status === 'CRITICAL') {
-        console.error('🚨 [DatabaseHealthMonitor] Critical issues detected');
+        log.error('Utils', '🚨 [DatabaseHealthMonitor] Critical issues detected');
       } else if (status === 'WARNING') {
-        console.warn('⚠️ [DatabaseHealthMonitor] Performance warnings detected');
+        log.warn('Utils', '⚠️ [DatabaseHealthMonitor] Performance warnings detected');
       } else {
-        console.log('✅ [DatabaseHealthMonitor] Database health is good');
+        log.debug('Utils', '✅ [DatabaseHealthMonitor] Database health is good');
       }
 
       return report;
 
     } catch (error) {
-      console.error('❌ [DatabaseHealthMonitor] Health check failed:', error);
+      log.error('Utils', '❌ [DatabaseHealthMonitor] Health check failed:', error);
       
       // Return error report
       const report: DatabaseHealthReport = {
@@ -317,7 +318,7 @@ ${status === 'HEALTHY' ? 'No immediate action required.' : 'Review recommendatio
       this.healthCheckCleanup();
       this.healthCheckCleanup = null;
     }
-    console.log('🔍 [DatabaseHealthMonitor] Monitoring stopped');
+    log.debug('Utils', '🔍 [DatabaseHealthMonitor] Monitoring stopped');
   }
 }
 
@@ -328,6 +329,6 @@ export const databaseHealthMonitor = DatabaseHealthMonitor.getInstance();
 if (typeof window !== 'undefined') {
   // Initialize after a short delay to allow other systems to load
   setTimeout(() => {
-    databaseHealthMonitor.initialize().catch(console.error);
+    databaseHealthMonitor.initialize().catch(err => log.error('Utils', 'Error occurred:', err));
   }, 3000);
 } 

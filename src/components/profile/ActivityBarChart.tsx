@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -26,7 +27,7 @@ const ActivityBarChart: React.FC<ActivityBarChartProps> = ({ userId }) => {
         if (error) throw error;
         if (!Array.isArray(data)) {
           setError('Unexpected data format from activity RPC');
-          console.error('user_activity_by_month returned non-array:', data);
+          log.error('Component', 'user_activity_by_month returned non-array:', data);
           setActivityData(Array(12).fill(0));
         } else {
           const monthMap: { [key: string]: number } = {};
@@ -39,7 +40,7 @@ const ActivityBarChart: React.FC<ActivityBarChartProps> = ({ userId }) => {
         }
       } catch (err: any) {
         setError('Failed to load activity data');
-        console.error('Error fetching activity data:', err);
+        log.error('Component', 'Error fetching activity data:', err);
       } finally {
         setLoading(false);
       }

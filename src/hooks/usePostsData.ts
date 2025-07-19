@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { Attachment } from '@/features/posts/types';
@@ -81,7 +82,7 @@ export function usePostsData({ spaceId, currentUserId, isAdmin }: UsePostsDataPr
             .from('users')
             .select('id, full_name, avatar_url, profile_url, activity_score')
             .in('id', userIds);
-          if (authorsFetchError) console.error("Error fetching authors:", authorsFetchError);
+          if (authorsFetchError) log.error('Hook', "Error fetching authors:", authorsFetchError);
           else if (authorsData) {
             authorsData.forEach(author => {
               if (author && author.id) {
@@ -123,7 +124,7 @@ export function usePostsData({ spaceId, currentUserId, isAdmin }: UsePostsDataPr
           if (rawCategoryFromPost && typeof rawCategoryFromPost === 'object') {
             const rawCategory = rawCategoryFromPost as GoodCategoryType | ErrorCategoryType; 
             if ('error' in rawCategory && rawCategory.error !== undefined) {
-              console.warn(`Error structure received for category on post ID ${post.id}:`, rawCategory);
+              log.warn('Hook', `Error structure received for category on post ID ${post.id}:`, rawCategory);
               processedCategory = null;
             } else if ('id' in rawCategory && 'name' in rawCategory) {
               processedCategory = rawCategory as GoodCategoryType;
@@ -172,7 +173,7 @@ export function usePostsData({ spaceId, currentUserId, isAdmin }: UsePostsDataPr
                 return dateB.getTime() - dateA.getTime();
               }
             } catch (e) {
-              console.error("Error parsing dates for pinned posts:", e);
+              log.error('Hook', "Error parsing dates for pinned posts:", e);
             }
           }
           return 0;
@@ -190,7 +191,7 @@ export function usePostsData({ spaceId, currentUserId, isAdmin }: UsePostsDataPr
         setFetchedPosts(unpinnedPosts);
       }
     } catch (err: unknown) {
-      console.error("Error in fetchPosts process:", err);
+      log.error('Hook', "Error in fetchPosts process:", err);
       let errorMessage = "Failed to fetch posts";
       if (err instanceof Error) errorMessage = err.message;
       else if (typeof err === 'string') errorMessage = err;
@@ -373,7 +374,7 @@ export function usePostsData({ spaceId, currentUserId, isAdmin }: UsePostsDataPr
   useEffect(() => {
     if (!currentUserId) {
       // User has signed out, clean up state
-      console.log('[usePostsData] User signed out, cleaning up posts state');
+      log.debug('Hook', '[usePostsData] User signed out, cleaning up posts state');
       setFetchedPosts([]);
       setPinnedPosts([]);
       setPostsLoading(false);

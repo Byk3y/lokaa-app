@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,7 @@ export default function InviteSettingsTab() {
         try {
           await updateTaskCompletion(user.id, space.id, 'invite', true);
         } catch (error) {
-          console.error('[InviteSettingsTab] Error updating invite task completion:', error);
+          log.error('Component', '[InviteSettingsTab] Error updating invite task completion:', error);
           // Don't block the copy operation if task update fails
         }
       }
@@ -87,7 +88,7 @@ export default function InviteSettingsTab() {
         try {
           await updateTaskCompletion(user.id, space.id, 'invite', true);
         } catch (error) {
-          console.error('[InviteSettingsTab] Error updating invite task completion via email send:', error);
+          log.error('Component', '[InviteSettingsTab] Error updating invite task completion via email send:', error);
           // Don't block the invite operation if task update fails
         }
       }

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔄 Mobile Event Migration Utilities
  * 
@@ -80,7 +81,7 @@ export class MobileMigrationHelper {
    */
   registerLegacySystem(name: string, system: any): void {
     this.legacySystems.set(name, system);
-    console.log(`📝 [MigrationHelper] Registered legacy system: ${name}`);
+    log.debug('Utils', `📝 [MigrationHelper] Registered legacy system: ${name}`);
   }
 
   /**
@@ -88,7 +89,7 @@ export class MobileMigrationHelper {
    */
   migrateSystem(systemName: string, adapter: MobileSystemConfig): void {
     if (this.migratedSystems.has(systemName)) {
-      console.log(`✅ [MigrationHelper] ${systemName} already migrated`);
+      log.debug('Utils', `✅ [MigrationHelper] ${systemName} already migrated`);
       return;
     }
 
@@ -98,7 +99,7 @@ export class MobileMigrationHelper {
     // Mark as migrated
     this.migratedSystems.add(systemName);
 
-    console.log(`🔄 [MigrationHelper] Migrated ${systemName} to coordinator`);
+    log.debug('Utils', `🔄 [MigrationHelper] Migrated ${systemName} to coordinator`);
 
     // Store unsubscribe function for cleanup
     (adapter as any).unsubscribe = unsubscribe;
@@ -121,7 +122,7 @@ export class MobileMigrationHelper {
    * Migrate all registered systems at once
    */
   migrateAll(): void {
-    console.log(`🚀 [MigrationHelper] Starting bulk migration of ${this.legacySystems.size} systems...`);
+    log.debug('Utils', `🚀 [MigrationHelper] Starting bulk migration of ${this.legacySystems.size} systems...`);
 
     this.legacySystems.forEach((system, name) => {
       try {
@@ -137,19 +138,19 @@ export class MobileMigrationHelper {
           adapter = {
             name: `GenericAdapter_${name}`,
             handler: async (eventData: MobileEventData) => {
-              console.log(`📡 [GenericAdapter] ${name} received:`, eventData);
+              log.debug('Utils', `📡 [GenericAdapter] ${name} received:`, eventData);
             }
           };
         }
 
         this.migrateSystem(name, adapter);
       } catch (error) {
-        console.warn(`⚠️ [MigrationHelper] Failed to migrate ${name}:`, error);
+        log.warn('Utils', `⚠️ [MigrationHelper] Failed to migrate ${name}:`, error);
       }
     });
 
     const status = this.getMigrationStatus();
-    console.log(`✅ [MigrationHelper] Migration complete: ${status.migratedSystems}/${status.totalLegacySystems} systems migrated`);
+    log.debug('Utils', `✅ [MigrationHelper] Migration complete: ${status.migratedSystems}/${status.totalLegacySystems} systems migrated`);
   }
 }
 
@@ -203,9 +204,9 @@ export class LegacySystemDisabler {
     const disableFunction = disableMap[systemName];
     if (disableFunction) {
       disableFunction();
-      console.log(`🔧 [LegacyDisabler] Disabled ${systemName}`);
+      log.debug('Utils', `🔧 [LegacyDisabler] Disabled ${systemName}`);
     } else {
-      console.warn(`⚠️ [LegacyDisabler] Unknown system: ${systemName}`);
+      log.warn('Utils', `⚠️ [LegacyDisabler] Unknown system: ${systemName}`);
     }
   }
 
@@ -221,7 +222,7 @@ export class LegacySystemDisabler {
       'phase2c'
     ];
 
-    console.log('🔧 [LegacyDisabler] Disabling all legacy mobile systems...');
+    log.debug('Utils', '🔧 [LegacyDisabler] Disabling all legacy mobile systems...');
     
     systems.forEach(system => {
       this.disableSystem(system);
@@ -232,10 +233,10 @@ export class LegacySystemDisabler {
       (window as any).MOBILE_RECOVERY_DISABLED = true;
       (window as any).AGGRESSIVE_RELOAD_DISABLED = true;
       (window as any).DISABLE_MOBILE_LIFECYCLE = true;
-      console.log('🔧 [LegacyDisabler] Set additional Option C validation flags');
+      log.debug('Utils', '🔧 [LegacyDisabler] Set additional Option C validation flags');
     }
 
-    console.log(`✅ [LegacyDisabler] Disabled ${systems.length} legacy systems`);
+    log.debug('Utils', `✅ [LegacyDisabler] Disabled ${systems.length} legacy systems`);
   }
 
   /**

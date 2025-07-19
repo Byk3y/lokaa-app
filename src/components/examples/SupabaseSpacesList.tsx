@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { SpaceService, type Space } from '@/services/supabase';
 
@@ -19,7 +20,7 @@ export function SupabaseSpacesList() {
         
         setSpaces(data || []);
       } catch (err) {
-        console.error('Error fetching spaces:', err);
+        log.error('Component', 'Error fetching spaces:', err);
         setError(err instanceof Error ? err.message : 'Failed to load spaces');
       } finally {
         setLoading(false);

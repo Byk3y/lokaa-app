@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Conversation Store
  * 
@@ -85,7 +86,7 @@ export const useConversationStore = create<ConversationStore>()(
         const state = get();
         
         if (!userId) {
-          console.warn('[ConversationStore] No user ID provided, cannot fetch conversations - user may not be authenticated yet');
+          log.warn('App', '[ConversationStore] No user ID provided, cannot fetch conversations - user may not be authenticated yet');
           set({ error: 'User not authenticated', loading: false });
           return;
         }
@@ -93,18 +94,18 @@ export const useConversationStore = create<ConversationStore>()(
         // ✅ CRITICAL FIX: Check urgent flag FIRST to bypass all blocking
         if (options.urgent) {
           if (!globalConsoleFlags?.DISABLE_CHAT_DEBUG_LOGS) {
-            console.log('[ConversationStore] ⚡ URGENT: Bypassing initialization check, forcing refresh (user:', userId?.substring(0, 8) + '...)');
+            log.debug('App', '[ConversationStore] ⚡ URGENT: Bypassing initialization check, forcing refresh (user:', userId?.substring(0, 8) + '...)');
           }
           // Reset any blocking states for urgent requests
           if (state.loading) {
             if (!globalConsoleFlags?.DISABLE_CHAT_DEBUG_LOGS) {
-              console.log('[ConversationStore] ⚡ URGENT: Resetting loading state to allow immediate refresh');
+              log.debug('App', '[ConversationStore] ⚡ URGENT: Resetting loading state to allow immediate refresh');
             }
             set({ loading: false });
           }
         } else if (state.hasInitialized || state.loading) {
           if (!globalConsoleFlags?.DISABLE_CHAT_DEBUG_LOGS) {
-            console.log('[ConversationStore] Already initialized or loading, skipping... (user:', userId?.substring(0, 8) + '...)');
+            log.debug('App', '[ConversationStore] Already initialized or loading, skipping... (user:', userId?.substring(0, 8) + '...)');
           }
           return;
         }
@@ -128,10 +129,10 @@ export const useConversationStore = create<ConversationStore>()(
           const urgentLabel = options.urgent ? '⚡ URGENT' : '';
           const networkLabel = options.forceNetwork ? '(forced network)' : '(cache-first)';
           if (!globalConsoleFlags?.DISABLE_CHAT_DEBUG_LOGS) {
-            console.log(`[ConversationStore] ${urgentLabel} Fetched conversations:`, result.data?.length || 0, networkLabel);
+            log.debug('App', `[ConversationStore] ${urgentLabel} Fetched conversations:`, result.data?.length || 0, networkLabel);
           }
         } catch (error) {
-          console.error('[ConversationStore] Error fetching conversations:', error);
+          log.error('App', '[ConversationStore] Error fetching conversations:', error);
           set({ 
             loading: false, 
             error: error instanceof Error ? error.message : 'Failed to fetch conversations'
@@ -179,7 +180,7 @@ export const useConversationStore = create<ConversationStore>()(
       // Active conversation management
       setActiveConversationId: (id: string | null) => {
         if (!globalConsoleFlags?.DISABLE_CHAT_DEBUG_LOGS) {
-          console.log('[ConversationStore] Setting active conversation:', id);
+          log.debug('App', '[ConversationStore] Setting active conversation:', id);
         }
         set({ activeConversationId: id });
       },
@@ -201,7 +202,7 @@ export const useConversationStore = create<ConversationStore>()(
           const result = await chatApiService.getConversationBySlug(slug, conversations);
           return result.data;
         } catch (error) {
-          console.error('[ConversationStore] Error getting conversation by slug:', error);
+          log.error('App', '[ConversationStore] Error getting conversation by slug:', error);
           return null;
         }
       },

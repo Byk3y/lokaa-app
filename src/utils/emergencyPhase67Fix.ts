@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * EMERGENCY PHASE 6/7 CRISIS FIX VALIDATION
  * 
@@ -86,7 +87,7 @@ export async function validateEmergencyFixes(): Promise<{
   results: CrisisFix[];
   summary: string; 
 }> {
-  console.log('🚨 EMERGENCY PHASE 6/7 FIX VALIDATION STARTING...');
+  log.debug('Utils', '🚨 EMERGENCY PHASE 6/7 FIX VALIDATION STARTING...');
   
   const results: CrisisFix[] = [];
   let fixedCount = 0;
@@ -102,12 +103,12 @@ export async function validateEmergencyFixes(): Promise<{
       
       if (passed) {
         fixedCount++;
-        console.log(`✅ ${fix.name}: ${fix.description}`);
+        log.debug('Utils', `✅ ${fix.name}: ${fix.description}`);
       } else {
-        console.error(`❌ ${fix.name}: ${fix.description}`);
+        log.error('Utils', `❌ ${fix.name}: ${fix.description}`);
       }
     } catch (error) {
-      console.error(`⚠️ ${fix.name}: Test failed with error:`, error);
+      log.error('Utils', `⚠️ ${fix.name}: Test failed with error:`, error);
       results.push({ 
         ...fix, 
         status: 'warning' as const 
@@ -118,12 +119,12 @@ export async function validateEmergencyFixes(): Promise<{
   const allFixed = fixedCount === emergencyPhase67Fixes.length;
   const summary = `${fixedCount}/${emergencyPhase67Fixes.length} critical fixes validated`;
   
-  console.log(`🚨 EMERGENCY VALIDATION COMPLETE: ${summary}`);
+  log.debug('Utils', `🚨 EMERGENCY VALIDATION COMPLETE: ${summary}`);
   
   if (allFixed) {
-    console.log('🎉 ALL CRITICAL ISSUES RESOLVED! Safe to continue.');
+    log.debug('Utils', '🎉 ALL CRITICAL ISSUES RESOLVED! Safe to continue.');
   } else {
-    console.error('💥 SOME CRITICAL ISSUES REMAIN! Manual intervention required.');
+    log.error('Utils', '💥 SOME CRITICAL ISSUES REMAIN! Manual intervention required.');
   }
   
   return { allFixed, results, summary };
@@ -132,5 +133,5 @@ export async function validateEmergencyFixes(): Promise<{
 // Auto-run validation in development
 if (typeof window !== 'undefined') {
   (window as any).validateEmergencyPhase67Fixes = validateEmergencyFixes;
-  console.log('🔧 Emergency validation available: window.validateEmergencyPhase67Fixes()');
+  log.debug('Utils', '🔧 Emergency validation available: window.validateEmergencyPhase67Fixes()');
 } 

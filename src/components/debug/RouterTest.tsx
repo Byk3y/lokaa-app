@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import { useOptimizedAuth } from '../../contexts/AuthContext';
@@ -22,12 +23,12 @@ export function RouterTest() {
   };
   
   useEffect(() => {
-    console.log("[RouterTest] Location changed:", location.pathname);
+    log.debug('Component', "[RouterTest] Location changed:", location.pathname);
     const isProfileRoute = location.pathname.startsWith('/profile/');
-    console.log("[RouterTest] Is profile route?", isProfileRoute);
+    log.debug('Component', "[RouterTest] Is profile route?", isProfileRoute);
     if (isProfileRoute) {
       const slug = location.pathname.substring('/profile/'.length);
-      console.log("[RouterTest] Profile slug:", slug);
+      log.debug('Component', "[RouterTest] Profile slug:", slug);
     }
     // Only log if the pathname actually changed
     if (prevPathname.current !== location.pathname) {
@@ -35,7 +36,7 @@ export function RouterTest() {
       prevPathname.current = location.pathname;
       
       // Log extensive details about this route
-      console.log('🧪 ROUTER TEST - Route Details:', {
+      log.debug('Component', '🧪 ROUTER TEST - Route Details:', {
         pathname: location.pathname,
         params,
         isProfileRoute: location.pathname.startsWith('/@'),

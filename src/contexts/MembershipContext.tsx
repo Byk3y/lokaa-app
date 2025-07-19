@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/contexts/AuthContext';
@@ -131,7 +132,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[MembershipContext] Tab became visible. Clearing ongoingRequests.');
+        log.debug('Context', '[MembershipContext] Tab became visible. Clearing ongoingRequests.');
         if (ongoingRequests.size > 0) {
           ongoingRequests.clear();
         }
@@ -305,7 +306,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         delete globalMembershipCache[spaceId];
       }
       toast({ title: "Left Space", description: "You have successfully left this space." });
-      console.log('[Membership] Successfully deleted from space_members. Corresponding space_access update handled by backend if necessary.');
+      log.debug('Context', '[Membership] Successfully deleted from space_members. Corresponding space_access update handled by backend if necessary.');
       return true;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -366,7 +367,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
   ): Promise<boolean> => {
     if (!user || !spaceData) return false;
     
-    console.log(`🔧 [MembershipContext] Starting member removal:`, {
+    log.debug('Context', `🔧 [MembershipContext] Starting member removal:`, {
       spaceId,
       userIdOfMemberToRemove,
       currentUserId: user.id,
@@ -378,24 +379,24 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
     try {
       if (!membershipState.isOwner && !membershipState.isAdmin) {
         const errorMsg = "No permission to remove members.";
-        console.error(`🚨 [MembershipContext] Permission denied:`, errorMsg);
+        log.error('Context', `🚨 [MembershipContext] Permission denied:`, errorMsg);
         toast({ title: "Permission Denied", description: errorMsg, variant: "destructive" });
         return false;
       }
       if (userIdOfMemberToRemove === spaceData.owner_id) {
         const errorMsg = "Owner cannot be removed.";
-        console.error(`🚨 [MembershipContext] Cannot remove owner:`, errorMsg);
+        log.error('Context', `🚨 [MembershipContext] Cannot remove owner:`, errorMsg);
         toast({ title: "Action Not Allowed", description: errorMsg, variant: "destructive" });
         return false;
       }
       if (userIdOfMemberToRemove === user.id) {
         const errorMsg = "Use 'Leave Space' for yourself.";
-        console.error(`🚨 [MembershipContext] Cannot remove self:`, errorMsg);
+        log.error('Context', `🚨 [MembershipContext] Cannot remove self:`, errorMsg);
         toast({ title: "Action Not Allowed", description: errorMsg, variant: "destructive" });
         return false;
       }
       if (membershipState.isAdmin && !membershipState.isOwner) {
-        console.log(`🔍 [MembershipContext] Admin attempting removal - checking target user role...`);
+        log.debug('Context', `🔍 [MembershipContext] Admin attempting removal - checking target user role...`);
         // CRITICAL FIX: Use bridge instead of direct call to prevent mobile blocking
         const result = await migrationAdapter.getSpaceMembers(spaceId, { 
           userId: userIdOfMemberToRemove, 
@@ -403,21 +404,21 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         });
         
         const targetUser = result.data?.find((member: any) => member.user_id === userIdOfMemberToRemove);
-        console.log(`🔍 [MembershipContext] Target user check result:`, { targetUser, error: result.error });
+        log.debug('Context', `🔍 [MembershipContext] Target user check result:`, { targetUser, error: result.error });
         
         if (result.error) {
-          console.error(`🚨 [MembershipContext] Error checking target user:`, result.error);
+          log.error('Context', `🚨 [MembershipContext] Error checking target user:`, result.error);
           throw result.error;
         }
         if (targetUser?.role === 'admin') {
           const errorMsg = "Admins cannot remove other admins.";
-          console.error(`🚨 [MembershipContext] Admin cannot remove admin:`, errorMsg);
+          log.error('Context', `🚨 [MembershipContext] Admin cannot remove admin:`, errorMsg);
           toast({ title: "Permission Denied", description: errorMsg, variant: "destructive" });
           return false;
         }
       }
       
-      console.log(`🗑️ [MembershipContext] Executing DELETE operation...`);
+      log.debug('Context', `🗑️ [MembershipContext] Executing DELETE operation...`);
       const { error: deleteError } = await getSupabaseClient()
         .from('space_members')
         .delete()
@@ -425,7 +426,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         .eq('space_id', spaceId);
       
       if (deleteError) {
-        console.error(`🚨 [MembershipContext] DELETE operation failed:`, {
+        log.error('Context', `🚨 [MembershipContext] DELETE operation failed:`, {
           error: deleteError,
           code: deleteError.code,
           message: deleteError.message,
@@ -435,7 +436,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         throw deleteError;
       }
       
-      console.log(`✅ [MembershipContext] Member removal successful`);
+      log.debug('Context', `✅ [MembershipContext] Member removal successful`);
       toast({ title: "Member Removed", description: "The member has been removed from the space." });
       // Cache invalidation for member lists would happen in components using fetchMembers/directFetchMembers
       return true;
@@ -447,7 +448,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
         stack: err.stack
       } : { error: err };
       
-      console.error(`🚨 [MembershipContext] Member removal failed:`, {
+      log.error('Context', `🚨 [MembershipContext] Member removal failed:`, {
         ...errorDetails,
         spaceId,
         userIdOfMemberToRemove
@@ -515,7 +516,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
       const endIndex = startIndex + limit;
       return filteredMembers.slice(startIndex, endIndex);
     } catch (err) {
-      console.error('[MembershipContext] Error fetching space members:', err);
+      log.error('Context', '[MembershipContext] Error fetching space members:', err);
       toast({ title: "Error Fetching Members", description: err instanceof Error ? err.message : "Could not retrieve list.", variant: "destructive"});
       return [];
     }

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📱 Simple Mobile Manager
  * 
@@ -70,7 +71,7 @@ class SimpleMobileManager {
     const isMobile = window.innerWidth <= 768 && 'ontouchstart' in window;
     
     if (isMobile) {
-      console.log('📱 [SimpleMobile] Mobile device detected');
+      log.debug('Utils', '📱 [SimpleMobile] Mobile device detected');
     }
   }
   
@@ -89,7 +90,7 @@ class SimpleMobileManager {
       if (response.status === 401 && 
           args[0]?.toString().includes('supabase.co/rest/v1/')) {
         
-        console.log('🔄 [SimpleMobile] 401 detected, refreshing session');
+        log.debug('Utils', '🔄 [SimpleMobile] 401 detected, refreshing session');
         
         const refreshed = await this.refreshSession();
         if (refreshed) {
@@ -110,7 +111,7 @@ class SimpleMobileManager {
     
     // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
     if (typeof window !== 'undefined' && (window as any).DISABLE_SIMPLE_MOBILE_MANAGER) {
-      console.log('🔧 [SimpleMobileManager] DISABLED - Mobile Event Coordinator is managing events');
+      log.debug('Utils', '🔧 [SimpleMobileManager] DISABLED - Mobile Event Coordinator is managing events');
       return;
     }
     
@@ -119,11 +120,11 @@ class SimpleMobileManager {
         // App went to background
         this.state.isBackground = true;
         this.state.lastBackgroundTime = Date.now();
-        console.log('📱 [SimpleMobile] App backgrounded');
+        log.debug('Utils', '📱 [SimpleMobile] App backgrounded');
       } else {
         // App returned from background
         const backgroundDuration = Date.now() - this.state.lastBackgroundTime;
-        console.log(`📱 [SimpleMobile] App returned (${Math.round(backgroundDuration/1000)}s)`);
+        log.debug('Utils', `📱 [SimpleMobile] App returned (${Math.round(backgroundDuration/1000)}s)`);
         
         this.state.isBackground = false;
         
@@ -168,7 +169,7 @@ class SimpleMobileManager {
       return { isValid: true, action: 'valid' };
       
     } catch (error) {
-      console.warn('📱 [SimpleMobile] Session validation failed:', error);
+      log.warn('Utils', '📱 [SimpleMobile] Session validation failed:', error);
       return { isValid: false, action: 'failed' };
     }
   }
@@ -187,15 +188,15 @@ class SimpleMobileManager {
       const { data, error } = await getSupabaseClient().auth.refreshSession();
       
       if (error || !data.session) {
-        console.warn('📱 [SimpleMobile] Session refresh failed');
+        log.warn('Utils', '📱 [SimpleMobile] Session refresh failed');
         return false;
       }
       
-      console.log('✅ [SimpleMobile] Session refreshed');
+      log.debug('Utils', '✅ [SimpleMobile] Session refreshed');
       return true;
       
     } catch (error) {
-      console.error('📱 [SimpleMobile] Session refresh error:', error);
+      log.error('Utils', '📱 [SimpleMobile] Session refresh error:', error);
       return false;
     } finally {
       this.isRefreshingSession = false;
@@ -210,15 +211,15 @@ class SimpleMobileManager {
     
     this.state.needsSessionCheck = false;
     
-    console.log('📱 [SimpleMobile] Validating session after background return');
+    log.debug('Utils', '📱 [SimpleMobile] Validating session after background return');
     
     const result = await this.validateSession();
     
     if (!result.isValid) {
-      console.warn('📱 [SimpleMobile] Session validation failed, redirecting to login');
+      log.warn('Utils', '📱 [SimpleMobile] Session validation failed, redirecting to login');
       window.location.href = '/';
     } else {
-      console.log(`📱 [SimpleMobile] Session validation: ${result.action}`);
+      log.debug('Utils', `📱 [SimpleMobile] Session validation: ${result.action}`);
     }
   }
   
@@ -268,7 +269,7 @@ function getSimpleMobileManager(): SimpleMobileManager {
   if (!simpleMobileManagerInstance) {
     // Check disable flag before creating instance
     if (typeof window !== 'undefined' && (window as any).DISABLE_SIMPLE_MOBILE_MANAGER) {
-      console.log('🔧 [SimpleMobileManager] Singleton creation DISABLED - Mobile Event Coordinator is managing events');
+      log.debug('Utils', '🔧 [SimpleMobileManager] Singleton creation DISABLED - Mobile Event Coordinator is managing events');
       // Return a no-op instance
       simpleMobileManagerInstance = {
         setUser: () => {},

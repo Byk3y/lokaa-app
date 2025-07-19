@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * useChatUnified Hook - Backward compatibility wrapper
  * 
@@ -25,7 +26,7 @@ export function useChatUnified() {
    * Legacy startDirectConversation - enhanced with comprehensive error handling
    */
   const startDirectConversation = useCallback(async (targetUserId: string): Promise<string> => {
-    console.log('[useChatUnified] Starting direct conversation with:', targetUserId);
+    log.debug('Hook', '[useChatUnified] Starting direct conversation with:', targetUserId);
     
     try {
       const conversationId = await conversations.startDirectConversation(targetUserId);
@@ -35,7 +36,7 @@ export function useChatUnified() {
       
       return conversationId;
     } catch (error) {
-      console.error('[useChatUnified] Failed to start conversation:', error);
+      log.error('Hook', '[useChatUnified] Failed to start conversation:', error);
       throw error;
     }
   }, [conversations.startDirectConversation, navigation.navigateToConversation]);

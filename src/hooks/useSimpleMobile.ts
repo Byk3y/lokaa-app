@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚫 DISABLED: SimpleMobile Hook - replaced by comprehensive fix
  * 
@@ -25,7 +26,7 @@ export function useSimpleMobile() {
   });
 
   useEffect(() => {
-    console.log('🚫 [useSimpleMobile] DISABLED - mobile protection handled by comprehensive fix');
+    log.debug('Hook', '🚫 [useSimpleMobile] DISABLED - mobile protection handled by comprehensive fix');
   }, []);
 
   return mobileState;

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 UNIFIED SPACE PRESENCE SYSTEM
  * 
@@ -61,7 +62,7 @@ export function useSpacePresence(spaceId: string | undefined): SpacePresenceData
     const fetchPresence = async (attempt = 0) => {
       try {
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🌐 [SpacePresence] Fetching presence for space ${spaceId} (attempt ${attempt + 1})`);
+          log.debug('Hook', `🌐 [SpacePresence] Fetching presence for space ${spaceId} (attempt ${attempt + 1})`);
         }
         
         setPresence(prev => ({ ...prev, loading: true, error: null }));
@@ -101,10 +102,10 @@ export function useSpacePresence(spaceId: string | undefined): SpacePresenceData
         retryCount.current = 0;
         
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🌐 [SpacePresence] Successfully fetched ${onlineUsers.length} online users for space ${spaceId}`);
+          log.debug('Hook', `🌐 [SpacePresence] Successfully fetched ${onlineUsers.length} online users for space ${spaceId}`);
         }
       } catch (error) {
-        console.error(`Failed to fetch space presence (attempt ${attempt + 1}):`, error);
+        log.error('Hook', `Failed to fetch space presence (attempt ${attempt + 1}):`, error);
         
         if (attempt < maxRetries) {
           // Retry with exponential backoff
@@ -140,7 +141,7 @@ export function useSpacePresence(spaceId: string | undefined): SpacePresenceData
           filter: `space_id=eq.${spaceId}`
         }, (payload) => {
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🌐 [SpacePresence] Real-time update received for space ${spaceId}:`, payload.eventType);
+            log.debug('Hook', `🌐 [SpacePresence] Real-time update received for space ${spaceId}:`, payload.eventType);
           }
           // Re-fetch presence data when changes occur
           fetchPresence();

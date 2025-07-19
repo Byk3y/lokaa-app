@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🏗️ Mobile Event Coordinator - 2025 Industry Standard
  * 
@@ -84,16 +85,16 @@ class MobileEventCoordinator {
    */
   initialize(): void {
     if (this.isInitialized) {
-      console.log('🏗️ [MobileEventCoordinator] Already initialized');
+      log.debug('Utils', '🏗️ [MobileEventCoordinator] Already initialized');
       return;
     }
 
-    console.log('🏗️ [MobileEventCoordinator] Initializing central mobile event system...');
-    console.log(`🏗️ [MobileEventCoordinator] Mobile device detected: ${this.isMobile}`);
+    log.debug('Utils', '🏗️ [MobileEventCoordinator] Initializing central mobile event system...');
+    log.debug('Utils', `🏗️ [MobileEventCoordinator] Mobile device detected: ${this.isMobile}`);
 
     // DESKTOP GUARD: Don't initialize mobile systems on desktop
     if (!this.isMobile) {
-      console.log('🖥️ [MobileEventCoordinator] Desktop detected - mobile systems disabled');
+      log.debug('Utils', '🖥️ [MobileEventCoordinator] Desktop detected - mobile systems disabled');
       this.isInitialized = true;
       
       // Still set disable flags to prevent competing mobile systems from running
@@ -117,8 +118,8 @@ class MobileEventCoordinator {
       (window as any).MOBILE_EVENT_COORDINATOR_ACTIVE = true;
     }
 
-    console.log('✅ [MobileEventCoordinator] Central coordinator initialized');
-    console.log(`✅ [MobileEventCoordinator] Replacing 6+ competing systems with 1 coordinator`);
+    log.debug('Utils', '✅ [MobileEventCoordinator] Central coordinator initialized');
+    log.debug('Utils', `✅ [MobileEventCoordinator] Replacing 6+ competing systems with 1 coordinator`);
     
     // Disable competing systems
     this.disableCompetingSystems();
@@ -134,7 +135,7 @@ class MobileEventCoordinator {
 
     // Check if mobile-only and not on mobile
     if (config.onlyOnMobile && !this.isMobile) {
-      console.log(`🏗️ [MobileEventCoordinator] Skipping ${config.name} - not on mobile device`);
+      log.debug('Utils', `🏗️ [MobileEventCoordinator] Skipping ${config.name} - not on mobile device`);
       return () => {}; // Return no-op unsubscribe
     }
 
@@ -144,12 +145,12 @@ class MobileEventCoordinator {
       ...config
     });
 
-    console.log(`✅ [MobileEventCoordinator] Subscribed: ${config.name} (${this.subscribers.size} total)`);
+    log.debug('Utils', `✅ [MobileEventCoordinator] Subscribed: ${config.name} (${this.subscribers.size} total)`);
 
     // Return unsubscribe function
     return () => {
       this.subscribers.delete(config.name);
-      console.log(`🗑️ [MobileEventCoordinator] Unsubscribed: ${config.name}`);
+      log.debug('Utils', `🗑️ [MobileEventCoordinator] Unsubscribed: ${config.name}`);
     };
   }
 
@@ -184,7 +185,7 @@ class MobileEventCoordinator {
         this.state.isBackground = true;
         this.state.lastBackgroundTime = now;
         
-        console.log('🌙 [MobileEventCoordinator] App backgrounded - notifying systems');
+        log.debug('Utils', '🌙 [MobileEventCoordinator] App backgrounded - notifying systems');
         
         this.notifySubscribers({
           isBackground: true,
@@ -200,7 +201,7 @@ class MobileEventCoordinator {
         this.state.isBackground = false;
         this.state.lastForegroundTime = now;
         
-        console.log(`🌅 [MobileEventCoordinator] App foregrounded after ${Math.round(duration/1000)}s - notifying systems`);
+        log.debug('Utils', `🌅 [MobileEventCoordinator] App foregrounded after ${Math.round(duration/1000)}s - notifying systems`);
         
         this.notifySubscribers({
           isBackground: false,
@@ -212,7 +213,7 @@ class MobileEventCoordinator {
       }
     });
 
-    console.log('✅ [MobileEventCoordinator] Visibility listener setup (1 listener for entire app)');
+    log.debug('Utils', '✅ [MobileEventCoordinator] Visibility listener setup (1 listener for entire app)');
   }
 
   /**
@@ -244,7 +245,7 @@ class MobileEventCoordinator {
     this.focusHandler = handleFocus;
     this.blurHandler = handleBlur;
 
-    console.log('✅ [MobileEventCoordinator] Focus/blur listeners setup');
+    log.debug('Utils', '✅ [MobileEventCoordinator] Focus/blur listeners setup');
   }
 
   /**
@@ -271,7 +272,7 @@ class MobileEventCoordinator {
       });
     });
 
-    console.log('✅ [MobileEventCoordinator] Page lifecycle listeners setup');
+    log.debug('Utils', '✅ [MobileEventCoordinator] Page lifecycle listeners setup');
   }
 
   /**
@@ -288,20 +289,20 @@ class MobileEventCoordinator {
 
     this.state.systemsNotified = sortedSubscribers.length;
 
-    console.log(`📡 [MobileEventCoordinator] Notifying ${sortedSubscribers.length} systems (${eventData.eventType})`);
+    log.debug('Utils', `📡 [MobileEventCoordinator] Notifying ${sortedSubscribers.length} systems (${eventData.eventType})`);
 
     // Notify all systems
     const notifications = sortedSubscribers.map(async (config) => {
       try {
         await config.handler(eventData);
       } catch (error) {
-        console.warn(`⚠️ [MobileEventCoordinator] ${config.name} handler error:`, error);
+        log.warn('Utils', `⚠️ [MobileEventCoordinator] ${config.name} handler error:`, error);
       }
     });
 
     await Promise.all(notifications);
     
-    console.log(`✅ [MobileEventCoordinator] All systems notified (${eventData.eventType})`);
+    log.debug('Utils', `✅ [MobileEventCoordinator] All systems notified (${eventData.eventType})`);
   }
 
   /**
@@ -310,7 +311,7 @@ class MobileEventCoordinator {
   private disableCompetingSystems(): void {
     if (typeof window === 'undefined') return;
 
-    console.log('🔧 [MobileEventCoordinator] Disabling competing mobile systems...');
+    log.debug('Utils', '🔧 [MobileEventCoordinator] Disabling competing mobile systems...');
 
     // Set global flags to disable competing systems
     const globalFlags = {
@@ -330,15 +331,15 @@ class MobileEventCoordinator {
       (window as any)[key] = value;
     });
 
-    console.log('✅ [MobileEventCoordinator] Competing systems disabled');
-    console.log('✅ [MobileEventCoordinator] Performance improvement: 1 listener vs 6+ before');
+    log.debug('Utils', '✅ [MobileEventCoordinator] Competing systems disabled');
+    log.debug('Utils', '✅ [MobileEventCoordinator] Performance improvement: 1 listener vs 6+ before');
   }
 
   /**
    * Emergency cleanup
    */
   cleanup(): void {
-    console.log('🧹 [MobileEventCoordinator] Cleaning up...');
+    log.debug('Utils', '🧹 [MobileEventCoordinator] Cleaning up...');
     
     this.subscribers.clear();
     this.isInitialized = false;
@@ -360,7 +361,7 @@ class MobileEventCoordinator {
       delete (window as any).getMobileSubscribers;
     }
     
-    console.log('✅ [MobileEventCoordinator] Cleanup complete');
+    log.debug('Utils', '✅ [MobileEventCoordinator] Cleanup complete');
   }
 }
 
@@ -376,6 +377,6 @@ if (typeof window !== 'undefined') {
       mobileEventCoordinator.initialize();
     }, 0);
   } else {
-    console.log('🖥️ [MobileEventCoordinator] Desktop detected - skipping mobile event coordination');
+    log.debug('Utils', '🖥️ [MobileEventCoordinator] Desktop detected - skipping mobile event coordination');
   }
 } 

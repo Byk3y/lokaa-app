@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -100,7 +101,7 @@ export default function SpaceAboutPage() {
         
         setIsMember(!!memberData);
       } catch (err) {
-        console.error("Error checking membership:", err);
+        log.error('Page', "Error checking membership:", err);
         setIsMember(false);
       } finally {
         setCheckingMembership(false);
@@ -152,7 +153,7 @@ export default function SpaceAboutPage() {
       
       navigate(`/${spaceAboutData.subdomain}/space`, { replace: true });
     } catch (joinErr: any) {
-      console.error("Error joining space:", joinErr);
+      log.error('Page', "Error joining space:", joinErr);
       toast({ title: "Join Failed", description: joinErr.message || "Could not join the space.", variant: "destructive" });
     } finally {
       setJoiningSpace(false);

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchStrategies } from '@/utils/cacheUtils';
@@ -64,7 +65,7 @@ export function useHoverPrefetch() {
           }
         );
       } catch (error) {
-        console.warn(`Failed to prefetch post ${postId}:`, error);
+        log.warn('Hook', `Failed to prefetch post ${postId}:`, error);
       }
     }, delay);
     
@@ -104,7 +105,7 @@ export function useHoverPrefetch() {
           }
         );
       } catch (error) {
-        console.warn(`Failed to prefetch comments for post ${postId}:`, error);
+        log.warn('Hook', `Failed to prefetch comments for post ${postId}:`, error);
       }
     }, delay);
     
@@ -134,7 +135,7 @@ export function useHoverPrefetch() {
           }
         );
       } catch (error) {
-        console.warn(`Failed to prefetch user ${userId}:`, error);
+        log.warn('Hook', `Failed to prefetch user ${userId}:`, error);
       }
     }, delay);
     

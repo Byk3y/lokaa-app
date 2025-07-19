@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Legacy Auth Debug Utility - Re-export Layer
  * 
@@ -17,7 +18,7 @@ const authDebug = {
   // Initialize with the Supabase client
   init(supabase) {
     if (!env.isDevelopment) {
-      console.warn('Auth debug utility is only available in development mode');
+      log.warn('Utils', 'Auth debug utility is only available in development mode');
       return this;
     }
     
@@ -30,7 +31,7 @@ const authDebug = {
   // Legacy method - redirects to new service
   async checkSession() {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false, authenticated: false };
     }
     
@@ -40,7 +41,7 @@ const authDebug = {
   // Legacy method - redirects to new service
   checkStorage() {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false, allKeys: [], supabaseKeys: [], spaceKeys: [], otherKeys: [] };
     }
     
@@ -50,7 +51,7 @@ const authDebug = {
   // Legacy method - redirects to new service
   async getCurrentUser() {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false };
     }
     
@@ -60,7 +61,7 @@ const authDebug = {
   // Legacy method - redirects to new service
   clearAuthStorage() {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false, removedKeys: [] };
     }
     
@@ -70,7 +71,7 @@ const authDebug = {
   // Legacy method - redirects to new service
   async emergencySignOut() {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false };
     }
     

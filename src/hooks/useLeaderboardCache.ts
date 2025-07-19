@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { calculateUserLevelInfo, UserLevelInfo } from '@/utils/levelUtils';
@@ -57,7 +58,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
     
     // Check if we should use cached data
     if (!forceRefresh && entry && !get().isStale(spaceId)) {
-      console.log('🏆 Using cached leaderboard for space:', spaceId);
+      log.debug('Hook', '🏆 Using cached leaderboard for space:', spaceId);
       return; // Use cached data
     }
 
@@ -74,7 +75,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
     set({ cache: newCache });
 
     try {
-      console.log('🔄 Fetching leaderboard from Supabase for space:', spaceId);
+      log.debug('Hook', '🔄 Fetching leaderboard from Supabase for space:', spaceId);
       
       // POSTS PATTERN: 4-second timeout with fallback recovery
       const TIMEOUT_MS = 15000; // Increased from 4000 to match working queries
@@ -95,7 +96,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
           topUserPointsPromise,
           new Promise<never>((_, reject) => {
             setTimeout(() => {
-              console.error('[LeaderboardCache] Points query timeout for:', spaceId);
+              log.error('Hook', '[LeaderboardCache] Points query timeout for:', spaceId);
               reject(new Error('Leaderboard points query timeout'));
             }, TIMEOUT_MS);
           })
@@ -103,7 +104,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
 
         if (topUserPointsError) throw topUserPointsError;
 
-        console.log('🏆 Processing', topUserPointsData?.length || 0, 'leaderboard entries for caching');
+        log.debug('Hook', '🏆 Processing', topUserPointsData?.length || 0, 'leaderboard entries for caching');
 
         if (topUserPointsData && topUserPointsData.length > 0) {
           const userIds = topUserPointsData.map(entry => entry.user_id);
@@ -118,7 +119,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
             profilesPromise,
             new Promise<never>((_, reject) => {
               setTimeout(() => {
-                console.error('[LeaderboardCache] Profiles query timeout for:', spaceId);
+                log.error('Hook', '[LeaderboardCache] Profiles query timeout for:', spaceId);
                 reject(new Error('Leaderboard profiles query timeout'));
               }, TIMEOUT_MS);
             })
@@ -156,7 +157,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
               currentUserPromise,
               new Promise<never>((_, reject) => {
                 setTimeout(() => {
-                  console.error('[LeaderboardCache] Current user query timeout for:', spaceId);
+                  log.error('Hook', '[LeaderboardCache] Current user query timeout for:', spaceId);
                   reject(new Error('Current user query timeout'));
                 }, TIMEOUT_MS);
               })
@@ -191,12 +192,12 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
                   ]);
                   
                   if (rankError) {
-                    console.error('Error fetching rank for current user:', rankError);
+                    log.error('Hook', 'Error fetching rank for current user:', rankError);
                   } else {
                     rank = (count || 0) + 1;
                   }
                 } catch (rankError) {
-                  console.warn('Rank query timeout, using fallback rank');
+                  log.warn('Hook', 'Rank query timeout, using fallback rank');
                   rank = rankedUsers.length + 1; // Fallback rank
                 }
               }
@@ -241,7 +242,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
                   levelInfo: calculateUserLevelInfo(currentUserPointData.points),
                 };
               } catch (userDataError) {
-                console.warn('User data query timeout, using fallback user data');
+                log.warn('Hook', 'User data query timeout, using fallback user data');
                 currentUserStanding = {
                   userId: currentUserId,
                   fullName: 'Current User',
@@ -292,7 +293,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
                   levelInfo: calculateUserLevelInfo(0),
                 };
               } catch (basicUserError) {
-                console.warn('Basic user data query timeout, using fallback');
+                log.warn('Hook', 'Basic user data query timeout, using fallback');
                 currentUserStanding = {
                   userId: currentUserId,
                   fullName: 'Current User',
@@ -304,7 +305,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
               }
             }
           } catch (currentUserError) {
-            console.warn('Current user standing query failed, using fallback');
+            log.warn('Hook', 'Current user standing query failed, using fallback');
             currentUserStanding = {
               userId: currentUserId,
               fullName: 'Current User',
@@ -317,7 +318,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
         }
 
       } catch (timeoutError) {
-        console.error('[LeaderboardCache] Query timeout, attempting fallback recovery...');
+        log.error('Hook', '[LeaderboardCache] Query timeout, attempting fallback recovery...');
         
         // POSTS PATTERN: Try persistent cache fallback
         try {
@@ -331,11 +332,11 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
             if (cacheAge < maxFallbackAge) {
               rankedUsers = parsed.leaderboardUsers || [];
               currentUserStanding = parsed.currentUserStanding || null;
-              console.log(`✅ [LeaderboardCache] Using fallback cache data (${Math.round(cacheAge / 60000)} minutes old)`);
+              log.debug('Hook', `✅ [LeaderboardCache] Using fallback cache data (${Math.round(cacheAge / 60000)} minutes old)`);
             }
           }
         } catch (cacheError) {
-          console.warn('⚠️ [LeaderboardCache] Fallback cache read failed:', cacheError);
+          log.warn('Hook', '⚠️ [LeaderboardCache] Fallback cache read failed:', cacheError);
         }
         
         // POSTS PATTERN: Hardcoded fallback for known space
@@ -362,7 +363,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
             };
           }
           
-          console.log('🔄 [LeaderboardCache] Using hardcoded fallback for known space');
+          log.debug('Hook', '🔄 [LeaderboardCache] Using hardcoded fallback for known space');
         }
       }
 
@@ -385,7 +386,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
       }
 
       set({ cache: finalCache });
-      console.log('✅ Cached', rankedUsers.length, 'leaderboard users for space:', spaceId);
+      log.debug('Hook', '✅ Cached', rankedUsers.length, 'leaderboard users for space:', spaceId);
       
       // POSTS PATTERN: Save to persistent fallback cache
       try {
@@ -395,13 +396,13 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
           currentUserStanding,
           timestamp: Date.now()
         }));
-        console.log(`💾 [LeaderboardCache] Saved fallback cache for future timeouts`);
+        log.debug('Hook', `💾 [LeaderboardCache] Saved fallback cache for future timeouts`);
       } catch (cacheError) {
-        console.warn('⚠️ [LeaderboardCache] Failed to save fallback cache:', cacheError);
+        log.warn('Hook', '⚠️ [LeaderboardCache] Failed to save fallback cache:', cacheError);
       }
       
     } catch (error) {
-      console.error('[LeaderboardCache] fetchLeaderboard error:', error);
+      log.error('Hook', '[LeaderboardCache] fetchLeaderboard error:', error);
       
       // POSTS PATTERN: Final fallback attempt
       try {
@@ -422,12 +423,12 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
               lastFetched: Date.now(),
             });
             set({ cache: finalCache });
-            console.log(`✅ [LeaderboardCache] Recovered from persistent fallback cache`);
+            log.debug('Hook', `✅ [LeaderboardCache] Recovered from persistent fallback cache`);
             return;
           }
         }
       } catch (fallbackError) {
-        console.warn('Final fallback recovery failed:', fallbackError);
+        log.warn('Hook', 'Final fallback recovery failed:', fallbackError);
       }
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -481,7 +482,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
       currentUserStanding: updatedUserStanding,
     });
     set({ cache: newCache });
-    console.log('📊 Updated user points in leaderboard cache:', userId, 'new points:', newPoints);
+    log.debug('Hook', '📊 Updated user points in leaderboard cache:', userId, 'new points:', newPoints);
   },
 
   clearCache: (spaceId?: string) => {
@@ -490,10 +491,10 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
       const newCache = new Map(cache);
       newCache.delete(spaceId);
       set({ cache: newCache });
-      console.log('🧹 Cleared leaderboard cache for space:', spaceId);
+      log.debug('Hook', '🧹 Cleared leaderboard cache for space:', spaceId);
     } else {
       set({ cache: new Map() });
-      console.log('🧹 Cleared all leaderboard cache');
+      log.debug('Hook', '🧹 Cleared all leaderboard cache');
     }
   },
 

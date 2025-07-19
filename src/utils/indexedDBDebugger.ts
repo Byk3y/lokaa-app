@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * IndexedDB Debugger & Cache Reset Utility
  * 
@@ -14,17 +15,17 @@ export async function forceResetIndexedDB(): Promise<void> {
       const deleteRequest = indexedDB.deleteDatabase('lokaa-supabase-cache');
       
       deleteRequest.onsuccess = () => {
-        console.log('🔄 [IndexedDBDebugger] Database deleted successfully, will recreate on next access');
+        log.debug('Utils', '🔄 [IndexedDBDebugger] Database deleted successfully, will recreate on next access');
         resolve();
       };
       
       deleteRequest.onerror = () => {
-        console.error('❌ [IndexedDBDebugger] Failed to delete database:', deleteRequest.error);
+        log.error('Utils', '❌ [IndexedDBDebugger] Failed to delete database:', deleteRequest.error);
         reject(deleteRequest.error);
       };
       
       deleteRequest.onblocked = () => {
-        console.warn('⚠️ [IndexedDBDebugger] Database deletion blocked - please close all tabs');
+        log.warn('Utils', '⚠️ [IndexedDBDebugger] Database deletion blocked - please close all tabs');
         // Force resolve after timeout
         setTimeout(() => resolve(), 2000);
       };
@@ -68,7 +69,7 @@ export async function checkIndexedDBStatus(): Promise<any> {
  */
 export async function testIndexedDBBridge(): Promise<any> {
   const status = await checkIndexedDBStatus();
-  console.log('📊 [IndexedDBDebugger] Current database status:', status);
+  log.debug('Utils', '📊 [IndexedDBDebugger] Current database status:', status);
   
   // Check if all expected stores exist
   const expectedStores = [
@@ -82,8 +83,8 @@ export async function testIndexedDBBridge(): Promise<any> {
   const missingStores = expectedStores.filter(store => !status.stores?.includes(store));
   
   if (missingStores.length > 0) {
-    console.warn(`⚠️ [IndexedDBDebugger] Missing stores: ${missingStores.join(', ')}`);
-    console.log('🔄 [IndexedDBDebugger] Attempting database reset...');
+    log.warn('Utils', `⚠️ [IndexedDBDebugger] Missing stores: ${missingStores.join(', ')}`);
+    log.debug('Utils', '🔄 [IndexedDBDebugger] Attempting database reset...');
     
     await forceResetIndexedDB();
     
@@ -92,7 +93,7 @@ export async function testIndexedDBBridge(): Promise<any> {
     
     // Check status again
     const newStatus = await checkIndexedDBStatus();
-    console.log('📊 [IndexedDBDebugger] Database status after reset:', newStatus);
+    log.debug('Utils', '📊 [IndexedDBDebugger] Database status after reset:', newStatus);
     
     return {
       beforeReset: status,
@@ -117,21 +118,21 @@ if (typeof window !== 'undefined') {
     testBridge: testIndexedDBBridge,
     // Quick fix command
     quickFix: async () => {
-      console.log('🔧 [IndexedDBDebugger] Running quick fix...');
+      log.debug('Utils', '🔧 [IndexedDBDebugger] Running quick fix...');
       try {
         await forceResetIndexedDB();
         await new Promise(resolve => setTimeout(resolve, 1000));
         const status = await checkIndexedDBStatus();
-        console.log('✅ [IndexedDBDebugger] Quick fix completed:', status);
+        log.debug('Utils', '✅ [IndexedDBDebugger] Quick fix completed:', status);
         return status;
       } catch (error) {
-        console.warn('⚠️ [IndexedDBDebugger] Reset blocked, trying alternative approach...');
+        log.warn('Utils', '⚠️ [IndexedDBDebugger] Reset blocked, trying alternative approach...');
         // Alternative: Just check current status and proceed
         const status = await checkIndexedDBStatus();
         if (status.stores?.includes('user_profiles_cache')) {
-          console.log('✅ [IndexedDBDebugger] Database already has correct schema');
+          log.debug('Utils', '✅ [IndexedDBDebugger] Database already has correct schema');
         } else {
-          console.log('ℹ️ [IndexedDBDebugger] Please close other tabs and refresh to trigger schema upgrade');
+          log.debug('Utils', 'ℹ️ [IndexedDBDebugger] Please close other tabs and refresh to trigger schema upgrade');
         }
         return status;
       }
@@ -140,15 +141,15 @@ if (typeof window !== 'undefined') {
     checkHealth: async () => {
       const status = await checkIndexedDBStatus();
       const isHealthy = status.stores?.length === 5 && status.stores.includes('user_profiles_cache');
-      console.log(isHealthy ? '✅ Database is healthy' : '⚠️ Database needs schema upgrade');
+      log.debug('Utils', isHealthy ? '✅ Database is healthy' : '⚠️ Database needs schema upgrade');
       return { ...status, healthy: isHealthy };
     }
   };
   
-  console.log('🔧 [IndexedDBDebugger] Debug utilities loaded:');
-  console.log('  - window.indexedDBDebugger.checkStatus()');
-  console.log('  - window.indexedDBDebugger.forceReset()');
-  console.log('  - window.indexedDBDebugger.testBridge()');
-  console.log('  - window.indexedDBDebugger.quickFix()');
-  console.log('  - window.indexedDBDebugger.checkHealth()');
+  log.debug('Utils', '🔧 [IndexedDBDebugger] Debug utilities loaded:');
+  log.debug('Utils', '  - window.indexedDBDebugger.checkStatus()');
+  log.debug('Utils', '  - window.indexedDBDebugger.forceReset()');
+  log.debug('Utils', '  - window.indexedDBDebugger.testBridge()');
+  log.debug('Utils', '  - window.indexedDBDebugger.quickFix()');
+  log.debug('Utils', '  - window.indexedDBDebugger.checkHealth()');
 } 

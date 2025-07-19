@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Cache utilities for instant space redirects
  * Provides cache warming and validation for optimal user experience
@@ -84,7 +85,7 @@ export function warmSpaceCache(spaceData: {
     });
     
   } catch (error) {
-    console.warn('Cache warming error:', error);
+    log.warn('Utils', 'Cache warming error:', error);
   }
 }
 
@@ -124,12 +125,12 @@ async function performCacheWarm(spaceData: {
     // REDUCED LOGGING: Only log once per space per session to minimize noise
     const sessionKey = `cache_logged_${spaceData.subdomain}_${userId || 'anonymous'}`;
     if (!sessionStorage.getItem(sessionKey)) {
-      console.log('🚀 [CacheUtils] Cache initialized for:', spaceData.name);
+      log.debug('Utils', '🚀 [CacheUtils] Cache initialized for:', spaceData.name);
       sessionStorage.setItem(sessionKey, 'true');
     }
     
   } catch (error) {
-    console.warn('Cache warming storage error:', error);
+    log.warn('Utils', 'Cache warming storage error:', error);
   }
 }
 
@@ -206,9 +207,9 @@ export function clearSpaceCache(): void {
     lastCacheWarmTime.clear();
     pendingCacheOperations.clear();
     
-    console.log('🚀 [CacheUtils] Cleared all space cache data');
+    log.debug('Utils', '🚀 [CacheUtils] Cleared all space cache data');
   } catch (error) {
-    console.warn('Failed to clear space cache:', error);
+    log.warn('Utils', 'Failed to clear space cache:', error);
   }
 }
 
@@ -499,7 +500,7 @@ export const cacheHealth = {
     const sizeMB = stats.cacheSize / (1024 * 1024);
     
     if (sizeMB > maxSizeMB) {
-      console.warn(`🚨 Cache size warning: ${sizeMB.toFixed(2)}MB exceeds limit of ${maxSizeMB}MB`);
+      log.warn('Utils', `🚨 Cache size warning: ${sizeMB.toFixed(2)}MB exceeds limit of ${maxSizeMB}MB`);
       return true;
     }
     
@@ -514,7 +515,7 @@ export const cacheDebug = {
    */
   logCacheAccess: (key: string, hit: boolean, data?: any) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(
+      log.debug('Utils', 
         `📦 Cache ${hit ? 'HIT' : 'MISS'}: ${JSON.stringify(key)}`,
         data ? `(${Object.keys(data).length} keys)` : ''
       );
@@ -529,16 +530,16 @@ export const cacheDebug = {
       const cache = queryClient.getQueryCache();
       const queries = cache.getAll();
       
-      console.group('🔍 Cache State Visualization');
+      log.group('Utils', '🔍 Cache State Visualization');
       queries.forEach(query => {
-        console.log(`${query.queryKey.join('/')}:`, {
+        log.debug('Utils', `${query.queryKey.join('/')}:`, {
           status: query.state.status,
           dataUpdateCount: query.state.dataUpdateCount,
           isStale: query.isStale(),
           lastUpdated: new Date(query.state.dataUpdatedAt).toLocaleTimeString(),
         });
       });
-      console.groupEnd();
+      log.groupEnd();
     }
   },
 }; 

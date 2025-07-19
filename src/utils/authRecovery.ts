@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Authentication Recovery Utility
  * Helps recover from authentication issues after service outages
@@ -20,11 +21,11 @@ export class AuthRecovery {
     const { clearCache = true, forceRefresh = true, resetSession = false } = options;
     
     try {
-      console.log('🔄 [AuthRecovery] Starting authentication recovery...');
+      log.debug('Utils', '🔄 [AuthRecovery] Starting authentication recovery...');
       
       // Step 1: Clear localStorage cache if requested
       if (clearCache) {
-        console.log('🧹 [AuthRecovery] Clearing authentication cache...');
+        log.debug('Utils', '🧹 [AuthRecovery] Clearing authentication cache...');
         // PHASE 3 FIX: Use centralized auth token cleanup instead of manual localStorage removal
         // Removed: localStorage.removeItem('getSupabaseClient().auth.token');
         clearAllAuthTokens(true); // Clear problematic keys but preserve Supabase's automatic keys
@@ -34,40 +35,40 @@ export class AuthRecovery {
       
       // Step 2: Reset session if requested
       if (resetSession) {
-        console.log('🔄 [AuthRecovery] Resetting session...');
+        log.debug('Utils', '🔄 [AuthRecovery] Resetting session...');
         await getSupabaseClient().auth.signOut();
       }
       
       // Step 3: Force refresh session
       if (forceRefresh) {
-        console.log('🔄 [AuthRecovery] Refreshing session...');
+        log.debug('Utils', '🔄 [AuthRecovery] Refreshing session...');
         const { data: { session }, error } = await getSupabaseClient().auth.getSession();
         
         if (error) {
-          console.error('❌ [AuthRecovery] Failed to refresh session:', error);
+          log.error('Utils', '❌ [AuthRecovery] Failed to refresh session:', error);
           return false;
         }
         
-        console.log('✅ [AuthRecovery] Session refreshed successfully');
+        log.debug('Utils', '✅ [AuthRecovery] Session refreshed successfully');
       }
       
       // Step 4: Test basic API connectivity
-      console.log('🔍 [AuthRecovery] Testing API connectivity...');
+      log.debug('Utils', '🔍 [AuthRecovery] Testing API connectivity...');
       const { data, error } = await getSupabaseClient()
         .from('spaces')
         .select('id')
         .limit(1);
       
       if (error) {
-        console.error('❌ [AuthRecovery] API connectivity test failed:', error);
+        log.error('Utils', '❌ [AuthRecovery] API connectivity test failed:', error);
         return false;
       }
       
-      console.log('✅ [AuthRecovery] Authentication recovery completed successfully');
+      log.debug('Utils', '✅ [AuthRecovery] Authentication recovery completed successfully');
       return true;
       
     } catch (error) {
-      console.error('❌ [AuthRecovery] Recovery failed:', error);
+      log.error('Utils', '❌ [AuthRecovery] Recovery failed:', error);
       return false;
     }
   }
@@ -95,7 +96,7 @@ export class AuthRecovery {
    * Forces a page refresh to clear all client-side state
    */
   static forceRefresh(): void {
-    console.log('🔄 [AuthRecovery] Forcing page refresh to clear state...');
+    log.debug('Utils', '🔄 [AuthRecovery] Forcing page refresh to clear state...');
     window.location.reload();
   }
 } 

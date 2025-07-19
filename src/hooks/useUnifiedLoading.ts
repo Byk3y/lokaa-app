@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🎯 Unified Loading Hook
  * 
@@ -124,7 +125,7 @@ export function useUnifiedLoading(options: UseUnifiedLoadingOptions = {}) {
     for (const step of sequence) {
       const started = controls.start(step.operation);
       if (!started) {
-        console.log(`🎯 [UnifiedLoading] Sequence step ${step.operation} skipped by manager`);
+        log.debug('Hook', `🎯 [UnifiedLoading] Sequence step ${step.operation} skipped by manager`);
         continue;
       }
 
@@ -276,7 +277,7 @@ export function useUserTypeDetection() {
       
       return detectedType;
     } catch (error) {
-      console.error('User type detection failed:', error);
+      log.error('Hook', 'User type detection failed:', error);
       return UserType.UNKNOWN;
     } finally {
       setIsDetecting(false);

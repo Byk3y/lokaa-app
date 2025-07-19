@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect } from 'react';
 import { useLeaderboardCache } from './useLeaderboardCache';
 import type { CachedLeaderboardUser, CachedUserStanding } from './useLeaderboardCache';
@@ -32,7 +33,7 @@ export function useCachedLeaderboard(
   // Auto-fetch leaderboard when spaceId or currentUserId changes
   useEffect(() => {
     if (spaceId) {
-      console.log('🔄 useCachedLeaderboard: Auto-fetching leaderboard for space:', spaceId, 'user:', currentUserId);
+      log.debug('Hook', '🔄 useCachedLeaderboard: Auto-fetching leaderboard for space:', spaceId, 'user:', currentUserId);
       fetchLeaderboard(spaceId, currentUserId);
     }
   }, [spaceId, currentUserId, fetchLeaderboard]);
@@ -46,7 +47,7 @@ export function useCachedLeaderboard(
   // Refetch function
   const refetch = async (forceRefresh = false) => {
     if (spaceId) {
-      console.log('🔄 useCachedLeaderboard: Manual refetch for space:', spaceId, 'forceRefresh:', forceRefresh);
+      log.debug('Hook', '🔄 useCachedLeaderboard: Manual refetch for space:', spaceId, 'forceRefresh:', forceRefresh);
       await fetchLeaderboard(spaceId, currentUserId, forceRefresh);
     }
   };
@@ -54,7 +55,7 @@ export function useCachedLeaderboard(
   // Action handlers
   const handleUserPointsUpdated = (userId: string, newPoints: number) => {
     if (spaceId) {
-      console.log('📊 useCachedLeaderboard: Updating user points in cache:', userId, 'new points:', newPoints);
+      log.debug('Hook', '📊 useCachedLeaderboard: Updating user points in cache:', userId, 'new points:', newPoints);
       updateUserPoints(spaceId, userId, newPoints);
     }
   };

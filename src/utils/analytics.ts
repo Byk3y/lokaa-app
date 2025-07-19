@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { Database } from '@/types/supabase';
 import { useCallback } from 'react';
@@ -59,10 +60,10 @@ async function flushEventQueue() {
     const { error } = await supabase.from('analytics_events').insert(batch);
     if (error) {
       // Optionally: retry or log error
-      console.error('[Analytics] Failed to insert analytics events:', error);
+      log.error('Utils', '[Analytics] Failed to insert analytics events:', error);
     }
   } catch (err) {
-    console.error('[Analytics] Exception during analytics insert:', err);
+    log.error('Utils', '[Analytics] Exception during analytics insert:', err);
   }
 }
 

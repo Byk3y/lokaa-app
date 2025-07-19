@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CourseGrid } from './CourseGrid';
@@ -71,7 +72,7 @@ export const ClassroomTabRefactored = ({
   };
   
   // Debug permission calculation
-  console.log('🔐 [ClassroomTab] Permission debug:', {
+  log.debug('Component', '🔐 [ClassroomTab] Permission debug:', {
     userId: user?.id,
     spaceOwnerId: effectiveSpace?.owner_id,
     isOwner: effectivePermissions.isOwner,
@@ -94,7 +95,7 @@ export const ClassroomTabRefactored = ({
   
   // Simple component mount/unmount effect
   useEffect(() => {
-    console.log('🔄 [ClassroomTab] Component mounted/updated, courses length:', courses?.length || 0);
+    log.debug('Component', '🔄 [ClassroomTab] Component mounted/updated, courses length:', courses?.length || 0);
   }, []);
   
   // Effect to handle when cached component becomes active
@@ -103,17 +104,17 @@ export const ClassroomTabRefactored = ({
     const isNowActive = isActiveTab;
     
     if (wasInactive && isNowActive) {
-      console.log('🔄 [ClassroomTab] Component activated from cache, checking course data');
+      log.debug('Component', '🔄 [ClassroomTab] Component activated from cache, checking course data');
       // Check if cache is expired
       const now = Date.now();
       const cacheAge = lastRefreshTime ? now - lastRefreshTime : Infinity;
       const isCacheExpired = cacheAge > cacheExpiry;
       
       if (isCacheExpired || !hasValidCache) {
-        console.log('🔄 [ClassroomTab] Cache expired or invalid, refreshing course data');
+        log.debug('Component', '🔄 [ClassroomTab] Cache expired or invalid, refreshing course data');
         setLoading(true);
       } else {
-        console.log('🔄 [ClassroomTab] Using valid cached course data');
+        log.debug('Component', '🔄 [ClassroomTab] Using valid cached course data');
       }
     }
     
@@ -124,7 +125,7 @@ export const ClassroomTabRefactored = ({
   useEffect(() => {
     // Only run this effect if this tab is currently active
     if (!isActiveTab) {
-      console.log('🔄 [ClassroomTab] Skipping return check - not active tab');
+      log.debug('Component', '🔄 [ClassroomTab] Skipping return check - not active tab');
       return;
     }
     
@@ -135,7 +136,7 @@ export const ClassroomTabRefactored = ({
     const isNotLoading = !loading;
     const hasCacheExpired = lastRefreshTime ? (Date.now() - lastRefreshTime) > cacheExpiry : true;
     
-    console.log('🔄 [ClassroomTab] Return check:', {
+    log.debug('Component', '🔄 [ClassroomTab] Return check:', {
       isOnClassroomPage,
       hasSpaceInfo,
       hasNoCourses,
@@ -148,7 +149,7 @@ export const ClassroomTabRefactored = ({
     
     // Only trigger fetch if we're on classroom page, have space info, no courses, not loading, and cache has expired
     if (isOnClassroomPage && hasSpaceInfo && hasNoCourses && isNotLoading && hasCacheExpired) {
-      console.log('🔄 [ClassroomTab] Detected return to classroom without courses and expired cache, forcing fetch');
+      log.debug('Component', '🔄 [ClassroomTab] Detected return to classroom without courses and expired cache, forcing fetch');
       setLoading(true);
     }
   }, [location.pathname, effectiveSpace?.id, courses.length, loading, isActiveTab, lastRefreshTime, cacheExpiry]);
@@ -158,7 +159,7 @@ export const ClassroomTabRefactored = ({
   // Track courses updates
   useEffect(() => {
     if (courses.length > 0) {
-      console.log('🔄 [ClassroomTab] Courses loaded:', courses.length);
+      log.debug('Component', '🔄 [ClassroomTab] Courses loaded:', courses.length);
     }
   }, [courses]);
 
@@ -166,13 +167,13 @@ export const ClassroomTabRefactored = ({
   useEffect(() => {
     // Only fetch courses if this tab is currently active
     if (!isActiveTab) {
-      console.log('🔍 [ClassroomTab] Skipping course fetch - not active tab');
+      log.debug('Component', '🔍 [ClassroomTab] Skipping course fetch - not active tab');
       return;
     }
     
     const fetchCourses = async () => {
       if (!effectiveSpace?.id) {
-        console.log('🔍 [ClassroomTab] No space ID, skipping fetch');
+        log.debug('Component', '🔍 [ClassroomTab] No space ID, skipping fetch');
         setLoading(false); // Ensure loading is false if we skip
         return;
       }
@@ -183,17 +184,17 @@ export const ClassroomTabRefactored = ({
       const isCacheValid = hasValidCache && cacheAge < cacheExpiry;
       
       if (!loading && isCacheValid) {
-        console.log('🔍 [ClassroomTab] Not in loading state and have valid cache, skipping fetch');
+        log.debug('Component', '🔍 [ClassroomTab] Not in loading state and have valid cache, skipping fetch');
         return;
       }
       
       // Set loading state if we need to fetch
       if (!loading) {
-        console.log('🔍 [ClassroomTab] Setting loading state for course fetch');
+        log.debug('Component', '🔍 [ClassroomTab] Setting loading state for course fetch');
         setLoading(true);
       }
       
-      console.log('🔍 [ClassroomTab] Fetching courses for space:', effectiveSpace.id);
+      log.debug('Component', '🔍 [ClassroomTab] Fetching courses for space:', effectiveSpace.id);
       try {
         const supabase = getSupabaseClient();
         // Build query - owners can see all courses, members only see published ones
@@ -224,7 +225,7 @@ export const ClassroomTabRefactored = ({
         const { data, error } = await query.order('created_at', { ascending: false });
           
         if (error) {
-          console.error('Error fetching courses:', error);
+          log.error('Component', 'Error fetching courses:', error);
           setLoading(false);
           return;
         }
@@ -240,9 +241,9 @@ export const ClassroomTabRefactored = ({
         })) || [];
         
         setCourses(transformedCourses);
-        console.log(`🎓 [ClassroomTab] Loaded ${transformedCourses.length} courses`);
+        log.debug('Component', `🎓 [ClassroomTab] Loaded ${transformedCourses.length} courses`);
       } catch (error) {
-        console.error('Failed to fetch courses:', error);
+        log.error('Component', 'Failed to fetch courses:', error);
         setLoading(false);
       }
     };
@@ -255,9 +256,9 @@ export const ClassroomTabRefactored = ({
 
   // Handle course selection (view course)
   const handleCourseView = (course: CourseDisplayData) => {
-    console.log(`🎓 [ClassroomTab] Opening course detail view for course: ${course.id}`, course);
-    console.log(`🎓 [ClassroomTab] Space subdomain:`, effectiveSpace?.subdomain);
-    console.log(`🎓 [ClassroomTab] Current location:`, window.location.pathname);
+    log.debug('Component', `🎓 [ClassroomTab] Opening course detail view for course: ${course.id}`, course);
+    log.debug('Component', `🎓 [ClassroomTab] Space subdomain:`, effectiveSpace?.subdomain);
+    log.debug('Component', `🎓 [ClassroomTab] Current location:`, window.location.pathname);
     
     // Get subdomain from current URL path as fallback
     const currentPath = window.location.pathname;
@@ -265,21 +266,21 @@ export const ClassroomTabRefactored = ({
     const subdomainFromPath = pathSegments[0]; // First segment should be subdomain
     
     const subdomain = effectiveSpace?.subdomain || subdomainFromPath;
-    console.log(`🎓 [ClassroomTab] Using subdomain:`, subdomain);
+    log.debug('Component', `🎓 [ClassroomTab] Using subdomain:`, subdomain);
     
     // Navigate to course URL using slug or ID
     const courseIdentifier = course.slug || course.id;
     const courseUrl = `/${subdomain}/space/classroom/${courseIdentifier}`;
     
-    console.log(`🎓 [ClassroomTab] Generated course URL:`, courseUrl);
-    console.log(`🎓 [ClassroomTab] Navigating to:`, courseUrl);
+    log.debug('Component', `🎓 [ClassroomTab] Generated course URL:`, courseUrl);
+    log.debug('Component', `🎓 [ClassroomTab] Navigating to:`, courseUrl);
     
     // Try navigation with replace: false to ensure proper history handling
     try {
       navigate(courseUrl, { replace: false });
-      console.log(`🎓 [ClassroomTab] Navigation attempted successfully`);
+      log.debug('Component', `🎓 [ClassroomTab] Navigation attempted successfully`);
     } catch (error) {
-      console.error(`🎓 [ClassroomTab] Navigation error:`, error);
+      log.error('Component', `🎓 [ClassroomTab] Navigation error:`, error);
       // Fallback to window.location
       window.location.href = courseUrl;
     }
@@ -287,14 +288,14 @@ export const ClassroomTabRefactored = ({
 
   // Handle back to grid view
   const handleBackToGrid = () => {
-    console.log('🎓 [ClassroomTab] Returning to course grid view');
+    log.debug('Component', '🎓 [ClassroomTab] Returning to course grid view');
     setSelectedCourseId(null);
     setViewMode('grid');
   };
 
   // Handle create course
   const handleCreateCourseInternal = () => {
-    console.log('🎓 [ClassroomTab] Opening create course dialog');
+    log.debug('Component', '🎓 [ClassroomTab] Opening create course dialog');
     setIsCreateCourseDialogOpen(true);
   };
 
@@ -325,7 +326,7 @@ export const ClassroomTabRefactored = ({
       const baseSlug = generateSlug(courseData.title);
       const uniqueSlug = await getUniqueCourseSlug(baseSlug, effectiveSpace.id);
       
-      console.log('🎓 [ClassroomTab] Generated slug for course:', { baseSlug, uniqueSlug });
+      log.debug('Component', '🎓 [ClassroomTab] Generated slug for course:', { baseSlug, uniqueSlug });
       
       const { data, error } = await supabase
         .from('courses')
@@ -368,7 +369,7 @@ export const ClassroomTabRefactored = ({
       
       setIsCreateCourseDialogOpen(false);
     } catch (error: any) {
-      console.error('Error creating course:', error);
+      log.error('Component', 'Error creating course:', error);
       toast({
         title: "Error Creating Course",
         description: error.message || "An unexpected error occurred",
@@ -404,7 +405,7 @@ export const ClassroomTabRefactored = ({
         variant: "default"
       });
     } catch (error: any) {
-      console.error('Error deleting course:', error);
+      log.error('Component', 'Error deleting course:', error);
       toast({
         title: "Error Deleting Course",
         description: error.message || "An unexpected error occurred",

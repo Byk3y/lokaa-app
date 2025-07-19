@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -8,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Lock, Globe, ArrowLeft, X } from 'lucide-react';
+import { Lock, Globe, ArrowLeft, X, Bell } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import SpaceNotificationSettingsModal from '@/components/notifications/SpaceNotificationSettingsModal';
+import { useSpaceNotificationPreferences } from '@/hooks/useSpaceNotificationPreferences';
 
 interface SpaceSettingsData {
   id: string;
@@ -29,6 +32,7 @@ const settingsNavItems = [
   { id: 'payouts', label: 'Payouts' },
   { id: 'invite', label: 'Invite' },
   { id: 'general', label: 'General', active: true },
+  { id: 'notifications', label: 'Notifications' },
   { id: 'subscriptions', label: 'Subscriptions' },
   { id: 'categories', label: 'Categories' },
   { id: 'tabs', label: 'Tabs' },
@@ -49,6 +53,8 @@ export default function SpaceSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
+  const [userRole, setUserRole] = useState<'owner' | 'admin' | 'member'>('member');
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   
   useEffect(() => {
     const fetchSpaceSettings = async () => {
@@ -81,10 +87,13 @@ export default function SpaceSettings() {
         // Type assertion to safely handle the data
         const spaceData = data as SpaceSettingsData; // Use defined interface
         
-        // Check if user is owner or admin
+        // Check if user is owner or admin and set user role
         let hasPermission = spaceData.owner_id === user.id;
+        let currentUserRole: 'owner' | 'admin' | 'member' = 'member';
         
-        if (!hasPermission) {
+        if (hasPermission) {
+          currentUserRole = 'owner';
+        } else {
           // Check if user is admin via space_members table
           const { data: memberData } = await getSupabaseClient()
             .from('space_members')
@@ -94,8 +103,15 @@ export default function SpaceSettings() {
             .eq('status', 'active')
             .single();
             
-          hasPermission = memberData?.role === 'admin';
+          if (memberData?.role === 'admin') {
+            hasPermission = true;
+            currentUserRole = 'admin';
+          } else if (memberData?.role) {
+            currentUserRole = 'member';
+          }
         }
+        
+        setUserRole(currentUserRole);
         
         if (!hasPermission) {
           toast({ title: "Unauthorized", description: "You don't have permission to edit these settings.", variant: "destructive" });
@@ -123,7 +139,7 @@ export default function SpaceSettings() {
           is_private: spaceData.is_private ?? false
         });
       } catch (error: unknown) { // Typed error
-        console.error("Error fetching space settings:", error);
+        log.error('Page', "Error fetching space settings:", error);
         const message = error instanceof Error ? error.message : 'Unknown error';
         toast({ title: "Error", description: `Failed to load settings: ${message}`, variant: "destructive" });
         navigate(`/space/${subdomain}`);
@@ -172,7 +188,7 @@ export default function SpaceSettings() {
       toast({ title: "Success", description: "Settings updated successfully." });
       // Stay on the page after successful save
     } catch (error: unknown) { // Typed error
-      console.error("Error updating settings:", error);
+      log.error('Page', "Error updating settings:", error);
       const message = error instanceof Error ? error.message : 'Unknown error';
       toast({
         title: "Error",
@@ -234,7 +250,8 @@ export default function SpaceSettings() {
 
         {/* Main content area */}
         <div className="flex-1 p-8">
-          <form onSubmit={handleSubmit}>
+          {activeTab === 'general' && (
+            <form onSubmit={handleSubmit}>
             {/* Icon and Cover upload sections */}
             <div className="grid grid-cols-2 gap-8 mb-8">
               {/* Icon upload */}
@@ -308,7 +325,7 @@ export default function SpaceSettings() {
               <Label htmlFor="url" className="block text-sm mb-1">URL</Label>
               <Input
                 id="url"
-                value={`lokaa.com/${space?.subdomain || ''}`}
+                value={`lokaa.app/${space?.subdomain || ''}`}
                 readOnly
                 className="w-full max-w-md bg-gray-50"
               />
@@ -405,9 +422,124 @@ export default function SpaceSettings() {
               UPDATE SETTINGS
             </Button>
           </form>
+          )}
+
+          {activeTab === 'notifications' && (
+            <div className="max-w-2xl">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                  Notification Preferences
+                </h2>
+                <p className="text-gray-600">
+                  Manage how you receive notifications for this space. These settings are specific to {space?.name || 'this space'}.
+                </p>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <Bell className="w-5 h-5 text-gray-400 mr-3" />
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900">
+                        Space Notification Settings
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Customize your notification preferences for this community
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => setIsNotificationModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Configure
+                  </Button>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Email Notifications</h4>
+                      <ul className="space-y-1 text-gray-600">
+                        <li>• Digest frequency: Weekly</li>
+                        <li>• Real-time notifications: Hourly</li>
+                        <li>• Admin announcements: Enabled</li>
+                        <li>• Event reminders: Enabled</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Your Role</h4>
+                      <div className="flex items-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          userRole === 'owner' 
+                            ? 'bg-purple-100 text-purple-800'
+                            : userRole === 'admin'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                        </span>
+                      </div>
+                      {(userRole === 'owner' || userRole === 'admin') && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          As an {userRole}, you have additional notification options available.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <Bell className="h-5 w-5 text-blue-400" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800">
+                        Per-Space Preferences
+                      </h3>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <p>
+                          These settings only apply to notifications from this specific space. 
+                          Your global notification preferences will be used as defaults for any 
+                          settings not customized here.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab !== 'general' && activeTab !== 'notifications' && (
+            <div className="max-w-2xl">
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">🚧</span>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Coming Soon
+                </h3>
+                <p className="text-gray-600">
+                  This settings section is under development.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+      
+      {/* Space Notification Settings Modal */}
+      {space && (
+        <SpaceNotificationSettingsModal
+          isOpen={isNotificationModalOpen}
+          onClose={() => setIsNotificationModalOpen(false)}
+          spaceId={space.id}
+          spaceName={space.name}
+          userRole={userRole}
+        />
+      )}
     </div>
-    // Minor comment to try and refresh parser state
   );
 }

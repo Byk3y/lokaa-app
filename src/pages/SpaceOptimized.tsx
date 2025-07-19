@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Bell, MessageSquare, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Trophy, GraduationCap } from "lucide-react";
@@ -137,7 +138,7 @@ function SpaceContent() {
           }
         }
       } catch (error) {
-        console.error('Error checking for new space:', error);
+        log.error('Page', 'Error checking for new space:', error);
       }
     };
     
@@ -147,23 +148,23 @@ function SpaceContent() {
   // Handle sign out
   const handleSignOut = async () => {
     try {
-      console.log('Space page: Starting sign out process');
+      log.debug('Page', 'Space page: Starting sign out process');
       
       // Call the signOut function from AuthContext
       await signOut();
       
       // Add Safari-specific fix with a safety timeout
-      console.log('Space page: Adding fallback redirect for Safari');
+      log.debug('Page', 'Space page: Adding fallback redirect for Safari');
       setTimeout(() => {
         // Check if we're still on a space page after signOut
         if (window.location.pathname.includes('/space/')) {
-          console.log('Space page: Still on space page after signOut, forcing hard redirect');
+          log.debug('Page', 'Space page: Still on space page after signOut, forcing hard redirect');
           // Force a cache-busting redirect
           window.location.replace(`/?from=space&t=${Date.now()}`);
         }
       }, 1000);
     } catch (error) {
-      console.error('Space page: Sign out error:', error);
+      log.error('Page', 'Space page: Sign out error:', error);
       // Force a hard redirect on error
       window.location.replace('/');
     }
@@ -173,7 +174,7 @@ function SpaceContent() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // Implement search
-    console.log("Searching for:", searchQuery);
+    log.debug('Page', "Searching for:", searchQuery);
   };
 
   // Handle close notification
@@ -427,7 +428,7 @@ function SpaceContent() {
                   <div className="p-4">
                     <h2 className="text-lg font-bold text-[#37474F] mb-1">{spaceData?.name}</h2> // Use spaceData
                     {/* Display Subdomain URL */}
-                    <p className="text-sm text-[#78909C] mb-3">lokaa.com/{spaceData?.subdomain || 'your-subdomain'}</p> // Use spaceData
+                    <p className="text-sm text-[#78909C] mb-3">lokaa.app/{spaceData?.subdomain || 'your-subdomain'}</p> // Use spaceData
                   </div>
                 </motion.div>
                 

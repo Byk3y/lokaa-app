@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -32,7 +33,7 @@ export function useJoinSpaceViaHook() {
       const response = data as JoinSpaceResponse | null;
 
       if (rpcError) {
-        console.error('Error joining space:', rpcError);
+        log.error('Hook', 'Error joining space:', rpcError);
         setError(rpcError.message);
         toast({
           title: "Failed to Join Space",
@@ -43,7 +44,7 @@ export function useJoinSpaceViaHook() {
       }
 
       if (response && !response.success) {
-        console.warn('Join space attempt not successful:', response.message);
+        log.warn('Hook', 'Join space attempt not successful:', response.message);
         setError(response.message);
         toast({
           title: "Join Space Information", 
@@ -59,7 +60,7 @@ export function useJoinSpaceViaHook() {
       });
       return { success: true, message: response?.message || "Successfully joined." };
     } catch (err: unknown) { 
-      console.error('Exception joining space:', err);
+      log.error('Hook', 'Exception joining space:', err);
       let errorMessage = 'Unknown error';
       if (err instanceof Error) {
         errorMessage = err.message;

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -72,7 +73,7 @@ export default function SmartLanding() {
           }
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {
-            console.error("SmartLanding: Error checking session:", error);
+            log.error('Page', "SmartLanding: Error checking session:", error);
           }
           navigate('/', { replace: true });
         } finally {
@@ -136,7 +137,7 @@ export default function SmartLanding() {
         }
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('SmartLanding: Error checking user spaces:', error);
+          log.error('Page', 'SmartLanding: Error checking user spaces:', error);
         }
         // On error, default to discover page
         setShowDiscover(true);

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -44,7 +45,7 @@ export default function SchemaDebugger() {
           .limit(1);
           
         if (sampleError) {
-          console.error(`Error fetching sample from ${tableName}:`, sampleError);
+          log.error('Page', `Error fetching sample from ${tableName}:`, sampleError);
           setError(sampleError.message);
           return;
         }
@@ -78,7 +79,7 @@ export default function SchemaDebugger() {
           columnsDetail: columnDetails
         });
       } catch (err: unknown) {
-        console.error("Error in schema debugger:", err);
+        log.error('Page', "Error in schema debugger:", err);
         const message = err instanceof Error ? err.message : "An unknown error occurred";
         setError(message);
       } finally {

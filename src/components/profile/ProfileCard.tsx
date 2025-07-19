@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Calendar, MessageSquare, Clock, Star, Link2, ExternalLink, Youtube, Linkedin, Instagram, Facebook, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -103,7 +104,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
         if (error) throw error;
         setConnectionInfo(data as ConnectionInfo);
       } catch (err) {
-        console.error('Error fetching connection info:', err);
+        log.error('Component', 'Error fetching connection info:', err);
       } finally {
         setLoading(false);
       }

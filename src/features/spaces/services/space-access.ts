@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space access service for database validation and queries
  * Handles space ownership and membership verification
@@ -30,7 +31,7 @@ export const verifySpaceAccess = async (
 
     return !!data;
   } catch (error) {
-    console.warn('Error verifying space access:', error);
+    log.warn('Service', 'Error verifying space access:', error);
     return false;
   }
 };
@@ -51,7 +52,7 @@ export const verifySpaceOwnership = async (
 
     return data ? data.owner_id === userId : false;
   } catch (error) {
-    console.warn('Error verifying space ownership:', error);
+    log.warn('Service', 'Error verifying space ownership:', error);
     return false;
   }
 };
@@ -68,7 +69,7 @@ export const getUserOwnedSpaces = async (userId: string): Promise<SpaceRedirectD
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching owned spaces:', error);
+      log.error('Service', 'Error fetching owned spaces:', error);
       return [];
     }
 
@@ -78,7 +79,7 @@ export const getUserOwnedSpaces = async (userId: string): Promise<SpaceRedirectD
       subdomain: space.subdomain,
     }));
   } catch (error) {
-    console.error('Exception fetching owned spaces:', error);
+    log.error('Service', 'Exception fetching owned spaces:', error);
     return [];
   }
 };
@@ -100,7 +101,7 @@ export const getUserAccessibleSpaces = async (userId: string): Promise<SpaceRedi
       .order('joined_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching accessible spaces:', error);
+      log.error('Service', 'Error fetching accessible spaces:', error);
       return [];
     }
 
@@ -114,7 +115,7 @@ export const getUserAccessibleSpaces = async (userId: string): Promise<SpaceRedi
         subdomain: record.spaces.subdomain,
       }));
   } catch (error) {
-    console.error('Exception fetching accessible spaces:', error);
+    log.error('Service', 'Exception fetching accessible spaces:', error);
     return [];
   }
 };
@@ -124,32 +125,32 @@ export const getUserAccessibleSpaces = async (userId: string): Promise<SpaceRedi
  */
 export const getFirstUserSpace = async (userId: string): Promise<SpaceRedirectData | null> => {
   if (!userId) {
-    console.warn('getFirstUserSpace: Called with empty userId');
+    log.warn('Service', 'getFirstUserSpace: Called with empty userId');
     return null;
   }
 
   try {
-    console.log('getFirstUserSpace: Checking spaces for user', userId);
+    log.debug('Service', 'getFirstUserSpace: Checking spaces for user', userId);
 
     // First check for spaces owned by the user
     const ownedSpaces = await getUserOwnedSpaces(userId);
     
     if (ownedSpaces.length > 0) {
-      console.log('getFirstUserSpace: Found owned space:', ownedSpaces[0]);
+      log.debug('Service', 'getFirstUserSpace: Found owned space:', ownedSpaces[0]);
       return ownedSpaces[0];
     }
 
     // Otherwise check joined spaces
-    console.log('getFirstUserSpace: No owned spaces, checking joined spaces');
+    log.debug('Service', 'getFirstUserSpace: No owned spaces, checking joined spaces');
     const accessibleSpaces = await getUserAccessibleSpaces(userId);
     
     if (accessibleSpaces.length > 0) {
-      console.log('getFirstUserSpace: Found accessible space:', accessibleSpaces[0]);
+      log.debug('Service', 'getFirstUserSpace: Found accessible space:', accessibleSpaces[0]);
       return accessibleSpaces[0];
     }
 
     // Try direct query as a fallback (in case nested queries have issues)
-    console.log('getFirstUserSpace: No spaces found via relations, trying direct query');
+    log.debug('Service', 'getFirstUserSpace: No spaces found via relations, trying direct query');
     const { data: directSpaces, error: directError } = await getSupabaseClient()
       .from('spaces')
       .select('id, subdomain, name')
@@ -162,12 +163,12 @@ export const getFirstUserSpace = async (userId: string): Promise<SpaceRedirectDa
       .limit(1);
 
     if (directError) {
-      console.error('getFirstUserSpace: Error in direct query:', directError);
+      log.error('Service', 'getFirstUserSpace: Error in direct query:', directError);
       throw directError;
     }
 
     if (directSpaces && directSpaces.length > 0) {
-      console.log('getFirstUserSpace: Found space via direct query:', directSpaces[0]);
+      log.debug('Service', 'getFirstUserSpace: Found space via direct query:', directSpaces[0]);
       return {
         id: directSpaces[0].id,
         subdomain: directSpaces[0].subdomain,
@@ -175,10 +176,10 @@ export const getFirstUserSpace = async (userId: string): Promise<SpaceRedirectDa
       };
     }
 
-    console.log('getFirstUserSpace: No spaces found for user');
+    log.debug('Service', 'getFirstUserSpace: No spaces found for user');
     return null;
   } catch (error) {
-    console.error('getFirstUserSpace: Unexpected error:', error);
+    log.error('Service', 'getFirstUserSpace: Unexpected error:', error);
     return null;
   }
 };
@@ -199,13 +200,13 @@ export const getUserSpaceMembership = async (
       .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching membership details:', error);
+      log.error('Service', 'Error fetching membership details:', error);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error('Exception fetching membership details:', error);
+    log.error('Service', 'Exception fetching membership details:', error);
     return null;
   }
 };
@@ -249,7 +250,7 @@ export const getNestedSpaceInfo = async (
       membershipDetails,
     };
   } catch (error) {
-    console.error('Error getting nested space info:', error);
+    log.error('Service', 'Error getting nested space info:', error);
     return null;
   }
 };
@@ -269,7 +270,7 @@ export const validateSpaceBySubdomain = async (
       .maybeSingle();
 
     if (error) {
-      console.error('Error validating space:', error);
+      log.error('Service', 'Error validating space:', error);
       return null;
     }
 
@@ -309,7 +310,7 @@ export const validateSpaceBySubdomain = async (
 
     return null;
   } catch (error) {
-    console.error('Exception validating space by subdomain:', error);
+    log.error('Service', 'Exception validating space by subdomain:', error);
     return null;
   }
 }; 

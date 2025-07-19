@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -40,7 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const { data, error } = await getSupabaseClient().auth.getSession();
         
         if (error) {
-          console.error('[AuthProvider] Session retrieval error:', error);
+          log.error('Context', '[AuthProvider] Session retrieval error:', error);
           throw error;
         }
 
@@ -52,7 +53,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } catch (error) {
         retryCount++;
         if (retryCount >= maxRetries) {
-          console.error('[AuthProvider] Failed to initialize auth after', maxRetries, 'attempts:', error);
+          log.error('Context', '[AuthProvider] Failed to initialize auth after', maxRetries, 'attempts:', error);
           setLoading(false);
           return;
         }
@@ -84,7 +85,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         
       } catch (error) {
-        console.warn('[AuthProvider] Migration helper failed:', error);
+        log.warn('Context', '[AuthProvider] Migration helper failed:', error);
       }
       
       // Initialize auth regardless of migration result
@@ -118,7 +119,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (retryCount < maxRetries) {
           setTimeout(() => checkSession(), 1000);
         } else {
-          console.error('[AuthProvider] Session check failed after retries:', error);
+          log.error('Context', '[AuthProvider] Session check failed after retries:', error);
         }
       }
     };
@@ -172,7 +173,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { data, error } = await getSupabaseClient().auth.refreshSession();
       
       if (error) {
-        console.warn('[AuthProvider] Session refresh error:', error);
+        log.warn('Context', '[AuthProvider] Session refresh error:', error);
         return false;
       }
       
@@ -184,7 +185,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return false;
     } catch (error) {
-      console.error('[AuthProvider] Session refresh failed:', error);
+      log.error('Context', '[AuthProvider] Session refresh failed:', error);
       return false;
     }
   }, []);
@@ -210,7 +211,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return false;
     } catch (error) {
-      console.error('[AuthProvider] Session validation failed:', error);
+      log.error('Context', '[AuthProvider] Session validation failed:', error);
       return false;
     }
   }, []);
@@ -228,7 +229,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { error } = await getSupabaseClient().auth.signOut();
       
       if (error) {
-        console.error('[AuthProvider] Supabase signOut error:', error);
+        log.error('Context', '[AuthProvider] Supabase signOut error:', error);
       }
 
       // Clear auth state
@@ -242,7 +243,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       window.location.href = targetPath;
 
     } catch (error) {
-      console.error('[AuthProvider] Enhanced signOut error:', error);
+      log.error('Context', '[AuthProvider] Enhanced signOut error:', error);
       
       // Fallback: Basic Supabase signOut
       try {
@@ -253,7 +254,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setRoutingInProgress(false);
         window.location.href = '/';
       } catch (fallbackError) {
-        console.error('[AuthProvider] Fallback signOut failed:', fallbackError);
+        log.error('Context', '[AuthProvider] Fallback signOut failed:', fallbackError);
         window.location.href = '/';
       }
     }

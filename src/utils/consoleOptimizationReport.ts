@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔧 Console Optimization Report & Testing Utility
  * 
@@ -299,13 +300,13 @@ ${this.analysisData.recommendations.map(rec => `  ${rec}`).join('\n')}
   autoAnalyzeAndReport(logs: string): string {
     const analysis = this.analyzeConsoleLogs(logs);
     
-    console.log('🔧 Console Log Analysis Complete');
-    console.log('=====================================');
-    console.log('Service Worker Bypasses:', analysis.serviceWorkerBypasses);
-    console.log('Cache Debug Messages:', analysis.cacheDebugMessages);
-    console.log('Hot Reloads:', analysis.hotReloads);
-    console.log('Duplicated API Calls:', analysis.duplicatedApiCalls.length);
-    console.log('Presence Updates:', analysis.presenceUpdates);
+    log.debug('Utils', '🔧 Console Log Analysis Complete');
+    log.debug('Utils', '=====================================');
+    log.debug('Utils', 'Service Worker Bypasses:', analysis.serviceWorkerBypasses);
+    log.debug('Utils', 'Cache Debug Messages:', analysis.cacheDebugMessages);
+    log.debug('Utils', 'Hot Reloads:', analysis.hotReloads);
+    log.debug('Utils', 'Duplicated API Calls:', analysis.duplicatedApiCalls.length);
+    log.debug('Utils', 'Presence Updates:', analysis.presenceUpdates);
     
     return this.generateReport();
   }
@@ -321,16 +322,16 @@ ${this.analysisData.recommendations.map(rec => `  ${rec}`).join('\n')}
 
     const allOptimized = serviceWorkerQuiet && cacheLogsReduced && performanceThresholdsFixed && databaseErrorsFixed;
 
-    console.log('🔍 OPTIMIZATION VALIDATION:');
-    console.log('├─ Service Worker Noise:', serviceWorkerQuiet ? '✅ QUIET' : '❌ STILL NOISY');
-    console.log('├─ Cache Log Frequency:', cacheLogsReduced ? '✅ REDUCED' : '❌ STILL HIGH');
-    console.log('├─ Performance Thresholds:', performanceThresholdsFixed ? '✅ APPROPRIATE' : '❌ TOO SENSITIVE');
-    console.log('└─ Database Queries:', databaseErrorsFixed ? '✅ WORKING' : '❌ STILL FAILING');
+    log.debug('Utils', '🔍 OPTIMIZATION VALIDATION:');
+    log.debug('Utils', '├─ Service Worker Noise:', serviceWorkerQuiet ? '✅ QUIET' : '❌ STILL NOISY');
+    log.debug('Utils', '├─ Cache Log Frequency:', cacheLogsReduced ? '✅ REDUCED' : '❌ STILL HIGH');
+    log.debug('Utils', '├─ Performance Thresholds:', performanceThresholdsFixed ? '✅ APPROPRIATE' : '❌ TOO SENSITIVE');
+    log.debug('Utils', '└─ Database Queries:', databaseErrorsFixed ? '✅ WORKING' : '❌ STILL FAILING');
 
     if (allOptimized) {
-      console.log('\n🎉 All console optimizations are working correctly!');
+      log.debug('Utils', '\n🎉 All console optimizations are working correctly!');
     } else {
-      console.log('\n⚠️ Some optimizations may need additional tuning.');
+      log.debug('Utils', '\n⚠️ Some optimizations may need additional tuning.');
     }
 
     return allOptimized;
@@ -363,32 +364,32 @@ ${this.analysisData.recommendations.map(rec => `  ${rec}`).join('\n')}
    * Generate current status report for recent fixes
    */
   generateLatestFixesReport(): void {
-    console.log('\n🔧 ==================== LATEST CONSOLE FIXES REPORT ====================');
-    console.log('📅 Generated:', new Date().toLocaleString());
-    console.log('🎯 Recent fixes to reduce console noise during development\n');
+    log.debug('Utils', '\n🔧 ==================== LATEST CONSOLE FIXES REPORT ====================');
+    log.debug('Utils', '📅 Generated:', new Date().toLocaleString());
+    log.debug('Utils', '🎯 Recent fixes to reduce console noise during development\n');
 
-    console.log('🛠️ FIXES IMPLEMENTED TODAY:');
-    console.log('1. 🚫 Service Worker Logging: Suppressed development bypass messages');
-    console.log('2. 🔧 Cache Debug Frequency: Reduced from every operation to every 5th');
-    console.log('3. ⚡ Performance Thresholds: Increased to 200ms for dev (was 100ms)');
-    console.log('4. 🗃️ Database Queries: Fixed foreign key error in presence testing');
-    console.log('5. 📊 Memory Validation: Enhanced to prevent false 106GB readings');
-    console.log('6. 🚀 Feed Loading: Fixed loading flash on navigation with cache-first logic');
-    console.log('7. ⏰ Long Task Monitor: Synchronized all performance monitors to 200ms dev threshold\n');
+    log.debug('Utils', '🛠️ FIXES IMPLEMENTED TODAY:');
+    log.debug('Utils', '1. 🚫 Service Worker Logging: Suppressed development bypass messages');
+    log.debug('Utils', '2. 🔧 Cache Debug Frequency: Reduced from every operation to every 5th');
+    log.debug('Utils', '3. ⚡ Performance Thresholds: Increased to 200ms for dev (was 100ms)');
+    log.debug('Utils', '4. 🗃️ Database Queries: Fixed foreign key error in presence testing');
+    log.debug('Utils', '5. 📊 Memory Validation: Enhanced to prevent false 106GB readings');
+    log.debug('Utils', '6. 🚀 Feed Loading: Fixed loading flash on navigation with cache-first logic');
+    log.debug('Utils', '7. ⏰ Long Task Monitor: Synchronized all performance monitors to 200ms dev threshold\n');
 
-    console.log('📊 ESTIMATED IMPROVEMENTS:');
-    console.log('• 🔇 85% reduction in console noise during development');
-    console.log('• 🚀 Eliminated feed loading flash on navigation');
-    console.log('• ⚡ Reduced false performance alarms by 90%');
-    console.log('• 🗃️ Fixed database query errors');
-    console.log('• 📱 Improved mobile navigation experience\n');
+    log.debug('Utils', '📊 ESTIMATED IMPROVEMENTS:');
+    log.debug('Utils', '• 🔇 85% reduction in console noise during development');
+    log.debug('Utils', '• 🚀 Eliminated feed loading flash on navigation');
+    log.debug('Utils', '• ⚡ Reduced false performance alarms by 90%');
+    log.debug('Utils', '• 🗃️ Fixed database query errors');
+    log.debug('Utils', '• 📱 Improved mobile navigation experience\n');
 
-    console.log('🧪 TESTING COMMANDS:');
-    console.log('• window.consoleOptimizationReport.feedLoadingFix() - View feed fix details');
-    console.log('• window.presenceTest.testKnownSpace() - Test presence system');
-    console.log('• window.globalCache.getStats() - Check cache performance');
-    console.log('• Navigate rapidly between tabs to test performance');
-    console.log('=====================================');
+    log.debug('Utils', '🧪 TESTING COMMANDS:');
+    log.debug('Utils', '• window.consoleOptimizationReport.feedLoadingFix() - View feed fix details');
+    log.debug('Utils', '• window.presenceTest.testKnownSpace() - Test presence system');
+    log.debug('Utils', '• window.globalCache.getStats() - Check cache performance');
+    log.debug('Utils', '• Navigate rapidly between tabs to test performance');
+    log.debug('Utils', '=====================================');
   }
 }
 
@@ -399,46 +400,46 @@ const consoleOptimizationReport = new ConsoleOptimizationReport();
 if (typeof window !== 'undefined') {
   (window as any).consoleOptimizationReport = {
     analyze: (logs: string) => consoleOptimizationReport.analyzeConsoleLogs(logs),
-    generate: () => console.log(consoleOptimizationReport.generateReport()),
+    generate: () => log.debug('Utils', consoleOptimizationReport.generateReport()),
     test: () => consoleOptimizationReport.testOptimizations(),
     health: () => consoleOptimizationReport.getConsoleHealth(),
-    autoReport: (logs: string) => console.log(consoleOptimizationReport.autoAnalyzeAndReport(logs)),
+    autoReport: (logs: string) => log.debug('Utils', consoleOptimizationReport.autoAnalyzeAndReport(logs)),
     latestFixes: () => consoleOptimizationReport.generateLatestFixesReport(),
     feedLoadingFix: () => {
-      console.log('\n🔧 ==================== FEED LOADING FIX REPORT ====================');
-      console.log('📅 Fixed:', new Date().toLocaleString());
-      console.log('🎯 Issue: Feed Tab showed "Loading posts..." on every navigation\n');
+      log.debug('Utils', '\n🔧 ==================== FEED LOADING FIX REPORT ====================');
+      log.debug('Utils', '📅 Fixed:', new Date().toLocaleString());
+      log.debug('Utils', '🎯 Issue: Feed Tab showed "Loading posts..." on every navigation\n');
       
-      console.log('🛠️ ROOT CAUSE ANALYSIS:');
-      console.log('1. 🔄 useOptimizedCachedPosts was not checking cache before auto-fetching');
-      console.log('2. 🚫 Each component mount created fresh hasAutoFetched ref');
-      console.log('3. ⚡ Cache data existed but hook showed loading anyway');
-      console.log('4. 🔄 Real-time subscriptions were being torn down aggressively\n');
+      log.debug('Utils', '🛠️ ROOT CAUSE ANALYSIS:');
+      log.debug('Utils', '1. 🔄 useOptimizedCachedPosts was not checking cache before auto-fetching');
+      log.debug('Utils', '2. 🚫 Each component mount created fresh hasAutoFetched ref');
+      log.debug('Utils', '3. ⚡ Cache data existed but hook showed loading anyway');
+      log.debug('Utils', '4. 🔄 Real-time subscriptions were being torn down aggressively\n');
       
-      console.log('✅ SOLUTION IMPLEMENTED:');
-      console.log('1. 🏗️ Added getCachedData() method to GlobalCacheCoordinator');
-      console.log('2. 🔍 Modified hook to check cache BEFORE showing loading state');
-      console.log('3. 🎯 Added proper type assertions (any[]) for cached data');
-      console.log('4. ⚡ Immediate cache-first rendering prevents loading flash\n');
+      log.debug('Utils', '✅ SOLUTION IMPLEMENTED:');
+      log.debug('Utils', '1. 🏗️ Added getCachedData() method to GlobalCacheCoordinator');
+      log.debug('Utils', '2. 🔍 Modified hook to check cache BEFORE showing loading state');
+      log.debug('Utils', '3. 🎯 Added proper type assertions (any[]) for cached data');
+      log.debug('Utils', '4. ⚡ Immediate cache-first rendering prevents loading flash\n');
       
-      console.log('📊 EXPECTED IMPROVEMENTS:');
-      console.log('• 🚀 Instant navigation to Feed tab (no loading flash)');
-      console.log('• 💾 Proper cache utilization during navigation');
-      console.log('• 🔄 Preserved real-time subscriptions and data freshness');
-      console.log('• 📱 Improved mobile navigation experience\n');
+      log.debug('Utils', '📊 EXPECTED IMPROVEMENTS:');
+      log.debug('Utils', '• 🚀 Instant navigation to Feed tab (no loading flash)');
+      log.debug('Utils', '• 💾 Proper cache utilization during navigation');
+      log.debug('Utils', '• 🔄 Preserved real-time subscriptions and data freshness');
+      log.debug('Utils', '• 📱 Improved mobile navigation experience\n');
       
-      console.log('🧪 TEST COMMANDS:');
-      console.log('• Navigate between tabs rapidly to test loading states');
-      console.log('• Check browser console for cache hit messages');
-      console.log('• window.globalCache.getStats() for cache performance');
-      console.log('=====================================');
+      log.debug('Utils', '🧪 TEST COMMANDS:');
+      log.debug('Utils', '• Navigate between tabs rapidly to test loading states');
+      log.debug('Utils', '• Check browser console for cache hit messages');
+      log.debug('Utils', '• window.globalCache.getStats() for cache performance');
+      log.debug('Utils', '=====================================');
     }
   };
 
-  console.log('🔧 Console Optimization Report available:');
-  console.log('  - window.consoleOptimizationReport.latestFixes() - View recent fixes');
-  console.log('  - window.consoleOptimizationReport.feedLoadingFix() - View feed loading fix');
-  console.log('  - window.consoleOptimizationReport.autoReport(logs) - Auto-analyze console logs');
+  log.debug('Utils', '🔧 Console Optimization Report available:');
+  log.debug('Utils', '  - window.consoleOptimizationReport.latestFixes() - View recent fixes');
+  log.debug('Utils', '  - window.consoleOptimizationReport.feedLoadingFix() - View feed loading fix');
+  log.debug('Utils', '  - window.consoleOptimizationReport.autoReport(logs) - Auto-analyze console logs');
 }
 
 export { consoleOptimizationReport, type ConsoleOptimizationMetrics }; 

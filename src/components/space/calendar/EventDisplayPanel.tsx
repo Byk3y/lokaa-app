@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Edit2, Trash2 } from 'lucide-react';
@@ -32,7 +33,7 @@ export const EventDisplayPanel: React.FC<EventDisplayPanelProps> = ({
       const eventDate = new Date(event.start_time);
       // Check if the date is valid
       if (isNaN(eventDate.getTime())) {
-        console.warn("Invalid event date in filter:", event.start_time);
+        log.warn('Component', "Invalid event date in filter:", event.start_time);
         return false;
       }
       
@@ -40,7 +41,7 @@ export const EventDisplayPanel: React.FC<EventDisplayPanelProps> = ({
             eventDate.getMonth() === selectedDate.getMonth() &&
             eventDate.getDate() === selectedDate.getDate();
     } catch (error) {
-      console.error("Error parsing event date:", error);
+      log.error('Component', "Error parsing event date:", error);
       return false;
     }
   }).sort((a, b) => {
@@ -55,7 +56,7 @@ export const EventDisplayPanel: React.FC<EventDisplayPanelProps> = ({
       
       return dateA.getTime() - dateB.getTime();
     } catch (error) {
-      console.error("Error sorting events:", error);
+      log.error('Component', "Error sorting events:", error);
       return 0;
     }
   });
@@ -65,13 +66,13 @@ export const EventDisplayPanel: React.FC<EventDisplayPanelProps> = ({
       const eventStartDate = new Date(event.start_time);
       // Check if the date is valid
       if (isNaN(eventStartDate.getTime()) || isNaN(endOfSelectedDay.getTime())) {
-        console.warn("Invalid date in upcoming events filter:", event.start_time);
+        log.warn('Component', "Invalid date in upcoming events filter:", event.start_time);
         return false;
       }
       
       return eventStartDate.getTime() > endOfSelectedDay.getTime();
     } catch (error) {
-      console.error("Error filtering upcoming events:", error);
+      log.error('Component', "Error filtering upcoming events:", error);
       return false;
     }
   }).sort((a, b) => {
@@ -86,7 +87,7 @@ export const EventDisplayPanel: React.FC<EventDisplayPanelProps> = ({
       
       return dateA.getTime() - dateB.getTime();
     } catch (error) {
-      console.error("Error sorting upcoming events:", error);
+      log.error('Component', "Error sorting upcoming events:", error);
       return 0;
     }
   });

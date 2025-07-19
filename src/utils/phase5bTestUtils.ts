@@ -1,9 +1,10 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 5B: Simple Testing Utilities
  * Browser console testing functions for Phase 5B optimizations
  */
 
-// console.log('🚀 Phase 5B Test Utilities Loaded');
+// log.debug('Utils', '🚀 Phase 5B Test Utilities Loaded');
 
 /**
  * Phase 5B Test Utils - DISABLED for Performance
@@ -19,13 +20,13 @@
 // Export minimal stubs to prevent import errors
 export const testPhase5B = () => {
   if (import.meta.env.DEV) {
-    console.log('Phase 5B testing disabled for performance');
+    log.debug('Utils', 'Phase 5B testing disabled for performance');
   }
 };
 
 export const benchmarkPhase5B = () => {
   if (import.meta.env.DEV) {
-    console.log('Phase 5B benchmarking disabled for performance');
+    log.debug('Utils', 'Phase 5B benchmarking disabled for performance');
   }
 };
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 6: Consolidation Manager
  * 
@@ -67,7 +68,7 @@ class Phase6ConsolidationManager {
 
     // 🎯 PHASE 3 FIX: Conditional logging for consolidation start
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🚀 [Phase6] Starting system consolidation...');
+      log.debug('Utils', '🚀 [Phase6] Starting system consolidation...');
     }
     
     try {
@@ -100,7 +101,7 @@ class Phase6ConsolidationManager {
       this.reportConsolidationResults();
 
     } catch (error) {
-      console.error('🚨 [Phase6] Consolidation failed:', error);
+      log.error('Utils', '🚨 [Phase6] Consolidation failed:', error);
       throw error;
     }
   }
@@ -111,7 +112,7 @@ class Phase6ConsolidationManager {
   private async initializeUnifiedPerformance(): Promise<void> {
     // 🎯 PHASE 3 FIX: Conditional logging for performance monitoring
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('📊 [Phase6] Initializing unified performance monitoring...');
+      log.debug('Utils', '📊 [Phase6] Initializing unified performance monitoring...');
     }
     
     try {
@@ -129,11 +130,11 @@ class Phase6ConsolidationManager {
       this.metrics.consolidatedSystems.push('UnifiedPerformanceMonitor');
       // 🎯 PHASE 3 FIX: Conditional logging for performance ready
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('✅ [Phase6] Unified performance monitoring ready');
+        log.debug('Utils', '✅ [Phase6] Unified performance monitoring ready');
       }
 
     } catch (error) {
-      console.warn('⚠️ [Phase6] Failed to initialize unified performance:', error);
+      log.warn('Utils', '⚠️ [Phase6] Failed to initialize unified performance:', error);
     }
   }
 
@@ -143,7 +144,7 @@ class Phase6ConsolidationManager {
   private async initializeMobileOptimization(): Promise<void> {
     // 🎯 PHASE 3 FIX: Conditional logging for mobile optimization
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('📱 [Phase6] Initializing mobile optimization manager...');
+      log.debug('Utils', '📱 [Phase6] Initializing mobile optimization manager...');
     }
     
     try {
@@ -162,11 +163,11 @@ class Phase6ConsolidationManager {
       this.metrics.consolidatedSystems.push('MobileOptimizationLayer');
       // 🎯 PHASE 3 FIX: Conditional logging for mobile ready
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('✅ [Phase6] Mobile optimization manager ready');
+        log.debug('Utils', '✅ [Phase6] Mobile optimization manager ready');
       }
 
     } catch (error) {
-      console.warn('⚠️ [Phase6] Failed to initialize mobile optimization:', error);
+      log.warn('Utils', '⚠️ [Phase6] Failed to initialize mobile optimization:', error);
     }
   }
 
@@ -176,7 +177,7 @@ class Phase6ConsolidationManager {
   private async initializeUnifiedRealtime(): Promise<void> {
     // 🎯 PHASE 3 FIX: Conditional logging for realtime management
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🔔 [Phase6] Initializing unified realtime management...');
+      log.debug('Utils', '🔔 [Phase6] Initializing unified realtime management...');
     }
     
     try {
@@ -192,11 +193,11 @@ class Phase6ConsolidationManager {
       this.metrics.consolidatedSystems.push('UnifiedRealtimeManager');
       // 🎯 PHASE 3 FIX: Conditional logging for realtime ready
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('✅ [Phase6] Unified realtime management ready');
+        log.debug('Utils', '✅ [Phase6] Unified realtime management ready');
       }
 
     } catch (error) {
-      console.warn('⚠️ [Phase6] Failed to initialize realtime management:', error);
+      log.warn('Utils', '⚠️ [Phase6] Failed to initialize realtime management:', error);
     }
   }
 
@@ -206,7 +207,7 @@ class Phase6ConsolidationManager {
   private async consolidateCacheSystems(): Promise<void> {
     // 🎯 PHASE 3 FIX: Conditional logging for cache consolidation
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🗃️ [Phase6] Consolidating cache systems...');
+      log.debug('Utils', '🗃️ [Phase6] Consolidating cache systems...');
     }
     
     try {
@@ -218,13 +219,13 @@ class Phase6ConsolidationManager {
       
       // 🎯 PHASE 3 FIX: Conditional logging for cache analysis
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('📋 [Phase6] Cache consolidation analysis:', analysis);
+        log.debug('Utils', '📋 [Phase6] Cache consolidation analysis:', analysis);
       }
       
       this.metrics.consolidatedSystems.push('CacheConsolidationLayer');
 
     } catch (error) {
-      console.warn('⚠️ [Phase6] Failed to consolidate cache systems:', error);
+      log.warn('Utils', '⚠️ [Phase6] Failed to consolidate cache systems:', error);
     }
   }
 
@@ -235,7 +236,7 @@ class Phase6ConsolidationManager {
     // Create a bridge for existing hooks to use the unified manager
     if (typeof window !== 'undefined') {
       (window as any).useUnifiedRealtime = (spaceId: string, options: any = {}) => {
-        console.log('🔄 [Phase6] Redirecting to unified realtime for space:', spaceId);
+        log.debug('Utils', '🔄 [Phase6] Redirecting to unified realtime for space:', spaceId);
         // Implementation would be added here
         return {
           isConnected: true,
@@ -253,7 +254,7 @@ class Phase6ConsolidationManager {
   private async deprecateLegacySystems(): Promise<void> {
     // 🎯 PHASE 3 FIX: Conditional logging for deprecation
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🗑️ [Phase6] Deprecating legacy systems...');
+      log.debug('Utils', '🗑️ [Phase6] Deprecating legacy systems...');
     }
     
     try {
@@ -261,11 +262,11 @@ class Phase6ConsolidationManager {
       
       // 🎯 PHASE 3 FIX: Conditional logging for deprecated systems
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('📝 [Phase6] Deprecated systems:', legacySystems);
+        log.debug('Utils', '📝 [Phase6] Deprecated systems:', legacySystems);
       }
 
     } catch (error) {
-      console.warn('⚠️ [Phase6] Failed to deprecate legacy systems:', error);
+      log.warn('Utils', '⚠️ [Phase6] Failed to deprecate legacy systems:', error);
     }
   }
 
@@ -275,7 +276,7 @@ class Phase6ConsolidationManager {
   private deprecateSystem(systemName: string): void {
     // 🎯 PHASE 3 FIX: Conditional logging for system deprecation
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log(`🚫 [Phase6] System deprecated: ${systemName}`);
+      log.debug('Utils', `🚫 [Phase6] System deprecated: ${systemName}`);
     }
     
     this.legacySystemsDeprecated.add(systemName);
@@ -296,7 +297,7 @@ class Phase6ConsolidationManager {
       }
     };
 
-    console.log('🎯 [Phase6] Consolidation Complete:', report);
+    log.debug('Utils', '🎯 [Phase6] Consolidation Complete:', report);
 
     // Expose consolidation report for debugging
     if (typeof window !== 'undefined' && import.meta.env.DEV) {
@@ -341,11 +342,11 @@ class Phase6ConsolidationManager {
    */
   public switchToLegacySystem(systemName: string): void {
     if (!import.meta.env.DEV) {
-      console.warn('🚫 [Phase6] Legacy system switching only available in development');
+      log.warn('Utils', '🚫 [Phase6] Legacy system switching only available in development');
       return;
     }
 
-    console.log(`🔄 [Phase6] Switching to legacy system: ${systemName}`);
+    log.debug('Utils', `🔄 [Phase6] Switching to legacy system: ${systemName}`);
     // Implementation for development testing
   }
 
@@ -355,7 +356,7 @@ class Phase6ConsolidationManager {
   public cleanup(): void {
     this.legacySystemsDeprecated.clear();
     this.isInitialized = false;
-    console.log('🧹 [Phase6] Consolidation manager cleaned up');
+    log.debug('Utils', '🧹 [Phase6] Consolidation manager cleaned up');
   }
 }
 
@@ -367,7 +368,7 @@ if (typeof window !== 'undefined' && !import.meta.env.TEST) {
   // Delay initialization to avoid blocking initial render
   setTimeout(() => {
     phase6ConsolidationManager.initialize().catch(error => {
-      console.warn('⚠️ [Phase6] Auto-initialization failed:', error);
+      log.warn('Utils', '⚠️ [Phase6] Auto-initialization failed:', error);
     });
   }, 1000);
 }

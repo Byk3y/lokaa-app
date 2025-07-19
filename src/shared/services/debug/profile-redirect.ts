@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { env } from "@/core/config/env";
 
 // Extend Window interface for debugging tools
@@ -27,12 +28,12 @@ class ProfileRedirectDebugger {
 
   constructor() {
     // Log to make it easier to debug
-    console.log('📋 Profile redirect fix utility loaded');
+    log.debug('Service', '📋 Profile redirect fix utility loaded');
 
     // Reset counter when page loads
     if (typeof window !== 'undefined') {
       window.addEventListener('load', () => {
-        console.log('📋 Window loaded, resetting profile redirect counter');
+        log.debug('Service', '📋 Window loaded, resetting profile redirect counter');
         this.resetProfileRedirectCounter();
       });
     }
@@ -44,7 +45,7 @@ class ProfileRedirectDebugger {
   shouldAllowProfileRedirect(slug: string): boolean {
     // Always allow first redirect
     if (this.redirectCounter === 0) {
-      console.log(`📋 First redirect to ${slug}, allowing`);
+      log.debug('Service', `📋 First redirect to ${slug}, allowing`);
       this.redirectCounter++;
       this.lastSlug = slug;
       return true;
@@ -52,7 +53,7 @@ class ProfileRedirectDebugger {
     
     // If it's a different slug, reset counter and allow
     if (slug !== this.lastSlug) {
-      console.log(`📋 New slug ${slug} different from previous ${this.lastSlug}, allowing`);
+      log.debug('Service', `📋 New slug ${slug} different from previous ${this.lastSlug}, allowing`);
       this.redirectCounter = 1;
       this.lastSlug = slug;
       return true;
@@ -64,13 +65,13 @@ class ProfileRedirectDebugger {
     // If we've already redirected too many times, block the redirect
     if (this.redirectCounter > 3) {
       if (!this.hasWarned) {
-        console.error(`📋 Too many redirects (${this.redirectCounter}) to ${slug}, possible loop detected`);
+        log.error('Service', `📋 Too many redirects (${this.redirectCounter}) to ${slug}, possible loop detected`);
         this.hasWarned = true;
       }
       return false;
     }
     
-    console.log(`📋 Redirect #${this.redirectCounter} to ${slug}, still allowing`);
+    log.debug('Service', `📋 Redirect #${this.redirectCounter} to ${slug}, still allowing`);
     return true;
   }
 
@@ -78,7 +79,7 @@ class ProfileRedirectDebugger {
    * Reset the redirect counter (useful when navigation is triggered by user)
    */
   resetProfileRedirectCounter(): void {
-    console.log('📋 Manually resetting profile redirect counter');
+    log.debug('Service', '📋 Manually resetting profile redirect counter');
     this.redirectCounter = 0;
     this.lastSlug = null;
     this.hasWarned = false;

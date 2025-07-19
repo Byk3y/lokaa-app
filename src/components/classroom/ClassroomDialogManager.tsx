@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { Suspense, lazy } from 'react';
 import { useClassroomDialogs } from '@/hooks/classroom/useClassroomDialogs';
 import type { CourseDisplayData } from '@/types/classroom';
@@ -51,38 +52,38 @@ export function ClassroomDialogManager({ space }: ClassroomDialogManagerProps) {
   const handleCourseCreated = (course: any) => {
     // The hook will handle updating the store
     // Additional logic can be added here if needed
-    console.log('Course created:', course);
+    log.debug('Component', 'Course created:', course);
   };
 
   const handleCourseUpdated = (course: any) => {
     // The hook will handle updating the store
     // Additional logic can be added here if needed
-    console.log('Course updated:', course);
+    log.debug('Component', 'Course updated:', course);
   };
 
   const handleModuleCreated = async (title: string, description: string, releaseDelay: number | null) => {
     // TODO: Implement module creation logic
-    console.log('Create module:', { title, description, releaseDelay });
+    log.debug('Component', 'Create module:', { title, description, releaseDelay });
   };
 
   const handleModuleUpdated = async (moduleId: string, title: string, description: string, releaseDelay: number | null) => {
     // TODO: Implement module update logic
-    console.log('Update module:', { moduleId, title, description, releaseDelay });
+    log.debug('Component', 'Update module:', { moduleId, title, description, releaseDelay });
   };
 
   const handleModuleDeleted = async () => {
     // TODO: Implement module deletion logic
-    console.log('Delete module');
+    log.debug('Component', 'Delete module');
   };
 
   const handleLessonCreated = async (lessonData: any) => {
     // TODO: Implement lesson creation logic
-    console.log('Create lesson:', lessonData);
+    log.debug('Component', 'Create lesson:', lessonData);
   };
 
   const handleLessonUpdated = async (updatedLesson: any) => {
     // TODO: Implement lesson update logic
-    console.log('Update lesson:', updatedLesson);
+    log.debug('Component', 'Update lesson:', updatedLesson);
   };
 
   // Helper function for video embeds (from backup file)
@@ -112,7 +113,7 @@ export function ClassroomDialogManager({ space }: ClassroomDialogManagerProps) {
       // Return original URL if it's already an embed URL or other supported format
       return url;
     } catch (error) {
-      console.error('Error processing video URL:', error);
+      log.error('Component', 'Error processing video URL:', error);
       return null;
     }
   };

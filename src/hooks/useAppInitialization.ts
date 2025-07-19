@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // Custom hook for app initialization - extracted from App.tsx
 // Simplifies App component by handling all initialization logic
 
@@ -16,12 +17,12 @@ export function useAppInitialization() {
         if (isSignOutRedirect) {
           // Clear the flag and keep app ready
           sessionStorage.removeItem('lokaa-signing-out');
-          console.log('🚪 [AppInit] Detected sign out redirect, skipping initialization');
+          log.debug('Hook', '🚪 [AppInit] Detected sign out redirect, skipping initialization');
           return;
         }
 
         // Run initialization in background without blocking UI
-        console.log('🚀 [AppInit] Starting background initialization...');
+        log.debug('Hook', '🚀 [AppInit] Starting background initialization...');
         
         // Initialize app services in background
         await appInitializationService.initialize();
@@ -29,10 +30,10 @@ export function useAppInitialization() {
         // Initialize development tools in background
         await developmentTools.initialize();
         
-        console.log('✅ [AppInit] Background initialization completed');
+        log.debug('Hook', '✅ [AppInit] Background initialization completed');
         
       } catch (error) {
-        console.error('❌ [AppInit] Background initialization failed:', error);
+        log.error('Hook', '❌ [AppInit] Background initialization failed:', error);
         // Don't block the app even if initialization fails
       }
     };

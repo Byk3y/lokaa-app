@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // Load polyfills first
 import './polyfills'
 
@@ -26,15 +27,15 @@ if (import.meta.env.PROD) {
       .getRegistrations()
       .then(registrations => {
         registrations.forEach(registration => {
-          console.log('🧹 Unregistering service worker:', registration.scope);
+          log.debug('App', '🧹 Unregistering service worker:', registration.scope);
           registration.unregister();
         });
       })
       .catch(err => {
-        console.warn('⚠️ Error clearing service workers:', err);
+        log.warn('App', '⚠️ Error clearing service workers:', err);
       });
   } else {
-    console.log('ℹ️ Service workers not supported in this environment');
+    log.debug('App', 'ℹ️ Service workers not supported in this environment');
   }
 }
 
@@ -42,13 +43,13 @@ if (import.meta.env.PROD) {
 // Run before React app initialization
 // This ensures users with spaces don't see the Discover page at all
 /* (async function immediateSpaceRedirect() {
-  console.log('🔍 Checking for immediate redirection opportunities');
+  log.debug('App', '🔍 Checking for immediate redirection opportunities');
   
   // Only run on Discover page or home page 
   const isOnDiscoverPage = window.location.pathname === '/discover' || window.location.pathname === '/'
   
   if (isOnDiscoverPage) {
-    console.log('🔀 Attempting immediate space redirection...')
+    log.debug('App', '🔀 Attempting immediate space redirection...')
     
     // Add console entries to help debug local storage issues
     try {
@@ -56,7 +57,7 @@ if (import.meta.env.PROD) {
       const hasLastCreatedSpace = !!localStorage.getItem('lastCreatedSpace');
       const hasLastVisitedSpace = !!localStorage.getItem('lastVisitedSpace');
       
-      console.log('📋 localStorage check:', {
+      log.debug('App', '📋 localStorage check:', {
         hasLastCreatedSpace,
         hasLastVisitedSpace,
         currentPath: window.location.pathname,
@@ -64,7 +65,7 @@ if (import.meta.env.PROD) {
         timestamp: new Date().toISOString()
       });
     } catch (storageError) {
-      console.warn('⚠️ Error checking localStorage:', storageError);
+      log.warn('App', '⚠️ Error checking localStorage:', storageError);
     }
     
     try {
@@ -75,7 +76,7 @@ if (import.meta.env.PROD) {
       
       // Start the actual redirection - no navigate function means window.location.href will be used
       const redirectionPromise = redirectToSpace().catch(async (err: unknown) => {
-        console.error('❌ Error in redirectToSpace:', err);
+        log.error('App', '❌ Error in redirectToSpace:', err);
         // Returning false means no redirection happened - let the app continue loading
         return false;
       });
@@ -83,17 +84,17 @@ if (import.meta.env.PROD) {
       // Race between redirection and timeout
       const redirected = await Promise.race([redirectionPromise, timeoutPromise])
         .catch((err: unknown) => {
-          console.warn('⚠️ Redirection failed with timeout or error:', err);
+          log.warn('App', '⚠️ Redirection failed with timeout or error:', err);
           return false;
         });
         
       if (redirected) {
-        console.log('✅ Successfully redirected user to space');
+        log.debug('App', '✅ Successfully redirected user to space');
       } else {
-        console.log('ℹ️ No redirection performed, continuing to load app');
+        log.debug('App', 'ℹ️ No redirection performed, continuing to load app');
       }
     } catch (err: unknown) {
-      console.error('❌ Error during immediate space redirection:', err);
+      log.error('App', '❌ Error during immediate space redirection:', err);
       // Continue loading the app even if there's an error
     }
   }

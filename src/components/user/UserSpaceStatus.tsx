@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { userHasSpaces, getUserSpaceCounts } from '@/utils/userSpaceUtils';
@@ -39,7 +40,7 @@ export default function UserSpaceStatus() {
           setSpaceCounts(counts);
         }
       } catch (error) {
-        console.error('Error checking user spaces:', error);
+        log.error('Component', 'Error checking user spaces:', error);
       } finally {
         setLoading(false);
       }

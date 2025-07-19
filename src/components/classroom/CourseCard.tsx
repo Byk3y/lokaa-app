@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { memo, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Book, Users, Loader2, MoreHorizontal, Edit3, Trash2 } from 'lucide-react';
@@ -45,7 +46,7 @@ export const CourseCard = memo<CourseCardProps>(function CourseCard({
       return;
     }
     
-    console.log('🎯 [CourseCard] Card clicked!', {
+    log.debug('Component', '🎯 [CourseCard] Card clicked!', {
       courseId: course.id,
       courseTitle: course.title,
       isOwner,
@@ -56,7 +57,7 @@ export const CourseCard = memo<CourseCardProps>(function CourseCard({
     
     // Skool-style: Always allow direct access to course content
     // No enrollment step needed - just open the course
-    console.log('🎯 [CourseCard] Calling onViewCourse (Skool-style direct access)');
+    log.debug('Component', '🎯 [CourseCard] Calling onViewCourse (Skool-style direct access)');
     onViewCourse(course);
   }, [course, onViewCourse, isOwner, user]);
 

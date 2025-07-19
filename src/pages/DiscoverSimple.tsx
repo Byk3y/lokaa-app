@@ -1,10 +1,11 @@
+import { log } from '@/utils/logger';
 import React from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 export default function DiscoverSimple() {
   const { user } = useOptimizedAuth();
   
-  console.log('DiscoverSimple rendering for user:', user?.id);
+  log.debug('Page', 'DiscoverSimple rendering for user:', user?.id);
   
   return (
     <div className="min-h-screen bg-gray-50 py-8">

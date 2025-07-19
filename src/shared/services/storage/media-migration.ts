@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Media migration service for localStorage to Supabase storage migration
  */
@@ -46,7 +47,7 @@ export const uploadFileWithFallback = async (
       path: ''
     };
   } catch (error) {
-    console.error('Error in uploadFileWithFallback:', error);
+    log.error('Service', 'Error in uploadFileWithFallback:', error);
     // Final fallback to base64
     onProgress?.(50);
     const base64Data = await fileToBase64(file);
@@ -77,7 +78,7 @@ export const migrateLocalMediaToStorage = async (
     // Check if storage is available
     const storageAvailable = await checkStorageAvailability();
     if (!storageAvailable) {
-      console.log('Storage not available for migration');
+      log.debug('Service', 'Storage not available for migration');
       return mediaItems;
     }
     
@@ -116,7 +117,7 @@ export const migrateLocalMediaToStorage = async (
             updatedItems.push(item);
           }
         } catch (err) {
-          console.error('Error migrating media item:', err);
+          log.error('Service', 'Error migrating media item:', err);
           updatedItems.push(item);
         }
       } else {
@@ -133,7 +134,7 @@ export const migrateLocalMediaToStorage = async (
     
     return updatedItems;
   } catch (error) {
-    console.error('Error migrating media items:', error);
+    log.error('Service', 'Error migrating media items:', error);
     return [];
   }
 }; 

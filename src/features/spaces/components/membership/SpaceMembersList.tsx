@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space Members List Component
  * 
@@ -61,7 +62,7 @@ export function SpaceMembersList({
         setError(null);
       } catch (err) {
         setError('Failed to load members');
-        console.error('Error fetching members:', err);
+        log.error('Component', 'Error fetching members:', err);
       } finally {
         setLoading(false);
       }
@@ -85,7 +86,7 @@ export function SpaceMembersList({
         ));
       }
     } catch (err) {
-      console.error('Error changing role:', err);
+      log.error('Component', 'Error changing role:', err);
     }
   };
   
@@ -99,7 +100,7 @@ export function SpaceMembersList({
           setMembers(members.filter(member => member.user_id !== memberId));
         }
       } catch (err) {
-        console.error('Error removing member:', err);
+        log.error('Component', 'Error removing member:', err);
       }
     }
   };

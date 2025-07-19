@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Mobile Optimization Manager
  * 
@@ -78,9 +79,9 @@ class MobileOptimizationManager {
   public initialize(): void {
     if (this.isInitialized || !this.capabilities.isMobile) return;
 
-    console.log('📱 [MobileOptimizer] Initializing mobile optimizations...');
-    console.log('📱 [MobileOptimizer] Capabilities:', this.capabilities);
-    console.log('📱 [MobileOptimizer] Optimizations:', this.optimizations);
+    log.debug('Utils', '📱 [MobileOptimizer] Initializing mobile optimizations...');
+    log.debug('Utils', '📱 [MobileOptimizer] Capabilities:', this.capabilities);
+    log.debug('Utils', '📱 [MobileOptimizer] Optimizations:', this.optimizations);
 
     // Setup background/foreground detection
     if (this.optimizations.backgroundActivityPausing) {
@@ -99,7 +100,7 @@ class MobileOptimizationManager {
     this.setupPerformanceTracking();
 
     this.isInitialized = true;
-    console.log('✅ [MobileOptimizer] Initialization complete');
+    log.debug('Utils', '✅ [MobileOptimizer] Initialization complete');
   }
 
   /**
@@ -182,9 +183,9 @@ class MobileOptimizationManager {
       try {
         const { getSupabaseClient } = await import('@/integrations/supabase/client');
         await getSupabaseClient().from('posts').select('id', { count: 'exact', head: true }).limit(1);
-        console.log('📱 [MobileOptimizer] Keep-alive successful');
+        log.debug('Utils', '📱 [MobileOptimizer] Keep-alive successful');
       } catch (error) {
-        console.warn('📱 [MobileOptimizer] Keep-alive failed:', error);
+        log.warn('Utils', '📱 [MobileOptimizer] Keep-alive failed:', error);
         this.metrics.connectionFailures++;
       }
     }, 90000);
@@ -224,7 +225,7 @@ class MobileOptimizationManager {
     try {
       observer.observe({ entryTypes: ['navigation'] });
     } catch (error) {
-      console.warn('📱 [MobileOptimizer] Performance observer not supported:', error);
+      log.warn('Utils', '📱 [MobileOptimizer] Performance observer not supported:', error);
     }
   }
 
@@ -232,7 +233,7 @@ class MobileOptimizationManager {
    * Event handlers
    */
   private onAppBackgrounded(): void {
-    console.log('📱 [MobileOptimizer] App backgrounded');
+    log.debug('Utils', '📱 [MobileOptimizer] App backgrounded');
     this.metrics.backgroundTransitions++;
     
     // Pause non-critical operations
@@ -242,7 +243,7 @@ class MobileOptimizationManager {
   }
 
   private onAppForegrounded(timeInBackground: number): void {
-    console.log(`📱 [MobileOptimizer] App foregrounded after ${Math.round(timeInBackground / 1000)}s`);
+    log.debug('Utils', `📱 [MobileOptimizer] App foregrounded after ${Math.round(timeInBackground / 1000)}s`);
     
     // Resume operations and check for stale data
     if (timeInBackground > 60000) { // 1 minute
@@ -251,7 +252,7 @@ class MobileOptimizationManager {
   }
 
   private onMemoryPressure(usagePercent: number): void {
-    console.warn(`📱 [MobileOptimizer] Memory pressure: ${usagePercent.toFixed(1)}%`);
+    log.warn('Utils', `📱 [MobileOptimizer] Memory pressure: ${usagePercent.toFixed(1)}%`);
     this.metrics.memoryPressureEvents++;
     
     // Aggressive cache cleanup
@@ -268,7 +269,7 @@ class MobileOptimizationManager {
     try {
       (window as any).pauseRealtimeSubscriptions?.();
     } catch (error) {
-      console.warn('📱 [MobileOptimizer] Failed to pause realtime:', error);
+      log.warn('Utils', '📱 [MobileOptimizer] Failed to pause realtime:', error);
     }
   }
 
@@ -277,7 +278,7 @@ class MobileOptimizationManager {
     try {
       (window as any).refreshStaleData?.();
     } catch (error) {
-      console.warn('📱 [MobileOptimizer] Failed to refresh stale data:', error);
+      log.warn('Utils', '📱 [MobileOptimizer] Failed to refresh stale data:', error);
     }
   }
 
@@ -289,7 +290,7 @@ class MobileOptimizationManager {
       // Clear metrics to free memory
       this.metrics.loadTimes = this.metrics.loadTimes.slice(-10);
     } catch (error) {
-      console.warn('📱 [MobileOptimizer] Emergency cleanup failed:', error);
+      log.warn('Utils', '📱 [MobileOptimizer] Emergency cleanup failed:', error);
     }
   }
 
@@ -305,7 +306,7 @@ class MobileOptimizationManager {
     }
 
     if (duration > 5000) {
-      console.warn(`📱 [MobileOptimizer] Slow load detected: ${duration.toFixed(0)}ms`);
+      log.warn('Utils', `📱 [MobileOptimizer] Slow load detected: ${duration.toFixed(0)}ms`);
     }
   }
 
@@ -415,7 +416,7 @@ class MobileOptimizationManager {
   public runMobileTest(): Record<string, any> {
     if (!import.meta.env.DEV) return { error: 'Testing only available in development' };
 
-    console.log('📱 [MobileOptimizer] Running mobile optimization test...');
+    log.debug('Utils', '📱 [MobileOptimizer] Running mobile optimization test...');
     
     const testResults = {
       capabilities: this.capabilities,
@@ -424,7 +425,7 @@ class MobileOptimizationManager {
       testTimestamp: new Date().toISOString()
     };
 
-    console.log('📱 [MobileOptimizer] Test results:', testResults);
+    log.debug('Utils', '📱 [MobileOptimizer] Test results:', testResults);
     return testResults;
   }
 }

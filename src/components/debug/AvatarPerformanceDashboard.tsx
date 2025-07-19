@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📊 LIVE AVATAR PERFORMANCE DASHBOARD
  * 
@@ -125,7 +126,7 @@ export const AvatarPerformanceDashboard: React.FC = () => {
       }
 
     } catch (error) {
-      console.error('❌ [AvatarDashboard] Failed to fetch metrics:', error);
+      log.error('Component', '❌ [AvatarDashboard] Failed to fetch metrics:', error);
       setError(`Failed to load metrics: ${error.message}`);
       // Set fallback metrics with complete structure
       setMetrics({
@@ -175,16 +176,16 @@ export const AvatarPerformanceDashboard: React.FC = () => {
   // Test avatar preloading performance
   const handleTestPreloading = useCallback(async () => {
     try {
-      console.log('🧪 [Dashboard] Testing avatar preloading...');
+      log.debug('Component', '🧪 [Dashboard] Testing avatar preloading...');
       
       // Use the hardcoded space ID for nocode-architects for testing
       const testSpaceId = '235e68d1-89df-4d2d-8945-e7756d60de20'; // nocode-architects
       
       const result = await AvatarCacheService.preloadSpaceAvatars(testSpaceId);
-      console.log('✅ [Dashboard] Preload test completed:', result);
+      log.debug('Component', '✅ [Dashboard] Preload test completed:', result);
       setTestResults(result);
     } catch (error) {
-      console.error('❌ [Dashboard] Preload test failed:', error);
+      log.error('Component', '❌ [Dashboard] Preload test failed:', error);
     }
   }, []);
 
@@ -234,7 +235,7 @@ export const AvatarPerformanceDashboard: React.FC = () => {
       if (score >= 45) return 'D';
       return 'F';
     } catch (error) {
-      console.warn('⚠️ [AvatarDashboard] Grade calculation failed:', error);
+      log.warn('Component', '⚠️ [AvatarDashboard] Grade calculation failed:', error);
       return 'F';
     }
   };

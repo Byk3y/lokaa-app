@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
@@ -13,16 +14,16 @@ const initializeHMRErrorRecovery = () => {
     window.onerror = (message, source, lineno, colno, error) => {
       if (typeof message === 'string' && message.includes('Importing a module script failed')) {
         if (isMobileBrowser()) {
-          console.warn('🔄 [HMR Fix] Module import failed on mobile browser - likely network blocking, ignoring');
-          console.warn('📱 [HMR Fix] Mobile browsers block network requests during app backgrounding');
-          console.warn('🔧 [HMR Fix] This is NOT an actual HMR error - recovery disabled on mobile');
+          log.warn('Component', '🔄 [HMR Fix] Module import failed on mobile browser - likely network blocking, ignoring');
+          log.warn('Component', '📱 [HMR Fix] Mobile browsers block network requests during app backgrounding');
+          log.warn('Component', '🔧 [HMR Fix] This is NOT an actual HMR error - recovery disabled on mobile');
           return true;
         }
         
-        console.warn('🔄 [HMR Fix] Module import failed detected on desktop, attempting recovery...');
+        log.warn('Component', '🔄 [HMR Fix] Module import failed detected on desktop, attempting recovery...');
         setTimeout(() => {
-          console.log('🔄 [HMR Fix] Reloading to recover from module import failure');
-          console.log("🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");        }, 1000);
+          log.debug('Component', '🔄 [HMR Fix] Reloading to recover from module import failure');
+          log.debug('Component', "🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");        }, 1000);
         return true;
       }
       
@@ -35,32 +36,32 @@ const initializeHMRErrorRecovery = () => {
     window.addEventListener('unhandledrejection', (event) => {
       if (event.reason?.message?.includes('Importing a module script failed')) {
         if (isMobileBrowser()) {
-          console.warn('🔄 [HMR Fix] Async module import failed on mobile browser - likely network blocking, ignoring');
-          console.warn('📱 [HMR Fix] Mobile browsers block network requests during app backgrounding');
-          console.warn('🔧 [HMR Fix] This is NOT an actual HMR error - recovery disabled on mobile');
+          log.warn('Component', '🔄 [HMR Fix] Async module import failed on mobile browser - likely network blocking, ignoring');
+          log.warn('Component', '📱 [HMR Fix] Mobile browsers block network requests during app backgrounding');
+          log.warn('Component', '🔧 [HMR Fix] This is NOT an actual HMR error - recovery disabled on mobile');
           event.preventDefault();
           return;
         }
         
-        console.warn('🔄 [HMR Fix] Async module import failed on desktop, attempting recovery...');
+        log.warn('Component', '🔄 [HMR Fix] Async module import failed on desktop, attempting recovery...');
         event.preventDefault();
         setTimeout(() => {
-          console.log('🔄 [HMR Fix] Reloading to recover from async import failure');
-          console.log("🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");        }, 1000);
+          log.debug('Component', '🔄 [HMR Fix] Reloading to recover from async import failure');
+          log.debug('Component', "🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");        }, 1000);
       }
     });
     
     if (isMobileBrowser()) {
-      console.log('🔧 [HMR Fix] Mobile-aware module import error recovery installed (reload disabled on mobile)');
+      log.debug('Component', '🔧 [HMR Fix] Mobile-aware module import error recovery installed (reload disabled on mobile)');
     } else {
-      console.log('🔧 [HMR Fix] Desktop module import error recovery installed');
+      log.debug('Component', '🔧 [HMR Fix] Desktop module import error recovery installed');
     }
   }
 };
 
 // Error boundary fallback component
 function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
-  console.error('🚨 React Error Boundary caught error:', error);
+  log.error('Component', '🚨 React Error Boundary caught error:', error);
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
@@ -86,7 +87,7 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
             Try Again
           </button>
           <button 
-            onClick={() => console.log("🛡️ [ErrorFallback] Reload disabled by bulletproof protection")}
+            onClick={() => log.debug('Component', "🛡️ [ErrorFallback] Reload disabled by bulletproof protection")}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
           >
             Reload Page
@@ -108,12 +109,12 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
   }
 
   if (isMobileBrowser()) {
-    console.warn('🔄 [ModuleErrorFallback] Module error on mobile browser - likely network blocking');
-    console.warn('📱 [ModuleErrorFallback] Mobile browsers block network requests during app backgrounding');
-    console.warn('🔧 [ModuleErrorFallback] Auto-recovering without showing error screen...');
+    log.warn('Component', '🔄 [ModuleErrorFallback] Module error on mobile browser - likely network blocking');
+    log.warn('Component', '📱 [ModuleErrorFallback] Mobile browsers block network requests during app backgrounding');
+    log.warn('Component', '🔧 [ModuleErrorFallback] Auto-recovering without showing error screen...');
     
     setTimeout(() => {
-      console.log('🔄 [ModuleErrorFallback] Auto-recovering from mobile network blocking...');
+      log.debug('Component', '🔄 [ModuleErrorFallback] Auto-recovering from mobile network blocking...');
       resetErrorBoundary();
     }, 500);
     
@@ -136,7 +137,7 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
     );
   }
 
-  console.error('🚨 [ModuleErrorFallback] Caught module import error on desktop:', error);
+  log.error('Component', '🚨 [ModuleErrorFallback] Caught module import error on desktop:', error);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -154,7 +155,7 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
         <div className="flex gap-3 justify-center mb-4">
           <button 
             onClick={() => {
-              console.log('🔄 [ModuleErrorFallback] Attempting recovery...');
+              log.debug('Component', '🔄 [ModuleErrorFallback] Attempting recovery...');
               resetErrorBoundary();
             }}
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
@@ -163,8 +164,8 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
           </button>
           <button 
             onClick={() => {
-              console.log('🔄 [ModuleErrorFallback] Hard reload...');
-          console.log("🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");            }}
+              log.debug('Component', '🔄 [ModuleErrorFallback] Hard reload...');
+          log.debug('Component', "🛡️ [AppErrorBoundary] Reload disabled by bulletproof protection");            }}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
             ↻ Reload Page
@@ -217,15 +218,15 @@ export default function AppErrorBoundary({ children }: AppErrorBoundaryProps) {
         return <ErrorFallback error={error} resetErrorBoundary={resetErrorBoundary} />;
       }}
       onError={(error, errorInfo) => {
-        console.error('🚨 [AppErrorBoundary] Error Boundary caught:', error, errorInfo);
+        log.error('Component', '🚨 [AppErrorBoundary] Error Boundary caught:', error, errorInfo);
         
         if (error.message?.includes('Importing a module script failed')) {
-          console.error('🚨 [AppErrorBoundary] Module import failure detected - this is likely an HMR issue');
+          log.error('Component', '🚨 [AppErrorBoundary] Module import failure detected - this is likely an HMR issue');
         }
       }}
       onReset={() => {
-        console.log('🔄 [AppErrorBoundary] Error boundary reset');
-        console.log('🛡️ [AppErrorBoundary] Reload protection active - not triggering any reloads');
+        log.debug('Component', '🔄 [AppErrorBoundary] Error boundary reset');
+        log.debug('Component', '🛡️ [AppErrorBoundary] Reload protection active - not triggering any reloads');
         
         // DISABLED: All reload mechanisms are disabled due to bulletproof protection
         // The bulletproof protection system handles all reload scenarios

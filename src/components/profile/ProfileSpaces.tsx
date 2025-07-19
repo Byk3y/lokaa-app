@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getSupabaseClient } from "@/integrations/supabase/client";
@@ -52,7 +53,7 @@ export default function ProfileSpaces({ userId, isCreator }: ProfileSpacesProps)
           setJoinedSpaces(spacesData || []);
         }
       } catch (error) {
-        console.error('Error fetching spaces:', error);
+        log.error('Component', 'Error fetching spaces:', error);
         toast({
           title: "Error loading spaces",
           description: "Could not load spaces for this user.",

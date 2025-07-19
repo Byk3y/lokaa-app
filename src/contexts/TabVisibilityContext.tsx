@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 TAB VISIBILITY CONTEXT
  * 
@@ -70,7 +71,7 @@ export const TabVisibilityProvider: React.FC<TabVisibilityProviderProps> = ({ ch
     }
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔧 [TabVisibility] Tab ${tabKey} marked as initialized for space ${spaceId}`);
+      log.debug('Context', `🔧 [TabVisibility] Tab ${tabKey} marked as initialized for space ${spaceId}`);
     }
   }, []);
   
@@ -96,7 +97,7 @@ export const TabVisibilityProvider: React.FC<TabVisibilityProviderProps> = ({ ch
     }
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🧹 [TabVisibility] Cleared state for tab ${tabKey} in space ${spaceId}`);
+      log.debug('Context', `🧹 [TabVisibility] Cleared state for tab ${tabKey} in space ${spaceId}`);
     }
   }, []);
   
@@ -107,7 +108,7 @@ export const TabVisibilityProvider: React.FC<TabVisibilityProviderProps> = ({ ch
     lastFetchTimesRef.current.delete(spaceKey);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🧹 [TabVisibility] Cleared all tab states for space ${spaceId}`);
+      log.debug('Context', `🧹 [TabVisibility] Cleared all tab states for space ${spaceId}`);
     }
   }, []);
   
@@ -116,7 +117,7 @@ export const TabVisibilityProvider: React.FC<TabVisibilityProviderProps> = ({ ch
     lastFetchTimesRef.current.set(spaceKey, Date.now());
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🕐 [TabVisibility] Updated last fetch time for ${tabKey} in space ${spaceId}`);
+      log.debug('Context', `🕐 [TabVisibility] Updated last fetch time for ${tabKey} in space ${spaceId}`);
     }
   }, []);
   
@@ -138,7 +139,7 @@ export const TabVisibilityProvider: React.FC<TabVisibilityProviderProps> = ({ ch
         cachedTabsRef.current.get(spaceKey)!.add(tabKey);
         
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🔧 [TabVisibility] Tab ${tabKey} marked as cached for space ${spaceId}`);
+          log.debug('Context', `🔧 [TabVisibility] Tab ${tabKey} marked as cached for space ${spaceId}`);
         }
       }
     };

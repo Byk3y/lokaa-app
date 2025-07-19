@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -106,7 +107,7 @@ export const useSpaceActivityHeatmap = (spaceId: string): ActivityHeatmapData =>
       ]);
 
       if (postsResult.error) {
-        console.error('Error fetching posts for heatmap:', postsResult.error);
+        log.error('Hook', 'Error fetching posts for heatmap:', postsResult.error);
         setHeatmapData(prev => ({
           ...prev,
           loading: false,
@@ -116,7 +117,7 @@ export const useSpaceActivityHeatmap = (spaceId: string): ActivityHeatmapData =>
       }
 
       if (commentsResult.error) {
-        console.error('Error fetching comments for heatmap:', commentsResult.error);
+        log.error('Hook', 'Error fetching comments for heatmap:', commentsResult.error);
         setHeatmapData(prev => ({
           ...prev,
           loading: false,
@@ -219,7 +220,7 @@ export const useSpaceActivityHeatmap = (spaceId: string): ActivityHeatmapData =>
       lastFetchRef.current = spaceId;
 
     } catch (error) {
-      console.error('Error in fetchActivityHeatmap:', error);
+      log.error('Hook', 'Error in fetchActivityHeatmap:', error);
       setHeatmapData(prev => ({
         ...prev,
         loading: false,

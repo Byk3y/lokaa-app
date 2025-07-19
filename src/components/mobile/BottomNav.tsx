@@ -1,5 +1,7 @@
+import { log } from '@/utils/logger';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageSquare, User, Bell } from 'lucide-react';
+import NotificationBadge from '@/components/notifications/NotificationBadge';
 import useSpaceSettingsStore, { trackRouteChange } from '@/hooks/useSpaceSettingsStore';
 import { useEffect, useRef, useState } from 'react';
 import { useConversations } from '@/features/chat';
@@ -34,7 +36,7 @@ export default function BottomNav() {
         const { data, error } = await migrationAdapter.getUserProfile(user.id, ['profile_url']);
         
         if (error) {
-          console.error('Error fetching user profile URL:', error);
+          log.error('Component', 'Error fetching user profile URL:', error);
           return;
         }
         
@@ -42,7 +44,7 @@ export default function BottomNav() {
           setUserProfileUrl(data.profile_url);
         }
       } catch (error) {
-        console.error('Error fetching user profile URL:', error);
+        log.error('Component', 'Error fetching user profile URL:', error);
       }
     };
 
@@ -80,6 +82,11 @@ export default function BottomNav() {
       return pathname === '/app/chat';
     }
     
+    // Notifications button: active when on notifications page
+    if (path === '/notifs') {
+      return pathname === '/notifs' || pathname === '/app/notifications';
+    }
+    
     // Profile button: active when on user's own profile page (with or without space context) OR settings/profile
     if (path === '/profile') {
       // Check if on user's own profile page (ignoring query parameters for space context)
@@ -104,7 +111,7 @@ export default function BottomNav() {
     if (hasActiveSpace) {
       const targetRoute = `/${space.subdomain}/space`;
       
-      console.log('🔄 [BottomNav] Navigating to space feed:', { from: fromRoute, to: targetRoute });
+      log.debug('Component', '🔄 [BottomNav] Navigating to space feed:', { from: fromRoute, to: targetRoute });
       
       trackRouteChange(fromRoute, targetRoute);
       
@@ -120,18 +127,18 @@ export default function BottomNav() {
           const spaceData = JSON.parse(lastActiveSpace);
           if (spaceData?.subdomain) {
             const targetRoute = `/${spaceData.subdomain}/space`;
-            console.log('🔄 [BottomNav] Using cached space for navigation:', { from: fromRoute, to: targetRoute });
+            log.debug('Component', '🔄 [BottomNav] Using cached space for navigation:', { from: fromRoute, to: targetRoute });
             trackRouteChange(fromRoute, targetRoute);
             navigate(targetRoute);
             return;
           }
         }
       } catch (e) {
-        console.warn('Failed to parse cached space data:', e);
+        log.warn('Component', 'Failed to parse cached space data:', e);
       }
       
       // Only fall back to '/' if we truly have no space information
-      console.warn('🚨 [BottomNav] No space data available - this might cause page refresh');
+      log.warn('Component', '🚨 [BottomNav] No space data available - this might cause page refresh');
       const targetRoute = '/';
       trackRouteChange(fromRoute, targetRoute);
       navigate(targetRoute);
@@ -147,7 +154,7 @@ export default function BottomNav() {
   // Navigate to chat page (now wrapped in UnifiedAppLayout to prevent unmounting)
   const handleChatClick = () => {
     const fromRoute = location.pathname;
-    console.log('🔄 [BottomNav] Navigating to chat page from:', fromRoute);
+    log.debug('Component', '🔄 [BottomNav] Navigating to chat page from:', fromRoute);
     trackRouteChange(fromRoute, '/app/chat');
     navigate('/app/chat');
   };
@@ -158,12 +165,12 @@ export default function BottomNav() {
     
     if (userProfileUrl) {
       // Use navigateToProfileWithContext to automatically detect current space and add ?space= query parameter
-      console.log('🔄 [BottomNav] Navigating to user profile with space context:', { from: fromRoute, profileUrl: userProfileUrl });
+      log.debug('Component', '🔄 [BottomNav] Navigating to user profile with space context:', { from: fromRoute, profileUrl: userProfileUrl });
       trackRouteChange(fromRoute, `/profile/${userProfileUrl}`);
       navigateToProfileWithContext(userProfileUrl, navigate);
     } else {
       // Fallback to settings if user doesn't have a profile URL yet
-      console.log('🔄 [BottomNav] No profile URL found, falling back to settings');
+      log.debug('Component', '🔄 [BottomNav] No profile URL found, falling back to settings');
       const fallbackRoute = '/settings/profile';
       trackRouteChange(fromRoute, fallbackRoute);
       navigate(fallbackRoute);
@@ -173,7 +180,7 @@ export default function BottomNav() {
   const navItems = [
     { path: '/', label: 'Home', icon: Home, onClick: handleHomeClick },
     { path: '/app/chat', label: 'Chat', icon: MessageSquare, onClick: handleChatClick, unreadCount },
-    { path: '/notifications', label: 'Notifications', icon: Bell, onClick: () => handleNavigation('/notifications'), notification: true },
+    { path: '/notifs', label: 'Notifications', icon: Bell, notification: true, isNotificationBadge: true },
     { path: '/profile', label: 'Profile', icon: User, onClick: handleProfileClick, notification: true },
   ];
 
@@ -193,14 +200,28 @@ export default function BottomNav() {
           {navItems.map((item) => {
             const active = isActive(item.path);
             const Icon = item.icon;
+            
+            // Special handling for notification badge to avoid button nesting
+            if (item.isNotificationBadge) {
+              return (
+                <div key={item.label} className="relative flex-1 h-full min-w-14 min-h-14 flex items-center justify-center">
+                  <NotificationBadge 
+                    variant="mobile" 
+                    size="md" 
+                    className="flex items-center justify-center"
+                  />
+                </div>
+              );
+            }
+            
             return (
               <button
                 key={item.label}
                 className="relative flex-1 h-full min-w-14 min-h-14 flex items-center justify-center transition-colors duration-200"
                 onClick={item.onClick}
               >
-              {/* Generic notification dot for other items */}
-              {item.notification && !item.unreadCount && (
+              {/* Generic notification dot for other items (except notification badge) */}
+              {item.notification && !item.unreadCount && !item.isNotificationBadge && (
                   <span className="absolute top-4 right-1/2 translate-x-[12px] w-2 h-2 bg-blue-500 rounded-full border-2 border-[#171E2E]"></span>
                 )}
               

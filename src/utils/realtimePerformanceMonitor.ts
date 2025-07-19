@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 interface PerformanceMetrics {
   memoryUsage: number;
   connectionLatency: number;
@@ -44,7 +45,7 @@ export class RealtimePerformanceMonitor {
       const longTaskObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
           if (entry.duration > 50) {
-            console.warn(`🐌 [Performance] Long task detected: ${entry.duration}ms`);
+            log.warn('Utils', `🐌 [Performance] Long task detected: ${entry.duration}ms`);
           }
         }
       });
@@ -53,7 +54,7 @@ export class RealtimePerformanceMonitor {
         longTaskObserver.observe({ entryTypes: ['longtask'] });
         this.observers.set('longtask', longTaskObserver);
       } catch (e) {
-        console.log('Long task monitoring not supported');
+        log.debug('Utils', 'Long task monitoring not supported');
       }
     }
 
@@ -66,7 +67,7 @@ export class RealtimePerformanceMonitor {
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       if (navigation) {
         const loadTime = navigation.loadEventEnd - navigation.loadEventStart;
-        console.log(`📊 [Performance] Page load time: ${loadTime}ms`);
+        log.debug('Utils', `📊 [Performance] Page load time: ${loadTime}ms`);
       }
     }
   }
@@ -204,5 +205,5 @@ export const performanceMonitor = new RealtimePerformanceMonitor();
 // Global access for debugging
 if (typeof window !== 'undefined') {
   (window as any).realtimePerformanceMonitor = performanceMonitor;
-  (window as any).getRealtimeReport = () => console.log(performanceMonitor.generateReport());
+  (window as any).getRealtimeReport = () => log.debug('Utils', performanceMonitor.generateReport());
 } 

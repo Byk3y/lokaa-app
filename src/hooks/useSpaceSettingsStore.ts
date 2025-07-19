@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -155,7 +156,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         
         // MOBILE FIX: Use cached data more aggressively to prevent loading states
         if (isRecentCache || isReasonablyFresh) {
-          console.log(`🚀 [Mobile Optimized] Using cached space data for ${cacheKey} (age: ${Math.round(cacheAge / 1000)}s)`);
+          log.debug('Hook', `🚀 [Mobile Optimized] Using cached space data for ${cacheKey} (age: ${Math.round(cacheAge / 1000)}s)`);
           
           // CRITICAL: Set data immediately WITHOUT triggering loading state
           const originalSpaceData = cached.data;
@@ -174,7 +175,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
           
           // Background refresh only if cache is older than 2 minutes
           if (cacheAge > 2 * 60 * 1000) {
-            console.log(`🔄 [Mobile] Background refresh for ${cacheKey}`);
+            log.debug('Hook', `🔄 [Mobile] Background refresh for ${cacheKey}`);
             setTimeout(() => {
               get().loadActiveSpace(identifier, userId, true);
             }, 500); // Slightly longer delay for mobile
@@ -196,7 +197,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
     
     // FIXED: Don't show loading state if we already have the correct space data
     if (shouldPreserveSpace) {
-      console.log(`🔒 [SpaceSettings] Already have space data for ${identifier.subdomain}, skipping loading state`);
+      log.debug('Hook', `🔒 [SpaceSettings] Already have space data for ${identifier.subdomain}, skipping loading state`);
       // Don't set loading state if we already have the correct data
       // Only load permissions if missing
       if (!existingPermissions) {
@@ -204,7 +205,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       }
     } else {
       // Only set loading state when we don't have matching data
-      console.log(`🔄 [SpaceSettings] Loading new space data for ${cacheKey}`);
+      log.debug('Hook', `🔄 [SpaceSettings] Loading new space data for ${cacheKey}`);
       set({ 
         loadingSpace: true, 
         loadingPermissions: !existingPermissions, 
@@ -229,7 +230,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
           .single();
 
         if (error) {
-          console.error('Error fetching space by subdomain:', error);
+          log.error('Hook', 'Error fetching space by subdomain:', error);
           fetchError = error.message;
         } else {
           spaceData = data as SpaceSettingsData;
@@ -244,7 +245,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
           .single();
 
         if (error) {
-          console.error('Error fetching space by ID:', error);
+          log.error('Hook', 'Error fetching space by ID:', error);
           fetchError = error.message;
         } else {
           spaceData = data as SpaceSettingsData;
@@ -313,7 +314,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       } else if (fetchError) {
         // PHASE 1 FIX: Enhanced error handling to preserve space data
         if (!existingSpace || (identifier.subdomain && existingSpace.subdomain !== identifier.subdomain)) {
-          console.error(`Failed to load space: ${fetchError}`);
+          log.error('Hook', `Failed to load space: ${fetchError}`);
           set({ 
             loadingSpace: false, 
             error: fetchError,
@@ -321,7 +322,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
           });
         } else {
           // PHASE 1 FIX: Keep existing data on error if it matches what we're trying to load
-          console.log(`🔒 [Phase1] Failed to refresh space: ${fetchError}, but preserving existing space data for ${identifier.subdomain}`);
+          log.debug('Hook', `🔒 [Phase1] Failed to refresh space: ${fetchError}, but preserving existing space data for ${identifier.subdomain}`);
           set({ 
             loadingSpace: false, 
             error: null, // Clear error since we have valid existing data
@@ -330,13 +331,13 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         }
       }
     } catch (err) {
-      console.error('Error in loadActiveSpace:', err);
+      log.error('Hook', 'Error in loadActiveSpace:', err);
       // PHASE 1 FIX: Enhanced catastrophic error handling to preserve space data
       if (!existingSpace || (identifier.subdomain && existingSpace.subdomain !== identifier.subdomain)) {
         set({ loadingSpace: false, error: 'Failed to load space', space: null });
       } else {
         // PHASE 1 FIX: Keep existing data on catastrophic error if it matches
-        console.log(`🔒 [Phase1] Catastrophic error but preserving existing space data for ${identifier.subdomain}`);
+        log.debug('Hook', `🔒 [Phase1] Catastrophic error but preserving existing space data for ${identifier.subdomain}`);
         set({ loadingSpace: false, error: null }); // Clear error since we have valid data
       }
     }
@@ -400,7 +401,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       };
       set({ permissions: calculatedPermissions, loadingPermissions: false });
     } catch (error: any) {
-      console.error("[SpaceSettingsStore] Error fetching permissions:", error);
+      log.error('Hook', "[SpaceSettingsStore] Error fetching permissions:", error);
       set({ error: error.message || "Failed to fetch permissions.", loadingPermissions: false, permissions: null });
       toast({ title: "Permissions Error", description: error.message, variant: "destructive" });
     }
@@ -572,7 +573,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         .single();
 
       if (error) {
-        console.error("Error updating space settings:", error);
+        log.error('Hook', "Error updating space settings:", error);
         throw error;
       }
 
@@ -594,7 +595,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       return { success: false, error: "Failed to update space, no data returned." };
 
     } catch (error: any) {
-      console.error("Error in saveSpaceSettings:", error);
+      log.error('Hook', "Error in saveSpaceSettings:", error);
       const errorMessage = error.message || "An unknown error occurred while saving.";
       set({ isSubmitting: false, error: errorMessage });
       toast({ title: "Save Error", description: errorMessage, variant: "destructive" });
@@ -612,7 +613,7 @@ export const trackRouteChange = (fromRoute: string, toRoute: string) => {
   navigationState.lastRouteChange = Date.now();
   navigationState.isNavigatingBetweenRoutes = true;
   
-  console.log(`🧭 Route change tracked: ${fromRoute} → ${toRoute}`);
+  log.debug('Hook', `🧭 Route change tracked: ${fromRoute} → ${toRoute}`);
   
   // Reset navigation flag after a short delay
   setTimeout(() => {
@@ -628,7 +629,7 @@ export const cleanupSpaceCache = () => {
   for (const [key, entry] of enhancedSpaceCache.entries()) {
     if (now - entry.timestamp > maxAge) {
       enhancedSpaceCache.delete(key);
-      console.log(`🧹 Cleaned up stale cache entry: ${key}`);
+      log.debug('Hook', `🧹 Cleaned up stale cache entry: ${key}`);
     }
   }
 };
@@ -708,8 +709,8 @@ function getChangedFields(
     }
   });
 
-  console.log("Original for changedFields:", original);
-  console.log("Current for changedFields:", current);
-  console.log("Determined changed fields:", changed);
+  log.debug('Hook', "Original for changedFields:", original);
+  log.debug('Hook', "Current for changedFields:", current);
+  log.debug('Hook', "Determined changed fields:", changed);
   return changed;
 } 

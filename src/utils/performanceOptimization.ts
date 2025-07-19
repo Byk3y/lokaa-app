@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Performance Optimization Utilities
  * 
@@ -116,7 +117,7 @@ export const ReactPerformanceHelpers = {
         const renderDuration = renderEndTime - renderStartTime;
         
         if (renderDuration > 16) { // More than one frame (16ms at 60fps)
-          console.warn(`[Performance] Slow render: ${componentName} took ${renderDuration.toFixed(2)}ms`);
+          log.warn('Utils', `[Performance] Slow render: ${componentName} took ${renderDuration.toFixed(2)}ms`);
         }
       });
       
@@ -157,7 +158,7 @@ export const BundleOptimization = {
   lazyImport: (importFunc: () => Promise<{ default: React.ComponentType<any> }>) => {
     return React.lazy(() => 
       importFunc().catch(err => {
-        console.error('Lazy import failed:', err);
+        log.error('Utils', 'Lazy import failed:', err);
         // Return a fallback component
         return { 
           default: () => React.createElement('div', { className: 'error-fallback' }, 'Failed to load component') 
@@ -280,9 +281,9 @@ export const AppPerformanceMonitor = {
       const mountTime = endTime - startTime;
       
       if (mountTime > 100) { // More than 100ms
-        console.warn(`[Performance] Slow component mount: ${componentName} took ${mountTime.toFixed(2)}ms`);
+        log.warn('Utils', `[Performance] Slow component mount: ${componentName} took ${mountTime.toFixed(2)}ms`);
       } else if (mountTime > 16) {
-        console.log(`[Performance] Component mount: ${componentName} took ${mountTime.toFixed(2)}ms`);
+        log.debug('Utils', `[Performance] Component mount: ${componentName} took ${mountTime.toFixed(2)}ms`);
       }
       
       return mountTime;
@@ -339,7 +340,7 @@ export const AppPerformanceMonitor = {
       timestamp: Date.now()
     };
     
-    console.log('📊 [Performance Report]', report);
+    log.debug('Utils', '📊 [Performance Report]', report);
     return report;
   }
 }; 

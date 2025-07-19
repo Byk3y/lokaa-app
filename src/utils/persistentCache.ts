@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 interface CacheEntry<T = any> {
   id: string;
   data: T;
@@ -55,13 +56,13 @@ class PersistentCache {
       const request = indexedDB.open(this.dbName, this.version);
       
       request.onerror = () => {
-        console.error('[PersistentCache] Failed to open database:', request.error);
+        log.error('Utils', '[PersistentCache] Failed to open database:', request.error);
         reject(request.error);
       };
       
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('[PersistentCache] Database initialized successfully');
+        log.debug('Utils', '[PersistentCache] Database initialized successfully');
         
         // Start background cleanup
         this.startBackgroundCleanup();
@@ -91,7 +92,7 @@ class PersistentCache {
           db.createObjectStore('stats', { keyPath: 'id' });
         }
         
-        console.log('[PersistentCache] Database schema created');
+        log.debug('Utils', '[PersistentCache] Database schema created');
       };
     });
     
@@ -157,11 +158,11 @@ class PersistentCache {
             actualSize = compressed.length;
           }
         } catch (compressionError) {
-          console.warn('[PersistentCache] Compression failed, storing uncompressed:', compressionError);
+          log.warn('Utils', '[PersistentCache] Compression failed, storing uncompressed:', compressionError);
         }
       }
     } catch (serializationError) {
-      console.error('[PersistentCache] Serialization failed:', serializationError);
+      log.error('Utils', '[PersistentCache] Serialization failed:', serializationError);
       throw new Error(`Failed to serialize data for key: ${key}`);
     }
     
@@ -191,10 +192,10 @@ class PersistentCache {
         request.onerror = () => reject(request.error);
       });
       
-      console.log(`[PersistentCache] Stored ${key} (${(actualSize / 1024).toFixed(2)}KB)`);
+      log.debug('Utils', `[PersistentCache] Stored ${key} (${(actualSize / 1024).toFixed(2)}KB)`);
       this.updateStats();
     } catch (error) {
-      console.error(`[PersistentCache] Failed to store ${key}:`, error);
+      log.error('Utils', `[PersistentCache] Failed to store ${key}:`, error);
       throw error;
     }
   }
@@ -276,22 +277,22 @@ class PersistentCache {
               dataToDeserialize = new TextDecoder().decode(decompressed);
             }
           } catch (decompressionError) {
-            console.warn('[PersistentCache] Decompression failed:', decompressionError);
+            log.warn('Utils', '[PersistentCache] Decompression failed:', decompressionError);
             return null;
           }
         }
         
         deserializedData = JSON.parse(dataToDeserialize);
         
-        console.log(`[PersistentCache] Retrieved ${key} (hit)`);
+        log.debug('Utils', `[PersistentCache] Retrieved ${key} (hit)`);
         return deserializedData;
       } catch (deserializationError) {
-        console.error('[PersistentCache] Deserialization failed:', deserializationError);
+        log.error('Utils', '[PersistentCache] Deserialization failed:', deserializationError);
         this.stats.missCount++;
         return null;
       }
     } catch (error) {
-      console.error(`[PersistentCache] Failed to retrieve ${key}:`, error);
+      log.error('Utils', `[PersistentCache] Failed to retrieve ${key}:`, error);
       this.stats.missCount++;
       return null;
     }
@@ -314,10 +315,10 @@ class PersistentCache {
         request.onerror = () => reject(request.error);
       });
       
-      console.log(`[PersistentCache] Deleted ${key}`);
+      log.debug('Utils', `[PersistentCache] Deleted ${key}`);
       this.updateStats();
     } catch (error) {
-      console.error(`[PersistentCache] Failed to delete ${key}:`, error);
+      log.error('Utils', `[PersistentCache] Failed to delete ${key}:`, error);
     }
   }
   
@@ -339,7 +340,7 @@ class PersistentCache {
           request.onsuccess = () => resolve();
           request.onerror = () => reject(request.error);
         });
-        console.log('[PersistentCache] Cleared all entries');
+        log.debug('Utils', '[PersistentCache] Cleared all entries');
       } else {
         // Clear entries with specific tags
         for (const tag of tags) {
@@ -359,12 +360,12 @@ class PersistentCache {
             request.onerror = () => reject(request.error);
           });
         }
-        console.log(`[PersistentCache] Cleared entries with tags: ${tags.join(', ')}`);
+        log.debug('Utils', `[PersistentCache] Cleared entries with tags: ${tags.join(', ')}`);
       }
       
       this.updateStats();
     } catch (error) {
-      console.error('[PersistentCache] Failed to clear cache:', error);
+      log.error('Utils', '[PersistentCache] Failed to clear cache:', error);
     }
   }
   
@@ -391,7 +392,7 @@ class PersistentCache {
       currentStats.totalSize + requiredSize > this.MAX_CACHE_SIZE ||
       currentStats.totalEntries >= this.MAX_ENTRIES
     ) {
-      console.log('[PersistentCache] Cache full, performing LRU eviction...');
+      log.debug('Utils', '[PersistentCache] Cache full, performing LRU eviction...');
       await this.evictLRU(requiredSize);
     }
   }
@@ -421,11 +422,11 @@ class PersistentCache {
           evictedCount++;
           
           cursor.delete();
-          console.log(`[PersistentCache] Evicted ${entry.id} (${(entry.size / 1024).toFixed(2)}KB)`);
+          log.debug('Utils', `[PersistentCache] Evicted ${entry.id} (${(entry.size / 1024).toFixed(2)}KB)`);
           
           cursor.continue();
         } else {
-          console.log(`[PersistentCache] Evicted ${evictedCount} entries, freed ${(freedSize / 1024).toFixed(2)}KB`);
+          log.debug('Utils', `[PersistentCache] Evicted ${evictedCount} entries, freed ${(freedSize / 1024).toFixed(2)}KB`);
           resolve();
         }
       };
@@ -456,7 +457,7 @@ class PersistentCache {
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error(`[PersistentCache] Failed to update access stats for ${key}:`, error);
+      log.error('Utils', `[PersistentCache] Failed to update access stats for ${key}:`, error);
     }
   }
   
@@ -513,7 +514,7 @@ class PersistentCache {
           request.onerror = () => reject(request.error);
         });
       } catch (error) {
-        console.error('[PersistentCache] Failed to update stats:', error);
+        log.error('Utils', '[PersistentCache] Failed to update stats:', error);
       }
     }
   }
@@ -527,16 +528,16 @@ class PersistentCache {
     }
     
     this.cleanupTimer = setInterval(async () => {
-      console.log('[PersistentCache] Running background cleanup...');
+      log.debug('Utils', '[PersistentCache] Running background cleanup...');
       
       try {
         await this.cleanupExpired();
         await this.updateStats();
         
         const stats = this.getStats();
-        console.log(`[PersistentCache] Cleanup complete - ${stats.totalEntries} entries, ${(stats.totalSize / 1024 / 1024).toFixed(2)}MB`);
+        log.debug('Utils', `[PersistentCache] Cleanup complete - ${stats.totalEntries} entries, ${(stats.totalSize / 1024 / 1024).toFixed(2)}MB`);
       } catch (error) {
-        console.error('[PersistentCache] Background cleanup failed:', error);
+        log.error('Utils', '[PersistentCache] Background cleanup failed:', error);
       }
     }, this.CLEANUP_INTERVAL);
   }
@@ -569,7 +570,7 @@ class PersistentCache {
           cursor.continue();
         } else {
           if (expiredCount > 0) {
-            console.log(`[PersistentCache] Removed ${expiredCount} expired entries`);
+            log.debug('Utils', `[PersistentCache] Removed ${expiredCount} expired entries`);
           }
           resolve();
         }
@@ -593,7 +594,7 @@ class PersistentCache {
       this.db = null;
     }
     
-    console.log('[PersistentCache] Cleanup complete');
+    log.debug('Utils', '[PersistentCache] Cleanup complete');
   }
 }
 
@@ -642,7 +643,7 @@ export const cacheInstances = {
 // Initialize cache on module load
 if (typeof window !== 'undefined') {
   persistentCache.init().catch(error => {
-    console.error('[PersistentCache] Initialization failed:', error);
+    log.error('Utils', '[PersistentCache] Initialization failed:', error);
   });
   
   // Cleanup on page unload

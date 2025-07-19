@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Users } from 'lucide-react';
@@ -96,7 +97,7 @@ const MembershipSpacesList: React.FC<MembershipSpacesListProps> = ({
         }
         setSpaces(allSpaces);
       } catch (err: any) {
-        console.error('Failed to load membership spaces', err);
+        log.error('Component', 'Failed to load membership spaces', err);
         setError('Failed to load membership spaces');
       } finally {
         setLoading(false);

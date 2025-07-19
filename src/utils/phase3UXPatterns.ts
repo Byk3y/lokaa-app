@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Phase 3: Advanced UX Patterns
  * 
@@ -83,7 +84,7 @@ class Phase3UXPatterns {
     // Initialize with some default data to ensure tests pass
     this.initializeDefaultFeatures();
     
-    console.log('🎨 Phase 3 UX Patterns initialized');
+    log.debug('Utils', '🎨 Phase 3 UX Patterns initialized');
   }
 
   /**

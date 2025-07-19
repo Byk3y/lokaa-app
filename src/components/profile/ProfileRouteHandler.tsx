@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Profile from '@/pages/Profile';
@@ -20,13 +21,13 @@ export default function ProfileRouteHandler() {
   const processedSlug = useRef<string | null>(null);
   
   // Enhanced logging for debugging
-  console.log('ProfileRouteHandler: Rendering with slug:', slug, 'Path:', location.pathname);
+  log.debug('Component', 'ProfileRouteHandler: Rendering with slug:', slug, 'Path:', location.pathname);
   
   // Reset redirect counter on mount
   useEffect(() => {
     resetProfileRedirectCounter();
     mountedRef.current = true;
-    console.log('ProfileRouteHandler: Component mounted');
+    log.debug('Component', 'ProfileRouteHandler: Component mounted');
     
     // Give the component time to stabilize
     const timer = setTimeout(() => {
@@ -43,7 +44,7 @@ export default function ProfileRouteHandler() {
   
   // Enhanced logging for debugging - only in development
   useEffect(() => {
-    console.log('ProfileRouteHandler: Initializing. Params from react-router:', params, 'Extracted slug:', slug);
+    log.debug('Component', 'ProfileRouteHandler: Initializing. Params from react-router:', params, 'Extracted slug:', slug);
   }, [params, slug]);
   
   // Check if slug exists in the database
@@ -52,7 +53,7 @@ export default function ProfileRouteHandler() {
       if (!slug || isRedirecting || !mountedRef.current) return;
       
       try {
-        console.log(`ProfileRouteHandler: Validating slug "${slug}" in database`);
+        log.debug('Component', `ProfileRouteHandler: Validating slug "${slug}" in database`);
         const { data, error } = await getSupabaseClient()
           .from('users')
           .select('id, profile_url, full_name')
@@ -60,14 +61,14 @@ export default function ProfileRouteHandler() {
           .single();
           
         if (error) {
-          console.error(`ProfileRouteHandler: Error validating slug "${slug}":`, error);
+          log.error('Component', `ProfileRouteHandler: Error validating slug "${slug}":`, error);
         } else if (data) {
-          console.log(`ProfileRouteHandler: Valid profile slug "${slug}" found for user:`, data.full_name);
+          log.debug('Component', `ProfileRouteHandler: Valid profile slug "${slug}" found for user:`, data.full_name);
         } else {
-          console.error(`ProfileRouteHandler: No profile found for slug "${slug}"`);
+          log.error('Component', `ProfileRouteHandler: No profile found for slug "${slug}"`);
         }
       } catch (err) {
-        console.error('Error validating slug:', err);
+        log.error('Component', 'Error validating slug:', err);
       }
     }
     
@@ -81,7 +82,7 @@ export default function ProfileRouteHandler() {
     processedSlug.current = slug;
     
     if (!slug) {
-      console.error('ProfileRouteHandler: Slug is undefined or empty. Navigating to /discover.');
+      log.error('Component', 'ProfileRouteHandler: Slug is undefined or empty. Navigating to /discover.');
       setIsRedirecting(true);
       navigate('/discover', { replace: true });
       return;
@@ -91,19 +92,19 @@ export default function ProfileRouteHandler() {
     if (location.pathname.startsWith('/@') && !location.pathname.startsWith('/profile/')) {
       const username = location.pathname.substring(2); // Remove the '@' prefix
       
-        console.log(`ProfileRouteHandler: Legacy URL pattern detected. Redirecting from /@${username} to /profile/${username}`);
+        log.debug('Component', `ProfileRouteHandler: Legacy URL pattern detected. Redirecting from /@${username} to /profile/${username}`);
       
       // Use the redirect protection utility
       if (shouldAllowProfileRedirect(username)) {
         setIsRedirecting(true);
         navigate(`/profile/${username}`, { replace: true });
       } else {
-        console.warn(`ProfileRouteHandler: Prevented potential redirect loop to /profile/${username}`);
+        log.warn('Component', `ProfileRouteHandler: Prevented potential redirect loop to /profile/${username}`);
       }
       return;
     }
     
-      console.log('ProfileRouteHandler: Slug determined as:', slug, '- proceeding to render Profile page.');
+      log.debug('Component', 'ProfileRouteHandler: Slug determined as:', slug, '- proceeding to render Profile page.');
   }, [slug, navigate, params, location.pathname, isRedirecting]);
   
   // If redirecting or not yet stable, show loading

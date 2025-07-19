@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -117,7 +118,7 @@ export default function EditLessonDialog({
         variant: "default"
       });
     } catch (error: any) {
-      console.error('Error updating lesson:', error);
+      log.error('Component', 'Error updating lesson:', error);
       toast({
         title: "Error Updating Lesson",
         description: error.message || "An unexpected error occurred",
@@ -127,7 +128,7 @@ export default function EditLessonDialog({
   };
 
   if (!lessonToEdit && isOpen) {
-    console.warn("EditLessonDialog opened without lessonToEdit data.");
+    log.warn('Component', "EditLessonDialog opened without lessonToEdit data.");
     return null; 
   }
 

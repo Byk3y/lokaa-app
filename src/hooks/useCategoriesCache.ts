@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { mobileLockManager } from '../utils/mobileLockManager';
@@ -46,7 +47,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
   fetchCategories: async (spaceId: string) => {
     // CRITICAL FIX: Don't attempt to fetch with invalid space IDs
     if (!spaceId || spaceId.startsWith('fallback-') || spaceId === 'fallback-id') {
-      console.warn(`⚠️ [CategoriesCache] Invalid space ID provided: ${spaceId} - skipping fetch to prevent database errors`);
+      log.warn('Hook', `⚠️ [CategoriesCache] Invalid space ID provided: ${spaceId} - skipping fetch to prevent database errors`);
       return;
     }
 
@@ -57,14 +58,14 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
     // OPTIMISTIC PREVENTION: Don't refetch if we have fresh categories (within 10 minutes)
     const now = Date.now();
     if (cached?.categories?.length > 0 && cached.lastFetched && (now - cached.lastFetched) < CACHE_DURATION) {
-      console.log('🏷️ [CategoriesCache] Using fresh cached categories for space:', spaceId);
+      log.debug('Hook', '🏷️ [CategoriesCache] Using fresh cached categories for space:', spaceId);
       return;
     }
     
     // Apply query deduplication to prevent duplicate database calls
     const lockKey = `categories_${spaceId}`;
     if ((window as any).__categoriesLocks?.[lockKey]) {
-      console.log('🔒 [CategoriesCache] Query already in progress, skipping duplicate');
+      log.debug('Hook', '🔒 [CategoriesCache] Query already in progress, skipping duplicate');
       return;
     }
     
@@ -88,7 +89,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
       // POST-OUTAGE FIX: Reduced timeout to test network connectivity  
       const QUERY_TIMEOUT = 15000; // Temporarily reduced to test if shorter queries work better
       
-      console.log('🔍 [CategoriesCache] DEBUG:', {
+      log.debug('Hook', '🔍 [CategoriesCache] DEBUG:', {
         userAgent: navigator.userAgent,
         windowWidth: window.innerWidth,
         finalTimeout: QUERY_TIMEOUT,
@@ -104,7 +105,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
-          console.error(`❌ [CategoriesCache] Query timeout for space: ${spaceId} after ${QUERY_TIMEOUT}ms`);
+          log.error('Hook', `❌ [CategoriesCache] Query timeout for space: ${spaceId} after ${QUERY_TIMEOUT}ms`);
           reject(new Error('Categories query timeout'));
         }, QUERY_TIMEOUT);
       });
@@ -135,11 +136,11 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
       });
 
-      console.log('🏷️ [CategoriesCache] Categories loaded for space:', spaceId, 'Count:', sortedData.length);
+      log.debug('Hook', '🏷️ [CategoriesCache] Categories loaded for space:', spaceId, 'Count:', sortedData.length);
       
       // DEBUG: For nocode-architects space, log detailed query results
       if (spaceId === '235e68d1-89df-4d2d-8945-e7756d60de20' && import.meta.env.DEV) {
-        console.log('🔍 [CategoriesCache] DEBUG nocode-architects query results:', {
+        log.debug('Hook', '🔍 [CategoriesCache] DEBUG nocode-architects query results:', {
           rawDataLength: data?.length || 0,
           rawData: data,
           filteredDataLength: filteredData.length,
@@ -169,16 +170,16 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         };
         const persistentCacheKey = `categories_fallback_${spaceId}`;
         localStorage.setItem(persistentCacheKey, JSON.stringify({ data: fallbackData, timestamp: Date.now() }));
-        console.log('💾 [CategoriesCache] Saved fallback cache for future timeouts');
+        log.debug('Hook', '💾 [CategoriesCache] Saved fallback cache for future timeouts');
       } catch (cacheError) {
-        console.warn('⚠️ [CategoriesCache] Failed to save fallback cache:', cacheError);
+        log.warn('Hook', '⚠️ [CategoriesCache] Failed to save fallback cache:', cacheError);
       }
       
       // Clean up lock
       delete (window as any).__categoriesLocks[lockKey];
 
     } catch (error) {
-      console.error('🏷️ [CategoriesCache] Error fetching categories:', error);
+      log.error('Hook', '🏷️ [CategoriesCache] Error fetching categories:', error);
       
       // IMMEDIATE FALLBACK: For nocode-architects space, provide known categories
       if (spaceId === '235e68d1-89df-4d2d-8945-e7756d60de20') {
@@ -201,7 +202,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
           }
         }));
         
-        console.log('✅ [CategoriesCache] Using hardcoded fallback categories for nocode-architects');
+        log.debug('Hook', '✅ [CategoriesCache] Using hardcoded fallback categories for nocode-architects');
         delete (window as any).__categoriesLocks[lockKey];
         return;
       }
@@ -221,11 +222,11 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
             
             if (cacheAge < maxFallbackAge) {
               fallbackData = parsed.data;
-              console.log(`✅ [CategoriesCache] Using fallback cache data (${Math.round(cacheAge / 60000)} minutes old)`);
+              log.debug('Hook', `✅ [CategoriesCache] Using fallback cache data (${Math.round(cacheAge / 60000)} minutes old)`);
             }
           }
         } catch (cacheError) {
-          console.warn('⚠️ [CategoriesCache] Fallback cache read failed:', cacheError);
+          log.warn('Hook', '⚠️ [CategoriesCache] Fallback cache read failed:', cacheError);
         }
       }
       
@@ -243,7 +244,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
           }
         }));
         
-        console.log('📦 [CategoriesCache] Successfully recovered from fallback cache');
+        log.debug('Hook', '📦 [CategoriesCache] Successfully recovered from fallback cache');
         delete (window as any).__categoriesLocks[lockKey];
         return; // Exit early with fallback data
       }
@@ -289,7 +290,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
       const QUERY_TIMEOUT = 15000; // Temporarily reduced to test if shorter queries work better
       
       if (import.meta.env.DEV) {
-        console.log('🔍 [CategoriesCache] Fetching categories for space:', spaceId);
+        log.debug('Hook', '🔍 [CategoriesCache] Fetching categories for space:', spaceId);
       }
       
       // More efficient query - only get essential fields
@@ -303,7 +304,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           if (import.meta.env.DEV) {
-            console.warn(`🏷️ [CategoriesCache] Query timeout for space: ${spaceId} after ${QUERY_TIMEOUT}ms`);
+            log.warn('Hook', `🏷️ [CategoriesCache] Query timeout for space: ${spaceId} after ${QUERY_TIMEOUT}ms`);
           }
           reject(new Error('Categories query timeout'));
         }, QUERY_TIMEOUT);
@@ -335,7 +336,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
       });
 
       if (import.meta.env.DEV) {
-        console.log('🏷️ [CategoriesCache] Categories loaded for space:', spaceId, 'Count:', sortedData.length);
+        log.debug('Hook', '🏷️ [CategoriesCache] Categories loaded for space:', spaceId, 'Count:', sortedData.length);
       }
 
       // Update cache with successful data
@@ -357,17 +358,17 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         const persistentCacheKey = `categories_fallback_${spaceId}`;
         localStorage.setItem(persistentCacheKey, JSON.stringify({ data: fallbackData, timestamp: Date.now() }));
         if (import.meta.env.DEV) {
-          console.log('💾 [CategoriesCache] Saved fallback cache for future timeouts');
+          log.debug('Hook', '💾 [CategoriesCache] Saved fallback cache for future timeouts');
         }
       } catch (cacheError) {
         if (import.meta.env.DEV) {
-          console.warn('⚠️ [CategoriesCache] Failed to save fallback cache:', cacheError);
+          log.warn('Hook', '⚠️ [CategoriesCache] Failed to save fallback cache:', cacheError);
         }
       }
 
     } catch (error) {
       if (import.meta.env.DEV) {
-        console.error('🏷️ [CategoriesCache] Error fetching categories:', error);
+        log.error('Hook', '🏷️ [CategoriesCache] Error fetching categories:', error);
       }
       
       // IMMEDIATE FALLBACK: For nocode-architects space, provide known categories
@@ -392,7 +393,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         }));
         
         if (import.meta.env.DEV) {
-          console.log('✅ [CategoriesCache] Using hardcoded fallback categories for nocode-architects');
+          log.debug('Hook', '✅ [CategoriesCache] Using hardcoded fallback categories for nocode-architects');
         }
         return;
       }
@@ -413,13 +414,13 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
             if (cacheAge < maxFallbackAge) {
               fallbackData = parsed.data;
               if (import.meta.env.DEV) {
-                console.log(`✅ [CategoriesCache] Using fallback cache data (${Math.round(cacheAge / 60000)} minutes old)`);
+                log.debug('Hook', `✅ [CategoriesCache] Using fallback cache data (${Math.round(cacheAge / 60000)} minutes old)`);
               }
             }
           }
         } catch (cacheError) {
           if (import.meta.env.DEV) {
-            console.warn('⚠️ [CategoriesCache] Fallback cache read failed:', cacheError);
+            log.warn('Hook', '⚠️ [CategoriesCache] Fallback cache read failed:', cacheError);
           }
         }
       }
@@ -439,7 +440,7 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
         }));
         
         if (import.meta.env.DEV) {
-          console.log('📦 [CategoriesCache] Successfully recovered from fallback cache');
+          log.debug('Hook', '📦 [CategoriesCache] Successfully recovered from fallback cache');
         }
         return;
       }
@@ -470,85 +471,22 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
       return cachedCall.result;
     }
     
-    // IMMEDIATE HARDCODED FALLBACK: For nocode-architects space, always return known categories first
-    if (spaceId === '235e68d1-89df-4d2d-8945-e7756d60de20') {
-      const cached = get().cache[spaceId];
-      
-      // If we have cached categories, use them
-      if (cached?.categories && cached.categories.length > 0) {
-        // Update call cache
-        getCategoriesCallCache.set(cacheKey, { result: cached.categories, timestamp: currentTime });
-        return cached.categories;
-      }
-      
-      // Otherwise, always return hardcoded categories to ensure UI works
-      const knownCategories = [
-        { id: '751bba3c-9636-494f-bd48-7038969a54cd', name: 'General Discussion', icon: '💬', space_id: spaceId, created_by: '', is_archived: false, created_at: '2025-05-15T12:18:11.681352Z' },
-        { id: '4caa1bc8-8aee-4d84-9175-90ffcf811c2d', name: 'Questions', icon: '❓', space_id: spaceId, created_by: '', is_archived: false, created_at: '2025-05-15T12:38:56.383320Z' },
-        { id: '372535da-a653-4cf4-84ee-c2235b9528d5', name: 'Wins', icon: '🎯', space_id: spaceId, created_by: '', is_archived: false, created_at: '2025-05-21T22:24:02.262987Z' },
-        { id: '19478b4e-32ed-4893-95a4-7d26e1d661d1', name: 'business', icon: '💼', space_id: spaceId, created_by: '', is_archived: false, created_at: '2025-06-06T13:54:58.410872Z' }
-      ];
-      
-      // ANTI-SPAM: Throttled logging to prevent console spam (max once per 5 seconds)
-      const throttleKey = `categories_log_${spaceId}`;
-      const lastLog = (window as any)[throttleKey] || 0;
-      if (currentTime - lastLog > 5000) {  // 5 second throttle
-        (window as any)[throttleKey] = currentTime;
-        if (import.meta.env.DEV) {
-          console.log('🔄 [CategoriesCache] Providing hardcoded categories for nocode-architects (throttled)');
-        }
-      }
-      
-      // Update call cache
-      getCategoriesCallCache.set(cacheKey, { result: knownCategories, timestamp: currentTime });
-      // Update call cache before returning
-      getCategoriesCallCache.set(cacheKey, { result: knownCategories, timestamp: currentTime });
-      return knownCategories;
-    }
-    
+    // Get cached categories
     const cached = get().cache[spaceId];
     
-    // OPTIMISTIC CACHING: Always return cached categories if available, even during loading
-    // This prevents categories from disappearing during tab navigation
-    if (cached?.categories && cached.categories.length > 0) {
-      // Update call cache
-      getCategoriesCallCache.set(cacheKey, { result: cached.categories, timestamp: currentTime });
+    // Return cached data if available and fresh
+    if (cached?.categories?.length > 0 && cached.lastFetched > 0) {
+      // Cache call result
+      getCategoriesCallCache.set(cacheKey, {
+        timestamp: currentTime,
+        result: cached.categories
+      });
       return cached.categories;
     }
     
-    // Fallback to localStorage if no cache categories available
-    try {
-      const persistentCacheKey = `categories_fallback_${spaceId}`;
-      const cachedData = localStorage.getItem(persistentCacheKey);
-      if (cachedData) {
-        const parsed = JSON.parse(cachedData);
-        const cacheAge = Date.now() - parsed.timestamp;
-        const maxFallbackAge = 24 * 60 * 60 * 1000; // 24 hours
-        
-        if (cacheAge < maxFallbackAge && parsed.data?.categories?.length > 0) {
-          // STREAMLINED: Only log fallback usage once per space, not on every call
-          const fallbackLogKey = `fallback_logged_${spaceId}`;
-          if (!sessionStorage.getItem(fallbackLogKey)) {
-            sessionStorage.setItem(fallbackLogKey, 'true');
-            if (import.meta.env.DEV) {
-              console.log('🔄 [CategoriesCache] Using persistent fallback for space:', spaceId);
-            }
-          }
-          // Update call cache
-          getCategoriesCallCache.set(cacheKey, { result: parsed.data.categories, timestamp: currentTime });
-          return parsed.data.categories;
-        }
-      }
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('⚠️ [CategoriesCache] Failed to read persistent fallback in getCategories:', error);
-      }
-    }
-    
-    const emptyResult: SpaceCategory[] = [];
-    // Update call cache for empty result
-    getCategoriesCallCache.set(cacheKey, { result: emptyResult, timestamp: currentTime });
-    return emptyResult;
+    // No cached data available, return empty array
+    // The actual fetch will be triggered by the component
+    return [];
   },
 
   getLoadingState: (spaceId: string) => {
@@ -562,23 +500,44 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
   },
 
   invalidateCache: (spaceId: string) => {
-    console.log('🏷️ [CategoriesCache] Invalidating cache for space:', spaceId);
+    log.debug('Hook', '🏷️ [CategoriesCache] Invalidating cache for space:', spaceId);
+    
+    // Clear the call cache for this space to force fresh data
+    const callCacheKey = `get_categories_${spaceId}`;
+    getCategoriesCallCache.delete(callCacheKey);
+    
+    // Clear any throttled logging keys
+    const throttleKey = `categories_log_${spaceId}`;
+    if ((window as any)[throttleKey]) {
+      delete (window as any)[throttleKey];
+    }
+    
+    // Reset cache state for this space
     set(state => ({
       cache: {
         ...state.cache,
         [spaceId]: {
-          ...state.cache[spaceId],
-          categories: state.cache[spaceId]?.categories || [],
-          lastFetched: 0, // Force refresh on next fetch
+          categories: [],
+          lastFetched: 0,
           isLoading: false,
           error: null,
         }
       }
     }));
+    
+    // Clear persistent fallback cache
+    try {
+      const persistentCacheKey = `categories_fallback_${spaceId}`;
+      localStorage.removeItem(persistentCacheKey);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        log.warn('Hook', '⚠️ [CategoriesCache] Failed to clear persistent fallback:', error);
+      }
+    }
   },
 
   clearCache: () => {
-    console.log('🏷️ [CategoriesCache] Clearing all categories cache');
+    log.debug('Hook', '🏷️ [CategoriesCache] Clearing all categories cache');
     set({ cache: {} });
   },
 }));

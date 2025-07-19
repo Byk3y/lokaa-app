@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { VideoInfo } from '../types/postTypes';
 
 /**
@@ -60,7 +61,7 @@ export function extractVideoInfo(url: string): VideoInfo {
     
     return result;
   } catch (error) {
-    console.error('Error parsing video URL:', error);
+    log.error('Utils', 'Error parsing video URL:', error);
     return result;
   }
 }

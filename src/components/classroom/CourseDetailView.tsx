@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,7 +60,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
   const [newPageContent, setNewPageContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  console.log('🎓 [CourseDetailView] Component rendered with courseId:', courseId);
+  log.debug('Component', '🎓 [CourseDetailView] Component rendered with courseId:', courseId);
 
   const fetchCourseDetails = async () => {
     try {
@@ -68,7 +69,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
       
       const supabase = getSupabaseClient();
       
-      console.log('🎓 [CourseDetailView] Fetching course details for ID/slug:', courseId);
+      log.debug('Component', '🎓 [CourseDetailView] Fetching course details for ID/slug:', courseId);
       
       // Fetch course data - try by slug first, then by ID
       let courseQuery = supabase
@@ -91,7 +92,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
       if (courseError) {
         // If slug lookup failed, try ID lookup as fallback
         if (!isUUID) {
-          console.log('🎓 [CourseDetailView] Slug lookup failed, trying ID lookup');
+          log.debug('Component', '🎓 [CourseDetailView] Slug lookup failed, trying ID lookup');
           const { data: fallbackData, error: fallbackError } = await supabase
             .from('courses')
             .select('*')
@@ -109,7 +110,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
         throw new Error('Course not found');
       }
 
-      console.log('🎓 [CourseDetailView] Course data fetched:', courseData);
+      log.debug('Component', '🎓 [CourseDetailView] Course data fetched:', courseData);
 
       // Fetch modules and lessons using the actual course ID from courseData
       const { data: modulesData, error: modulesError } = await supabase
@@ -123,11 +124,11 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
 
       if (modulesError) throw modulesError;
 
-      console.log('🎓 [CourseDetailView] Modules data fetched:', modulesData);
+      log.debug('Component', '🎓 [CourseDetailView] Modules data fetched:', modulesData);
 
       // Transform data
       const moduleIds = modulesData?.map(m => m.id) || [];
-      console.log('🎓 [CourseDetailView] Module IDs:', moduleIds);
+      log.debug('Component', '🎓 [CourseDetailView] Module IDs:', moduleIds);
 
       const transformedCourse: CourseDetailData = {
         ...courseData,
@@ -137,22 +138,22 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
         }))
       };
 
-      console.log('🎓 [CourseDetailView] Transformed course data:', transformedCourse);
-      console.log('🎓 [CourseDetailView] Number of modules:', transformedCourse.modules.length);
+      log.debug('Component', '🎓 [CourseDetailView] Transformed course data:', transformedCourse);
+      log.debug('Component', '🎓 [CourseDetailView] Number of modules:', transformedCourse.modules.length);
 
       setCourse(transformedCourse);
       
       // If moduleId is provided, find and select the first lesson of that module
       if (moduleId && transformedCourse.modules.length > 0) {
-        console.log('🎓 [CourseDetailView] Looking for module with ID:', moduleId);
+        log.debug('Component', '🎓 [CourseDetailView] Looking for module with ID:', moduleId);
         const targetModule = transformedCourse.modules.find(m => m.id === moduleId);
         if (targetModule && targetModule.lessons.length > 0) {
-          console.log('🎓 [CourseDetailView] Found target module, selecting first lesson:', targetModule.lessons[0]);
+          log.debug('Component', '🎓 [CourseDetailView] Found target module, selecting first lesson:', targetModule.lessons[0]);
           setSelectedLesson(targetModule.lessons[0]);
         }
       }
     } catch (error: any) {
-      console.error('Error fetching course details:', error);
+      log.error('Component', 'Error fetching course details:', error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -177,7 +178,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
           return;
         }
 
-        console.log('🎓 [CourseDetailView] Ownership check:', {
+        log.debug('Component', '🎓 [CourseDetailView] Ownership check:', {
           hasUser: !!user,
           hasSpace: !!user,
           hasCourse: !!course,
@@ -189,7 +190,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
 
         setIsOwner(user.id === course.creator_id);
       } catch (error) {
-        console.error('Error checking ownership:', error);
+        log.error('Component', 'Error checking ownership:', error);
         setIsOwner(false);
       }
     };
@@ -300,7 +301,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
         variant: "default"
       });
     } catch (error: any) {
-      console.error('Error creating page:', error);
+      log.error('Component', 'Error creating page:', error);
       toast({
         title: "Error Creating Page",
         description: error.message || "An unexpected error occurred",
@@ -315,7 +316,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     try {
       const supabase = getSupabaseClient();
       
-      console.log('🎓 [CourseDetailView] Updating lesson:', lessonId, updates);
+      log.debug('Component', '🎓 [CourseDetailView] Updating lesson:', lessonId, updates);
       
       const { error } = await supabase
         .from('course_lessons')
@@ -329,15 +330,15 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
       // Refetch course data to update the UI
       await fetchCourseDetails();
       
-      console.log('🎓 [CourseDetailView] Lesson updated successfully');
+      log.debug('Component', '🎓 [CourseDetailView] Lesson updated successfully');
     } catch (error) {
-      console.error('Error updating lesson:', error);
+      log.error('Component', 'Error updating lesson:', error);
       throw error;
     }
   };
 
   const handleMarkAsDone = () => {
-    console.log('✅ [CourseDetailView] Marking lesson as done');
+    log.debug('Component', '✅ [CourseDetailView] Marking lesson as done');
     // TODO: Implement mark as done functionality
     // This could update user progress, show completion status, etc.
   };

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Hook for checking user permissions within a space
  * Provides boolean flags for various permission levels based on user role
@@ -142,13 +143,13 @@ export const useSpacePermissions = (spaceId: string): SpacePermissionsResult => 
               setIsMember(false);
             }
           } catch (accessErr) {
-            console.error('Error checking membership status:', accessErr);
+            log.error('Hook', 'Error checking membership status:', accessErr);
             setIsAdmin(false);
             setIsMember(false);
           }
         }
       } catch (err) {
-        console.error('Error checking space permissions:', err);
+        log.error('Hook', 'Error checking space permissions:', err);
         setError(err instanceof Error ? err : new Error('Failed to check permissions'));
         setIsOwner(false);
         setIsAdmin(false);

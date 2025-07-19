@@ -4,6 +4,24 @@
  */
 
 import { SpaceCard as FeatureSpaceCard } from '@/features/spaces';
+import { Space } from '@/features/spaces/types';
+
+/**
+ * Props for the SpaceCard component
+ */
+interface SpaceCardProps {
+  /** The space to display */
+  space: Space;
+  
+  /**
+   * Controls the behavior when the card is clicked:
+   * - When true: Opens a modal preview using useSpacePreviewStore (used on homepage for quick browsing)
+   * - When false: Navigates directly to the space's about page (used on discover page and for shareable links)
+   * 
+   * @default true
+   */
+  openInModal?: boolean;
+}
 
 /**
  * Compatibility wrapper for SpaceCard
@@ -13,6 +31,6 @@ import { SpaceCard as FeatureSpaceCard } from '@/features/spaces';
  * 
  * @deprecated Use SpaceCard from '@/features/spaces' instead
  */
-export function SpaceCard(props: any) {
+export function SpaceCard(props: SpaceCardProps) {
   return <FeatureSpaceCard {...props} />;
 }

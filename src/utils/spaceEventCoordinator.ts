@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // Space Event Coordinator
 // Central event bus for all space state changes with snapshot system
 
@@ -381,9 +382,9 @@ class SpaceEventCoordinator {
   private log(message: string, data?: any): void {
     if (this.debugMode) {
       if (data) {
-        console.log(`[SpaceEventCoordinator] ${message}`, data);
+        log.debug('Utils', `[SpaceEventCoordinator] ${message}`, data);
       } else {
-        console.log(`[SpaceEventCoordinator] ${message}`);
+        log.debug('Utils', `[SpaceEventCoordinator] ${message}`);
       }
     }
   }

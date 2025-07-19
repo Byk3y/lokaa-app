@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * useConversations Hook
  * 
@@ -62,14 +63,14 @@ export function useConversations() {
   // Auto-initialize conversations when hook is first used
   useEffect(() => {
     if (!hasInitialized && !loading && user?.id) {
-      console.log('[useConversations] Auto-initializing conversations for user:', user.id);
+      log.debug('Hook', '[useConversations] Auto-initializing conversations for user:', user.id);
       
       // CRITICAL FIX: Force network fetch on mobile to get latest data structure with latest_message_sender
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const options = isMobile ? { forceNetwork: true } : {};
       
       if (isMobile) {
-        console.log('[useConversations] 📱 Mobile detected, forcing network fetch to bypass stale cache');
+        log.debug('Hook', '[useConversations] 📱 Mobile detected, forcing network fetch to bypass stale cache');
       }
       
       storeFetchConversations(user.id, options);
@@ -79,7 +80,7 @@ export function useConversations() {
   // Initialize real-time subscriptions when user is available
   useEffect(() => {
     if (user?.id) {
-      console.log('[useConversations] Initializing real-time subscriptions for user:', user.id);
+      log.debug('Hook', '[useConversations] Initializing real-time subscriptions for user:', user.id);
       // Always initialize - the store will handle duplicate initialization protection
       initialize();
     }
@@ -88,10 +89,10 @@ export function useConversations() {
     // Only cleanup when user actually changes (logout/login)
     return () => {
       if (!user?.id) {
-        console.log('[useConversations] User logged out, cleaning up real-time subscriptions');
+        log.debug('Hook', '[useConversations] User logged out, cleaning up real-time subscriptions');
         cleanup();
       } else {
-        console.log('[useConversations] Component unmounting but user still logged in, keeping real-time active');
+        log.debug('Hook', '[useConversations] Component unmounting but user still logged in, keeping real-time active');
       }
     };
   }, [user?.id]); // ✅ FIXED: Only depend on user?.id to prevent unnecessary cycles
@@ -119,7 +120,7 @@ export function useConversations() {
     const staleDataCheckInterval = setInterval(() => {
       // Check 1: Real-time connection is down
       if (!connection.isConnected && conversations.length > 0) {
-        console.log('[useConversations] 🔄 Real-time disconnected, forcing conversation refresh...');
+        log.debug('Hook', '[useConversations] 🔄 Real-time disconnected, forcing conversation refresh...');
         storeRefreshConversations(user.id, { forceNetwork: true });
         return;
       }
@@ -130,7 +131,7 @@ export function useConversations() {
       );
       
       if (corruptedConversations.length > 0) {
-        console.log('[useConversations] 🔄 Detected conversations with missing message data, auto-refreshing:', {
+        log.debug('Hook', '[useConversations] 🔄 Detected conversations with missing message data, auto-refreshing:', {
           count: corruptedConversations.length,
           conversationIds: corruptedConversations.map(c => c.conversation_id.substring(0, 8) + '...'),
           issues: corruptedConversations.map(c => ({
@@ -156,7 +157,7 @@ export function useConversations() {
       );
       
       if (missingContentConvs.length > 0) {
-        console.log('[useConversations] 🚨 IMMEDIATE: Found conversations with missing content after transformation:', {
+        log.debug('Hook', '[useConversations] 🚨 IMMEDIATE: Found conversations with missing content after transformation:', {
           count: missingContentConvs.length,
           details: missingContentConvs.map(c => ({
             id: c.conversation_id.substring(0, 8) + '...',
@@ -197,7 +198,7 @@ export function useConversations() {
       
       return conversationId;
     } catch (error) {
-      console.error('[useConversations] Failed to create conversation:', error);
+      log.error('Hook', '[useConversations] Failed to create conversation:', error);
       throw error;
     }
   }, [createConversation, setActiveConversationId, navigateToConversationById, user?.id]);
@@ -214,7 +215,7 @@ export function useConversations() {
       
       // ✅ CRITICAL FIX: Refresh conversation data when selecting to ensure latest info
       if (user?.id && (!connection.isConnected || !hasInitialized)) {
-        console.log('[useConversations] 🔄 Refreshing conversation data on selection due to connection issues');
+        log.debug('Hook', '[useConversations] 🔄 Refreshing conversation data on selection due to connection issues');
         storeRefreshConversations(user.id, { forceNetwork: true });
       }
     }
@@ -316,10 +317,10 @@ export function useConversations() {
     // Core operations
     fetchConversations: useCallback((options?: { forceNetwork?: boolean }) => {
       if (user?.id) {
-        console.log('[useConversations] Fetching conversations for user:', user.id.substring(0, 8) + '...', options);
+        log.debug('Hook', '[useConversations] Fetching conversations for user:', user.id.substring(0, 8) + '...', options);
         return storeFetchConversations(user.id, options);
       } else {
-        console.warn('[useConversations] Cannot fetch conversations - user not authenticated yet');
+        log.warn('Hook', '[useConversations] Cannot fetch conversations - user not authenticated yet');
         return Promise.resolve();
       }
     }, [storeFetchConversations, user?.id]),
@@ -336,7 +337,7 @@ export function useConversations() {
     // ✅ CRITICAL FIX: Emergency refresh function for immediate use
     emergencyRefresh: useCallback(() => {
       if (user?.id) {
-        console.log('[useConversations] 🚨 Emergency refresh triggered!');
+        log.debug('Hook', '[useConversations] 🚨 Emergency refresh triggered!');
         return storeRefreshConversations(user.id, { forceNetwork: true });
       }
       return Promise.resolve();

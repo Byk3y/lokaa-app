@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Forgot Password Modal Component
  * 
@@ -57,12 +58,12 @@ export default function ForgotPasswordModal({
       );
 
       if (resetError) {
-        console.error('Password reset error:', resetError);
+        log.error('Component', 'Password reset error:', resetError);
         onError?.(resetError.message || 'Failed to send reset link');
         return;
       }
 
-      console.log('Password reset email sent');
+      log.debug('Component', 'Password reset email sent');
       setSuccessMessage('Check your email for a password reset link');
       form.reset();
       
@@ -70,7 +71,7 @@ export default function ForgotPasswordModal({
       onSuccess?.();
 
     } catch (err: any) {
-      console.error('Password reset exception:', err);
+      log.error('Component', 'Password reset exception:', err);
       const errorMessage = err.message || 'An unexpected error occurred';
       onError?.(errorMessage);
     } finally {

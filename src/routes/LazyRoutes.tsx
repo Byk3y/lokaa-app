@@ -14,6 +14,7 @@ export const Dashboard = lazy(() => import('@/pages/Dashboard'));
 export const Discover = lazy(() => import('@/pages/Discover'));
 export const Profile = lazy(() => import('@/pages/Profile'));
 export const ChatPage = lazy(() => import('@/pages/ChatPage'));
+export const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
 
 // App layout and navigation
 export const AppLayout = lazy(() => import('@/components/layout/AppLayout'));

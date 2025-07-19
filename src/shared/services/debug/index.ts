@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Centralized Debug Services
  * 
@@ -52,7 +53,7 @@ class DebugManager {
     this.isEnabled = env.isDevelopment;
     
     if (this.isEnabled) {
-      console.log('🐛 Debug services available in development mode');
+      log.debug('Service', '🐛 Debug services available in development mode');
     }
   }
 
@@ -61,7 +62,7 @@ class DebugManager {
    */
   initialize(supabaseClient: typeof supabase): void {
     if (!this.isEnabled) {
-      console.warn('Debug services are only available in development mode');
+      log.warn('Service', 'Debug services are only available in development mode');
       return;
     }
 
@@ -71,7 +72,7 @@ class DebugManager {
     // Profile redirect debugger doesn't need Supabase client
 
     this.isInitialized = true;
-    console.log('🐛 All debug services initialized');
+    log.debug('Service', '🐛 All debug services initialized');
   }
 
   /**

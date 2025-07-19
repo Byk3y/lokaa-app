@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { memo, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useOptimizedAuth } from "@/contexts/AuthContext";
@@ -37,7 +38,7 @@ const ProtectedRoute = memo(({ children }: ProtectedRouteProps) => {
     if (user && isOnFastPathRoute) {
       // Fast path likely completed - block loading UI
       blockComponent();
-      console.log('🚀 [Phase 3] ProtectedRoute blocked - fast path detected');
+      log.debug('Component', '🚀 [Phase 3] ProtectedRoute blocked - fast path detected');
     }
     
     // Unblock when navigating away from fast path routes
@@ -50,7 +51,7 @@ const ProtectedRoute = memo(({ children }: ProtectedRouteProps) => {
   useEffect(() => {
     if (loading || routingInProgress) {
       const timeout = setTimeout(() => {
-        console.warn('⚠️ [ProtectedRoute] Loading state timeout, forcing render');
+        log.warn('Component', '⚠️ [ProtectedRoute] Loading state timeout, forcing render');
         setLoadingTimeout(true);
         blockComponent(); // Block after timeout
       }, 1000); // ENHANCED: Reduced to 1000ms for faster recovery
@@ -84,7 +85,7 @@ const ProtectedRoute = memo(({ children }: ProtectedRouteProps) => {
 
   // 🚀 [Phase 3] Enhanced loading decision with AuthFlowStateManager coordination
   if ((loading || routingInProgress) && !shouldSkipLoading) {
-    console.log(`🔐 [Phase 3] ProtectedRoute showing loading - authStage: ${authStage}, shouldShowLoading: ${shouldShowLoading}`);
+    log.debug('Component', `🔐 [Phase 3] ProtectedRoute showing loading - authStage: ${authStage}, shouldShowLoading: ${shouldShowLoading}`);
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -104,7 +105,7 @@ const ProtectedRoute = memo(({ children }: ProtectedRouteProps) => {
   // ✅ CRITICAL FIX: Only redirect when authentication is completely finished
   // This prevents the race condition where we redirect before session restoration completes
   if (!user && !loading && !routingInProgress) {
-    console.log('🔥 [CRITICAL FIX] ProtectedRoute: Authentication complete, no user found, redirecting to landing page', {
+    log.debug('Component', '🔥 [CRITICAL FIX] ProtectedRoute: Authentication complete, no user found, redirecting to landing page', {
       loading,
       routingInProgress,
       authStage,
@@ -114,7 +115,7 @@ const ProtectedRoute = memo(({ children }: ProtectedRouteProps) => {
     return <Navigate to="/" replace />;
   }
 
-  console.log('✅ [Phase 3] ProtectedRoute rendering children:', {
+  log.debug('Component', '✅ [Phase 3] ProtectedRoute rendering children:', {
     user: user ? 'authenticated' : 'not authenticated',
     userId: user?.id,
     loading,

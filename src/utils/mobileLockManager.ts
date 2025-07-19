@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // Mobile Lock Manager
 // Prevents simultaneous queries on mobile hard refresh to avoid overwhelming Safari's connection recovery
 
@@ -7,7 +8,7 @@ class MobileLockManager {
   async executeWithLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
     // Check if operation is already in progress
     if (this.locks.has(key)) {
-      console.log(`🔒 [MobileLock] Operation ${key} already in progress, waiting...`);
+      log.debug('Utils', `🔒 [MobileLock] Operation ${key} already in progress, waiting...`);
       try {
         return await this.locks.get(key);
       } catch (error) {
@@ -17,7 +18,7 @@ class MobileLockManager {
       }
     }
     
-    console.log(`🔒 [MobileLock] Starting operation: ${key}`);
+    log.debug('Utils', `🔒 [MobileLock] Starting operation: ${key}`);
     
     // Create and store the promise
     const promise = fn();
@@ -25,10 +26,10 @@ class MobileLockManager {
     
     try {
       const result = await promise;
-      console.log(`✅ [MobileLock] Completed operation: ${key}`);
+      log.debug('Utils', `✅ [MobileLock] Completed operation: ${key}`);
       return result;
     } catch (error) {
-      console.error(`❌ [MobileLock] Failed operation: ${key}`, error);
+      log.error('Utils', `❌ [MobileLock] Failed operation: ${key}`, error);
       throw error;
     } finally {
       // Always clean up the lock
@@ -37,7 +38,7 @@ class MobileLockManager {
   }
   
   clearLocks() {
-    console.log('🧹 [MobileLock] Clearing all locks');
+    log.debug('Utils', '🧹 [MobileLock] Clearing all locks');
     this.locks.clear();
   }
 }

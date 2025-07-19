@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -166,18 +167,18 @@ export function usePostSubmission({
           throw postError;
         }
 
-        console.log("Post created with data:", postData);
+        log.debug('Hook', "Post created with data:", postData);
         
         // If the slug wasn't generated immediately, explicitly fetch it
         let finalPostData = postData;
         if (!postData.slug) {
-          console.log("Slug not found in initial response, fetching post again");
+          log.debug('Hook', "Slug not found in initial response, fetching post again");
           
           // Try multiple times with increasing delays
           for (let attempt = 1; attempt <= 5; attempt++) {
             // Wait with exponential backoff (longer wait times and more attempts)
             const delayMs = Math.min(attempt * attempt * 300, 3000); // 300ms, 1200ms, 2700ms, etc. (max 3s)
-            console.log(`Waiting ${delayMs}ms before retry attempt ${attempt}`);
+            log.debug('Hook', `Waiting ${delayMs}ms before retry attempt ${attempt}`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
             
             // Fetch the post again to get the slug
@@ -188,14 +189,14 @@ export function usePostSubmission({
               .single();
               
             if (!refreshError && refreshedPost && refreshedPost.slug) {
-              console.log("Refreshed post data:", refreshedPost);
+              log.debug('Hook', "Refreshed post data:", refreshedPost);
               finalPostData = refreshedPost;
               break; // Exit the loop if we got the slug
             } else {
-              console.error(`Retry attempt ${attempt} failed:`, refreshError || "Slug still missing");
+              log.error('Hook', `Retry attempt ${attempt} failed:`, refreshError || "Slug still missing");
               if (attempt === 5) {
                 // Last attempt, manually generate and update the slug
-                console.log("All retry attempts failed, manually creating slug");
+                log.debug('Hook', "All retry attempts failed, manually creating slug");
                 
                 // Try calling the generate_post_slug function directly
                 try {
@@ -207,7 +208,7 @@ export function usePostSubmission({
                     });
                     
                   if (!slugError && generatedSlug) {
-                    console.log("Successfully generated slug via RPC:", generatedSlug);
+                    log.debug('Hook', "Successfully generated slug via RPC:", generatedSlug);
                     
                     // Update the post with the generated slug
                     const { data: updatedPost, error: updateError } = await getSupabaseClient()
@@ -218,20 +219,20 @@ export function usePostSubmission({
                       .single();
                       
                     if (!updateError && updatedPost) {
-                      console.log("Updated post with generated slug:", updatedPost);
+                      log.debug('Hook', "Updated post with generated slug:", updatedPost);
                       finalPostData = updatedPost;
                     } else {
-                      console.error("Failed to update with generated slug:", updateError);
+                      log.error('Hook', "Failed to update with generated slug:", updateError);
                       // Fall back to client-side slug generation
                       await handleFallbackSlugGeneration();
                     }
                   } else {
-                    console.error("Failed to generate slug via RPC:", slugError);
+                    log.error('Hook', "Failed to generate slug via RPC:", slugError);
                     // Fall back to client-side slug generation
                     await handleFallbackSlugGeneration();
                   }
                 } catch (rpcError) {
-                  console.error("Error calling generate_post_slug RPC:", rpcError);
+                  log.error('Hook', "Error calling generate_post_slug RPC:", rpcError);
                   // Fall back to client-side slug generation
                   await handleFallbackSlugGeneration();
                 }
@@ -261,10 +262,10 @@ export function usePostSubmission({
             .single();
             
           if (!updateError && updatedPost) {
-            console.log("Manually updated post with slug:", updatedPost);
+            log.debug('Hook', "Manually updated post with slug:", updatedPost);
             finalPostData = updatedPost;
           } else {
-            console.error("Failed to manually update slug:", updateError);
+            log.error('Hook', "Failed to manually update slug:", updateError);
           }
         }
         
@@ -291,9 +292,9 @@ export function usePostSubmission({
           if (!spaceError && spaceData) {
             // Add space data to the post object
             (finalPostData as any).space = spaceData;
-            console.log("Space data:", spaceData);
+            log.debug('Hook', "Space data:", spaceData);
           } else {
-            console.error("Error fetching space data:", spaceError);
+            log.error('Hook', "Error fetching space data:", spaceError);
           }
         }
 
@@ -338,7 +339,7 @@ export function usePostSubmission({
         return { success: true, postId: finalPostData?.id, slug: finalPostData?.slug };
       }
     } catch (error) {
-      console.error('Error submitting post:', error);
+      log.error('Hook', 'Error submitting post:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error submitting post';
       setSubmitError(errorMessage);
       return { success: false, error: errorMessage };

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React from 'react';
 import { ChevronDown, ChevronRight, Play, Plus } from 'lucide-react';
 
@@ -45,17 +46,17 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
   onEditLesson,
   onAddModule
 }) => {
-  console.log('🎓 [CourseSidebar] Received course data:', course);
-  console.log('🎓 [CourseSidebar] Number of modules:', course?.modules?.length || 0);
-  console.log('🎓 [CourseSidebar] Selected lesson:', selectedLesson);
-  console.log('🎓 [CourseSidebar] Is owner:', isOwner);
+  log.debug('Component', '🎓 [CourseSidebar] Received course data:', course);
+  log.debug('Component', '🎓 [CourseSidebar] Number of modules:', course?.modules?.length || 0);
+  log.debug('Component', '🎓 [CourseSidebar] Selected lesson:', selectedLesson);
+  log.debug('Component', '🎓 [CourseSidebar] Is owner:', isOwner);
 
   // Calculate total lessons and progress
   const totalLessons = course.modules.reduce((total, module) => total + module.lessons.length, 0);
   const completedLessons = 0; // TODO: Implement progress tracking
   const progressPercentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
-  console.log('🎓 [CourseSidebar] Total lessons calculated:', totalLessons);
+  log.debug('Component', '🎓 [CourseSidebar] Total lessons calculated:', totalLessons);
 
   return (
     <div className="course-detail-sidebar flex flex-col h-full">

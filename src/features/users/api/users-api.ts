@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Users API Client
  * 
@@ -56,7 +57,7 @@ export const usersApi = {
         },
       };
     } catch (error) {
-      console.error('Sign in error:', error);
+      log.error('App', 'Sign in error:', error);
       throw error;
     }
   },
@@ -85,7 +86,7 @@ export const usersApi = {
         session: null,
       };
     } catch (error) {
-      console.error('Sign up error:', error);
+      log.error('App', 'Sign up error:', error);
       throw error;
     }
   },
@@ -108,7 +109,7 @@ export const usersApi = {
       // Mock implementation
       return;
     } catch (error) {
-      console.error('Sign out error:', error);
+      log.error('App', 'Sign out error:', error);
       throw error;
     }
   },
@@ -149,7 +150,7 @@ export const usersApi = {
         },
       };
     } catch (error) {
-      console.error('Get profile error:', error);
+      log.error('App', 'Get profile error:', error);
       throw error;
     }
   },
@@ -194,7 +195,7 @@ export const usersApi = {
         },
       };
     } catch (error) {
-      console.error('Update profile error:', error);
+      log.error('App', 'Update profile error:', error);
       throw error;
     }
   },

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { CalendarControls } from "./calendar/CalendarControls";
 import { MonthGrid } from "./calendar/MonthGrid";
@@ -53,7 +54,7 @@ export default function CalendarTab({ space }: CalendarTabProps) {
         await deleteEvent(eventId);
         fetchEvents();
       } catch (error) {
-        console.error("Failed to delete event:", error);
+        log.error('Component', "Failed to delete event:", error);
       }
     }
   };
@@ -73,7 +74,7 @@ export default function CalendarTab({ space }: CalendarTabProps) {
       fetchEvents();
       handleModalClose();
     } catch (error) {
-      console.error("Failed to save event:", error);
+      log.error('Component', "Failed to save event:", error);
     }
   };
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * HMR Error Recovery Utility
  * 
@@ -48,9 +49,9 @@ class HMRErrorRecovery {
     });
 
     if (isMobileBrowser()) {
-      console.log('🔧 [HMRErrorRecovery] Global error handlers installed (mobile - recovery disabled)');
+      log.debug('Utils', '🔧 [HMRErrorRecovery] Global error handlers installed (mobile - recovery disabled)');
     } else {
-      console.log('🔧 [HMRErrorRecovery] Global error handlers installed (desktop - recovery enabled)');
+      log.debug('Utils', '🔧 [HMRErrorRecovery] Global error handlers installed (desktop - recovery enabled)');
     }
   }
 
@@ -66,9 +67,9 @@ class HMRErrorRecovery {
     };
     
     if (isMobileBrowser()) {
-      console.warn('🔄 [HMRErrorRecovery] Module error on mobile browser - likely network blocking, ignoring');
-      console.warn('📱 [HMRErrorRecovery] Mobile browsers block network requests during app backgrounding');
-      console.warn('🔧 [HMRErrorRecovery] This is NOT an actual HMR error - recovery disabled on mobile');
+      log.warn('Utils', '🔄 [HMRErrorRecovery] Module error on mobile browser - likely network blocking, ignoring');
+      log.warn('Utils', '📱 [HMRErrorRecovery] Mobile browsers block network requests during app backgrounding');
+      log.warn('Utils', '🔧 [HMRErrorRecovery] This is NOT an actual HMR error - recovery disabled on mobile');
       return;
     }
 
@@ -82,7 +83,7 @@ class HMRErrorRecovery {
     this.errorCount++;
     this.lastErrorTime = now;
 
-    console.warn(`🔄 [HMRErrorRecovery] Module error detected on desktop (${this.errorCount}/${this.options.maxRetries}):`, error.message);
+    log.warn('Utils', `🔄 [HMRErrorRecovery] Module error detected on desktop (${this.errorCount}/${this.options.maxRetries}):`, error.message);
 
     if (this.options.autoRecover && this.errorCount <= this.options.maxRetries) {
       this.attemptRecovery();
@@ -108,17 +109,17 @@ class HMRErrorRecovery {
   }
 
   private attemptRecovery() {
-    console.log(`🔄 [HMRErrorRecovery] Attempting recovery in ${this.options.retryDelay}ms...`);
+    log.debug('Utils', `🔄 [HMRErrorRecovery] Attempting recovery in ${this.options.retryDelay}ms...`);
 
     setTimeout(() => {
       // Try to trigger HMR refresh first
       if (this.triggerHMRRefresh()) {
-        console.log('🔄 [HMRErrorRecovery] HMR refresh triggered');
+        log.debug('Utils', '🔄 [HMRErrorRecovery] HMR refresh triggered');
         return;
       }
 
       // Fallback to page reload
-      console.log('🔄 [HMRErrorRecovery] HMR refresh failed, reloading page...');
+      log.debug('Utils', '🔄 [HMRErrorRecovery] HMR refresh failed, reloading page...');
       window.location.reload();
     }, this.options.retryDelay);
   }
@@ -145,21 +146,21 @@ class HMRErrorRecovery {
 
       return false;
     } catch (error) {
-      console.warn('🔄 [HMRErrorRecovery] HMR refresh failed:', error);
+      log.warn('Utils', '🔄 [HMRErrorRecovery] HMR refresh failed:', error);
       return false;
     }
   }
 
   // Manual recovery methods
   public forceRecovery() {
-    console.log('🔄 [HMRErrorRecovery] Force recovery triggered');
+    log.debug('Utils', '🔄 [HMRErrorRecovery] Force recovery triggered');
     this.attemptRecovery();
   }
 
   public reset() {
     this.errorCount = 0;
     this.lastErrorTime = 0;
-    console.log('🔄 [HMRErrorRecovery] Error count reset');
+    log.debug('Utils', '🔄 [HMRErrorRecovery] Error count reset');
   }
 
   public getStatus() {
@@ -185,7 +186,7 @@ export function initializeHMRErrorRecovery(options?: HMRErrorRecoveryOptions) {
     // Expose to window for debugging
     (window as any).hmrErrorRecovery = hmrErrorRecovery;
     
-    console.log('🔧 [HMRErrorRecovery] Initialized with options:', options);
+    log.debug('Utils', '🔧 [HMRErrorRecovery] Initialized with options:', options);
   }
 
   return hmrErrorRecovery;

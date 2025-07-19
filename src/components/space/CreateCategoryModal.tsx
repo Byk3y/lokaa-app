@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Cross2Icon } from '@radix-ui/react-icons';
@@ -57,15 +58,15 @@ export default function CreateCategoryModal({
         .single();
 
       if (insertError) {
-        console.error('Error creating category:', insertError);
+        log.error('Component', 'Error creating category:', insertError);
         setError(insertError.message);
       } else {
-        console.log('Category created successfully:', data);
+        log.debug('Component', 'Category created successfully:', data);
         onCategoryCreated();
         onClose();
       }
     } catch (e) {
-      console.error('Unexpected error during category creation:', e);
+      log.error('Component', 'Unexpected error during category creation:', e);
       setError('An unexpected error occurred');
     } finally {
       setIsCreating(false);

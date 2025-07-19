@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Legacy Profile Fix Utility - Re-export Layer
  * 
@@ -16,7 +17,7 @@ import {
 } from '@/shared/services/debug/profile-redirect';
 
 // Log to make it easier to debug
-console.log('📋 Profile redirect fix utility loaded (legacy layer)');
+log.debug('Utils', '📋 Profile redirect fix utility loaded (legacy layer)');
 
 /**
  * Check if we should allow another redirect to prevent infinite loops

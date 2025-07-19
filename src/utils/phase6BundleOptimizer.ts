@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 6: Bundle Optimizer
  * 
@@ -126,7 +127,7 @@ class Phase6BundleOptimizer {
     this.metrics.systemsConsolidated++;
     
     if (import.meta.env.DEV && !this.loggedConsolidations.has(systemName)) {
-      console.log(`🔄 [BundleOptimizer] System consolidated: ${systemName} → ${newSystemName}`);
+      log.debug('Utils', `🔄 [BundleOptimizer] System consolidated: ${systemName} → ${newSystemName}`);
       this.loggedConsolidations.add(systemName);
     }
   }
@@ -139,7 +140,7 @@ class Phase6BundleOptimizer {
     this.metrics.deprecatedSystems++;
     
     if (import.meta.env.DEV && !this.loggedConsolidations.has(`deprecated-${systemName}`)) {
-      console.log(`🚫 [Phase6] System deprecated: ${systemName}`);
+      log.debug('Utils', `🚫 [Phase6] System deprecated: ${systemName}`);
       this.loggedConsolidations.add(`deprecated-${systemName}`);
     }
   }
@@ -151,7 +152,7 @@ class Phase6BundleOptimizer {
     this.metrics.bundleSizeReduction += sizeDelta;
     
     if (import.meta.env.DEV) {
-      console.log(`📦 [BundleOptimizer] Bundle size reduced by ${sizeDelta}KB`);
+      log.debug('Utils', `📦 [BundleOptimizer] Bundle size reduced by ${sizeDelta}KB`);
     }
   }
 
@@ -162,7 +163,7 @@ class Phase6BundleOptimizer {
     this.metrics.loadTimeImprovement += timeDelta;
     
     if (import.meta.env.DEV) {
-      console.log(`⚡ [BundleOptimizer] Load time improved by ${timeDelta}ms`);
+      log.debug('Utils', `⚡ [BundleOptimizer] Load time improved by ${timeDelta}ms`);
     }
   }
 
@@ -233,7 +234,7 @@ class Phase6BundleOptimizer {
       return { error: 'Simulation only available in development' };
     }
 
-    console.log('🧪 [BundleOptimizer] Simulating optimization...');
+    log.debug('Utils', '🧪 [BundleOptimizer] Simulating optimization...');
 
     // Simulate consolidation of performance monitors
     this.markSystemConsolidated('performanceMonitor + realtimePerformanceMonitor + hmrMonitor', 'UnifiedPerformanceMonitor');
@@ -259,7 +260,7 @@ class Phase6BundleOptimizer {
       completionPercentage: 85
     };
 
-    console.log('🧪 [BundleOptimizer] Simulation results:', simulationResults);
+    log.debug('Utils', '🧪 [BundleOptimizer] Simulation results:', simulationResults);
     return simulationResults;
   }
 
@@ -320,7 +321,7 @@ class Phase6BundleOptimizer {
       deprecatedSystems: 0
     };
     
-    console.log('🔄 [BundleOptimizer] State reset');
+    log.debug('Utils', '🔄 [BundleOptimizer] State reset');
   }
 }
 
@@ -351,7 +352,7 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   (window as any).simulateOptimization = () => phase6BundleOptimizer.simulateOptimization();
   (window as any).getMigrationGuide = () => phase6BundleOptimizer.generateMigrationGuide();
   
-  console.log('📦 [Phase6] Bundle Optimizer loaded');
+  log.debug('Utils', '📦 [Phase6] Bundle Optimizer loaded');
 }
 
 export default phase6BundleOptimizer; 

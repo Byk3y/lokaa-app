@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -65,7 +66,7 @@ export default function FollowStats({
       setFollowStats(stats);
       if (onStatsLoaded) onStatsLoaded(stats);
     } catch (error) {
-      console.error('Error fetching follow stats:', error);
+      log.error('Component', 'Error fetching follow stats:', error);
     } finally {
       setLoading(false);
     }

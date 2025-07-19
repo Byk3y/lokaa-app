@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚨 Phase 4A: Error Tracking & Reporting - System Integration
  * 
@@ -35,13 +36,13 @@ export function initializePhase4A(): void {
               type: 'user',
               severity: { level: 'low', priority: 1, autoReport: false }
             });
-            console.log('✅ Phase 4A test error captured successfully!');
+            log.debug('Utils', '✅ Phase 4A test error captured successfully!');
           },
           getMetrics: () => errorTracker.getMetrics(),
           getErrors: () => (window as any).errorTracker?.getErrors() || [],
           showDashboard: () => {
-            console.log('🚨 Error Dashboard: Look for floating button in bottom-right corner');
-            console.log('💡 Or add <ErrorAnalyticsDashboard /> component to your JSX');
+            log.debug('Utils', '🚨 Error Dashboard: Look for floating button in bottom-right corner');
+            log.debug('Utils', '💡 Or add <ErrorAnalyticsDashboard /> component to your JSX');
           }
         };
       }
@@ -154,7 +155,7 @@ export function initializePhase4A(): void {
     devLogger.log('Phase4A', '✅ Phase 4A integration complete');
 
   } catch (error) {
-    console.error('🚨 [Phase4A] Initialization failed:', error);
+    log.error('Utils', '🚨 [Phase4A] Initialization failed:', error);
   }
 }
 
@@ -184,7 +185,7 @@ export const phase4aTestSuite = {
    * Test different error types
    */
   testErrorTypes: () => {
-    console.log('🧪 Testing different error types...');
+    log.debug('Utils', '🧪 Testing different error types...');
     
     // JavaScript error
     errorTracker.captureError({
@@ -215,14 +216,14 @@ export const phase4aTestSuite = {
       50
     );
 
-    console.log('✅ Test errors generated! Check error dashboard.');
+    log.debug('Utils', '✅ Test errors generated! Check error dashboard.');
   },
 
   /**
    * Test error severity classification
    */
   testSeverityLevels: () => {
-    console.log('🧪 Testing error severity levels...');
+    log.debug('Utils', '🧪 Testing error severity levels...');
     
     const severities = ['low', 'medium', 'high', 'critical'] as const;
     
@@ -234,14 +235,14 @@ export const phase4aTestSuite = {
       });
     });
 
-    console.log('✅ Severity test complete! Check error dashboard.');
+    log.debug('Utils', '✅ Severity test complete! Check error dashboard.');
   },
 
   /**
    * Test error deduplication
    */
   testDeduplication: () => {
-    console.log('🧪 Testing error deduplication...');
+    log.debug('Utils', '🧪 Testing error deduplication...');
     
     // Generate same error multiple times
     for (let i = 0; i < 5; i++) {
@@ -252,14 +253,14 @@ export const phase4aTestSuite = {
       });
     }
 
-    console.log('✅ Deduplication test complete! Should see 1 error with count=5');
+    log.debug('Utils', '✅ Deduplication test complete! Should see 1 error with count=5');
   },
 
   /**
    * Test critical error notifications
    */
   testCriticalError: () => {
-    console.log('🧪 Testing critical error notifications...');
+    log.debug('Utils', '🧪 Testing critical error notifications...');
     
     errorTracker.captureError({
       message: 'TEST CRITICAL ERROR - This will trigger immediate reporting',
@@ -267,7 +268,7 @@ export const phase4aTestSuite = {
       severity: { level: 'critical', priority: 4, autoReport: true }
     });
 
-    console.log('🚨 Critical error test complete! Should trigger immediate notification.');
+    log.debug('Utils', '🚨 Critical error test complete! Should trigger immediate notification.');
   },
 
   /**
@@ -277,12 +278,12 @@ export const phase4aTestSuite = {
     const metrics = errorTracker.getMetrics();
     const errors = (window as any).errorTracker?.getErrors() || [];
     
-    console.log('📊 Phase 4A Test Results:');
-    console.log('Total Errors:', metrics.totalErrors);
-    console.log('Errors by Type:', metrics.errorsByType);
-    console.log('Errors by Severity:', metrics.errorsBySeverity);
-    console.log('Recent Errors:', metrics.recentErrors.length);
-    console.log('Top Errors:', metrics.topErrors.slice(0, 3));
+    log.debug('Utils', '📊 Phase 4A Test Results:');
+    log.debug('Utils', 'Total Errors:', metrics.totalErrors);
+    log.debug('Utils', 'Errors by Type:', metrics.errorsByType);
+    log.debug('Utils', 'Errors by Severity:', metrics.errorsBySeverity);
+    log.debug('Utils', 'Recent Errors:', metrics.recentErrors.length);
+    log.debug('Utils', 'Top Errors:', metrics.topErrors.slice(0, 3));
     
     return {
       metrics,
@@ -297,27 +298,27 @@ export const phase4aTestSuite = {
    * Test a simulated network error
    */
   testNetworkError: () => {
-    console.log('🧪 Testing network error...');
+    log.debug('Utils', '🧪 Testing network error...');
     errorTracker.captureNetworkError(
       '/api/simulated-failure',
       500,
       'Simulated Internal Server Error',
       1200
     );
-    console.log('✅ Network error test complete! Check error dashboard.');
+    log.debug('Utils', '✅ Network error test complete! Check error dashboard.');
   },
 
   /**
    * Test a simulated performance error
    */
   testPerformanceError: () => {
-    console.log('🧪 Testing performance error...');
+    log.debug('Utils', '🧪 Testing performance error...');
     errorTracker.capturePerformanceError(
       'Simulated Performance Issue',
       200,
       100
     );
-    console.log('✅ Performance error test complete! Check error dashboard.');
+    log.debug('Utils', '✅ Performance error test complete! Check error dashboard.');
   },
 };
 

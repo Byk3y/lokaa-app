@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚨 Debug Page - Phase 4A Error Tracking Demo
  * 
@@ -26,7 +27,7 @@ const DebugPage: React.FC = () => {
       // This will trigger network error tracking
       await fetch('/api/nonexistent-endpoint');
     } catch (error) {
-      console.log('Network error triggered (this is expected)');
+      log.debug('Page', 'Network error triggered (this is expected)');
     }
   };
 
@@ -36,7 +37,7 @@ const DebugPage: React.FC = () => {
     while (performance.now() - start < 100) {
       // Busy wait to create a long task
     }
-    console.log('Long task completed (this may trigger performance error tracking)');
+    log.debug('Page', 'Long task completed (this may trigger performance error tracking)');
   };
 
   const BuggyComponent = () => {

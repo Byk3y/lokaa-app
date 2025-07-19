@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚦 Fast Path Coordinator - PHASE 11A: Duplicate Execution Prevention
  * 
@@ -49,7 +50,7 @@ export function acquireFastPathLock(component: 'QuickSpaceRedirect' | 'AuthConte
       
       // If lock is fresh (within timeout), deny acquisition
       if (lockAge < EXECUTION_TIMEOUT) {
-        console.log(`🚦 [FastPathCoordinator] Lock acquisition DENIED for ${component}, active: ${existingComponent} (${lockAge}ms ago)`);
+        log.debug('Utils', `🚦 [FastPathCoordinator] Lock acquisition DENIED for ${component}, active: ${existingComponent} (${lockAge}ms ago)`);
         return {
           acquired: false,
           executionId: null,
@@ -57,7 +58,7 @@ export function acquireFastPathLock(component: 'QuickSpaceRedirect' | 'AuthConte
         };
       } else {
         // Lock is stale, we can override it
-        console.log(`🚦 [FastPathCoordinator] Overriding stale lock from ${existingComponent} (${lockAge}ms old)`);
+        log.debug('Utils', `🚦 [FastPathCoordinator] Overriding stale lock from ${existingComponent} (${lockAge}ms old)`);
       }
     }
     
@@ -66,7 +67,7 @@ export function acquireFastPathLock(component: 'QuickSpaceRedirect' | 'AuthConte
     sessionStorage.setItem(COORDINATOR_KEYS.ACTIVE_COMPONENT, component);
     sessionStorage.setItem(COORDINATOR_KEYS.EXECUTION_TIMESTAMP, now.toString());
     
-    console.log(`🚦 [FastPathCoordinator] Lock ACQUIRED by ${component} with ID: ${executionId.substr(-9)}`);
+    log.debug('Utils', `🚦 [FastPathCoordinator] Lock ACQUIRED by ${component} with ID: ${executionId.substr(-9)}`);
     
     return {
       acquired: true,
@@ -75,7 +76,7 @@ export function acquireFastPathLock(component: 'QuickSpaceRedirect' | 'AuthConte
     };
     
   } catch (error) {
-    console.error('🚦 [FastPathCoordinator] Error acquiring lock:', error);
+    log.error('Utils', '🚦 [FastPathCoordinator] Error acquiring lock:', error);
     return {
       acquired: false,
       executionId: null
@@ -95,7 +96,7 @@ export function releaseFastPathLock(
     
     // Verify we own this lock
     if (currentLock !== executionId) {
-      console.warn(`🚦 [FastPathCoordinator] Cannot release lock - ID mismatch. Current: ${currentLock?.substr(-9)}, Provided: ${executionId.substr(-9)}`);
+      log.warn('Utils', `🚦 [FastPathCoordinator] Cannot release lock - ID mismatch. Current: ${currentLock?.substr(-9)}, Provided: ${executionId.substr(-9)}`);
       return false;
     }
     
@@ -111,12 +112,12 @@ export function releaseFastPathLock(
     sessionStorage.removeItem(COORDINATOR_KEYS.ACTIVE_COMPONENT);
     sessionStorage.removeItem(COORDINATOR_KEYS.EXECUTION_TIMESTAMP);
     
-    console.log(`🚦 [FastPathCoordinator] Lock RELEASED by ${executionId.substr(-9)}, result: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+    log.debug('Utils', `🚦 [FastPathCoordinator] Lock RELEASED by ${executionId.substr(-9)}, result: ${result.success ? 'SUCCESS' : 'FAILED'}`);
     
     return true;
     
   } catch (error) {
-    console.error('🚦 [FastPathCoordinator] Error releasing lock:', error);
+    log.error('Utils', '🚦 [FastPathCoordinator] Error releasing lock:', error);
     return false;
   }
 }
@@ -157,7 +158,7 @@ export function getFastPathCoordinatorState(): FastPathCoordinatorState {
     };
     
   } catch (error) {
-    console.error('🚦 [FastPathCoordinator] Error getting state:', error);
+    log.error('Utils', '🚦 [FastPathCoordinator] Error getting state:', error);
     return {
       isLocked: false,
       activeComponent: null,
@@ -177,7 +178,7 @@ export function cleanupStaleCoordination(): void {
     
     // Clear stale locks
     if (state.isLocked && state.timestamp && (now - state.timestamp) > EXECUTION_TIMEOUT) {
-      console.log(`🧹 [FastPathCoordinator] Cleaning up stale lock from ${state.activeComponent} (${now - state.timestamp}ms old)`);
+      log.debug('Utils', `🧹 [FastPathCoordinator] Cleaning up stale lock from ${state.activeComponent} (${now - state.timestamp}ms old)`);
       sessionStorage.removeItem(COORDINATOR_KEYS.EXECUTION_LOCK);
       sessionStorage.removeItem(COORDINATOR_KEYS.ACTIVE_COMPONENT);
       sessionStorage.removeItem(COORDINATOR_KEYS.EXECUTION_TIMESTAMP);
@@ -189,7 +190,7 @@ export function cleanupStaleCoordination(): void {
       try {
         const parsed = JSON.parse(resultStr);
         if (parsed.timestamp && (now - parsed.timestamp) > COORDINATION_TTL) {
-          console.log(`🧹 [FastPathCoordinator] Cleaning up stale execution result (${now - parsed.timestamp}ms old)`);
+          log.debug('Utils', `🧹 [FastPathCoordinator] Cleaning up stale execution result (${now - parsed.timestamp}ms old)`);
           sessionStorage.removeItem(COORDINATOR_KEYS.EXECUTION_RESULT);
         }
       } catch {
@@ -199,7 +200,7 @@ export function cleanupStaleCoordination(): void {
     }
     
   } catch (error) {
-    console.error('🧹 [FastPathCoordinator] Error during cleanup:', error);
+    log.error('Utils', '🧹 [FastPathCoordinator] Error during cleanup:', error);
   }
 }
 

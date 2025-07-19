@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🎯 AUTO PRESENCE UPDATER HOOK
  * 
@@ -29,12 +30,12 @@ export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
     
     const now = Date.now();
     if (now - lastUpdateRef.current < THROTTLE_DELAY) {
-      console.log(`🔄 [AutoPresence] Throttled presence update (${reason})`);
+      log.debug('Hook', `🔄 [AutoPresence] Throttled presence update (${reason})`);
       return;
     }
     
     try {
-      console.log(`🔄 [AutoPresence] Updating presence for space ${spaceId} (${reason})`);
+      log.debug('Hook', `🔄 [AutoPresence] Updating presence for space ${spaceId} (${reason})`);
       
       // Try to use Bridge V2 first
       if ((window as any).indexedDBBridgeV2?.updateGlobalPresence) {
@@ -42,7 +43,7 @@ export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
           spaceId: spaceId,
           forceNetwork: true
         });
-        console.log(`✅ [AutoPresence] Successfully updated via Bridge V2`);
+        log.debug('Hook', `✅ [AutoPresence] Successfully updated via Bridge V2`);
       } else {
         // Fallback to direct Supabase call
         const { createClient } = await import('@supabase/supabase-js');
@@ -66,7 +67,7 @@ export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
           .eq('space_id', spaceId)
           .eq('status', 'active');
         
-        console.log(`✅ [AutoPresence] Successfully updated via fallback`);
+        log.debug('Hook', `✅ [AutoPresence] Successfully updated via fallback`);
       }
       
       lastUpdateRef.current = now;
@@ -77,7 +78,7 @@ export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
       }));
       
     } catch (error) {
-      console.warn(`⚠️ [AutoPresence] Failed to update presence (${reason}):`, error);
+      log.warn('Hook', `⚠️ [AutoPresence] Failed to update presence (${reason}):`, error);
     }
   };
   
@@ -96,7 +97,7 @@ export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         // User returned from background/minimize
-        console.log('👁️ [AutoPresence] User returned from background, updating presence');
+        log.debug('Hook', '👁️ [AutoPresence] User returned from background, updating presence');
         updatePresence('visibility_return');
       }
     };

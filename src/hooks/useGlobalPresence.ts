@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Global Presence Hook - PHASE 3D Migration
  */
@@ -30,7 +31,7 @@ export function useGlobalPresence() {
         forceNetwork: options.forceNetwork
       });
     } catch (error) {
-      console.error('[useGlobalPresence] Error updating presence:', error);
+      log.error('Hook', '[useGlobalPresence] Error updating presence:', error);
     }
   };
 

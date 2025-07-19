@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useMembership, type MemberRole } from '@/contexts/MembershipContext';
@@ -150,7 +151,7 @@ export default function MembersTab() {
       setSelectedConversationId(conversationId);
       setIsChatModalOpen(true);
     } catch (error) {
-      console.error('Error starting chat:', error);
+      log.error('Component', 'Error starting chat:', error);
       toast({
         title: "Error",
         description: "Failed to start chat. Please try again.",
@@ -192,7 +193,7 @@ export default function MembersTab() {
     } catch (err) {
       // Revert optimistic update on error
       handleMemberRoleChanged(memberToUpdate.user_id, memberToUpdate.role);
-      console.error("Error changing member role:", err);
+      log.error('Component', "Error changing member role:", err);
       toast({title: "Error", description: "An unexpected error occurred while changing role.", variant: "destructive"});
     }
   }, [currentSpaceData, changeMemberRole, handleMemberRoleChanged, refreshMembership, toast]);
@@ -208,8 +209,8 @@ export default function MembersTab() {
         return;
     }
     
-    console.log(`🗑️ [MembersTab] Removing member from cache: ${memberToRemove.user_id}`);
-    console.log(`🗑️ [MembersTab] Member details:`, {
+    log.debug('Component', `🗑️ [MembersTab] Removing member from cache: ${memberToRemove.user_id}`);
+    log.debug('Component', `🗑️ [MembersTab] Member details:`, {
       id: memberToRemove.id,
       user_id: memberToRemove.user_id,
       full_name: memberToRemove.full_name,
@@ -220,10 +221,10 @@ export default function MembersTab() {
       // Optimistic update
       handleMemberRemoved(memberToRemove.id);
       
-      console.log(`🔄 [MembersTab] Calling removeMember for space: ${currentSpaceData.id}`);
+      log.debug('Component', `🔄 [MembersTab] Calling removeMember for space: ${currentSpaceData.id}`);
       const success = await removeMember(currentSpaceData.id, memberToRemove.user_id);
       
-      console.log(`📊 [MembersTab] Remove member result: ${success ? 'SUCCESS' : 'FAILED'}`);
+      log.debug('Component', `📊 [MembersTab] Remove member result: ${success ? 'SUCCESS' : 'FAILED'}`);
       
       if (success) {
         toast({ title: "Member Removed", description: `${memberToRemove.full_name || 'Member'} has been removed.` });
@@ -235,16 +236,16 @@ export default function MembersTab() {
           handleCloseMemberModal();
         }
       } else {
-        console.log(`🔄 [MembersTab] Fetching members from Supabase for space: ${currentSpaceData.id}`);
+        log.debug('Component', `🔄 [MembersTab] Fetching members from Supabase for space: ${currentSpaceData.id}`);
         // Revert optimistic update on failure - refetch to get accurate state
         refetch(true);
         // The removeMember function in context already shows a toast on failure
       }
     } catch (err) {
-      console.error(`🚨 [MembersTab] Exception during member removal:`, err);
+      log.error('Component', `🚨 [MembersTab] Exception during member removal:`, err);
       // Revert optimistic update on error - refetch to get accurate state
       refetch(true);
-      console.error("Error removing member:", err);
+      log.error('Component', "Error removing member:", err);
       toast({ title: "Error", description: "An unexpected error occurred while removing member.", variant: "destructive" });
     }
   }, [currentSpaceData, user, removeMember, handleMemberRemoved, refetch, refreshMembership, toast, selectedMember, handleCloseMemberModal]);
@@ -267,7 +268,7 @@ export default function MembersTab() {
             toast({title: "Error", description: "Failed to leave space.", variant: "destructive"});
         }
     } catch (err) {
-        console.error("Error leaving space:", err);
+        log.error('Component', "Error leaving space:", err);
         toast({title: "Error", description: "An unexpected error occurred while trying to leave.", variant: "destructive"});
     }
   }, [currentSpaceData, user, leaveSpace, refreshMembership, toast, handleCloseMemberModal]);
@@ -312,7 +313,7 @@ export default function MembersTab() {
 
   const inviteLink = useMemo(() => {
     if (!effectiveSpaceData?.subdomain) return "";
-    const baseUrl = import.meta.env.VITE_APP_URL || "https://lokaa.com";
+    const baseUrl = import.meta.env.VITE_APP_URL || "https://lokaa.app";
     return `${baseUrl}/${effectiveSpaceData.subdomain}`;
   }, [effectiveSpaceData?.subdomain]);
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { SpaceEvent, NewSpaceEventData, UpdateSpaceEventData } from '@/types/calendar';
@@ -52,7 +53,7 @@ export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDispl
       if (fetchError) throw fetchError;
       setEvents(data as SpaceEvent[] || []); // Cast to SpaceEvent[]
     } catch (err) {
-      console.error('Error fetching space events:', err);
+      log.error('Hook', 'Error fetching space events:', err);
       setError(err);
       setEvents([]);
     } finally {
@@ -86,7 +87,7 @@ export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDispl
     setLoading(false);
 
     if (insertError) {
-      console.error("Error adding event:", insertError);
+      log.error('Hook', "Error adding event:", insertError);
       setError(insertError);
       throw insertError;
     }
@@ -108,7 +109,7 @@ export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDispl
     setLoading(false);
 
     if (updateError) {
-      console.error("Error updating event:", updateError);
+      log.error('Hook', "Error updating event:", updateError);
       setError(updateError);
       throw updateError;
     }
@@ -127,7 +128,7 @@ export const useSpaceEvents = (spaceId: string | undefined, currentMonthForDispl
     setLoading(false);
 
     if (deleteError) {
-      console.error("Error deleting event:", deleteError);
+      log.error('Hook', "Error deleting event:", deleteError);
       setError(deleteError);
       throw deleteError;
     }
@@ -285,7 +286,7 @@ export function useSpaceSwitcher() {
     try {
       await spaceEventCoordinator.switchSpace(spaceId, subdomain, source);
     } catch (error) {
-      console.error('[useSpaceSwitcher] Failed to switch space:', error);
+      log.error('Hook', '[useSpaceSwitcher] Failed to switch space:', error);
       throw error;
     }
   }, []);
@@ -294,7 +295,7 @@ export function useSpaceSwitcher() {
     try {
       return await spaceEventCoordinator.createSnapshot(spaceId, subdomain);
     } catch (error) {
-      console.error('[useSpaceSwitcher] Failed to create snapshot:', error);
+      log.error('Hook', '[useSpaceSwitcher] Failed to create snapshot:', error);
       throw error;
     }
   }, []);
@@ -322,7 +323,7 @@ export function useSpaceDataUpdates(spaceId: string, dataType: 'posts' | 'member
   useSpaceEvent(`space:${dataType}-updated` as SpaceEventType, (event) => {
     if (event.payload.spaceId === spaceId) {
       // Data was updated for this space
-      console.log(`[useSpaceDataUpdates] ${dataType} updated for space ${spaceId}`);
+      log.debug('Hook', `[useSpaceDataUpdates] ${dataType} updated for space ${spaceId}`);
     }
   }, [spaceId, dataType], 70);
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -101,7 +102,7 @@ export function useCourseManagement(space: ClassroomTabProps['space']): UseCours
       });
 
     } catch (error) {
-      console.error('Error creating course:', error);
+      log.error('Hook', 'Error creating course:', error);
       toast({
         title: "Error",
         description: "Failed to create course. Please try again.",
@@ -158,7 +159,7 @@ export function useCourseManagement(space: ClassroomTabProps['space']): UseCours
       });
 
     } catch (error) {
-      console.error('Error updating course:', error);
+      log.error('Hook', 'Error updating course:', error);
       toast({
         title: "Error",
         description: "Failed to update course. Please try again.",
@@ -196,7 +197,7 @@ export function useCourseManagement(space: ClassroomTabProps['space']): UseCours
       });
 
     } catch (error) {
-      console.error('Error deleting course:', error);
+      log.error('Hook', 'Error deleting course:', error);
       toast({
         title: "Error",
         description: "Failed to delete course. Please try again.",
@@ -260,7 +261,7 @@ export function useCourseManagement(space: ClassroomTabProps['space']): UseCours
       });
 
     } catch (error) {
-      console.error('Error enrolling in course:', error);
+      log.error('Hook', 'Error enrolling in course:', error);
       toast({
         title: "Error",
         description: "Failed to enroll in course. Please try again.",
@@ -299,7 +300,7 @@ export function useCourseManagement(space: ClassroomTabProps['space']): UseCours
       });
 
     } catch (error) {
-      console.error('Error unenrolling from course:', error);
+      log.error('Hook', 'Error unenrolling from course:', error);
       toast({
         title: "Error",
         description: "Failed to unenroll from course. Please try again.",

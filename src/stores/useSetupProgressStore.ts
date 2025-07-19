@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { shallow } from 'zustand/shallow';
 import { useMemo } from 'react';
@@ -75,7 +76,7 @@ export const useSetupProgressStore = create<SetupProgressState>((set, get) => ({
         loading: { ...state.loading, [spaceKey]: false }
       }));
     } catch (error) {
-      console.error('[SetupProgressStore] Error loading setup progress:', error);
+      log.error('Store', '[SetupProgressStore] Error loading setup progress:', error);
       set((state) => ({
         loading: { ...state.loading, [spaceKey]: false },
         error: { ...state.error, [spaceKey]: error instanceof Error ? error.message : 'Unknown error' },
@@ -116,7 +117,7 @@ export const useSetupProgressStore = create<SetupProgressState>((set, get) => ({
         error: { ...state.error, [spaceKey]: null }
       }));
     } catch (error) {
-      console.error('[SetupProgressStore] Error updating task completion:', error);
+      log.error('Store', '[SetupProgressStore] Error updating task completion:', error);
       
       // Revert optimistic update on error
       set((state) => {
@@ -167,7 +168,7 @@ export const useSetupProgressStore = create<SetupProgressState>((set, get) => ({
         error: { ...state.error, [spaceKey]: null }
       }));
     } catch (error) {
-      console.error('Error dismissing setup guide:', error);
+      log.error('Store', 'Error dismissing setup guide:', error);
       
       // Revert optimistic update
       set((state) => {
@@ -200,7 +201,7 @@ export const useSetupProgressStore = create<SetupProgressState>((set, get) => ({
       // Reload progress after migration
       await get().loadSetupProgress(userId, spaceId);
     } catch (error) {
-      console.error('Error migrating from localStorage:', error);
+      log.error('Store', 'Error migrating from localStorage:', error);
       // Don't throw - migration should be non-blocking
       set((state) => ({
         migrationCompleted: { ...state.migrationCompleted, [spaceKey]: true }

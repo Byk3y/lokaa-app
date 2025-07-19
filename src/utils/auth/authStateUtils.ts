@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Session, AuthChangeEvent, PostgrestError } from '@supabase/supabase-js'
 import { NavigateFunction, Location } from 'react-router-dom'
 import { User, SessionState, SessionStateSetters, SessionRefs } from './sessionUtils'
@@ -41,7 +42,7 @@ function shouldSkipRedundantAuthEvent(
       lastAuthEventData.event === event &&
       lastAuthEventData.userId === userId &&
       lastAuthEventData.tokenSnippet === tokenSnippet) {
-    console.log('🔁 [AuthDebounce] Skipping redundant auth event:', event, { userId, isRecentFocusEvent });
+    log.debug('Utils', '🔁 [AuthDebounce] Skipping redundant auth event:', event, { userId, isRecentFocusEvent });
     return true;
   }
   
@@ -70,7 +71,7 @@ export const handleAuthStateChange = async (
 
   // FIXED: Reduce logging noise for repeated events
   if (process.env.NODE_ENV === 'development') {
-    console.log('🔔 Auth state change event:', event, {
+    log.debug('Utils', '🔔 Auth state change event:', event, {
       hasSession: !!newSession,
       user: newSession?.user ? { 
         id: newSession.user.id,
@@ -97,12 +98,12 @@ export const handleAuthStateChange = async (
   
   // FIXED: Detailed debug logging only in development and less frequent
   if (process.env.NODE_ENV === 'development' && Math.random() < 0.3) {
-    console.log('[AuthFocusDebug] Current session in state BEFORE update:', {
+    log.debug('Utils', '[AuthFocusDebug] Current session in state BEFORE update:', {
       userId: currentUserId,
       accessTokenSnippet: currentTokenSnippet,
     });
     
-    console.log('[AuthFocusDebug] Incoming newSession details:', {
+    log.debug('Utils', '[AuthFocusDebug] Incoming newSession details:', {
       userId: newUserId,
       accessTokenSnippet: newTokenSnippet 
     });
@@ -112,13 +113,13 @@ export const handleAuthStateChange = async (
   if (event === 'INITIAL_SESSION') {
     // Skip if this is the same session we already have
     if (isIdenticalSessionContent) {
-      console.log('🔁 [AuthContext] INITIAL_SESSION: Identical session detected, skipping update');
+      log.debug('Utils', '🔁 [AuthContext] INITIAL_SESSION: Identical session detected, skipping update');
       return;
     }
     
     // Skip if we already have a user and this is just a revalidation
     if (currentUserId && newUserId && currentUserId === newUserId) {
-      console.log('🔁 [AuthContext] INITIAL_SESSION: Same user revalidation, skipping to prevent cascade');
+      log.debug('Utils', '🔁 [AuthContext] INITIAL_SESSION: Same user revalidation, skipping to prevent cascade');
       return;
     }
   }
@@ -126,7 +127,7 @@ export const handleAuthStateChange = async (
   const isFocusRevalidation = event === 'SIGNED_IN' && isIdenticalSessionContent;
   
   if (isFocusRevalidation) {
-    console.log('🔁 [AuthFocusDebug] Auth event: SIGNED_IN received, session content is identical. This is likely a focus-triggered re-validation. Skipping setSession and setUser.');
+    log.debug('Utils', '🔁 [AuthFocusDebug] Auth event: SIGNED_IN received, session content is identical. This is likely a focus-triggered re-validation. Skipping setSession and setUser.');
     return; 
   }
   
@@ -135,15 +136,15 @@ export const handleAuthStateChange = async (
       currentSessionState.access_token !== newSession.access_token ||
       currentSessionState.user.id !== newSession.user.id ||
       currentSessionState.expires_at !== newSession.expires_at) {
-    console.log('[AuthContext] New session content detected or no current session, calling setSession.');
+    log.debug('Utils', '[AuthContext] New session content detected or no current session, calling setSession.');
     setters.setSession(newSession); 
   } else {
-    console.log('[AuthContext] Session content appears identical, skipping setSession to maintain reference.');
+    log.debug('Utils', '[AuthContext] Session content appears identical, skipping setSession to maintain reference.');
   }
   
   const timeoutId = setTimeout(() => {
     if (state.routingInProgress) {
-      console.log('⚠️ Auth state change timeout - forcing routing to complete');
+      log.debug('Utils', '⚠️ Auth state change timeout - forcing routing to complete');
       setters.setRoutingInProgress(false);
     }
   }, 5000); 
@@ -159,26 +160,26 @@ export const handleAuthStateChange = async (
       oldUser.email !== newUserFromSession.email ||
       JSON.stringify(oldUser.user_metadata) !== JSON.stringify(newUserFromSession.user_metadata)
     ) {
-      console.log('[AuthFocusDebug] User data changed or new user, calling setUser.');
+      log.debug('Utils', '[AuthFocusDebug] User data changed or new user, calling setUser.');
       setters.setUser(newUserFromSession);
     } else {
-      console.log('[AuthFocusDebug] User data appears unchanged (ID, email, metadata). Skipping setUser to potentially avoid unnecessary re-renders.');
+      log.debug('Utils', '[AuthFocusDebug] User data appears unchanged (ID, email, metadata). Skipping setUser to potentially avoid unnecessary re-renders.');
     }
   } else {
-    console.log('[AuthFocusDebug] No user in new session, calling setUser(null).');
+    log.debug('Utils', '[AuthFocusDebug] No user in new session, calling setUser(null).');
     if (state.user !== null) setters.setUser(null); // Only call if user state is not already null
   }
   
   switch (event) {
     case 'SIGNED_IN':
-      console.log('✅ Auth event: User signed in:', newSession?.user?.email);
+      log.debug('Utils', '✅ Auth event: User signed in:', newSession?.user?.email);
       let didNavigateInHandler = false; // Tracks if this handler instance calls navigate
 
       if (newSession?.user) {
         const redirectPathFromStorage = sessionStorage.getItem('redirect_after_login');
         if (redirectPathFromStorage) {
           sessionStorage.removeItem('redirect_after_login');
-          console.log(`[AuthContext] SIGNED_IN: Handling redirect_after_login to: ${redirectPathFromStorage}`);
+          log.debug('Utils', `[AuthContext] SIGNED_IN: Handling redirect_after_login to: ${redirectPathFromStorage}`);
           setTimeout(() => {
             if (location.pathname !== redirectPathFromStorage) {
               navigate(redirectPathFromStorage, { replace: true });
@@ -197,14 +198,14 @@ export const handleAuthStateChange = async (
           
           // If on discover page and user explicitly navigated there via the space switcher, check if they actually have spaces
           if (currentPath === '/discover' && userWantsDiscover) {
-            console.log('[AuthContext] SIGNED_IN: On /discover with userWantsDiscover flag. Checking for spaces to determine correct redirect.');
+            log.debug('Utils', '[AuthContext] SIGNED_IN: On /discover with userWantsDiscover flag. Checking for spaces to determine correct redirect.');
             
             // Clear the flag immediately to prevent it from causing repeated issues
             sessionStorage.removeItem('userWantsDiscover');
             
             // We'll navigate to /app to check for spaces, which will redirect back to /discover if none exist
             // but will go to user's space if they have one
-            console.log(`[AuthContext] SIGNED_IN: Redirecting to /app to verify space access.`);
+            log.debug('Utils', `[AuthContext] SIGNED_IN: Redirecting to /app to verify space access.`);
             setTimeout(() => navigate('/app', { replace: true }), 50);
             didNavigateInHandler = true;
           }
@@ -213,16 +214,16 @@ export const handleAuthStateChange = async (
           else if (genericAuthPaths.includes(currentPath) || currentPath === '/app' || 
               (currentPath === '/discover' && !userWantsDiscover)) {
             if (currentPath !== '/app') {
-              console.log(`[AuthContext] SIGNED_IN: Defaulting to /app from ${currentPath} for space resolution.`);
+              log.debug('Utils', `[AuthContext] SIGNED_IN: Defaulting to /app from ${currentPath} for space resolution.`);
               setTimeout(() => navigate('/app', { replace: true }), 50); // Reduced timeout
               didNavigateInHandler = true;
             } else {
-              console.log('[AuthContext] SIGNED_IN: Already on /app. QuickSpaceRedirect will handle.');
+              log.debug('Utils', '[AuthContext] SIGNED_IN: Already on /app. QuickSpaceRedirect will handle.');
               // No navigation needed, but routing will be in progress via QSR
             }
           } else {
             // Not a generic page, not /app, not /discover. User might be on a profile page or already in a space.
-            console.log(`[AuthContext] SIGNED_IN: On specific page ${currentPath}. No default navigation to /app from here.`);
+            log.debug('Utils', `[AuthContext] SIGNED_IN: On specific page ${currentPath}. No default navigation to /app from here.`);
           }
         }
       }
@@ -235,10 +236,10 @@ export const handleAuthStateChange = async (
         // If this handler instance itself didn't call navigate(), 
         // ensure routingInProgress is false to unlock UI.
         // If it did navigate, the subsequent page load/auth event will manage routingInProgress.
-        console.log(`[AuthContext] SIGNED_IN: No navigation by this handler or already on /app. Setting routingInProgress=false.`);
+        log.debug('Utils', `[AuthContext] SIGNED_IN: No navigation by this handler or already on /app. Setting routingInProgress=false.`);
         setters.setRoutingInProgress(false);
       } else {
-        console.log(`[AuthContext] SIGNED_IN: Navigation initiated by this handler. routingInProgress will be managed by subsequent events or navigation completion.`);
+        log.debug('Utils', `[AuthContext] SIGNED_IN: Navigation initiated by this handler. routingInProgress will be managed by subsequent events or navigation completion.`);
         // When navigation is initiated, routingInProgress should ideally be true until
         // the new page loads and its auth state is stable.
         // However, forcing it true here might conflict if navigation is quick.
@@ -248,7 +249,7 @@ export const handleAuthStateChange = async (
       break;
       
     case 'SIGNED_OUT':
-      console.log('👋 Auth event: User signed out');
+      log.debug('Utils', '👋 Auth event: User signed out');
       setters.setHasRouted(false);
       setters.setEarlyRedirectAttempted(false);
       setters.setRoutingInProgress(false);
@@ -261,24 +262,24 @@ export const handleAuthStateChange = async (
       break;
       
     case 'TOKEN_REFRESHED':
-      console.log('🔄 Auth event: Token refreshed', {
+      log.debug('Utils', '🔄 Auth event: Token refreshed', {
         expires: newSession ? new Date(newSession.expires_at * 1000).toLocaleString() : 'N/A'
       });
       break;
       
     case 'USER_UPDATED':
-      console.log('👤 Auth event: User updated');
+      log.debug('Utils', '👤 Auth event: User updated');
       break;
       
     case 'INITIAL_SESSION':
       // FIXED: Handle INITIAL_SESSION events properly
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 Auth event: Initial session processed');
+        log.debug('Utils', '🔄 Auth event: Initial session processed');
       }
       break;
       
     default:
-      console.log(`ℹ️ Unhandled auth event: ${event}`);
+      log.debug('Utils', `ℹ️ Unhandled auth event: ${event}`);
       break;
   }
   

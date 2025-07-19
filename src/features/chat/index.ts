@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Chat Feature Exports
  * 
@@ -133,7 +134,7 @@ if (typeof window !== 'undefined') {
         if (store?.getState) {
           const state = store.getState();
           if (state?.user?.id) {
-            console.log('[getCurrentUser] Found user via store:', storeName);
+            log.debug('App', '[getCurrentUser] Found user via store:', storeName);
             return state.user;
           }
         }
@@ -147,7 +148,7 @@ if (typeof window !== 'undefined') {
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed?.state?.user?.id || parsed?.user?.id) {
-              console.log('[getCurrentUser] Found user via localStorage:', key);
+              log.debug('App', '[getCurrentUser] Found user via localStorage:', key);
               return parsed.state?.user || parsed.user;
             }
           }
@@ -156,10 +157,10 @@ if (typeof window !== 'undefined') {
         }
       }
 
-      console.warn('[getCurrentUser] No user found in any method');
+      log.warn('App', '[getCurrentUser] No user found in any method');
       return null;
     } catch (error) {
-      console.error('[getCurrentUser] Error:', error);
+      log.error('App', '[getCurrentUser] Error:', error);
       return null;
     }
   };

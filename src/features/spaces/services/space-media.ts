@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space-specific media operations
  * Handles localStorage operations for space media
@@ -18,7 +19,7 @@ export const getSpaceMediaItems = (spaceId: string): MediaItem[] => {
     
     return mediaItems;
   } catch (error) {
-    console.error('Error getting media items:', error);
+    log.error('Service', 'Error getting media items:', error);
     return [];
   }
 };
@@ -35,7 +36,7 @@ export const saveSpaceMediaItems = (spaceId: string, mediaItems: MediaItem[]): b
     }
     return true;
   } catch (error) {
-    console.error('Error saving media items:', error);
+    log.error('Service', 'Error saving media items:', error);
     return false;
   }
 };
@@ -49,7 +50,7 @@ export const addSpaceMediaItem = (spaceId: string, mediaItem: MediaItem): boolea
     const updatedItems = [...currentItems, mediaItem];
     return saveSpaceMediaItems(spaceId, updatedItems);
   } catch (error) {
-    console.error('Error adding media item:', error);
+    log.error('Service', 'Error adding media item:', error);
     return false;
   }
 };
@@ -63,7 +64,7 @@ export const removeSpaceMediaItem = (spaceId: string, mediaId: string): boolean 
     const updatedItems = currentItems.filter(item => item.id !== mediaId);
     return saveSpaceMediaItems(spaceId, updatedItems);
   } catch (error) {
-    console.error('Error removing media item:', error);
+    log.error('Service', 'Error removing media item:', error);
     return false;
   }
 };
@@ -79,7 +80,7 @@ export const updateSpaceMediaItem = (spaceId: string, updatedItem: MediaItem): b
     );
     return saveSpaceMediaItems(spaceId, updatedItems);
   } catch (error) {
-    console.error('Error updating media item:', error);
+    log.error('Service', 'Error updating media item:', error);
     return false;
   }
 }; 

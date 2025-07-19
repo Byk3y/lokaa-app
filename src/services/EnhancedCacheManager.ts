@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Enhanced Cache Manager
  * 
@@ -323,7 +324,7 @@ class EnhancedCacheManager {
       localStorage.setItem(`enhanced-cache-${key}`, JSON.stringify(entry));
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Failed to persist cache entry:', error);
+        log.warn('Service', 'Failed to persist cache entry:', error);
       }
     }
   }
@@ -351,7 +352,7 @@ class EnhancedCacheManager {
         this.set(key, data, { source: 'background-load' });
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('Background cache load failed:', error);
+          log.warn('Service', 'Background cache load failed:', error);
         }
       }
     }, 100); // Small delay to not block main thread
@@ -442,7 +443,7 @@ class EnhancedCacheManager {
       (window as any).enhancedCacheManager = this;
       (window as any).debugCache = () => {
         const stats = this.getCacheStats();
-        console.log('🚀 Enhanced Cache Manager Debug:', {
+        log.debug('Service', '🚀 Enhanced Cache Manager Debug:', {
           stats,
           memoryKeys: Array.from(this.memoryCache.keys()),
           predictiveEntries: Array.from(this.predictiveEntries.entries())

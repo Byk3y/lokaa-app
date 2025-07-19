@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔧 Presence System Testing & Debugging Utility
  * 
@@ -42,7 +43,7 @@ class PresenceTestingUtility implements PresenceTestingSuite {
     const timestamp = new Date().toISOString();
     
     try {
-      console.log(`🔍 [PresenceTest] Testing space: ${spaceId}`);
+      log.debug('Utils', `🔍 [PresenceTest] Testing space: ${spaceId}`);
       
       // Query database for online users
       const { data, error } = await getSupabaseClient()
@@ -85,15 +86,15 @@ class PresenceTestingUtility implements PresenceTestingSuite {
         timestamp
       };
       
-      console.log(`✅ [PresenceTest] Space ${spaceId}: Database=${databaseOnlineCount}, Frontend=${frontendDisplay}`, result);
+      log.debug('Utils', `✅ [PresenceTest] Space ${spaceId}: Database=${databaseOnlineCount}, Frontend=${frontendDisplay}`, result);
       
       if (discrepancy) {
-        console.warn(`⚠️ [PresenceTest] DISCREPANCY DETECTED! Database shows ${databaseOnlineCount} but frontend shows ${frontendDisplay}`);
+        log.warn('Utils', `⚠️ [PresenceTest] DISCREPANCY DETECTED! Database shows ${databaseOnlineCount} but frontend shows ${frontendDisplay}`);
       }
       
       return result;
     } catch (error) {
-      console.error(`❌ [PresenceTest] Error testing space ${spaceId}:`, error);
+      log.error('Utils', `❌ [PresenceTest] Error testing space ${spaceId}:`, error);
       
       return {
         success: false,
@@ -111,7 +112,7 @@ class PresenceTestingUtility implements PresenceTestingSuite {
    * Test the known space (nocode-architects)
    */
   async testKnownSpace(): Promise<PresenceTestResult> {
-    console.log('🎯 [PresenceTest] Testing known space (nocode-architects)...');
+    log.debug('Utils', '🎯 [PresenceTest] Testing known space (nocode-architects)...');
     return this.testSpacePresence(this.KNOWN_SPACE_ID);
   }
   
@@ -131,10 +132,10 @@ class PresenceTestingUtility implements PresenceTestingSuite {
         
       if (error) throw error;
       
-      console.log(`✅ [PresenceTest] Refreshed online status for user: ${userId}`);
+      log.debug('Utils', `✅ [PresenceTest] Refreshed online status for user: ${userId}`);
       return true;
     } catch (error) {
-      console.error(`❌ [PresenceTest] Failed to refresh user ${userId}:`, error);
+      log.error('Utils', `❌ [PresenceTest] Failed to refresh user ${userId}:`, error);
       return false;
     }
   }
@@ -156,10 +157,10 @@ class PresenceTestingUtility implements PresenceTestingSuite {
         
       if (error) throw error;
       
-      console.log(`✅ [PresenceTest] Marked user ${userId} online in space ${spaceId}`);
+      log.debug('Utils', `✅ [PresenceTest] Marked user ${userId} online in space ${spaceId}`);
       return true;
     } catch (error) {
-      console.error(`❌ [PresenceTest] Failed to mark user ${userId} online:`, error);
+      log.error('Utils', `❌ [PresenceTest] Failed to mark user ${userId} online:`, error);
       return false;
     }
   }
@@ -180,10 +181,10 @@ class PresenceTestingUtility implements PresenceTestingSuite {
         
       if (error) throw error;
       
-      console.log(`✅ [PresenceTest] Marked user ${userId} offline globally`);
+      log.debug('Utils', `✅ [PresenceTest] Marked user ${userId} offline globally`);
       return true;
     } catch (error) {
-      console.error(`❌ [PresenceTest] Failed to mark user ${userId} offline:`, error);
+      log.error('Utils', `❌ [PresenceTest] Failed to mark user ${userId} offline:`, error);
       return false;
     }
   }
@@ -218,7 +219,7 @@ class PresenceTestingUtility implements PresenceTestingSuite {
       }
     }
     
-    console.log('🔍 [PresenceTest] Presence system status:', status);
+    log.debug('Utils', '🔍 [PresenceTest] Presence system status:', status);
     return status;
   }
   
@@ -226,7 +227,7 @@ class PresenceTestingUtility implements PresenceTestingSuite {
    * Run comprehensive tests
    */
   async runComprehensiveTest(): Promise<PresenceTestResult[]> {
-    console.log('🚀 [PresenceTest] Running comprehensive presence test suite...');
+    log.debug('Utils', '🚀 [PresenceTest] Running comprehensive presence test suite...');
     
     const results: PresenceTestResult[] = [];
     
@@ -240,18 +241,18 @@ class PresenceTestingUtility implements PresenceTestingSuite {
     // Test refresh function if available
     if (typeof (window as any).refreshSpacePresence === 'function') {
       try {
-        console.log('🔄 [PresenceTest] Testing refresh function...');
+        log.debug('Utils', '🔄 [PresenceTest] Testing refresh function...');
         await (window as any).refreshSpacePresence(this.KNOWN_SPACE_ID);
         
         // Re-test after refresh
         const refreshedResult = await this.testKnownSpace();
         results.push(refreshedResult);
       } catch (error) {
-        console.error('❌ [PresenceTest] Refresh function failed:', error);
+        log.error('Utils', '❌ [PresenceTest] Refresh function failed:', error);
       }
     }
     
-    console.log('📊 [PresenceTest] Comprehensive test complete:', results);
+    log.debug('Utils', '📊 [PresenceTest] Comprehensive test complete:', results);
     return results;
   }
 }
@@ -271,14 +272,14 @@ if (typeof window !== 'undefined') {
     runAll: () => presenceTestingUtility.runComprehensiveTest()
   };
   
-  console.log('🔧 [PresenceTest] Testing utility loaded. Available commands:');
-  console.log('  - window.presenceTest.testKnownSpace() - Test nocode-architects space');
-  console.log('  - window.presenceTest.test(spaceId) - Test specific space');
-  console.log('  - window.presenceTest.status() - Get presence system status');
-  console.log('  - window.presenceTest.runAll() - Run comprehensive tests');
-  console.log('  - window.presenceTest.refreshUser(userId) - Refresh user online status');
-  console.log('  - window.presenceTest.markOnline(userId, spaceId) - Mark user online');
-  console.log('  - window.presenceTest.markOffline(userId) - Mark user offline');
+  log.debug('Utils', '🔧 [PresenceTest] Testing utility loaded. Available commands:');
+  log.debug('Utils', '  - window.presenceTest.testKnownSpace() - Test nocode-architects space');
+  log.debug('Utils', '  - window.presenceTest.test(spaceId) - Test specific space');
+  log.debug('Utils', '  - window.presenceTest.status() - Get presence system status');
+  log.debug('Utils', '  - window.presenceTest.runAll() - Run comprehensive tests');
+  log.debug('Utils', '  - window.presenceTest.refreshUser(userId) - Refresh user online status');
+  log.debug('Utils', '  - window.presenceTest.markOnline(userId, spaceId) - Mark user online');
+  log.debug('Utils', '  - window.presenceTest.markOffline(userId) - Mark user offline');
 }
 
 export default presenceTestingUtility; 

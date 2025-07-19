@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // Enhanced caching implementation for Space component
 // This file contains the caching enhancements that can be integrated into the Space.tsx file
 
@@ -47,14 +48,14 @@ export function getSpaceFromCache(subdomain: string | undefined): {
     
     // Cache TTL: 5 minutes
     if (cacheAge > 5 * 60 * 1000) {
-      console.log('[Space] Cache expired, will fetch fresh data');
+      log.debug('Page', '[Space] Cache expired, will fetch fresh data');
       return null;
     }
     
-    console.log('[Space] Retrieved from cache, age:', Math.round(cacheAge / 1000), 'seconds');
+    log.debug('Page', '[Space] Retrieved from cache, age:', Math.round(cacheAge / 1000), 'seconds');
     return parsed;
   } catch (err) {
-    console.warn('[Space] Failed to get from cache:', err);
+    log.warn('Page', '[Space] Failed to get from cache:', err);
     return null;
   }
 }
@@ -73,9 +74,9 @@ export function saveSpaceToCache(subdomain: string | undefined, data: CachedSpac
       space: data,
       timestamp: Date.now()
     }));
-    console.log('[Space] Saved to cache');
+    log.debug('Page', '[Space] Saved to cache');
   } catch (err) {
-    console.warn('[Space] Failed to save to cache:', err);
+    log.warn('Page', '[Space] Failed to save to cache:', err);
   }
 }
 
@@ -97,7 +98,7 @@ export function useQuickRecoveryFromCache(
       const cachedData = getSpaceFromCache(subdomain);
       
       if (cachedData?.space) {
-        console.log('[Space] Quick recovery from cache while fetching fresh data');
+        log.debug('Page', '[Space] Quick recovery from cache while fetching fresh data');
         // Load from cache (don't set loading to false yet - let the real fetch complete)
         useSpaceSettingsStore.setState({ 
           space: cachedData.space,
@@ -132,7 +133,7 @@ export function createEnhancedSpaceDataFetcher(
       
       try {
         // Use existing Supabase query method
-        console.log("Fetching space by subdomain:", subdomain);
+        log.debug('Page', "Fetching space by subdomain:", subdomain);
         const { data: spaceData, error } = await getSupabaseClient()
           .from("spaces")
           .select("id, name, description, cover_image, icon_image, primary_color, member_count, pricing_type, price_per_month, subdomain, owner_id, is_private")
@@ -140,7 +141,7 @@ export function createEnhancedSpaceDataFetcher(
           .single();
               
         if (error) {
-          console.error("Error fetching space data:", error);
+          log.error('Page', "Error fetching space data:", error);
           navigate('/discover');
           return;
         }
@@ -188,7 +189,7 @@ export function createEnhancedSpaceDataFetcher(
           navigate('/discover');
         }
       } catch (error) {
-        console.error('Error fetching space:', error);
+        log.error('Page', 'Error fetching space:', error);
         navigate('/discover');
       } finally {
         setLoadingSpace(false);
@@ -247,10 +248,10 @@ export function preloadSpaceImages(space: { cover_image?: string | null; icon_im
   
   imagesToPreload.forEach(url => {
     if (typeof url === 'string') {
-      console.log(`[Space] Preloading image: ${url.substring(0, 50)}...`);
+      log.debug('Page', `[Space] Preloading image: ${url.substring(0, 50)}...`);
       const img = new Image();
-      img.onload = () => console.log(`[Space] Successfully preloaded: ${url.substring(0, 30)}...`);
-      img.onerror = () => console.warn(`[Space] Failed to preload: ${url.substring(0, 30)}...`);
+      img.onload = () => log.debug('Page', `[Space] Successfully preloaded: ${url.substring(0, 30)}...`);
+      img.onerror = () => log.warn('Page', `[Space] Failed to preload: ${url.substring(0, 30)}...`);
       img.src = url;
     }
   });

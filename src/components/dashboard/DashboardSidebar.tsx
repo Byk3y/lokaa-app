@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -57,7 +58,7 @@ export default function DashboardSidebar() {
           const spaces = await fetchUserSpaces(user.id);
           setUserSpaces(spaces);
         } catch (error) {
-          console.error('Error loading user spaces:', error);
+          log.error('Component', 'Error loading user spaces:', error);
         } finally {
           setLoadingSpaces(false);
         }

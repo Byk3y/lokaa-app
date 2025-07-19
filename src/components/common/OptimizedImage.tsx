@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -76,7 +77,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
     setError(true);
     const errorMsg = new Error(`Failed to load image: ${src}`);
     onError?.(errorMsg);
-    console.warn('Image load error:', errorMsg);
+    log.warn('Component', 'Image load error:', errorMsg);
   }, [src, onError]);
 
   // Determine aspect ratio class

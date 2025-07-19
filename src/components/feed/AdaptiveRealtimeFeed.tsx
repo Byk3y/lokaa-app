@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRealtimePostsOptimized } from '@/hooks/useRealtimePostsOptimized';
 import { useAdvancedRealtimePosts } from '@/hooks/useAdvancedRealtimePosts';
@@ -47,7 +48,7 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
         setPerformanceMode('standard');
       }
 
-      console.log(`🔄 [AdaptiveFeed] Performance mode: ${performanceMode}, Advanced: ${useAdvanced}`);
+      log.debug('Component', `🔄 [AdaptiveFeed] Performance mode: ${performanceMode}, Advanced: ${useAdvanced}`);
     };
 
     const interval = setInterval(checkPerformance, 10000); // Check every 10 seconds

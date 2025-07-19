@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Conversation Service
  * 
@@ -307,9 +308,9 @@ export class ConversationService {
         await userConversationsCacheService.invalidate(entry.key);
       }
 
-      console.log(`[ConversationService] Invalidated conversation cache for user: ${userId}`);
+      log.debug('Utils', `[ConversationService] Invalidated conversation cache for user: ${userId}`);
     } catch (error) {
-      console.error('[ConversationService] Error invalidating conversation cache:', error);
+      log.error('Utils', '[ConversationService] Error invalidating conversation cache:', error);
     }
   }
 
@@ -332,11 +333,11 @@ export class ConversationService {
 
       // Clear user conversation caches for all potential users
       // Note: This is a simplified approach - ideally we'd track which users have this conversation
-      console.log(`[ConversationService] Clearing related user conversation caches for conversation: ${conversationId}`);
+      log.debug('Utils', `[ConversationService] Clearing related user conversation caches for conversation: ${conversationId}`);
 
-      console.log(`[ConversationService] Invalidated cache for conversation: ${conversationId}`);
+      log.debug('Utils', `[ConversationService] Invalidated cache for conversation: ${conversationId}`);
     } catch (error) {
-      console.error('[ConversationService] Error invalidating conversation cache:', error);
+      log.error('Utils', '[ConversationService] Error invalidating conversation cache:', error);
     }
   }
 
@@ -367,7 +368,7 @@ export class ConversationService {
    */
   async clearCache(): Promise<void> {
     await userConversationsCacheService.clear();
-    console.log('[ConversationService] Cleared all conversation cache');
+    log.debug('Utils', '[ConversationService] Cleared all conversation cache');
   }
 
   // Private helper methods

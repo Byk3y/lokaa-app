@@ -1,8 +1,11 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
+import { useSpaceNotificationPreferences } from '@/hooks/useSpaceNotificationPreferences';
+import { DigestEmailFrequency, NotificationsEmailFrequency } from '@/types/notification';
 
 export type MemberSettingsTabKey = "membership" | "notifications" | "chat" | "invite";
 
@@ -14,7 +17,7 @@ interface MemberSettingsModalProps {
     name: string;
     subdomain: string;
     icon_image?: string;
-    userRole?: 'member';
+    userRole?: 'owner' | 'admin' | 'member';
   } | null;
   user: {
     id: string;
@@ -26,6 +29,15 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
   const [chatEnabled, setChatEnabled] = useState(true); // Default to enabled, will be loaded from user preferences
   const [isMobile, setIsMobile] = useState(false);
 
+  // Space notification preferences
+  const { 
+    preferences, 
+    effectivePreferences,
+    isLoading: notificationLoading, 
+    updatePreference, 
+    updateMultiplePreferences 
+  } = useSpaceNotificationPreferences(space?.id || '');
+
   useEffect(() => {
     setIsMobile(shouldEnableMobileFeatures());
   }, []);
@@ -35,6 +47,7 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
     if (isOpen && isMobile) {
       // Prevent body scroll
       document.body.style.overflow = 'hidden';
+      
       return () => {
         document.body.style.overflow = 'unset';
       };
@@ -59,7 +72,7 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
                   }`}
                   onClick={() => {
                     // TODO: Implement leave group functionality
-                    console.log('Leave group clicked');
+                    log.debug('Component', 'Leave group clicked');
                   }}
                 >
                   LEAVE THIS GROUP
@@ -69,10 +82,108 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
           </div>
         );
       case "notifications":
+        if (notificationLoading) {
+          return (
+            <div className={`${isMobile ? 'p-4' : 'p-6'} flex items-center justify-center`}>
+              <div className="animate-spin h-6 w-6 rounded-full border-t-2 border-b-2 border-gray-400"></div>
+              <span className="ml-2 text-sm text-gray-500">Loading...</span>
+            </div>
+          );
+        }
+
         return (
-          <div className={`${isMobile ? 'p-4' : 'p-6'}`}>
+          <div className={`${isMobile ? 'p-4 pb-16' : 'p-6'} space-y-6`}>
             {!isMobile && <h3 className="text-lg font-semibold mb-4">Notifications</h3>}
-            <p className={`${isMobile ? 'text-base' : 'text-sm'} text-gray-600`}>Notification settings coming soon...</p>
+            
+            {/* Digest email frequency */}
+            <div>
+              <div className="text-lg font-medium text-black mb-1">Digest email</div>
+              <div className="text-sm text-gray-500 mb-4">summary of popular posts</div>
+              <select 
+                value={effectivePreferences?.digest_email_frequency || 'weekly'}
+                onChange={(e) => updatePreference('digest_email_frequency', e.target.value as DigestEmailFrequency)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
+              >
+                <option value="weekly">Weekly (default)</option>
+                <option value="daily">Daily</option>
+                <option value="monthly">Monthly</option>
+                <option value="never">Never</option>
+              </select>
+            </div>
+
+            {/* Notifications email frequency */}
+            <div>
+              <div className="text-lg font-medium text-black mb-1">Notifications email</div>
+              <div className="text-sm text-gray-500 mb-4">summary of unread notifications</div>
+              <select 
+                value={effectivePreferences?.notifications_email_frequency || 'hourly'}
+                onChange={(e) => updatePreference('notifications_email_frequency', e.target.value as NotificationsEmailFrequency)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
+              >
+                <option value="immediate">Immediately</option>
+                <option value="hourly">Hourly (default)</option>
+                <option value="daily">Daily</option>
+                <option value="never">Never</option>
+              </select>
+            </div>
+
+            {/* Likes */}
+            <div>
+              <div className="text-lg font-medium text-black mb-1">Likes</div>
+              <div className="text-sm text-gray-500 mb-4">when somebody likes my posts or comments</div>
+              <select 
+                value={effectivePreferences?.likes ? 'notify' : 'never'}
+                onChange={(e) => updatePreference('likes', e.target.value === 'notify')}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
+              >
+                <option value="notify">Notify me (default)</option>
+                <option value="never">Never</option>
+              </select>
+            </div>
+
+            {/* Admin announcements */}
+            <div>
+              <div className="text-lg font-medium text-black mb-1">Admin announcements</div>
+              <div className="text-sm text-gray-500 mb-4">get email broadcasts sent by admins</div>
+              <select 
+                value={effectivePreferences?.admin_announcements ? 'yes' : 'no'}
+                onChange={(e) => updatePreference('admin_announcements', e.target.value === 'yes')}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
+              >
+                <option value="yes">Yes (default)</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+
+            {/* Event reminders */}
+            <div>
+              <div className="text-lg font-medium text-black mb-1">Event reminders</div>
+              <div className="text-sm text-gray-500 mb-4">notify me of calendar events the day before they happen</div>
+              <select 
+                value={effectivePreferences?.event_reminders ? 'yes' : 'no'}
+                onChange={(e) => updatePreference('event_reminders', e.target.value === 'yes')}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
+              >
+                <option value="yes">Yes (default)</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+
+            {/* New customer emails - only for owners/admins */}
+            {(space?.userRole === 'owner' || space?.userRole === 'admin') && (
+              <div>
+                <div className="text-lg font-medium text-black mb-1">New customer emails</div>
+                <div className="text-sm text-gray-500 mb-4">notify me when my group gets a new customer</div>
+                <select 
+                  value={effectivePreferences?.new_customers ? 'yes' : 'no'}
+                  onChange={(e) => updatePreference('new_customers', e.target.value === 'yes')}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
+                >
+                  <option value="yes">Yes (default)</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            )}
           </div>
         );
       case "chat":
@@ -116,7 +227,7 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
                   onClick={() => {
                     setChatEnabled(!chatEnabled);
                     // TODO: Save preference to backend
-                    console.log('Chat permissions toggled:', !chatEnabled);
+                    log.debug('Component', 'Chat permissions toggled:', !chatEnabled);
                   }}
                   aria-label={`${chatEnabled ? 'Disable' : 'Enable'} chat messages from ${space?.name} members`}
                 >
@@ -153,20 +264,20 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                value={`https://lokaa.com/${space?.subdomain || 'space'}/about?ref=${user?.id?.slice(0, 8) || 'invite'}`}
+                value={`https://lokaa.app/${space?.subdomain || 'space'}/about?ref=${user?.id?.slice(0, 8) || 'invite'}`}
                 readOnly
                 className="flex-1 px-3 py-2 text-sm bg-blue-50 border border-blue-200 rounded-md text-blue-700 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 onClick={(e) => e.currentTarget.select()}
               />
               <button
                 onClick={async () => {
-                  const inviteUrl = `https://lokaa.com/${space?.subdomain || 'space'}/about?ref=${user?.id?.slice(0, 8) || 'invite'}`;
+                  const inviteUrl = `https://lokaa.app/${space?.subdomain || 'space'}/about?ref=${user?.id?.slice(0, 8) || 'invite'}`;
                   try {
                     await navigator.clipboard.writeText(inviteUrl);
                     // TODO: Add visual feedback for successful copy
-                    console.log('Invite link copied:', inviteUrl);
+                    log.debug('Component', 'Invite link copied:', inviteUrl);
                   } catch (error) {
-                    console.error('Failed to copy invite link:', error);
+                    log.error('Component', 'Failed to copy invite link:', error);
                     // Fallback: select the text for manual copy
                     const input = document.querySelector('input[readonly]') as HTMLInputElement;
                     if (input) {
@@ -204,7 +315,7 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogPortal>
-          <div className="fixed inset-0 z-[60] h-screen w-screen flex flex-col bg-white overflow-hidden">
+          <div className="fixed inset-0 z-[200] h-screen w-screen flex flex-col bg-white overflow-hidden" style={{ zIndex: 200 }}>
             {/* Hidden accessibility elements */}
             <DialogTitle className="sr-only">Settings</DialogTitle>
             <DialogDescription className="sr-only">
@@ -255,7 +366,7 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
             </div>
 
             {/* Mobile Content */}
-            <div className="flex-grow bg-white overflow-y-auto pb-20"> {/* Add bottom padding to avoid bottom nav overlap */}
+            <div className="flex-grow bg-white overflow-y-auto pb-32">
               {renderTabContent()}
             </div>
           </div>

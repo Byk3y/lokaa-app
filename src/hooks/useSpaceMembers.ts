@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useState, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { MemberStats, MemberStatus, SpaceMember, UseMembersParams } from '@/types/members';
@@ -229,7 +230,7 @@ export const useSpaceMembers = ({
         });
         */
       } catch (err) {
-        console.error('Error fetching space members:', err);
+        log.error('Hook', 'Error fetching space members:', err);
         setError(err instanceof Error ? err : new Error('Failed to fetch members'));
         
         // Set fallback empty state
@@ -281,7 +282,7 @@ export const useSpaceMembers = ({
       
       return true;
     } catch (err) {
-      console.error('Error updating member activity:', err);
+      log.error('Hook', 'Error updating member activity:', err);
       return false;
     }
   }, [spaceId]);
@@ -312,7 +313,7 @@ export const useSpaceMembers = ({
       
       return true;
     } catch (err) {
-      console.error('Error updating member status:', err);
+      log.error('Hook', 'Error updating member status:', err);
       return false;
     }
   }, []);

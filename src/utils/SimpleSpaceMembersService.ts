@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Simple Space Members Service
  * 
@@ -34,13 +35,13 @@ export class SimpleSpaceMembersService {
     // Try cache first
     const cached = simpleCache.get(cacheKey);
     if (cached) {
-      console.log(`✅ [SimpleSpaceMembers] Cache hit for space ${spaceId}`);
+      log.debug('Utils', `✅ [SimpleSpaceMembers] Cache hit for space ${spaceId}`);
       return cached;
     }
 
     try {
       // Fetch from API (placeholder - replace with actual API call)
-      console.log(`🔄 [SimpleSpaceMembers] Fetching members for space ${spaceId}`);
+      log.debug('Utils', `🔄 [SimpleSpaceMembers] Fetching members for space ${spaceId}`);
       
       // This would be replaced with actual Supabase call
       const members: SpaceMember[] = [];
@@ -53,7 +54,7 @@ export class SimpleSpaceMembersService {
 
       return members;
     } catch (error) {
-      console.error(`❌ [SimpleSpaceMembers] Error fetching space members:`, error);
+      log.error('Utils', `❌ [SimpleSpaceMembers] Error fetching space members:`, error);
       return [];
     }
   }
@@ -67,12 +68,12 @@ export class SimpleSpaceMembersService {
     // Try cache first
     const cached = simpleCache.get(cacheKey);
     if (cached) {
-      console.log(`✅ [SimpleSpaceMembers] Cache hit for counts ${spaceId}`);
+      log.debug('Utils', `✅ [SimpleSpaceMembers] Cache hit for counts ${spaceId}`);
       return cached;
     }
 
     try {
-      console.log(`🔄 [SimpleSpaceMembers] Fetching counts for space ${spaceId}`);
+      log.debug('Utils', `🔄 [SimpleSpaceMembers] Fetching counts for space ${spaceId}`);
       
       // Placeholder counts - replace with actual API call
       const counts: MemberCounts = {
@@ -89,7 +90,7 @@ export class SimpleSpaceMembersService {
 
       return counts;
     } catch (error) {
-      console.error(`❌ [SimpleSpaceMembers] Error fetching member counts:`, error);
+      log.error('Utils', `❌ [SimpleSpaceMembers] Error fetching member counts:`, error);
       return { total: 0, online: 0, admin: 0 };
     }
   }
@@ -103,12 +104,12 @@ export class SimpleSpaceMembersService {
     // Try cache first
     const cached = simpleCache.get(cacheKey);
     if (cached !== null) {
-      console.log(`✅ [SimpleSpaceMembers] Cache hit for membership check`);
+      log.debug('Utils', `✅ [SimpleSpaceMembers] Cache hit for membership check`);
       return cached;
     }
 
     try {
-      console.log(`🔄 [SimpleSpaceMembers] Checking membership for user ${userId} in space ${spaceId}`);
+      log.debug('Utils', `🔄 [SimpleSpaceMembers] Checking membership for user ${userId} in space ${spaceId}`);
       
       // Placeholder - replace with actual API call
       const isMember = false;
@@ -121,7 +122,7 @@ export class SimpleSpaceMembersService {
 
       return isMember;
     } catch (error) {
-      console.error(`❌ [SimpleSpaceMembers] Error checking membership:`, error);
+      log.error('Utils', `❌ [SimpleSpaceMembers] Error checking membership:`, error);
       return false;
     }
   }
@@ -130,7 +131,7 @@ export class SimpleSpaceMembersService {
    * Invalidate cache for a space
    */
   invalidateSpaceCache(spaceId: string): void {
-    console.log(`🗑️ [SimpleSpaceMembers] Invalidating cache for space ${spaceId}`);
+    log.debug('Utils', `🗑️ [SimpleSpaceMembers] Invalidating cache for space ${spaceId}`);
     
     // Clear all cache entries related to this space
     simpleCache.clear(`space_members:${spaceId}`);
@@ -142,7 +143,7 @@ export class SimpleSpaceMembersService {
    * Clear all cache
    */
   clearCache(): void {
-    console.log(`🧹 [SimpleSpaceMembers] Clearing all cache`);
+    log.debug('Utils', `🧹 [SimpleSpaceMembers] Clearing all cache`);
     simpleCache.clear('space_members:');
     simpleCache.clear('member_counts:');
     simpleCache.clear('user_member:');
@@ -153,7 +154,7 @@ export class SimpleSpaceMembersService {
    */
   getCacheStats() {
     const stats = simpleCache.getStats();
-    console.log(`📊 [SimpleSpaceMembers] Cache stats:`, stats);
+    log.debug('Utils', `📊 [SimpleSpaceMembers] Cache stats:`, stats);
     return stats;
   }
 }
@@ -164,5 +165,5 @@ export const simpleSpaceMembersService = new SimpleSpaceMembersService();
 // Expose globally for debugging
 if (typeof window !== 'undefined') {
   (window as any).simpleSpaceMembersService = simpleSpaceMembersService;
-  console.log('👥 [SimpleSpaceMembers] Service initialized with unified caching');
+  log.debug('Utils', '👥 [SimpleSpaceMembers] Service initialized with unified caching');
 } 

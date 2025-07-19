@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -96,7 +97,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
           .select('parent_comment_id')
           .in('parent_comment_id', commentIds);
 
-        if (replyCountError) console.warn("Error fetching reply counts:", replyCountError);
+        if (replyCountError) log.warn('Hook', "Error fetching reply counts:", replyCountError);
 
         const replyCountMap = new Map<string, number>();
         replyCountsData?.forEach(item => {
@@ -123,7 +124,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
             .order('created_at', { ascending: true });
 
           if (repliesError) {
-            console.warn("Error fetching initial replies:", repliesError);
+            log.warn('Hook', "Error fetching initial replies:", repliesError);
           } else if (initialRepliesData) {
             // Group replies by parent comment and limit to first N per comment
             const groupedReplies = new Map<string, any[]>();
@@ -161,7 +162,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
             .select('comment_id')
             .eq('user_id', currentUserId)
             .in('comment_id', allCommentIds);
-          if (likeStatusError) console.warn("Error fetching comment like statuses:", likeStatusError);
+          if (likeStatusError) log.warn('Hook', "Error fetching comment like statuses:", likeStatusError);
           else {
             likeStatusData?.forEach(like => likedCommentIds.add(like.comment_id));
           }
@@ -296,7 +297,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
       // Rollback optimistic updates
       if (context?.rollback) context.rollback();
       if (context?.commentCountRollback) context.commentCountRollback();
-      console.error('Add comment failed:', error);
+      log.error('Hook', 'Add comment failed:', error);
     },
     onSuccess: async (newComment, { postId, spaceId }) => {
       // Invalidate related queries to sync with server
@@ -430,7 +431,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
     onError: (error, variables, rollback) => {
       // Rollback optimistic update
       if (rollback) rollback();
-      console.error('Comment like toggle failed:', error);
+      log.error('Hook', 'Comment like toggle failed:', error);
     },
     onSuccess: async () => {
       // Refresh comments to sync with server
@@ -473,7 +474,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
     }
     
     if (!targetComment) {
-      console.warn(`Comment with id ${commentId} not found in cache`);
+      log.warn('Hook', `Comment with id ${commentId} not found in cache`);
       return;
     }
 

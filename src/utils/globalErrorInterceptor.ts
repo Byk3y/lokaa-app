@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Global Error Interceptor for 401 Session Recovery
  * 
@@ -35,25 +36,25 @@ class GlobalErrorInterceptor {
         if (response.status === 401 && 
             args[0]?.toString().includes('supabase.co/rest/v1/')) {
           
-          console.log('🚨 [GlobalErrorInterceptor] 401 detected from Supabase API');
+          log.debug('Utils', '🚨 [GlobalErrorInterceptor] 401 detected from Supabase API');
           
           // Attempt automatic session refresh
           const refreshSuccess = await this.handleSessionExpiry();
           
           if (refreshSuccess) {
-            console.log('✅ [GlobalErrorInterceptor] Session refreshed, retrying request');
+            log.debug('Utils', '✅ [GlobalErrorInterceptor] Session refreshed, retrying request');
             
             // Retry the original request with fresh session
             return originalFetch(...args);
           } else {
-            console.warn('❌ [GlobalErrorInterceptor] Session refresh failed');
+            log.warn('Utils', '❌ [GlobalErrorInterceptor] Session refresh failed');
           }
         }
         
         return response;
       };
       
-      // ENHANCED: Override console.error to prevent React error boundaries from triggering
+      // ENHANCED: Override log.error('Utils', to prevent React error boundaries from triggering
       const originalError = console.error;
       console.error = (...args) => {
         const errorMessage = args.join(' ');
@@ -64,7 +65,7 @@ class GlobalErrorInterceptor {
             errorMessage.includes('render') ||
             errorMessage.includes('boundary') ||
             errorMessage.includes('componentDidCatch')) {
-          console.warn('🛡️ [GlobalErrorInterceptor] Suppressed React error to prevent boundary trigger:', ...args);
+          log.warn('Utils', '🛡️ [GlobalErrorInterceptor] Suppressed React error to prevent boundary trigger:', ...args);
           return;
         }
         
@@ -74,7 +75,7 @@ class GlobalErrorInterceptor {
             !errorMessage.includes('timeout') &&
             !errorMessage.includes('fallback')) {
           
-          console.log('🚨 [GlobalErrorInterceptor] 401 authentication error detected');
+          log.debug('Utils', '🚨 [GlobalErrorInterceptor] 401 authentication error detected');
           this.handleSessionExpiry();
         }
         
@@ -91,7 +92,7 @@ class GlobalErrorInterceptor {
             errorMessage.includes('Component') ||
             errorMessage.includes('render') ||
             errorMessage.includes('boundary')) {
-          console.warn('🛡️ [GlobalErrorInterceptor] Suppressed React promise rejection to prevent boundary trigger:', errorMessage);
+          log.warn('Utils', '🛡️ [GlobalErrorInterceptor] Suppressed React promise rejection to prevent boundary trigger:', errorMessage);
           event.preventDefault();
           return;
         }
@@ -103,7 +104,7 @@ class GlobalErrorInterceptor {
             !errorMessage.includes('fallback') &&
             errorMessage.includes('JWT')) {
           
-          console.log('🚨 [GlobalErrorInterceptor] 401 authentication error in unhandled rejection');
+          log.debug('Utils', '🚨 [GlobalErrorInterceptor] 401 authentication error in unhandled rejection');
           this.handleSessionExpiry();
           event.preventDefault(); // Prevent default error handling
         }
@@ -120,7 +121,7 @@ class GlobalErrorInterceptor {
             errorMessage.includes('boundary') ||
             event.filename?.includes('react') ||
             event.filename?.includes('React')) {
-          console.warn('🛡️ [GlobalErrorInterceptor] Suppressed React error event to prevent boundary trigger:', errorMessage);
+          log.warn('Utils', '🛡️ [GlobalErrorInterceptor] Suppressed React error event to prevent boundary trigger:', errorMessage);
           event.preventDefault();
           event.stopPropagation();
           return false;
@@ -128,20 +129,20 @@ class GlobalErrorInterceptor {
         
         // Handle network/auth errors gracefully
         if (errorMessage.includes('401') || errorMessage.includes('Load failed') || errorMessage.includes('Fetch API')) {
-          console.log('🛡️ [GlobalErrorInterceptor] Handled network error gracefully:', errorMessage);
+          log.debug('Utils', '🛡️ [GlobalErrorInterceptor] Handled network error gracefully:', errorMessage);
           event.preventDefault();
           return false;
         }
       }, true);
       
-      console.log('🛡️ [GlobalErrorInterceptor] Initialized session recovery protection with React boundary protection');
+      log.debug('Utils', '🛡️ [GlobalErrorInterceptor] Initialized session recovery protection with React boundary protection');
     }
   }
   
   private async handleSessionExpiry(): Promise<boolean> {
     // Prevent multiple simultaneous refresh attempts
     if (this.isRefreshing && this.refreshPromise) {
-      console.log('📱 [GlobalErrorInterceptor] Session refresh already in progress, waiting...');
+      log.debug('Utils', '📱 [GlobalErrorInterceptor] Session refresh already in progress, waiting...');
       return this.refreshPromise;
     }
     
@@ -158,13 +159,13 @@ class GlobalErrorInterceptor {
   
   private async performSessionRefresh(): Promise<boolean> {
     try {
-      console.log('🔄 [GlobalErrorInterceptor] Attempting session refresh for 401 error');
+      log.debug('Utils', '🔄 [GlobalErrorInterceptor] Attempting session refresh for 401 error');
       
       // Get current session first
       const { data: currentSession } = await getSupabaseClient().auth.getSession();
       
       if (!currentSession.session) {
-        console.log('⚠️ [GlobalErrorInterceptor] No current session found');
+        log.debug('Utils', '⚠️ [GlobalErrorInterceptor] No current session found');
         return false;
       }
       
@@ -172,22 +173,22 @@ class GlobalErrorInterceptor {
       const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession();
       
       if (refreshError || !refreshData.session) {
-        console.warn('❌ [GlobalErrorInterceptor] Session refresh failed:', refreshError?.message);
+        log.warn('Utils', '❌ [GlobalErrorInterceptor] Session refresh failed:', refreshError?.message);
         
         // Trigger Phase 1 mobile recovery if available
         if ((window as any).phase1Recovery) {
-          console.log('📱 [GlobalErrorInterceptor] Triggering Phase 1 recovery');
+          log.debug('Utils', '📱 [GlobalErrorInterceptor] Triggering Phase 1 recovery');
           try {
             await (window as any).phase1Recovery.performComprehensiveRecovery();
           } catch (phase1Error) {
-            console.warn('❌ [GlobalErrorInterceptor] Phase 1 recovery failed:', phase1Error);
+            log.warn('Utils', '❌ [GlobalErrorInterceptor] Phase 1 recovery failed:', phase1Error);
           }
         }
         
         return false;
       }
       
-      console.log('✅ [GlobalErrorInterceptor] Session refreshed successfully');
+      log.debug('Utils', '✅ [GlobalErrorInterceptor] Session refreshed successfully');
       
       // FIXED: Safely notify mobile session manager if available and not blocked
       try {
@@ -199,19 +200,19 @@ class GlobalErrorInterceptor {
           if (typeof manager.persistState === 'function') {
             manager.persistState();
           }
-          console.log('✅ [GlobalErrorInterceptor] Mobile session manager updated');
+          log.debug('Utils', '✅ [GlobalErrorInterceptor] Mobile session manager updated');
         } else {
-          console.log('ℹ️ [GlobalErrorInterceptor] Mobile session manager not available (may be blocked for protection)');
+          log.debug('Utils', 'ℹ️ [GlobalErrorInterceptor] Mobile session manager not available (may be blocked for protection)');
         }
       } catch (mobileError) {
-        console.log('ℹ️ [GlobalErrorInterceptor] Mobile session manager access blocked (protection active)');
+        log.debug('Utils', 'ℹ️ [GlobalErrorInterceptor] Mobile session manager access blocked (protection active)');
         // Don't throw error - this is expected when protection is active
       }
       
       return true;
       
     } catch (error) {
-      console.error('❌ [GlobalErrorInterceptor] Session refresh exception:', error);
+      log.error('Utils', '❌ [GlobalErrorInterceptor] Session refresh exception:', error);
       return false;
     }
   }

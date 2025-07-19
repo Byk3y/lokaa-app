@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { X, PaperclipIcon, BarChart3 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,7 +36,7 @@ export default function ComposeLightPostPage() {
           setSpaceSubdomain(data.subdomain || "");
         }
       } catch (error) {
-        console.error("Error fetching space:", error);
+        log.error('Page', "Error fetching space:", error);
         toast({
           title: "Error",
           description: "Failed to load space information",
@@ -95,7 +96,7 @@ export default function ComposeLightPostPage() {
       // Navigate to feed
       navigateToFeed();
     } catch (error) {
-      console.error("Error creating post:", error);
+      log.error('Page', "Error creating post:", error);
       toast({
         title: "Error",
         description: "Failed to publish your post",

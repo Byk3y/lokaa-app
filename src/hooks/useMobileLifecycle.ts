@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📱 Mobile Lifecycle Hook - Phase 1 Enhanced
  * 
@@ -50,7 +51,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
   
   // Early initialization check - before any state or effects
   if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_LIFECYCLE) {
-    console.log('🔧 [MobileLifecycle] DISABLED - Mobile Event Coordinator is managing events');
+    log.debug('Hook', '🔧 [MobileLifecycle] DISABLED - Mobile Event Coordinator is managing events');
     // Return dummy implementation when disabled
     return {
       isBackground: false,
@@ -86,9 +87,9 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
     if (!isInitialized) {
       isInitialized = true;
       activeInstance = instanceId.current;
-      console.log(`📱 [MobileLifecycle] Initializing first instance: ${instanceId.current}`);
+      log.debug('Hook', `📱 [MobileLifecycle] Initializing first instance: ${instanceId.current}`);
     } else if (activeInstance !== instanceId.current) {
-      console.warn(`📱 [MobileLifecycle] Multiple instances detected. Active: ${activeInstance}, Current: ${instanceId.current}`);
+      log.warn('Hook', `📱 [MobileLifecycle] Multiple instances detected. Active: ${activeInstance}, Current: ${instanceId.current}`);
       return; // Don't initialize event listeners for duplicate instances
     }
     
@@ -96,7 +97,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
       if (activeInstance === instanceId.current) {
         isInitialized = false;
         activeInstance = null;
-        console.log(`📱 [MobileLifecycle] Cleaning up instance: ${instanceId.current}`);
+        log.debug('Hook', `📱 [MobileLifecycle] Cleaning up instance: ${instanceId.current}`);
       }
     };
   }, [isMobileDevice]);
@@ -145,7 +146,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
           isBackground: true,
           phase1RecoveryActive: false 
         }));
-        console.log('📱 [MobileLifecycle] App backgrounded');
+        log.debug('Hook', '📱 [MobileLifecycle] App backgrounded');
         
       } else if (wasBackground && !nowBackground) {
         // Returning from background
@@ -163,7 +164,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
           validationResult: null
         }));
 
-        console.log(`📱 [MobileLifecycle] Returned from background after ${Math.round(duration / 1000)}s, isLongBackground: ${isLongBackground}, needsRecovery: delayed`);
+        log.debug('Hook', `📱 [MobileLifecycle] Returned from background after ${Math.round(duration / 1000)}s, isLongBackground: ${isLongBackground}, needsRecovery: delayed`);
 
         // PHASE 1: Trigger proactive session validation for significant background time
         if (isSignificantBackground && user) {
@@ -171,7 +172,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
           const validationThreshold = 30000; // 30 seconds
           
           if (timeSinceLastValidation > validationThreshold) {
-            console.log('📱 [MobileLifecycle] Triggering proactive session validation');
+            log.debug('Hook', '📱 [MobileLifecycle] Triggering proactive session validation');
             
             // ENHANCED: Delay validation longer for very long backgrounds to let Safari settle
             const validationDelay = isLongBackground ? 5000 : 1000; // 5s for long background, 1s for normal
@@ -189,7 +190,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
                 
                 lastValidationTimeRef.current = now;
                 
-                console.log(`📱 [MobileLifecycle] Session validation completed: ${validationResult.action}`);
+                log.debug('Hook', `📱 [MobileLifecycle] Session validation completed: ${validationResult.action}`);
                 
                 // ENHANCED: Only mark for recovery if session is truly invalid AND we're stuck
                 if (!validationResult.isValid && loading) {
@@ -203,8 +204,8 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
                   }, recoveryDelay);
                 }
               } catch (error) {
-                console.warn('📱 [MobileLifecycle] Session validation failed:', error);
-                console.log('📱 [MobileLifecycle] Deferring recovery decision due to validation failure (network may be blocked)');
+                log.warn('Hook', '📱 [MobileLifecycle] Session validation failed:', error);
+                log.debug('Hook', '📱 [MobileLifecycle] Deferring recovery decision due to validation failure (network may be blocked)');
                 
                 setState(prev => ({
                   ...prev,
@@ -293,7 +294,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
         // ENHANCED: More patient auto-trigger - longer delays for longer backgrounds
         const autoTriggerThreshold = state.backgroundDuration > 60000 ? 45000 : 25000; // 45s for long backgrounds, 25s for normal
         if (state.returnedFromBackground && stuckDuration > autoTriggerThreshold && !state.isRecovering && !state.phase1RecoveryActive) {
-          console.log(`📱 [MobileLifecycle] Auto-triggering Phase 1 enhanced recovery for stuck loading state (${Math.round(stuckDuration/1000)}s stuck, background: ${Math.round(state.backgroundDuration/1000)}s)`);
+          log.debug('Hook', `📱 [MobileLifecycle] Auto-triggering Phase 1 enhanced recovery for stuck loading state (${Math.round(stuckDuration/1000)}s stuck, background: ${Math.round(state.backgroundDuration/1000)}s)`);
           triggerEnhancedRecovery();
         }
       }, 1000);
@@ -325,11 +326,11 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
    */
   const triggerEnhancedRecovery = useCallback(async () => {
     if (state.isRecovering || state.phase1RecoveryActive) {
-      console.log('📱 [MobileLifecycle] Enhanced recovery already in progress, skipping');
+      log.debug('Hook', '📱 [MobileLifecycle] Enhanced recovery already in progress, skipping');
       return;
     }
 
-    console.log('📱 [MobileLifecycle] Triggering Phase 1 enhanced mobile recovery');
+    log.debug('Hook', '📱 [MobileLifecycle] Triggering Phase 1 enhanced mobile recovery');
     
     setState(prev => ({ 
       ...prev, 
@@ -341,7 +342,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
     try {
       const result = await mobileSessionManager.performEnhancedMobileRecovery(navigate);
       
-      console.log('📱 [MobileLifecycle] Enhanced recovery result:', result);
+      log.debug('Hook', '📱 [MobileLifecycle] Enhanced recovery result:', result);
 
       if (result.success) {
         setState(prev => ({
@@ -361,10 +362,10 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
           phase1RecoveryActive: false 
         }));
         
-        console.warn('📱 [MobileLifecycle] Enhanced recovery failed:', result.error);
+        log.warn('Hook', '📱 [MobileLifecycle] Enhanced recovery failed:', result.error);
       }
     } catch (error) {
-      console.error('📱 [MobileLifecycle] Enhanced recovery error:', error);
+      log.error('Hook', '📱 [MobileLifecycle] Enhanced recovery error:', error);
       setState(prev => ({ 
         ...prev, 
         isRecovering: false, 
@@ -379,7 +380,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
   const validateSession = useCallback(async () => {
     if (!user) return;
     
-    console.log('📱 [MobileLifecycle] Manual session validation triggered');
+    log.debug('Hook', '📱 [MobileLifecycle] Manual session validation triggered');
     
     try {
       const validationResult = await mobileSessionManager.validateSessionProactively();
@@ -392,11 +393,11 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
       
       lastValidationTimeRef.current = Date.now();
       
-      console.log(`📱 [MobileLifecycle] Manual session validation completed: ${validationResult.action}`);
+      log.debug('Hook', `📱 [MobileLifecycle] Manual session validation completed: ${validationResult.action}`);
       
       return validationResult;
     } catch (error) {
-      console.warn('📱 [MobileLifecycle] Manual session validation failed:', error);
+      log.warn('Hook', '📱 [MobileLifecycle] Manual session validation failed:', error);
       setState(prev => ({
         ...prev,
         sessionValidated: false,
@@ -410,11 +411,11 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
    */
   const triggerRecovery = useCallback(async () => {
     if (state.isRecovering) {
-      console.log('📱 [MobileLifecycle] Recovery already in progress, skipping');
+      log.debug('Hook', '📱 [MobileLifecycle] Recovery already in progress, skipping');
       return;
     }
 
-    console.log('📱 [MobileLifecycle] Triggering legacy mobile recovery');
+    log.debug('Hook', '📱 [MobileLifecycle] Triggering legacy mobile recovery');
     
     setState(prev => ({ ...prev, isRecovering: true }));
 
@@ -422,7 +423,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
       // PHASE 1: Use enhanced recovery by default
       const result = await mobileSessionManager.performEnhancedMobileRecovery(navigate);
       
-      console.log('📱 [MobileLifecycle] Recovery result:', result);
+      log.debug('Hook', '📱 [MobileLifecycle] Recovery result:', result);
 
       if (result.success) {
         setState(prev => ({
@@ -437,10 +438,10 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
         setState(prev => ({ ...prev, isRecovering: false }));
         
         // Show user feedback that something went wrong
-        console.warn('📱 [MobileLifecycle] Recovery failed:', result.error);
+        log.warn('Hook', '📱 [MobileLifecycle] Recovery failed:', result.error);
       }
     } catch (error) {
-      console.error('📱 [MobileLifecycle] Recovery error:', error);
+      log.error('Hook', '📱 [MobileLifecycle] Recovery error:', error);
       setState(prev => ({ ...prev, isRecovering: false }));
     }
   }, [state.isRecovering, navigate]);
@@ -449,7 +450,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
    * Reset recovery state manually
    */
   const resetRecoveryState = useCallback(() => {
-    console.log('📱 [MobileLifecycle] Resetting recovery state');
+    log.debug('Hook', '📱 [MobileLifecycle] Resetting recovery state');
     
     mobileSessionManager.resetRecoveryState();
     setState(prev => ({
@@ -484,7 +485,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
    * Mark recovery as complete (called by components after successful recovery)
    */
   const markRecoveryComplete = useCallback(() => {
-    console.log('📱 [MobileLifecycle] Recovery marked as complete');
+    log.debug('Hook', '📱 [MobileLifecycle] Recovery marked as complete');
     
     setState(prev => ({
       ...prev,
@@ -505,7 +506,7 @@ export const useMobileLifecycle = (): UseMobileLifecycleReturn => {
    */
   useEffect(() => {
     if (state.needsRecovery && !state.isRecovering && !state.phase1RecoveryActive && user) {
-      console.log('📱 [MobileLifecycle] Auto-triggering enhanced recovery based on needsRecovery state');
+      log.debug('Hook', '📱 [MobileLifecycle] Auto-triggering enhanced recovery based on needsRecovery state');
       
       // Small delay to let other components settle
       recoveryTimeoutRef.current = setTimeout(() => {

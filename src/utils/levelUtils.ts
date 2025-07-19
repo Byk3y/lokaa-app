@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 export interface LevelThreshold {
   level: number;
   name: string;
@@ -88,7 +89,7 @@ export const formatDate = (dateString: string | null | undefined): string => {
       day: 'numeric',
     });
   } catch (error) {
-    console.error('Error formatting date:', error);
+    log.error('Utils', 'Error formatting date:', error);
     return 'Invalid Date';
   }
 };

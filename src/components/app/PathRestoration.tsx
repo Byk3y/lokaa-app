@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Path Restoration Component
  * 
@@ -38,7 +39,7 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
 
     // Don't attempt restoration if no user
     if (!user) {
-      console.log('📍 [PathRestoration] No user, skipping restoration');
+      log.debug('Component', '📍 [PathRestoration] No user, skipping restoration');
       onRestorationComplete(false);
       return;
     }
@@ -46,7 +47,7 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
     // Don't attempt restoration on certain paths
     const currentPath = location.pathname;
     if (currentPath !== '/app') {
-      console.log('📍 [PathRestoration] Not on /app route, skipping restoration');
+      log.debug('Component', '📍 [PathRestoration] Not on /app route, skipping restoration');
       onRestorationComplete(false);
       return;
     }
@@ -54,7 +55,7 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
     // Check for explicit redirect intent first (highest priority)
     const explicitRedirect = sessionStorage.getItem('redirect_after_login');
     if (explicitRedirect) {
-      console.log('📍 [PathRestoration] Explicit redirect present, skipping restoration');
+      log.debug('Component', '📍 [PathRestoration] Explicit redirect present, skipping restoration');
       onRestorationComplete(false);
       return;
     }
@@ -64,7 +65,7 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
 
     // Set a timeout for restoration attempt (3 seconds max)
     timeoutRef.current = setTimeout(() => {
-      console.log('⏱️ [PathRestoration] Restoration timeout, proceeding with default flow');
+      log.debug('Component', '⏱️ [PathRestoration] Restoration timeout, proceeding with default flow');
       clearPathRestorationActive();
       onRestorationComplete(false);
     }, 3000);
@@ -72,7 +73,7 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
     // Attempt path restoration
     const performRestoration = async () => {
       try {
-        console.log('📍 [PathRestoration] Attempting path restoration for user:', user.id);
+        log.debug('Component', '📍 [PathRestoration] Attempting path restoration for user:', user.id);
         
         // Mark path restoration as active to prevent mobile session manager interference
         markPathRestorationActive();
@@ -89,14 +90,14 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
         clearPathRestorationActive();
         
         if (restored) {
-          console.log('✅ [PathRestoration] Path restoration successful');
+          log.debug('Component', '✅ [PathRestoration] Path restoration successful');
           onRestorationComplete(true);
         } else {
-          console.log('📍 [PathRestoration] No path to restore, proceeding with default flow');
+          log.debug('Component', '📍 [PathRestoration] No path to restore, proceeding with default flow');
           onRestorationComplete(false);
         }
       } catch (error) {
-        console.error('❌ [PathRestoration] Restoration failed:', error);
+        log.error('Component', '❌ [PathRestoration] Restoration failed:', error);
         
         // Clear timeout on error
         if (timeoutRef.current) {

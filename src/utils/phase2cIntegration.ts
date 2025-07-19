@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔮 Phase 2C: Predictive Cache Integration (Simplified)
  * 
@@ -74,15 +75,15 @@ class Phase2CIntegration {
   private initializeIntegration(): void {
     // 🎯 PHASE 2 FIX: Conditional logging based on global flags
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🔮 [Phase2C] Starting initialization...');
-      console.log('🔮 [Phase2C] Simplified version - focusing on global interface');
+      log.debug('Utils', '🔮 [Phase2C] Starting initialization...');
+      log.debug('Utils', '🔮 [Phase2C] Simplified version - focusing on global interface');
     }
 
     // For now, mark as available
     this.integrationStats.totalIntegrations = 1;
     
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🔮 [Phase2C] Initialization completed');
+      log.debug('Utils', '🔮 [Phase2C] Initialization completed');
     }
   }
 
@@ -95,7 +96,7 @@ class Phase2CIntegration {
       // Create minimal interface in quiet mode
       (window as any).phase2c = {
         runTests: () => {
-          console.log('🔮 Phase 2C tests passed (quiet mode)');
+          log.debug('Utils', '🔮 Phase 2C tests passed (quiet mode)');
           return true;
         },
         getStatus: () => ({ status: 'active', mode: 'quiet' })
@@ -103,16 +104,16 @@ class Phase2CIntegration {
       return;
     }
 
-    console.log('🔮 [Phase2C] Setting up global debugging interface...');
-    console.log('🔮 [Phase2C] Config enableGlobalDebugging:', this.config.enableGlobalDebugging);
-    console.log('🔮 [Phase2C] Window available:', typeof window !== 'undefined');
+    log.debug('Utils', '🔮 [Phase2C] Setting up global debugging interface...');
+    log.debug('Utils', '🔮 [Phase2C] Config enableGlobalDebugging:', this.config.enableGlobalDebugging);
+    log.debug('Utils', '🔮 [Phase2C] Window available:', typeof window !== 'undefined');
     
     if (!this.config.enableGlobalDebugging || typeof window === 'undefined') {
-      console.log('🔮 [Phase2C] Global debugging setup skipped');
+      log.debug('Utils', '🔮 [Phase2C] Global debugging setup skipped');
       return;
     }
 
-    console.log('🔮 [Phase2C] Creating window.phase2c interface...');
+    log.debug('Utils', '🔮 [Phase2C] Creating window.phase2c interface...');
 
     // Expose Phase 2C debugging tools
     (window as any).phase2c = {
@@ -163,12 +164,12 @@ class Phase2CIntegration {
       
       // Quick actions
       generatePredictions: (userId: string) => {
-        console.log('🔮 [Phase2C] Generating predictions for user:', userId);
+        log.debug('Utils', '🔮 [Phase2C] Generating predictions for user:', userId);
         return Promise.resolve([]);
       },
       
       optimizePerformance: () => {
-        console.log('🔮 [Phase2C] Running performance optimization...');
+        log.debug('Utils', '🔮 [Phase2C] Running performance optimization...');
         return Promise.resolve();
       },
       
@@ -184,19 +185,19 @@ class Phase2CIntegration {
       
       // Testing
       runTests: () => {
-        console.log('🔮 Running Phase 2C Tests...');
-        console.log('✅ Phase 2C Integration:', typeof this !== 'undefined');
-        console.log('✅ Global Interface:', typeof (window as any).phase2c !== 'undefined');
-        console.log('✅ Basic functionality working');
-        console.log('🎉 Phase 2C simplified version is working correctly!');
+        log.debug('Utils', '🔮 Running Phase 2C Tests...');
+        log.debug('Utils', '✅ Phase 2C Integration:', typeof this !== 'undefined');
+        log.debug('Utils', '✅ Global Interface:', typeof (window as any).phase2c !== 'undefined');
+        log.debug('Utils', '✅ Basic functionality working');
+        log.debug('Utils', '🎉 Phase 2C simplified version is working correctly!');
         return true;
       }
     };
 
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🔮 [Phase2C] Global interface created successfully');
-      console.log('🔮 [Phase2C] window.phase2c available:', typeof (window as any).phase2c !== 'undefined');
-      console.log('🔮 [Phase2C] Global debugging interface available at window.phase2c');
+      log.debug('Utils', '🔮 [Phase2C] Global interface created successfully');
+      log.debug('Utils', '🔮 [Phase2C] window.phase2c available:', typeof (window as any).phase2c !== 'undefined');
+      log.debug('Utils', '🔮 [Phase2C] Global debugging interface available at window.phase2c');
     }
   }
 
@@ -210,14 +211,14 @@ class Phase2CIntegration {
       this.performanceCheck();
     }, this.config.monitoringInterval);
 
-    console.log('🔮 [Phase2C] Performance monitoring enabled');
+    log.debug('Utils', '🔮 [Phase2C] Performance monitoring enabled');
   }
 
   /**
    * Generate predictions for a specific user
    */
   public async generatePredictionsForUser(userId: string): Promise<any> {
-    console.log('🔮 [Phase2C] Generating predictions for user:', userId);
+    log.debug('Utils', '🔮 [Phase2C] Generating predictions for user:', userId);
     return [];
   }
 
@@ -225,7 +226,7 @@ class Phase2CIntegration {
    * Optimize performance across all systems
    */
   public async optimizePerformance(): Promise<void> {
-    console.log('🔮 [Phase2C] Starting performance optimization');
+    log.debug('Utils', '🔮 [Phase2C] Starting performance optimization');
     // Simplified optimization
   }
 
@@ -233,7 +234,7 @@ class Phase2CIntegration {
    * Run comprehensive diagnostics
    */
   public runComprehensiveDiagnostics(): Phase2CHealthReport {
-    console.log('🔮 [Phase2C] Running comprehensive diagnostics');
+    log.debug('Utils', '🔮 [Phase2C] Running comprehensive diagnostics');
 
     const metrics = this.getIntegrationMetrics();
     const issues: string[] = [];
@@ -249,7 +250,7 @@ class Phase2CIntegration {
       metrics
     };
 
-    console.log('🔮 [Phase2C] Diagnostics completed - Status: healthy (100/100)');
+    log.debug('Utils', '🔮 [Phase2C] Diagnostics completed - Status: healthy (100/100)');
     return report;
   }
 
@@ -338,7 +339,7 @@ class Phase2CIntegration {
    */
   private performanceCheck(): void {
     // Simplified performance check
-    console.log('🔮 [Phase2C] Performance check completed');
+    log.debug('Utils', '🔮 [Phase2C] Performance check completed');
   }
 
   /**
@@ -353,7 +354,7 @@ class Phase2CIntegration {
       this.setupPerformanceMonitoring();
     }
 
-    console.log('🔮 [Phase2C] Configuration updated', newConfig);
+    log.debug('Utils', '🔮 [Phase2C] Configuration updated', newConfig);
   }
 
   /**
@@ -377,7 +378,7 @@ class Phase2CIntegration {
       this.monitoringTimer = null;
     }
     
-    console.log('🔮 [Phase2C] Phase 2C integration cleaned up');
+    log.debug('Utils', '🔮 [Phase2C] Phase 2C integration cleaned up');
   }
 }
 

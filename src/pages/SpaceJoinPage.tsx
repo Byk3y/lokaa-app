@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -38,7 +39,7 @@ export default function SpaceJoinPage() {
           .single();
 
         if (spaceError) {
-          console.error("[SpaceJoinPage] Error fetching space details:", spaceError);
+          log.error('Page', "[SpaceJoinPage] Error fetching space details:", spaceError);
           setError(spaceError.message || "Failed to load space details.");
           toast({ title: "Error", description: "Could not load space details. Please try again.", variant: "destructive" });
           setLoading(false);
@@ -46,7 +47,7 @@ export default function SpaceJoinPage() {
         }
 
         if (!spaceData) {
-          console.error("[SpaceJoinPage] Space not found during fetch for ID:", spaceId);
+          log.error('Page', "[SpaceJoinPage] Space not found during fetch for ID:", spaceId);
           setError("Space not found. It may have been removed or the link is incorrect.");
           toast({ title: "Space Not Found", description: "The requested space could not be found.", variant: "destructive" });
           setLoading(false);
@@ -55,11 +56,11 @@ export default function SpaceJoinPage() {
 
         setSpace(spaceData);
 
-        console.log("[SpaceJoinPage] Attempting to join space via MembershipContext for space ID:", spaceId);
+        log.debug('Page', "[SpaceJoinPage] Attempting to join space via MembershipContext for space ID:", spaceId);
         const success = await joinSpace(spaceId);
         
         if (success) {
-          console.log("[SpaceJoinPage] joinSpace from context reported success for space ID:", spaceId);
+          log.debug('Page', "[SpaceJoinPage] joinSpace from context reported success for space ID:", spaceId);
           await updateLastJoinedSpace(
             spaceData.id,
             spaceData.name,
@@ -78,13 +79,13 @@ export default function SpaceJoinPage() {
         } else {
           // If joinSpace from context returns false, it implies an issue (e.g., RPC error, success:false from RPC).
           // It should have already shown a specific error toast.
-          console.error("[SpaceJoinPage] joinSpace from context reported failure for space ID:", spaceId);
+          log.error('Page', "[SpaceJoinPage] joinSpace from context reported failure for space ID:", spaceId);
           setError("Failed to join the space. Please check for specific error messages or try again.");
           // No redundant toast here; rely on MembershipContext for RPC/specific failure toasts.
         }
       } catch (err: unknown) {
         // This catch block is for unexpected errors in SpaceJoinPage itself (e.g., during spaceData fetch, navigation)
-        console.error('[SpaceJoinPage] Unexpected error in performJoinSpace for space ID:', spaceId, err);
+        log.error('Page', '[SpaceJoinPage] Unexpected error in performJoinSpace for space ID:', spaceId, err);
         const message = err instanceof Error ? err.message : "An unexpected error occurred.";
         setError(message);
         toast({

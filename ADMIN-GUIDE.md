@@ -98,7 +98,7 @@ If you're still encountering issues after applying the fix, try the following:
 
 ## Need Help?
 
-If you're unable to resolve the issue using this guide, please contact our support team at support@lokaa.com with the following information:
+If you're unable to resolve the issue using this guide, please contact our support team at support@lokaa.app with the following information:
 
 - Your Supabase project ID
 - Any error messages you're seeing

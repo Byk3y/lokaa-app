@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, X, Check, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -205,7 +206,7 @@ export default function ProfileImageUploader({
       // Reset the editing state
       setIsEditingExistingImage(false);
     } catch (error) {
-      console.error('Error applying crop:', error);
+      log.error('Component', 'Error applying crop:', error);
       toast({
         title: 'Error',
         description: 'Failed to process the image',
@@ -256,7 +257,7 @@ export default function ProfileImageUploader({
         });
       
       if (uploadError) {
-        console.error('Error uploading image:', uploadError);
+        log.error('Component', 'Error uploading image:', uploadError);
         toast({
           title: 'Upload failed',
           description: uploadError.message,
@@ -289,7 +290,7 @@ export default function ProfileImageUploader({
       });
       
       if (metadataError) {
-        console.error('Error updating user metadata:', metadataError);
+        log.error('Component', 'Error updating user metadata:', metadataError);
         toast({
           title: 'Metadata update failed',
           description: metadataError.message,
@@ -306,7 +307,7 @@ export default function ProfileImageUploader({
         .eq('id', user.id);
       
       if (dbUpdateError) {
-        console.error('Error updating public.users table:', dbUpdateError);
+        log.error('Component', 'Error updating public.users table:', dbUpdateError);
         toast({
           title: 'Profile update failed',
           description: 'Could not update your public profile with the new avatar.',
@@ -328,7 +329,7 @@ export default function ProfileImageUploader({
         description: 'Profile image updated!',
       });
     } catch (error) {
-      console.error('Error uploading image:', error);
+      log.error('Component', 'Error uploading image:', error);
       toast({
         title: 'Upload failed',
         description: error instanceof Error ? error.message : 'An unknown error occurred',

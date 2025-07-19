@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Date utility functions for formatting and manipulating dates consistently across the application
  */
@@ -13,7 +14,7 @@ export function formatJoinedDate(dateString: string): string {
     
     // Check if the date is valid
     if (isNaN(date.getTime())) {
-      console.warn("Invalid date in formatJoinedDate:", dateString);
+      log.warn('Utils', "Invalid date in formatJoinedDate:", dateString);
       return 'Unknown date';
     }
     
@@ -24,7 +25,7 @@ export function formatJoinedDate(dateString: string): string {
       year: 'numeric'
     });
   } catch (error) {
-    console.error('Error formatting date:', error);
+    log.error('Utils', 'Error formatting date:', error);
     return 'Unknown date';
   }
 }
@@ -44,7 +45,7 @@ export function formatDate(
     
     // Check if the date is valid
     if (isNaN(date.getTime())) {
-      console.warn("Invalid date in formatDate:", dateString);
+      log.warn('Utils', "Invalid date in formatDate:", dateString);
       return 'Invalid date';
     }
     
@@ -83,7 +84,7 @@ export function formatDate(
         return date.toLocaleDateString();
     }
   } catch (error) {
-    console.error('Error formatting date:', error);
+    log.error('Utils', 'Error formatting date:', error);
     return 'Invalid date';
   }
 }
@@ -97,7 +98,7 @@ function getRelativeTimeString(date: Date): string {
   try {
     // Check if the date is valid
     if (isNaN(date.getTime())) {
-      console.warn("Invalid date in getRelativeTimeString:", date);
+      log.warn('Utils', "Invalid date in getRelativeTimeString:", date);
       return 'Unknown time';
     }
     
@@ -125,7 +126,7 @@ function getRelativeTimeString(date: Date): string {
       });
     }
   } catch (error) {
-    console.error('Error in getRelativeTimeString:', error);
+    log.error('Utils', 'Error in getRelativeTimeString:', error);
     return 'Unknown time';
   }
 } 

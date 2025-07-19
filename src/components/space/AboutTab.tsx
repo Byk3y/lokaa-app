@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Globe, Lock, Users, Tag, Upload, X, Play, Plus, AlertCircle, Loader2, GripHorizontal, ArrowUpDown, Settings, FileText, Check, Edit, Link as LinkIcon, Trash2, Eye, ExternalLink, Crown, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -210,7 +211,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
           });
         }
     } catch (err) {
-      console.error("Error joining space:", err);
+      log.error('Component', "Error joining space:", err);
       toast({
         title: "Error joining space",
         description: "Could not join this space at this time.",
@@ -260,7 +261,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
       // Removed onSpaceUpdate call and manual fetchSpaceData
       
     } catch (err) {
-      console.error('Error saving about description:', err);
+      log.error('Component', 'Error saving about description:', err);
       toast({
         title: "Save failed",
         description: "Failed to update description. Please try again.",
@@ -298,7 +299,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
           .list('');
         
         if (error) {
-          console.error('Cannot list files in storage bucket:', error);
+          log.error('Component', 'Cannot list files in storage bucket:', error);
           setStorageError('Storage bucket not accessible. Using local storage only.');
           return;
         }
@@ -306,7 +307,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
         setStorageError(null);
         
       } catch (err) {
-        console.error('Failed to check storage bucket:', err);
+        log.error('Component', 'Failed to check storage bucket:', err);
         setStorageError('Unable to connect to storage service. Using local storage only.');
       }
     };
@@ -464,7 +465,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
     setMediaToDelete(null);
       toast({ title: "Media deleted", description: "The selected media has been removed." });
     } catch (err) {
-      console.error('Error deleting media:', err);
+      log.error('Component', 'Error deleting media:', err);
       toast({ title: "Delete failed", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
     } finally {
       setDeleting(false);
@@ -552,7 +553,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
         variant: "default" 
       });
     } catch (error) {
-      console.error('Error reordering media:', error);
+      log.error('Component', 'Error reordering media:', error);
       toast({ 
         title: "Reordering failed", 
         description: "There was a problem updating the order. Please try again.", 
@@ -712,7 +713,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
         toast({ title: "No media selected", description: "Please upload an image or add a video link.", variant: "destructive" });
       }
     } catch (error: unknown) {
-      console.error('Error adding media:', error);
+      log.error('Component', 'Error adding media:', error);
       toast({ title: "Operation failed", description: (error instanceof Error ? error.message : String(error)) || "Something went wrong", variant: "destructive" });
       setSelectedFileName(null);
     }
@@ -755,7 +756,7 @@ export default function AboutTab(props: AboutTabProps) { // Use props instead of
   }
   
   // Add debug logging
-  console.log('🔧 [AboutTab] Data sources - storeSpace:', storeSpace ? 'available' : 'null', 'currentSpaceData:', currentSpaceData?.id);
+  log.debug('Component', '🔧 [AboutTab] Data sources - storeSpace:', storeSpace ? 'available' : 'null', 'currentSpaceData:', currentSpaceData?.id);
   
   // Ensure the component re-renders when currentSpaceData or its relevant properties change.
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 
 // Valid table names from the Database type
@@ -24,9 +25,9 @@ export async function examineTableStructure(tableName: TableName) {
     if (!sampleError && sampleData && sampleData.length > 0) {
       columns = Object.keys(sampleData[0]);
       sample = sampleData[0];
-      console.log(`Found ${columns.length} columns in ${tableName} table:`, columns);
+      log.debug('Utils', `Found ${columns.length} columns in ${tableName} table:`, columns);
     } else {
-      console.warn(`Unable to fetch sample data from ${tableName}:`, sampleError);
+      log.warn('Utils', `Unable to fetch sample data from ${tableName}:`, sampleError);
     }
     
     // Instead of using RPC call, infer schema details from the sample data
@@ -51,7 +52,7 @@ export async function examineTableStructure(tableName: TableName) {
       error: sampleError || null
     };
   } catch (error) {
-    console.error(`Error examining table ${tableName}:`, error);
+    log.error('Utils', `Error examining table ${tableName}:`, error);
     return {
       columns: [],
       sample: null, 
@@ -71,7 +72,7 @@ export async function getTableColumns(tableName: TableName): Promise<string[]> {
     const result = await examineTableStructure(tableName);
     return result.columns || [];
   } catch (error) {
-    console.error(`Error getting columns for ${tableName}:`, error);
+    log.error('Utils', `Error getting columns for ${tableName}:`, error);
     return [];
   }
 } 

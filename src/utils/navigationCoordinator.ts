@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 3: Navigation Coordinator
  * 
@@ -121,7 +122,7 @@ class NavigationCoordinator {
         return true;
       } else {
         if (process.env.NODE_ENV === 'development') {
-          console.error('🚫 [NavigationCoordinator] Navigate function not initialized - falling back to window.location');
+          log.error('Utils', '🚫 [NavigationCoordinator] Navigate function not initialized - falling back to window.location');
         }
         this.state.activeNavigation = null;
         
@@ -136,7 +137,7 @@ class NavigationCoordinator {
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.error('🚫 [NavigationCoordinator] Navigation error:', error);
+        log.error('Utils', '🚫 [NavigationCoordinator] Navigation error:', error);
       }
       this.state.activeNavigation = null;
       return false;

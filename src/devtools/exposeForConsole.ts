@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Development Console Helpers
  * 
@@ -16,7 +17,7 @@ class DevSupabaseIndexedDBBridge {
 
   init() {
     if (process.env.NODE_ENV === 'development') {
-      console.log('[DevBridge] Initialized');
+      log.debug('App', '[DevBridge] Initialized');
     }
   }
 
@@ -26,7 +27,7 @@ class DevSupabaseIndexedDBBridge {
 
   cleanup() {
     if (process.env.NODE_ENV === 'development') {
-      console.log('[DevBridge] Cleaned up');
+      log.debug('App', '[DevBridge] Cleaned up');
     }
   }
 
@@ -44,7 +45,7 @@ class DevSupabaseIndexedDBBridge {
 
   async getSpaceMembers(spaceId?: string) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[DevBridge] Getting space members for: ${spaceId}`);
+      log.debug('App', `[DevBridge] Getting space members for: ${spaceId}`);
     }
     return [
       { id: 'user1', name: 'Test User 1', avatar_url: null },
@@ -54,21 +55,21 @@ class DevSupabaseIndexedDBBridge {
 
   async getMemberCounts(spaceId?: string) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[DevBridge] Getting member counts for: ${spaceId}`);
+      log.debug('App', `[DevBridge] Getting member counts for: ${spaceId}`);
     }
     return { total: 2, online: 1, admins: 1 };
   }
 
   async getOnlineMembers(spaceId?: string) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[DevBridge] Getting online members for: ${spaceId}`);
+      log.debug('App', `[DevBridge] Getting online members for: ${spaceId}`);
     }
     return [{ id: 'user1', name: 'Test User 1', last_seen: new Date() }];
   }
 
   async getUserMembership(spaceId?: string, userId?: string) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[DevBridge] Getting membership for user ${userId} in space ${spaceId}`);
+      log.debug('App', `[DevBridge] Getting membership for user ${userId} in space ${spaceId}`);
     }
     return { role: 'member', joined_at: new Date(), is_online: true };
   }
@@ -83,7 +84,7 @@ class DevSupabaseIndexedDBBridge {
 
   async clearAllCaches() {
     if (process.env.NODE_ENV === 'development') {
-      console.log('[DevBridge] Clearing all caches');
+      log.debug('App', '[DevBridge] Clearing all caches');
     }
     return true;
   }
@@ -99,14 +100,14 @@ class DevSupabaseIndexedDBBridge {
 
   async invalidateSpaceCache(spaceId?: string) {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[DevBridge] Invalidating cache for space: ${spaceId}`);
+      log.debug('App', `[DevBridge] Invalidating cache for space: ${spaceId}`);
     }
     return true;
   }
 
   async handleError(error: Error) {
     if (process.env.NODE_ENV === 'development') {
-      console.error('[DevBridge] Handling error:', error);
+      log.error('App', '[DevBridge] Handling error:', error);
     }
     return { 
       message: error.message, 
@@ -166,12 +167,12 @@ function getFileValidationHelpers() {
       try {
         const result = await validateImageDimensionsInternal(file);
         if (process.env.NODE_ENV === 'development') {
-          console.log('[FileValidation] Image validation result:', result);
+          log.debug('App', '[FileValidation] Image validation result:', result);
         }
         return result;
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('[FileValidation] Error:', error);
+          log.error('App', '[FileValidation] Error:', error);
         }
         return { isValid: false, errors: [error.message] };
       }
@@ -182,12 +183,12 @@ function getFileValidationHelpers() {
       try {
         const result = await service.validateFileMetadata(file, type);
         if (process.env.NODE_ENV === 'development') {
-          console.log('[FileValidation] Metadata validation result:', result);
+          log.debug('App', '[FileValidation] Metadata validation result:', result);
         }
         return result;
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('[FileValidation] Error:', error);
+          log.error('App', '[FileValidation] Error:', error);
         }
         return { isValid: false, errors: [error.message] };
       }
@@ -210,7 +211,7 @@ function getFileValidationHelpers() {
 export async function exposeForConsole() {
   if (!import.meta.env.DEV) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[DevTools] Console helpers only available in development mode');
+      log.warn('App', '[DevTools] Console helpers only available in development mode');
     }
     return;
   }
@@ -234,10 +235,10 @@ export async function exposeForConsole() {
       testUserConversations: async (userId = 'test-user') => {
         try {
           const result = await chatApiService.getUserConversations(userId);
-          console.log('[ChatTest] getUserConversations result:', result);
+          log.debug('App', '[ChatTest] getUserConversations result:', result);
           return result;
         } catch (error) {
-          console.error('[ChatTest] Error:', error);
+          log.error('App', '[ChatTest] Error:', error);
           return { error: error.message };
         }
       }
@@ -252,12 +253,12 @@ export async function exposeForConsole() {
           const client = getSupabaseClient();
           const result = await client?.from?.('test')?.select?.('*')?.eq?.('id', 1)?.maybeSingle?.();
           if (process.env.NODE_ENV === 'development') {
-            console.log('[Supabase] Test connection result:', result);
+            log.debug('App', '[Supabase] Test connection result:', result);
           }
           return result;
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {
-            console.error('[Supabase] Test connection error:', error);
+            log.error('App', '[Supabase] Test connection error:', error);
           }
           return { error: error.message };
         }
@@ -283,7 +284,7 @@ export async function exposeForConsole() {
           localStorage.clear();
           sessionStorage.clear();
           if (process.env.NODE_ENV === 'development') {
-            console.log('[Storage] Cleared localStorage and sessionStorage');
+            log.debug('App', '[Storage] Cleared localStorage and sessionStorage');
           }
         },
         
@@ -333,14 +334,14 @@ export async function exposeForConsole() {
   (window as any).migrationAdapter = migrationAdapter;
 
   if (process.env.NODE_ENV === 'development') {
-    console.log('🛠️ [DevTools] Console helpers exposed to window.lokaaTest');
-    console.log('📖 Available commands:');
-    console.log('  window.lokaaTest.bridge - SupabaseIndexedDBBridge instance');
-    console.log('  window.lokaaTest.fileValidation - File validation helpers');
-    console.log('  window.lokaaTest.chat - Chat services and testing');
-    console.log('  window.lokaaTest.supabase - Supabase client and mock info');
-    console.log('  window.lokaaTest.utils - Environment and utility functions');
-    console.log('  window.chatApiService - Direct ChatApiService access');
-    console.log('  window.migrationAdapter - Direct MigrationAdapter access');
+    log.debug('App', '🛠️ [DevTools] Console helpers exposed to window.lokaaTest');
+    log.debug('App', '📖 Available commands:');
+    log.debug('App', '  window.lokaaTest.bridge - SupabaseIndexedDBBridge instance');
+    log.debug('App', '  window.lokaaTest.fileValidation - File validation helpers');
+    log.debug('App', '  window.lokaaTest.chat - Chat services and testing');
+    log.debug('App', '  window.lokaaTest.supabase - Supabase client and mock info');
+    log.debug('App', '  window.lokaaTest.utils - Environment and utility functions');
+    log.debug('App', '  window.chatApiService - Direct ChatApiService access');
+    log.debug('App', '  window.migrationAdapter - Direct MigrationAdapter access');
   }
 } 

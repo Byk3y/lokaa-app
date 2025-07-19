@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 OPTIMIZED AVATAR COMPONENT
  * 
@@ -77,7 +78,7 @@ export function OptimizedAvatar({
       if (cached) {
         setCachedUrl(cached);
         setImageStatus('loaded'); // 🎯 INSTANT: Mark as loaded if cached
-        console.debug(`🎯 [OptimizedAvatar] Cache hit for user ${user.id}`);
+        log.debug('Component', `🎯 [OptimizedAvatar] Cache hit for user ${user.id}`);
       } else if (avatar.url) {
         // 🚀 PRELOAD: Start loading image immediately without waiting for intersection
         const img = new Image();
@@ -87,7 +88,7 @@ export function OptimizedAvatar({
           AvatarCacheService.setCachedAvatar(user.id, avatar.url!, size);
           setCachedUrl(avatar.url!);
           setImageStatus('loaded');
-          console.debug(`🎯 [OptimizedAvatar] Preloaded and cached avatar for user ${user.id}`);
+          log.debug('Component', `🎯 [OptimizedAvatar] Preloaded and cached avatar for user ${user.id}`);
         };
         img.onerror = () => {
           setImageStatus('error');
@@ -123,7 +124,7 @@ export function OptimizedAvatar({
   useEffect(() => {
     if (imageStatus === 'loaded' && avatar.hasImage) {
       const loadTime = Date.now() - loadStartTime;
-      console.debug('🚀 [OptimizedAvatar] Load time:', { userId: user.id, loadTime, size });
+      log.debug('Component', '🚀 [OptimizedAvatar] Load time:', { userId: user.id, loadTime, size });
     }
   }, [imageStatus, avatar.hasImage, loadStartTime, size, user.id]);
 

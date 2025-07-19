@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { generateStoragePath } from './fileUtils';
 
@@ -17,14 +18,14 @@ export async function testStorageAccess(spaceId: string, userId: string): Promis
   try {
     // Test path generation
     const testPath = generateStoragePath(spaceId, userId, 'test-file.txt');
-    console.log('Generated test path:', testPath);
+    log.debug('Utils', 'Generated test path:', testPath);
     
     // Test public URL generation
     const { data: { publicUrl } } = getSupabaseClient().storage
       .from('post-attachments')
       .getPublicUrl(testPath);
       
-    console.log('Generated public URL:', publicUrl);
+    log.debug('Utils', 'Generated public URL:', publicUrl);
     
     // Test if we can list buckets (permission check)
     const { data: buckets, error: bucketsError } = await getSupabaseClient().storage.listBuckets();
@@ -64,12 +65,12 @@ export function testFileValidation() {
     { name: 'valid-doc.pdf', size: 5 * 1024 * 1024, type: 'application/pdf' }, // 5MB - should pass
   ];
   
-  console.log('File validation tests:');
+  log.debug('Utils', 'File validation tests:');
   testFiles.forEach((file, index) => {
     const mockFile = new File(['test'], file.name, { type: file.type });
     Object.defineProperty(mockFile, 'size', { value: file.size });
     
-    console.log(`Test ${index + 1}:`, {
+    log.debug('Utils', `Test ${index + 1}:`, {
       file: { name: file.name, size: file.size, type: file.type },
       // Add validation once we implement it
     });
@@ -80,15 +81,15 @@ export function testFileValidation() {
  * Log the current implementation status
  */
 export function logImplementationStatus() {
-  console.log('🔧 File Upload Implementation Status:');
-  console.log('✅ Blob URL creation removed from main flow');
-  console.log('✅ Upload-first approach implemented');
-  console.log('✅ Error handling and loading states added');
-  console.log('✅ Proper storage path generation');
-  console.log('✅ Upload progress indicators');
-  console.log('✅ Submit button disabled during uploads');
-  console.log('✅ Storage cleanup on attachment removal');
-  console.log('🎯 Next: Test actual file upload flow');
+  log.debug('Utils', '🔧 File Upload Implementation Status:');
+  log.debug('Utils', '✅ Blob URL creation removed from main flow');
+  log.debug('Utils', '✅ Upload-first approach implemented');
+  log.debug('Utils', '✅ Error handling and loading states added');
+  log.debug('Utils', '✅ Proper storage path generation');
+  log.debug('Utils', '✅ Upload progress indicators');
+  log.debug('Utils', '✅ Submit button disabled during uploads');
+  log.debug('Utils', '✅ Storage cleanup on attachment removal');
+  log.debug('Utils', '🎯 Next: Test actual file upload flow');
 }
 
 // Add to window for browser console testing

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Settings Validation Test Script
  * 
@@ -254,7 +255,7 @@ class SettingsValidationTest {
 
   // Run all tests
   async runAllTests(): Promise<void> {
-    console.log("🧪 Starting Settings Validation Tests...");
+    log.debug('Utils', "🧪 Starting Settings Validation Tests...");
     
     this.testSuites = await Promise.all([
       this.testGeneralSettings(),
@@ -270,26 +271,26 @@ class SettingsValidationTest {
 
   // Print test results
   private printResults(): void {
-    console.log("\n📊 Settings Validation Test Results:\n");
+    log.debug('Utils', "\n📊 Settings Validation Test Results:\n");
 
     let totalTests = 0;
     let passedTests = 0;
 
     this.testSuites.forEach(suite => {
-      console.log(`\n${suite.name}:`);
+      log.debug('Utils', `\n${suite.name}:`);
       suite.results.forEach(result => {
         totalTests++;
         if (result.passed) passedTests++;
         const status = result.passed ? "✅" : "❌";
-        console.log(`  ${status} ${result.name}`);
+        log.debug('Utils', `  ${status} ${result.name}`);
         if (result.errors) {
-          result.errors.forEach(error => console.log(`    - ${error}`));
+          result.errors.forEach(error => log.debug('Utils', `    - ${error}`));
         }
       });
     });
 
     const successRate = (passedTests / totalTests * 100).toFixed(1);
-    console.log(`\n📈 Overall Results: ${passedTests}/${totalTests} tests passed (${successRate}%)\n`);
+    log.debug('Utils', `\n📈 Overall Results: ${passedTests}/${totalTests} tests passed (${successRate}%)\n`);
   }
 
   // Quick test command

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Simple Fast Path - PHASE 10A Performance Restoration
  * 
@@ -44,7 +45,7 @@ export async function detectUserTypeSimple(userId: string): Promise<{
   const startTime = Date.now();
   
   try {
-    console.log('⚡ [FastPath] Simple user type detection starting');
+    log.debug('Utils', '⚡ [FastPath] Simple user type detection starting');
     
     // Single, direct RPC call - no emergency recovery overhead
     const { data: spaces, error } = await getSupabaseClient().rpc('get_user_spaces_simple', {
@@ -52,15 +53,15 @@ export async function detectUserTypeSimple(userId: string): Promise<{
     });
     
     const timing = Date.now() - startTime;
-    console.log(`⚡ [FastPath] User type detection completed in ${timing}ms`);
+    log.debug('Utils', `⚡ [FastPath] User type detection completed in ${timing}ms`);
     
     if (error) {
-      console.warn('⚡ [FastPath] Error in user type detection:', error);
+      log.warn('Utils', '⚡ [FastPath] Error in user type detection:', error);
       return { hasSpaces: false, isOwner: false, timing };
     }
     
     if (!spaces || spaces.length === 0) {
-      console.log('⚡ [FastPath] User has no spaces - fast path to discover');
+      log.debug('Utils', '⚡ [FastPath] User has no spaces - fast path to discover');
       return { hasSpaces: false, isOwner: false, timing };
     }
     
@@ -68,7 +69,7 @@ export async function detectUserTypeSimple(userId: string): Promise<{
     const firstSpace = spaces[0];
     const isOwner = firstSpace.is_owner || false;
     
-    console.log(`⚡ [FastPath] User has ${spaces.length} spaces, redirecting to: ${firstSpace.name}`);
+    log.debug('Utils', `⚡ [FastPath] User has ${spaces.length} spaces, redirecting to: ${firstSpace.name}`);
     
     return {
       hasSpaces: true,
@@ -83,7 +84,7 @@ export async function detectUserTypeSimple(userId: string): Promise<{
     
   } catch (error) {
     const timing = Date.now() - startTime;
-    console.error('⚡ [FastPath] User type detection failed:', error);
+    log.error('Utils', '⚡ [FastPath] User type detection failed:', error);
     return { hasSpaces: false, isOwner: false, timing };
   }
 }
@@ -100,7 +101,7 @@ export async function executeFastPath(
   const startTime = Date.now();
   
   try {
-    console.log('🎯 [FastPath] Starting execution for user:', userId, 'current path:', currentPath);
+    log.debug('Utils', '🎯 [FastPath] Starting execution for user:', userId, 'current path:', currentPath);
     
     // PHASE 1: Extract target subdomain from current URL if user was trying to access a specific space
     let targetSubdomain: string | null = null;
@@ -117,7 +118,7 @@ export async function executeFastPath(
         const skipPaths = ['app', 'discover', 'profile', 'settings', 'create-space', 'messages'];
         if (!skipPaths.includes(potentialSubdomain)) {
           targetSubdomain = potentialSubdomain;
-          console.log('🎯 [FastPath] Found target subdomain from URL:', targetSubdomain);
+          log.debug('Utils', '🎯 [FastPath] Found target subdomain from URL:', targetSubdomain);
         }
       }
     }
@@ -125,16 +126,16 @@ export async function executeFastPath(
     // PHASE 2: Check cache for general user spaces
     const cachedResult = checkSimpleCache(userId);
     if (cachedResult) {
-      console.log('🎯 [FastPath] Cache hit for user:', userId);
+      log.debug('Utils', '🎯 [FastPath] Cache hit for user:', userId);
       
       if (cachedResult.hasSpaces && cachedResult.firstSpace) {
-        console.log('🚀 [FastPath] Cache hit! Checking target space preference');
+        log.debug('Utils', '🚀 [FastPath] Cache hit! Checking target space preference');
         
         let targetSpace = cachedResult.firstSpace; // Default fallback
         
         // ENHANCED: If user was trying to access a specific space, validate their access to it
         if (targetSubdomain) {
-          console.log('🎯 [FastPath] Validating user access to target space:', targetSubdomain);
+          log.debug('Utils', '🎯 [FastPath] Validating user access to target space:', targetSubdomain);
           
           try {
             const spaceValidation = await validateSpaceBySubdomain(targetSubdomain, userId);
@@ -145,12 +146,12 @@ export async function executeFastPath(
                 name: spaceValidation.name,
                 subdomain: spaceValidation.subdomain
               };
-              console.log('🎯 [FastPath] User has access to target space, redirecting there:', targetSpace.subdomain);
+              log.debug('Utils', '🎯 [FastPath] User has access to target space, redirecting there:', targetSpace.subdomain);
             } else {
-              console.log('🎯 [FastPath] User does not have access to target space, using default space:', cachedResult.firstSpace.subdomain);
+              log.debug('Utils', '🎯 [FastPath] User does not have access to target space, using default space:', cachedResult.firstSpace.subdomain);
             }
           } catch (error) {
-            console.warn('🎯 [FastPath] Error validating target space, using default:', error);
+            log.warn('Utils', '🎯 [FastPath] Error validating target space, using default:', error);
             // Fall back to cached first space
           }
         }
@@ -159,7 +160,7 @@ export async function executeFastPath(
         
         // ENHANCED: Skip redirect if already on target space
         if (currentPath === redirectUrl || currentPath.startsWith(`/${targetSpace.subdomain}/space`)) {
-          console.log('🚀 [FastPath] User already on target space, skipping redirect');
+          log.debug('Utils', '🚀 [FastPath] User already on target space, skipping redirect');
           return { 
             strategy: 'already-on-destination', 
             timing: Date.now() - startTime,
@@ -168,10 +169,10 @@ export async function executeFastPath(
           };
         }
         
-        console.log('🎯 [FastPath] Cache shows spaces, redirecting to target space:', targetSpace.subdomain);
-        console.log('🎯 [FastPath] Executing navigate to', redirectUrl, 'with replace: true');
+        log.debug('Utils', '🎯 [FastPath] Cache shows spaces, redirecting to target space:', targetSpace.subdomain);
+        log.debug('Utils', '🎯 [FastPath] Executing navigate to', redirectUrl, 'with replace: true');
         navigate(redirectUrl, { replace: true });
-        console.log('✅ [FastPath] Navigate call completed successfully');
+        log.debug('Utils', '✅ [FastPath] Navigate call completed successfully');
         
         // REVOLUTIONARY: Create trust token for mathematical proof of access
         const trustToken = createTrustToken(userId, targetSpace.subdomain, 'fast-path-redirect', cachedResult.isOwner || false);
@@ -186,10 +187,10 @@ export async function executeFastPath(
           trustToken // REVOLUTIONARY: Include trust token for instant access
         };
       } else {
-        console.log('🎯 [FastPath] Cache shows no spaces, redirecting to discover');
-        console.log('🎯 [FastPath] Executing navigate to /discover with replace: true');
+        log.debug('Utils', '🎯 [FastPath] Cache shows no spaces, redirecting to discover');
+        log.debug('Utils', '🎯 [FastPath] Executing navigate to /discover with replace: true');
         navigate('/discover', { replace: true });
-        console.log('✅ [FastPath] Navigate call completed successfully');
+        log.debug('Utils', '✅ [FastPath] Navigate call completed successfully');
         
         return { 
           strategy: 'cache-no-spaces', 
@@ -203,7 +204,7 @@ export async function executeFastPath(
     }
     
     // PHASE 3: Database lookup with target space preference
-    console.log('🎯 [FastPath] Cache miss, checking database...');
+    log.debug('Utils', '🎯 [FastPath] Cache miss, checking database...');
     try {
       const userTypeResult = await detectUserTypeSimple(userId);
       const timing = Date.now() - startTime;
@@ -211,13 +212,13 @@ export async function executeFastPath(
       // Update cache for next time
       cacheSimpleResult(userId, userTypeResult);
       
-      console.log(`🎯 [FastPath] Database returned result in ${timing}ms`);
+      log.debug('Utils', `🎯 [FastPath] Database returned result in ${timing}ms`);
       
       // ENHANCED: Check if user has access to their target space before using default
       let finalSpace = userTypeResult.firstSpace;
       
       if (targetSubdomain && userTypeResult.hasSpaces) {
-        console.log('🎯 [FastPath] Database lookup complete, validating target space:', targetSubdomain);
+        log.debug('Utils', '🎯 [FastPath] Database lookup complete, validating target space:', targetSubdomain);
         
         try {
           const spaceValidation = await validateSpaceBySubdomain(targetSubdomain, userId);
@@ -227,23 +228,23 @@ export async function executeFastPath(
               name: spaceValidation.name,
               subdomain: spaceValidation.subdomain
             };
-            console.log('🎯 [FastPath] User has access to target space, using it:', finalSpace.subdomain);
+            log.debug('Utils', '🎯 [FastPath] User has access to target space, using it:', finalSpace.subdomain);
           } else {
-            console.log('🎯 [FastPath] User does not have access to target space, using first space:', userTypeResult.firstSpace?.subdomain);
+            log.debug('Utils', '🎯 [FastPath] User does not have access to target space, using first space:', userTypeResult.firstSpace?.subdomain);
           }
         } catch (error) {
-          console.warn('🎯 [FastPath] Error validating target space during DB lookup:', error);
+          log.warn('Utils', '🎯 [FastPath] Error validating target space during DB lookup:', error);
         }
       }
       
       // FIXED: Make redirect immediate without setTimeout wrapper
       if (!userTypeResult.hasSpaces) {
-        console.log('🎯 [FastPath] Database shows no spaces, going to discover');
+        log.debug('Utils', '🎯 [FastPath] Database shows no spaces, going to discover');
         if (currentPath !== '/discover') {
           navigate('/discover', { replace: true });
         }
       } else if (finalSpace) {
-        console.log('🎯 [FastPath] Database shows spaces, going to final space:', finalSpace.subdomain);
+        log.debug('Utils', '🎯 [FastPath] Database shows spaces, going to final space:', finalSpace.subdomain);
         if (!currentPath.includes(finalSpace.subdomain)) {
           navigate(`/${finalSpace.subdomain}/space`, { replace: true });
         }
@@ -260,7 +261,7 @@ export async function executeFastPath(
       };
       
     } catch (error) {
-      console.error('🎯 [FastPath] Database error:', error);
+      log.error('Utils', '🎯 [FastPath] Database error:', error);
       const timing = Date.now() - startTime;
       
       // FIXED: Make fallback redirect immediate
@@ -280,7 +281,7 @@ export async function executeFastPath(
     }
   } catch (error) {
     const timing = Date.now() - startTime;
-    console.error('🎯 [FastPath] Error in fast path execution:', error);
+    log.error('Utils', '🎯 [FastPath] Error in fast path execution:', error);
     return {
       strategy: 'error',
       timing,
@@ -321,11 +322,11 @@ function checkSimpleCache(userId: string): SimpleCacheEntry | null {
       return null;
     }
     
-    console.log('🎯 [FastPath] Cache hit for user:', userId);
+    log.debug('Utils', '🎯 [FastPath] Cache hit for user:', userId);
     return entry;
     
   } catch (error) {
-    console.warn('🎯 [FastPath] Cache read error:', error);
+    log.warn('Utils', '🎯 [FastPath] Cache read error:', error);
     localStorage.removeItem(CACHE_KEY);
     return null;
   }
@@ -342,10 +343,10 @@ function cacheSimpleResult(userId: string, result: { hasSpaces: boolean; firstSp
     };
     
     localStorage.setItem(CACHE_KEY, JSON.stringify(entry));
-    console.log('🎯 [FastPath] Cached result for user:', userId);
+    log.debug('Utils', '🎯 [FastPath] Cached result for user:', userId);
     
   } catch (error) {
-    console.warn('🎯 [FastPath] Cache write error:', error);
+    log.warn('Utils', '🎯 [FastPath] Cache write error:', error);
   }
 }
 
@@ -356,9 +357,9 @@ function cacheSimpleResult(userId: string, result: { hasSpaces: boolean; firstSp
 export function clearFastPathCache(): void {
   try {
     localStorage.removeItem(CACHE_KEY);
-    console.log('🧹 [FastPath] Cache cleared');
+    log.debug('Utils', '🧹 [FastPath] Cache cleared');
   } catch (error) {
-    console.warn('🧹 [FastPath] Cache clear error:', error);
+    log.warn('Utils', '🧹 [FastPath] Cache clear error:', error);
   }
 }
 
@@ -405,9 +406,9 @@ function createTrustToken(userId: string, subdomain: string, source: 'fast-path-
   // Store ultra-secure trust token for instant access
   try {
     sessionStorage.setItem(`trust_token_${subdomain}`, JSON.stringify(trustToken));
-    console.log('🔒 [TrustToken] Created for instant access:', subdomain, 'access:', trustToken.access, 'expires in 24h');
+    log.debug('Utils', '🔒 [TrustToken] Created for instant access:', subdomain, 'access:', trustToken.access, 'expires in 24h');
   } catch (e) {
-    console.warn('🔒 [TrustToken] Failed to store token:', e);
+    log.warn('Utils', '🔒 [TrustToken] Failed to store token:', e);
   }
   
   return trustToken;
@@ -454,7 +455,7 @@ if (typeof window !== 'undefined') {
   (window as any).trustTokenMonitor = trustTokenPerformanceMonitor;
   (window as any).getTrustTokenStats = () => {
     const stats = trustTokenPerformanceMonitor.getStats();
-    console.log('🔒 [TrustToken] Performance Stats:', stats);
+    log.debug('Utils', '🔒 [TrustToken] Performance Stats:', stats);
     return stats;
   };
 } 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useState, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -51,12 +52,12 @@ export const useRealtimePostLikes = ({
 
   useEffect(() => {
     if (!enabled || !spaceId) {
-      console.log('🔔 [RealtimePostLikes] Skipping subscription setup - disabled or no spaceId');
+      log.debug('Hook', '🔔 [RealtimePostLikes] Skipping subscription setup - disabled or no spaceId');
       return;
     }
 
-    console.log('🔔 [RealtimePostLikes] Setting up subscription for space:', spaceId);
-    console.log('🔔 [RealtimePostLikes] Current user ID:', userId);
+    log.debug('Hook', '🔔 [RealtimePostLikes] Setting up subscription for space:', spaceId);
+    log.debug('Hook', '🔔 [RealtimePostLikes] Current user ID:', userId);
 
     // Create callback object for this hook instance
     const callbackObj = { onLikeAdded, onLikeRemoved };
@@ -70,7 +71,7 @@ export const useRealtimePostLikes = ({
       existingSubscription.callbacks.add(callbackObj);
       setIsConnected(true);
       setConnectionStatus('SUBSCRIBED');
-      console.log(`🔔 [RealtimePostLikes] Reusing existing subscription for space: ${spaceId} (refs: ${existingSubscription.refCount})`);
+      log.debug('Hook', `🔔 [RealtimePostLikes] Reusing existing subscription for space: ${spaceId} (refs: ${existingSubscription.refCount})`);
       
       // Store reference for cleanup
       channelRef.current = existingSubscription.channel;
@@ -90,7 +91,7 @@ export const useRealtimePostLikes = ({
             table: 'post_likes'
           },
           async (payload) => {
-            console.log('🔔 [RealtimePostLikes] New like detected:', payload);
+            log.debug('Hook', '🔔 [RealtimePostLikes] New like detected:', payload);
             
             if (payload.new && typeof payload.new === 'object') {
               const newLike = payload.new as any;
@@ -98,7 +99,7 @@ export const useRealtimePostLikes = ({
 
               // Skip if it's the current user's own like (already handled optimistically)
               if (userId && user_id === userId) {
-                console.log('🔔 [RealtimePostLikes] Skipping own like');
+                log.debug('Hook', '🔔 [RealtimePostLikes] Skipping own like');
                 return;
               }
 
@@ -111,16 +112,16 @@ export const useRealtimePostLikes = ({
                   .single();
 
                 if (error) {
-                  console.warn('🔔 [RealtimePostLikes] Could not verify post space:', error);
+                  log.warn('Hook', '🔔 [RealtimePostLikes] Could not verify post space:', error);
                   return;
                 }
 
                 if (post?.space_id !== spaceId) {
-                  console.log('🔔 [RealtimePostLikes] Like is for different space, ignoring');
+                  log.debug('Hook', '🔔 [RealtimePostLikes] Like is for different space, ignoring');
                   return;
                 }
 
-                console.log('🔔 [RealtimePostLikes] Processing like from other user:', {
+                log.debug('Hook', '🔔 [RealtimePostLikes] Processing like from other user:', {
                   postId: post_id,
                   userId: user_id,
                   spaceId: post.space_id
@@ -133,7 +134,7 @@ export const useRealtimePostLikes = ({
                   }
                 });
               } catch (err) {
-                console.warn('🔔 [RealtimePostLikes] Error checking post space:', err);
+                log.warn('Hook', '🔔 [RealtimePostLikes] Error checking post space:', err);
               }
             }
           }
@@ -146,13 +147,13 @@ export const useRealtimePostLikes = ({
             table: 'post_likes'
           },
           async (payload) => {
-            console.log('🔔 [RealtimePostLikes] Like deletion detected:', payload);
+            log.debug('Hook', '🔔 [RealtimePostLikes] Like deletion detected:', payload);
             
             // 🔥 CRITICAL ISSUE: DELETE events only contain the primary key (id)
             // We can't determine which post was unliked without post_id and user_id
             // Solution: Trigger a like count refresh for all visible posts
             
-            console.log('🔔 [RealtimePostLikes] Triggering like count refresh due to DELETE event');
+            log.debug('Hook', '🔔 [RealtimePostLikes] Triggering like count refresh due to DELETE event');
             
             // Notify all callbacks to refresh their like counts
             callbacks.forEach(callback => {
@@ -164,7 +165,7 @@ export const useRealtimePostLikes = ({
           }
         )
         .subscribe((status) => {
-          console.log(`🔔 [RealtimePostLikes] Subscription status: ${status}`);
+          log.debug('Hook', `🔔 [RealtimePostLikes] Subscription status: ${status}`);
           setConnectionStatus(status);
           setIsConnected(status === 'SUBSCRIBED');
         });
@@ -177,11 +178,11 @@ export const useRealtimePostLikes = ({
       });
 
       channelRef.current = channel;
-      console.log(`🔔 [RealtimePostLikes] New subscription created for space: ${spaceId}`);
+      log.debug('Hook', `🔔 [RealtimePostLikes] New subscription created for space: ${spaceId}`);
     }
 
     return () => {
-      console.log('🔔 [RealtimePostLikes] Cleaning up subscription');
+      log.debug('Hook', '🔔 [RealtimePostLikes] Cleaning up subscription');
       
       const subscription = globalSubscriptions.get(spaceId);
       if (subscription) {
@@ -189,11 +190,11 @@ export const useRealtimePostLikes = ({
         subscription.callbacks.delete(callbackObj);
         subscription.refCount--;
         
-        console.log(`🔔 [RealtimePostLikes] Decremented ref count for space: ${spaceId} (refs: ${subscription.refCount})`);
+        log.debug('Hook', `🔔 [RealtimePostLikes] Decremented ref count for space: ${spaceId} (refs: ${subscription.refCount})`);
         
         // If no more references, clean up the subscription
         if (subscription.refCount <= 0) {
-          console.log(`🔔 [RealtimePostLikes] Removing subscription for space: ${spaceId}`);
+          log.debug('Hook', `🔔 [RealtimePostLikes] Removing subscription for space: ${spaceId}`);
           const supabase = getSupabaseClient();
           supabase.removeChannel(subscription.channel);
           globalSubscriptions.delete(spaceId);

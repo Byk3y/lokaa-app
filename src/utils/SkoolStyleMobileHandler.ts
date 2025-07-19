@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🍎 Skool-Style Mobile Background Handler
  * 
@@ -83,14 +84,14 @@ class SkoolStyleMobileHandler {
         this.state.lastBackgroundTime = Date.now();
         this.state.networkRestoredAfterBackground = false;
         
-        console.log('🍎 [SkoolMobile] App backgrounded (patient mode)');
+        log.debug('Utils', '🍎 [SkoolMobile] App backgrounded (patient mode)');
         
       } else {
         // Returning from background - SKOOL'S APPROACH: Be patient!
         this.state.isBackground = false;
         this.state.backgroundDuration = Date.now() - this.state.lastBackgroundTime;
         
-        console.log(`🍎 [SkoolMobile] Returned from background (${Math.round(this.state.backgroundDuration/1000)}s) - waiting for natural recovery`);
+        log.debug('Utils', `🍎 [SkoolMobile] Returned from background (${Math.round(this.state.backgroundDuration/1000)}s) - waiting for natural recovery`);
         
         // SKOOL'S SECRET: Wait for network to naturally restore instead of immediate validation
         this.scheduleGracefulNetworkRecovery();
@@ -109,21 +110,21 @@ class SkoolStyleMobileHandler {
     
     // Only act if background was significant
     if (this.state.backgroundDuration < this.SIGNIFICANT_BACKGROUND) {
-      console.log('🍎 [SkoolMobile] Short background (<1min), no action needed');
+      log.debug('Utils', '🍎 [SkoolMobile] Short background (<1min), no action needed');
       return;
     }
     
     // PATIENT APPROACH: Wait 5 seconds for browser to naturally restore network access
     this.networkRestorationTimer = setTimeout(() => {
       this.state.networkRestoredAfterBackground = true;
-      console.log('🍎 [SkoolMobile] Network restoration period complete');
+      log.debug('Utils', '🍎 [SkoolMobile] Network restoration period complete');
       
       // Only check session if it's been a LONG time (like Skool)
       const timeSinceLastCheck = Date.now() - this.state.sessionLastChecked;
       if (timeSinceLastCheck > this.SESSION_CHECK_INTERVAL) {
         this.gentleSessionCheck();
       } else {
-        console.log('🍎 [SkoolMobile] Session recently validated, skipping check');
+        log.debug('Utils', '🍎 [SkoolMobile] Session recently validated, skipping check');
       }
     }, this.NETWORK_RESTORATION_WAIT);
   }
@@ -135,13 +136,13 @@ class SkoolStyleMobileHandler {
     if (this.isSessionRefreshing) return;
     
     this.isSessionRefreshing = true;
-    console.log('🍎 [SkoolMobile] Gentle session check...');
+    log.debug('Utils', '🍎 [SkoolMobile] Gentle session check...');
     
     try {
       const { data, error } = await getSupabaseClient().auth.getSession();
       
       if (error || !data.session) {
-        console.log('🍎 [SkoolMobile] Session expired, gentle redirect');
+        log.debug('Utils', '🍎 [SkoolMobile] Session expired, gentle redirect');
         // Gentle redirect (like Skool - no forced refresh)
         window.location.href = '/';
         return;
@@ -153,21 +154,21 @@ class SkoolStyleMobileHandler {
       
       // Check if expires within 30 minutes (conservative like Skool)
       if (expiresAt - now < 1800000) {
-        console.log('🍎 [SkoolMobile] Session expires soon, gentle refresh');
+        log.debug('Utils', '🍎 [SkoolMobile] Session expires soon, gentle refresh');
         const { error: refreshError } = await getSupabaseClient().auth.refreshSession();
         
         if (refreshError) {
-          console.log('🍎 [SkoolMobile] Refresh failed, gentle redirect');
+          log.debug('Utils', '🍎 [SkoolMobile] Refresh failed, gentle redirect');
           window.location.href = '/';
           return;
         }
       }
       
       this.state.sessionLastChecked = Date.now();
-      console.log('✅ [SkoolMobile] Session validated successfully');
+      log.debug('Utils', '✅ [SkoolMobile] Session validated successfully');
       
     } catch (error) {
-      console.warn('🍎 [SkoolMobile] Session check failed:', error);
+      log.warn('Utils', '🍎 [SkoolMobile] Session check failed:', error);
       // Don't force refresh on errors - let user continue (like Skool)
     } finally {
       this.isSessionRefreshing = false;
@@ -194,7 +195,7 @@ class SkoolStyleMobileHandler {
         
         // Only refresh after multiple 401s (like Skool - be patient)
         if (consecutive401s >= 3) {
-          console.log('🍎 [SkoolMobile] Multiple auth 401s, gentle refresh');
+          log.debug('Utils', '🍎 [SkoolMobile] Multiple auth 401s, gentle refresh');
           await this.gentleSessionCheck();
         }
       } else if (response.ok) {
@@ -218,7 +219,7 @@ class SkoolStyleMobileHandler {
         // Override aggressive recovery with patient approach
         const originalRecoverClient = healthMonitor.recoverClient;
         healthMonitor.recoverClient = async () => {
-          console.log('🍎 [SkoolMobile] Preventing aggressive health monitor recovery');
+          log.debug('Utils', '🍎 [SkoolMobile] Preventing aggressive health monitor recovery');
           return { success: true, message: 'Skool-style patience' };
         };
       }
@@ -230,7 +231,7 @@ class SkoolStyleMobileHandler {
       if (phase1 && this.isMobileDevice()) {
         const originalTrigger = phase1.triggerRecovery;
         phase1.triggerRecovery = () => {
-          console.log('🍎 [SkoolMobile] Preventing aggressive Phase 1 recovery');
+          log.debug('Utils', '🍎 [SkoolMobile] Preventing aggressive Phase 1 recovery');
           return Promise.resolve({ success: true });
         };
       }
@@ -333,7 +334,7 @@ class SkoolStyleMobileHandler {
       this.scheduleGracefulNetworkRecovery();
     }, 1000);
     
-    console.log('🍎 [SkoolMobile] Simulated 30s background return');
+    log.debug('Utils', '🍎 [SkoolMobile] Simulated 30s background return');
   }
   
   /**
@@ -354,6 +355,6 @@ export const skoolMobileHandler = SkoolStyleMobileHandler.getInstance();
 if (typeof window !== 'undefined') {
   (window as any).skoolMobileHandler = skoolMobileHandler;
   
-  console.log('🍎 [SkoolMobile] Skool-style mobile handler initialized');
-  console.log('🍎 Debug: window.skoolMobileHandler.getCurrentStatus()');
+  log.debug('Utils', '🍎 [SkoolMobile] Skool-style mobile handler initialized');
+  log.debug('Utils', '🍎 Debug: window.skoolMobileHandler.getCurrentStatus()');
 } 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useMemo, useRef } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSpaceFallbackData } from '@/utils/spaceDataFallback';
@@ -21,7 +22,7 @@ export function useClassroomAuth(space: ClassroomTabProps['space']): UseClassroo
     if (space?.subdomain) {
       const fallbackData = getSpaceFallbackData(space.subdomain);
       if (fallbackData?.owner_id) {
-        console.log(`🔄 [useClassroomAuth] Using fallback owner ID for ${space.subdomain}: ${fallbackData.owner_id}`);
+        log.debug('Hook', `🔄 [useClassroomAuth] Using fallback owner ID for ${space.subdomain}: ${fallbackData.owner_id}`);
         return fallbackData.owner_id;
       }
     }
@@ -40,7 +41,7 @@ export function useClassroomAuth(space: ClassroomTabProps['space']): UseClassroo
     const isAdmin = isOwner;
 
     if (isAuthenticated && effectiveOwnerId) {
-      console.log(`🔐 [useClassroomAuth] Permission check: user=${user?.id}, owner=${effectiveOwnerId}, isOwner=${isOwner}`);
+      log.debug('Hook', `🔐 [useClassroomAuth] Permission check: user=${user?.id}, owner=${effectiveOwnerId}, isOwner=${isOwner}`);
     }
 
     return {
@@ -66,7 +67,7 @@ export function useClassroomAuth(space: ClassroomTabProps['space']): UseClassroo
       const fallbackData = getSpaceFallbackData(space.subdomain);
       if (fallbackData?.id) {
         effectiveSpaceId = fallbackData.id;
-        console.log(`🔄 [useClassroomAuth] Using fallback space ID for ${space.subdomain}: ${fallbackData.id}`);
+        log.debug('Hook', `🔄 [useClassroomAuth] Using fallback space ID for ${space.subdomain}: ${fallbackData.id}`);
       }
     }
     

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚨 Phase 4A: React Error Boundary Components
  * 
@@ -74,14 +75,14 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       onError(error, errorInfo, errorId);
     }
 
-    console.error(`🚨 [ErrorBoundary-${level}] Error caught:`, error, errorInfo);
+    log.error('Component', `🚨 [ErrorBoundary-${level}] Error caught:`, error, errorInfo);
   }
 
   handleRetry = () => {
     const { maxRetries = 3 } = this.props;
     
     if (this.state.retryCount >= maxRetries) {
-      console.warn(`🚨 [ErrorBoundary] Max retries (${maxRetries}) reached`);
+      log.warn('Component', `🚨 [ErrorBoundary] Max retries (${maxRetries}) reached`);
       return;
     }
 

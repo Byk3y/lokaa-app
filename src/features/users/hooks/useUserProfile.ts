@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -42,7 +43,7 @@ export function useUserProfile(user: any) {
     const fetchUserDetails = async () => {
       if (!user || userDataLoaded) return;
       
-      console.log('Fetching user details from users table for user ID:', user.id);
+      log.debug('Hook', 'Fetching user details from users table for user ID:', user.id);
       
       try {
         setUserDataLoaded(true);
@@ -54,7 +55,7 @@ export function useUserProfile(user: any) {
           .single();
           
         if (userError) {
-          console.error('Error fetching user details:', userError);
+          log.error('Hook', 'Error fetching user details:', userError);
           return;
         }
 
@@ -85,7 +86,7 @@ export function useUserProfile(user: any) {
           setHasChangedName(true);
         }
       } catch (error) {
-        console.error('Error in fetchUserDetails:', error);
+        log.error('Hook', 'Error in fetchUserDetails:', error);
       }
     };
 
@@ -129,7 +130,7 @@ export function useUserProfile(user: any) {
         .eq('id', user.id);
         
       if (updateError) {
-        console.error('Error updating user name:', updateError);
+        log.error('Hook', 'Error updating user name:', updateError);
         toast({
           title: "Update failed",
           description: "Failed to update your name. Please try again.",
@@ -143,7 +144,7 @@ export function useUserProfile(user: any) {
       });
       
       if (metadataError) {
-        console.error('Error updating user metadata:', metadataError);
+        log.error('Hook', 'Error updating user metadata:', metadataError);
       }
       
       setHasChangedName(true);
@@ -154,7 +155,7 @@ export function useUserProfile(user: any) {
         description: "Your name has been updated successfully.",
       });
     } catch (error) {
-      console.error('Error in handleNameChange:', error);
+      log.error('Hook', 'Error in handleNameChange:', error);
       toast({
         title: "Update failed",
         description: "An unexpected error occurred.",
@@ -182,7 +183,7 @@ export function useUserProfile(user: any) {
         .eq('id', user.id);
       
       if (error) {
-        console.error('Error updating profile:', error);
+        log.error('Hook', 'Error updating profile:', error);
         toast({
           title: "Update failed",
           description: "Failed to update your profile. Please try again.",
@@ -196,7 +197,7 @@ export function useUserProfile(user: any) {
         description: "Your profile has been updated successfully.",
       });
     } catch (error) {
-      console.error('Error in handleSaveProfile:', error);
+      log.error('Hook', 'Error in handleSaveProfile:', error);
       toast({
         title: "Update failed",
         description: "An unexpected error occurred.",

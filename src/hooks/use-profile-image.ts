@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { 
   uploadProfileImage, 
@@ -31,7 +32,7 @@ export function useProfileImage() {
       } catch (err) {
         if (isMounted) {
           setError('Failed to load profile image');
-          console.error(err);
+          log.error('Hook', err);
         }
       } finally {
         if (isMounted) {
@@ -73,7 +74,7 @@ export function useProfileImage() {
       }
     } catch (err) {
       setError('Error uploading image');
-      console.error(err);
+      log.error('Hook', err);
       return null;
     } finally {
       setIsLoading(false);
@@ -101,7 +102,7 @@ export function useProfileImage() {
       }
     } catch (err) {
       setError('Error deleting image');
-      console.error(err);
+      log.error('Hook', err);
       return false;
     } finally {
       setIsLoading(false);
@@ -120,7 +121,7 @@ export function useProfileImage() {
       setImageUrl(url);
     } catch (err) {
       setError('Failed to refresh profile image');
-      console.error(err);
+      log.error('Hook', err);
     } finally {
       setIsLoading(false);
     }

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
 interface UseNewPostsStateProps {
@@ -34,17 +35,17 @@ export const useNewPostsState = ({
           await onLoadNewPosts(postIds);
         }
         
-        console.log(`✅ [NewPostsState] Successfully loaded new posts`);
+        log.debug('Hook', `✅ [NewPostsState] Successfully loaded new posts`);
         setLastNotificationTime(new Date());
         setIsDismissed(false);
         setRetryCount(0);
         setLoadError(null);
         
       } catch (error) {
-        console.error(`❌ [NewPostsState] Failed to load new posts (attempt ${attempt}):`, error);
+        log.error('Hook', `❌ [NewPostsState] Failed to load new posts (attempt ${attempt}):`, error);
         
         if (attempt < maxRetries) {
-          console.log(`🔄 [NewPostsState] Retrying in ${retryDelay}ms...`);
+          log.debug('Hook', `🔄 [NewPostsState] Retrying in ${retryDelay}ms...`);
           setRetryCount(attempt);
           
           retryTimeoutRef.current = setTimeout(() => {
@@ -63,7 +64,7 @@ export const useNewPostsState = ({
 
   // Dismiss notification
   const handleDismissNotification = useCallback(() => {
-    console.log('🔄 [NewPostsState] Dismissing notification');
+    log.debug('Hook', '🔄 [NewPostsState] Dismissing notification');
     setIsDismissed(true);
   }, []);
 

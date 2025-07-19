@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🧹 COMPREHENSIVE SPACE DATA CLEANER
  * 
@@ -15,7 +16,7 @@ export const clearSpaceCache = async (spaceId: string): Promise<void> => {
   if (!spaceId) return;
   
   try {
-    console.log(`🧹 [SpaceDataCleaner] Clearing all cache for space: ${spaceId}`);
+    log.debug('Utils', `🧹 [SpaceDataCleaner] Clearing all cache for space: ${spaceId}`);
     
     // Clear localStorage/sessionStorage cache stores
     const cacheKeys = [
@@ -33,7 +34,7 @@ export const clearSpaceCache = async (spaceId: string): Promise<void> => {
         localStorage.removeItem(key);
         sessionStorage.removeItem(key);
       } catch (e) {
-        console.warn(`Failed to clear ${key}:`, e);
+        log.warn('Utils', `Failed to clear ${key}:`, e);
       }
     });
 
@@ -41,7 +42,7 @@ export const clearSpaceCache = async (spaceId: string): Promise<void> => {
     if (globalCache?.invalidate) {
       globalCache.invalidate(`categories:${spaceId}`);
       globalCache.invalidate(`posts:${spaceId}`);
-      console.log(`✅ [SpaceDataCleaner] Global cache invalidated for space: ${spaceId}`);
+      log.debug('Utils', `✅ [SpaceDataCleaner] Global cache invalidated for space: ${spaceId}`);
     }
 
     // Clear categories cache from Zustand store
@@ -49,9 +50,9 @@ export const clearSpaceCache = async (spaceId: string): Promise<void> => {
       (window as any).useCategoriesCache.getState().invalidateCache(spaceId);
     }
     
-    console.log(`✅ [SpaceDataCleaner] Cache cleared for space: ${spaceId}`);
+    log.debug('Utils', `✅ [SpaceDataCleaner] Cache cleared for space: ${spaceId}`);
   } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Error clearing cache for space ${spaceId}:`, error);
+    log.error('Utils', `❌ [SpaceDataCleaner] Error clearing cache for space ${spaceId}:`, error);
   }
 };
 
@@ -62,7 +63,7 @@ export const clearMemberCountsForSpace = async (spaceId: string): Promise<void> 
   if (!spaceId) return;
   
   try {
-    console.log(`🧹 [SpaceDataCleaner] Clearing member counts for space: ${spaceId}`);
+    log.debug('Utils', `🧹 [SpaceDataCleaner] Clearing member counts for space: ${spaceId}`);
     
     // Clear UnifiedPresence cache for this space
     if (clearSpacePresenceCache) {
@@ -77,9 +78,9 @@ export const clearMemberCountsForSpace = async (spaceId: string): Promise<void> 
       }
     }
     
-    console.log(`✅ [SpaceDataCleaner] Member counts cleared for space: ${spaceId}`);
+    log.debug('Utils', `✅ [SpaceDataCleaner] Member counts cleared for space: ${spaceId}`);
   } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Error clearing member counts for space ${spaceId}:`, error);
+    log.error('Utils', `❌ [SpaceDataCleaner] Error clearing member counts for space ${spaceId}:`, error);
   }
 };
 
@@ -88,7 +89,7 @@ export const clearMemberCountsForSpace = async (spaceId: string): Promise<void> 
  */
 export const clearHookStates = (): void => {
   try {
-    console.log(`🧹 [SpaceDataCleaner] Clearing hook states for space switch`);
+    log.debug('Utils', `🧹 [SpaceDataCleaner] Clearing hook states for space switch`);
     
     // Dispatch space switch event to notify hooks
     const event = new CustomEvent('spaceSwitch', {
@@ -96,9 +97,9 @@ export const clearHookStates = (): void => {
     });
     window.dispatchEvent(event);
     
-    console.log(`✅ [SpaceDataCleaner] Hook states cleared`);
+    log.debug('Utils', `✅ [SpaceDataCleaner] Hook states cleared`);
   } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Error clearing hook states:`, error);
+    log.error('Utils', `❌ [SpaceDataCleaner] Error clearing hook states:`, error);
   }
 };
 
@@ -112,7 +113,7 @@ export const clearAllSpaceData = async (
 ): Promise<void> => {
   const timestamp = new Date().toISOString();
   
-  console.log(`🧹 [SpaceDataCleaner] Starting comprehensive space cleanup:`, {
+  log.debug('Utils', `🧹 [SpaceDataCleaner] Starting comprehensive space cleanup:`, {
     currentSpaceId,
     targetSpaceId,
     clearAll,
@@ -133,8 +134,8 @@ export const clearAllSpaceData = async (
     // Clear hook states
     clearHookStates();
     
-    console.log(`✅ [SpaceDataCleaner] Comprehensive cleanup completed successfully`);
+    log.debug('Utils', `✅ [SpaceDataCleaner] Comprehensive cleanup completed successfully`);
   } catch (error) {
-    console.error(`❌ [SpaceDataCleaner] Error during comprehensive cleanup:`, error);
+    log.error('Utils', `❌ [SpaceDataCleaner] Error during comprehensive cleanup:`, error);
   }
 }; 

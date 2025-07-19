@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoadingIndicator from './LoadingIndicator';
@@ -20,14 +21,14 @@ const CreateSpaceWrapper: React.FC<CreateSpaceWrapperProps> = ({ children }) => 
       
       // Set a timeout to prevent infinite loading
       const authTimeout = setTimeout(() => {
-        console.log('⚠️ Authentication check timed out');
+        log.debug('Component', '⚠️ Authentication check timed out');
         handleAuthFailure();
       }, 3000);
       
       try {
         // First check context for session/user
         if (session && user) {
-          console.log('✅ User authenticated via context');
+          log.debug('Component', '✅ User authenticated via context');
           clearTimeout(authTimeout);
           setIsChecking(false);
           return;
@@ -38,21 +39,21 @@ const CreateSpaceWrapper: React.FC<CreateSpaceWrapperProps> = ({ children }) => 
         clearTimeout(authTimeout);
         
         if (hasActiveSession) {
-          console.log('✅ User authenticated via direct session check');
+          log.debug('Component', '✅ User authenticated via direct session check');
           setIsChecking(false);
         } else {
-          console.log('❌ No active session found');
+          log.debug('Component', '❌ No active session found');
           handleAuthFailure();
         }
       } catch (error) {
         clearTimeout(authTimeout);
-        console.error('❌ Error checking authentication', error);
+        log.error('Component', '❌ Error checking authentication', error);
         handleAuthFailure();
       }
     };
     
     const handleAuthFailure = () => {
-      console.log('🔑 Redirecting to login from create space');
+      log.debug('Component', '🔑 Redirecting to login from create space');
       setIsChecking(false);
       setAuthCheckAttempted(true);
       

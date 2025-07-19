@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -64,7 +65,7 @@ export default function PostEdit({ post, onCancel, onSave }: PostEditProps) {
 
       onSave(updatedPost);
     } catch (error: any) {
-      console.error('Error updating post:', error);
+      log.error('Component', 'Error updating post:', error);
       toast({
         title: "Error updating post",
         description: error.message || "Failed to update post",

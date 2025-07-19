@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // App Components Service - extracted from App.tsx
 // Consolidates utility components and higher-order components used in App.tsx
 
@@ -13,7 +14,7 @@ export function withAuthSafety<P extends object>(
       return <Component {...props} />;
     } catch (error) {
       if (error instanceof Error && error.message.includes('useOptimizedAuth must be used within an AuthProvider')) {
-        console.warn(`🔒 [${componentName}] Auth context not ready yet, skipping render`);
+        log.warn('Component', `🔒 [${componentName}] Auth context not ready yet, skipping render`);
         return null;
       }
       // Re-throw other errors
@@ -28,7 +29,7 @@ export const UnifiedPresenceInitializer = withAuthSafety(function UnifiedPresenc
   
   useEffect(() => {
     if (user?.id) {
-      console.log('🌐 [SimplePresence] User authenticated for presence system:', user.id);
+      log.debug('Component', '🌐 [SimplePresence] User authenticated for presence system:', user.id);
     }
   }, [user?.id]);
   

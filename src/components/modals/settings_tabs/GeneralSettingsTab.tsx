@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useSettingsValidation } from '@/hooks/useSettingsValidation';
@@ -33,7 +34,7 @@ async function uploadFile(bucketName: string, filePath: string, file: File, spac
     });
 
   if (error) {
-    console.error("[uploadFile] Supabase upload error:", error);
+    log.error('Component', "[uploadFile] Supabase upload error:", error);
     throw error;
   }
   if (!data?.path) {
@@ -143,7 +144,7 @@ export default function GeneralSettingsTab() {
             parsed[field] = url;
             parsed.timestamp = Date.now(); // Mark as fresh data
             localStorage.setItem('lastActiveSpace', JSON.stringify(parsed));
-            console.log(`🔄 [${type}Upload] Updated lastActiveSpace cache with new ${field}`);
+            log.debug('Component', `🔄 [${type}Upload] Updated lastActiveSpace cache with new ${field}`);
           }
           
           // 2. Update space settings store cache (primary cache used by components)
@@ -155,10 +156,10 @@ export default function GeneralSettingsTab() {
               cached.data[field] = url;
               cached.timestamp = Date.now(); // Mark as fresh
               enhancedSpaceCache.set(cacheKey, cached);
-              console.log(`🔄 [${type}Upload] Updated enhancedSpaceCache with new ${field}`);
+              log.debug('Component', `🔄 [${type}Upload] Updated enhancedSpaceCache with new ${field}`);
             }
           } catch (importError) {
-            console.warn(`⚠️ [${type}Upload] Could not update space settings cache:`, importError);
+            log.warn('Component', `⚠️ [${type}Upload] Could not update space settings cache:`, importError);
           }
           
           // 3. Update fallback cache (used during mobile recovery)
@@ -170,7 +171,7 @@ export default function GeneralSettingsTab() {
               parsed.data[field] = url;
               parsed.timestamp = Date.now();
               localStorage.setItem(fallbackKey, JSON.stringify(parsed));
-              console.log(`🔄 [${type}Upload] Updated fallback cache with new ${field}`);
+              log.debug('Component', `🔄 [${type}Upload] Updated fallback cache with new ${field}`);
             }
           }
           
@@ -183,12 +184,12 @@ export default function GeneralSettingsTab() {
               parsed.space[field] = url;
               parsed.timestamp = Date.now();
               sessionStorage.setItem(sessionKey, JSON.stringify(parsed));
-              console.log(`🔄 [${type}Upload] Updated sessionStorage cache with new ${field}`);
+              log.debug('Component', `🔄 [${type}Upload] Updated sessionStorage cache with new ${field}`);
             }
           }
           
         } catch (error) {
-          console.warn(`⚠️ [${type}Upload] Failed to update cache:`, error);
+          log.warn('Component', `⚠️ [${type}Upload] Failed to update cache:`, error);
         }
       };
       
@@ -205,21 +206,21 @@ export default function GeneralSettingsTab() {
             .eq('id', space.id);
             
           if (dbError) {
-            console.error('Failed to update database with icon URL:', dbError);
+            log.error('Component', 'Failed to update database with icon URL:', dbError);
             throw dbError;
           }
-          console.log(`✅ [iconUpload] Database updated successfully with new icon_image`);
+          log.debug('Component', `✅ [iconUpload] Database updated successfully with new icon_image`);
           
           // CRITICAL: Trigger spaces refresh to update SpaceSwitcher icon
           try {
             await triggerSpacesRefresh();
-            console.log(`🔄 [iconUpload] Triggered spaces refresh for SpaceSwitcher update`);
+            log.debug('Component', `🔄 [iconUpload] Triggered spaces refresh for SpaceSwitcher update`);
           } catch (refreshError) {
-            console.warn('Failed to trigger spaces refresh:', refreshError);
+            log.warn('Component', 'Failed to trigger spaces refresh:', refreshError);
             // Non-fatal error, don't block the upload success
           }
         } catch (dbError: any) {
-          console.error('Database update failed:', dbError);
+          log.error('Component', 'Database update failed:', dbError);
           toast({ title: "Database Update Failed", description: "Icon uploaded but not saved to database. Please try again.", variant: "destructive" });
           return;
         }
@@ -238,21 +239,21 @@ export default function GeneralSettingsTab() {
             .eq('id', space.id);
             
           if (dbError) {
-            console.error('Failed to update database with cover URL:', dbError);
+            log.error('Component', 'Failed to update database with cover URL:', dbError);
             throw dbError;
           }
-          console.log(`✅ [coverUpload] Database updated successfully with new cover_image`);
+          log.debug('Component', `✅ [coverUpload] Database updated successfully with new cover_image`);
           
           // CRITICAL: Trigger spaces refresh to update SpaceSwitcher (in case it shows cover)
           try {
             await triggerSpacesRefresh();
-            console.log(`🔄 [coverUpload] Triggered spaces refresh for SpaceSwitcher update`);
+            log.debug('Component', `🔄 [coverUpload] Triggered spaces refresh for SpaceSwitcher update`);
           } catch (refreshError) {
-            console.warn('Failed to trigger spaces refresh:', refreshError);
+            log.warn('Component', 'Failed to trigger spaces refresh:', refreshError);
             // Non-fatal error, don't block the upload success
           }
         } catch (dbError: any) {
-          console.error('Database update failed:', dbError);
+          log.error('Component', 'Database update failed:', dbError);
           toast({ title: "Database Update Failed", description: "Cover uploaded but not saved to database. Please try again.", variant: "destructive" });
           return;
         }
@@ -260,7 +261,7 @@ export default function GeneralSettingsTab() {
         toast({ title: "Cover Image Updated", description: "New cover image uploaded successfully." });
       }
     } catch (error: any) {
-      console.error("[handleFileUpload] Error during upload process:", error);
+      log.error('Component', "[handleFileUpload] Error during upload process:", error);
       toast({ title: "Upload Failed", description: error.message || "Could not upload file.", variant: "destructive" });
     } finally {
       // Clear loading state

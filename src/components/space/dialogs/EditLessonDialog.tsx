@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ export default function EditLessonDialog({
   if (!lessonToEdit && isOpen) {
     // This case should ideally not happen if parent logic is correct,
     // but it prevents trying to render with a null lessonToEdit when open.
-    console.warn("EditLessonDialog opened without lessonToEdit data.");
+    log.warn('Component', "EditLessonDialog opened without lessonToEdit data.");
     return null; 
   }
 

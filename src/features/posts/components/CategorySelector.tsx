@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { 
@@ -50,7 +51,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
         cat => cat.name.toLowerCase() === 'general discussion'
       );
       if (generalDiscussionCategory) {
-        console.log('🏷️ [CategorySelector] Auto-selecting General Discussion:', generalDiscussionCategory);
+        log.debug('Component', '🏷️ [CategorySelector] Auto-selecting General Discussion:', generalDiscussionCategory);
         onCategoryChange(generalDiscussionCategory.id);
       }
     }
@@ -98,7 +99,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
             <DropdownMenuItem 
               key={category.id}
               onSelect={() => {
-                console.log('🏷️ [CategorySelector] Category selected:', category);
+                log.debug('Component', '🏷️ [CategorySelector] Category selected:', category);
                 onCategoryChange(category.id);
               }}
               className={`cursor-pointer touch-manipulation ${

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -157,7 +158,7 @@ export function EditCourseDialog({
         onOpenChange(false);
       }
     } catch (error: any) {
-      console.error("Error updating course:", error);
+      log.error('Component', "Error updating course:", error);
       toast({
         title: "Failed to Update Course",
         description: error.message,

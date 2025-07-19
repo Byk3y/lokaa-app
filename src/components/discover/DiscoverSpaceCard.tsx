@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -43,7 +44,7 @@ export function DiscoverSpaceCard({ space }: DiscoverSpaceCardProps) {
     if (space && space.subdomain) {
       navigate(`/${space.subdomain}/about`);
     } else {
-      console.error("DiscoverSpaceCard: Space subdomain is missing, cannot navigate.");
+      log.error('Component', "DiscoverSpaceCard: Space subdomain is missing, cannot navigate.");
     }
   };
   

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { GiphyFetch } from '@giphy/js-fetch-api';
 
 // Create a singleton instance of GiphyFetch
@@ -34,7 +35,7 @@ export async function fetchGifs(searchTerm: string, offset: number = 0, limit: n
       return await giphyFetch.trending({ offset, limit });
     }
   } catch (error) {
-    console.error('Error fetching GIFs:', error);
+    log.error('Utils', 'Error fetching GIFs:', error);
     throw error;
   }
 }
@@ -57,7 +58,7 @@ export async function fetchGifsByCategory(category: string, offset: number = 0, 
     // Otherwise, search by category
     return await giphyFetch.search(category, { offset, limit, type: 'gifs' });
   } catch (error) {
-    console.error(`Error fetching GIFs for category ${category}:`, error);
+    log.error('Utils', `Error fetching GIFs for category ${category}:`, error);
     throw error;
   }
 } 

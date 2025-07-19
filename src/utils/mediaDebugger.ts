@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Media Debugging Utilities
  * Helper functions to test and debug media URL conversion and thumbnail display
@@ -8,8 +9,8 @@ export class MediaDebugger {
    * Test media URL conversion from database format to PostCard format
    */
   static testMediaConversion(mediaUrls: string[]) {
-    console.log('🎬 [MediaDebugger] Testing media URL conversion...');
-    console.log('Input media URLs:', mediaUrls);
+    log.debug('Utils', '🎬 [MediaDebugger] Testing media URL conversion...');
+    log.debug('Utils', 'Input media URLs:', mediaUrls);
     
     const detectMediaInfo = (url: string): { type: 'file' | 'link' | 'video'; fileType?: string; videoPlatform?: 'youtube' | 'vimeo' | 'other'; videoId?: string | null; thumbnailUrl?: string | null } => {
       if (!url || typeof url !== 'string') return { type: 'file' };
@@ -80,11 +81,11 @@ export class MediaDebugger {
       };
     });
     
-    console.log('Converted media attachments:', convertedMedia);
+    log.debug('Utils', 'Converted media attachments:', convertedMedia);
     
     // Test thumbnail generation
     convertedMedia.forEach((media, index) => {
-      console.log(`Media ${index + 1}:`, {
+      log.debug('Utils', `Media ${index + 1}:`, {
         url: media.url,
         type: media.type,
         fileType: media.fileType,
@@ -102,7 +103,7 @@ export class MediaDebugger {
    * Test specific post media URLs
    */
   static async testPostMedia(postId: string) {
-    console.log('🔍 [MediaDebugger] Testing post media for ID:', postId);
+    log.debug('Utils', '🔍 [MediaDebugger] Testing post media for ID:', postId);
     
     try {
       // This would normally fetch from Supabase, but for debugging we'll use window data
@@ -110,11 +111,11 @@ export class MediaDebugger {
       const post = posts.find((p: any) => p.id === postId);
       
       if (!post) {
-        console.log('❌ Post not found in debug data');
+        log.debug('Utils', '❌ Post not found in debug data');
         return;
       }
       
-      console.log('📄 Post found:', {
+      log.debug('Utils', '📄 Post found:', {
         id: post.id,
         title: post.title,
         media_urls: post.media_urls
@@ -123,11 +124,11 @@ export class MediaDebugger {
       if (post.media_urls && Array.isArray(post.media_urls)) {
         this.testMediaConversion(post.media_urls);
       } else {
-        console.log('ℹ️ No media URLs found for this post');
+        log.debug('Utils', 'ℹ️ No media URLs found for this post');
       }
       
     } catch (error) {
-      console.error('❌ Error testing post media:', error);
+      log.error('Utils', '❌ Error testing post media:', error);
     }
   }
 }
@@ -135,14 +136,14 @@ export class MediaDebugger {
 // Make it available globally for debugging
 (window as any).MediaDebugger = MediaDebugger;
 
-console.log('🎬 [MediaDebugger] Media debugging utilities loaded');
-console.log('Available functions:');
-console.log('- window.MediaDebugger.testMediaConversion(mediaUrls)');
-console.log('- window.MediaDebugger.testPostMedia(postId)');
+log.debug('Utils', '🎬 [MediaDebugger] Media debugging utilities loaded');
+log.debug('Utils', 'Available functions:');
+log.debug('Utils', '- window.MediaDebugger.testMediaConversion(mediaUrls)');
+log.debug('Utils', '- window.MediaDebugger.testPostMedia(postId)');
 
 // Test the media conversion with sample data
 export const testMediaConversionWithSamples = () => {
-  console.log('🧪 [MediaDebugger] Testing media conversion with sample data...');
+  log.debug('Utils', '🧪 [MediaDebugger] Testing media conversion with sample data...');
   
   // Sample media URLs that might be in the database
   const sampleMediaUrls = [
@@ -212,7 +213,7 @@ export const testMediaConversionWithSamples = () => {
     return { type: 'file' };
   };
   
-  console.log('🧪 [MediaDebugger] Testing media conversion:');
+  log.debug('Utils', '🧪 [MediaDebugger] Testing media conversion:');
   sampleMediaUrls.forEach(url => {
     const mediaInfo = detectMediaInfo(url);
     const attachment = {
@@ -225,7 +226,7 @@ export const testMediaConversionWithSamples = () => {
       ...(mediaInfo.thumbnailUrl && { thumbnailUrl: mediaInfo.thumbnailUrl })
     };
     
-    console.log(`📎 ${url} ->`, attachment);
+    log.debug('Utils', `📎 ${url} ->`, attachment);
   });
   
   return sampleMediaUrls.map(url => {
@@ -252,7 +253,7 @@ if (typeof window !== 'undefined') {
 
 // Test with actual database media formats
 export const testDatabaseMediaFormats = () => {
-  console.log('🧪 [MediaDebugger] Testing actual database media formats...');
+  log.debug('Utils', '🧪 [MediaDebugger] Testing actual database media formats...');
   
   // Test format 1: Direct object with URL
   const format1 = {
@@ -285,8 +286,8 @@ export const testDatabaseMediaFormats = () => {
     fileType: "image/gif"
   };
   
-  console.log('🧪 [MediaDebugger] Format 1 (Direct URL):', format1);
-  console.log('🧪 [MediaDebugger] Format 2 (Giphy Object):', format2);
+  log.debug('Utils', '🧪 [MediaDebugger] Format 1 (Direct URL):', format1);
+  log.debug('Utils', '🧪 [MediaDebugger] Format 2 (Giphy Object):', format2);
   
   // Test the conversion logic
   const testConversion = (mediaItem: any, index: number) => {
@@ -294,33 +295,33 @@ export const testDatabaseMediaFormats = () => {
     let existingType: string | undefined;
     let existingFileType: string | undefined;
     
-    console.log(`🧪 [MediaDebugger] Processing media item ${index}:`, mediaItem);
+    log.debug('Utils', `🧪 [MediaDebugger] Processing media item ${index}:`, mediaItem);
     
     if (typeof mediaItem === 'string') {
       url = mediaItem;
-      console.log(`🧪 [MediaDebugger] String format URL:`, url);
+      log.debug('Utils', `🧪 [MediaDebugger] String format URL:`, url);
     } else if (mediaItem && typeof mediaItem === 'object') {
       if (mediaItem.url) {
         if (typeof mediaItem.url === 'string') {
           url = mediaItem.url;
-          console.log(`🧪 [MediaDebugger] Object with direct URL:`, url);
+          log.debug('Utils', `🧪 [MediaDebugger] Object with direct URL:`, url);
         } else if (mediaItem.url.url) {
           url = mediaItem.url.url;
-          console.log(`🧪 [MediaDebugger] Object with nested URL:`, url);
+          log.debug('Utils', `🧪 [MediaDebugger] Object with nested URL:`, url);
         } else {
-          console.warn('🧪 [MediaDebugger] Invalid media URL structure:', mediaItem);
+          log.warn('Utils', '🧪 [MediaDebugger] Invalid media URL structure:', mediaItem);
           return null;
         }
       } else {
-        console.warn('🧪 [MediaDebugger] Media item missing URL:', mediaItem);
+        log.warn('Utils', '🧪 [MediaDebugger] Media item missing URL:', mediaItem);
         return null;
       }
       
       existingType = mediaItem.type;
       existingFileType = mediaItem.fileType;
-      console.log(`🧪 [MediaDebugger] Existing type info:`, { existingType, existingFileType });
+      log.debug('Utils', `🧪 [MediaDebugger] Existing type info:`, { existingType, existingFileType });
     } else {
-      console.warn('🧪 [MediaDebugger] Invalid media item:', mediaItem);
+      log.warn('Utils', '🧪 [MediaDebugger] Invalid media item:', mediaItem);
       return null;
     }
     
@@ -331,14 +332,14 @@ export const testDatabaseMediaFormats = () => {
       ...(existingFileType && { fileType: existingFileType })
     };
     
-    console.log(`🧪 [MediaDebugger] Final result:`, result);
+    log.debug('Utils', `🧪 [MediaDebugger] Final result:`, result);
     return result;
   };
   
-  console.log('🧪 [MediaDebugger] Testing Format 1:');
+  log.debug('Utils', '🧪 [MediaDebugger] Testing Format 1:');
   testConversion(format1, 0);
   
-  console.log('🧪 [MediaDebugger] Testing Format 2:');
+  log.debug('Utils', '🧪 [MediaDebugger] Testing Format 2:');
   testConversion(format2, 1);
   
   return { format1, format2 };

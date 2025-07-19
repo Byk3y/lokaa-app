@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { directLogin } from '@/utils/directAuth';
@@ -37,7 +38,7 @@ export default function LoginModalContent({ onSuccess, onError }: LoginModalCont
         onError?.(errorMessage);
         setLoading(false);
       } else {
-        console.log('🔒 [LoginModalContent] Login successful');
+        log.debug('Component', '🔒 [LoginModalContent] Login successful');
         setLoading(false);
         onSuccess?.();
       }

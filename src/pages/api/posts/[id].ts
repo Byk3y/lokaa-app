@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { NextApiRequest, NextApiResponse } from 'next';
 
@@ -31,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (postError.code === 'PGRST116') {
         return res.status(404).json({ error: 'Post not found' });
       }
-      console.error('Error fetching post:', postError);
+      log.error('Page', 'Error fetching post:', postError);
       return res.status(500).json({ error: 'Error fetching post' });
     }
 
@@ -50,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json(post);
   } catch (error) {
-    console.error('Error in posts API:', error);
+    log.error('Page', 'Error in posts API:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 } 

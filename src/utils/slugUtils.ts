@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
 /**
@@ -52,7 +53,7 @@ export async function getUniqueSlug(baseSlug: string, spaceId: string): Promise<
         .maybeSingle();
       
       if (error) {
-        console.error('Error checking slug uniqueness:', error);
+        log.error('Utils', 'Error checking slug uniqueness:', error);
         // If there's an error, just return the original slug and hope for the best
         return baseSlug;
       }
@@ -67,7 +68,7 @@ export async function getUniqueSlug(baseSlug: string, spaceId: string): Promise<
     
     return slug;
   } catch (error) {
-    console.error('Unexpected error in getUniqueSlug:', error);
+    log.error('Utils', 'Unexpected error in getUniqueSlug:', error);
     return baseSlug;
   }
 }
@@ -86,7 +87,7 @@ export function getPostUrl(
   postSlugOrSpace: string | { subdomain?: string | null }
 ): string {
   // Log input parameters for debugging
-  console.log('getPostUrl called with params:', { 
+  log.debug('Utils', 'getPostUrl called with params:', { 
     param1: spaceSlugOrPost, 
     param2: postSlugOrSpace 
   });
@@ -97,17 +98,17 @@ export function getPostUrl(
     const space = postSlugOrSpace;
     
     if (!space || !space.subdomain) {
-      console.error('Invalid space or missing subdomain:', space);
+      log.error('Utils', 'Invalid space or missing subdomain:', space);
       return '/'; // Return to home as fallback
     }
     
     if (!post || !post.id) {
-      console.error('Invalid post or missing ID:', post);
+      log.error('Utils', 'Invalid post or missing ID:', post);
       return `/${space.subdomain}/space`; // Return to space as fallback
     }
     
     // Debug object post parameters
-    console.log('Building URL from objects with:', {
+    log.debug('Utils', 'Building URL from objects with:', {
       subdomain: space.subdomain,
       postId: post.id,
       slug: post.slug
@@ -115,29 +116,29 @@ export function getPostUrl(
     
     // Verify the slug is actually present and not empty
     if (!post.slug) {
-      console.warn("Post slug is missing, falling back to ID:", post.id);
+      log.warn('Utils', "Post slug is missing, falling back to ID:", post.id);
     }
     
     // Use post slug if available, otherwise fall back to ID
     const result = `/${space.subdomain}/space/${post.slug || post.id}`;
-    console.log('Generated URL:', result);
+    log.debug('Utils', 'Generated URL:', result);
     return result;
   } 
   // Handle string form
   else if (typeof spaceSlugOrPost === 'string' && typeof postSlugOrSpace === 'string') {
     // Debug string parameters
-    console.log('Building URL from strings with:', {
+    log.debug('Utils', 'Building URL from strings with:', {
       spaceSlug: spaceSlugOrPost,
       postSlug: postSlugOrSpace
     });
     
     const result = `/${spaceSlugOrPost}/space/${postSlugOrSpace}`;
-    console.log('Generated URL:', result);
+    log.debug('Utils', 'Generated URL:', result);
     return result;
   }
   
   // Fallback for invalid parameter types
-  console.error('Invalid parameter types for getPostUrl:', { 
+  log.error('Utils', 'Invalid parameter types for getPostUrl:', { 
     spaceSlugOrPost, 
     postSlugOrSpace 
   });
@@ -179,7 +180,7 @@ export async function getUniqueCourseSlug(baseSlug: string, spaceId: string): Pr
         .maybeSingle();
       
       if (error) {
-        console.error('Error checking course slug uniqueness:', error);
+        log.error('Utils', 'Error checking course slug uniqueness:', error);
         // If there's an error, just return the original slug and hope for the best
         return baseSlug;
       }
@@ -194,7 +195,7 @@ export async function getUniqueCourseSlug(baseSlug: string, spaceId: string): Pr
     
     return slug;
   } catch (error) {
-    console.error('Unexpected error in getUniqueCourseSlug:', error);
+    log.error('Utils', 'Unexpected error in getUniqueCourseSlug:', error);
     return baseSlug;
   }
 }
@@ -215,7 +216,7 @@ export function getCourseUrl(
   moduleId?: string
 ): string {
   // Log input parameters for debugging
-  console.log('getCourseUrl called with params:', { 
+  log.debug('Utils', 'getCourseUrl called with params:', { 
     param1: spaceSlugOrCourse, 
     param2: courseSlugOrSpace,
     moduleId
@@ -227,17 +228,17 @@ export function getCourseUrl(
     const space = courseSlugOrSpace;
     
     if (!space || !space.subdomain) {
-      console.error('Invalid space or missing subdomain:', space);
+      log.error('Utils', 'Invalid space or missing subdomain:', space);
       return '/'; // Return to home as fallback
     }
     
     if (!course || !course.id) {
-      console.error('Invalid course or missing ID:', course);
+      log.error('Utils', 'Invalid course or missing ID:', course);
       return `/${space.subdomain}/space/classroom`; // Return to classroom as fallback
     }
     
     // Debug object course parameters
-    console.log('Building course URL from objects with:', {
+    log.debug('Utils', 'Building course URL from objects with:', {
       subdomain: space.subdomain,
       courseId: course.id,
       slug: course.slug,
@@ -246,19 +247,19 @@ export function getCourseUrl(
     
     // Verify the slug is actually present and not empty
     if (!course.slug) {
-      console.warn("Course slug is missing, falling back to ID:", course.id);
+      log.warn('Utils', "Course slug is missing, falling back to ID:", course.id);
     }
     
     // Use course slug if available, otherwise fall back to ID
     const baseUrl = `/${space.subdomain}/space/classroom/${course.slug || course.id}`;
     const result = moduleId ? `${baseUrl}?md=${moduleId}` : baseUrl;
-    console.log('Generated course URL:', result);
+    log.debug('Utils', 'Generated course URL:', result);
     return result;
   } 
   // Handle string form
   else if (typeof spaceSlugOrCourse === 'string' && typeof courseSlugOrSpace === 'string') {
     // Debug string parameters
-    console.log('Building course URL from strings with:', {
+    log.debug('Utils', 'Building course URL from strings with:', {
       spaceSlug: spaceSlugOrCourse,
       courseSlug: courseSlugOrSpace,
       moduleId
@@ -266,12 +267,12 @@ export function getCourseUrl(
     
     const baseUrl = `/${spaceSlugOrCourse}/space/classroom/${courseSlugOrSpace}`;
     const result = moduleId ? `${baseUrl}?md=${moduleId}` : baseUrl;
-    console.log('Generated course URL:', result);
+    log.debug('Utils', 'Generated course URL:', result);
     return result;
   }
   
   // Fallback for invalid parameter types
-  console.error('Invalid parameter types for getCourseUrl:', { 
+  log.error('Utils', 'Invalid parameter types for getCourseUrl:', { 
     spaceSlugOrCourse, 
     courseSlugOrSpace 
   });

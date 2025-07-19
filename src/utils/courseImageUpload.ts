@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
@@ -50,7 +51,7 @@ export const uploadCourseImage = async (
       });
 
     if (error) {
-      console.error('Error uploading course image:', error);
+      log.error('Utils', 'Error uploading course image:', error);
       toast({
         title: "Upload failed",
         description: error.message,
@@ -66,7 +67,7 @@ export const uploadCourseImage = async (
 
     return publicUrl;
   } catch (error) {
-    console.error('Unexpected error in uploadCourseImage:', error);
+    log.error('Utils', 'Unexpected error in uploadCourseImage:', error);
     toast({
       title: "Upload failed",
       description: error instanceof Error ? error.message : "An unexpected error occurred",

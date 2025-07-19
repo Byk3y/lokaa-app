@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Legacy Space Access Utilities - Compatibility Layer
  * 
@@ -41,7 +42,7 @@ export const directSpaceAccessCheck = dbDirectSpaceAccessCheck;
  * @deprecated Use createSpaceAccess from @/shared/services/database instead
  */
 export async function fixSpaceAccess(spaceId: string): Promise<boolean> {
-  console.warn('fixSpaceAccess is deprecated. Use createSpaceAccess from @/shared/services/database instead.');
+  log.warn('Utils', 'fixSpaceAccess is deprecated. Use createSpaceAccess from @/shared/services/database instead.');
   const result = await createSpaceAccess(spaceId);
   return result.success;
 }
@@ -50,7 +51,7 @@ export async function fixSpaceAccess(spaceId: string): Promise<boolean> {
  * @deprecated Use diagnoseSpaceAccess from @/shared/services/database instead
  */
 export async function fixSpaceAccessBySubdomain(subdomain: string): Promise<boolean> {
-  console.warn('fixSpaceAccessBySubdomain is deprecated. Use diagnoseSpaceAccess from @/shared/services/database instead.');
+  log.warn('Utils', 'fixSpaceAccessBySubdomain is deprecated. Use diagnoseSpaceAccess from @/shared/services/database instead.');
   const result = await diagnoseSpaceAccess(subdomain);
   return result.success;
 }

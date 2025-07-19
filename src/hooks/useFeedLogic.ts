@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // HMR TEST COMMENT C: Test completed - Hook HMR optimized
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -188,7 +189,7 @@ export function useFeedLogic({
   
   // ENHANCED: Debug logging for space ID resolution
   useEffect(() => {
-    console.log(`🔍 [useFeedLogic] Stable space ID status for ${subdomain}:`, {
+    log.debug('Hook', `🔍 [useFeedLogic] Stable space ID status for ${subdomain}:`, {
       stableSpaceId,
       readyToFetchSpaceId,
       contextSpaceData: contextSpaceData ? { id: contextSpaceData.id, subdomain: contextSpaceData.subdomain } : null,
@@ -231,7 +232,7 @@ export function useFeedLogic({
 
     // SECURITY AUDIT: Ensure canAccessSettings is only true for owners or admins
     if (permissions.canAccessSettings && !permissions.effectiveIsOwner && !permissions.effectiveIsAdmin) {
-      console.warn("⚠️ SECURITY AUDIT: canAccessSettings granted to regular member", {
+      log.warn('Hook', "⚠️ SECURITY AUDIT: canAccessSettings granted to regular member", {
         canAccessSettings: permissions.canAccessSettings,
         effectiveIsOwner: permissions.effectiveIsOwner,
         effectiveIsAdmin: permissions.effectiveIsAdmin,
@@ -249,7 +250,7 @@ export function useFeedLogic({
     // Debug logging only when permissions actually change
     const permKey = `${permissions.effectiveIsOwner}-${permissions.effectiveIsAdmin}-${permissions.canAccessSettings}`;
     if (!lastPermissionLog.current || lastPermissionLog.current !== permKey) {
-      console.log(`🔧 [EffectivePermissions] Updated for ${stableSpaceId || 'unknown'}:`, {
+      log.debug('Hook', `🔧 [EffectivePermissions] Updated for ${stableSpaceId || 'unknown'}:`, {
         effectiveIsOwner: permissions.effectiveIsOwner,
         effectiveIsAdmin: permissions.effectiveIsAdmin,
         canAccessSettings: permissions.canAccessSettings,
@@ -339,7 +340,7 @@ export function useFeedLogic({
     updateLastNotificationTime,
   } = useNewPostsState({
     onLoadNewPosts: async (postIds: string[]) => {
-      console.log(`🔄 [FeedLogic] Loading new posts: ${postIds.join(', ')}`);
+      log.debug('Hook', `🔄 [FeedLogic] Loading new posts: ${postIds.join(', ')}`);
       
       if (!postIds.length || !stableSpaceId) return;
       
@@ -375,7 +376,7 @@ export function useFeedLogic({
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('❌ [FeedLogic] Error fetching new posts:', error);
+          log.error('Hook', '❌ [FeedLogic] Error fetching new posts:', error);
           throw error;
         }
 
@@ -415,12 +416,12 @@ export function useFeedLogic({
             handleCachedPostCreated(transformedPost);
           });
           
-          console.log(`✅ [FeedLogic] Successfully loaded ${newPosts.length} new posts`);
+          log.debug('Hook', `✅ [FeedLogic] Successfully loaded ${newPosts.length} new posts`);
           clearNewPosts();
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       } catch (error) {
-        console.error('❌ [FeedLogic] Failed to load new posts:', error);
+        log.error('Hook', '❌ [FeedLogic] Failed to load new posts:', error);
         throw error;
       }
     },
@@ -513,7 +514,7 @@ export function useFeedLogic({
   }, []);
 
   const handlePostCardClick = useCallback((post: PostCardProps) => {
-    console.log('[FeedLogic] Post card clicked:', post.title || post.id);
+    log.debug('Hook', '[FeedLogic] Post card clicked:', post.title || post.id);
     setSelectedPostForModal(post);
     setIsPostModalOpen(true);
     
@@ -522,20 +523,20 @@ export function useFeedLogic({
     if (post.slug) {
       const searchParams = new URLSearchParams(location.search);
       searchParams.set('post', post.slug);
-      console.log('[FeedLogic] Updating URL with post param:', post.slug);
+      log.debug('Hook', '[FeedLogic] Updating URL with post param:', post.slug);
       navigate({ search: searchParams.toString() }, { replace: false });
     }
   }, [navigate, location.search]);
 
   const handleClosePostModal = useCallback(() => {
-    console.log('[FeedLogic] Closing post modal');
+    log.debug('Hook', '[FeedLogic] Closing post modal');
     setIsPostModalOpen(false);
     setSelectedPostForModal(null);
     
     // Remove post parameter from URL
     const searchParams = new URLSearchParams(location.search);
     searchParams.delete('post');
-    console.log('[FeedLogic] Removing post parameter from URL');
+    log.debug('Hook', '[FeedLogic] Removing post parameter from URL');
     navigate({ search: searchParams.toString() }, { replace: true });
   }, [navigate, location.search]);
 
@@ -590,12 +591,12 @@ export function useFeedLogic({
   // ============================================================================
   
   const openCreatePostModal = useCallback(() => {
-    console.log('[FeedLogic] Opening create post modal');
+    log.debug('Hook', '[FeedLogic] Opening create post modal');
     setIsCreatePostModalOpen(true);
   }, []);
 
   const closeCreatePostModal = useCallback(() => {
-    console.log('[FeedLogic] Closing create post modal');
+    log.debug('Hook', '[FeedLogic] Closing create post modal');
     setIsCreatePostModalOpen(false);
   }, []);
 

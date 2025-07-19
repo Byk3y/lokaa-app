@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🛡️ Protected Auth Utilities
  * 
@@ -20,7 +21,7 @@ export async function getProtectedCurrentUser(options: {
     return await migrationAdapter.getCurrentUser(options);
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('Protected auth fallback to direct call:', error);
+      log.warn('Utils', 'Protected auth fallback to direct call:', error);
     }
     
     // Final fallback to direct call
@@ -47,7 +48,7 @@ export async function updateProtectedPresence(
     return await migrationAdapter.updateGlobalPresence(userId, isOnline, options);
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('Protected presence update failed:', error);
+      log.warn('Utils', 'Protected presence update failed:', error);
     }
     return { data: null, error, fromCache: false };
   }

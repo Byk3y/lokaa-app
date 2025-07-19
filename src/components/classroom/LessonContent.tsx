@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState } from 'react';
 import { CheckCircle2, Edit, FileText, Save, X, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -78,7 +79,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
         variant: "default"
       });
     } catch (error: any) {
-      console.error('Error creating page:', error);
+      log.error('Component', 'Error creating page:', error);
       toast({
         title: "Error Creating Page",
         description: error.message || "An unexpected error occurred",

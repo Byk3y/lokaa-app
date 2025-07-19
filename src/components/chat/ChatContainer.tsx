@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { useConversations, ChatListUnified } from '@/features/chat';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -52,7 +53,7 @@ export default function ChatContainer({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // DEBUG: Log container state
-  console.log('🗨️ [ChatContainer] Rendered with state:', {
+  log.debug('Component', '🗨️ [ChatContainer] Rendered with state:', {
     initialConversationId,
     isModal,
     view,
@@ -63,7 +64,7 @@ export default function ChatContainer({
 
   // Handle initial conversation ID and URL changes
   useEffect(() => {
-    console.log('🗨️ [ChatContainer] UseEffect - setup:', {
+    log.debug('Component', '🗨️ [ChatContainer] UseEffect - setup:', {
       initialConversationId,
       willSetView: initialConversationId ? 'chat' : 'list'
     });
@@ -76,7 +77,7 @@ export default function ChatContainer({
       // Only show list view if no conversation is pre-selected AND not in modal
       // For modals without a pre-selected conversation, close the modal instead
       if (isModal) {
-        console.log('🗨️ [ChatContainer] Modal opened without conversation - should not show selector');
+        log.debug('Component', '🗨️ [ChatContainer] Modal opened without conversation - should not show selector');
         onClose?.();
         return;
       }
@@ -89,13 +90,13 @@ export default function ChatContainer({
     if (!isMobileForUrls || isModal) return; // Only handle URL changes on mobile full-screen
 
     const handlePopState = () => {
-      console.log('📱 [ChatContainer] Browser back/forward detected');
+      log.debug('Component', '📱 [ChatContainer] Browser back/forward detected');
       
       const { slug, conversationId: cachedId } = parseConversationUrlParams();
       
       // ✅ NAVIGATION STATE GUARD: Check if already at this conversation
       if (cachedId && cachedId === activeConversationId) {
-        console.log('📱 [ChatContainer] Already at target conversation, skipping:', cachedId);
+        log.debug('Component', '📱 [ChatContainer] Already at target conversation, skipping:', cachedId);
         return;
       }
       
@@ -108,17 +109,17 @@ export default function ChatContainer({
         }
         
         if (resolvedId) {
-          console.log('📱 [ChatContainer] Browser navigation to conversation:', resolvedId);
+          log.debug('Component', '📱 [ChatContainer] Browser navigation to conversation:', resolvedId);
           selectConversation(resolvedId);
           setView('chat');
         } else {
-          console.warn('📱 [ChatContainer] Browser navigation: conversation not found for slug:', slug);
+          log.warn('Component', '📱 [ChatContainer] Browser navigation: conversation not found for slug:', slug);
           setView('list');
           selectConversation(null);
         }
       } else {
         // User navigated back to conversation list
-        console.log('📱 [ChatContainer] Browser navigation to conversation list');
+        log.debug('Component', '📱 [ChatContainer] Browser navigation to conversation list');
         setView('list');
         selectConversation(null);
       }
@@ -133,16 +134,16 @@ export default function ChatContainer({
       
       // ✅ NAVIGATION STATE GUARD: Check if already at this conversation
       if (conversationId && conversationId === activeConversationId) {
-        console.log('📱 [ChatContainer] Already at target conversation, skipping custom URL change:', conversationId);
+        log.debug('Component', '📱 [ChatContainer] Already at target conversation, skipping custom URL change:', conversationId);
         return;
       }
       
       if (conversationId) {
-        console.log('📱 [ChatContainer] Custom URL change to conversation:', conversationId);
+        log.debug('Component', '📱 [ChatContainer] Custom URL change to conversation:', conversationId);
         selectConversation(conversationId);
         setView('chat');
       } else {
-        console.log('📱 [ChatContainer] Custom URL change to conversation list');
+        log.debug('Component', '📱 [ChatContainer] Custom URL change to conversation list');
         setView('list');
         selectConversation(null);
       }
@@ -167,7 +168,7 @@ export default function ChatContainer({
       // Mobile: Use URL navigation for browser history
       const success = navigateToConversationList();
       if (success) {
-        console.log('📱 [ChatContainer] Mobile: Navigated to conversation list URL');
+        log.debug('Component', '📱 [ChatContainer] Mobile: Navigated to conversation list URL');
       }
       // The actual view change will happen via URL change listener
     } else {
@@ -181,7 +182,7 @@ export default function ChatContainer({
   const selectedConversation = activeLegacyConversation;
 
   // DEBUG: Log conversation selection
-  console.log('🗨️ [ChatContainer] Conversation selection:', {
+  log.debug('Component', '🗨️ [ChatContainer] Conversation selection:', {
     activeConversationId,
     allConversationIds: legacyConversations?.map(c => c.conversation_id) || [],
     selectedConversation: selectedConversation ? {
@@ -194,7 +195,7 @@ export default function ChatContainer({
   const effectiveIsFullScreen = isModal ? isMobileDevice : true;
 
   // DEBUG: Log render decision
-  console.log('🗨️ [ChatContainer] Render decision:', {
+  log.debug('Component', '🗨️ [ChatContainer] Render decision:', {
     view,
     showList: view === 'list',
     showChat: view === 'chat' && !!selectedConversation,
@@ -232,7 +233,7 @@ export default function ChatContainer({
            Modals should always have a pre-selected conversation or close themselves */}
       {view === 'chat' && selectedConversation && (
         (() => {
-          console.log('🗨️ [ChatContainer] Rendering ChatView with conversation:', selectedConversation);
+          log.debug('Component', '🗨️ [ChatContainer] Rendering ChatView with conversation:', selectedConversation);
           return (
         <ChatView
           conversation={selectedConversation}

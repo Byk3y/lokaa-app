@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 
 /**
@@ -15,7 +16,7 @@ export interface SchemaValidationResult {
  * and examining table structure
  */
 export async function diagnoseSpacesTable(): Promise<SchemaValidationResult> {
-  console.log("Diagnosing spaces table...");
+  log.debug('Service', "Diagnosing spaces table...");
   
   try {
     // Check if the table exists and has any records
@@ -25,7 +26,7 @@ export async function diagnoseSpacesTable(): Promise<SchemaValidationResult> {
       .limit(1);
     
     if (error) {
-      console.error("Error accessing spaces table:", error);
+      log.error('Service', "Error accessing spaces table:", error);
       return {
         success: false,
         message: `Error accessing spaces table: ${error.message}`,
@@ -36,7 +37,7 @@ export async function diagnoseSpacesTable(): Promise<SchemaValidationResult> {
     // Check actual columns in the table
     if (data && data.length > 0) {
       const columns = Object.keys(data[0]);
-      console.log("Spaces table has these columns:", columns);
+      log.debug('Service', "Spaces table has these columns:", columns);
       
       // Check for required columns
       const requiredColumns = ['id', 'name', 'subdomain', 'owner_id'];
@@ -56,14 +57,14 @@ export async function diagnoseSpacesTable(): Promise<SchemaValidationResult> {
         columns
       };
     } else {
-      console.log("Spaces table exists but has no records");
+      log.debug('Service', "Spaces table exists but has no records");
       return {
         success: true,
         message: "Spaces table exists but has no records"
       };
     }
   } catch (err) {
-    console.error("Unexpected error diagnosing spaces table:", err);
+    log.error('Service', "Unexpected error diagnosing spaces table:", err);
     return {
       success: false,
       message: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🎯 Post Service - Reliable Post Fetching
  * 
@@ -98,7 +99,7 @@ export class PostService {
 
           if (postError || !postDataBySlug) {
             if (process.env.NODE_ENV === 'development') {
-              console.warn(`[PostService] Slug fetch failed: ${postError?.message}, trying ID fallback...`);
+              log.warn('Service', `[PostService] Slug fetch failed: ${postError?.message}, trying ID fallback...`);
             }
             
             // Try to fetch by ID as fallback for legacy URLs
@@ -158,7 +159,7 @@ export class PostService {
               devLogger.log('PostService', `Found author: ${author.name}`);
             } else {
               if (process.env.NODE_ENV === 'development') {
-                console.warn(`[PostService] User fetch failed: ${userError?.message}`);
+                log.warn('Service', `[PostService] User fetch failed: ${userError?.message}`);
               }
             }
           }
@@ -182,7 +183,7 @@ export class PostService {
               devLogger.log('PostService', `Found category: ${category.name}`);
             } else {
               if (process.env.NODE_ENV === 'development') {
-                console.warn(`[PostService] Category fetch failed: ${categoryError?.message}`);
+                log.warn('Service', `[PostService] Category fetch failed: ${categoryError?.message}`);
               }
             }
           }
@@ -234,7 +235,7 @@ export class PostService {
             error.name === 'AbortError'
           )) {
             if (process.env.NODE_ENV === 'development') {
-              console.warn(`[PostService] Non-retryable error: ${error.message}`);
+              log.warn('Service', `[PostService] Non-retryable error: ${error.message}`);
             }
             throw error;
           }
@@ -247,7 +248,7 @@ export class PostService {
             error.message.includes('schema cache')
           )) {
             if (process.env.NODE_ENV === 'development') {
-              console.warn(`[PostService] 400/relationship error on attempt ${retryCount + 1}, not retrying:`, error.message);
+              log.warn('Service', `[PostService] 400/relationship error on attempt ${retryCount + 1}, not retrying:`, error.message);
             }
             throw error;
           }
@@ -259,14 +260,14 @@ export class PostService {
           
           const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s
           if (process.env.NODE_ENV === 'development') {
-            console.warn(`[PostService] Attempt ${retryCount} failed, retrying in ${delay}ms:`, error.message);
+            log.warn('Service', `[PostService] Attempt ${retryCount} failed, retrying in ${delay}ms:`, error.message);
           }
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       } catch (error) {
         if (retryCount >= maxRetries) {
           if (process.env.NODE_ENV === 'development') {
-            console.error('[PostService] Error fetching post after retries:', error);
+            log.error('Service', '[PostService] Error fetching post after retries:', error);
           }
           return { 
             data: null, 

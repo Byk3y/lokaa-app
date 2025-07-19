@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -117,7 +118,7 @@ export default function SpaceSettingsModal() {
   // Initialize form data from space once loaded
   useEffect(() => {
     if (space) {
-      console.log("Initializing form data from space:", space);
+      log.debug('Component', "Initializing form data from space:", space);
       setFormData({
         name: space.name,
         description: space.description || "", // Convert null to empty string for the form
@@ -130,7 +131,7 @@ export default function SpaceSettingsModal() {
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    console.log(`Input change: ${name} = "${value}"`);
+    log.debug('Component', `Input change: ${name} = "${value}"`);
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -142,18 +143,18 @@ export default function SpaceSettingsModal() {
   // Add function to check if Supabase storage is working
   const checkStorageAccess = async () => {
     try {
-      console.log("Checking Supabase storage bucket access...");
+      log.debug('Component', "Checking Supabase storage bucket access...");
       const { data, error } = await getSupabaseClient().storage.getBucket(STORAGE_BUCKET_NAME);
     
       if (error) {
-        console.error("Storage access error:", error);
+        log.error('Component', "Storage access error:", error);
         return false;
       }
       
-      console.log("Storage bucket accessible:", data);
+      log.debug('Component', "Storage bucket accessible:", data);
       return true;
     } catch (err) {
-      console.error("Storage access check failed:", err);
+      log.error('Component', "Storage access check failed:", err);
       return false;
     }
   };
@@ -183,15 +184,15 @@ export default function SpaceSettingsModal() {
     }
     
     try {
-      console.log(`Starting upload for ${type} image:`, file.name);
+      log.debug('Component', `Starting upload for ${type} image:`, file.name);
       
       // Compress the image for storage efficiency
       const maxDimension = type === 'icon' ? 128 : 800; // Limit cover images to 800px max dimension
       const quality = type === 'icon' ? 0.9 : 0.7; // Use higher quality for icons, lower for covers
       
-      console.log(`Compressing ${type} image to max dimension: ${maxDimension}px with quality: ${quality}`);
+      log.debug('Component', `Compressing ${type} image to max dimension: ${maxDimension}px with quality: ${quality}`);
       const compressedBlob = await compressImage(file, maxDimension, quality);
-      console.log(`Original size: ${(file.size / 1024).toFixed(2)}KB, Compressed size: ${(compressedBlob.size / 1024).toFixed(2)}KB`);
+      log.debug('Component', `Original size: ${(file.size / 1024).toFixed(2)}KB, Compressed size: ${(compressedBlob.size / 1024).toFixed(2)}KB`);
       
       // Convert compressed blob to base64 for localStorage
       const reader = new FileReader();
@@ -209,9 +210,9 @@ export default function SpaceSettingsModal() {
       // Try to store in localStorage with error handling
       try {
         localStorage.setItem(storageKey, base64Data);
-        console.log(`Compressed image stored in localStorage with key: ${storageKey}`);
+        log.debug('Component', `Compressed image stored in localStorage with key: ${storageKey}`);
       } catch (localStorageError) {
-        console.error("localStorage error:", localStorageError);
+        log.error('Component', "localStorage error:", localStorageError);
         // If localStorage fails, try to clear some space
         try {
           // Find and remove old images with the same prefix
@@ -225,11 +226,11 @@ export default function SpaceSettingsModal() {
           
           // Remove old images (if any)
           if (keysToRemove.length > 0) {
-            console.log(`Removing ${keysToRemove.length} old images to free up space`);
+            log.debug('Component', `Removing ${keysToRemove.length} old images to free up space`);
             keysToRemove.forEach(key => localStorage.removeItem(key));
             // Try storing again
             localStorage.setItem(storageKey, base64Data);
-            console.log(`Successfully stored image after clearing space`);
+            log.debug('Component', `Successfully stored image after clearing space`);
           } else {
             throw new Error("No space available in localStorage");
           }
@@ -245,7 +246,7 @@ export default function SpaceSettingsModal() {
         
         // Try to upload to Supabase storage
         const filePath = `spaces/${space.id}/${type}/${uuidv4()}-${file.name.replace(/\s+/g, '-')}`;
-        console.log("Uploading compressed image to path:", filePath);
+        log.debug('Component', "Uploading compressed image to path:", filePath);
         
         const { data: uploadData, error: uploadError } = await getSupabaseClient().storage
           .from(STORAGE_BUCKET_NAME)
@@ -255,11 +256,11 @@ export default function SpaceSettingsModal() {
           });
           
         if (uploadError) {
-          console.error("Upload error:", uploadError);
+          log.error('Component', "Upload error:", uploadError);
           throw uploadError;
         }
         
-        console.log("Upload successful:", uploadData);
+        log.debug('Component', "Upload successful:", uploadData);
         
         // Get public URL
         const { data: urlData } = getSupabaseClient().storage
@@ -267,7 +268,7 @@ export default function SpaceSettingsModal() {
           .getPublicUrl(filePath);
         
         const publicUrl = urlData.publicUrl;
-        console.log("Public URL:", publicUrl);
+        log.debug('Component', "Public URL:", publicUrl);
         
         // Update form data with new image URL
         setFormData(prev => ({
@@ -284,7 +285,7 @@ export default function SpaceSettingsModal() {
           .eq('id', space.id);
           
         if (updateError) {
-          console.error("Error updating space record:", updateError);
+          log.error('Component', "Error updating space record:", updateError);
           throw updateError;
         }
         
@@ -297,7 +298,7 @@ export default function SpaceSettingsModal() {
         await loadActiveSpace({ spaceId }, user?.id || '');
         
       } catch (storageError) {
-        console.warn("Supabase storage upload failed, using localStorage instead:", storageError);
+        log.warn('Component', "Supabase storage upload failed, using localStorage instead:", storageError);
         
         // Fallback to localStorage URL
         const localUrl = `local:${storageKey}`;
@@ -317,7 +318,7 @@ export default function SpaceSettingsModal() {
           .eq('id', space.id);
           
         if (updateError) {
-          console.error("Error updating space record with local URL:", updateError);
+          log.error('Component', "Error updating space record with local URL:", updateError);
           throw updateError;
         }
         
@@ -331,7 +332,7 @@ export default function SpaceSettingsModal() {
       }
         
       } catch (error: unknown) {
-      console.error(`Error uploading ${type}:`, error);
+      log.error('Component', `Error uploading ${type}:`, error);
       toast({
         title: "Upload failed",
         description: error instanceof Error ? error.message : String(error) || `Could not upload ${type} image.`,
@@ -352,7 +353,7 @@ export default function SpaceSettingsModal() {
     setSaving(true);
 
     try {
-      console.log("Saving form data:", formData);
+      log.debug('Component', "Saving form data:", formData);
       
       // Create a clean update object with only the fields we want to update
       const updateData: Partial<SpaceSettingsData> = {};
@@ -362,7 +363,7 @@ export default function SpaceSettingsModal() {
       if (formData.description !== undefined) updateData.description = formData.description === "" ? null : formData.description;
       if (formData.is_private !== undefined) updateData.is_private = formData.is_private;
       
-      console.log("Sending update data to server:", updateData);
+      log.debug('Component', "Sending update data to server:", updateData);
 
       const { error } = await getSupabaseClient()
         .from('spaces')
@@ -378,7 +379,7 @@ export default function SpaceSettingsModal() {
       }
       
     } catch (error: unknown) {
-      console.error("Error updating settings:", error);
+      log.error('Component', "Error updating settings:", error);
       toast({
         title: "Error",
         description: `Failed to update settings: ${error instanceof Error ? error.message : String(error) || 'Unknown error'}`,
@@ -642,7 +643,7 @@ export default function SpaceSettingsModal() {
                     {editingSubdomain ? (
                       <div className="flex max-w-md">
                         <div className="flex items-center px-3 bg-gray-100 border-y border-l rounded-l-md text-gray-500 text-sm">
-                          lokaa.com/
+                          lokaa.app/
                         </div>
                         <Input
                           value={subdomainValue}
@@ -681,7 +682,7 @@ export default function SpaceSettingsModal() {
                     ) : (
                       <div className="flex items-center max-w-md">
                         <div className="flex-1 flex items-center border rounded-md px-3 py-2 bg-gray-50 text-gray-700">
-                          <span className="text-gray-500">lokaa.com/</span>
+                          <span className="text-gray-500">lokaa.app/</span>
                           <span className="font-medium">{formData.subdomain || 'your-subdomain'}</span>
                         </div>
                         <Button 
@@ -851,7 +852,7 @@ export default function SpaceSettingsModal() {
                           <Input
                             type="text"
                             className="rounded-r-none bg-gray-50"
-                            value="https://lokaa.com/invite/abcdef123456"
+                            value="https://lokaa.app/invite/abcdef123456"
                             readOnly
                             disabled
                           />

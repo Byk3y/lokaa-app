@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * IndexedDB Database Manager
  * 
@@ -88,7 +89,7 @@ export class IndexedDBManager implements IIndexedDBManager {
       // Check if IndexedDB is available
       if (typeof indexedDB === 'undefined') {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('[IndexedDBManager] IndexedDB not available - using fallback mode');
+          log.warn('Utils', '[IndexedDBManager] IndexedDB not available - using fallback mode');
         }
         resolve();
         return;
@@ -98,7 +99,7 @@ export class IndexedDBManager implements IIndexedDBManager {
 
       request.onerror = () => {
         if (process.env.NODE_ENV === 'development') {
-          console.error('[IndexedDBManager] Failed to open database:', request.error);
+          log.error('Utils', '[IndexedDBManager] Failed to open database:', request.error);
         }
         reject(request.error);
       };
@@ -111,7 +112,7 @@ export class IndexedDBManager implements IIndexedDBManager {
         // Setup error handlers
         this.db.onerror = (event) => {
           if (process.env.NODE_ENV === 'development') {
-            console.error('[IndexedDBManager] Database error:', event);
+            log.error('Utils', '[IndexedDBManager] Database error:', event);
           }
         };
 
@@ -133,7 +134,7 @@ export class IndexedDBManager implements IIndexedDBManager {
 
       request.onblocked = () => {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('[IndexedDBManager] Database upgrade blocked - please close other tabs');
+          log.warn('Utils', '[IndexedDBManager] Database upgrade blocked - please close other tabs');
         }
       };
     });
@@ -316,7 +317,7 @@ export class IndexedDBManager implements IIndexedDBManager {
         };
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('[IndexedDBManager] Could not get storage estimate:', error);
+          log.warn('Utils', '[IndexedDBManager] Could not get storage estimate:', error);
         }
       }
     }
@@ -329,7 +330,7 @@ export class IndexedDBManager implements IIndexedDBManager {
    */
   async forceRefresh(): Promise<void> {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[IndexedDBManager] Forcing database refresh...');
+      log.warn('Utils', '[IndexedDBManager] Forcing database refresh...');
     }
     
     // Close current connection

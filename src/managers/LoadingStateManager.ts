@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🎯 Loading State Conductor - Master Orchestrator
  * 
@@ -135,14 +136,14 @@ class LoadingStateManager {
       
       // Check if this operation should be skipped for this user type
       if (strategy.skipOperations && strategy.skipOperations.includes(operation)) {
-        console.log(`🎯 [LoadingManager] Skipping ${operation} for ${this.currentUserType}`);
+        log.debug('App', `🎯 [LoadingManager] Skipping ${operation} for ${this.currentUserType}`);
         return false;
       }
 
       // Check if higher priority operation is running
       const currentPriority = this.getOperationPriority(operation);
       if (this.masterLoadingState && this.masterLoadingState.priority < currentPriority) {
-        console.log(`🎯 [LoadingManager] ${operation} blocked by higher priority ${this.masterLoadingState.operation}`);
+        log.debug('App', `🎯 [LoadingManager] ${operation} blocked by higher priority ${this.masterLoadingState.operation}`);
         return false;
       }
 
@@ -164,12 +165,12 @@ class LoadingStateManager {
         this.notifyLoadingChange(loadingState);
       }
 
-      console.log(`🎯 [LoadingManager] Started ${operation} (priority: ${currentPriority})`);
+      log.debug('App', `🎯 [LoadingManager] Started ${operation} (priority: ${currentPriority})`);
       return true;
     } catch (error) {
-      console.error(`🚨 [LoadingManager] Error starting operation ${operation}:`, error);
-      console.error(`🚨 [LoadingManager] Current user type: ${this.currentUserType}`);
-      console.error(`🚨 [LoadingManager] Available strategies:`, Array.from(this.loadingStrategies.keys()));
+      log.error('App', `🚨 [LoadingManager] Error starting operation ${operation}:`, error);
+      log.error('App', `🚨 [LoadingManager] Current user type: ${this.currentUserType}`);
+      log.error('App', `🚨 [LoadingManager] Available strategies:`, Array.from(this.loadingStrategies.keys()));
       return false;
     }
   }
@@ -182,7 +183,7 @@ class LoadingStateManager {
     if (!loadingState) return;
 
     const duration = Date.now() - loadingState.startTime;
-    console.log(`🏁 [LoadingManager] Completed ${operation} in ${duration}ms (${success ? 'success' : 'failed'})`);
+    log.debug('App', `🏁 [LoadingManager] Completed ${operation} in ${duration}ms (${success ? 'success' : 'failed'})`);
 
     this.activeOperations.delete(operation);
 
@@ -217,12 +218,12 @@ class LoadingStateManager {
     for (const source of cacheAttempts) {
       const result = this.checkCacheSource(source, userId, targetSubdomain);
       if (result.found && result.isValid) {
-        console.log(`🚀 [LoadingManager] INSTANT CACHE HIT from ${source}`);
+        log.debug('App', `🚀 [LoadingManager] INSTANT CACHE HIT from ${source}`);
         return result;
       }
     }
 
-    console.log(`🚀 [LoadingManager] No valid cache found, will need loading operation`);
+    log.debug('App', `🚀 [LoadingManager] No valid cache found, will need loading operation`);
     return { found: false, source: CacheSource.LAST_ACTIVE_SPACE, isValid: false };
   }
 
@@ -231,7 +232,7 @@ class LoadingStateManager {
    */
   setUserType(userType: UserType): void {
     if (this.currentUserType !== userType) {
-      console.log(`👤 [LoadingManager] User type changed: ${this.currentUserType} → ${userType}`);
+      log.debug('App', `👤 [LoadingManager] User type changed: ${this.currentUserType} → ${userType}`);
       this.currentUserType = userType;
     }
   }
@@ -302,7 +303,7 @@ class LoadingStateManager {
     const strategy = this.loadingStrategies.get(this.currentUserType) || this.loadingStrategies.get(UserType.UNKNOWN);
     
     if (!strategy) {
-      console.error(`🚨 [LoadingManager] No strategy found for user type: ${this.currentUserType}`);
+      log.error('App', `🚨 [LoadingManager] No strategy found for user type: ${this.currentUserType}`);
       // Return a safe fallback strategy
       return {
         userType: UserType.UNKNOWN,
@@ -396,7 +397,7 @@ class LoadingStateManager {
       };
 
     } catch (error) {
-      console.warn(`Cache check failed for ${source}:`, error);
+      log.warn('App', `Cache check failed for ${source}:`, error);
       return { found: false, source, isValid: false };
     }
   }
@@ -422,7 +423,7 @@ class LoadingStateManager {
       try {
         callback(state);
       } catch (error) {
-        console.error('Loading callback error:', error);
+        log.error('App', 'Loading callback error:', error);
       }
     }
   }
@@ -432,7 +433,7 @@ class LoadingStateManager {
       // Expose to window for debugging
       (window as any).loadingStateManager = this;
       (window as any).debugLoadingState = () => {
-        console.log('🎯 Loading State Manager Debug:', {
+        log.debug('App', '🎯 Loading State Manager Debug:', {
           currentUserType: this.currentUserType,
           masterLoadingState: this.masterLoadingState,
           activeOperations: Array.from(this.activeOperations.entries()),

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Error recovery utilities for database and space access issues
  */
@@ -21,7 +22,7 @@ export async function diagnoseDbConnection(): Promise<{
   details?: DiagnosisDetails;
 }> {
   try {
-    console.log('Diagnosing database connection...');
+    log.debug('Utils', 'Diagnosing database connection...');
     
     // 1. Try a simple query to check if the database is accessible
     const { data: pingData, error: pingError } = await getSupabaseClient()
@@ -29,7 +30,7 @@ export async function diagnoseDbConnection(): Promise<{
       .select('count(*)', { count: 'exact', head: true });
       
     if (pingError) {
-      console.error('Database ping failed:', pingError);
+      log.error('Utils', 'Database ping failed:', pingError);
       return {
         success: false,
         message: 'Failed to connect to database',
@@ -41,7 +42,7 @@ export async function diagnoseDbConnection(): Promise<{
     const { data: { session }, error: authError } = await getSupabaseClient().auth.getSession();
     
     if (authError) {
-      console.error('Auth session check failed:', authError);
+      log.error('Utils', 'Auth session check failed:', authError);
       return {
         success: false,
         message: 'Failed to verify authentication',
@@ -63,7 +64,7 @@ export async function diagnoseDbConnection(): Promise<{
       details: { authenticated: true, userId: session.user?.id }
     };
   } catch (error: unknown) {
-    console.error('Unexpected error during diagnosis:', error);
+    log.error('Utils', 'Unexpected error during diagnosis:', error);
     return {
       success: false,
       message: 'Unexpected error during diagnosis',
@@ -89,13 +90,13 @@ export function resetClientState(): void {
       try {
         localStorage.removeItem(key);
       } catch (e) {
-        console.warn(`Failed to remove ${key} from localStorage:`, e);
+        log.warn('Utils', `Failed to remove ${key} from localStorage:`, e);
       }
     });
     
-    console.log('Client state reset completed');
+    log.debug('Utils', 'Client state reset completed');
   } catch (error) {
-    console.error('Error resetting client state:', error);
+    log.error('Utils', 'Error resetting client state:', error);
   }
 }
 
@@ -114,14 +115,14 @@ export function performEmergencyReset(): void {
     sessionStorage.clear();
     
     // 4. Display completion message
-    console.log('Emergency reset completed. Refreshing page in 2 seconds...');
+    log.debug('Utils', 'Emergency reset completed. Refreshing page in 2 seconds...');
     
     // 5. Refresh the page after a short delay
     setTimeout(() => {
       window.location.href = '/';
     }, 2000);
   } catch (error) {
-    console.error('Failed to perform emergency reset:', error);
+    log.error('Utils', 'Failed to perform emergency reset:', error);
     
     // Force a hard redirect as last resort
     window.location.href = `/?reset=true&t=${Date.now()}`;

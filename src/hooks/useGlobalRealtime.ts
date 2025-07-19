@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef, useState } from 'react';
 import { globalRealtimeService } from '@/services/GlobalRealtimeService';
 
@@ -41,7 +42,7 @@ export const useGlobalRealtime = (
       return;
     }
 
-    console.log(`🔔 [useGlobalRealtime] Subscribing to ${table} for space ${spaceId}`);
+    log.debug('Hook', `🔔 [useGlobalRealtime] Subscribing to ${table} for space ${spaceId}`);
 
     // Subscribe using global service
     subscriptionIdRef.current = globalRealtimeService.subscribe(
@@ -56,7 +57,7 @@ export const useGlobalRealtime = (
     // Cleanup function
     return () => {
       if (subscriptionIdRef.current) {
-        console.log(`🔔 [useGlobalRealtime] Unsubscribing from ${table} for space ${spaceId}`);
+        log.debug('Hook', `🔔 [useGlobalRealtime] Unsubscribing from ${table} for space ${spaceId}`);
         globalRealtimeService.unsubscribe(subscriptionIdRef.current);
         subscriptionIdRef.current = null;
       }

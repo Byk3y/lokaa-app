@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -180,7 +181,7 @@ export const useOptimizedRealtimePosts = ({
         .filter(id => !prev.includes(id));
       
       if (newIds.length > 0) {
-        console.log(`✨ [OptimizedRealtime] Processing ${newIds.length} posts (${priority} priority)`);
+        log.debug('Hook', `✨ [OptimizedRealtime] Processing ${newIds.length} posts (${priority} priority)`);
         
         // Update performance metrics
         const processingTime = performance.now() - startTime;
@@ -200,14 +201,14 @@ export const useOptimizedRealtimePosts = ({
   const addNewPostId = useCallback((postData: NewPostData) => {
     // Don't process own posts
     if (postData.user_id === userId) {
-      console.log(`🚫 [OptimizedRealtime] Ignoring own post: ${postData.id}`);
+      log.debug('Hook', `🚫 [OptimizedRealtime] Ignoring own post: ${postData.id}`);
       return;
     }
 
     // Ignore posts too close to page load
     const timeSincePageLoad = Date.now() - lastPageLoad.current.getTime();
     if (timeSincePageLoad < 5000) {
-      console.log(`⏳ [OptimizedRealtime] Ignoring post too close to page load: ${postData.id}`);
+      log.debug('Hook', `⏳ [OptimizedRealtime] Ignoring post too close to page load: ${postData.id}`);
       return;
     }
 
@@ -224,7 +225,7 @@ export const useOptimizedRealtimePosts = ({
       priority = 'low';
     }
 
-    console.log(`📦 [OptimizedRealtime] Queuing post: ${postData.id} (${priority} priority)`);
+    log.debug('Hook', `📦 [OptimizedRealtime] Queuing post: ${postData.id} (${priority} priority)`);
     
     // Add to batch with priority
     batchRef.current.posts.push(postData);
@@ -274,11 +275,11 @@ export const useOptimizedRealtimePosts = ({
     if (!isEnabled || !spaceId || channelRef.current) return;
 
     const connectStartTime = Date.now();
-    console.log(`🔌 [OptimizedRealtime] Establishing connection (attempt ${reconnectAttemptRef.current + 1})`);
+    log.debug('Hook', `🔌 [OptimizedRealtime] Establishing connection (attempt ${reconnectAttemptRef.current + 1})`);
 
     // Set connection timeout
     connectionTimeoutRef.current = setTimeout(() => {
-      console.log('⏰ [OptimizedRealtime] Connection timeout, retrying...');
+      log.debug('Hook', '⏰ [OptimizedRealtime] Connection timeout, retrying...');
       if (reconnectAttemptRef.current < maxReconnectAttempts) {
         reconnectAttemptRef.current++;
         establishConnection();
@@ -297,7 +298,7 @@ export const useOptimizedRealtimePosts = ({
         },
         (payload) => {
           const receiveTime = Date.now();
-          console.log('📨 [OptimizedRealtime] Post received:', payload.new?.id);
+          log.debug('Hook', '📨 [OptimizedRealtime] Post received:', payload.new?.id);
           
           // Update connection metrics
           setConnectionMetrics(prev => ({
@@ -313,7 +314,7 @@ export const useOptimizedRealtimePosts = ({
         }
       )
       .subscribe((status) => {
-        console.log(`🔔 [OptimizedRealtime] Status: ${status}`);
+        log.debug('Hook', `🔔 [OptimizedRealtime] Status: ${status}`);
         
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
@@ -331,7 +332,7 @@ export const useOptimizedRealtimePosts = ({
           
           // Start heartbeat
           heartbeatRef.current = setInterval(() => {
-            console.log('💓 [OptimizedRealtime] Heartbeat');
+            log.debug('Hook', '💓 [OptimizedRealtime] Heartbeat');
           }, config.heartbeatInterval);
           
         } else if (status === 'CHANNEL_ERROR') {
@@ -361,7 +362,7 @@ export const useOptimizedRealtimePosts = ({
     establishConnection();
 
     return () => {
-      console.log('🔌 [OptimizedRealtime] Cleaning up connection');
+      log.debug('Hook', '🔌 [OptimizedRealtime] Cleaning up connection');
       
       // Clear all timeouts
       [debounceTimeoutRef, scrollTimeoutRef, heartbeatRef, connectionTimeoutRef].forEach(ref => {

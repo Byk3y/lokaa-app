@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * useMessages Hook
  * 
@@ -46,7 +47,7 @@ export function useMessages(conversationId?: string) {
   // Auto-fetch messages when conversationId changes
   useEffect(() => {
     if (conversationId) {
-      console.log('[useMessages] Auto-fetching messages for conversation:', conversationId);
+      log.debug('Hook', '[useMessages] Auto-fetching messages for conversation:', conversationId);
       fetchMessages(conversationId);
     }
   }, [conversationId, fetchMessages]);
@@ -91,7 +92,7 @@ export function useMessages(conversationId?: string) {
       reorderConversations();
       
     } catch (error) {
-      console.error('[useMessages] Failed to send message:', error);
+      log.error('Hook', '[useMessages] Failed to send message:', error);
       throw error;
     }
   }, [conversationId, sendMessage, updateConversation, reorderConversations]);
@@ -113,7 +114,7 @@ export function useMessages(conversationId?: string) {
       });
       
     } catch (error) {
-      console.error('[useMessages] Failed to mark as read:', error);
+      log.error('Hook', '[useMessages] Failed to mark as read:', error);
       throw error;
     }
   }, [conversationId, markAsRead, updateConversation]);
@@ -159,7 +160,7 @@ export function useMessages(conversationId?: string) {
     );
     
     if (conversationRetries.length > 0) {
-      console.log('[useMessages] Retrying', conversationRetries.length, 'failed messages for conversation:', conversationId);
+      log.debug('Hook', '[useMessages] Retrying', conversationRetries.length, 'failed messages for conversation:', conversationId);
       await retryFailedMessages();
     }
   }, [conversationId, retryQueue, retryFailedMessages]);
@@ -201,7 +202,7 @@ export function useMessages(conversationId?: string) {
   const clearConversationMessages = useCallback(() => {
     if (conversationId) {
       // Implementation would need to be added to MessageStore
-      console.log('[useMessages] Clear messages for conversation:', conversationId);
+      log.debug('Hook', '[useMessages] Clear messages for conversation:', conversationId);
     }
   }, [conversationId]);
 

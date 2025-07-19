@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🪝 useErrorHandling Hook - Phase 4 Error Handling
  * 
@@ -134,7 +135,7 @@ export const useErrorHandling = (options: UseErrorHandlingOptions = {}): UseErro
       
       return recovered;
     } catch (recoveryError) {
-      console.error('Recovery attempt failed:', recoveryError);
+      log.error('Hook', 'Recovery attempt failed:', recoveryError);
       return false;
     } finally {
       setIsRecovering(false);
@@ -145,7 +146,7 @@ export const useErrorHandling = (options: UseErrorHandlingOptions = {}): UseErro
     try {
       navigate(path);
     } catch (error) {
-      console.error('Navigation failed, using fallback:', error);
+      log.error('Hook', 'Navigation failed, using fallback:', error);
       reportError(error, { 
         operation: 'navigation',
         targetPath: path,
@@ -156,7 +157,7 @@ export const useErrorHandling = (options: UseErrorHandlingOptions = {}): UseErro
       try {
         navigate(fallback);
       } catch (fallbackError) {
-        console.error('Fallback navigation also failed:', fallbackError);
+        log.error('Hook', 'Fallback navigation also failed:', fallbackError);
         // Last resort: hard redirect
         window.location.href = fallback;
       }
@@ -164,7 +165,7 @@ export const useErrorHandling = (options: UseErrorHandlingOptions = {}): UseErro
   }, [navigate, reportError]);
 
   const handleCriticalError = useCallback((error: AppError): void => {
-    console.error('🚨 Critical error handled by useErrorHandling:', error);
+    log.error('Hook', '🚨 Critical error handled by useErrorHandling:', error);
     
     // For critical errors, we need immediate action
     if (showToasts) {

@@ -1,4 +1,5 @@
-import React, { Suspense, useEffect } from "react";
+import { log } from '@/utils/logger';
+import React, { Suspense, useEffect, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -23,7 +24,7 @@ import { supabaseLoadFailedBlocker } from '@/utils/supabaseLoadFailedBlocker';
 // Dev-only console helpers
 if (import.meta.env.DEV) {
   import('@/devtools/exposeForConsole').then(({ exposeForConsole }) => {
-    exposeForConsole().catch(console.error);
+    exposeForConsole().catch(err => log.error('App', 'Failed to expose console helpers:', err));
   });
 }
 
@@ -32,11 +33,18 @@ import { globalRealtimeService } from '@/services/GlobalRealtimeService';
 import { mobileEventCoordinator } from '@/utils/MobileEventCoordinator';
 import { mobileMigrationHelper, LegacySystemDisabler } from '@/utils/MobileEventMigration';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { preventScrollRestoration } from '@/utils/scrollPositionManager';
+import { env } from '@/core/config/env';
 
 export default function App() {
   const { appReady } = useAppInitialization();
   const { isOffline, justCameOnline } = useNetworkStatus();
   const { toast } = useToast();
+
+  // Prevent browser scroll restoration to avoid mobile scroll issues
+  useEffect(() => {
+    preventScrollRestoration();
+  }, []);
 
   // Handle network status changes
   useEffect(() => {
@@ -79,7 +87,7 @@ export default function App() {
   useEffect(() => {
     // CRITICAL: Initialize Supabase error protection
     supabaseLoadFailedBlocker; // Trigger singleton initialization
-    console.log('🛡️ [App] Supabase Load Failed Blocker loaded and active');
+    log.debug('App', '🛡️ [App] Supabase Load Failed Blocker loaded and active');
     
     // Session management functions for Mobile Event Coordinator integration
     const handleProactiveSessionRefresh = async (): Promise<void> => {
@@ -94,17 +102,17 @@ export default function App() {
         
         // Check if session expires within 15 minutes (proactive refresh)
         if (expiresAt - now < 900000) {
-          console.log('🛡️ [SessionLongevity] Proactively refreshing session before background');
+          log.debug('App', '🛡️ [SessionLongevity] Proactively refreshing session before background');
           const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession();
           
           if (refreshError) {
-            console.warn('🛡️ [SessionLongevity] Proactive refresh failed:', refreshError);
+            log.warn('App', '🛡️ [SessionLongevity] Proactive refresh failed:', refreshError);
           } else {
-            console.log('✅ [SessionLongevity] Proactive refresh successful');
+            log.debug('App', '✅ [SessionLongevity] Proactive refresh successful');
           }
         }
       } catch (error) {
-        console.warn('🛡️ [SessionLongevity] Proactive refresh check failed:', error);
+        log.warn('App', '🛡️ [SessionLongevity] Proactive refresh check failed:', error);
       }
     };
 
@@ -113,7 +121,7 @@ export default function App() {
         const { data, error } = await getSupabaseClient().auth.getSession();
         
         if (error || !data.session) {
-          console.log(`🛡️ [SessionLongevity] No valid session found (${reason})`);
+          log.debug('App', `🛡️ [SessionLongevity] No valid session found (${reason})`);
           return;
         }
         
@@ -123,28 +131,28 @@ export default function App() {
         
         // Check if session expired or expires soon
         if (expiresAt <= now || expiresAt - now < 300000) { // 5 minutes buffer
-          console.log(`🛡️ [SessionLongevity] Session needs refresh after ${Math.round(backgroundDuration/1000)}s background (${reason})`);
+          log.debug('App', `🛡️ [SessionLongevity] Session needs refresh after ${Math.round(backgroundDuration/1000)}s background (${reason})`);
           
           const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession();
           
           if (refreshError) {
-            console.warn(`🛡️ [SessionLongevity] Session refresh failed (${reason}):`, refreshError);
+            log.warn('App', `🛡️ [SessionLongevity] Session refresh failed (${reason}):`, refreshError);
           } else {
-            console.log(`✅ [SessionLongevity] Session refresh successful (${reason})`);
+            log.debug('App', `✅ [SessionLongevity] Session refresh successful (${reason})`);
           }
         } else {
-          console.log(`🛡️ [SessionLongevity] Session valid for ${Math.round((expiresAt - now)/60000)} minutes`);
+          log.debug('App', `🛡️ [SessionLongevity] Session valid for ${Math.round((expiresAt - now)/60000)} minutes`);
         }
       } catch (error) {
-        console.warn(`🛡️ [SessionLongevity] Session validation failed (${reason}):`, error);
+        log.warn('App', `🛡️ [SessionLongevity] Session validation failed (${reason}):`, error);
       }
     };
 
     // Initialize GlobalRealtimeService - this ensures it's ready when components need it
-    console.log('🔔 [App] GlobalRealtimeService initialized');
+    log.debug('App', '🔔 [App] GlobalRealtimeService initialized');
     
     // 🏗️ MOBILE EVENT COORDINATOR - 2025 Industry Standard Solution
-    console.log('🏗️ [App] Initializing Mobile Event Coordinator...');
+    log.debug('App', '🏗️ [App] Initializing Mobile Event Coordinator...');
     
     // Disable all competing legacy mobile systems first
     LegacySystemDisabler.disableAllLegacySystems();
@@ -158,10 +166,10 @@ export default function App() {
       priority: 10, // High priority for real-time features
       handler: async (eventData) => {
         if (eventData.isBackground) {
-          console.log('📱 [GlobalRealtime] App backgrounded - optimizing connections');
+          log.debug('App', '📱 [GlobalRealtime] App backgrounded - optimizing connections');
           // Optimize real-time connections when backgrounded
         } else {
-          console.log('📱 [GlobalRealtime] App foregrounded - restoring connections');
+          log.debug('App', '📱 [GlobalRealtime] App foregrounded - restoring connections');
           // Restore optimal real-time behavior when foregrounded
         }
       }
@@ -173,13 +181,13 @@ export default function App() {
       priority: 8, // High priority for session management
       handler: async (eventData) => {
         if (eventData.isBackground) {
-          console.log('🛡️ [SessionLongevity] App backgrounded - preparing session protection');
+          log.debug('App', '🛡️ [SessionLongevity] App backgrounded - preparing session protection');
           // Proactively refresh session if it expires soon
           await handleProactiveSessionRefresh();
         } else {
           // Access background duration from the event data
           const backgroundDuration = eventData.duration || 0;
-          console.log(`🛡️ [SessionLongevity] App returned after ${Math.round(backgroundDuration/1000)}s`);
+          log.debug('App', `🛡️ [SessionLongevity] App returned after ${Math.round(backgroundDuration/1000)}s`);
           // Validate session if background was longer than 30 seconds
           if (backgroundDuration > 30000) {
             await handleSessionValidation('background_return', backgroundDuration);
@@ -194,21 +202,21 @@ export default function App() {
       priority: 5, // Highest priority for page lifecycle
       handler: async (eventData) => {
         if (eventData.eventType === 'pageshow' && eventData.isBfcacheRestore) {
-          console.log('🎉 [BfcacheOptimizer] App restored from bfcache - instant load!');
+          log.debug('App', '🎉 [BfcacheOptimizer] App restored from bfcache - instant load!');
           // App state preserved, no reload needed
         } else if (eventData.eventType === 'pagehide') {
-          console.log('🌙 [BfcacheOptimizer] Preparing for bfcache storage');
+          log.debug('App', '🌙 [BfcacheOptimizer] Preparing for bfcache storage');
           // Optimize for bfcache eligibility
         }
       }
     });
     
-    console.log('✅ [App] Mobile Event Coordinator active - 6+ systems replaced with 1 coordinator');
-    console.log('🚀 [App] Observer Pattern Anti-Pattern eliminated');
+    log.debug('App', '✅ [App] Mobile Event Coordinator active - 6+ systems replaced with 1 coordinator');
+    log.debug('App', '🚀 [App] Observer Pattern Anti-Pattern eliminated');
 
     return () => {
       // Cleanup on app unmount (rarely happens)
-      console.log('🧹 [App] Cleaning up Mobile Event Coordinator...');
+      log.debug('App', '🧹 [App] Cleaning up Mobile Event Coordinator...');
       unsubscribeGlobalRealtime();
       unsubscribeSessionLongevity();
       unsubscribeBfcache();

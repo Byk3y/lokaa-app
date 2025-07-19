@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { UserPlus, UserMinus, Loader2, Check } from 'lucide-react';
@@ -51,7 +52,7 @@ export default function FollowButton({
       setIsFollowing(!!data);
       setInitialLoadComplete(true);
     } catch (error) {
-      console.error('Error checking follow status:', error);
+      log.error('Component', 'Error checking follow status:', error);
       setInitialLoadComplete(true);
     }
   };
@@ -109,7 +110,7 @@ export default function FollowButton({
         if (onFollowChange) onFollowChange(true);
       }
     } catch (error: any) {
-      console.error('Error toggling follow status:', error);
+      log.error('Component', 'Error toggling follow status:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to update follow status.",

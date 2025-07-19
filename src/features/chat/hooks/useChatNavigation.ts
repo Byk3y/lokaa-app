@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * useChatNavigation Hook - Mobile URL navigation management
  */
@@ -42,7 +43,7 @@ export function useChatNavigation() {
     // Only update if the detection result has changed to prevent rapid state changes
     if (isMobileDetected !== isMobileDevice) {
       setMobileDevice(isMobileDetected);
-      console.log(`📱 [useChatNavigation] Updated mobile status: ${isMobileDetected}`);
+      log.debug('Hook', `📱 [useChatNavigation] Updated mobile status: ${isMobileDetected}`);
     }
   }, [isMobileDetected, isMobileDevice, setMobileDevice]);
 
@@ -52,7 +53,7 @@ export function useChatNavigation() {
       const { conversationId, slug } = parseUrlParameters();
       
       if (conversationId || slug) {
-        console.log('[useChatNavigation] URL parsed on mount:', { conversationId, slug });
+        log.debug('Hook', '[useChatNavigation] URL parsed on mount:', { conversationId, slug });
         
         if (conversationId) {
           setActiveConversationId(conversationId);
@@ -73,15 +74,15 @@ export function useChatNavigation() {
     // ✅ NAVIGATION STATE GUARD: Check if already at this conversation
     const currentParams = parseUrlParameters();
     if (currentParams.conversationId === conversationId) {
-      console.log('[useChatNavigation] Already at target conversation, skipping navigation:', conversationId);
+      log.debug('Hook', '[useChatNavigation] Already at target conversation, skipping navigation:', conversationId);
       return;
     }
 
     if (isMobileDevice && urlParsingEnabled) {
-      console.log('[useChatNavigation] Navigating to conversation with URL:', conversationId);
+      log.debug('Hook', '[useChatNavigation] Navigating to conversation with URL:', conversationId);
       navigateToConversationById(conversationId);
     } else {
-      console.log('[useChatNavigation] Direct navigation (desktop/disabled):', conversationId);
+      log.debug('Hook', '[useChatNavigation] Direct navigation (desktop/disabled):', conversationId);
       setActiveConversationId(conversationId);
     }
   }, [isMobileDevice, urlParsingEnabled, navigateToConversationById, setActiveConversationId, parseUrlParameters]);
@@ -91,7 +92,7 @@ export function useChatNavigation() {
    */
   const navigateToConversationList = useCallback(() => {
     if (isMobileDevice && urlParsingEnabled) {
-      console.log('[useChatNavigation] Navigating to conversation list with URL');
+      log.debug('Hook', '[useChatNavigation] Navigating to conversation list with URL');
       // This would be implemented in the NavigationStore
       setCurrentSlug(null);
       setActiveConversationId(null);
@@ -105,7 +106,7 @@ export function useChatNavigation() {
       
       return true;
     } else {
-      console.log('[useChatNavigation] Direct navigation to list (desktop/disabled)');
+      log.debug('Hook', '[useChatNavigation] Direct navigation to list (desktop/disabled)');
       setActiveConversationId(null);
       return false;
     }
@@ -123,7 +124,7 @@ export function useChatNavigation() {
       url.searchParams.set('ch', slug);
       return url.toString();
     } catch (error) {
-      console.error('[useChatNavigation] Failed to generate URL:', error);
+      log.error('Hook', '[useChatNavigation] Failed to generate URL:', error);
       return null;
     }
   }, [isMobileDevice, urlParsingEnabled, generateSlugForConversation]);

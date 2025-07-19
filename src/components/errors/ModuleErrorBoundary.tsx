@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Module Error Boundary - Handles Module Import Failures
  * 
@@ -62,14 +63,14 @@ export class ModuleErrorBoundary extends Component<Props, State> {
     });
 
     // Log the error
-    console.error('🚨 [ModuleErrorBoundary] Caught module import error:', error, errorInfo);
+    log.error('Component', '🚨 [ModuleErrorBoundary] Caught module import error:', error, errorInfo);
     
     // Call custom error handler if provided
     this.props.onError?.(error, errorInfo);
     
     // Auto-retry for development
     if (import.meta.env?.DEV && this.state.retryCount < 2) {
-      console.log(`🔄 [ModuleErrorBoundary] Auto-retrying in 2 seconds... (attempt ${this.state.retryCount + 1})`);
+      log.debug('Component', `🔄 [ModuleErrorBoundary] Auto-retrying in 2 seconds... (attempt ${this.state.retryCount + 1})`);
       
       this.retryTimeoutId = setTimeout(() => {
         this.handleRetry();

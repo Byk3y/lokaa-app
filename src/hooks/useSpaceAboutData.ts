@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { Space } from '@/types/space'; // Assuming you have a Space type
@@ -132,7 +133,7 @@ export const useSpaceAboutData = ({
         setSpaceAboutData(null);
       }
     } catch (e: any) {
-      console.error("Error fetching space about data:", e);
+      log.error('Hook', "Error fetching space about data:", e);
       setError(e.message || 'Failed to fetch space data.');
       setSpaceAboutData(null);
     } finally {

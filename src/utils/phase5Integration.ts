@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📱 Phase 5: Mobile Optimization & PWA Integration
  * 
@@ -55,18 +56,18 @@ interface Phase5GlobalAPI {
 async function initializePhase5(): Promise<boolean> {
   try {
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('📱 [Phase 5] Initializing Mobile Optimization & PWA...');
+      log.debug('Utils', '📱 [Phase 5] Initializing Mobile Optimization & PWA...');
     }
 
     // Initialize push notifications
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🔔 [Phase 5] Initializing push notifications...');
+      log.debug('Utils', '🔔 [Phase 5] Initializing push notifications...');
     }
     await pushNotificationService.initialize();
 
     // Initialize offline data sync
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('🔄 [Phase 5] Initializing offline data sync...');
+      log.debug('Utils', '🔄 [Phase 5] Initializing offline data sync...');
     }
     await offlineDataSync.initialize();
 
@@ -83,11 +84,11 @@ async function initializePhase5(): Promise<boolean> {
     });
 
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('✅ [Phase 5] Mobile Optimization & PWA initialized successfully');
+      log.debug('Utils', '✅ [Phase 5] Mobile Optimization & PWA initialized successfully');
     }
     return true;
   } catch (error) {
-    console.error('❌ [Phase 5] Initialization failed:', error);
+    log.error('Utils', '❌ [Phase 5] Initialization failed:', error);
     return false;
   }
 }
@@ -96,13 +97,13 @@ async function initializePhase5(): Promise<boolean> {
  * Test push notifications functionality
  */
 async function testPushNotifications(): Promise<void> {
-  console.log('🔔 [Phase 5 Test] Testing push notifications...');
+  log.debug('Utils', '🔔 [Phase 5 Test] Testing push notifications...');
   
   const state = pushNotificationService.getState();
-  console.log('📊 Push notification state:', state);
+  log.debug('Utils', '📊 Push notification state:', state);
   
   if (state.isSupported) {
-    console.log('✅ Push notifications are supported');
+    log.debug('Utils', '✅ Push notifications are supported');
     
     if (state.permission === 'granted') {
       await pushNotificationService.showNotification({
@@ -111,12 +112,12 @@ async function testPushNotifications(): Promise<void> {
         tag: 'phase5-test',
         data: { test: true, timestamp: Date.now() }
       });
-      console.log('✅ Test notification sent');
+      log.debug('Utils', '✅ Test notification sent');
     } else {
-      console.log('⚠️ Push notification permission not granted');
+      log.debug('Utils', '⚠️ Push notification permission not granted');
     }
   } else {
-    console.log('❌ Push notifications not supported');
+    log.debug('Utils', '❌ Push notifications not supported');
   }
 }
 
@@ -124,10 +125,10 @@ async function testPushNotifications(): Promise<void> {
  * Test offline sync functionality
  */
 async function testOfflineSync(): Promise<void> {
-  console.log('🔄 [Phase 5 Test] Testing offline sync...');
+  log.debug('Utils', '🔄 [Phase 5 Test] Testing offline sync...');
   
   const status = offlineDataSync.getStatus();
-  console.log('📊 Offline sync status:', status);
+  log.debug('Utils', '📊 Offline sync status:', status);
   
   // Queue a test action
   const actionId = await offlineDataSync.queueAction('create', 'test_table', {
@@ -135,14 +136,14 @@ async function testOfflineSync(): Promise<void> {
     timestamp: Date.now()
   });
   
-  console.log('✅ Test action queued:', actionId);
+  log.debug('Utils', '✅ Test action queued:', actionId);
   
   if (status.isOnline) {
-    console.log('🌐 Online - attempting sync...');
+    log.debug('Utils', '🌐 Online - attempting sync...');
     const result = await offlineDataSync.forceSync();
-    console.log('📊 Sync result:', result);
+    log.debug('Utils', '📊 Sync result:', result);
   } else {
-    console.log('📴 Offline - action will sync when back online');
+    log.debug('Utils', '📴 Offline - action will sync when back online');
   }
 }
 
@@ -150,34 +151,34 @@ async function testOfflineSync(): Promise<void> {
  * Test PWA features
  */
 async function testPWAFeatures(): Promise<void> {
-  console.log('📱 [Phase 5 Test] Testing PWA features...');
+  log.debug('Utils', '📱 [Phase 5 Test] Testing PWA features...');
   
   // Check service worker
   if ('serviceWorker' in navigator) {
     try {
       const registration = await navigator.serviceWorker.ready;
-      console.log('✅ Service worker is active:', registration.active?.scriptURL);
+      log.debug('Utils', '✅ Service worker is active:', registration.active?.scriptURL);
     } catch (error) {
-      console.log('❌ Service worker not ready:', error);
+      log.debug('Utils', '❌ Service worker not ready:', error);
     }
   } else {
-    console.log('❌ Service worker not supported');
+    log.debug('Utils', '❌ Service worker not supported');
   }
   
   // Check if app is installable
   const isInstallable = await checkInstallability();
-  console.log('📱 App installable:', isInstallable);
+  log.debug('Utils', '📱 App installable:', isInstallable);
   
   // Check cache API
   if ('caches' in window) {
     try {
       const cacheNames = await caches.keys();
-      console.log('💾 Available caches:', cacheNames);
+      log.debug('Utils', '💾 Available caches:', cacheNames);
     } catch (error) {
-      console.log('❌ Cache API error:', error);
+      log.debug('Utils', '❌ Cache API error:', error);
     }
   } else {
-    console.log('❌ Cache API not supported');
+    log.debug('Utils', '❌ Cache API not supported');
   }
 }
 
@@ -209,22 +210,22 @@ async function checkInstallability(): Promise<boolean> {
  * Test mobile optimizations
  */
 async function testMobileOptimizations(): Promise<void> {
-  console.log('📱 [Phase 5 Test] Testing mobile optimizations...');
+  log.debug('Utils', '📱 [Phase 5 Test] Testing mobile optimizations...');
   
   const mobileInfo = getMobileInfo();
-  console.log('📊 Mobile info:', mobileInfo);
+  log.debug('Utils', '📊 Mobile info:', mobileInfo);
   
   // Test viewport
   const viewport = document.querySelector('meta[name="viewport"]');
-  console.log('📱 Viewport meta tag:', viewport?.getAttribute('content') || 'Not found');
+  log.debug('Utils', '📱 Viewport meta tag:', viewport?.getAttribute('content') || 'Not found');
   
   // Test touch events
   const touchSupported = 'ontouchstart' in window;
-  console.log('👆 Touch events supported:', touchSupported);
+  log.debug('Utils', '👆 Touch events supported:', touchSupported);
   
   // Test device orientation
   if ('orientation' in screen) {
-    console.log('🔄 Screen orientation:', (screen as any).orientation?.type || 'Unknown');
+    log.debug('Utils', '🔄 Screen orientation:', (screen as any).orientation?.type || 'Unknown');
   }
 }
 
@@ -250,17 +251,17 @@ function getMobileInfo(): any {
  * Test service worker functionality
  */
 async function testServiceWorker(): Promise<void> {
-  console.log('⚙️ [Phase 5 Test] Testing service worker...');
+  log.debug('Utils', '⚙️ [Phase 5 Test] Testing service worker...');
   
   if (!('serviceWorker' in navigator)) {
-    console.log('❌ Service worker not supported');
+    log.debug('Utils', '❌ Service worker not supported');
     return;
   }
   
   try {
     const registration = await navigator.serviceWorker.ready;
     const status = await getServiceWorkerStatus();
-    console.log('📊 Service worker status:', status);
+    log.debug('Utils', '📊 Service worker status:', status);
     
     // Test message passing
     if (registration.active) {
@@ -268,10 +269,10 @@ async function testServiceWorker(): Promise<void> {
         type: 'PHASE5_TEST',
         data: { timestamp: Date.now() }
       });
-      console.log('✅ Test message sent to service worker');
+      log.debug('Utils', '✅ Test message sent to service worker');
     }
   } catch (error) {
-    console.error('❌ Service worker test failed:', error);
+    log.error('Utils', '❌ Service worker test failed:', error);
   }
 }
 
@@ -304,7 +305,7 @@ async function getServiceWorkerStatus(): Promise<any> {
  * Run all Phase 5 tests
  */
 async function runAllTests(): Promise<void> {
-  console.log('🧪 [Phase 5] Running comprehensive tests...');
+  log.debug('Utils', '🧪 [Phase 5] Running comprehensive tests...');
   
   try {
     await testPushNotifications();
@@ -313,7 +314,7 @@ async function runAllTests(): Promise<void> {
     await testMobileOptimizations();
     await testServiceWorker();
     
-    console.log('✅ [Phase 5] All tests completed successfully');
+    log.debug('Utils', '✅ [Phase 5] All tests completed successfully');
     
     // Track test completion
     await logAnalyticsEvent({
@@ -325,7 +326,7 @@ async function runAllTests(): Promise<void> {
       }
     });
   } catch (error) {
-    console.error('❌ [Phase 5] Tests failed:', error);
+    log.error('Utils', '❌ [Phase 5] Tests failed:', error);
     
     await logAnalyticsEvent({
       event_type: 'system',
@@ -342,7 +343,7 @@ async function runAllTests(): Promise<void> {
  * Validate Phase 5 implementation
  */
 async function validatePhase5(): Promise<boolean> {
-  console.log('✅ [Phase 5] Validating implementation...');
+  log.debug('Utils', '✅ [Phase 5] Validating implementation...');
   
   const checks = {
     pushNotificationsInitialized: pushNotificationService.getState().isSupported,
@@ -352,10 +353,10 @@ async function validatePhase5(): Promise<boolean> {
     notificationAPISupported: 'Notification' in window
   };
   
-  console.log('📊 Phase 5 validation results:', checks);
+  log.debug('Utils', '📊 Phase 5 validation results:', checks);
   
   const allValid = Object.values(checks).every(Boolean);
-  console.log(allValid ? '✅ Phase 5 validation passed' : '❌ Phase 5 validation failed');
+  log.debug('Utils', allValid ? '✅ Phase 5 validation passed' : '❌ Phase 5 validation failed');
   
   return allValid;
 }
@@ -400,18 +401,18 @@ function getInfo(): any {
 
 // Initialize Phase 5 when module loads
 if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-  console.log('📱 [Phase 5] Module loaded, starting initialization...');
+  log.debug('Utils', '📱 [Phase 5] Module loaded, starting initialization...');
 }
 initializePhase5().then(success => {
   if (success) {
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('✅ [Phase 5] Initialization completed successfully');
+      log.debug('Utils', '✅ [Phase 5] Initialization completed successfully');
     }
   } else {
-    console.error('❌ [Phase 5] Initialization failed');
+    log.error('Utils', '❌ [Phase 5] Initialization failed');
   }
 }).catch(error => {
-  console.error('❌ [Phase 5] Initialization error:', error);
+  log.error('Utils', '❌ [Phase 5] Initialization error:', error);
 });
 
 // Expose global API for testing and debugging
@@ -446,15 +447,15 @@ if (typeof window !== 'undefined') {
 
   (window as any).phase5 = phase5API;
   
-  console.log('📱 [Phase 5] Global API available at window.phase5');
-  console.log('📱 [Phase 5] API object:', phase5API);
-  console.log('📱 Available commands:');
-  console.log('  - window.phase5.getStatus() - Get comprehensive status');
-  console.log('  - window.phase5.runAllTests() - Run all Phase 5 tests');
-  console.log('  - window.phase5.testPushNotifications() - Test push notifications');
-  console.log('  - window.phase5.testOfflineSync() - Test offline sync');
-  console.log('  - window.phase5.testPWAFeatures() - Test PWA features');
-  console.log('  - window.phase5.validatePhase5() - Validate implementation');
+  log.debug('Utils', '📱 [Phase 5] Global API available at window.phase5');
+  log.debug('Utils', '📱 [Phase 5] API object:', phase5API);
+  log.debug('Utils', '📱 Available commands:');
+  log.debug('Utils', '  - window.phase5.getStatus() - Get comprehensive status');
+  log.debug('Utils', '  - window.phase5.runAllTests() - Run all Phase 5 tests');
+  log.debug('Utils', '  - window.phase5.testPushNotifications() - Test push notifications');
+  log.debug('Utils', '  - window.phase5.testOfflineSync() - Test offline sync');
+  log.debug('Utils', '  - window.phase5.testPWAFeatures() - Test PWA features');
+  log.debug('Utils', '  - window.phase5.validatePhase5() - Validate implementation');
 }
 
 export { initializePhase5 };

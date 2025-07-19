@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🧹 Phase 10: Enhanced Console Cleanup & Organization
  * 
@@ -232,7 +233,7 @@ if (typeof window !== 'undefined') {
   
   // 🎯 PHASE 1 FIX: Add quick console optimization commands
   (window as any).quickConsoleOptimization = () => {
-    console.log('🎯 [ConsoleOptimizer] Applying Phase 1 console optimization...');
+    log.debug('Utils', '🎯 [ConsoleOptimizer] Applying Phase 1 console optimization...');
     
     // Disable noisy categories
     consoleOptimizer.enableCategory('UnifiedPresence', false);
@@ -250,13 +251,13 @@ if (typeof window !== 'undefined') {
     consoleOptimizer.setThrottleConfig('RealtimePostLikes', 1, 30000);
     consoleOptimizer.setThrottleConfig('FeedLogic', 1, 30000);
     
-    console.log('✅ [ConsoleOptimizer] Phase 1 optimization applied! Console noise reduced by ~85%');
-    console.log('🔧 [ConsoleOptimizer] Use window.consoleOptimizer.getStats() to see current settings');
+    log.debug('Utils', '✅ [ConsoleOptimizer] Phase 1 optimization applied! Console noise reduced by ~85%');
+    log.debug('Utils', '🔧 [ConsoleOptimizer] Use window.consoleOptimizer.getStats() to see current settings');
   };
   
   // 🎯 PHASE 2 FIX: Add comprehensive Phase 2 optimization
   (window as any).applyPhase2ConsoleSilence = () => {
-    console.log('🎯 [ConsoleOptimizer] Applying Phase 2 complete console silence...');
+    log.debug('Utils', '🎯 [ConsoleOptimizer] Applying Phase 2 complete console silence...');
     
     // Apply Phase 1 optimizations first
     (window as any).quickConsoleOptimization();
@@ -278,14 +279,14 @@ if (typeof window !== 'undefined') {
     // Disable cross-browser monitoring completely
     (window as any).DISABLE_CROSS_BROWSER_MONITORING = true;
     
-    console.log('✅ [ConsoleOptimizer] Phase 2 complete silence applied!');
-    console.log('🔇 [ConsoleOptimizer] Console noise reduced by ~95%');
-    console.log('🔧 [ConsoleOptimizer] Use window.restoreFullLogging() to restore all logging');
+    log.debug('Utils', '✅ [ConsoleOptimizer] Phase 2 complete silence applied!');
+    log.debug('Utils', '🔇 [ConsoleOptimizer] Console noise reduced by ~95%');
+    log.debug('Utils', '🔧 [ConsoleOptimizer] Use window.restoreFullLogging() to restore all logging');
   };
 
   // 🎯 PHASE 3 FIX: Add ultimate console optimization
   (window as any).applyPhase3UltimateConsoleOptimization = () => {
-    console.log('🎯 [ConsoleOptimizer] Applying Phase 3 ultimate console optimization...');
+    log.debug('Utils', '🎯 [ConsoleOptimizer] Applying Phase 3 ultimate console optimization...');
     
     // Apply Phase 2 optimizations first
     (window as any).applyPhase2ConsoleSilence();
@@ -300,18 +301,18 @@ if (typeof window !== 'undefined') {
     // Disable development logger completely
     if ((window as any).devLogger) {
       (window as any).devLogger.setEnabled(false);
-      console.log('🔇 [DevLogger] Completely disabled for ultimate silence');
+      log.debug('Utils', '🔇 [DevLogger] Completely disabled for ultimate silence');
     }
     
-    console.log('✅ [ConsoleOptimizer] Phase 3 ultimate optimization applied!');
-    console.log('🔇 [ConsoleOptimizer] Console noise reduced by ~98%');
-    console.log('🔧 [ConsoleOptimizer] Only critical errors and warnings will show');
-    console.log('🔧 [ConsoleOptimizer] Use window.restoreFullLogging() to restore all logging');
+    log.debug('Utils', '✅ [ConsoleOptimizer] Phase 3 ultimate optimization applied!');
+    log.debug('Utils', '🔇 [ConsoleOptimizer] Console noise reduced by ~98%');
+    log.debug('Utils', '🔧 [ConsoleOptimizer] Only critical errors and warnings will show');
+    log.debug('Utils', '🔧 [ConsoleOptimizer] Use window.restoreFullLogging() to restore all logging');
   };
   
   // 🎯 PHASE 3 FIX: Add comprehensive restore function
   (window as any).restoreFullLogging = () => {
-    console.log('🔊 [ConsoleOptimizer] Restoring full console logging...');
+    log.debug('Utils', '🔊 [ConsoleOptimizer] Restoring full console logging...');
     
     // Restore console categories
     consoleOptimizer.enableCategory('UnifiedPresence', true);
@@ -337,7 +338,7 @@ if (typeof window !== 'undefined') {
     if ((window as any).devLogger) {
       (window as any).devLogger.setEnabled(true);
       (window as any).devLogger.allowAll();
-      console.log('🔊 [DevLogger] Re-enabled and restored to full logging mode');
+      log.debug('Utils', '🔊 [DevLogger] Re-enabled and restored to full logging mode');
     }
     
     // Restore global flags
@@ -348,7 +349,7 @@ if (typeof window !== 'undefined') {
     // Clean up any legacy cross-browser monitoring flags
     (window as any).DISABLE_CROSS_BROWSER_MONITORING = false;
     
-    console.log('✅ [ConsoleOptimizer] Full logging restored for all phases');
+    log.debug('Utils', '✅ [ConsoleOptimizer] Full logging restored for all phases');
   };
   
   // 🎯 PHASE 3 FIX: Enhanced development status report
@@ -368,17 +369,17 @@ if (typeof window !== 'undefined') {
       optimizationLevel: phase3Applied ? 'Ultimate (Phase 3)' : phase2Applied ? 'Complete (Phase 2)' : phase1Applied ? 'Basic (Phase 1)' : 'None'
     };
     
-    console.log('📊 [ConsoleOptimizer] Current optimization status:', status);
+    log.debug('Utils', '📊 [ConsoleOptimizer] Current optimization status:', status);
     return status;
   };
   
   // 🎯 PHASE 3 FIX: Show available commands
-  console.log('🔧 [ConsoleOptimizer] Phase 3 commands available:');
-  console.log('  - window.applyPhase3UltimateConsoleOptimization() - Apply ultimate console silence (~98% reduction)');
-  console.log('  - window.applyPhase2ConsoleSilence() - Apply complete console silence (~95% reduction)');
-  console.log('  - window.quickConsoleOptimization() - Apply Phase 1 optimization (~85% reduction)');
-  console.log('  - window.restoreFullLogging() - Restore all logging');
-  console.log('  - window.getConsoleOptimizationStatus() - Check current optimization status');
+  log.debug('Utils', '🔧 [ConsoleOptimizer] Phase 3 commands available:');
+  log.debug('Utils', '  - window.applyPhase3UltimateConsoleOptimization() - Apply ultimate console silence (~98% reduction)');
+  log.debug('Utils', '  - window.applyPhase2ConsoleSilence() - Apply complete console silence (~95% reduction)');
+  log.debug('Utils', '  - window.quickConsoleOptimization() - Apply Phase 1 optimization (~85% reduction)');
+  log.debug('Utils', '  - window.restoreFullLogging() - Restore all logging');
+  log.debug('Utils', '  - window.getConsoleOptimizationStatus() - Check current optimization status');
 }
 
 export { consoleOptimizer }; 

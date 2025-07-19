@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { type SpaceTab } from "@/utils/tabUtils";
 import { TabManagerService, type TabDependencies, type TabCreationResult } from '@/services/TabManagerService';
@@ -91,7 +92,7 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     }
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔧 [useTabManager] Tab ${tabKey} - Created: ${result.created}, Cached: ${result.cached}, Stats:`, stats);
+      log.debug('Hook', `🔧 [useTabManager] Tab ${tabKey} - Created: ${result.created}, Cached: ${result.cached}, Stats:`, stats);
     }
   }, []);
 
@@ -157,7 +158,7 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     }));
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔧 [useTabManager] Updated tab component state for ${tabKey}`);
+      log.debug('Hook', `🔧 [useTabManager] Updated tab component state for ${tabKey}`);
     }
   }, []);
 
@@ -166,7 +167,7 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     // Check if already exists in local ref
     if (tabComponentsRef.current[tabKey]) {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🔧 [useTabManager] Using LOCAL ref for ${tabKey}`);
+        log.debug('Hook', `🔧 [useTabManager] Using LOCAL ref for ${tabKey}`);
       }
       return tabComponentsRef.current[tabKey];
     }
@@ -176,7 +177,7 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
       const cachedComponent = globalTabComponentManager.getTabComponent(subdomain, tabKey, userId);
       if (cachedComponent) {
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🔧 [useTabManager] Using GLOBAL cache for ${tabKey}`);
+          log.debug('Hook', `🔧 [useTabManager] Using GLOBAL cache for ${tabKey}`);
         }
         // Store in local ref and update state for rendering
         updateTabComponent(tabKey, cachedComponent);
@@ -196,7 +197,7 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
 
     // Only create new component if not found in local ref OR global cache
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔧 [useTabManager] Creating NEW component for ${tabKey} (not in cache)`);
+      log.debug('Hook', `🔧 [useTabManager] Creating NEW component for ${tabKey} (not in cache)`);
     }
     const result = TabManagerService.createTabComponent(tabKey, stableDependencies);
     updateStats(tabKey, result);
@@ -260,7 +261,7 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     
     if (currentlyActive && visitedTabs.size === 0) {
       if (!globalConsoleFlags?.QUIET_MODE) {
-        console.log(`🔧 [useTabManager] Instance already active for ${subdomain}, skipping tab creation`);
+        log.debug('Hook', `🔧 [useTabManager] Instance already active for ${subdomain}, skipping tab creation`);
       }
       return;
     }
@@ -277,14 +278,14 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     };
 
     if (!globalConsoleFlags?.QUIET_MODE) {
-      console.log('🔧 [useTabManager] Tab creation effect:', debugInfo);
+      log.debug('Hook', '🔧 [useTabManager] Tab creation effect:', debugInfo);
     }
     
     visitedTabs.forEach(tabKey => {
       // Skip if component already exists in local ref
       if (tabComponentsRef.current[tabKey]) {
         if (!globalConsoleFlags?.QUIET_MODE) {
-          console.log(`🔧 [useTabManager] Skipping ${tabKey} - already exists locally`);
+          log.debug('Hook', `🔧 [useTabManager] Skipping ${tabKey} - already exists locally`);
         }
         return;
       }
@@ -293,13 +294,13 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
       const component = getTabComponent(tabKey);
       if (component) {
         if (!globalConsoleFlags?.QUIET_MODE) {
-          console.log(`✅ [useTabManager] Successfully created/retrieved ${tabKey} component`);
+          log.debug('Hook', `✅ [useTabManager] Successfully created/retrieved ${tabKey} component`);
         }
       }
     });
     
     if (!globalConsoleFlags?.QUIET_MODE) {
-      console.log('🔧 [useTabManager] Tab creation effect completed:', {
+      log.debug('Hook', '🔧 [useTabManager] Tab creation effect completed:', {
         totalComponents: Object.keys(tabComponentsRef.current).length,
         componentKeys: Object.keys(tabComponentsRef.current)
       });

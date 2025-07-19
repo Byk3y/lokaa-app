@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // HMR TEST COMMENT A: Test completed - HMR optimizations active
 import React, { lazy, Suspense, useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { motion } from "framer-motion";
@@ -16,6 +17,7 @@ import { getSupabaseClient } from "@/integrations/supabase/client";
 import type { FeedTabProps } from "@/types/feedTypes";
 export type { FetchedPostType } from "@/types/feedTypes";
 import { getCategoryDisplayName } from "@/utils/feedUtils";
+import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
 
 // HMR OPTIMIZATION: Group stable component imports (less likely to change)
 import SpaceInfoSidebar from "./SpaceInfoSidebar";
@@ -152,7 +154,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
         cover_image: null,
         is_private: false
       };
-      console.log(`🔒 [Phase1] Using hardcoded fallback for ${urlSubdomain}`);
+      log.debug('Component', `🔒 [Phase1] Using hardcoded fallback for ${urlSubdomain}`);
     }
     
     // PRIORITY 2: Try multiple cache sources for space data
@@ -175,12 +177,12 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
                 cover_image: (parsed.data.cover_image as string) || null,
                 is_private: (parsed.data.is_private as boolean) || false
               };
-              console.log(`🔒 [Phase1] Using lastActiveSpace cache for ${urlSubdomain}`);
+              log.debug('Component', `🔒 [Phase1] Using lastActiveSpace cache for ${urlSubdomain}`);
             }
           }
         }
       } catch (e) {
-        console.warn('[FeedTab] Failed to read lastActiveSpace cache:', e);
+        log.warn('Component', '[FeedTab] Failed to read lastActiveSpace cache:', e);
       }
       
       // 2. Try space_fallback_${subdomain} cache
@@ -201,11 +203,11 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
                 cover_image: (parsed.data.cover_image as string) || null,
                 is_private: (parsed.data.is_private as boolean) || false
               };
-              console.log(`🔒 [Phase1] Using persistent cache for ${urlSubdomain}`);
+              log.debug('Component', `🔒 [Phase1] Using persistent cache for ${urlSubdomain}`);
             }
           }
         } catch (e) {
-          console.warn('[FeedTab] Failed to read persistent cache:', e);
+          log.warn('Component', '[FeedTab] Failed to read persistent cache:', e);
         }
       }
     }
@@ -241,7 +243,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     }
     
     // For unknown spaces, return null to prevent invalid database queries
-    console.warn(`⚠️ [FeedTab] No fallback data available for ${urlSubdomain} - returning null`);
+    log.warn('Component', `⚠️ [FeedTab] No fallback data available for ${urlSubdomain} - returning null`);
     return null;
   }, [currentSpaceData]);
   
@@ -277,7 +279,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     enabled: false, // 🔥 DISABLED: Prevents double counting with PostCard-level subscriptions
     onLikeAdded: (postId, userId) => {
       // Handle real-time like from other users - delegate to feed logic
-      console.log('🔔 [FeedTab] Real-time post like added:', { postId, userId });
+      log.debug('Component', '🔔 [FeedTab] Real-time post like added:', { postId, userId });
       handleLikeToggledInCard(postId, 0); // The function will fetch the updated like count
     }
     // 🚀 SIMPLIFIED: No onLikeRemoved - users toggle likes optimistically like Instagram/LinkedIn
@@ -288,14 +290,14 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   const sidebarSpaceData = React.useMemo(() => {
     // PRIORITY 1: Use real current space data when available
     if (currentSpaceData) {
-      console.log(`🔒 [Phase1.5] Using real space data for sidebar: ${currentSpaceData.name}`);
+      log.debug('Component', `🔒 [Phase1.5] Using real space data for sidebar: ${currentSpaceData.name}`);
       return currentSpaceData;
     }
     
     // PRIORITY 2: Use fallback data - but ensure it's never null
     const fallback = fallbackSpaceData;
     if (fallback) {
-      console.log(`🔒 [Phase1.5] Using fallback space data for sidebar: ${fallback.name}`);
+      log.debug('Component', `🔒 [Phase1.5] Using fallback space data for sidebar: ${fallback.name}`);
       return fallback;
     }
     
@@ -315,7 +317,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
         cover_image: 'https://nmddvthcsyppyjncqfsk.supabase.co/storage/v1/object/public/space-covers/235e68d1-89df-4d2d-8945-e7756d60de20_1747911651153_Untitled.png',
         is_private: false
       };
-      console.log(`🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
+      log.debug('Component', `🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
       return emergencyFallback;
     }
     
@@ -329,7 +331,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
         cover_image: null,
         is_private: false
       };
-      console.log(`🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
+      log.debug('Component', `🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
       return emergencyFallback;
     }
     
@@ -343,12 +345,12 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
         cover_image: null,
         is_private: false
       };
-      console.log(`🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
+      log.debug('Component', `🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
       return emergencyFallback;
     }
     
     // For unknown spaces, return null to prevent invalid database queries
-    console.warn(`⚠️ [Phase1.5] No emergency fallback available for ${urlSubdomain} - returning null`);
+    log.warn('Component', `⚠️ [Phase1.5] No emergency fallback available for ${urlSubdomain} - returning null`);
     return null;
   }, [currentSpaceData, fallbackSpaceData]);
 
@@ -370,7 +372,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   
   // REDUCED: Only log critical state changes, not every render
   if (process.env.NODE_ENV === 'development' && (postsError || categoriesError || (!hasInstantAccess && !currentSpaceData && !hasDataIndicators && !hasPreservedData))) {
-    console.log('🐛 [FeedTab] Critical state check:', {
+    log.debug('Component', '🐛 [FeedTab] Critical state check:', {
       currentSpaceData: !!currentSpaceData,
       hasInstantAccess: !!hasInstantAccess,
       postsError: !!postsError,
@@ -392,6 +394,16 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   }
 
   // Mobile detection moved to top of component to fix hook order
+
+  // ============================================================================
+  // SCROLL POSITION MANAGEMENT
+  // ============================================================================
+  
+  // Reset scroll position when FeedTab mounts
+  useEffect(() => {
+    log.debug('Component', '📱 [FeedTab] Component mounted, resetting scroll position');
+    resetScrollForFeedNavigation();
+  }, []);
 
   // ============================================================================
   // RENDER JSX - Pure presentation logic

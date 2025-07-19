@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * HMR Monitor - Development Only
  * Lightweight monitoring for React Fast Refresh in development
@@ -25,9 +26,9 @@ class HMRMonitor {
     if (!import.meta.hot) return;
 
     // Monitor HMR failures only
-    const originalWarn = console.warn;
+    const originalWarn = log.warn('Utils',;
     
-    console.warn = (...args) => {
+    log.warn('Utils', = (...args) => {
       const message = args.join(' ');
       
       // Only capture React Fast Refresh failures
@@ -47,7 +48,7 @@ class HMRMonitor {
       });
     });
 
-    console.log('🔥 [HMR Monitor] Development monitoring enabled');
+    log.debug('Utils', '🔥 [HMR Monitor] Development monitoring enabled');
   }
 
   private parseFailureMessage(message: string): HMRFailure {
@@ -74,9 +75,9 @@ class HMRMonitor {
   }
 
   private alertCascadeFailure() {
-    console.error(`🚨 [HMR Monitor] Cascade failure detected!`);
-    console.error(`   - ${this.failures.length} failures in ${this.timeWindow/1000}s`);
-    console.error(`   - Consider restarting dev server: npm run dev`);
+    log.error('Utils', `🚨 [HMR Monitor] Cascade failure detected!`);
+    log.error('Utils', `   - ${this.failures.length} failures in ${this.timeWindow/1000}s`);
+    log.error('Utils', `   - Consider restarting dev server: npm run dev`);
     
     // Clear failures to prevent spam
     this.failures = [];

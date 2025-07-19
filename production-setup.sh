@@ -40,7 +40,7 @@ check_env_file() {
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-production-anon-key
 VITE_ENVIRONMENT=production
-VITE_APP_URL=https://yourdomain.com
+VITE_APP_URL=https://lokaa.app
 VITE_APP_VERSION=1.0.0
 EOL
         print_warning "Please update .env.production with your actual values before proceeding!"

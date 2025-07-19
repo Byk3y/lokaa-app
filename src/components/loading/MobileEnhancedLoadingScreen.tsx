@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📱 Mobile Enhanced Loading Screen - Phase 1
  * 
@@ -53,7 +54,7 @@ export const MobileEnhancedLoadingScreen: React.FC<MobileEnhancedLoadingScreenPr
   // Auto-trigger recovery for mobile background returns that are stuck
   useEffect(() => {
     if (returnedFromBackground && currentLoadingTime > 25000 && !isRecovering && !needsRecovery) {
-      console.log('📱 [MobileEnhancedLoadingScreen] Auto-triggering recovery for stuck background return');
+      log.debug('Component', '📱 [MobileEnhancedLoadingScreen] Auto-triggering recovery for stuck background return');
       triggerRecovery();
     }
   }, [returnedFromBackground, currentLoadingTime, isRecovering, needsRecovery, triggerRecovery]);
@@ -61,7 +62,7 @@ export const MobileEnhancedLoadingScreen: React.FC<MobileEnhancedLoadingScreenPr
   // Auto-trigger recovery for any loading that's stuck too long
   useEffect(() => {
     if (currentLoadingTime > 30000 && !isRecovering && !needsRecovery) {
-      console.log('📱 [MobileEnhancedLoadingScreen] Auto-triggering recovery for general stuck loading');
+      log.debug('Component', '📱 [MobileEnhancedLoadingScreen] Auto-triggering recovery for general stuck loading');
       triggerRecovery();
     }
   }, [currentLoadingTime, isRecovering, needsRecovery, triggerRecovery]);

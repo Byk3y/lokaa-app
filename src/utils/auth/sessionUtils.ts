@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Session, User as SupabaseUser, AuthError } from '@supabase/supabase-js'
 import { getSupabaseClient } from '@/integrations/supabase/client'
 import { NavigateFunction, Location } from 'react-router-dom'
@@ -71,7 +72,7 @@ export function debugCheckStorageTokens(): boolean {
       .filter(key => key.startsWith('sb-') && key.includes('auth'));
     return supabaseKeys.length > 0;
   } catch (error) {
-    console.warn('⚠️ Error checking localStorage:', error);
+    log.warn('Utils', '⚠️ Error checking localStorage:', error);
     return false;
   }
 }
@@ -81,15 +82,15 @@ export function debugCheckStorageTokens(): boolean {
  */
 export const debugGetSession = async (): Promise<void> => {
   try {
-    console.log('🔍 Manual session check triggered');
+    log.debug('Utils', '🔍 Manual session check triggered');
     const { data, error } = await getSupabaseClient().auth.getSession();
     
     if (error) {
-      console.error('❌ Session check error:', error);
+      log.error('Utils', '❌ Session check error:', error);
       return;
     }
     
-    console.log('📋 Current session state:', {
+    log.debug('Utils', '📋 Current session state:', {
       hasSession: !!data.session,
       user: data.session?.user?.email,
       expires: data.session ? new Date(data.session.expires_at * 1000).toLocaleString() : 'N/A'
@@ -97,7 +98,7 @@ export const debugGetSession = async (): Promise<void> => {
     
     debugCheckStorageTokens();
   } catch (err) {
-    console.error('❌ Error in debugGetSession:', err);
+    log.error('Utils', '❌ Error in debugGetSession:', err);
   }
 };
 
@@ -113,7 +114,7 @@ export const attemptEarlySpaceRedirect = async (
   setters: SessionStateSetters,
   refs: SessionRefs
 ): Promise<boolean> => {
-  console.log(`🎯 [LoadingManager] Starting AUTH_CHECK operation for user: ${userId} on path: ${location.pathname}`);
+  log.debug('Utils', `🎯 [LoadingManager] Starting AUTH_CHECK operation for user: ${userId} on path: ${location.pathname}`);
   
   // Start AUTH_CHECK operation - this coordinates with other loading operations
   const operationStarted = loadingStateManager.startOperation(
@@ -122,7 +123,7 @@ export const attemptEarlySpaceRedirect = async (
   );
   
   if (!operationStarted) {
-    console.log(`🎯 [LoadingManager] AUTH_CHECK operation blocked by higher priority operation`);
+    log.debug('Utils', `🎯 [LoadingManager] AUTH_CHECK operation blocked by higher priority operation`);
     return false;
   }
   
@@ -131,7 +132,7 @@ export const attemptEarlySpaceRedirect = async (
     const cacheResult = loadingStateManager.attemptInstantCacheAccess(userId);
     
     if (cacheResult.found && cacheResult.isValid) {
-      console.log(`🚀 [EarlySpaceRedirect] INSTANT: Using ${cacheResult.source} cache`);
+      log.debug('Utils', `🚀 [EarlySpaceRedirect] INSTANT: Using ${cacheResult.source} cache`);
       
       // Parse space data based on cache source
       let spaceData = null;
@@ -157,7 +158,7 @@ export const attemptEarlySpaceRedirect = async (
     }
     
     // No valid cache, proceed with smart redirect
-    console.log('🎯 [LoadingManager] No valid cache, starting SPACE_DETECTION operation');
+    log.debug('Utils', '🎯 [LoadingManager] No valid cache, starting SPACE_DETECTION operation');
     
     // Start space detection operation
     const spaceDetectionStarted = loadingStateManager.startOperation(
@@ -177,31 +178,31 @@ export const attemptEarlySpaceRedirect = async (
       loadingStateManager.completeOperation(LoadingOperation.SPACE_DETECTION, result.redirected);
       
       if (result.redirected) {
-        console.log(`🚀 [EarlySpaceRedirect] SUCCESS: Redirected using strategy: ${result.strategy}`);
+        log.debug('Utils', `🚀 [EarlySpaceRedirect] SUCCESS: Redirected using strategy: ${result.strategy}`);
         setters.setRoutingInProgress(true);
         setters.setEarlyRedirectAttempted(true);
         
         // Cache the space info using enhanced cache manager
         if (result.spaceInfo) {
-          console.log(`🎯 [EarlySpaceRedirect] Caching space for instant future redirects: ${result.spaceInfo.name}`);
+          log.debug('Utils', `🎯 [EarlySpaceRedirect] Caching space for instant future redirects: ${result.spaceInfo.name}`);
           enhancedCacheManager.cacheSpaceData(result.spaceInfo, userId, UserType.UNKNOWN);
         }
         
         loadingStateManager.completeOperation(LoadingOperation.AUTH_CHECK, true);
         return true;
       } else {
-        console.log(`🚀 [EarlySpaceRedirect] No redirect needed: ${result.strategy} - ${result.reason || 'User belongs on current page'}`);
+        log.debug('Utils', `🚀 [EarlySpaceRedirect] No redirect needed: ${result.strategy} - ${result.reason || 'User belongs on current page'}`);
         loadingStateManager.completeOperation(LoadingOperation.AUTH_CHECK, false);
         return false;
       }
     } else {
-      console.log('🎯 [LoadingManager] SPACE_DETECTION operation blocked');
+      log.debug('Utils', '🎯 [LoadingManager] SPACE_DETECTION operation blocked');
       loadingStateManager.completeOperation(LoadingOperation.AUTH_CHECK, false);
       return false;
     }
     
   } catch (error) {
-    console.error('🚀 [EarlySpaceRedirect] Error during space redirect:', error);
+    log.error('Utils', '🚀 [EarlySpaceRedirect] Error during space redirect:', error);
     loadingStateManager.completeOperation(LoadingOperation.AUTH_CHECK, false);
     return false;
   }
@@ -218,7 +219,7 @@ export const getInitialSession = async (
   refs: SessionRefs,
   fetchUserDetails: (userId: string) => Promise<any>
 ): Promise<void> => {
-  console.log('[AuthContext/getInitialSession] Attempting to get initial session...');
+  log.debug('Utils', '[AuthContext/getInitialSession] Attempting to get initial session...');
   setters.setLoading(true);
   setters.setHasRouted(false);
   setters.setEarlyRedirectAttempted(false);
@@ -228,23 +229,23 @@ export const getInitialSession = async (
 
   // Reset userWantsDiscover flag on fresh login to ensure space redirection works properly
   if (currentUser && session) {
-    console.log('[AuthContext/getInitialSession] New session detected, clearing userWantsDiscover flag');
+    log.debug('Utils', '[AuthContext/getInitialSession] New session detected, clearing userWantsDiscover flag');
     sessionStorage.removeItem('userWantsDiscover');
   }
 
   // Handle /discover path logic
   if (location.pathname === '/discover') {
-    console.log('[AuthContext/getInitialSession] Currently on /discover.');
+    log.debug('Utils', '[AuthContext/getInitialSession] Currently on /discover.');
     
     const userIntendsToStayOnDiscoverViaFlag = sessionStorage.getItem('userWantsDiscover') === 'true';
     if (userIntendsToStayOnDiscoverViaFlag) {
-      console.log('[AuthContext/getInitialSession] Clearing userWantsDiscover flag.');
+      log.debug('Utils', '[AuthContext/getInitialSession] Clearing userWantsDiscover flag.');
       sessionStorage.removeItem('userWantsDiscover');
     }
 
     // Stay on /discover if conditions are met
     if (!currentUser || userIntendsToStayOnDiscoverViaFlag || refs.hasRoutedRef.current || refs.earlyRedirectAttemptedRef.current) {
-      console.log('[AuthContext/getInitialSession] Condition to stay on /discover met (no user, flag, or already routed/attempted). Finalizing.');
+      log.debug('Utils', '[AuthContext/getInitialSession] Condition to stay on /discover met (no user, flag, or already routed/attempted). Finalizing.');
       setters.setSession(session);
       setters.setUser(currentUser);
       if (currentUser) await fetchUserDetails(currentUser.id); 
@@ -255,7 +256,7 @@ export const getInitialSession = async (
       setters.setEarlyRedirectAttempted(true);
       return;
     } else {
-      console.log('[AuthContext/getInitialSession] On /discover with active session, but fresh routing. Proceeding to main logic flow.');
+      log.debug('Utils', '[AuthContext/getInitialSession] On /discover with active session, but fresh routing. Proceeding to main logic flow.');
       setters.setSession(session);
       setters.setUser(currentUser);
       if (currentUser) await fetchUserDetails(currentUser.id);
@@ -266,7 +267,7 @@ export const getInitialSession = async (
   setters.setRoutingInProgress(true);
 
   if (error) {
-    console.error('[AuthContext/getInitialSession] Error getting session:', error);
+    log.error('Utils', '[AuthContext/getInitialSession] Error getting session:', error);
     setters.setSession(null);
     setters.setUser(null);
     setters.setUserDetails(null);
@@ -276,7 +277,7 @@ export const getInitialSession = async (
   }
 
   if (session) {
-    console.log('[AuthContext/getInitialSession] Session found (not on /discover path):');
+    log.debug('Utils', '[AuthContext/getInitialSession] Session found (not on /discover path):');
     debugCheckStorageTokens();
     setters.setSession(session);
     
@@ -291,7 +292,7 @@ export const getInitialSession = async (
     // Handle explicit redirect path
     const explicitRedirectPath = sessionStorage.getItem('redirect_after_login');
     if (explicitRedirectPath) {
-      console.log(`[AuthContext/getInitialSession] Handling redirect_after_login to: ${explicitRedirectPath}`);
+      log.debug('Utils', `[AuthContext/getInitialSession] Handling redirect_after_login to: ${explicitRedirectPath}`);
       sessionStorage.removeItem('redirect_after_login');
       if (location.pathname !== explicitRedirectPath) navigate(explicitRedirectPath, { replace: true });
       setters.setLoading(false);
@@ -305,7 +306,7 @@ export const getInitialSession = async (
     if (!state.hasRouted && !state.earlyRedirectAttempted && currentUser && 
         !['/', '/login', '/signup', '/auth/callback', '/fix', '/storage-debug'].includes(location.pathname) && 
         !location.pathname.endsWith('/about') && !location.pathname.startsWith('/profile/')) {
-      console.log(`[AuthContext/getInitialSession] Attempting early space redirect for user: ${currentUser.id} on path: ${location.pathname}`);
+      log.debug('Utils', `[AuthContext/getInitialSession] Attempting early space redirect for user: ${currentUser.id} on path: ${location.pathname}`);
       const redirected = await attemptEarlySpaceRedirect(currentUser.id, location, navigate, state, setters, refs);
       setters.setEarlyRedirectAttempted(true);
       if (redirected) {
@@ -314,12 +315,12 @@ export const getInitialSession = async (
         setters.setLoading(false);
         return;
       }
-      console.log('[AuthContext/getInitialSession] Early space redirect did not occur or failed.');
+      log.debug('Utils', '[AuthContext/getInitialSession] Early space redirect did not occur or failed.');
     }
     setters.setLoading(false);
     setters.setRoutingInProgress(false);
   } else {
-    console.log('[AuthContext/getInitialSession] No session found.');
+    log.debug('Utils', '[AuthContext/getInitialSession] No session found.');
     setters.setSession(null);
     setters.setUser(null);
     setters.setUserDetails(null);
@@ -328,7 +329,7 @@ export const getInitialSession = async (
     
     const publicPaths = ['/', '/discover', '/login', '/signup', '/auth/callback', '/fix', '/storage-debug'];
     if (!publicPaths.includes(location.pathname) && !location.pathname.endsWith('/about')) {
-      console.log(`[AuthContext/getInitialSession] No session, on protected path ${location.pathname}. ProtectedRoute will handle redirect.`);
+      log.debug('Utils', `[AuthContext/getInitialSession] No session, on protected path ${location.pathname}. ProtectedRoute will handle redirect.`);
     }
   }
 };
@@ -344,11 +345,11 @@ export const handlePostAuthenticationRouting = async (
   setters: SessionStateSetters,
   refs: SessionRefs
 ): Promise<void> => {
-  console.log('🧭 (HPAR) Initiating post-authentication routing for user:', userId);
+  log.debug('Utils', '🧭 (HPAR) Initiating post-authentication routing for user:', userId);
   setters.setRoutingInProgress(true);
 
   const routingSafetyTimeout = setTimeout(() => {
-    console.error('⏱️ SAFETY TIMEOUT: handlePostAuthenticationRouting took too long - forcing routingInProgress to false');
+    log.error('Utils', '⏱️ SAFETY TIMEOUT: handlePostAuthenticationRouting took too long - forcing routingInProgress to false');
     if (refs.routingInProgressRef.current) {
       setters.setRoutingInProgress(false);
     }
@@ -357,39 +358,39 @@ export const handlePostAuthenticationRouting = async (
   try {
     const explicitRedirectPath = sessionStorage.getItem('redirect_after_login');
     if (explicitRedirectPath) {
-      console.log('➡️ (HPAR) Found explicit redirect path after login:', explicitRedirectPath);
+      log.debug('Utils', '➡️ (HPAR) Found explicit redirect path after login:', explicitRedirectPath);
       sessionStorage.removeItem('redirect_after_login');
       await new Promise(resolve => setTimeout(resolve, 50));
-      console.log('🔀 (HPAR) Redirecting to explicit path:', explicitRedirectPath);
+      log.debug('Utils', '🔀 (HPAR) Redirecting to explicit path:', explicitRedirectPath);
       navigate(explicitRedirectPath, { replace: true });
       setters.setHasRouted(true);
       clearTimeout(routingSafetyTimeout);
       return;
     }
 
-    console.log('🔍 (HPAR) Calling attemptEarlySpaceRedirect for user:', userId);
+    log.debug('Utils', '🔍 (HPAR) Calling attemptEarlySpaceRedirect for user:', userId);
     const didRedirectEarly = await attemptEarlySpaceRedirect(userId, location, navigate, state, setters, refs);
     
     await Promise.resolve();
 
     const currentPath = location.pathname;
-    console.log('🔍 (HPAR) State after attemptEarlySpaceRedirect call:', {
+    log.debug('Utils', '🔍 (HPAR) State after attemptEarlySpaceRedirect call:', {
       didRedirectEarly,
       hasRoutedFromState: refs.hasRoutedRef.current,
       currentPath,
     });
 
     if (!didRedirectEarly) {
-      console.log('🤔 (HPAR) didRedirectEarly is false. Evaluating fallbacks.');
+      log.debug('Utils', '🤔 (HPAR) didRedirectEarly is false. Evaluating fallbacks.');
       
       if (location.pathname.includes('/space/') && didRedirectEarly) {
-        console.log('✅ (HPAR) Already on a space page and attemptEarlySpaceRedirect confirmed it or handled it. No further action.');
+        log.debug('Utils', '✅ (HPAR) Already on a space page and attemptEarlySpaceRedirect confirmed it or handled it. No further action.');
       } else {
         const preferredSpaceAfterAttempt = await getUserPreferredSpace(userId);
-        console.log('👑 (HPAR) Fresh preferred space after attempt (in fallback):', preferredSpaceAfterAttempt);
+        log.debug('Utils', '👑 (HPAR) Fresh preferred space after attempt (in fallback):', preferredSpaceAfterAttempt);
 
         if (currentPath.includes('/space/') && !preferredSpaceAfterAttempt) {
-          console.log('❌ (HPAR) On a space page, but no preferred space confirmed for user. Redirecting to /discover.');
+          log.debug('Utils', '❌ (HPAR) On a space page, but no preferred space confirmed for user. Redirecting to /discover.');
           navigate('/discover', { replace: true });
           setters.setHasRouted(true);
         } else {
@@ -409,11 +410,11 @@ export const handlePostAuthenticationRouting = async (
 
           if (isOldMalformedRoute || (isOldProfileFormat && usernameFromOldFormat && !isNewProfileFormat)) {
             if (usernameFromOldFormat) {
-              console.warn(`🚨 (HPAR) DETECTED OLD or MALFORMED PROFILE ROUTE: ${currentPath}. Redirecting to /profile/${usernameFromOldFormat}`);
+              log.warn('Utils', `🚨 (HPAR) DETECTED OLD or MALFORMED PROFILE ROUTE: ${currentPath}. Redirecting to /profile/${usernameFromOldFormat}`);
               navigate(`/profile/${usernameFromOldFormat}`, { replace: true });
               setters.setHasRouted(true);
             } else {
-              console.log('🔀 (HPAR) Malformed old profile route, but no username found. Redirecting to /discover.');
+              log.debug('Utils', '🔀 (HPAR) Malformed old profile route, but no username found. Redirecting to /discover.');
               navigate('/discover', { replace: true });
               setters.setHasRouted(true);
             }
@@ -423,37 +424,37 @@ export const handlePostAuthenticationRouting = async (
               const newMatch = currentPath.match(/\/profile\/([^/]+)/);
               if (newMatch && newMatch[1]) {
                 const usernameFromNew = newMatch[1];
-                console.warn(`🚨 (HPAR) DETECTED MALFORMED NEW PROFILE ROUTE: ${currentPath}. Correcting to /profile/${usernameFromNew}`);
+                log.warn('Utils', `🚨 (HPAR) DETECTED MALFORMED NEW PROFILE ROUTE: ${currentPath}. Correcting to /profile/${usernameFromNew}`);
                 navigate(`/profile/${usernameFromNew}`, { replace: true });
                 setters.setHasRouted(true);
               } else {
-                console.log('🔀 (HPAR) Malformed new profile route, but no username found. Redirecting to /discover.');
+                log.debug('Utils', '🔀 (HPAR) Malformed new profile route, but no username found. Redirecting to /discover.');
                 navigate('/discover', { replace: true });
                 setters.setHasRouted(true);
               }
             } else {
-              console.log('🛑 (HPAR) Correctly on a /profile/ route. Allowing profile view.', { currentPath });
+              log.debug('Utils', '🛑 (HPAR) Correctly on a /profile/ route. Allowing profile view.', { currentPath });
               setters.setHasRouted(true);
             }
           } else {
-            console.log('🔀 (HPAR) No space routed by AESR, not on an invalid space page, and not a profile page. Redirecting to /discover.');
+            log.debug('Utils', '🔀 (HPAR) No space routed by AESR, not on an invalid space page, and not a profile page. Redirecting to /discover.');
             navigate('/discover', { replace: true });
             setters.setHasRouted(true);
           }
         }
       }
     } else {
-      console.log('✅ (HPAR) Routing to space was successful (attemptEarlySpaceRedirect returned true).');
+      log.debug('Utils', '✅ (HPAR) Routing to space was successful (attemptEarlySpaceRedirect returned true).');
     }
   } catch (error: unknown) {
-    console.error('❌ (HPAR) Error in handlePostAuthenticationRouting:', error);
+    log.error('Utils', '❌ (HPAR) Error in handlePostAuthenticationRouting:', error);
     if (!refs.hasRoutedRef.current) {
-      console.log('🔀 (HPAR) Redirecting to /discover due to error in routing flow.');
+      log.debug('Utils', '🔀 (HPAR) Redirecting to /discover due to error in routing flow.');
       navigate('/discover', { replace: true });
       setters.setHasRouted(true);
     }
   } finally {
-    console.log('🏁 (HPAR) Post-authentication routing finished.');
+    log.debug('Utils', '🏁 (HPAR) Post-authentication routing finished.');
     setters.setRoutingInProgress(false);
     clearTimeout(routingSafetyTimeout);
   }

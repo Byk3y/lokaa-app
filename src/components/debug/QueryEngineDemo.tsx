@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 2A: Query Engine Demo Component
  * 
@@ -40,7 +41,7 @@ const mockQueryEngine = {
     totalQueuedQueries: 8,
     activeQueries: 2
   }),
-  resetMetrics: () => console.log('Metrics reset')
+  resetMetrics: () => log.debug('Component', 'Metrics reset')
 };
 
 // Mock query results for demonstration

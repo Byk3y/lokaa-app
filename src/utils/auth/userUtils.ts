@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { PostgrestError } from '@supabase/supabase-js'
 import { getSupabaseClient } from '@/integrations/supabase/client'
 import { generateSlug } from '@/utils/slugUtils'
@@ -12,7 +13,7 @@ import { User } from './sessionUtils'
  */
 export const fetchUserDetails = async (userId: string): Promise<Database['public']['Tables']['users']['Row'] | null> => {
   try {
-    console.log('AuthContext: Fetching user details for ID:', userId);
+    log.debug('Utils', 'AuthContext: Fetching user details for ID:', userId);
     const { data, error } = await getSupabaseClient()
       .from('users')
       .select('*')
@@ -20,23 +21,23 @@ export const fetchUserDetails = async (userId: string): Promise<Database['public
       .single();
       
     if (error) {
-      console.error('AuthContext: Error fetching user details:', error);
+      log.error('Utils', 'AuthContext: Error fetching user details:', error);
       throw error;
     }
     
     if (data) {
-      console.log('AuthContext: User details loaded:', {
+      log.debug('Utils', 'AuthContext: User details loaded:', {
         id: data.id,
         full_name: data.full_name,
         profile_url: data.profile_url
       });
       return data;
     } else {
-      console.warn('AuthContext: No user details found for ID:', userId);
+      log.warn('Utils', 'AuthContext: No user details found for ID:', userId);
       return null;
     }
   } catch (error) {
-    console.error('AuthContext: Error in fetchUserDetails:', error);
+    log.error('Utils', 'AuthContext: Error in fetchUserDetails:', error);
     return null;
   }
 };
@@ -83,7 +84,7 @@ export async function generateUniqueUserSlug(user: User): Promise<string | null>
           .limit(1);
 
         if (error) {
-          console.warn('Error checking URL uniqueness:', error);
+          log.warn('Utils', 'Error checking URL uniqueness:', error);
           break;
         }
 
@@ -97,7 +98,7 @@ export async function generateUniqueUserSlug(user: User): Promise<string | null>
         candidate = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
         attempt++;
       } catch (err) {
-        console.error('Exception checking URL uniqueness:', err);
+        log.error('Utils', 'Exception checking URL uniqueness:', err);
         break;
       }
     }
@@ -130,7 +131,7 @@ export const getCachedUserUrl = async (userId: string): Promise<string | null> =
       .single();
       
     if (error) {
-      console.error('Error fetching user URL:', error);
+      log.error('Utils', 'Error fetching user URL:', error);
       return null;
     }
     
@@ -145,7 +146,7 @@ export const getCachedUserUrl = async (userId: string): Promise<string | null> =
     
     return null;
   } catch (error) {
-    console.error('Error in getCachedUserUrl:', error);
+    log.error('Utils', 'Error in getCachedUserUrl:', error);
     return null;
   }
 };
@@ -160,13 +161,13 @@ export const ensureUserUrl = async (
   userId: string,
   setUser: (updater: (prevUser: any) => any) => void
 ): Promise<void> => {
-  console.warn('ensureUserUrl is deprecated - profile URLs are set by database triggers');
+  log.warn('Utils', 'ensureUserUrl is deprecated - profile URLs are set by database triggers');
   
   // FIXED: Instead of calling RPC, just get the existing URL from cache/database
   const userUrl = await getCachedUserUrl(userId);
   
   if (userUrl) {
-    console.log('User URL retrieved from cache/database:', userUrl);
+    log.debug('Utils', 'User URL retrieved from cache/database:', userUrl);
     setUser(prevUser => {
       if (prevUser && prevUser.url !== userUrl) {
         return { ...prevUser, url: userUrl };
@@ -180,10 +181,10 @@ export const ensureUserUrl = async (
  * Clear all storage items on sign out
  */
 export const clearAuthStorage = (): void => {
-  console.log('🧹 Immediately clearing client-side session state and storage...');
+  log.debug('Utils', '🧹 Immediately clearing client-side session state and storage...');
   
   // PHASE 3 FIX: Use centralized auth token cleanup for consistent localStorage management
-  console.log('🧹 [Phase 3] Clearing problematic auth tokens...');
+  log.debug('Utils', '🧹 [Phase 3] Clearing problematic auth tokens...');
   clearAllAuthTokens(false); // Clear all auth tokens including Supabase keys during logout
   
   // Clear localStorage items
@@ -204,9 +205,9 @@ export const clearAuthStorage = (): void => {
   localItemsToClear.forEach(item => {
     try {
       localStorage.removeItem(item);
-      console.log(`🧹 Cleared localStorage item: ${item}`);
+      log.debug('Utils', `🧹 Cleared localStorage item: ${item}`);
     } catch (e) {
-      console.warn(`Failed to remove ${item} from localStorage:`, e);
+      log.warn('Utils', `Failed to remove ${item} from localStorage:`, e);
     }
   });
   
@@ -215,11 +216,11 @@ export const clearAuthStorage = (): void => {
     Object.keys(localStorage)
       .filter(key => key.startsWith('user_owns_space_') || key.startsWith('user_member_') || key.startsWith('setupGuideDismissed_'))
       .forEach(key => {
-        console.log(`🧹 Clearing space cache item: ${key}`);
+        log.debug('Utils', `🧹 Clearing space cache item: ${key}`);
         localStorage.removeItem(key);
       });
   } catch (e) {
-    console.warn('Failed to clear space cache items:', e);
+    log.warn('Utils', 'Failed to clear space cache items:', e);
   }
   
   // Clear sessionStorage items
@@ -239,20 +240,20 @@ export const clearAuthStorage = (): void => {
         Object.keys(sessionStorage)
           .filter(key => key.startsWith(item))
           .forEach(matchingKey => {
-            console.log(`Removing session storage item with prefix ${item}:`, matchingKey);
+            log.debug('Utils', `Removing session storage item with prefix ${item}:`, matchingKey);
             sessionStorage.removeItem(matchingKey);
           });
       } else {
         sessionStorage.removeItem(item);
-        console.log(`🧹 Cleared sessionStorage item: ${item}`);
+        log.debug('Utils', `🧹 Cleared sessionStorage item: ${item}`);
       }
     } catch (e) {
-      console.warn(`Failed to remove ${item} from sessionStorage:`, e);
+      log.warn('Utils', `Failed to remove ${item} from sessionStorage:`, e);
     }
   });
   
   // PHASE 3 FIX: Supabase key cleanup now handled by clearAllAuthTokens() above
   // This eliminates duplicate and inconsistent localStorage management
   
-  console.log('✅ Storage cleanup completed - all user-specific data cleared');
+  log.debug('Utils', '✅ Storage cleanup completed - all user-specific data cleared');
 }; 

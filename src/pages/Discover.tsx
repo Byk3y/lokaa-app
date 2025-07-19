@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Search, Bell, MessageSquare, ChevronDown, User, Plus, Compass, LogOut, Settings, X, Loader2, Menu } from "lucide-react";
@@ -95,20 +96,20 @@ const showDirectLoginModal = (e: React.MouseEvent, callback?: () => void) => {
       setLoading(true);
       setError(null);
       try {
-        console.log('🔥 [MODAL FIX] Login attempt starting...');
+        log.debug('Page', '🔥 [MODAL FIX] Login attempt starting...');
         const { data, error: signInError } = await getSupabaseClient().auth.signInWithPassword({ email, password });
         if (signInError) {
-          console.log('🔥 [MODAL FIX] Login failed:', signInError.message);
+          log.debug('Page', '🔥 [MODAL FIX] Login failed:', signInError.message);
           setError(signInError.message);
           setLoading(false);
           return;
         }
         if (data.session) {
-          console.log('🔥 [MODAL FIX] Login successful, closing modal immediately');
+          log.debug('Page', '🔥 [MODAL FIX] Login successful, closing modal immediately');
           handleClose();
         }
       } catch (err) {
-        console.error('🔥 [MODAL FIX] Login exception:', err);
+        log.error('Page', '🔥 [MODAL FIX] Login exception:', err);
         setError('An unexpected error occurred. Please try again.');
         setLoading(false);
       }
@@ -123,16 +124,16 @@ const showDirectLoginModal = (e: React.MouseEvent, callback?: () => void) => {
     // 🔥 [MODAL FIX] Auto-close modal when authentication succeeds
     React.useEffect(() => {
       const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event, session) => {
-        console.log('🔥 [MODAL FIX] Auth state change in modal:', event, !!session);
+        log.debug('Page', '🔥 [MODAL FIX] Auth state change in modal:', event, !!session);
         if (event === 'SIGNED_IN' && session) {
-          console.log('🔥 [MODAL FIX] User signed in, auto-closing modal');
+          log.debug('Page', '🔥 [MODAL FIX] User signed in, auto-closing modal');
           
           // Close this modal immediately
           setIsOpen(false);
           
           // Also close the modal container after animation
           setTimeout(() => {
-            console.log('🔥 [MODAL FIX] Removing modal container from DOM');
+            log.debug('Page', '🔥 [MODAL FIX] Removing modal container from DOM');
             handleClose();
             
             // Force close any other auth modals that might be open
@@ -147,7 +148,7 @@ const showDirectLoginModal = (e: React.MouseEvent, callback?: () => void) => {
       });
 
       return () => {
-        console.log('🔥 [MODAL FIX] Cleaning up auth subscription');
+        log.debug('Page', '🔥 [MODAL FIX] Cleaning up auth subscription');
         subscription.unsubscribe();
       };
     }, []);
@@ -235,13 +236,13 @@ export default function Discover() {
     
     // Throttle identical requests
     if (lastRequest && now - lastRequest < REQUEST_THROTTLE_MS) {
-      console.warn(`🚨 [Discover] Request ${requestKey} throttled`);
+      log.warn('Page', `🚨 [Discover] Request ${requestKey} throttled`);
       return null;
     }
     
     // Circuit breaker for concurrent requests
     if (activeRequestsRef.current >= MAX_CONCURRENT_REQUESTS) {
-      console.warn(`🚨 [Discover] Circuit breaker: too many concurrent requests (${activeRequestsRef.current})`);
+      log.warn('Page', `🚨 [Discover] Circuit breaker: too many concurrent requests (${activeRequestsRef.current})`);
       return null;
     }
     
@@ -305,7 +306,7 @@ export default function Discover() {
     } catch (error) {
       if (retries <= 0) throw error;
       
-      console.log(`Fetch attempt failed, retrying in ${delay}ms...`, error);
+      log.debug('Page', `Fetch attempt failed, retrying in ${delay}ms...`, error);
       await new Promise(resolve => setTimeout(resolve, delay));
       return createFetch(fetchFunction, retries - 1, delay * 1.5);
     }
@@ -333,7 +334,7 @@ export default function Discover() {
   useEffect(() => {
     const fetchTimeoutId = setTimeout(() => {
       if (isLoading) {
-        console.warn("Spaces fetch timeout reached - still loading after 15 seconds");
+        log.warn('Page', "Spaces fetch timeout reached - still loading after 15 seconds");
         setLoadError("Loading spaces is taking longer than expected. Please try again.");
         setIsLoading(false);
       }
@@ -344,32 +345,32 @@ export default function Discover() {
         setIsLoading(true);
         setLoadError(null);
         
-        console.log('Current user in Discover:', user?.id);
+        log.debug('Page', 'Current user in Discover:', user?.id);
         
         const timestamp = new Date().getTime();
-        console.log('Fetching spaces with timestamp:', timestamp);
+        log.debug('Page', 'Fetching spaces with timestamp:', timestamp);
         
         let fetchedSpaces: DatabaseSpace[] = [];
         
         try {
-          console.log('Fetching public spaces using RPC function');
+          log.debug('Page', 'Fetching public spaces using RPC function');
           
           const { data: rpcData, error: rpcError } = await createFetch(async () => {
             return await getSupabaseClient().rpc('get_public_spaces');
           });
           
           if (rpcError) {
-            console.error('Error fetching spaces using RPC function:', rpcError);
+            log.error('Page', 'Error fetching spaces using RPC function:', rpcError);
           } else if (rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
-            console.log('Successfully fetched spaces using RPC function:', rpcData.length);
+            log.debug('Page', 'Successfully fetched spaces using RPC function:', rpcData.length);
             fetchedSpaces = rpcData;
           }
         } catch (rpcException) {
-          console.error('Exception in RPC spaces fetch:', rpcException);
+          log.error('Page', 'Exception in RPC spaces fetch:', rpcException);
         }
         
         if (fetchedSpaces.length === 0) {
-          console.log('Falling back to direct query for spaces');
+          log.debug('Page', 'Falling back to direct query for spaces');
           
           try {
             const { data: queryData, error: queryError } = await createFetch(async () => {
@@ -381,16 +382,16 @@ export default function Discover() {
             });
               
             if (queryError) {
-              console.error('Error in fallback query:', queryError);
+              log.error('Page', 'Error in fallback query:', queryError);
               
               throw queryError;
             }
             
             if (queryData && queryData.length > 0) {
-              console.log('Successfully fetched spaces via fallback query:', queryData.length);
+              log.debug('Page', 'Successfully fetched spaces via fallback query:', queryData.length);
               fetchedSpaces = queryData;
             } else {
-              console.log('No spaces found via fallback query, trying unrestricted query');
+              log.debug('Page', 'No spaces found via fallback query, trying unrestricted query');
               
               const { data: lastResortData, error: lastResortError } = await createFetch(async () => {
                 return await getSupabaseClient()
@@ -400,37 +401,37 @@ export default function Discover() {
               });
                 
               if (lastResortError) {
-                console.error('Error in last resort query:', lastResortError);
+                log.error('Page', 'Error in last resort query:', lastResortError);
                 
                 throw lastResortError;
               }
               
               if (lastResortData && lastResortData.length > 0) {
-                console.log('Successfully fetched spaces via last resort query:', lastResortData.length);
+                log.debug('Page', 'Successfully fetched spaces via last resort query:', lastResortData.length);
                 fetchedSpaces = lastResortData;
               }
             }
           } catch (queryException) {
-            console.error('Exception in fallback space query:', queryException);
+            log.error('Page', 'Exception in fallback space query:', queryException);
             throw queryException;
           }
         }
         
         if (fetchedSpaces.length === 0) {
-          console.log('No spaces found after all attempts');
+          log.debug('Page', 'No spaces found after all attempts');
           setSpaces([]);
           setFilteredSpaces([]);
           return;
         }
         
-        console.log('Processing fetched spaces:', fetchedSpaces.length);
+        log.debug('Page', 'Processing fetched spaces:', fetchedSpaces.length);
         const processedSpaces = [];
         
         // Process spaces with default member count - the real counts will be updated later
         for (const space of fetchedSpaces) {
           try {
             if (!space || !space.id || !space.name) {
-              console.warn('Skipping invalid space:', space);
+              log.warn('Page', 'Skipping invalid space:', space);
               continue;
             }
             
@@ -444,19 +445,19 @@ export default function Discover() {
             
             processedSpaces.push(extendedSpace);
           } catch (spaceProcessError) {
-            console.warn(`Error processing space ${space.id}:`, spaceProcessError);
+            log.warn('Page', `Error processing space ${space.id}:`, spaceProcessError);
           }
         }
         
-        console.log('Final processed spaces count:', processedSpaces.length);
+        log.debug('Page', 'Final processed spaces count:', processedSpaces.length);
         setSpaces(processedSpaces);
         setFilteredSpaces(processedSpaces);
       } catch (error) {
-        console.error('Error fetching spaces:', error);
+        log.error('Page', 'Error fetching spaces:', error);
         let errorMessage = 'Failed to load spaces. Please try again later.';
         
         if (error instanceof Error) {
-          console.error('Error details:', error.message);
+          log.error('Page', 'Error details:', error.message);
           
           if (error.message.includes('network')) {
             errorMessage = 'Network error. Please check your internet connection and try again.';
@@ -468,7 +469,7 @@ export default function Discover() {
         }
         
         setLoadError(errorMessage);
-        console.debug('Debug info:', { 
+        log.debug('Page', 'Debug info:', { 
           userPresent: !!user, 
           authState: user ? 'authenticated' : 'unauthenticated',
           timestamp: new Date().toISOString(),
@@ -531,7 +532,7 @@ export default function Discover() {
       
       // Create a navigate function that uses React Router for smooth navigation
       const navigateToHome = (path: string, options?: any) => {
-        console.log('🚀 Discover: Navigating smoothly to', path);
+        log.debug('Page', '🚀 Discover: Navigating smoothly to', path);
         navigate(path, { replace: true, ...options });
       };
       
@@ -544,14 +545,14 @@ export default function Discover() {
         setEarlyRedirectAttempted: () => {}, // Not used in this context
         setRoutingInProgress: () => {}, // Handled internally
         setAuthErrors: (errors) => {
-          console.warn('Auth errors during sign out:', errors);
+          log.warn('Page', 'Auth errors during sign out:', errors);
         }
       });
       
-      console.log('✅ Sign out completed successfully');
+      log.debug('Page', '✅ Sign out completed successfully');
       
     } catch (error) {
-      console.error('❌ Sign out failed:', error);
+      log.error('Page', '❌ Sign out failed:', error);
       // On error, try direct navigation
       navigate('/', { replace: true });
     } finally {
@@ -585,10 +586,10 @@ export default function Discover() {
     e.stopPropagation();
     
     if (user) {
-      console.log("User logged in, navigating to create space");
+      log.debug('Page', "User logged in, navigating to create space");
       navigate('/create-space', { replace: true });
     } else {
-      console.log("User not logged in, showing login modal with redirect");
+      log.debug('Page', "User not logged in, showing login modal with redirect");
       const syntheticEvent = { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent<Element, MouseEvent>;
       showDirectLoginModal(syntheticEvent);
       sessionStorage.setItem('redirect_after_login', '/create-space');
@@ -603,11 +604,11 @@ export default function Discover() {
         description: "Refreshing data to resolve loading issues...",
         variant: "default"
       });
-      console.log(`Retrying Discover page load (attempt ${retryCount + 1})`);
+      log.debug('Page', `Retrying Discover page load (attempt ${retryCount + 1})`);
       setLoadError(null);
       setTimeout(() => window.location.reload(), 800);
     } catch (error) {
-      console.error("Error during retry attempt:", error);
+      log.error('Page', "Error during retry attempt:", error);
       toast({
         title: "Retry failed",
         description: "Please try again or refresh the page manually",
@@ -623,7 +624,7 @@ export default function Discover() {
       // CRITICAL: Only run for authenticated users with valid session, and only once
       // Don't run immediately after logout when user state may be stale
       if (user?.id && !authEnhancementComplete && user.email) {
-        console.log('🚀 [Discover] Progressive auth enhancement starting...');
+        log.debug('Page', '🚀 [Discover] Progressive auth enhancement starting...');
         
         try {
           // SAFETY: Add a small delay to ensure user state is stable after auth changes
@@ -631,7 +632,7 @@ export default function Discover() {
           
           // Double-check user is still authenticated after delay
           if (!user?.id || !user.email) {
-            console.log('🚀 [Discover] User state became invalid, skipping enhancement');
+            log.debug('Page', '🚀 [Discover] User state became invalid, skipping enhancement');
             setAuthEnhancementComplete(true);
             return;
           }
@@ -640,15 +641,15 @@ export default function Discover() {
           const result = await aggressiveDiscoverOverride(user.id, navigate);
           
           if (result.redirected) {
-            console.log(`🚀 [Discover] Background redirect applied: ${result.strategy}`);
+            log.debug('Page', `🚀 [Discover] Background redirect applied: ${result.strategy}`);
             // User was redirected, component will unmount
             return;
           } else {
-            console.log(`🚀 [Discover] User legitimately belongs on discover: ${result.strategy}`);
+            log.debug('Page', `🚀 [Discover] User legitimately belongs on discover: ${result.strategy}`);
             setAuthEnhancementComplete(true);
           }
         } catch (error) {
-          console.warn('🚀 [Discover] Background auth enhancement failed (non-critical):', error);
+          log.warn('Page', '🚀 [Discover] Background auth enhancement failed (non-critical):', error);
           // Continue with public experience if enhancement fails
           setAuthEnhancementComplete(true);
         }

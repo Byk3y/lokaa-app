@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import ChatContainer from '@/components/chat/ChatContainer';
@@ -30,21 +31,21 @@ export default function ChatPage() {
       if (slug) {
         if (cachedId) {
           // Found in cache immediately
-          console.log('📱 [ChatPage] Mobile: Using cached conversation ID:', cachedId);
+          log.debug('Page', '📱 [ChatPage] Mobile: Using cached conversation ID:', cachedId);
           setResolvedConversationId(cachedId);
         } else if (conversations.length > 0) {
           // Try reverse lookup with available conversations
           const foundId = findConversationIdFromSlug(slug, conversations);
           if (foundId) {
-            console.log('📱 [ChatPage] Mobile: Found conversation via reverse lookup:', foundId);
+            log.debug('Page', '📱 [ChatPage] Mobile: Found conversation via reverse lookup:', foundId);
             setResolvedConversationId(foundId);
           } else {
-            console.warn('📱 [ChatPage] Mobile: Conversation not found for slug:', slug);
+            log.warn('Page', '📱 [ChatPage] Mobile: Conversation not found for slug:', slug);
             setResolvedConversationId(undefined);
           }
         } else {
           // Conversations not loaded yet, wait for them
-          console.log('📱 [ChatPage] Mobile: Waiting for conversations to load for slug:', slug);
+          log.debug('Page', '📱 [ChatPage] Mobile: Waiting for conversations to load for slug:', slug);
           setResolvedConversationId(undefined);
         }
       } else {
@@ -54,7 +55,7 @@ export default function ChatPage() {
     } else {
       // Desktop: Fall back to legacy 'id' parameter for compatibility
       const legacyId = searchParams.get('id');
-      console.log('🖥️ [ChatPage] Desktop: Using legacy ID parameter:', legacyId);
+      log.debug('Page', '🖥️ [ChatPage] Desktop: Using legacy ID parameter:', legacyId);
       setResolvedConversationId(legacyId || undefined);
     }
   }, [location.search, conversations, isMobile]);
@@ -66,7 +67,7 @@ export default function ChatPage() {
       if (slug) {
         const foundId = findConversationIdFromSlug(slug, conversations);
         if (foundId) {
-          console.log('📱 [ChatPage] Mobile: Retry reverse lookup successful:', foundId);
+          log.debug('Page', '📱 [ChatPage] Mobile: Retry reverse lookup successful:', foundId);
           setResolvedConversationId(foundId);
         }
       }
@@ -78,7 +79,7 @@ export default function ChatPage() {
     if (user?.id && space?.subdomain) {
       // Wait 2 seconds after page load, then refresh space data in background
       const timer = setTimeout(() => {
-        console.log('🔄 Background space refresh while in chat');
+        log.debug('Page', '🔄 Background space refresh while in chat');
         loadActiveSpace({ subdomain: space.subdomain }, user.id, true);
       }, 2000);
 

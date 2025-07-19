@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -60,7 +61,7 @@ export default function ChatList({
       });
       
     } catch (error) {
-      console.error('Error marking all conversations as read:', error);
+      log.error('Component', 'Error marking all conversations as read:', error);
       toast({
         title: "Error",
         description: "Failed to mark all conversations as read. Please try again.",

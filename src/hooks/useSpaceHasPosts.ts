@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -22,14 +23,14 @@ export const useSpaceHasPosts = (spaceId: string) => {
           .eq('space_id', spaceId);
         
         if (error) {
-          console.error('Error checking space posts:', error);
+          log.error('Hook', 'Error checking space posts:', error);
           return;
         }
         
         // If count is 0, the space is empty
         setIsEmptySpace(count === 0);
       } catch (error) {
-        console.error('Error in useSpaceHasPosts:', error);
+        log.error('Hook', 'Error in useSpaceHasPosts:', error);
       } finally {
         setLoading(false);
       }

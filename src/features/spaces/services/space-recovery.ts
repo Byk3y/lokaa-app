@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { 
   fixSpaceAccessBySubdomain, 
   comprehensiveSpaceRecovery,
@@ -23,7 +24,7 @@ export interface SpaceRecoveryResult {
  */
 export async function recoverSpaceAccess(subdomain: string): Promise<SpaceRecoveryResult> {
   try {
-    console.log(`[space-recovery] Attempting to recover access to space: ${subdomain}`);
+    log.debug('Service', `[space-recovery] Attempting to recover access to space: ${subdomain}`);
     
     // First, try the comprehensive recovery method
     const recoveryResult = await comprehensiveSpaceRecovery(subdomain);
@@ -56,7 +57,7 @@ export async function recoverSpaceAccess(subdomain: string): Promise<SpaceRecove
       error: fixResult.error
     };
   } catch (error) {
-    console.error("[space-recovery] Error during space access recovery:", error);
+    log.error('Service', "[space-recovery] Error during space access recovery:", error);
     return {
       success: false,
       message: "An unexpected error occurred while trying to recover access.",
@@ -86,7 +87,7 @@ export async function checkSpaceAccessWithRecovery(subdomain: string): Promise<{
       recoveryAvailable
     };
   } catch (error) {
-    console.error("[space-recovery] Error checking space access:", error);
+    log.error('Service', "[space-recovery] Error checking space access:", error);
     return {
       accessResult: {
         space: null,

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Star, TrendingUp, Activity } from "lucide-react";
@@ -36,11 +37,11 @@ export default function Dashboard() {
   const isCreator = user?.role === 'creator';
 
   useEffect(() => {
-    console.log('Dashboard: Component mounted');
+    log.debug('Page', 'Dashboard: Component mounted');
     
     // If no user, redirect to signin
     if (!user) {
-      console.log('Dashboard: No user found, redirecting to signin');
+      log.debug('Page', 'Dashboard: No user found, redirecting to signin');
       navigate('/signin');
       return;
     }
@@ -58,7 +59,7 @@ export default function Dashboard() {
       try {
         // Fetch user spaces
         const userSpaces = await fetchUserSpaces(user.id);
-        console.log('Dashboard: Fetched spaces:', userSpaces);
+        log.debug('Page', 'Dashboard: Fetched spaces:', userSpaces);
         
         if (userSpaces && userSpaces.length > 0) {
           setSpaces(userSpaces);
@@ -69,21 +70,21 @@ export default function Dashboard() {
             navigate(`/space/${userSpaces[0].subdomain}`);
           }
         } else {
-          console.log('Dashboard: No spaces found, redirecting to discover page');
+          log.debug('Page', 'Dashboard: No spaces found, redirecting to discover page');
           
           // If no spaces found, redirect to the discover page
           if (window.location.pathname === '/dashboard') {
-            console.log('Dashboard: Redirecting to discover page');
+            log.debug('Page', 'Dashboard: Redirecting to discover page');
             navigate('/discover');
           }
         }
       } catch (error) {
-        console.error('Dashboard: Error loading spaces:', error);
+        log.error('Page', 'Dashboard: Error loading spaces:', error);
         setSpaces([]);
         
         // On error, redirect to discover page
         if (window.location.pathname === '/dashboard') {
-          console.log('Dashboard: Error occurred, redirecting to discover page');
+          log.debug('Page', 'Dashboard: Error occurred, redirecting to discover page');
           navigate('/discover');
         }
       } finally {

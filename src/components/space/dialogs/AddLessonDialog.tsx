@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ export default function AddLessonDialog({
   const handleSubmit = async () => {
     if (!moduleId) {
       // This should ideally be handled by parent disabling open, but good to have a check
-      console.error("Module ID is missing in AddLessonDialog");
+      log.error('Component', "Module ID is missing in AddLessonDialog");
       return;
     }
     if (!title.trim()) {

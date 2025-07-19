@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Supabase Client Health Check and Auto-Recovery System
  * 
@@ -47,7 +48,7 @@ class SupabaseHealthMonitor {
       return;
     }
 
-    console.log('🏥 [HealthMonitor] Starting Supabase client health monitoring');
+    log.debug('Utils', '🏥 [HealthMonitor] Starting Supabase client health monitoring');
 
     // Initial health check
     this.performHealthCheck();
@@ -64,13 +65,13 @@ class SupabaseHealthMonitor {
       
       // Mobile browser blocking test utility
       (window as any).testMobileBrowserBlocking = () => {
-        console.log('🧪 [Mobile Browser Blocking Test]');
-        console.log('================================');
-        console.log('Mobile Detection:', /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768);
-        console.log('Recent Background Activity:', this.hasRecentMobileBackgroundActivity());
-        console.log('Last Visibility Change:', (window as any).__lastVisibilityChange ? new Date((window as any).__lastVisibilityChange).toLocaleTimeString() : 'None');
-        console.log('Last Mobile Browser Blocking:', this.lastMobileBrowserBlocking ? new Date(this.lastMobileBrowserBlocking).toLocaleTimeString() : 'None');
-        console.log('Health Monitor Status:', {
+        log.debug('Utils', '🧪 [Mobile Browser Blocking Test]');
+        log.debug('Utils', '================================');
+        log.debug('Utils', 'Mobile Detection:', /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768);
+        log.debug('Utils', 'Recent Background Activity:', this.hasRecentMobileBackgroundActivity());
+        log.debug('Utils', 'Last Visibility Change:', (window as any).__lastVisibilityChange ? new Date((window as any).__lastVisibilityChange).toLocaleTimeString() : 'None');
+        log.debug('Utils', 'Last Mobile Browser Blocking:', this.lastMobileBrowserBlocking ? new Date(this.lastMobileBrowserBlocking).toLocaleTimeString() : 'None');
+        log.debug('Utils', 'Health Monitor Status:', {
           isRecovering: this.isRecovering,
           recoveryAttempts: this.recoveryAttempts,
           consecutiveFailures: this.consecutiveFailures,
@@ -79,7 +80,7 @@ class SupabaseHealthMonitor {
         
         // Test manual blocking detection
         const mockError = { error: 'Fetch API cannot load due to access control checks', latency: 1000 };
-        console.log('Would Detect Mobile Blocking:', this.isMobileBrowserBlocking(mockError));
+        log.debug('Utils', 'Would Detect Mobile Blocking:', this.isMobileBrowserBlocking(mockError));
         
         return {
           mobileDetected: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768,
@@ -94,7 +95,7 @@ class SupabaseHealthMonitor {
         (window as any).__lastVisibilityChange = Date.now();
       });
       } else {
-        console.log('🔧 [SupabaseHealthMonitor] Visibility listener DISABLED - Mobile Event Coordinator is managing events');
+        log.debug('Utils', '🔧 [SupabaseHealthMonitor] Visibility listener DISABLED - Mobile Event Coordinator is managing events');
       }
     }
   }
@@ -106,7 +107,7 @@ class SupabaseHealthMonitor {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
-      console.log('🏥 [HealthMonitor] Stopped health monitoring');
+      log.debug('Utils', '🏥 [HealthMonitor] Stopped health monitoring');
     }
   }
 
@@ -150,7 +151,7 @@ class SupabaseHealthMonitor {
 
       // Only log if latency is high or this is a recovery
       if (latency > 2000 || this.isRecovering) {
-        console.log(`🏥 [HealthMonitor] Health check passed (${latency}ms)`);
+        log.debug('Utils', `🏥 [HealthMonitor] Health check passed (${latency}ms)`);
         this.isRecovering = false;
       }
 
@@ -166,13 +167,13 @@ class SupabaseHealthMonitor {
       };
 
       this.lastHealthCheck = result;
-      console.warn(`🏥 [HealthMonitor] Health check failed (${latency}ms):`, result.error);
+      log.warn('Utils', `🏥 [HealthMonitor] Health check failed (${latency}ms):`, result.error);
 
       // ENHANCED: Check mobile browser blocking coordination before attempting recovery
       if (!this.isRecovering && this.recoveryAttempts < this.maxRecoveryAttempts) {
         // Check if this is mobile browser network blocking (Chrome/Safari)
         if (this.isMobileBrowserBlocking(result)) {
-          console.log('🏥 [HealthMonitor] Mobile browser network blocking detected, implementing progressive recovery');
+          log.debug('Utils', '🏥 [HealthMonitor] Mobile browser network blocking detected, implementing progressive recovery');
           
           // Start progressive recovery instead of aggressive recovery
           this.handleMobileBrowserBlocking();
@@ -181,7 +182,7 @@ class SupabaseHealthMonitor {
         
         // Check if Phase 1 is handling mobile recovery
         if (this.isPhase1HandlingSafariBlocking()) {
-          console.log('🏥 [HealthMonitor] Phase 1 handling mobile recovery, skipping health monitor recovery');
+          log.debug('Utils', '🏥 [HealthMonitor] Phase 1 handling mobile recovery, skipping health monitor recovery');
           return result; // Skip health monitor recovery
         }
         
@@ -203,7 +204,7 @@ class SupabaseHealthMonitor {
     this.isRecovering = true;
     this.recoveryAttempts++;
 
-    console.log(`🏥 [HealthMonitor] Attempting client recovery (attempt ${this.recoveryAttempts}/${this.maxRecoveryAttempts})`);
+    log.debug('Utils', `🏥 [HealthMonitor] Attempting client recovery (attempt ${this.recoveryAttempts}/${this.maxRecoveryAttempts})`);
 
     try {
       await this.recoverClient();
@@ -212,7 +213,7 @@ class SupabaseHealthMonitor {
       const healthCheck = await this.performHealthCheck();
       
       if (healthCheck.isHealthy) {
-        console.log('✅ [HealthMonitor] Client recovery successful');
+        log.debug('Utils', '✅ [HealthMonitor] Client recovery successful');
         this.isRecovering = false;
         this.recoveryAttempts = 0;
         
@@ -223,10 +224,10 @@ class SupabaseHealthMonitor {
       }
 
     } catch (error) {
-      console.error(`❌ [HealthMonitor] Recovery attempt ${this.recoveryAttempts} failed:`, error);
+      log.error('Utils', `❌ [HealthMonitor] Recovery attempt ${this.recoveryAttempts} failed:`, error);
       
       if (this.recoveryAttempts >= this.maxRecoveryAttempts) {
-        console.error('❌ [HealthMonitor] Max recovery attempts reached. Manual intervention required.');
+        log.error('Utils', '❌ [HealthMonitor] Max recovery attempts reached. Manual intervention required.');
         this.notifyRecoveryFailure();
       }
       
@@ -239,25 +240,25 @@ class SupabaseHealthMonitor {
    * Based on research: avoid multiple client creation, focus on session recovery
    */
   public async recoverClient(): Promise<void> {
-    console.log('🔧 [HealthMonitor] Attempting client recovery without reinitialization...');
+    log.debug('Utils', '🔧 [HealthMonitor] Attempting client recovery without reinitialization...');
 
     // Use the singleton client directly
     const existingClient = getSupabaseClient();
     
     if (!existingClient) {
-      console.error('❌ [HealthMonitor] No existing client found for recovery');
+      log.error('Utils', '❌ [HealthMonitor] No existing client found for recovery');
       throw new Error('No client available for recovery');
     }
 
     try {
       // RESEARCH FIX: Focus on session recovery instead of client recreation
-      console.log('🔍 [HealthMonitor] Checking session validity...');
+      log.debug('Utils', '🔍 [HealthMonitor] Checking session validity...');
       
       // Check current session
       const { data: sessionData, error: sessionError } = await existingClient.auth.getSession();
       
       if (sessionError || !sessionData.session) {
-        console.log('🔄 [HealthMonitor] Invalid session detected, attempting restoration...');
+        log.debug('Utils', '🔄 [HealthMonitor] Invalid session detected, attempting restoration...');
         
         // PHASE 3 FIX: Use Supabase's automatic session management instead of custom localStorage
         // Removed: const authToken = localStorage.getItem('supabase.auth.token');
@@ -268,18 +269,18 @@ class SupabaseHealthMonitor {
           const { data: refreshData, error: refreshError } = await existingClient.auth.refreshSession();
           
           if (refreshError || !refreshData.session) {
-            console.log('⚠️ [HealthMonitor] Session refresh failed, session may be expired');
+            log.debug('Utils', '⚠️ [HealthMonitor] Session refresh failed, session may be expired');
             await existingClient.auth.signOut({ scope: 'local' });
             // PHASE 3 FIX: Removed manual localStorage.removeItem - Supabase handles cleanup
           } else {
-            console.log('✅ [HealthMonitor] Session restored via refresh');
+            log.debug('Utils', '✅ [HealthMonitor] Session restored via refresh');
           }
         } catch (e) {
-          console.warn('⚠️ [HealthMonitor] Session restoration failed:', e);
+          log.warn('Utils', '⚠️ [HealthMonitor] Session restoration failed:', e);
           await existingClient.auth.signOut({ scope: 'local' });
         }
       } else {
-        console.log('✅ [HealthMonitor] Session is valid, checking connectivity...');
+        log.debug('Utils', '✅ [HealthMonitor] Session is valid, checking connectivity...');
       }
 
       // RESEARCH FIX: Clean up realtime connections without recreating client
@@ -289,9 +290,9 @@ class SupabaseHealthMonitor {
           existingClient.realtime.disconnect();
           await new Promise(resolve => setTimeout(resolve, 1000));
           // Realtime will auto-reconnect on next subscription
-          console.log('🔄 [HealthMonitor] Realtime connections refreshed');
+          log.debug('Utils', '🔄 [HealthMonitor] Realtime connections refreshed');
         } catch (realtimeError) {
-          console.warn('⚠️ [HealthMonitor] Realtime refresh warning:', realtimeError);
+          log.warn('Utils', '⚠️ [HealthMonitor] Realtime refresh warning:', realtimeError);
         }
       }
 
@@ -301,16 +302,16 @@ class SupabaseHealthMonitor {
         throw new Error(`Recovery test failed: ${testResult.error.message}`);
       }
 
-      console.log('✅ [HealthMonitor] Client recovery successful without reinitialization');
+      log.debug('Utils', '✅ [HealthMonitor] Client recovery successful without reinitialization');
       
     } catch (error) {
-      console.error('❌ [HealthMonitor] Client recovery failed:', error);
+      log.error('Utils', '❌ [HealthMonitor] Client recovery failed:', error);
       
       // RESEARCH FIX: As last resort, clear session and prompt re-authentication
       // instead of creating new client instances
       try {
         await existingClient.auth.signOut({ scope: 'local' });
-        console.log('🔄 [HealthMonitor] Cleared corrupted session, user will need to re-authenticate');
+        log.debug('Utils', '🔄 [HealthMonitor] Cleared corrupted session, user will need to re-authenticate');
         
         // Dispatch event for app to handle re-authentication
         if (typeof window !== 'undefined') {
@@ -322,7 +323,7 @@ class SupabaseHealthMonitor {
           }));
         }
       } catch (signOutError) {
-        console.error('❌ [HealthMonitor] Failed to clear session:', signOutError);
+        log.error('Utils', '❌ [HealthMonitor] Failed to clear session:', signOutError);
         throw error;
       }
     }
@@ -384,7 +385,7 @@ class SupabaseHealthMonitor {
     const isBlocking = isMobileBlockingError && hasRecentBackgroundReturn;
     
     if (isBlocking) {
-      console.log('🏥 [HealthMonitor] Mobile browser blocking detected:', {
+      log.debug('Utils', '🏥 [HealthMonitor] Mobile browser blocking detected:', {
         isMobile,
         errorMessage: result.error,
         hasRecentBackgroundReturn,
@@ -426,7 +427,7 @@ class SupabaseHealthMonitor {
       
       return false;
     } catch (error) {
-      console.warn('🏥 [HealthMonitor] Background activity check failed:', error);
+      log.warn('Utils', '🏥 [HealthMonitor] Background activity check failed:', error);
       return false;
     }
   }
@@ -435,7 +436,7 @@ class SupabaseHealthMonitor {
    * Handle mobile browser blocking with progressive recovery
    */
   private handleMobileBrowserBlocking(): void {
-    console.log('🏥 [HealthMonitor] Starting mobile browser blocking recovery...');
+    log.debug('Utils', '🏥 [HealthMonitor] Starting mobile browser blocking recovery...');
     
     // Mark that we're handling this to prevent recovery loops
     this.lastMobileBrowserBlocking = Date.now();
@@ -450,13 +451,13 @@ class SupabaseHealthMonitor {
     progressiveRetries.forEach((retry, index) => {
       setTimeout(async () => {
         try {
-          console.log(`🏥 [HealthMonitor] Mobile recovery attempt ${index + 1}: ${retry.name}`);
+          log.debug('Utils', `🏥 [HealthMonitor] Mobile recovery attempt ${index + 1}: ${retry.name}`);
           
           // Test if mobile browser has restored network access
           const testResult = await this.quickHealthCheck();
           
           if (testResult.healthy) {
-            console.log(`✅ [HealthMonitor] Mobile browser blocking resolved after ${retry.name}`);
+            log.debug('Utils', `✅ [HealthMonitor] Mobile browser blocking resolved after ${retry.name}`);
             this.lastMobileBrowserBlocking = 0; // Clear flag
             this.consecutiveFailures = 0; // Reset failure count
             return;
@@ -464,12 +465,12 @@ class SupabaseHealthMonitor {
           
           // If this is the last attempt and still failing, allow normal recovery
           if (index === progressiveRetries.length - 1) {
-            console.warn('🏥 [HealthMonitor] Mobile browser blocking persists, allowing normal recovery');
+            log.warn('Utils', '🏥 [HealthMonitor] Mobile browser blocking persists, allowing normal recovery');
             this.lastMobileBrowserBlocking = 0; // Clear flag so normal recovery can proceed
           }
           
         } catch (error) {
-          console.warn(`🏥 [HealthMonitor] Mobile recovery attempt ${index + 1} failed:`, error);
+          log.warn('Utils', `🏥 [HealthMonitor] Mobile recovery attempt ${index + 1} failed:`, error);
         }
       }, retry.delay);
     });
@@ -541,7 +542,7 @@ class SupabaseHealthMonitor {
       const isHandlingSafariBlocking = (isPhase1Active || hasRecentBackgroundReturn) && isSafariMobile;
       
       if (isHandlingSafariBlocking) {
-        console.log('🏥 [HealthMonitor] Phase 1 Safari blocking detected:', {
+        log.debug('Utils', '🏥 [HealthMonitor] Phase 1 Safari blocking detected:', {
           isPhase1Active,
           hasRecentBackgroundReturn,
           isSafariMobile,
@@ -553,7 +554,7 @@ class SupabaseHealthMonitor {
       return isHandlingSafariBlocking;
       
     } catch (error) {
-      console.warn('🏥 [HealthMonitor] Phase 1 coordination check failed:', error);
+      log.warn('Utils', '🏥 [HealthMonitor] Phase 1 coordination check failed:', error);
       return false;
     }
   }
@@ -578,7 +579,7 @@ class SupabaseHealthMonitor {
         });
       }
     } catch (e) {
-      console.warn('⚠️ [HealthMonitor] Cache clear warning:', e);
+      log.warn('Utils', '⚠️ [HealthMonitor] Cache clear warning:', e);
     }
   }
 
@@ -629,29 +630,29 @@ if (typeof window !== 'undefined') {
   
   // ENHANCED: Expose manual recovery functions for immediate fixes
   (window as any).checkSupabaseHealth = async () => {
-    console.log('🏥 [Manual] Performing health check...');
+    log.debug('Utils', '🏥 [Manual] Performing health check...');
     const result = await supabaseHealthMonitor.performHealthCheck();
-    console.log('🏥 [Manual] Health check result:', result);
+    log.debug('Utils', '🏥 [Manual] Health check result:', result);
     return result;
   };
   
   (window as any).recoverSupabaseClient = async () => {
-    console.log('🔧 [Manual] Starting manual client recovery...');
+    log.debug('Utils', '🔧 [Manual] Starting manual client recovery...');
     try {
       await supabaseHealthMonitor.recoverClient();
-      console.log('✅ [Manual] Client recovery completed');
+      log.debug('Utils', '✅ [Manual] Client recovery completed');
       
       // Verify recovery worked
       const healthCheck = await supabaseHealthMonitor.performHealthCheck();
       if (healthCheck.isHealthy) {
-        console.log('🎉 [Manual] Recovery successful - client is now healthy!');
+        log.debug('Utils', '🎉 [Manual] Recovery successful - client is now healthy!');
       } else {
-        console.log('⚠️ [Manual] Recovery completed but client still unhealthy');
+        log.debug('Utils', '⚠️ [Manual] Recovery completed but client still unhealthy');
       }
       
       return { success: true, healthy: healthCheck.isHealthy };
     } catch (error) {
-      console.error('❌ [Manual] Recovery failed:', error);
+      log.error('Utils', '❌ [Manual] Recovery failed:', error);
       return { success: false, error: error.message };
     }
   };

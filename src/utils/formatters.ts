@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { formatDistanceToNow, format, isToday, isYesterday, isSameYear } from 'date-fns';
 
 export const capitalizeFirstLetter = (str: string): string => {
@@ -11,7 +12,7 @@ export const formatRelativeTimeShort = (dateInput: string | Date): string => {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     // Validate the date is valid before using getTime
     if (isNaN(date.getTime())) {
-      console.warn("Invalid date in formatRelativeTimeShort:", dateInput);
+      log.warn('Utils', "Invalid date in formatRelativeTimeShort:", dateInput);
       return "now";
     }
     
@@ -31,7 +32,7 @@ export const formatRelativeTimeShort = (dateInput: string | Date): string => {
       return `${days}d`;
     }
   } catch (error) {
-    console.error("Error in formatRelativeTimeShort:", error);
+    log.error('Utils', "Error in formatRelativeTimeShort:", error);
     return "now";
   }
 };
@@ -41,7 +42,7 @@ export function formatRelativeTime(date: Date): string {
   try {
     // Validate the date is valid before using getTime
     if (isNaN(date.getTime())) {
-      console.warn("Invalid date in formatRelativeTime:", date);
+      log.warn('Utils', "Invalid date in formatRelativeTime:", date);
       return "Invalid date";
     }
     
@@ -62,7 +63,7 @@ export function formatRelativeTime(date: Date): string {
       return format(date, 'MMM d, yyyy');
     }
   } catch (error) {
-    console.error("Error in formatRelativeTime:", error);
+    log.error('Utils', "Error in formatRelativeTime:", error);
     return "Invalid date";
   }
 }
@@ -143,7 +144,7 @@ export function formatActiveTime(lastSeenDate: Date | string | null, userTimezon
       }, userTimezone)}`;
     }
   } catch (error) {
-    console.error("Error formatting active time:", error);
+    log.error('Utils', "Error formatting active time:", error);
     return 'Last seen recently';
   }
 }
@@ -161,7 +162,7 @@ export function formatInTimezone(
       timeZone: timezone
     }).format(dateObj);
   } catch (error) {
-    console.error("Error formatting in timezone:", error);
+    log.error('Utils', "Error formatting in timezone:", error);
     return new Intl.DateTimeFormat('default', options).format(new Date(date));
   }
 } 

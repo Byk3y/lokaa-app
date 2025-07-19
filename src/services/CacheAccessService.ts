@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * CacheAccessService - Centralized cache access and validation
  * 
@@ -172,7 +173,7 @@ export class CacheAccessService {
         }
       }
     } catch (error) {
-      console.warn('Failed to clear subdomain cache:', error);
+      log.warn('Service', 'Failed to clear subdomain cache:', error);
     }
   }
 

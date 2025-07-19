@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * useChatRealtime Hook - Real-time subscription management
  */
@@ -31,7 +32,7 @@ export function useChatRealtime() {
   // Initialize real-time connections on mount
   useEffect(() => {
     if (!connection.isInitialized) {
-      console.log('[useChatRealtime] Initializing real-time connections');
+      log.debug('Hook', '[useChatRealtime] Initializing real-time connections');
       initialize();
     }
     
@@ -44,7 +45,7 @@ export function useChatRealtime() {
   // Connection health monitoring
   useEffect(() => {
     if (!connection.isConnected && connection.isInitialized) {
-      console.warn('[useChatRealtime] Connection lost, attempting reconnect...');
+      log.warn('Hook', '[useChatRealtime] Connection lost, attempting reconnect...');
       
       // Auto-reconnect after a delay
       const reconnectTimer = setTimeout(() => {
@@ -61,7 +62,7 @@ export function useChatRealtime() {
    * Manual reconnection
    */
   const forceReconnect = useCallback(() => {
-    console.log('[useChatRealtime] Manual reconnection requested');
+    log.debug('Hook', '[useChatRealtime] Manual reconnection requested');
     reconnect();
   }, [reconnect]);
 
@@ -92,7 +93,7 @@ export function useChatRealtime() {
    */
   const startValidation = useCallback(() => {
     if (!validationInProgress) {
-      console.log('[useChatRealtime] Starting manual validation');
+      log.debug('Hook', '[useChatRealtime] Starting manual validation');
       validateUnreadCounts();
     }
   }, [validationInProgress, validateUnreadCounts]);
@@ -101,7 +102,7 @@ export function useChatRealtime() {
    * Subscribe to a specific channel
    */
   const subscribeToChannel = useCallback((channelName: string) => {
-    console.log('[useChatRealtime] Subscribing to channel:', channelName);
+    log.debug('Hook', '[useChatRealtime] Subscribing to channel:', channelName);
     addSubscription(channelName);
   }, [addSubscription]);
 
@@ -109,7 +110,7 @@ export function useChatRealtime() {
    * Unsubscribe from a specific channel
    */
   const unsubscribeFromChannel = useCallback((channelName: string) => {
-    console.log('[useChatRealtime] Unsubscribing from channel:', channelName);
+    log.debug('Hook', '[useChatRealtime] Unsubscribing from channel:', channelName);
     removeSubscription(channelName);
   }, [removeSubscription]);
 

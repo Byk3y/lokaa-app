@@ -1,7 +1,9 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useRealtimePostLikes } from '@/hooks/useRealtimePostLikes';
+import { NotificationTriggers } from '@/utils/notificationTriggers';
 
 interface UsePostLikesProps {
   postId: string;
@@ -9,6 +11,9 @@ interface UsePostLikesProps {
   userId?: string | null;
   initialLikes?: number;
   onLikeToggled?: (postId: string, newLikeCount: number) => void;
+  // Notification data
+  postTitle?: string;
+  postAuthorId?: string;
 }
 
 interface UsePostLikesReturn {
@@ -28,6 +33,8 @@ export const usePostLikes = ({
   userId,
   initialLikes = 0,
   onLikeToggled,
+  postTitle,
+  postAuthorId,
 }: UsePostLikesProps): UsePostLikesReturn => {
   const [hasLikedPost, setHasLikedPost] = useState(false);
   const [optimisticLikeCount, setOptimisticLikeCount] = useState(initialLikes);
@@ -47,12 +54,12 @@ export const usePostLikes = ({
           .maybeSingle();
 
         if (error) {
-          console.warn(`Error fetching like status for post ${postId}:`, error.message);
+          log.warn('Hook', `Error fetching like status for post ${postId}:`, error.message);
           return;
         }
         setHasLikedPost(!!data);
       } catch (err) {
-        console.warn(`Exception fetching like status for post ${postId}:`, err);
+        log.warn('Hook', `Exception fetching like status for post ${postId}:`, err);
       }
     };
     fetchLikeStatus();
@@ -66,7 +73,7 @@ export const usePostLikes = ({
   // 🚀 Real-time like updates from other users
   const handleRealtimeLikeAdded = useCallback((likePostId: string, likeUserId: string) => {
     if (likePostId === postId) {
-      console.log('🔔 [usePostLikes] Real-time like added:', { likePostId, likeUserId });
+      log.debug('Hook', '🔔 [usePostLikes] Real-time like added:', { likePostId, likeUserId });
       
       // 🔥 FIX: Use state updater to get the new count and pass it to callback
       setOptimisticLikeCount(prevCount => {
@@ -92,7 +99,7 @@ export const usePostLikes = ({
   const handleRealtimeLikeRemoved = useCallback((likePostId: string, likeUserId: string) => {
     if (likePostId === 'REFRESH_ALL') {
       // Special signal: refresh like count from database
-      console.log('🔔 [usePostLikes] Refreshing like count due to DELETE event');
+      log.debug('Hook', '🔔 [usePostLikes] Refreshing like count due to DELETE event');
       
       // Fetch current like count from database
       const refreshLikeCount = async () => {
@@ -103,12 +110,12 @@ export const usePostLikes = ({
             .eq('post_id', postId);
           
           if (error) {
-            console.warn('[usePostLikes] Error refreshing like count:', error);
+            log.warn('Hook', '[usePostLikes] Error refreshing like count:', error);
             return;
           }
           
           const actualCount = count || 0;
-          console.log(`🔔 [usePostLikes] Refreshed like count: ${actualCount} (was: ${optimisticLikeCount})`);
+          log.debug('Hook', `🔔 [usePostLikes] Refreshed like count: ${actualCount} (was: ${optimisticLikeCount})`);
           
           // Update to actual count if different
           if (actualCount !== optimisticLikeCount) {
@@ -122,7 +129,7 @@ export const usePostLikes = ({
             }
           }
         } catch (err) {
-          console.warn('[usePostLikes] Exception refreshing like count:', err);
+          log.warn('Hook', '[usePostLikes] Exception refreshing like count:', err);
         }
       };
       
@@ -130,7 +137,7 @@ export const usePostLikes = ({
     } else {
       // Regular unlike from specific user
       if (likePostId === postId) {
-        console.log('🔔 [usePostLikes] Real-time like removed:', { likePostId, likeUserId });
+        log.debug('Hook', '🔔 [usePostLikes] Real-time like removed:', { likePostId, likeUserId });
         
         setOptimisticLikeCount(prevCount => {
           const newCount = Math.max(0, prevCount - 1);
@@ -185,14 +192,14 @@ export const usePostLikes = ({
           .select();
 
         if (error) {
-          console.error('❌ [usePostLikes] DELETE error:', error);
+          log.error('Hook', '❌ [usePostLikes] DELETE error:', error);
           throw error;
         }
         
-        console.log(`✅ [usePostLikes] Deleted ${data?.length || 0} likes for post ${postId}`);
+        log.debug('Hook', `✅ [usePostLikes] Deleted ${data?.length || 0} likes for post ${postId}`);
         
         if (!data || data.length === 0) {
-          console.warn('⚠️ [usePostLikes] No likes were deleted - may not exist in database');
+          log.warn('Hook', '⚠️ [usePostLikes] No likes were deleted - may not exist in database');
         }
       } else {
         // Like
@@ -204,6 +211,42 @@ export const usePostLikes = ({
 
         if (error) throw error;
 
+        // 🚀 Trigger post like notification
+        log.debug('Hook', '🔍 [usePostLikes] Checking notification trigger conditions:', {
+          postTitle: !!postTitle,
+          hasPostAuthorId: !!postAuthorId,
+          userId,
+          postAuthorId,
+          willTrigger: !!(postTitle && postAuthorId && postAuthorId !== userId)
+        });
+        
+        if (postTitle && postAuthorId && postAuthorId !== userId) {
+          try {
+            log.debug('Hook', '🚀 [usePostLikes] Triggering notification with data:', {
+              postId,
+              postTitle,
+              postAuthorId,
+              likerId: userId,
+              spaceId,
+            });
+            
+            await NotificationTriggers.onPostLiked({
+              postId,
+              postTitle,
+              postAuthorId,
+              likerId: userId,
+              spaceId,
+            });
+            log.debug('Hook', '✅ [usePostLikes] Post like notification triggered successfully');
+          } catch (notificationError) {
+            log.warn('Hook', '⚠️ [usePostLikes] Failed to trigger notification:', notificationError);
+            // Don't fail the like operation if notification fails
+          }
+        } else {
+          log.debug('Hook', '⏭️ [usePostLikes] Skipping notification trigger:', {
+            reason: !postTitle ? 'No post title' : !postAuthorId ? 'No post author ID' : 'Self-like (author === liker)'
+          });
+        }
       }
       // Notify parent of like count change
       if (typeof onLikeToggled === 'function') {
@@ -211,7 +254,7 @@ export const usePostLikes = ({
         onLikeToggled(postId, newCount);
       }
     } catch (error: any) {
-      console.error('Error toggling like:', error);
+      log.error('Hook', 'Error toggling like:', error);
       toast({
         title: "Error",
         description: error.message || "Could not update like status.",

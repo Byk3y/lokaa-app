@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 
 /**
@@ -10,7 +11,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     // Get current user
     const { data: { user } } = await getSupabaseClient().auth.getUser();
     if (!user) {
-      console.error("No authenticated user found");
+      log.error('Utils', "No authenticated user found");
       return null;
     }
     
@@ -28,7 +29,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
       });
     
     if (error) {
-      console.error('Error uploading image:', error);
+      log.error('Utils', 'Error uploading image:', error);
       return null;
     }
     
@@ -38,7 +39,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
       .getPublicUrl(filePath);
     
     if (!publicUrl) {
-      console.error('Failed to get public URL for uploaded image');
+      log.error('Utils', 'Failed to get public URL for uploaded image');
       return null;
     }
     
@@ -57,12 +58,12 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
       .update({ avatar_url: publicUrl })
       .eq('id', user.id);
     if (dbUpdateError) {
-      console.error('Error updating users table with avatar_url:', dbUpdateError);
+      log.error('Utils', 'Error updating users table with avatar_url:', dbUpdateError);
     }
     
     return publicUrl;
   } catch (error) {
-    console.error('Unexpected error in uploadProfileImage:', error);
+    log.error('Utils', 'Unexpected error in uploadProfileImage:', error);
     return null;
   }
 };
@@ -81,7 +82,7 @@ export const getProfileImageUrl = async (): Promise<string | null> => {
     
     return user.user_metadata?.avatar_url || null;
   } catch (error) {
-    console.error('Error getting profile image URL:', error);
+    log.error('Utils', 'Error getting profile image URL:', error);
     return null;
   }
 };
@@ -120,13 +121,13 @@ export const deleteProfileImage = async (imageUrl?: string): Promise<boolean> =>
           filePath = pathSegments.slice(avatarsIndex + 1).join('/');
         }
       } catch (e) {
-        console.error('Error parsing image URL:', e);
+        log.error('Utils', 'Error parsing image URL:', e);
         return false;
       }
     }
     
     if (!filePath) {
-      console.error('Could not determine file path for deletion');
+      log.error('Utils', 'Could not determine file path for deletion');
       return false;
     }
     
@@ -136,7 +137,7 @@ export const deleteProfileImage = async (imageUrl?: string): Promise<boolean> =>
       .remove([filePath]);
     
     if (error) {
-      console.error('Error deleting profile image:', error);
+      log.error('Utils', 'Error deleting profile image:', error);
       return false;
     }
     
@@ -149,13 +150,13 @@ export const deleteProfileImage = async (imageUrl?: string): Promise<boolean> =>
     });
     
     if (updateError) {
-      console.error('Error updating user metadata:', updateError);
+      log.error('Utils', 'Error updating user metadata:', updateError);
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error('Unexpected error in deleteProfileImage:', error);
+    log.error('Utils', 'Unexpected error in deleteProfileImage:', error);
     return false;
   }
 };

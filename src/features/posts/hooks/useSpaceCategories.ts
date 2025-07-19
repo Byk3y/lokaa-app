@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -61,7 +62,7 @@ export const useSpaceCategories = (spaceId: string) => {
       
       setCategories(sortedCategories);
     } catch (err) {
-      console.error('Error fetching categories:', err);
+      log.error('Hook', 'Error fetching categories:', err);
       setError(err as Error);
     } finally {
       setIsLoading(false);

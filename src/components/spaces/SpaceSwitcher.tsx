@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -85,7 +86,7 @@ export default function SpaceSwitcher({
         if (!isExpired && Array.isArray(parsedCache.spaces)) {
           // If user has no spaces, skip loading entirely
           if (parsedCache.spaces.length === 0) {
-            console.log('[SpaceSwitcher] User has no spaces (cached) - skipping load');
+            log.debug('Component', '[SpaceSwitcher] User has no spaces (cached) - skipping load');
             setSpaces([]);
             setLoading(false); // Ensure loading is false
             return true;
@@ -96,7 +97,7 @@ export default function SpaceSwitcher({
       }
     } catch (error) {
       // Only log actual errors, not normal cache misses
-      console.warn('[SpaceSwitcher] Cache check error:', error);
+      log.warn('Component', '[SpaceSwitcher] Cache check error:', error);
     }
     return false;
   }, [userId]);
@@ -114,7 +115,7 @@ export default function SpaceSwitcher({
 
     // Reduced timeout from 10s to 5s for better UX
     const switcherTimeout = setTimeout(() => {
-      console.warn('[SpaceSwitcher] Space loading timeout');
+      log.warn('Component', '[SpaceSwitcher] Space loading timeout');
       if (loading) {
         setLoading(false);
       }
@@ -151,7 +152,7 @@ export default function SpaceSwitcher({
             if (!isExpired && Array.isArray(parsedCache.spaces)) {
               // REDUCED LOGGING: Only log when using cache with significant data
               if (parsedCache.spaces.length > 0) {
-                console.log('[SpaceSwitcher] Using cached spaces:', parsedCache.spaces.length);
+                log.debug('Component', '[SpaceSwitcher] Using cached spaces:', parsedCache.spaces.length);
               }
               setSpaces(parsedCache.spaces);
               setLoading(false);
@@ -159,7 +160,7 @@ export default function SpaceSwitcher({
             }
           } catch (cacheError) {
             // Only log actual parsing errors
-            console.warn('[SpaceSwitcher] Cache parsing error:', cacheError);
+            log.warn('Component', '[SpaceSwitcher] Cache parsing error:', cacheError);
           }
         }
 
@@ -170,7 +171,7 @@ export default function SpaceSwitcher({
           .eq('owner_id', userId);
 
         if (ownedError) {
-          console.error('[SpaceSwitcher] Error fetching owned spaces:', ownedError);
+          log.error('Component', '[SpaceSwitcher] Error fetching owned spaces:', ownedError);
         }
 
         // Fetch spaces the user has access to (but doesn't own) via space_members table
@@ -184,7 +185,7 @@ export default function SpaceSwitcher({
           .returns<SpaceMemberRecord[]>();
 
         if (memberError) {
-          console.error('[SpaceSwitcher] Error fetching joined spaces from space_members:', memberError);
+          log.error('Component', '[SpaceSwitcher] Error fetching joined spaces from space_members:', memberError);
         }
 
         const ownedSpacesArray = ownedSpaces || [];
@@ -223,15 +224,15 @@ export default function SpaceSwitcher({
           localStorage.setItem(cacheKey, JSON.stringify(cacheData));
           // REDUCED LOGGING: Only log significant cache updates
           if (allSpaces.length > 0) {
-            console.log('[SpaceSwitcher] Cached', allSpaces.length, 'spaces');
+            log.debug('Component', '[SpaceSwitcher] Cached', allSpaces.length, 'spaces');
           }
         } catch (cacheError) {
-          console.warn('[SpaceSwitcher] Cache update failed:', cacheError);
+          log.warn('Component', '[SpaceSwitcher] Cache update failed:', cacheError);
         }
         
         setSpaces(allSpaces);
       } catch (error) {
-        console.error('[SpaceSwitcher] General error in fetchUserSpaces:', error);
+        log.error('Component', '[SpaceSwitcher] General error in fetchUserSpaces:', error);
         setSpaces([]);
       } finally {
         setLoading(false);
@@ -245,7 +246,7 @@ export default function SpaceSwitcher({
     // REDUCED LOGGING: Only log when actually switching (not just clicking same space)
     const isActualSwitch = subdomain !== currentSpaceSubdomain;
     if (isActualSwitch) {
-      console.log(`[SpaceSwitcher] Switching to ${subdomain}`);
+      log.debug('Component', `[SpaceSwitcher] Switching to ${subdomain}`);
       
       // **CRITICAL FIX**: Get current and target space data for comprehensive cleanup
       const selectedSpace = spaces.find(space => space.subdomain === subdomain);
@@ -259,9 +260,9 @@ export default function SpaceSwitcher({
           clearAll: false // Only clear current space, not all
         });
         
-        console.log(`✅ [SpaceSwitcher] Cleanup completed for space switch`);
+        log.debug('Component', `✅ [SpaceSwitcher] Cleanup completed for space switch`);
       } catch (error) {
-        console.error(`❌ [SpaceSwitcher] Cleanup failed, proceeding anyway:`, error);
+        log.error('Component', `❌ [SpaceSwitcher] Cleanup failed, proceeding anyway:`, error);
       }
       
       // ENHANCED: Clear SpaceContext cache
@@ -294,9 +295,9 @@ export default function SpaceSwitcher({
             localStorage.setItem(`user_owns_space_${subdomain}`, 'true');
           }
           
-          console.log(`[SpaceSwitcher] Pre-cached space data for ${subdomain}`);
+          log.debug('Component', `[SpaceSwitcher] Pre-cached space data for ${subdomain}`);
         } catch (e) {
-          console.error('Error pre-caching space context:', e);
+          log.error('Component', 'Error pre-caching space context:', e);
         }
       }
     }
@@ -323,7 +324,7 @@ export default function SpaceSwitcher({
         }
       }
     } catch (e) {
-      console.error('Error retrieving space from navigation context in SpaceSwitcher:', e);
+      log.error('Component', 'Error retrieving space from navigation context in SpaceSwitcher:', e);
     }
     
     // Fallback to the passed subdomain
@@ -341,10 +342,10 @@ export default function SpaceSwitcher({
         effectiveSelectedSubdomain !== currentSpaceSubdomain) {
       // We're on profile but have a real space from navigation context
       try {
-        console.log('Preserving space context before navigating to discover:', effectiveSelectedSubdomain);
+        log.debug('Component', 'Preserving space context before navigating to discover:', effectiveSelectedSubdomain);
         // Keep the existing navigatedFromSpace in case of return to profile
       } catch (e) {
-        console.error('Error preserving space context:', e);
+        log.error('Component', 'Error preserving space context:', e);
       }
     }
     

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { NextApiRequest, NextApiResponse } from 'next';
 
@@ -47,13 +48,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (postError) {
-      console.error('Error creating post:', postError);
+      log.error('Page', 'Error creating post:', postError);
       return res.status(500).json({ error: 'Error creating post' });
     }
 
     return res.status(200).json(post);
   } catch (error) {
-    console.error('Error in posts API:', error);
+    log.error('Page', 'Error in posts API:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 } 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -35,7 +36,7 @@ export default function PostDetailPage() {
     
     // Check for /space/space duplication
     if (currentPath.includes('/space/space')) {
-      console.warn('PostDetailPage: Detected malformed URL with /space/space duplication:', currentPath);
+      log.warn('Page', 'PostDetailPage: Detected malformed URL with /space/space duplication:', currentPath);
       const correctedPath = currentPath.replace(/\/space\/space/g, '/space');
       navigate(correctedPath, { replace: true });
       return;
@@ -43,7 +44,7 @@ export default function PostDetailPage() {
     
     // Validate subdomain format
     if (subdomain && (subdomain.includes('space') || subdomain.length < 2)) {
-      console.warn('PostDetailPage: Invalid subdomain detected:', subdomain);
+      log.warn('Page', 'PostDetailPage: Invalid subdomain detected:', subdomain);
       setError('Invalid URL format');
       setNotFound(true);
       return;
@@ -51,7 +52,7 @@ export default function PostDetailPage() {
     
     // Validate postSlug format
     if (postSlug && (postSlug.includes('/') || postSlug.length < 1)) {
-      console.warn('PostDetailPage: Invalid post slug detected:', postSlug);
+      log.warn('Page', 'PostDetailPage: Invalid post slug detected:', postSlug);
       setError('Invalid post URL');
       setNotFound(true);
       return;
@@ -90,7 +91,7 @@ export default function PostDetailPage() {
           .single();
           
         if (spaceError) {
-          console.error('Error fetching space by subdomain:', spaceError);
+          log.error('Page', 'Error fetching space by subdomain:', spaceError);
           throw new Error('Space not found');
         }
         
@@ -100,7 +101,7 @@ export default function PostDetailPage() {
         }
         
         // Then fetch the post by slug and space_id
-        console.log('[Debug Post Fetch] Parameters:', {
+        log.debug('Page', '[Debug Post Fetch] Parameters:', {
           subdomain,
           postSlug,
           spaceIdUsed: spaceData.id 
@@ -281,7 +282,7 @@ export default function PostDetailPage() {
 
         setPost(mappedPost);
       } catch (err) {
-        console.error('Error fetching post:', err);
+        log.error('Page', 'Error fetching post:', err);
         setError('Failed to load post');
       } finally {
         setLoading(false);

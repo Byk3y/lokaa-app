@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, PlusCircle } from "lucide-react";
@@ -50,7 +51,7 @@ const SpacesSection = ({ closeMobileSidebar }: SpacesSectionProps) => {
                       <AvatarImage 
                         src={space.cover_image} 
                         onError={(e) => {
-                          console.log(`Failed to load avatar for space: ${space.name}`);
+                          log.debug('Component', `Failed to load avatar for space: ${space.name}`);
                         }}
                       />
                       <AvatarFallback 

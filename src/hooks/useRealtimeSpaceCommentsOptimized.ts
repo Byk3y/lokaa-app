@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { navigationAwareRealtimeService } from '@/services/NavigationAwareRealtimeService';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -38,18 +39,18 @@ export const useRealtimeSpaceCommentsOptimized = ({
 
   // Handle comment events
   const handleCommentEvent = (payload: any) => {
-    console.log('🔔 [RealtimeSpaceCommentsOptimized] Comment event:', payload);
+    log.debug('Hook', '🔔 [RealtimeSpaceCommentsOptimized] Comment event:', payload);
     
     if (payload.eventType === 'INSERT' && payload.new) {
       const newComment = payload.new;
       
       // Don't process our own comments
       if (newComment.user_id === userId) {
-        console.log('🚫 [RealtimeSpaceCommentsOptimized] Ignoring own comment');
+        log.debug('Hook', '🚫 [RealtimeSpaceCommentsOptimized] Ignoring own comment');
         return;
       }
 
-      console.log('✨ [RealtimeSpaceCommentsOptimized] Processing new comment:', {
+      log.debug('Hook', '✨ [RealtimeSpaceCommentsOptimized] Processing new comment:', {
         commentId: newComment.id,
         postId: newComment.post_id,
         userId: newComment.user_id,
@@ -68,7 +69,7 @@ export const useRealtimeSpaceCommentsOptimized = ({
     } else if (payload.eventType === 'UPDATE' && payload.new) {
       const updatedComment = payload.new;
       
-      console.log('📝 [RealtimeSpaceCommentsOptimized] Processing comment update:', {
+      log.debug('Hook', '📝 [RealtimeSpaceCommentsOptimized] Processing comment update:', {
         commentId: updatedComment.id,
         postId: updatedComment.post_id
       });
@@ -87,7 +88,7 @@ export const useRealtimeSpaceCommentsOptimized = ({
       return;
     }
 
-    console.log(`🔔 [RealtimeSpaceCommentsOptimized] Setting up subscription for space: ${spaceId}`);
+    log.debug('Hook', `🔔 [RealtimeSpaceCommentsOptimized] Setting up subscription for space: ${spaceId}`);
 
     const subscriptionId = navigationAwareRealtimeService.subscribe(
       spaceId,
@@ -104,7 +105,7 @@ export const useRealtimeSpaceCommentsOptimized = ({
     setConnectionError(null);
 
     return () => {
-      console.log('🔔 [RealtimeSpaceCommentsOptimized] Cleaning up subscription');
+      log.debug('Hook', '🔔 [RealtimeSpaceCommentsOptimized] Cleaning up subscription');
       if (subscriptionIdRef.current) {
         // 🛡️ NAVIGATION-AWARE: This will now check if cleanup should be prevented during navigation
         navigationAwareRealtimeService.unsubscribe(subscriptionIdRef.current);

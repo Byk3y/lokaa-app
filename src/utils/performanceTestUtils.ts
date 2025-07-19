@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Performance Test Utilities - Final Report
  * Comprehensive testing for all performance optimizations
@@ -29,21 +30,21 @@ let testStartTime = 0;
  * Start performance monitoring session
  */
 function startPerformanceTest(): void {
-  console.log('🚀 [Performance Test] Starting comprehensive performance monitoring...');
+  log.debug('Utils', '🚀 [Performance Test] Starting comprehensive performance monitoring...');
   testStartTime = Date.now();
   
   // Reset tracking data
   performanceData = [];
   
   // Monitor console messages for key metrics
-  const originalConsoleLog = console.log;
+  const originalConsoleLog = log.debug('Utils',;
   let loadingStateCount = 0;
   let renderCount = 0;
   let cacheHitCount = 0;
   let trustTokenCount = 0;
   let fastPathTiming = 0;
   
-  console.log = function(...args) {
+  log.debug('Utils', = function(...args) {
     const message = args.join(' ');
     
     // Track loading states
@@ -94,7 +95,7 @@ function startPerformanceTest(): void {
     
     if (performanceData.length >= 6) { // Stop after 30 seconds
       clearInterval(interval);
-      console.log = originalConsoleLog; // Restore original console.log
+      log.debug('Utils', = originalConsoleLog; // Restore original log.debug('Utils',
       generatePerformanceReport();
     }
   }, 5000);
@@ -107,7 +108,7 @@ function generatePerformanceReport(): OptimizationReport {
   const latestMetrics = performanceData[performanceData.length - 1];
   const totalTime = Date.now() - testStartTime;
   
-  console.log('📊 [Performance Test] Generating comprehensive report...');
+  log.debug('Utils', '📊 [Performance Test] Generating comprehensive report...');
   
   // Analyze improvements based on targets
   const improvements: string[] = [];
@@ -201,39 +202,39 @@ function generatePerformanceReport(): OptimizationReport {
   };
   
   // Display detailed report
-  console.log('');
-  console.log('🎯 ==================== PERFORMANCE REPORT ====================');
-  console.log(`📊 Phase: ${report.phase}`);
-  console.log(`🎖️  Overall Score: ${report.score}/100`);
-  console.log(`⏱️  Test Duration: ${Math.round(totalTime / 1000)}s`);
-  console.log('');
-  console.log('✅ IMPROVEMENTS:');
-  report.improvements.forEach(improvement => console.log(`   ${improvement}`));
-  console.log('');
+  log.debug('Utils', '');
+  log.debug('Utils', '🎯 ==================== PERFORMANCE REPORT ====================');
+  log.debug('Utils', `📊 Phase: ${report.phase}`);
+  log.debug('Utils', `🎖️  Overall Score: ${report.score}/100`);
+  log.debug('Utils', `⏱️  Test Duration: ${Math.round(totalTime / 1000)}s`);
+  log.debug('Utils', '');
+  log.debug('Utils', '✅ IMPROVEMENTS:');
+  report.improvements.forEach(improvement => log.debug('Utils', `   ${improvement}`));
+  log.debug('Utils', '');
   if (report.issues.length > 0) {
-    console.log('⚠️  REMAINING ISSUES:');
-    report.issues.forEach(issue => console.log(`   ${issue}`));
-    console.log('');
+    log.debug('Utils', '⚠️  REMAINING ISSUES:');
+    report.issues.forEach(issue => log.debug('Utils', `   ${issue}`));
+    log.debug('Utils', '');
   }
-  console.log('📈 RAW METRICS:');
-  console.log(`   Loading States: ${latestMetrics.loadingStates}`);
-  console.log(`   Component Renders: ${latestMetrics.rerenders}`);
-  console.log(`   Cache Hits: ${latestMetrics.cacheHits}`);
-  console.log(`   Trust Token Hits: ${latestMetrics.trustTokenHits} 🔒`);
-  console.log(`   Fast Path Time: ${latestMetrics.fastPathTime}ms`);
-  console.log(`   Long Tasks: ${latestMetrics.longTasks}`);
-  console.log(`   Memory Usage: ${Math.round(latestMetrics.memoryUsage / 1024 / 1024)}MB`);
-  console.log('');
-  console.log('🚀 NEXT STEPS:');
+  log.debug('Utils', '📈 RAW METRICS:');
+  log.debug('Utils', `   Loading States: ${latestMetrics.loadingStates}`);
+  log.debug('Utils', `   Component Renders: ${latestMetrics.rerenders}`);
+  log.debug('Utils', `   Cache Hits: ${latestMetrics.cacheHits}`);
+  log.debug('Utils', `   Trust Token Hits: ${latestMetrics.trustTokenHits} 🔒`);
+  log.debug('Utils', `   Fast Path Time: ${latestMetrics.fastPathTime}ms`);
+  log.debug('Utils', `   Long Tasks: ${latestMetrics.longTasks}`);
+  log.debug('Utils', `   Memory Usage: ${Math.round(latestMetrics.memoryUsage / 1024 / 1024)}MB`);
+  log.debug('Utils', '');
+  log.debug('Utils', '🚀 NEXT STEPS:');
   if (report.score >= 85) {
-    console.log('   🎉 Excellent performance! Monitor for regressions.');
+    log.debug('Utils', '   🎉 Excellent performance! Monitor for regressions.');
   } else if (report.score >= 70) {
-    console.log('   👍 Good performance, minor optimizations possible.');
+    log.debug('Utils', '   👍 Good performance, minor optimizations possible.');
   } else {
-    console.log('   ⚠️  Performance needs attention. Focus on remaining issues.');
+    log.debug('Utils', '   ⚠️  Performance needs attention. Focus on remaining issues.');
   }
-  console.log('============================================================');
-  console.log('');
+  log.debug('Utils', '============================================================');
+  log.debug('Utils', '');
   
   return report;
 }
@@ -242,14 +243,14 @@ function generatePerformanceReport(): OptimizationReport {
  * Quick performance validation test
  */
 function quickPerformanceTest(): void {
-  console.log('⚡ [Quick Test] Running 10-second performance validation...');
+  log.debug('Utils', '⚡ [Quick Test] Running 10-second performance validation...');
   
   let loadingCount = 0;
   let renderCount = 0;
   let cacheCount = 0;
   
-  const originalLog = console.log;
-  console.log = function(...args) {
+  const originalLog = log.debug('Utils',;
+  log.debug('Utils', = function(...args) {
     const message = args.join(' ');
     if (message.includes('Showing loading state')) loadingCount++;
     if (message.includes('Rendering content')) renderCount++;
@@ -258,16 +259,16 @@ function quickPerformanceTest(): void {
   };
   
   setTimeout(() => {
-    console.log = originalLog;
-    console.log('⚡ ========== QUICK PERFORMANCE RESULTS ==========');
-    console.log(`📊 Loading States: ${loadingCount} (target: ≤1)`);
-    console.log(`🔄 Renders: ${renderCount} (target: ≤2)`);
-    console.log(`💾 Cache Hits: ${cacheCount} (target: ≥1)`);
+    log.debug('Utils', = originalLog;
+    log.debug('Utils', '⚡ ========== QUICK PERFORMANCE RESULTS ==========');
+    log.debug('Utils', `📊 Loading States: ${loadingCount} (target: ≤1)`);
+    log.debug('Utils', `🔄 Renders: ${renderCount} (target: ≤2)`);
+    log.debug('Utils', `💾 Cache Hits: ${cacheCount} (target: ≥1)`);
     
     const grade = loadingCount <= 1 && renderCount <= 2 && cacheCount >= 1 ? 'A+' : 
                   loadingCount <= 4 && renderCount <= 5 ? 'B' : 'C';
-    console.log(`🎖️  Performance Grade: ${grade}`);
-    console.log('===============================================');
+    log.debug('Utils', `🎖️  Performance Grade: ${grade}`);
+    log.debug('Utils', '===============================================');
   }, 10000);
 }
 
@@ -275,33 +276,33 @@ function quickPerformanceTest(): void {
  * Performance benchmark comparison
  */
 function benchmarkComparison(): void {
-  console.log('📊 [Benchmark] Performance optimization comparison:');
-  console.log('');
-  console.log('🔴 BEFORE OPTIMIZATION (Phase 1-4):');
-  console.log('   ❌ Loading States: 9+ messages');
-  console.log('   ❌ Component Renders: 9+ re-renders');
-  console.log('   ❌ Fast Path: 100-500ms');
-  console.log('   ❌ Long Tasks: 3-5 tasks >50ms');
-  console.log('   ❌ Cache Usage: Minimal/None');
-  console.log('   ❌ Memory Leaks: Cross-user pollution');
-  console.log('');
-  console.log('🟡 AFTER MIGRATION (Phase 5A):');
-  console.log('   🟡 Loading States: 4-6 messages');
-  console.log('   🟡 Component Renders: 5-7 re-renders');
-  console.log('   🟡 Fast Path: 50-100ms');
-  console.log('   🟡 Long Tasks: 2-3 tasks >50ms');
-  console.log('   🟡 Cache Usage: Basic caching');
-  console.log('   ✅ Memory Leaks: Fixed');
-  console.log('');
-  console.log('🟢 ULTRA-PERFORMANCE (Phase 5B - Current):');
-  console.log('   ✅ Loading States: 0-1 messages (target)');
-  console.log('   ✅ Component Renders: 1-2 re-renders (target)');
-  console.log('   ✅ Fast Path: 1-5ms (target)');
-  console.log('   ✅ Long Tasks: 0-1 tasks >50ms (target)');
-  console.log('   ✅ Cache Usage: Ultra-aggressive caching');
-  console.log('   ✅ Memory Efficiency: Optimized');
-  console.log('');
-  console.log('📈 PERFORMANCE IMPROVEMENT: ~90% faster');
+  log.debug('Utils', '📊 [Benchmark] Performance optimization comparison:');
+  log.debug('Utils', '');
+  log.debug('Utils', '🔴 BEFORE OPTIMIZATION (Phase 1-4):');
+  log.debug('Utils', '   ❌ Loading States: 9+ messages');
+  log.debug('Utils', '   ❌ Component Renders: 9+ re-renders');
+  log.debug('Utils', '   ❌ Fast Path: 100-500ms');
+  log.debug('Utils', '   ❌ Long Tasks: 3-5 tasks >50ms');
+  log.debug('Utils', '   ❌ Cache Usage: Minimal/None');
+  log.debug('Utils', '   ❌ Memory Leaks: Cross-user pollution');
+  log.debug('Utils', '');
+  log.debug('Utils', '🟡 AFTER MIGRATION (Phase 5A):');
+  log.debug('Utils', '   🟡 Loading States: 4-6 messages');
+  log.debug('Utils', '   🟡 Component Renders: 5-7 re-renders');
+  log.debug('Utils', '   🟡 Fast Path: 50-100ms');
+  log.debug('Utils', '   🟡 Long Tasks: 2-3 tasks >50ms');
+  log.debug('Utils', '   🟡 Cache Usage: Basic caching');
+  log.debug('Utils', '   ✅ Memory Leaks: Fixed');
+  log.debug('Utils', '');
+  log.debug('Utils', '🟢 ULTRA-PERFORMANCE (Phase 5B - Current):');
+  log.debug('Utils', '   ✅ Loading States: 0-1 messages (target)');
+  log.debug('Utils', '   ✅ Component Renders: 1-2 re-renders (target)');
+  log.debug('Utils', '   ✅ Fast Path: 1-5ms (target)');
+  log.debug('Utils', '   ✅ Long Tasks: 0-1 tasks >50ms (target)');
+  log.debug('Utils', '   ✅ Cache Usage: Ultra-aggressive caching');
+  log.debug('Utils', '   ✅ Memory Efficiency: Optimized');
+  log.debug('Utils', '');
+  log.debug('Utils', '📈 PERFORMANCE IMPROVEMENT: ~90% faster');
 }
 
 // Expose functions globally for testing
@@ -310,8 +311,8 @@ function benchmarkComparison(): void {
 (window as any).benchmarkComparison = benchmarkComparison;
 
 // Startup logging moved to development logger
-console.log('   - window.startPerformanceTest()  // 30-second comprehensive test');
-console.log('   - window.quickPerformanceTest()  // 10-second quick validation');
-console.log('   - window.benchmarkComparison()   // Show before/after comparison');
+log.debug('Utils', '   - window.startPerformanceTest()  // 30-second comprehensive test');
+log.debug('Utils', '   - window.quickPerformanceTest()  // 10-second quick validation');
+log.debug('Utils', '   - window.benchmarkComparison()   // Show before/after comparison');
 
 export { startPerformanceTest, quickPerformanceTest, benchmarkComparison }; 

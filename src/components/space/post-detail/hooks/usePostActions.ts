@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -39,7 +40,7 @@ export function usePostActions(post: PostCardProps | null, userId: string | unde
       
       setHasLikedPost(!!data);
     } catch (err) {
-      console.warn(`Error fetching like status for post ${postId}:`, err);
+      log.warn('Component', `Error fetching like status for post ${postId}:`, err);
     }
   };
 
@@ -79,7 +80,7 @@ export function usePostActions(post: PostCardProps | null, userId: string | unde
         if (error) throw error;
       }
     } catch (error: any) {
-      console.error('Error toggling like:', error);
+      log.error('Component', 'Error toggling like:', error);
       toast({
         title: "Error",
         description: error.message || "Could not update like status",
@@ -112,7 +113,7 @@ export function usePostActions(post: PostCardProps | null, userId: string | unde
         currentPinnedCount = data.length;
       }
     } catch (err) {
-      console.error("Error checking pinned post count:", err);
+      log.error('Component', "Error checking pinned post count:", err);
     }
     
     // Optimistic update
@@ -154,7 +155,7 @@ export function usePostActions(post: PostCardProps | null, userId: string | unde
         }
       }
     } catch (error: any) {
-      console.error('Error toggling pin:', error);
+      log.error('Component', 'Error toggling pin:', error);
       toast({
         title: "Error",
         description: error.message || "Could not update pin status.",

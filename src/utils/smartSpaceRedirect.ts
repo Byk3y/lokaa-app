@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Smart Space Redirect - Next Level UX
  * Aggressively gets users to their spaces instantly using multiple strategies
@@ -60,7 +61,7 @@ class SmartSpaceRedirector {
       // Check for immediately available cached space
       const cachedSpace = this.getCachedSpace();
       if (cachedSpace && this.isCacheValid(cachedSpace.timestamp)) {
-        console.log('🚀 [SmartRedirect] INSTANT: Using cached space:', cachedSpace.name);
+        log.debug('Utils', '🚀 [SmartRedirect] INSTANT: Using cached space:', cachedSpace.name);
         
         const spaceUrl = `/${cachedSpace.subdomain}/space`;
         navigate(spaceUrl, { replace: true });
@@ -75,14 +76,14 @@ class SmartSpaceRedirector {
       // Check localStorage for any space indicators
       const quickSpaceCheck = this.getQuickSpaceIndicators();
       if (quickSpaceCheck.hasSpaces) {
-        console.log('🚀 [SmartRedirect] QUICK: Found space indicators, proceeding to fast lookup');
+        log.debug('Utils', '🚀 [SmartRedirect] QUICK: Found space indicators, proceeding to fast lookup');
         return this.fastSpaceLookup(userId, navigate);
       }
       
       return { redirected: false, strategy: 'no-cache-available' };
       
     } catch (error) {
-      console.warn('🚀 [SmartRedirect] Cache redirect failed:', error);
+      log.warn('Utils', '🚀 [SmartRedirect] Cache redirect failed:', error);
       return { redirected: false, strategy: 'cache-error', reason: String(error) };
     }
   }
@@ -97,7 +98,7 @@ class SmartSpaceRedirector {
   ): Promise<SpaceRedirectResult> {
     
     try {
-      console.log('🔥 [SmartRedirect] FAST: Starting optimized space lookup with recovery');
+      log.debug('Utils', '🔥 [SmartRedirect] FAST: Starting optimized space lookup with recovery');
       
       // 🚨 PHASE 8: Use emergency recovery instead of direct database queries
       const recoveryResult = await EmergencyDatabaseRecovery.safeSpaceQuery(
@@ -143,7 +144,7 @@ class SmartSpaceRedirector {
       return { redirected: false, strategy: 'no-user-spaces-found' };
       
     } catch (error) {
-      console.error('🔥 [SmartRedirect] Fast lookup failed:', error);
+      log.error('Utils', '🔥 [SmartRedirect] Fast lookup failed:', error);
       return { redirected: false, strategy: 'lookup-error', reason: String(error) };
     }
   }
@@ -154,7 +155,7 @@ class SmartSpaceRedirector {
    */
   private static async checkAllUserSpaces(userId: string): Promise<SpaceRedirectResult> {
     try {
-      console.log('🚨 [SmartRedirect] Using emergency recovery for space check');
+      log.debug('Utils', '🚨 [SmartRedirect] Using emergency recovery for space check');
       
       const recoveryResult = await EmergencyDatabaseRecovery.safeSpaceQuery(
         userId,
@@ -216,7 +217,7 @@ class SmartSpaceRedirector {
       return { redirected: false, strategy: 'no-spaces-found' };
       
     } catch (error) {
-      console.warn('🚨 [SmartRedirect] Emergency recovery failed:', error);
+      log.warn('Utils', '🚨 [SmartRedirect] Emergency recovery failed:', error);
       return { redirected: false, strategy: 'recovery-error', reason: String(error) };
     }
   }
@@ -231,14 +232,14 @@ class SmartSpaceRedirector {
   ): Promise<SpaceRedirectResult> {
     
     try {
-      console.log('⚡ [SmartRedirect] GENTLE: Checking discover override with user intent awareness');
+      log.debug('Utils', '⚡ [SmartRedirect] GENTLE: Checking discover override with user intent awareness');
       
       // 🚀 NEW: Check if user explicitly wants to stay on discover
       const userExplicitlyWantsDiscover = sessionStorage.getItem('userWantsDiscover') === 'true';
       const userJustSignedIn = sessionStorage.getItem('justSignedIn') === 'true';
       
       if (userExplicitlyWantsDiscover && !userJustSignedIn) {
-        console.log('⚡ [SmartRedirect] GENTLE: User explicitly chose discover, respecting choice');
+        log.debug('Utils', '⚡ [SmartRedirect] GENTLE: User explicitly chose discover, respecting choice');
         return { redirected: false, strategy: 'user-explicit-discover-choice' };
       }
       
@@ -266,7 +267,7 @@ class SmartSpaceRedirector {
         );
         
         if (membershipCheck.isMember || membershipCheck.isOwner) {
-          console.log('⚡ [SmartRedirect] GENTLE: User has accessible space, redirecting');
+          log.debug('Utils', '⚡ [SmartRedirect] GENTLE: User has accessible space, redirecting');
           
           const spaceInfo: CachedSpaceInfo = {
             id: space.id,
@@ -290,7 +291,7 @@ class SmartSpaceRedirector {
       return { redirected: false, strategy: 'no-override-needed' };
       
     } catch (error) {
-      console.warn('⚡ [SmartRedirect] Gentle override failed:', error);
+      log.warn('Utils', '⚡ [SmartRedirect] Gentle override failed:', error);
       return { redirected: false, strategy: 'override-error', reason: String(error) };
     }
   }
@@ -305,7 +306,7 @@ class SmartSpaceRedirector {
       ? `Taking you to ${expectedSpaceName}...`
       : 'Finding your space...';
       
-    console.log('🎪 [SmartRedirect] PROGRESSIVE:', loadingMessage);
+    log.debug('Utils', '🎪 [SmartRedirect] PROGRESSIVE:', loadingMessage);
     
     // You could emit events here for your loading UI to consume
     window.dispatchEvent(new CustomEvent('smartRedirectProgress', {
@@ -327,14 +328,14 @@ class SmartSpaceRedirector {
     
     // 🎯 PHASE 2B: Check if operation is already in progress
     if (loadingStateManager.isOperationInProgress(LoadingOperation.SPACE_DETECTION)) {
-      console.log('🚫 [SmartRedirect] COORDINATION: SPACE_DETECTION already in progress, skipping duplicate operation');
+      log.debug('Utils', '🚫 [SmartRedirect] COORDINATION: SPACE_DETECTION already in progress, skipping duplicate operation');
       return { redirected: false, strategy: 'operation-in-progress' };
     }
     
     // 🎯 PHASE 2B: Try enhanced cache manager first for instant results
     const cacheResult = loadingStateManager.attemptInstantCacheAccess(userId);
     if (cacheResult.found && cacheResult.isValid) {
-      console.log(`🚀 [SmartRedirect] INSTANT CACHE: Using ${cacheResult.source} for immediate redirect`);
+      log.debug('Utils', `🚀 [SmartRedirect] INSTANT CACHE: Using ${cacheResult.source} for immediate redirect`);
       
       let spaceData = null;
       if (typeof cacheResult.data === 'string') {
@@ -366,12 +367,12 @@ class SmartSpaceRedirector {
     );
     
     if (!operationStarted) {
-      console.log('🚫 [SmartRedirect] COORDINATION: Operation blocked by LoadingStateManager');
+      log.debug('Utils', '🚫 [SmartRedirect] COORDINATION: Operation blocked by LoadingStateManager');
       return { redirected: false, strategy: 'operation-blocked' };
     }
     
-    console.log('🏆 [SmartRedirect] MASTER: Starting intelligent space redirect for user:', userId);
-    console.log('🏆 [SmartRedirect] Current path:', currentPath, 'From discover:', fromDiscover);
+    log.debug('Utils', '🏆 [SmartRedirect] MASTER: Starting intelligent space redirect for user:', userId);
+    log.debug('Utils', '🏆 [SmartRedirect] Current path:', currentPath, 'From discover:', fromDiscover);
     
     try {
       let result: SpaceRedirectResult;
@@ -391,7 +392,7 @@ class SmartSpaceRedirector {
             result = fastResult;
           } else {
             // No spaces found - user belongs on discover
-            console.log('🏆 [SmartRedirect] MASTER: User has no spaces, directing to discover');
+            log.debug('Utils', '🏆 [SmartRedirect] MASTER: User has no spaces, directing to discover');
             if (currentPath !== '/discover') {
               navigate('/discover', { replace: true });
               result = { redirected: true, strategy: 'redirect-to-discover' };
@@ -404,7 +405,7 @@ class SmartSpaceRedirector {
       
       // 🎯 PHASE 2B: Cache result in enhanced cache manager
       if (result.redirected && result.spaceInfo) {
-        console.log(`🎯 [SmartRedirect] Caching space data for instant future access: ${result.spaceInfo.name}`);
+        log.debug('Utils', `🎯 [SmartRedirect] Caching space data for instant future access: ${result.spaceInfo.name}`);
         enhancedCacheManager.cacheSpaceData(
           result.spaceInfo, 
           userId, 
@@ -418,7 +419,7 @@ class SmartSpaceRedirector {
       return result;
       
     } catch (error) {
-      console.error('🏆 [SmartRedirect] MASTER: Error during coordinated redirect:', error);
+      log.error('Utils', '🏆 [SmartRedirect] MASTER: Error during coordinated redirect:', error);
       loadingStateManager.completeOperation(LoadingOperation.SPACE_DETECTION, false);
       return { redirected: false, strategy: 'coordination-error', reason: String(error) };
     }
@@ -433,7 +434,7 @@ class SmartSpaceRedirector {
       const cached = localStorage.getItem(this.CACHE_KEYS.LAST_SPACE);
       return cached ? JSON.parse(cached) : null;
     } catch (error) {
-      console.warn('Failed to get cached space:', error);
+      log.warn('Utils', 'Failed to get cached space:', error);
       return null;
     }
   }
@@ -467,9 +468,9 @@ class SmartSpaceRedirector {
     try {
       localStorage.setItem(this.CACHE_KEYS.LAST_SPACE, JSON.stringify(spaceInfo));
       localStorage.setItem(this.CACHE_KEYS.REDIRECT_TIMESTAMP, Date.now().toString());
-      console.log('🎯 [SmartRedirect] Cached space info for future instant redirects');
+      log.debug('Utils', '🎯 [SmartRedirect] Cached space info for future instant redirects');
     } catch (error) {
-      console.warn('Failed to cache space info:', error);
+      log.warn('Utils', 'Failed to cache space info:', error);
     }
   }
 }

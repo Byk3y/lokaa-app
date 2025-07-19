@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔔 usePushNotifications Hook - Phase 5 PWA
  * 
@@ -43,7 +44,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
         await pushNotificationService.initialize();
         setState(pushNotificationService.getState());
       } catch (error) {
-        console.error('Failed to initialize push notifications:', error);
+        log.error('Hook', 'Failed to initialize push notifications:', error);
       } finally {
         setIsLoading(false);
       }
@@ -79,7 +80,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
       
       return permission;
     } catch (error) {
-      console.error('Failed to request permission:', error);
+      log.error('Hook', 'Failed to request permission:', error);
       toast({
         title: "Permission Request Failed",
         description: "Unable to request notification permission. Please try again.",
@@ -126,7 +127,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
         return false;
       }
     } catch (error) {
-      console.error('Failed to subscribe:', error);
+      log.error('Hook', 'Failed to subscribe:', error);
       toast({
         title: "Subscription Error",
         description: "An error occurred while subscribing to notifications.",
@@ -159,7 +160,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
       
       return success;
     } catch (error) {
-      console.error('Failed to unsubscribe:', error);
+      log.error('Hook', 'Failed to unsubscribe:', error);
       toast({
         title: "Unsubscribe Failed",
         description: "Unable to unsubscribe from notifications. Please try again.",
@@ -179,7 +180,7 @@ export const usePushNotifications = (): UsePushNotificationsReturn => {
     try {
       return await pushNotificationService.showNotification(options);
     } catch (error) {
-      console.error('Failed to show notification:', error);
+      log.error('Hook', 'Failed to show notification:', error);
       return false;
     }
   }, []);
@@ -225,7 +226,7 @@ export const useLocalNotifications = () => {
   
   const notify = useCallback(async (title: string, body: string, options?: Partial<NotificationOptions>) => {
     if (state.permission !== 'granted') {
-      console.warn('Cannot show notification - permission not granted');
+      log.warn('Hook', 'Cannot show notification - permission not granted');
       return false;
     }
     

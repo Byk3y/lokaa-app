@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -73,7 +74,7 @@ export default function Signup() {
     // Validate form data
     const validation = signupSchema.safeParse(formData);
     if (!validation.success) {
-      console.error("Form validation failed:", validation.error);
+      log.error('Page', "Form validation failed:", validation.error);
       return;
     }
     
@@ -81,7 +82,7 @@ export default function Signup() {
     setIsLoading(true);
     
     try {
-      console.log("Attempting to sign up user:", formData.email);
+      log.debug('Page', "Attempting to sign up user:", formData.email);
       
       // Call signUp with metadata
       const { error, data: userData } = await signUp(
@@ -93,7 +94,7 @@ export default function Signup() {
         }
       );
       
-      console.log("Signup result:", { error, userData });
+      log.debug('Page', "Signup result:", { error, userData });
       
       if (error) {
         setSignupError(error.message || "Failed to create account");
@@ -127,7 +128,7 @@ export default function Signup() {
         }
       }
     } catch (error: unknown) {
-      console.error("Signup exception:", error);
+      log.error('Page', "Signup exception:", error);
       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
       setSignupError(errorMessage);
       toast({

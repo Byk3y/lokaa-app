@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 1: Enhanced Mobile Session Recovery
  * 
@@ -78,7 +79,7 @@ class Phase1MobileRecovery {
    */
   initialize(options: Phase1InitOptions = {}): void {
     if (this.isInitialized) {
-      console.log('📱 [Phase1] Already initialized');
+      log.debug('Utils', '📱 [Phase1] Already initialized');
       return;
     }
     
@@ -87,10 +88,10 @@ class Phase1MobileRecovery {
     
     // Initialize regardless of device type for development/testing
     if (!shouldEnableMobileFeatures()) {
-      console.log('📱 [Phase1] Desktop detected - Phase 1 mobile recovery disabled for production use');
-      console.log('📱 [Phase1] But still initializing for development/testing purposes');
+      log.debug('Utils', '📱 [Phase1] Desktop detected - Phase 1 mobile recovery disabled for production use');
+      log.debug('Utils', '📱 [Phase1] But still initializing for development/testing purposes');
     } else {
-      console.log('📱 [Phase1] Mobile device detected - Phase 1 mobile recovery enabled');
+      log.debug('Utils', '📱 [Phase1] Mobile device detected - Phase 1 mobile recovery enabled');
     }
     
     this.log('Phase 1 Mobile Recovery System initialized', { options: this.options });
@@ -111,12 +112,12 @@ class Phase1MobileRecovery {
         // Add force enable for testing
         forceEnable: () => {
           this.isInitialized = true;
-          console.log('📱 [Phase1] Force enabled for testing');
+          log.debug('Utils', '📱 [Phase1] Force enabled for testing');
         },
         // Add device detection override for testing
         overrideMobileDetection: (isMobile: boolean) => {
           (window as any)._phase1MobileOverride = isMobile;
-          console.log(`📱 [Phase1] Mobile detection override set to: ${isMobile}`);
+          log.debug('Utils', `📱 [Phase1] Mobile detection override set to: ${isMobile}`);
         }
       };
       
@@ -126,12 +127,12 @@ class Phase1MobileRecovery {
           // Trigger visibility change event manually
           Object.defineProperty(document, 'hidden', { value: true, writable: true });
           document.dispatchEvent(new Event('visibilitychange'));
-          console.log('📱 [Phase1Debug] Forced background state');
+          log.debug('Utils', '📱 [Phase1Debug] Forced background state');
         },
         forceReturn: () => {
           Object.defineProperty(document, 'hidden', { value: false, writable: true });
           document.dispatchEvent(new Event('visibilitychange'));
-          console.log('📱 [Phase1Debug] Forced return from background');
+          log.debug('Utils', '📱 [Phase1Debug] Forced return from background');
         },
         getState: () => this.getState(),
         validateSession: () => this.validateSession()
@@ -609,7 +610,7 @@ class Phase1MobileRecovery {
       try {
         listener(result);
       } catch (error) {
-        console.warn('📱 [Phase1] Recovery listener error:', error);
+        log.warn('Utils', '📱 [Phase1] Recovery listener error:', error);
       }
     });
   }
@@ -685,9 +686,9 @@ class Phase1MobileRecovery {
   private log(message: string, data?: any): void {
     if (this.options.debugMode || import.meta.env.DEV) {
       if (data) {
-        console.log(`📱 [Phase1] ${message}`, data);
+        log.debug('Utils', `📱 [Phase1] ${message}`, data);
       } else {
-        console.log(`📱 [Phase1] ${message}`);
+        log.debug('Utils', `📱 [Phase1] ${message}`);
       }
     }
   }

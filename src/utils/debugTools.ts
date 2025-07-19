@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Legacy Debug Tools - Deprecated
  * 
@@ -14,10 +15,10 @@ import { spaceAccessDebugger } from '@/shared/services/debug/space-access-debug'
  * @deprecated Use spaceAccessDebugger.debugUserSpaceAccess() from @/shared/services/debug instead
  */
 export async function debugUserSpaceAccess(userId: string) {
-  console.warn('debugUserSpaceAccess is deprecated. Use spaceAccessDebugger.debugUserSpaceAccess() from @/shared/services/debug instead.');
+  log.warn('Utils', 'debugUserSpaceAccess is deprecated. Use spaceAccessDebugger.debugUserSpaceAccess() from @/shared/services/debug instead.');
   
   if (!env.isDevelopment) {
-    console.warn('Debug functions are only available in development mode');
+    log.warn('Utils', 'Debug functions are only available in development mode');
     return null;
   }
   
@@ -28,10 +29,10 @@ export async function debugUserSpaceAccess(userId: string) {
  * @deprecated Use spaceAccessDebugger.checkSpaceAccessForUser() from @/shared/services/debug instead
  */
 export async function checkSpaceAccessForUser(userId: string, spaceSubdomain: string) {
-  console.warn('checkSpaceAccessForUser is deprecated. Use spaceAccessDebugger.checkSpaceAccessForUser() from @/shared/services/debug instead.');
+  log.warn('Utils', 'checkSpaceAccessForUser is deprecated. Use spaceAccessDebugger.checkSpaceAccessForUser() from @/shared/services/debug instead.');
   
   if (!env.isDevelopment) {
-    console.warn('Debug functions are only available in development mode');
+    log.warn('Utils', 'Debug functions are only available in development mode');
     return { success: false, error: 'Not available in production' };
   }
   

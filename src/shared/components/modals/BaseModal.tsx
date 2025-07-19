@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Base Modal Component
  * 
@@ -50,7 +51,7 @@ export default function BaseModal({
         
         // Verify modal has proper positioning (in case Phase 8 interference)
         if (computedStyle.position !== 'fixed' || parseInt(computedStyle.zIndex) < 9999) {
-          console.log('🔧 [BaseModal] Applying positioning fix for modal:', config.id);
+          log.debug('Component', '🔧 [BaseModal] Applying positioning fix for modal:', config.id);
           modalContainer.style.position = 'fixed';
           modalContainer.style.top = '0';
           modalContainer.style.left = '0';

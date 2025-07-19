@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import CreateYourSpace from './CreateYourSpace';
@@ -20,7 +21,7 @@ export default function CreateSpaceWrapper() {
     // Set a maximum timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
       if (loading && !authCheckAttempted) {
-        console.log("Authentication check timeout - redirecting to login");
+        log.debug('Page', "Authentication check timeout - redirecting to login");
         setLoading(false);
         
         // Store redirect path and redirect to login
@@ -32,12 +33,12 @@ export default function CreateSpaceWrapper() {
         );
         
         if (hasSupabaseToken) {
-          console.log("Found auth token but verification timed out, attempting fallback auth check");
+          log.debug('Page', "Found auth token but verification timed out, attempting fallback auth check");
           // Try a faster, direct check if we have a token
           checkActiveSession()
             .then(isActive => {
               if (isActive) {
-                console.log("Fallback check successful, continuing to create space");
+                log.debug('Page', "Fallback check successful, continuing to create space");
                 setLoading(false);
                 setIsAuthenticated(true);
                 return;
@@ -54,24 +55,24 @@ export default function CreateSpaceWrapper() {
     // Direct auth check using the utility function
     const verifyAuthentication = async () => {
       try {
-        console.log("Checking authentication for Create Space");
+        log.debug('Page', "Checking authentication for Create Space");
         setAuthCheckAttempted(true);
         
         // Use the utility function to check for active session
         const isLoggedIn = await checkActiveSession();
         
         if (!isLoggedIn) {
-          console.log("No active session detected");
+          log.debug('Page', "No active session detected");
           handleAuthFailure();
           return;
         }
         
         // If we reach here, user is authenticated
-        console.log("User is authenticated, showing create space form");
+        log.debug('Page', "User is authenticated, showing create space form");
         setLoading(false);
         setIsAuthenticated(true);
       } catch (err) {
-        console.error("Authentication check failed:", err);
+        log.error('Page', "Authentication check failed:", err);
         handleAuthFailure();
       }
     };

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Robust Lazy Loader - Handles HMR and Module Import Failures
  * 
@@ -59,7 +60,7 @@ export function createRobustLazy<T extends ComponentType<any>>(
         
         // Log detailed error info in development
         if (import.meta.env?.DEV) {
-          console.warn(`🔄 [RobustLazy] Import failed for ${componentName} (attempt ${attempt}/${retries}):`, {
+          log.warn('Utils', `🔄 [RobustLazy] Import failed for ${componentName} (attempt ${attempt}/${retries}):`, {
             error: error.message,
             stack: error.stack,
             attempt,
@@ -86,7 +87,7 @@ export function createRobustLazy<T extends ComponentType<any>>(
           
           // For HMR issues, try to force a clean reload
           if (import.meta.env?.DEV && attempt === 2) {
-            console.warn(`🔄 [RobustLazy] Forcing HMR refresh for ${componentName}`);
+            log.warn('Utils', `🔄 [RobustLazy] Forcing HMR refresh for ${componentName}`);
             if (typeof window !== 'undefined' && (window as any).__vite_reload) {
               setTimeout(() => (window as any).__vite_reload(), delay);
             }
@@ -96,7 +97,7 @@ export function createRobustLazy<T extends ComponentType<any>>(
         }
         
         // All retries failed - provide fallback
-        console.error(`❌ [RobustLazy] Failed to load ${componentName} after ${retries} attempts. Providing fallback.`, error);
+        log.error('Utils', `❌ [RobustLazy] Failed to load ${componentName} after ${retries} attempts. Providing fallback.`, error);
         
         // Use custom fallback if provided
         if (fallbackComponent) {

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTimezone } from '@/hooks/useTimezone';
@@ -44,7 +45,7 @@ export function TimezoneSelector() {
         setTimezones(COMMON_TIMEZONES);
       }
     } catch (error) {
-      console.error('Error getting timezones:', error);
+      log.error('Component', 'Error getting timezones:', error);
       // Fallback to common timezones
       setTimezones(COMMON_TIMEZONES);
     }

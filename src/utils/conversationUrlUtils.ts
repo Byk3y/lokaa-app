@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Conversation URL Utilities - Mobile-Only
  * 
@@ -78,7 +79,7 @@ export function findConversationIdFromSlug(
   
   // If no conversations provided, only use cache
   if (!availableConversations || availableConversations.length === 0) {
-    console.log('[ConversationUrlUtils] Cache miss for slug, no conversations to search:', slug);
+    log.debug('Utils', '[ConversationUrlUtils] Cache miss for slug, no conversations to search:', slug);
     return null;
   }
   
@@ -166,7 +167,7 @@ class NavigationRateLimiter {
     
     // Check if we're within the limit
     if (this.navigationCalls.length >= this.maxCalls) {
-      console.warn('[NavigationRateLimiter] Rate limit exceeded, blocking navigation');
+      log.warn('Utils', '[NavigationRateLimiter] Rate limit exceeded, blocking navigation');
       return false;
     }
     
@@ -236,7 +237,7 @@ export function navigateToConversation(
   
   // Check rate limiting
   if (!navigationRateLimiter.canNavigate()) {
-    console.error('[NavigationUtils] Navigation rate limited - too many calls');
+    log.error('Utils', '[NavigationUtils] Navigation rate limited - too many calls');
     return false;
   }
 
@@ -256,7 +257,7 @@ function performNavigation(conversationId: string, url: string, replace: boolean
   try {
     // Check if URL is already current (prevent unnecessary navigation)
     if (typeof window !== 'undefined' && window.location.pathname + window.location.search === url) {
-      console.log('[NavigationUtils] Already at target URL, skipping navigation');
+      log.debug('Utils', '[NavigationUtils] Already at target URL, skipping navigation');
       return;
     }
 
@@ -272,9 +273,9 @@ function performNavigation(conversationId: string, url: string, replace: boolean
     });
     window.dispatchEvent(event);
     
-    console.log('[NavigationUtils] Navigation completed:', { conversationId, url });
+    log.debug('Utils', '[NavigationUtils] Navigation completed:', { conversationId, url });
   } catch (error) {
-    console.error('[NavigationUtils] Navigation failed:', error);
+    log.error('Utils', '[NavigationUtils] Navigation failed:', error);
   }
 }
 
@@ -289,7 +290,7 @@ export function navigateToConversationList(): boolean {
   
   // Check rate limiting
   if (!navigationRateLimiter.canNavigate()) {
-    console.error('[NavigationUtils] Navigation rate limited - too many calls');
+    log.error('Utils', '[NavigationUtils] Navigation rate limited - too many calls');
     return false;
   }
   
@@ -307,7 +308,7 @@ function performListNavigation(): void {
     if (typeof window !== 'undefined' && 
         window.location.pathname === '/app/chat' && 
         !window.location.search.includes('ch=')) {
-      console.log('[NavigationUtils] Already at conversation list, skipping navigation');
+      log.debug('Utils', '[NavigationUtils] Already at conversation list, skipping navigation');
       return;
     }
 
@@ -319,9 +320,9 @@ function performListNavigation(): void {
     });
     window.dispatchEvent(event);
     
-    console.log('[NavigationUtils] Navigated to conversation list');
+    log.debug('Utils', '[NavigationUtils] Navigated to conversation list');
   } catch (error) {
-    console.error('[NavigationUtils] Failed to navigate to conversation list:', error);
+    log.error('Utils', '[NavigationUtils] Failed to navigate to conversation list:', error);
   }
 }
 
@@ -379,40 +380,40 @@ export const conversationUrlDebug = {
    * Test URL generation and parsing
    */
   test: (conversationId: string = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890') => {
-    console.log('🧪 Testing Conversation URL System');
-    console.log('=====================================');
-    console.log('Input conversation ID:', conversationId);
+    log.debug('Utils', '🧪 Testing Conversation URL System');
+    log.debug('Utils', '=====================================');
+    log.debug('Utils', 'Input conversation ID:', conversationId);
     
     const slug = generateConversationSlug(conversationId);
-    console.log('Generated slug:', slug);
+    log.debug('Utils', 'Generated slug:', slug);
     
     const url = generateConversationUrl(conversationId);
-    console.log('Generated URL:', url);
+    log.debug('Utils', 'Generated URL:', url);
     
     const mockConversations = [{ conversation_id: conversationId }];
     const foundId = findConversationIdFromSlug(slug, mockConversations);
-    console.log('Reverse lookup result:', foundId);
-    console.log('Reverse lookup success:', foundId === conversationId);
+    log.debug('Utils', 'Reverse lookup result:', foundId);
+    log.debug('Utils', 'Reverse lookup success:', foundId === conversationId);
     
     const cacheStats = getConversationUrlCacheStats();
-    console.log('Cache stats:', cacheStats);
+    log.debug('Utils', 'Cache stats:', cacheStats);
   },
   
   /**
    * Show current URL state
    */
   currentState: () => {
-    console.log('🌐 Current Conversation URL State');
-    console.log('=================================');
-    console.log('Is mobile:', detectMobileDevice());
-    console.log('Current URL:', window.location.href);
+    log.debug('Utils', '🌐 Current Conversation URL State');
+    log.debug('Utils', '=================================');
+    log.debug('Utils', 'Is mobile:', detectMobileDevice());
+    log.debug('Utils', 'Current URL:', window.location.href);
     
     const params = parseConversationUrlParams();
-    console.log('Parsed params:', params);
-    console.log('Is conversation URL:', isConversationUrl());
+    log.debug('Utils', 'Parsed params:', params);
+    log.debug('Utils', 'Is conversation URL:', isConversationUrl());
     
     const cacheStats = getConversationUrlCacheStats();
-    console.log('Cache stats:', cacheStats);
+    log.debug('Utils', 'Cache stats:', cacheStats);
     
     // Return state object for testing
     return {
@@ -431,16 +432,16 @@ export const conversationUrlDebug = {
    */
   clearCaches: () => {
     clearConversationUrlCaches();
-    console.log('✅ Conversation URL caches cleared');
+    log.debug('Utils', '✅ Conversation URL caches cleared');
   },
   
   /**
    * Test URL generation (for rate limiter testing)
    */
   testUrlGeneration: (conversationId = 'test-' + Date.now()) => {
-    console.log('🧪 Testing URL generation for rate limiter...');
+    log.debug('Utils', '🧪 Testing URL generation for rate limiter...');
     const url = generateConversationUrl(conversationId);
-    console.log('Generated URL:', url);
+    log.debug('Utils', 'Generated URL:', url);
     return url;
   }
 };
@@ -465,5 +466,5 @@ export function getNavigationRateLimiterStatus() {
 export function resetNavigationRateLimiter() {
   navigationRateLimiter.reset();
   navigationDebouncer.cancel();
-  console.log('[NavigationUtils] Rate limiter and debouncer reset');
+  log.debug('Utils', '[NavigationUtils] Rate limiter and debouncer reset');
 } 

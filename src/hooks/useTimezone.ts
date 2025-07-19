@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -38,7 +39,7 @@ export function useTimezone() {
       // Use Intl API to get the user's timezone
       return Intl.DateTimeFormat().resolvedOptions().timeZone;
     } catch (error) {
-      console.error('Error detecting timezone:', error);
+      log.error('Hook', 'Error detecting timezone:', error);
       return 'UTC'; // Default to UTC if detection fails
     }
   };
@@ -99,12 +100,12 @@ export function useTimezone() {
       // Refresh user's online status
       try {
         // This is a simplified approach that doesn't use explicit RPC or dedicated update
-        console.log('Timezone updated to:', timezone);
+        log.debug('Hook', 'Timezone updated to:', timezone);
       } catch (activityError) {
-        console.error('Error in timezone update:', activityError);
+        log.error('Hook', 'Error in timezone update:', activityError);
       }
     } catch (error) {
-      console.error('Error saving timezone:', error);
+      log.error('Hook', 'Error saving timezone:', error);
     }
   };
 
@@ -160,7 +161,7 @@ export function useTimezone() {
         await saveTimezone(detectedTimezone);
       }
     } catch (error) {
-      console.error('Error fetching user timezone:', error);
+      log.error('Hook', 'Error fetching user timezone:', error);
     } finally {
       setLoading(false);
     }
@@ -182,7 +183,7 @@ export function useTimezone() {
         timeZone: userTimezone
       }).format(dateObj);
     } catch (error) {
-      console.error('Error formatting date:', error);
+      log.error('Hook', 'Error formatting date:', error);
       return new Intl.DateTimeFormat('default', options).format(dateObj);
     }
   };

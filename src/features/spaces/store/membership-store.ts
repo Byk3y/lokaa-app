@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Membership Store
  * 
@@ -40,7 +41,7 @@ const storeMembershipInLocalStorage = (userId: string, spaceSubdomain: string, m
     };
     localStorage.setItem(getLocalStorageCacheKey(userId, spaceSubdomain), JSON.stringify(cacheData));
   } catch (error) {
-    console.warn('Failed to cache membership in localStorage:', error);
+    log.warn('App', 'Failed to cache membership in localStorage:', error);
   }
 };
 
@@ -54,7 +55,7 @@ const getMembershipFromLocalStorage = (userId: string, spaceSubdomain: string): 
     const isValid = cacheData.timestamp && (Date.now() - cacheData.timestamp) < LOCALSTORAGE_CACHE_TTL;
     
     if (isValid) {
-      console.log('🚀 [MembershipStore] Using localStorage cache for instant access');
+      log.debug('App', '🚀 [MembershipStore] Using localStorage cache for instant access');
       return {
         isMember: cacheData.isMember,
         isOwner: cacheData.isOwner,
@@ -69,7 +70,7 @@ const getMembershipFromLocalStorage = (userId: string, spaceSubdomain: string): 
       localStorage.removeItem(getLocalStorageCacheKey(userId, spaceSubdomain));
     }
   } catch (error) {
-    console.warn('Failed to retrieve membership from localStorage:', error);
+    log.warn('App', 'Failed to retrieve membership from localStorage:', error);
   }
   return null;
 };
@@ -244,7 +245,7 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
     
     const requestPromise = (async () => {
       try {
-        console.log(`[MembershipStore] Checking membership for user ${user.id} in space ${spaceId}`);
+        log.debug('App', `[MembershipStore] Checking membership for user ${user.id} in space ${spaceId}`);
         
         const now = Date.now();
         const { cache } = get();
@@ -253,14 +254,14 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
         
         // FIXED: Use memory cache if available and fresh
         if (cachedData && now - cachedData.timestamp < CACHE_TTL) {
-          console.log(`[MembershipStore] Using memory cache for space ${spaceId}`);
+          log.debug('App', `[MembershipStore] Using memory cache for space ${spaceId}`);
           set(cachedData.state);
           return;
         }
         
         // FIXED: Fast owner check first (no database query needed)
         if (ownerId && user.id === ownerId) {
-          console.log(`[MembershipStore] User ${user.id} is owner of space ${spaceId}`);
+          log.debug('App', `[MembershipStore] User ${user.id} is owner of space ${spaceId}`);
           const newState: MembershipState = {
             isMember: true,
             isOwner: true,
@@ -294,9 +295,9 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
         }
         
         // Check membership status via database
-        console.log(`[MembershipStore] Checking membership status for user ${user.id} in space ${spaceId}`);
+        log.debug('App', `[MembershipStore] Checking membership status for user ${user.id} in space ${spaceId}`);
         const memberData = await membershipApi.checkMembershipStatus(user.id, spaceId);
-        console.log(`[MembershipStore] Membership data:`, memberData);
+        log.debug('App', `[MembershipStore] Membership data:`, memberData);
         
         let newState: MembershipState;
         if (memberData) {
@@ -309,7 +310,7 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
             loading: false,
             error: null,
           };
-          console.log(`[MembershipStore] User is member with status: ${memberData.status}, role: ${memberData.role}`);
+          log.debug('App', `[MembershipStore] User is member with status: ${memberData.status}, role: ${memberData.role}`);
         } else {
           newState = {
             isMember: false,
@@ -320,7 +321,7 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
             loading: false,
             error: null,
           };
-          console.log(`[MembershipStore] User is not a member of space ${spaceId}`);
+          log.debug('App', `[MembershipStore] User is not a member of space ${spaceId}`);
         }
         
         set(newState);
@@ -343,7 +344,7 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
         }
         
       } catch (err) {
-        console.error('[MembershipStore] Error checking membership:', err);
+        log.error('App', '[MembershipStore] Error checking membership:', err);
         const errorMessage = err instanceof Error ? err.message : "Failed to check membership";
         set({ loading: false, error: errorMessage });
       } finally {
@@ -545,20 +546,20 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
         const { globalCache } = await import('@/utils/globalCacheCoordinator');
         if (globalCache?.unsubscribe) {
           globalCache.unsubscribe(`memberCounts:${spaceId}`, 'member-removal-cleanup');
-          console.log(`🧹 [MembershipStore] Unsubscribed from memberCounts cache for space ${spaceId}`);
+          log.debug('App', `🧹 [MembershipStore] Unsubscribed from memberCounts cache for space ${spaceId}`);
         }
         
         // Clear supabase bridge cache (using V2 system)
         const { migrationAdapter } = await import('@/utils/indexeddb/migration/MigrationAdapter');
         if (migrationAdapter?.clearCache) {
           await migrationAdapter.clearCache();
-          console.log(`🧹 [MembershipStore] Cleared V2 bridge cache`);
+          log.debug('App', `🧹 [MembershipStore] Cleared V2 bridge cache`);
         }
         
         // Clear space data cleaner caches
         const { clearSpaceMemberCounts } = await import('@/utils/spaceDataCleaner');
         await clearSpaceMemberCounts(spaceId);
-        console.log(`🧹 [MembershipStore] Cleared space member counts cache for space ${spaceId}`);
+        log.debug('App', `🧹 [MembershipStore] Cleared space member counts cache for space ${spaceId}`);
         
         // Clear localStorage member-related caches
         const memberCacheKeys = [
@@ -573,14 +574,14 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
           try {
             localStorage.removeItem(key);
           } catch (e) {
-            console.warn(`Failed to clear localStorage key: ${key}`, e);
+            log.warn('App', `Failed to clear localStorage key: ${key}`, e);
           }
         });
         
-        console.log(`🧹 [MembershipStore] Cleared localStorage member caches for space ${spaceId}`);
+        log.debug('App', `🧹 [MembershipStore] Cleared localStorage member caches for space ${spaceId}`);
         
       } catch (cacheError) {
-        console.warn('Failed to clear some caches after member removal:', cacheError);
+        log.warn('App', 'Failed to clear some caches after member removal:', cacheError);
       }
       
       toast({
@@ -611,7 +612,7 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
     try {
       return await membershipApi.fetchMembers(spaceId, options);
     } catch (error) {
-      console.error('Error fetching members:', error);
+      log.error('App', 'Error fetching members:', error);
       
       toast({
         title: "Error Fetching Members",
@@ -648,7 +649,7 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
         }
       });
     } catch (error) {
-      console.warn('Failed to clear localStorage membership cache:', error);
+      log.warn('App', 'Failed to clear localStorage membership cache:', error);
     }
   },
   
@@ -678,13 +679,13 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
       if (user?.id) {
         const cacheKey = `fast_path_spaces_${user.id}`;
         localStorage.removeItem(cacheKey);
-        console.log('🧹 [MembershipStore] Cleared SpaceSwitcher cache for immediate space visibility');
+        log.debug('App', '🧹 [MembershipStore] Cleared SpaceSwitcher cache for immediate space visibility');
       }
     } catch (error) {
-      console.warn('Failed to clear SpaceSwitcher cache:', error);
+      log.warn('App', 'Failed to clear SpaceSwitcher cache:', error);
     }
     
-    console.log('🔄 [MembershipStore] Triggered spaces refresh and invalidated user spaces cache');
+    log.debug('App', '🔄 [MembershipStore] Triggered spaces refresh and invalidated user spaces cache');
   },
   
   // Reset store to initial state (called on sign out)

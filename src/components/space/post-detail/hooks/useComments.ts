@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -63,7 +64,7 @@ export function useComments(
     userId: currentUserId,
     isEnabled: !!post?.id,
     onNewComment: (newCommentData) => {
-      console.log('🔔 [useComments] Real-time comment received, refreshing comments...');
+      log.debug('Component', '🔔 [useComments] Real-time comment received, refreshing comments...');
       // 🔧 STABILIZED: Add delay to prevent overwriting optimistic updates
       setTimeout(() => {
         if (post?.id) {
@@ -72,7 +73,7 @@ export function useComments(
       }, 1000); // 1-second delay to allow optimistic updates to settle
     },
     onCommentUpdate: (commentId) => {
-      console.log('🔔 [useComments] Comment updated, refreshing comments...', commentId);
+      log.debug('Component', '🔔 [useComments] Comment updated, refreshing comments...', commentId);
       // 🔧 STABILIZED: Add delay for update propagation
       setTimeout(() => {
         if (post?.id) {
@@ -86,7 +87,7 @@ export function useComments(
   const shouldSkipFetch = useCallback((isModalContext: boolean = false) => {
     // 🎭 PHASE 1 FIX: Never skip fetch for PostDetailModal context
     if (isModalContext) {
-      console.log(`🎭 [useComments] Modal context detected - allowing fetch for post ${post?.id}`);
+      log.debug('Component', `🎭 [useComments] Modal context detected - allowing fetch for post ${post?.id}`);
       return false;
     }
     
@@ -134,7 +135,7 @@ export function useComments(
       const shouldSkip = extendedRecentNavigation && (isChatSpaceNavigation || isInitialSpaceLoad || isSpaceSwitching) && !isSameRouteNavigation;
       
       // ENHANCED DEBUGGING
-      console.log(`🔍 [useComments] shouldSkipFetch analysis for post ${post?.id}:`, {
+      log.debug('Component', `🔍 [useComments] shouldSkipFetch analysis for post ${post?.id}:`, {
         timeSinceNavigation: `${timeSinceNavigation}ms`,
         navigation: `${previousRoute} → ${currentRoute}`,
         conditions: {
@@ -152,7 +153,7 @@ export function useComments(
         const reason = isChatSpaceNavigation ? 'Chat⟷Space navigation' : 
                       isInitialSpaceLoad ? 'initial space load' : 
                       isSpaceSwitching ? 'space switching' : 'recent navigation';
-        console.log(`🛡️ [useComments] Skipping fetch for post ${post?.id} - ${reason} detected (${previousRoute} → ${currentRoute}, ${timeSinceNavigation}ms ago)`);
+        log.debug('Component', `🛡️ [useComments] Skipping fetch for post ${post?.id} - ${reason} detected (${previousRoute} → ${currentRoute}, ${timeSinceNavigation}ms ago)`);
         return true;
       }
     }
@@ -165,10 +166,10 @@ export function useComments(
       // 🎭 PHASE 1 FIX: Always fetch for modal context (PostDetailModal)
       const isModalContext = true; // This hook is used in PostDetailModal
       if (!shouldSkipFetch(isModalContext)) {
-        console.log('🔔 [useComments] Loading comments for post:', post.id);
+        log.debug('Component', '🔔 [useComments] Loading comments for post:', post.id);
         fetchComments(post.id, false, true); // Initial fetch with modal context
       } else {
-        console.log(`🛡️ [useComments] Skipped initial fetch for post ${post.id} due to navigation`);
+        log.debug('Component', `🛡️ [useComments] Skipped initial fetch for post ${post.id} due to navigation`);
       }
     }
     setOptimisticCommentCount(post?.comments || 0);
@@ -180,11 +181,11 @@ export function useComments(
     
     // Skip fetch if we're in a recent navigation scenario (unless forced or modal context)
     if (!forceRefresh && shouldSkipFetch(isModalContext)) {
-      console.log(`🛡️ [useComments] Skipped fetch for post ${postId} due to navigation`);
+      log.debug('Component', `🛡️ [useComments] Skipped fetch for post ${postId} due to navigation`);
       return;
     }
     
-    console.log('🔔 [useComments] Fetching comments for post:', postId);
+    log.debug('Component', '🔔 [useComments] Fetching comments for post:', postId);
     setCommentsLoading(true);
     try {
       const { data, error } = await getSupabaseClient()
@@ -201,7 +202,7 @@ export function useComments(
       if (error) throw error;
       
       if (data) {
-        console.log(`🔔 [useComments] Fetched ${data.length} comments for post ${postId}`);
+        log.debug('Component', `🔔 [useComments] Fetched ${data.length} comments for post ${postId}`);
         
         const commentIds = data.map(comment => comment.id);
         
@@ -211,7 +212,7 @@ export function useComments(
           .select('parent_comment_id')
           .in('parent_comment_id', commentIds);
 
-        if (replyCountError) console.warn("Error fetching reply counts:", replyCountError);
+        if (replyCountError) log.warn('Component', "Error fetching reply counts:", replyCountError);
 
         const replyCountMap = new Map<string, number>();
         replyCountsData?.forEach(item => {
@@ -226,7 +227,7 @@ export function useComments(
         const initialRepliesMap = new Map<string, any[]>();
         
         if (commentIds.length > 0) {
-          console.log(`🔔 [useComments] Fetching initial replies for ${commentIds.length} comments`);
+          log.debug('Component', `🔔 [useComments] Fetching initial replies for ${commentIds.length} comments`);
           
           // Fetch the first few replies for each comment
           const { data: initialRepliesData, error: repliesError } = await getSupabaseClient()
@@ -240,9 +241,9 @@ export function useComments(
             .order('created_at', { ascending: true }) as { data: (CommentDataFromServer & { like_count: { count: number }[] })[] | null; error: any };
 
           if (repliesError) {
-            console.warn("🔔 [useComments] Error fetching initial replies:", repliesError);
+            log.warn('Component', "🔔 [useComments] Error fetching initial replies:", repliesError);
           } else if (initialRepliesData) {
-            console.log(`🔔 [useComments] Fetched ${initialRepliesData.length} initial replies`);
+            log.debug('Component', `🔔 [useComments] Fetched ${initialRepliesData.length} initial replies`);
             
             // Group replies by parent comment and limit to first N per comment
             const groupedReplies = new Map<string, any[]>();
@@ -281,7 +282,7 @@ export function useComments(
               .select('comment_id')
               .eq('user_id', currentUserId)
               .in('comment_id', allCommentIds);
-            if (likeStatusError) console.warn("Error fetching comment like statuses:", likeStatusError);
+            if (likeStatusError) log.warn('Component', "Error fetching comment like statuses:", likeStatusError);
             else {
               likeStatusData?.forEach(like => likedCommentIds.add(like.comment_id));
             }
@@ -318,13 +319,13 @@ export function useComments(
         
         // 🔥 FIX: Log reply loading success
         const totalRepliesLoaded = commentsWithDetails.reduce((total, comment) => total + (comment.initial_replies?.length || 0), 0);
-        console.log(`🔔 [useComments] Comments state updated with ${commentsWithDetails.length} comments and ${totalRepliesLoaded} initial replies loaded`);
+        log.debug('Component', `🔔 [useComments] Comments state updated with ${commentsWithDetails.length} comments and ${totalRepliesLoaded} initial replies loaded`);
       } else {
         setComments([]);
-        console.log('🔔 [useComments] No comments found, clearing state');
+        log.debug('Component', '🔔 [useComments] No comments found, clearing state');
       }
     } catch (err) {
-      console.error('🔔 [useComments] Error fetching comments:', err);
+      log.error('Component', '🔔 [useComments] Error fetching comments:', err);
     } finally {
       setCommentsLoading(false);
     }
@@ -356,7 +357,7 @@ export function useComments(
     
     if (isCommenting) return;
 
-    console.log('🔔 [useComments] Submitting comment:', {
+    log.debug('Component', '🔔 [useComments] Submitting comment:', {
       postId: post.id,
       content: contentToSubmit.substring(0, 50) + '...',
       parentId: replyingToComment?.id
@@ -377,11 +378,11 @@ export function useComments(
       });
 
       if (error) {
-        console.error('🔔 [useComments] INSERT error details:', error);
+        log.error('Component', '🔔 [useComments] INSERT error details:', error);
         throw error;
       }
 
-      console.log('🔔 [useComments] Comment submitted successfully');
+      log.debug('Component', '🔔 [useComments] Comment submitted successfully');
 
       const { data: userData } = await getSupabaseClient()
         .from('users')
@@ -419,7 +420,7 @@ export function useComments(
         // It's a new top-level comment - add optimistically and real-time will confirm
         setComments(prevComments => [...prevComments, newCommentEntry]);
         setOptimisticCommentCount(prevCount => prevCount + 1); 
-        console.log('🔔 [useComments] Added optimistic comment, real-time will sync');
+        log.debug('Component', '🔔 [useComments] Added optimistic comment, real-time will sync');
       }
       
       setNewComment("");
@@ -436,10 +437,10 @@ export function useComments(
         onCommentAddedForTopLevel(post.id, optimisticCommentCount); // optimisticCommentCount should be updated before this
       }
 
-      console.log('🔔 [useComments] Comment submission completed successfully');
+      log.debug('Component', '🔔 [useComments] Comment submission completed successfully');
 
     } catch (error: any) {
-      console.error('🔔 [useComments] Error submitting comment:', error);
+      log.error('Component', '🔔 [useComments] Error submitting comment:', error);
       
       // Provide more specific error messages based on the error code
       let errorMessage = "Could not post comment";
@@ -498,7 +499,7 @@ export function useComments(
           .select('comment_id')
           .eq('user_id', currentUserId)
           .in('comment_id', replyIds);
-        if (likeStatusError) console.warn("Error fetching reply like statuses:", likeStatusError);
+        if (likeStatusError) log.warn('Component', "Error fetching reply like statuses:", likeStatusError);
         else {
           likeStatusData?.forEach(like => likedReplyIds.add(like.comment_id));
         }
@@ -513,7 +514,7 @@ export function useComments(
       }));
       return fetchedReplies;
     } catch (err) {
-      console.error('Error fetching replies:', err);
+      log.error('Component', 'Error fetching replies:', err);
       return [];
     }
   };

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
 /**
@@ -6,7 +7,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
  */
 export async function directLogin(email: string, password: string) {
   try {
-    console.log("Direct login attempt for:", email);
+    log.debug('Utils', "Direct login attempt for:", email);
     
     // Clear any existing auth state to prevent conflicts
     await getSupabaseClient().auth.signOut();
@@ -18,11 +19,11 @@ export async function directLogin(email: string, password: string) {
     });
     
     if (error) {
-      console.error("Direct login error:", error.message);
+      log.error('Utils', "Direct login error:", error.message);
       return { success: false, error: error.message };
     }
     
-    console.log("Direct login successful, user:", data.user?.email);
+    log.debug('Utils', "Direct login successful, user:", data.user?.email);
     
     // PHASE 3 FIX: Let Supabase handle session storage automatically
     // Removed: localStorage.setItem('getSupabaseClient().auth.token', JSON.stringify(data.session));
@@ -37,14 +38,14 @@ export async function directLogin(email: string, password: string) {
         // Clear the saved redirect
         sessionStorage.removeItem('redirect_after_login');
         
-        console.log(`Login successful, would redirect to: ${redirectPath}`);
+        log.debug('Utils', `Login successful, would redirect to: ${redirectPath}`);
         
         // Return success with redirect path instead of forcing navigation
         resolve({ success: true, data, redirectPath });
       }, 300);
     });
   } catch (error: unknown) {
-    console.error("Direct login exception:", error);
+    log.error('Utils', "Direct login exception:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return { success: false, error: errorMessage };
   }
@@ -82,26 +83,26 @@ export const checkActiveSession = async (): Promise<boolean> => {
     const { data, error } = await Promise.race([sessionPromise, timeoutPromise]);
     
     if (error) {
-      console.error("Error checking session:", error.message);
+      log.error('Utils', "Error checking session:", error.message);
       return false;
     }
     
     // Additionally check localStorage for token as fallback
     if (!data.session) {
-      console.log("No session in Supabase response, checking localStorage...");
+      log.debug('Utils', "No session in Supabase response, checking localStorage...");
       const hasToken = Object.keys(localStorage).some(key => 
         key.startsWith('sb-') && key.includes('auth.token')
       );
       
       if (hasToken) {
-        console.log("Found token in localStorage, considering user logged in");
+        log.debug('Utils', "Found token in localStorage, considering user logged in");
         return true;
       }
     }
     
     return !!data.session;
   } catch (error) {
-    console.error("Exception checking session:", error instanceof Error ? error.message : 'unknown error');
+    log.error('Utils', "Exception checking session:", error instanceof Error ? error.message : 'unknown error');
     
     // Last resort: check localStorage directly
     try {
@@ -110,11 +111,11 @@ export const checkActiveSession = async (): Promise<boolean> => {
       );
       
       if (hasToken) {
-        console.log("Error recovery: Found token in localStorage despite session check error");
+        log.debug('Utils', "Error recovery: Found token in localStorage despite session check error");
         return true;
       }
     } catch (storageError) {
-      console.error("Failed to check localStorage:", storageError);
+      log.error('Utils', "Failed to check localStorage:", storageError);
     }
     
     return false;
@@ -134,7 +135,7 @@ export async function getCurrentUserId(): Promise<string | null> {
     
     return data.session.user.id;
   } catch (err) {
-    console.error('Exception getting current user:', err);
+    log.error('Utils', 'Exception getting current user:', err);
     return null;
   }
 }
@@ -159,13 +160,13 @@ export async function getDirectUserSpaces(userId: string): Promise<DirectSpaceDa
       .order('created_at', { ascending: false });
       
     if (error) {
-      console.error('Error fetching spaces:', error);
+      log.error('Utils', 'Error fetching spaces:', error);
       return [];
     }
     
     return data || [];
   } catch (err) {
-    console.error('Exception fetching spaces:', err);
+    log.error('Utils', 'Exception fetching spaces:', err);
     return [];
   }
 }

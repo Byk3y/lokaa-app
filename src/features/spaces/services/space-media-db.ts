@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space media database operations for Supabase
  * Handles CRUD operations for space_media table
@@ -32,7 +33,7 @@ export const fetchSpaceMediaFromSupabase = async (spaceId: string): Promise<Medi
     .order('order', { ascending: true });
     
   if (error) {
-    console.error('Error fetching space media from Supabase:', error);
+    log.error('Service', 'Error fetching space media from Supabase:', error);
     return [];
   }
   
@@ -73,7 +74,7 @@ export const addMediaToSupabase = async (
     .single();
     
   if (error) {
-    console.error('Error adding media to Supabase:', error);
+    log.error('Service', 'Error adding media to Supabase:', error);
     return null;
   }
   
@@ -111,7 +112,7 @@ export const updateMediaInSupabase = async (
     .single();
     
   if (error) {
-    console.error('Error updating media in Supabase:', error);
+    log.error('Service', 'Error updating media in Supabase:', error);
     return null;
   }
   
@@ -145,7 +146,7 @@ export const reorderSpaceMediaInSupabase = async (
       .eq('space_id', spaceId);
       
     if (error) {
-      console.error('Error reordering media in Supabase:', error);
+      log.error('Service', 'Error reordering media in Supabase:', error);
     }
   }
 };
@@ -169,7 +170,7 @@ export const deleteMediaFromSupabase = async (
     .eq('id', mediaId);
     
   if (error) {
-    console.error('Error deleting media from Supabase:', error);
+    log.error('Service', 'Error deleting media from Supabase:', error);
   }
 };
 
@@ -183,7 +184,7 @@ export const getSpaceMediaCount = async (spaceId: string): Promise<number> => {
     .eq('space_id', spaceId);
     
   if (error) {
-    console.error('Error getting media count:', error);
+    log.error('Service', 'Error getting media count:', error);
     return 0;
   }
   

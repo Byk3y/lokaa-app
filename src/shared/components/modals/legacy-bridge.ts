@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Legacy Modal Bridge Functions
  * 
@@ -16,7 +17,7 @@ let modalContext: any = null;
 export function initializeModalBridge(context: any) {
   modalContext = context;
   setupGlobalBridge();
-  console.log("Modal bridge initialized successfully");
+  log.debug('Component', "Modal bridge initialized successfully");
 }
 
 /**
@@ -24,7 +25,7 @@ export function initializeModalBridge(context: any) {
  * Maintains exact same signature as legacy function
  */
 export function showDirectLoginModal(event?: React.MouseEvent) {
-  console.log("Bridge: showDirectLoginModal called");
+  log.debug('Component', "Bridge: showDirectLoginModal called");
   
   // Prevent any event bubbling (legacy behavior)
   if (event) {
@@ -36,7 +37,7 @@ export function showDirectLoginModal(event?: React.MouseEvent) {
   if (modalContext) {
     modalContext.openLoginModal();
   } else {
-    console.error("Modal bridge not initialized - modal context not available");
+    log.error('Component', "Modal bridge not initialized - modal context not available");
   }
 }
 
@@ -45,7 +46,7 @@ export function showDirectLoginModal(event?: React.MouseEvent) {
  * Maintains exact same signature as legacy function
  */
 export function showDirectSignupModal(event?: React.MouseEvent) {
-  console.log("Bridge: showDirectSignupModal called");
+  log.debug('Component', "Bridge: showDirectSignupModal called");
   
   // Prevent any event bubbling (legacy behavior)
   if (event) {
@@ -57,7 +58,7 @@ export function showDirectSignupModal(event?: React.MouseEvent) {
   if (modalContext) {
     modalContext.openSignupModal();
   } else {
-    console.error("Modal bridge not initialized - modal context not available");
+    log.error('Component', "Modal bridge not initialized - modal context not available");
   }
 }
 
@@ -66,7 +67,7 @@ export function showDirectSignupModal(event?: React.MouseEvent) {
  * Maintains exact same signature as legacy function
  */
 export function showDirectForgotPasswordModal(event?: React.MouseEvent) {
-  console.log("Bridge: showDirectForgotPasswordModal called");
+  log.debug('Component', "Bridge: showDirectForgotPasswordModal called");
   
   // Prevent any event bubbling (legacy behavior)
   if (event) {
@@ -78,7 +79,7 @@ export function showDirectForgotPasswordModal(event?: React.MouseEvent) {
   if (modalContext) {
     modalContext.openForgotPasswordModal();
   } else {
-    console.error("Modal bridge not initialized - modal context not available");
+    log.error('Component', "Modal bridge not initialized - modal context not available");
   }
 }
 
@@ -93,7 +94,7 @@ export function setupGlobalBridge() {
     (window as any).showDirectSignupModal = showDirectSignupModal;
     (window as any).showDirectForgotPasswordModal = showDirectForgotPasswordModal;
 
-    console.log("Modal bridge functions attached to window object");
+    log.debug('Component', "Modal bridge functions attached to window object");
   }
 }
 
@@ -107,7 +108,7 @@ export function removeGlobalBridge() {
     delete (window as any).showDirectSignupModal;
     delete (window as any).showDirectForgotPasswordModal;
     
-    console.log("Modal bridge functions removed from window object");
+    log.debug('Component', "Modal bridge functions removed from window object");
   }
 }
 

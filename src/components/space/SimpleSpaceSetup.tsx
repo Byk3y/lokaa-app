@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Check, Users, FileText, ImageIcon, X, ChevronUp, ChevronDown, MessageCircle, Edit3 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -148,7 +149,7 @@ export default function SimpleSpaceSetup({
             description: "Your space is now fully set up and ready for your community!" 
           });
         } catch (error) {
-          console.error('Error auto-dismissing setup guide:', error);
+          log.error('Component', 'Error auto-dismissing setup guide:', error);
         }
       }, 2000); // 2 second delay
 
@@ -161,7 +162,7 @@ export default function SimpleSpaceSetup({
       try {
         await dismissSetupGuide(user.id, spaceId);
       } catch (error) {
-        console.error('Error dismissing setup guide:', error);
+        log.error('Component', 'Error dismissing setup guide:', error);
         toast({ 
           title: "Error", 
           description: "Could not dismiss setup guide.", 

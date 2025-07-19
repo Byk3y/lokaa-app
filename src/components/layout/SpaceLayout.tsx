@@ -217,7 +217,7 @@ function CoverPhotoCard({ space }: { space: SpaceData | null }) {
 
       <div className="p-4">
         <h2 className="text-lg font-bold text-[#37474F] mb-1">{space?.name}</h2>
-        <p className="text-sm text-[#78909C] mb-3">lokaa.com/{space?.subdomain || 'your-subdomain'}</p>
+        <p className="text-sm text-[#78909C] mb-3">lokaa.app/{space?.subdomain || 'your-subdomain'}</p>
         <p className="text-sm text-[#4B5563]">{space?.description || `Welcome to ${space?.name}!`}</p>
       </div>
     </div>

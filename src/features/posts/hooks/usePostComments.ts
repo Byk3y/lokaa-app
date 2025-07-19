@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -84,12 +85,12 @@ export const usePostComments = ({
     userId: userId || '',
     isEnabled: !!spaceId && !!userId && !!postId,
     onCommentAdded: (newCommentData) => {
-      console.log('🔔 [usePostComments] Real-time comment received, refreshing comments...');
+      log.debug('Hook', '🔔 [usePostComments] Real-time comment received, refreshing comments...');
       
       // 🔥 FIX: Update comment count FIRST, then fetch after delay
       setOptimisticCommentCount(prev => {
         const newCount = prev + 1;
-        console.log('🔔 [usePostComments] Updated optimistic count from real-time:', newCount);
+        log.debug('Hook', '🔔 [usePostComments] Updated optimistic count from real-time:', newCount);
         return newCount;
       });
       
@@ -97,27 +98,27 @@ export const usePostComments = ({
       if (showComments && !shouldSkipFetch()) {
         setTimeout(() => {
           if (postId) {
-            console.log('🔔 [usePostComments] Fetching comments due to real-time update');
+            log.debug('Hook', '🔔 [usePostComments] Fetching comments due to real-time update');
             fetchComments();
           }
         }, 1500); // Increased delay to 1.5 seconds to allow optimistic updates to settle
       } else {
-        console.log('🛡️ [usePostComments] Skipped fetch due to !showComments or recent navigation');
+        log.debug('Hook', '🛡️ [usePostComments] Skipped fetch due to !showComments or recent navigation');
       }
     },
     onCommentUpdate: (commentId) => {
-      console.log('🔔 [usePostComments] Comment updated, refreshing comments...', commentId);
+      log.debug('Hook', '🔔 [usePostComments] Comment updated, refreshing comments...', commentId);
       
       // 🚀 OPTIMIZATION: Only fetch if showComments is true AND we haven't fetched recently
       if (showComments && !shouldSkipFetch()) {
         setTimeout(() => {
           if (postId) {
-            console.log('🔔 [usePostComments] Fetching comments due to comment update');
+            log.debug('Hook', '🔔 [usePostComments] Fetching comments due to comment update');
             fetchComments();
           }
         }, 500); // 500ms delay for updates
       } else {
-        console.log('🛡️ [usePostComments] Skipped fetch due to !showComments or recent navigation');
+        log.debug('Hook', '🛡️ [usePostComments] Skipped fetch due to !showComments or recent navigation');
       }
     }
   });
@@ -129,10 +130,10 @@ export const usePostComments = ({
       // Only update if initialComments is higher or if prevCount is 0 (initial load)
       const shouldUpdate = initialComments > prevCount || prevCount === 0;
       if (shouldUpdate) {
-        console.log(`🔔 [usePostComments] Syncing optimistic count: ${prevCount} → ${initialComments}`);
+        log.debug('Hook', `🔔 [usePostComments] Syncing optimistic count: ${prevCount} → ${initialComments}`);
         return initialComments;
       }
-      console.log(`🔔 [usePostComments] Preserving optimistic count: ${prevCount} (initialComments: ${initialComments})`);
+      log.debug('Hook', `🔔 [usePostComments] Preserving optimistic count: ${prevCount} (initialComments: ${initialComments})`);
       return prevCount;
     });
   }, [initialComments]);
@@ -213,7 +214,7 @@ export const usePostComments = ({
       
       // 🎯 PHASE 2: Modal context always gets priority
       if (isModalContext && timeSinceNavigation > 1000) {
-        console.log(`🎭 [usePostComments] Modal context detected - allowing fetch for post ${postId}`);
+        log.debug('Hook', `🎭 [usePostComments] Modal context detected - allowing fetch for post ${postId}`);
         return false; // Never skip for modals after 1 second
       }
       
@@ -229,7 +230,7 @@ export const usePostComments = ({
                       isInitialSpaceLoad ? 'initial space load' : 
                       isSpaceSwitching ? 'space switching' : 
                       isProfileSpaceNavigation ? 'Profile⟷Space navigation' : 'recent navigation';
-        console.log(`🛡️ [usePostComments] Skipping fetch for post ${postId} - ${reason} detected (${timeSinceNavigation}ms ago, window: ${skipWindow}ms)`);
+        log.debug('Hook', `🛡️ [usePostComments] Skipping fetch for post ${postId} - ${reason} detected (${timeSinceNavigation}ms ago, window: ${skipWindow}ms)`);
         return true;
       }
     }
@@ -242,13 +243,13 @@ export const usePostComments = ({
     
     // 🎭 OPTIMIZED: Never skip avatar requests - they use lightweight queries
     if (isForAvatars) {
-      console.log(`🎭 [usePostComments] Avatar request - proceeding without skip check`);
+      log.debug('Hook', `🎭 [usePostComments] Avatar request - proceeding without skip check`);
     } else if (!forceRefresh && shouldSkipFetch(false, isModalContext)) {
-      console.log(`🛡️ [usePostComments] Skipped fetch for post ${postId} due to navigation`);
+      log.debug('Hook', `🛡️ [usePostComments] Skipped fetch for post ${postId} due to navigation`);
       return;
     }
     
-    console.log(`🔔 [usePostComments] Fetching comments for post: ${postId}`);
+    log.debug('Hook', `🔔 [usePostComments] Fetching comments for post: ${postId}`);
     setCommentsLoading(true);
     try {
       // First, fetch top-level comments
@@ -271,7 +272,7 @@ export const usePostComments = ({
       }
 
       if (commentsData) {
-        console.log(`🔔 [usePostComments] Fetched ${commentsData.length} comments for post ${postId}`);
+        log.debug('Hook', `🔔 [usePostComments] Fetched ${commentsData.length} comments for post ${postId}`);
         
         // Get the counts of replies for each comment
         const commentIds = commentsData.map(comment => comment.id);
@@ -282,7 +283,7 @@ export const usePostComments = ({
           .select('parent_comment_id')
           .in('parent_comment_id', commentIds);
         
-        if (replyCountError) console.warn("Error fetching reply counts:", replyCountError);
+        if (replyCountError) log.warn('Hook', "Error fetching reply counts:", replyCountError);
         
         // Count replies for each parent comment manually
         const replyCountMap = new Map();
@@ -302,7 +303,7 @@ export const usePostComments = ({
             .in('id', userIds);
           
           if (authorsError) {
-            console.warn("Error fetching authors:", authorsError);
+            log.warn('Hook', "Error fetching authors:", authorsError);
           } else if (authorsData) {
             authorsData.forEach(author => {
               authorsMap.set(author.id, {
@@ -352,17 +353,17 @@ export const usePostComments = ({
         setOptimisticCommentCount(prevCount => {
           // Preserve higher optimistic count to prevent "0 flash" during real-time updates
           const finalCount = Math.max(prevCount, fetchedTotalComments);
-          console.log(`🔔 [usePostComments] Comment count update: fetched=${fetchedTotalComments}, optimistic=${prevCount}, final=${finalCount}`);
+          log.debug('Hook', `🔔 [usePostComments] Comment count update: fetched=${fetchedTotalComments}, optimistic=${prevCount}, final=${finalCount}`);
           return finalCount;
         });
         
-        console.log(`🔔 [usePostComments] Comments state updated with ${commentsWithCallbacks.length} comments`);
+        log.debug('Hook', `🔔 [usePostComments] Comments state updated with ${commentsWithCallbacks.length} comments`);
       } else {
         setComments([]);
-        console.log(`🔔 [usePostComments] No comments found, clearing state`);
+        log.debug('Hook', `🔔 [usePostComments] No comments found, clearing state`);
       }
     } catch (error: any) {
-      console.error(`🔔 [usePostComments] Error fetching comments:`, error);
+      log.error('Hook', `🔔 [usePostComments] Error fetching comments:`, error);
       toast({
         title: "Error",
         description: error.message || "Could not load comments.",
@@ -399,7 +400,7 @@ export const usePostComments = ({
           .in('id', userIds);
         
         if (authorsError) {
-          console.warn("Error fetching reply authors:", authorsError);
+          log.warn('Hook', "Error fetching reply authors:", authorsError);
         } else if (authorsData) {
           authorsData.forEach(author => {
             authorsMap.set(author.id, {
@@ -427,7 +428,7 @@ export const usePostComments = ({
         };
       });
     } catch (error: any) {
-      console.error('Error fetching replies:', error);
+      log.error('Hook', 'Error fetching replies:', error);
       return [];
     }
   }, [userId]);
@@ -468,7 +469,7 @@ export const usePostComments = ({
     }
     if (isCommenting) return;
 
-    console.log('🔔 [usePostComments] Submitting comment:', {
+    log.debug('Hook', '🔔 [usePostComments] Submitting comment:', {
       postId: postId,
       content: newComment.trim().substring(0, 50) + '...',
       parentId: replyingToComment?.id
@@ -490,7 +491,7 @@ export const usePostComments = ({
 
       if (error) throw error;
 
-      console.log('🔔 [usePostComments] Comment submitted successfully:', data.id);
+      log.debug('Hook', '🔔 [usePostComments] Comment submitted successfully:', data.id);
 
       // Insert into user_activity_log after comment creation
       if (data && data.id) {
@@ -508,7 +509,7 @@ export const usePostComments = ({
 
       // Notify parent component if callback provided - CRITICAL: Call BEFORE refresh
       if (onCommentAdded) {
-        console.log('🔔 [usePostComments] Notifying parent of comment addition:', {
+        log.debug('Hook', '🔔 [usePostComments] Notifying parent of comment addition:', {
           postId,
           newCount: optimisticCommentCount + 1
         });
@@ -521,7 +522,7 @@ export const usePostComments = ({
       
       // Refresh comments to show the new comment/reply
       if (showComments) {
-        console.log('🔔 [usePostComments] Refreshing comments after successful submission');
+        log.debug('Hook', '🔔 [usePostComments] Refreshing comments after successful submission');
         fetchComments();
       }
       
@@ -530,10 +531,10 @@ export const usePostComments = ({
         variant: "default" 
       });
 
-      console.log('🔔 [usePostComments] Comment submission completed successfully');
+      log.debug('Hook', '🔔 [usePostComments] Comment submission completed successfully');
       
     } catch (error: any) {
-      console.error('🔔 [usePostComments] Error submitting comment:', error);
+      log.error('Hook', '🔔 [usePostComments] Error submitting comment:', error);
       // Reset optimistic count on error
       setOptimisticCommentCount(originalCommentCount);
       toast({

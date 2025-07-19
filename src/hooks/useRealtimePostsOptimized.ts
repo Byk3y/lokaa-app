@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef, useState } from 'react';
 import { navigationAwareRealtimeService } from '@/services/NavigationAwareRealtimeService';
 
@@ -77,18 +78,18 @@ export const useRealtimePostsOptimized = ({
   const addNewPostId = (postId: string, postUserId: string, postData: NewPostData) => {
     // Don't show notification for user's own posts
     if (postUserId === userId) {
-      console.log(`🚫 [RealtimeOptimized] Ignoring own post: ${postId}`);
+      log.debug('Hook', `🚫 [RealtimeOptimized] Ignoring own post: ${postId}`);
       return;
     }
 
     // Don't add posts if they're too close to page load (avoid duplicates)
     const timeSincePageLoad = Date.now() - lastPageLoad.getTime();
     if (timeSincePageLoad < 5000) {
-      console.log(`⏳ [RealtimeOptimized] Ignoring post too close to page load: ${postId}`);
+      log.debug('Hook', `⏳ [RealtimeOptimized] Ignoring post too close to page load: ${postId}`);
       return;
     }
 
-    console.log(`📦 [RealtimeOptimized] Batching new post: ${postId}`);
+    log.debug('Hook', `📦 [RealtimeOptimized] Batching new post: ${postId}`);
     
     // Add to current batch
     batchRef.current.posts.push(postData);
@@ -104,12 +105,12 @@ export const useRealtimePostsOptimized = ({
     
     if (isUserScrolling && delayOnScroll) {
       delay = debounceMs * 1.5; // Increase delay if user is scrolling
-      console.log(`🐌 [RealtimeOptimized] User scrolling, delaying notification`);
+      log.debug('Hook', `🐌 [RealtimeOptimized] User scrolling, delaying notification`);
     }
 
     if (batchRef.current.posts.length >= maxBatchSize) {
       delay = 500; // Faster processing for large batches
-      console.log(`🚀 [RealtimeOptimized] Large batch detected, processing quickly`);
+      log.debug('Hook', `🚀 [RealtimeOptimized] Large batch detected, processing quickly`);
     }
 
     // Set new timeout with smart delay
@@ -123,7 +124,7 @@ export const useRealtimePostsOptimized = ({
             .filter(id => !prev.includes(id));
           
           if (newIds.length > 0) {
-            console.log(`✨ [RealtimeOptimized] Processing batch of ${newIds.length} posts:`, newIds);
+            log.debug('Hook', `✨ [RealtimeOptimized] Processing batch of ${newIds.length} posts:`, newIds);
             return [...prev, ...newIds];
           }
           return prev;
@@ -147,8 +148,8 @@ export const useRealtimePostsOptimized = ({
 
   // 🔥 KEY CHANGE: Use NavigationAwareRealtimeService instead of GlobalRealtimeService
   const handleRealtimeEvent = (payload: any) => {
-    console.log('🔔 [RealtimeOptimized] New post detected:', payload);
-    console.log('🔔 [RealtimeOptimized] Payload details:', {
+    log.debug('Hook', '🔔 [RealtimeOptimized] New post detected:', payload);
+    log.debug('Hook', '🔔 [RealtimeOptimized] Payload details:', {
       event: payload.eventType,
       table: payload.table,
       schema: payload.schema,
@@ -158,7 +159,7 @@ export const useRealtimePostsOptimized = ({
     
     if (payload.new && typeof payload.new === 'object') {
       const newPost = payload.new as NewPostData;
-      console.log('🔔 [RealtimeOptimized] Processing new post:', {
+      log.debug('Hook', '🔔 [RealtimeOptimized] Processing new post:', {
         id: newPost.id,
         user_id: newPost.user_id,
         space_id: (newPost as any).space_id,
@@ -167,7 +168,7 @@ export const useRealtimePostsOptimized = ({
       });
       addNewPostId(newPost.id, newPost.user_id, newPost);
     } else {
-      console.warn('🔔 [RealtimeOptimized] Invalid payload.new:', payload.new);
+      log.warn('Hook', '🔔 [RealtimeOptimized] Invalid payload.new:', payload.new);
     }
   };
 
@@ -181,7 +182,7 @@ export const useRealtimePostsOptimized = ({
       return;
     }
 
-    console.log(`🔔 [RealtimeOptimized] Setting up subscription for space: ${spaceId}`);
+    log.debug('Hook', `🔔 [RealtimeOptimized] Setting up subscription for space: ${spaceId}`);
 
     const subscriptionId = navigationAwareRealtimeService.subscribe(
       spaceId,
@@ -197,7 +198,7 @@ export const useRealtimePostsOptimized = ({
     setIsConnected(true);
 
     return () => {
-      console.log('🔔 [RealtimeOptimized] Cleaning up subscription');
+      log.debug('Hook', '🔔 [RealtimeOptimized] Cleaning up subscription');
       if (subscriptionIdRef.current) {
         // 🛡️ NAVIGATION-AWARE: This will now check if cleanup should be prevented during navigation
         navigationAwareRealtimeService.unsubscribe(subscriptionIdRef.current);

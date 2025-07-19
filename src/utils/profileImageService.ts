@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 
 /**
@@ -15,7 +16,7 @@ export async function uploadProfileImage(
     const { data: { user } } = await getSupabaseClient().auth.getUser();
     
     if (!user) {
-      console.error("No authenticated user found");
+      log.error('Utils', "No authenticated user found");
       return null;
     }
     
@@ -33,7 +34,7 @@ export async function uploadProfileImage(
       });
     
     if (uploadError) {
-      console.error('Error uploading image to Supabase Storage:', uploadError);
+      log.error('Utils', 'Error uploading image to Supabase Storage:', uploadError);
       return null;
     }
     
@@ -43,7 +44,7 @@ export async function uploadProfileImage(
       .getPublicUrl(filePath);
     
     if (!publicUrl) {
-      console.error('Failed to get public URL for uploaded image');
+      log.error('Utils', 'Failed to get public URL for uploaded image');
       return null;
     }
     
@@ -57,14 +58,14 @@ export async function uploadProfileImage(
     });
     
     if (updateError) {
-      console.error('Error updating user metadata with avatar URL:', updateError);
+      log.error('Utils', 'Error updating user metadata with avatar URL:', updateError);
       // Still return the URL even if metadata update fails
     }
     
-    console.log('Profile image uploaded successfully:', publicUrl);
+    log.debug('Utils', 'Profile image uploaded successfully:', publicUrl);
     return publicUrl;
   } catch (error) {
-    console.error('Unexpected error in uploadProfileImage:', error);
+    log.error('Utils', 'Unexpected error in uploadProfileImage:', error);
     return null;
   }
 }
@@ -86,14 +87,14 @@ export async function deleteProfileImage(url: string): Promise<boolean> {
       .remove([filePath]);
     
     if (error) {
-      console.error('Error deleting profile image:', error);
+      log.error('Utils', 'Error deleting profile image:', error);
       return false;
     }
     
-    console.log('Profile image deleted successfully');
+    log.debug('Utils', 'Profile image deleted successfully');
     return true;
   } catch (error) {
-    console.error('Unexpected error in deleteProfileImage:', error);
+    log.error('Utils', 'Unexpected error in deleteProfileImage:', error);
     return false;
   }
 }
@@ -112,7 +113,7 @@ export async function getProfileImageUrl(): Promise<string | null> {
     
     return user.user_metadata?.avatar_url || null;
   } catch (error) {
-    console.error('Error getting profile image URL:', error);
+    log.error('Utils', 'Error getting profile image URL:', error);
     return null;
   }
 } 

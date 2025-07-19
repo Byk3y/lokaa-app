@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -58,13 +59,13 @@ export function useCommentAvatars(
           .limit(maxCommenters * 2);
 
         if (commentsError) {
-          console.error('🚨 [useCommentAvatars] Comments query error:', commentsError);
+          log.error('Hook', '🚨 [useCommentAvatars] Comments query error:', commentsError);
           throw new Error(`Failed to fetch comments: ${commentsError.message}`);
         }
 
         // ✅ Return early if no comments exist - prevents 400 errors
         if (!comments || comments.length === 0) {
-          console.log(`📭 [useCommentAvatars] No comments found for post ${postId}`);
+          log.debug('Hook', `📭 [useCommentAvatars] No comments found for post ${postId}`);
           return [];
         }
 
@@ -82,7 +83,7 @@ export function useCommentAvatars(
           .in('id', uniqueUserIds);
 
         if (usersError) {
-          console.error('🚨 [useCommentAvatars] Users query error:', usersError);
+          log.error('Hook', '🚨 [useCommentAvatars] Users query error:', usersError);
           throw new Error(`Failed to fetch user data: ${usersError.message}`);
         }
 
@@ -106,7 +107,7 @@ export function useCommentAvatars(
           .filter(Boolean) as CommentAvatar[];
 
         const loadTime = performance.now();
-        console.log(
+        log.debug('Hook', 
           `🎭 [useCommentAvatars] Fetched ${result.length} avatars for post ${postId} in ${(loadTime % 1000).toFixed(2)}ms`
         );
 
@@ -115,7 +116,7 @@ export function useCommentAvatars(
 
       } catch (error: any) {
         const errorMsg = error?.message || 'Unknown error occurred';
-        console.error('🚨 [useCommentAvatars] Query failed:', error);
+        log.error('Hook', '🚨 [useCommentAvatars] Query failed:', error);
         setLocalError(errorMsg);
         throw error;
       }
@@ -126,7 +127,7 @@ export function useCommentAvatars(
     retry: (failureCount, error: any) => {
       // Don't retry on 400 errors (bad request) or 404 (not found)
       if (error?.status === 400 || error?.status === 404) {
-        console.log(`🚫 [useCommentAvatars] Not retrying ${error.status} error for post ${postId}`);
+        log.debug('Hook', `🚫 [useCommentAvatars] Not retrying ${error.status} error for post ${postId}`);
         return false;
       }
       // Retry up to 2 times for other errors
@@ -141,7 +142,7 @@ export function useCommentAvatars(
       setLocalError(null);
       await query.refetch();
     } catch (error: any) {
-      console.error('🚨 [useCommentAvatars] Manual refetch failed:', error);
+      log.error('Hook', '🚨 [useCommentAvatars] Manual refetch failed:', error);
       setLocalError(error?.message || 'Refetch failed');
     }
   }, [query]);

@@ -1,5 +1,6 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
-import { Search, Eye, Settings } from 'lucide-react';
+import { Search, Eye, Settings, ChevronUp, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SettingsTabProps } from '../../../types/settings';
 import { Space } from '@/types/space';
@@ -15,16 +16,14 @@ const PinIcon = () => (
   </svg>
 );
 
-// Interface for space member records from database
+interface SpaceWithRole extends Space {
+  userRole: 'owner' | 'admin' | 'member';
+}
+
 interface SpaceMemberRecord {
   space_id: string;
   role: string;
-  spaces: Space | null; // The nested space object
-}
-
-// Extended space interface with user role
-interface SpaceWithRole extends Space {
-  userRole?: 'owner' | 'admin' | 'member';
+  spaces: Space | null;
 }
 
 export default function SpacesSettingsTab({ user }: SettingsTabProps) {
@@ -33,6 +32,7 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
   const [spaceSearchQuery, setSpaceSearchQuery] = useState("");
   const [userSpaces, setUserSpaces] = useState<SpaceWithRole[]>([]);
   const [loadingSpaces, setLoadingSpaces] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   
   // State for member settings modal
   const [memberModalOpen, setMemberModalOpen] = useState(false);
@@ -43,10 +43,21 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
   const [lastUserId, setLastUserId] = useState<string | null>(null);
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Handler for opening settings modal (admin/owner)
   const handleOpenSpaceSettings = async (space: SpaceWithRole) => {
     if (!user?.id) {
-      console.warn("User ID not available for opening space settings");
+      log.warn('Component', "User ID not available for opening space settings");
       return;
     }
 
@@ -59,7 +70,7 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
       }, user.id, true);
       storeActions.openModal();
     } catch (error) {
-      console.error("Failed to open space settings:", error);
+      log.error('Component', "Failed to open space settings:", error);
     }
   };
 
@@ -97,7 +108,7 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
 
       // Skip fetch if we have valid cached data and same user
       if (isSameUser && isCacheValid && hasExistingData && document.visibilityState === 'visible') {
-        console.log(`[SpacesSettingsTab] Using cached spaces data (${Math.round(timeSinceLastFetch / 1000)}s old)`);
+        log.debug('Component', `[SpacesSettingsTab] Using cached spaces data (${Math.round(timeSinceLastFetch / 1000)}s old)`);
         setLoadingSpaces(false);
         return;
       }
@@ -115,7 +126,7 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
           .eq('owner_id', user.id);
 
         if (ownedError) {
-          console.error('Error fetching owned spaces:', ownedError);
+          log.error('Component', 'Error fetching owned spaces:', ownedError);
         }
 
         // Fetch spaces the user has access to via space_members table
@@ -131,7 +142,7 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
           .returns<SpaceMemberRecord[]>();
 
         if (memberError) {
-          console.error('Error fetching joined spaces:', memberError);
+          log.error('Component', 'Error fetching joined spaces:', memberError);
         }
 
         const ownedSpacesArray = ownedSpaces || [];
@@ -161,9 +172,9 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
         // Update cache metadata
         setLastFetchTime(Date.now());
         setLastUserId(user.id);
-        console.log(`[SpacesSettingsTab] Fetched ${allSpaces.length} spaces and updated cache`);
+        log.debug('Component', `[SpacesSettingsTab] Fetched ${allSpaces.length} spaces and updated cache`);
       } catch (error) {
-        console.error('Error fetching user spaces:', error);
+        log.error('Component', 'Error fetching user spaces:', error);
         setUserSpaces([]);
       } finally {
         setLoadingSpaces(false);
@@ -183,6 +194,94 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
     space.name.toLowerCase().includes(spaceSearchQuery.toLowerCase())
   );
 
+  // Mobile layout - Skool style
+  if (isMobile) {
+    return (
+      <div className="px-4 py-6">
+        <h1 className="text-xl font-semibold text-gray-900 mb-2">
+          Communities
+        </h1>
+        
+        {/* Search bar */}
+        <div className="relative mb-6">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 text-sm"
+            placeholder="Search communities..."
+            value={spaceSearchQuery}
+            onChange={(e) => setSpaceSearchQuery(e.target.value)}
+          />
+        </div>
+
+        {/* Communities list */}
+        <div className="space-y-3">
+          {loadingSpaces ? (
+            <div className="py-8 flex justify-center items-center">
+              <div className="animate-spin h-6 w-6 rounded-full border-t-2 border-b-2 border-teal-500"></div>
+            </div>
+          ) : filteredSpaces.length > 0 ? (
+            filteredSpaces.map((space) => (
+              <div key={space.id} className="flex items-center justify-between bg-white rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-bold text-white overflow-hidden flex-shrink-0" 
+                       style={{ backgroundColor: space.icon_image ? 'transparent' : '#74B9FF' }}>
+                    {space.icon_image ? (
+                      <img src={space.icon_image} alt={space.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{space.name.charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-900 truncate">{space.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {space.member_count || 0} members • Free
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button 
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    onClick={() => handleSettingsClick(space)}
+                    title="Settings"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </button>
+                  <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                    <ChevronUp className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 -mt-1" />
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : spaceSearchQuery ? (
+            <div className="py-8 text-center text-gray-500">
+              <p>No communities found matching "{spaceSearchQuery}"</p>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-gray-500">
+              <p>You haven't joined any communities yet.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Member Settings Modal */}
+        <MemberSettingsModal
+          isOpen={memberModalOpen}
+          onClose={() => {
+            setMemberModalOpen(false);
+            setSelectedMemberSpace(null);
+          }}
+          space={selectedMemberSpace}
+          user={user}
+        />
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="spaces-card max-w-[760px] mx-auto bg-white rounded-[20px] py-8 px-6 shadow-[0px_4px_16px_rgba(0,0,0,0.08)]">
       <h1 className="text-[24px] font-semibold text-[#111111]" style={{ fontFamily: 'Inter, sans-serif' }}>

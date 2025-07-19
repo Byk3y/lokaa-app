@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useRef } from "react";
 import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -13,7 +14,8 @@ import { extractTabFromPathname, buildSpaceUrl, type SpaceTab, debugTabExtractio
 import { AvatarCacheService } from "@/services/AvatarCacheService"; // 🚀 NEW: Avatar cache service
 import { useAutoPresenceUpdater } from "@/hooks/useAutoPresenceUpdater"; // 🎯 NEW: Auto presence updater
 import { getSupabaseClient } from "@/integrations/supabase/client"; // Add for category verification
-import { devLogger } from "@/utils/developmentLogger"; // Add for logging
+import { devLogger } from "@/utils/developmentLogger";
+import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
 /**
  * SpaceShellLayout - A shell layout for space pages
  * 
@@ -49,7 +51,7 @@ export default function SpaceShellLayout() {
     const extractedTab = extractTabFromPathname(location.pathname);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('🚀 [SpaceShellLayout] Initial tab detection:', {
+      log.debug('Component', '🚀 [SpaceShellLayout] Initial tab detection:', {
         pathname: location.pathname,
         extractedTab,
         urlTab: tab
@@ -72,11 +74,11 @@ export default function SpaceShellLayout() {
       const hasMatchingSpaceData = storeSpace && storeSpace.subdomain === subdomain;
       
       if (!hasMatchingSpaceData) {
-        console.log(`🔒 [Phase1.5] [SpaceShellLayout] Loading space data for ${subdomain} - no matching data found`);
+        log.debug('Component', `🔒 [Phase1.5] [SpaceShellLayout] Loading space data for ${subdomain} - no matching data found`);
         const preserveSpace = location.state?.preserveSpace === true;
         loadActiveSpace({ subdomain }, user.id, !preserveSpace);
       } else {
-        console.log(`🔒 [Phase1.5] [SpaceShellLayout] Skipping loadActiveSpace - already have matching data for ${subdomain}`);
+        log.debug('Component', `🔒 [Phase1.5] [SpaceShellLayout] Skipping loadActiveSpace - already have matching data for ${subdomain}`);
       }
     }
   }, [subdomain, user?.id, loadActiveSpace, storeSpace?.subdomain]); // Added storeSpace?.subdomain dependency
@@ -98,7 +100,7 @@ export default function SpaceShellLayout() {
         (currentTab !== 'feed' && !currentPath.includes('/space/'))
       ) {
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔄 [SpaceShellLayout] Redirecting to Feed tab on initial load');
+          log.debug('Component', '🔄 [SpaceShellLayout] Redirecting to Feed tab on initial load');
         }
         
         // Navigate to the feed tab (default tab)
@@ -109,6 +111,9 @@ export default function SpaceShellLayout() {
         
         // Set the active tab to feed
         setActiveTab('feed');
+        
+        // Reset scroll position for initial feed navigation
+        resetScrollForFeedNavigation();
       }
     }
   }, [subdomain, navigate, location.pathname]);
@@ -124,18 +129,18 @@ export default function SpaceShellLayout() {
       }, user.id);
       
       // New simple presence system automatically handles space-specific presence
-      console.log(`🌐 [SpaceShellLayout] Space loaded for simplified presence: ${storeSpace.id}`);
+      log.debug('Component', `🌐 [SpaceShellLayout] Space loaded for simplified presence: ${storeSpace.id}`);
       
       // 🚀 OPTIMIZED: Initialize avatar cache for instant display
       AvatarCacheService.preloadSpaceAvatars(storeSpace.id)
         .then(result => {
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🚀 [SpaceShellLayout] Avatar cache initialized for ${storeSpace.name}`);
+            log.debug('Component', `🚀 [SpaceShellLayout] Avatar cache initialized for ${storeSpace.name}`);
           }
         })
         .catch(error => {
           if (process.env.NODE_ENV === 'development') {
-            console.warn('⚠️ [SpaceShellLayout] Avatar cache initialization failed:', error);
+            log.warn('Component', '⚠️ [SpaceShellLayout] Avatar cache initialization failed:', error);
           }
         });
       
@@ -144,45 +149,45 @@ export default function SpaceShellLayout() {
         try {
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Verifying categories for space ${storeSpace.id}`);
           
+          // Simple cache invalidation to ensure fresh data
+          if ((window as any).useCategoriesCache) {
+            (window as any).useCategoriesCache.getState().invalidateCache(storeSpace.id);
+          }
+          
           // Check if space has any categories
           const { data: existingCategories, error: categoriesError } = await getSupabaseClient()
             .from('space_categories')
-            .select('id, name')
+            .select('*')
             .eq('space_id', storeSpace.id)
-            .eq('is_archived', false);
-          
+            .eq('is_archived', false)
+            .order('created_at', { ascending: true });
+
           if (categoriesError) {
             devLogger.log('SpaceManagement', `[SpaceShellLayout] Error checking categories:`, categoriesError);
             return;
           }
-          
-          // Check if General Discussion category exists
-          const hasGeneralDiscussion = existingCategories?.some(cat => cat.name === 'General Discussion');
-          
-          if (!hasGeneralDiscussion) {
-            devLogger.log('SpaceManagement', `[SpaceShellLayout] Creating missing General Discussion category for space ${storeSpace.id}`);
-            
-            // Create the missing General Discussion category
-            const { data: newCategory, error: createError } = await getSupabaseClient()
+
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Found ${existingCategories?.length || 0} categories for space ${storeSpace.id}`);
+
+          // If no categories exist, create General Discussion
+          if (!existingCategories || existingCategories.length === 0) {
+            const { error: insertError } = await getSupabaseClient()
               .from('space_categories')
               .insert({
-                space_id: storeSpace.id,
                 name: 'General Discussion',
-                created_by: storeSpace.owner_id || user.id
-              })
-              .select('id, name')
-              .single();
-            
-            if (createError) {
-              devLogger.log('SpaceManagement', `[SpaceShellLayout] Failed to create General Discussion category:`, createError);
+                icon: '💬',
+                space_id: storeSpace.id,
+                created_by: storeSpace.owner_id
+              });
+
+            if (insertError) {
+              devLogger.log('SpaceManagement', `[SpaceShellLayout] Error creating General Discussion category:`, insertError);
             } else {
-              devLogger.log('SpaceManagement', `[SpaceShellLayout] Successfully created General Discussion category:`, newCategory);
+              devLogger.log('SpaceManagement', `[SpaceShellLayout] Created General Discussion category for space ${storeSpace.id}`);
             }
-          } else {
-            devLogger.log('SpaceManagement', `[SpaceShellLayout] General Discussion category already exists for space ${storeSpace.id}`);
           }
         } catch (error) {
-          devLogger.log('SpaceManagement', `[SpaceShellLayout] Category verification error:`, error);
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Error in verifySpaceCategories:`, error);
         }
       };
       
@@ -209,9 +214,14 @@ export default function SpaceShellLayout() {
         const currentExtractedTab = extractTabFromPathname(window.location.pathname);
         if (currentExtractedTab !== activeTab) {
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🔄 [SpaceShellLayout] Syncing activeTab after navigation: ${activeTab} -> ${currentExtractedTab}`);
+            log.debug('Component', `🔄 [SpaceShellLayout] Syncing activeTab after navigation: ${activeTab} -> ${currentExtractedTab}`);
           }
           setActiveTab(currentExtractedTab);
+          
+          // Reset scroll position when feed tab becomes active
+          if (currentExtractedTab === 'feed') {
+            resetScrollForFeedNavigation();
+          }
         }
       }, 10); // Small delay to prevent race conditions
       
@@ -228,7 +238,7 @@ export default function SpaceShellLayout() {
   useEffect(() => {
     if (location.pathname.endsWith('/space/feed')) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 [SpaceShellLayout] Redirecting /space/feed to /space');
+        log.debug('Component', '🔄 [SpaceShellLayout] Redirecting /space/feed to /space');
       }
       navigate(`/${subdomain}/space`, { replace: true });
     }
@@ -245,14 +255,19 @@ export default function SpaceShellLayout() {
     try {
       sessionStorage.setItem(`active_tab_${subdomain}`, newTab);
     } catch (err) {
-      console.warn('Failed to store active tab:', err);
+      log.warn('Component', 'Failed to store active tab:', err);
+    }
+    
+    // Reset scroll position for feed navigation
+    if (newTab === 'feed') {
+      resetScrollForFeedNavigation();
     }
     
     // Build the appropriate URL using our utility
     const url = buildSpaceUrl(subdomain || '', newTab);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔄 [SpaceShellLayout] Navigating to tab: ${newTab} -> ${url}`);
+      log.debug('Component', `🔄 [SpaceShellLayout] Navigating to tab: ${newTab} -> ${url}`);
     }
     
     navigate(url, {
@@ -268,16 +283,21 @@ export default function SpaceShellLayout() {
       
       // Only handle events for the current space
       if (eventSubdomain === subdomain && source === 'bottom-nav') {
-        console.log(`🔄 [SpaceShellLayout] Handling custom tab change from ${source}: ${tabKey}`);
+        log.debug('Component', `🔄 [SpaceShellLayout] Handling custom tab change from ${source}: ${tabKey}`);
         
         // Use the same tab change logic but skip the navigation since bottom nav handles URL
         setActiveTab(tabKey as SpaceTab);
+        
+        // Reset scroll position for feed navigation
+        if (tabKey === 'feed') {
+          resetScrollForFeedNavigation();
+        }
         
         // Store in session storage for persistence
         try {
           sessionStorage.setItem(`active_tab_${subdomain}`, tabKey);
         } catch (err) {
-          console.warn('Failed to store active tab:', err);
+          log.warn('Component', 'Failed to store active tab:', err);
         }
       }
     };

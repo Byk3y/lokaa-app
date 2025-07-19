@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useEffect } from "react";
@@ -19,7 +20,7 @@ export default function AuthRedirect({ requireAuth = true, redirectTo = "/" }: A
   const location = useLocation();
   const navigate = useNavigate();
 
-  console.log('AuthRedirect Debug:', {
+  log.debug('Component', 'AuthRedirect Debug:', {
     user: !!user,
     loading,
     requireAuth,
@@ -34,7 +35,7 @@ export default function AuthRedirect({ requireAuth = true, redirectTo = "/" }: A
         const code = params.get('code');
         
         if (!code) {
-          console.error("No code found in URL");
+          log.error('Component', "No code found in URL");
           navigate('/login');
           return;
         }
@@ -43,18 +44,18 @@ export default function AuthRedirect({ requireAuth = true, redirectTo = "/" }: A
         const { error } = await getSupabaseClient().auth.exchangeCodeForSession(code);
         
         if (error) {
-          console.error("Error exchanging code for session:", error);
+          log.error('Component', "Error exchanging code for session:", error);
           navigate('/login');
           return;
         }
 
-        console.log("Successfully authenticated");
+        log.debug('Component', "Successfully authenticated");
         
         // FIXED: Redirect to /app for smart space detection instead of directly to discover
-        console.log('🚀 [AuthRedirect] Directing to /app for smart space redirection');
+        log.debug('Component', '🚀 [AuthRedirect] Directing to /app for smart space redirection');
         navigate('/app', { replace: true });
       } catch (err) {
-        console.error("Error in auth redirect:", err);
+        log.error('Component', "Error in auth redirect:", err);
         navigate('/login');
       }
     };
@@ -70,7 +71,7 @@ export default function AuthRedirect({ requireAuth = true, redirectTo = "/" }: A
   // If we don't require auth and user is logged in
   if (!requireAuth && user) {
     // Redirect to discover page regardless of creator status
-    console.log('Redirecting to:', redirectTo);
+    log.debug('Component', 'Redirecting to:', redirectTo);
     return <Navigate to={redirectTo} replace />;
   }
 

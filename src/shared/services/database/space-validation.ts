@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { Database } from "@/types/supabase";
 import { User as AuthUser } from "@/contexts/AuthContext";
@@ -34,7 +35,7 @@ export interface SpaceAccessResult {
  * Check if a subdomain is available (not already used)
  */
 export async function isSubdomainAvailable(subdomain: string): Promise<SpaceValidationResult> {
-  console.log("Checking if subdomain is available:", subdomain);
+  log.debug('Service', "Checking if subdomain is available:", subdomain);
   
   try {
     const { data, error } = await getSupabaseClient()
@@ -44,7 +45,7 @@ export async function isSubdomainAvailable(subdomain: string): Promise<SpaceVali
       .maybeSingle();
     
     if (error) {
-      console.error("Error checking subdomain availability:", error);
+      log.error('Service', "Error checking subdomain availability:", error);
       return { success: false, error };
     }
     
@@ -54,7 +55,7 @@ export async function isSubdomainAvailable(subdomain: string): Promise<SpaceVali
       exists: !!data 
     };
   } catch (err) {
-    console.error("Unexpected error checking subdomain:", err);
+    log.error('Service', "Unexpected error checking subdomain:", err);
     return { 
       success: false,
       available: false, 
@@ -176,7 +177,7 @@ export async function checkSpaceAccess(subdomain: string): Promise<SpaceAccessRe
       .maybeSingle<SpaceMemberRow>();
       
     if (smError && smError.code !== 'PGRST116') {
-      console.error("Error fetching space_members record:", smError);
+      log.error('Service', "Error fetching space_members record:", smError);
       return { 
         space, 
         isOwner, 
@@ -215,7 +216,7 @@ export async function checkSpaceAccess(subdomain: string): Promise<SpaceAccessRe
       user: currentUser
     };
   } catch (error) {
-    console.error("Error checking space access:", error);
+    log.error('Service', "Error checking space access:", error);
     return { 
       space: null, 
       isOwner: false, 

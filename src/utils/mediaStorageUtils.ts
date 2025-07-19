@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * @deprecated Legacy mediaStorageUtils.ts
  * This file is maintained for backward compatibility.
@@ -73,7 +74,7 @@ export const uploadFileToStorageWithFallback = async (
   spaceId: string,
   onProgress?: (progress: number) => void
 ): Promise<{ url: string; path: string } | null> => {
-  console.warn('uploadFileToStorageWithFallback is deprecated. Use uploadFileWithFallback from @/shared/services/storage/media-migration');
+  log.warn('Utils', 'uploadFileToStorageWithFallback is deprecated. Use uploadFileWithFallback from @/shared/services/storage/media-migration');
   
   const { uploadFileWithFallback } = await import('@/shared/services/storage/media-migration');
   return uploadFileWithFallback(file, spaceId, onProgress);

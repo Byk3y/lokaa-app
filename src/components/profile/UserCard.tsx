@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -75,7 +76,7 @@ export default function UserCard({
         if (error) throw error;
         setConnectionInfo(data as ConnectionInfo);
       } catch (err) {
-        console.error('Error fetching connection info:', err);
+        log.error('Component', 'Error fetching connection info:', err);
       } finally {
         setLoading(false);
       }
@@ -106,7 +107,7 @@ export default function UserCard({
       });
       window.dispatchEvent(chatEvent);
     } catch (err) {
-      console.error('Error starting conversation:', err);
+      log.error('Component', 'Error starting conversation:', err);
     }
   };
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +87,7 @@ export const GlobalPerformanceDashboard: React.FC = () => {
         grade: 'A+'
       });
     } catch (error) {
-      console.warn('Avatar metrics collection failed:', error);
+      log.warn('Component', 'Avatar metrics collection failed:', error);
     }
 
     // Space Assets System Metrics
@@ -156,7 +157,7 @@ export const GlobalPerformanceDashboard: React.FC = () => {
       setGlobalStats(calculateGlobalStats(metrics));
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Failed to refresh metrics:', error);
+      log.error('Component', 'Failed to refresh metrics:', error);
     } finally {
       setIsRefreshing(false);
     }

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📱 Phase 1: Enhanced Mobile Session Recovery Component
  * 
@@ -118,7 +119,7 @@ export function Phase1MobileRecovery() {
     if (!phase1Recovery) return;
     
     const handleRecoveryEvent = (result: any) => {
-      console.log('📱 [Phase1Component] Recovery event:', result);
+      log.debug('Component', '📱 [Phase1Component] Recovery event:', result);
       
       if (result.success) {
         setRecoveryStatus({

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useCallback } from 'react';
 import type { SpaceData } from '@/contexts/SpaceContext'; // Import SpaceData type
 
@@ -29,10 +30,10 @@ export const useSpaceCache = (subdomain: string | undefined) => {
       
       if (age > CACHE_TTL) return null;
       
-      console.log('[useSpaceCache] Using cached data for', subdomain);
+      log.debug('Hook', '[useSpaceCache] Using cached data for', subdomain);
       return parsed.space;
     } catch (err) {
-      console.warn('[useSpaceCache] Failed to get cache:', err);
+      log.warn('Hook', '[useSpaceCache] Failed to get cache:', err);
       return null;
     }
   }, [subdomain]);
@@ -50,9 +51,9 @@ export const useSpaceCache = (subdomain: string | undefined) => {
         timestamp: Date.now()
       }));
       
-      console.log('[useSpaceCache] Updated cache for', subdomain);
+      log.debug('Hook', '[useSpaceCache] Updated cache for', subdomain);
     } catch (err) {
-      console.warn('[useSpaceCache] Failed to update cache:', err);
+      log.warn('Hook', '[useSpaceCache] Failed to update cache:', err);
     }
   }, [subdomain]);
   
@@ -76,9 +77,9 @@ export const useSpaceCache = (subdomain: string | undefined) => {
     try {
       const cacheKey = `space_data_${subdomain}`;
       sessionStorage.removeItem(cacheKey);
-      console.log('[useSpaceCache] Cleared cache for', subdomain);
+      log.debug('Hook', '[useSpaceCache] Cleared cache for', subdomain);
     } catch (err) {
-      console.warn('[useSpaceCache] Failed to clear cache:', err);
+      log.warn('Hook', '[useSpaceCache] Failed to clear cache:', err);
     }
   }, [subdomain]);
   

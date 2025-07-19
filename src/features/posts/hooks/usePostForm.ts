@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { POST_TEMPLATES } from '../types';
@@ -98,7 +99,7 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
   // Load categories
   useEffect(() => {
     if (spaceId && isOpen) {
-      console.log('🏷️ [usePostForm] Loading categories for space:', spaceId, 'isOpen:', isOpen);
+      log.debug('Hook', '🏷️ [usePostForm] Loading categories for space:', spaceId, 'isOpen:', isOpen);
       fetchCategories();
     }
   }, [spaceId, isOpen]);
@@ -109,10 +110,10 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
       setCategoriesLoading(true);
       setCategoriesError(null);
       
-      console.log('🏷️ [usePostForm] Fetching categories for space ID:', spaceId);
+      log.debug('Hook', '🏷️ [usePostForm] Fetching categories for space ID:', spaceId);
       
       if (!spaceId) {
-        console.error('🏷️ [usePostForm] Space ID is undefined or null when trying to fetch categories');
+        log.error('Hook', '🏷️ [usePostForm] Space ID is undefined or null when trying to fetch categories');
         setCategoriesLoading(false);
         return;
       }
@@ -121,10 +122,10 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
       let querySpaceId = spaceId;
       if (spaceId.includes('-')) {
         // Looks like a UUID, use it directly
-        console.log('🏷️ [usePostForm] Using UUID directly:', spaceId);
+        log.debug('Hook', '🏷️ [usePostForm] Using UUID directly:', spaceId);
       } else {
         // Might be a subdomain, try to find the corresponding space ID
-        console.log('🏷️ [usePostForm] Space ID might be a subdomain, trying to find the corresponding UUID');
+        log.debug('Hook', '🏷️ [usePostForm] Space ID might be a subdomain, trying to find the corresponding UUID');
         const { data: spaceData, error: spaceError } = await getSupabaseClient()
           .from('spaces')
           .select('id')
@@ -132,9 +133,9 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
           .single();
         
         if (spaceError) {
-          console.error('🏷️ [usePostForm] Error looking up space by subdomain:', spaceError);
+          log.error('Hook', '🏷️ [usePostForm] Error looking up space by subdomain:', spaceError);
         } else if (spaceData) {
-          console.log('🏷️ [usePostForm] Found space ID for subdomain:', spaceData.id);
+          log.debug('Hook', '🏷️ [usePostForm] Found space ID for subdomain:', spaceData.id);
           querySpaceId = spaceData.id;
         }
       }
@@ -148,11 +149,11 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
         .order('created_at');
       
       if (error) {
-        console.error('🏷️ [usePostForm] Error fetching categories:', error);
+        log.error('Hook', '🏷️ [usePostForm] Error fetching categories:', error);
         throw error;
       }
       
-      console.log('🏷️ [usePostForm] Categories fetched successfully:', data);
+      log.debug('Hook', '🏷️ [usePostForm] Categories fetched successfully:', data);
       
       // Format the categories and update state
       const formattedCategories = data.map(cat => ({
@@ -175,11 +176,11 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
         return 0;
       });
       
-      console.log('🏷️ [usePostForm] Categories sorted and ready:', sortedCategories);
+      log.debug('Hook', '🏷️ [usePostForm] Categories sorted and ready:', sortedCategories);
       setCategories(sortedCategories);
       
     } catch (error) {
-      console.error('🏷️ [usePostForm] Error fetching categories:', error);
+      log.error('Hook', '🏷️ [usePostForm] Error fetching categories:', error);
       setCategoriesError(error as Error);
     } finally {
       setCategoriesLoading(false);
@@ -281,7 +282,7 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
   // Get category ID for submission (handling null vs undefined)
   const getSubmissionCategoryId = () => {
     if (categoryId) {
-      console.log('🏷️ [usePostForm] Using selected category ID:', categoryId);
+      log.debug('Hook', '🏷️ [usePostForm] Using selected category ID:', categoryId);
       return categoryId;
     }
     
@@ -291,17 +292,17 @@ export function usePostForm({ spaceId, editMode, post, isOpen }: UsePostFormProp
     );
     
     if (generalDiscussionCategory) {
-      console.log('🏷️ [usePostForm] Using default General Discussion category:', generalDiscussionCategory.id);
+      log.debug('Hook', '🏷️ [usePostForm] Using default General Discussion category:', generalDiscussionCategory.id);
       return generalDiscussionCategory.id;
     }
     
     // If still no category found, use the first available category
     if (categories && categories.length > 0) {
-      console.log('🏷️ [usePostForm] Using first available category:', categories[0].id);
+      log.debug('Hook', '🏷️ [usePostForm] Using first available category:', categories[0].id);
       return categories[0].id;
     }
     
-    console.warn('🏷️ [usePostForm] No categories available, returning undefined');
+    log.warn('Hook', '🏷️ [usePostForm] No categories available, returning undefined');
     return undefined;
   };
   

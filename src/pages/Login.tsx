@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -75,7 +76,7 @@ export default function Login() {
       
       if (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('Login error:', error);
+          log.error('Page', 'Login error:', error);
         }
         setLoginError(
           typeof error === 'string' 
@@ -96,7 +97,7 @@ export default function Login() {
           }
         } catch (redirectErr) {
           if (process.env.NODE_ENV === 'development') {
-            console.error('Login: Error during direct space redirection:', redirectErr);
+            log.error('Page', 'Login: Error during direct space redirection:', redirectErr);
           }
           // Continue with normal flow if direct redirection fails
         }
@@ -106,7 +107,7 @@ export default function Login() {
       }
     } catch (err) {
       if (process.env.NODE_ENV === 'development') {
-        console.error('Login exception:', err);
+        log.error('Page', 'Login exception:', err);
       }
       setLoginError('An unexpected error occurred. Please try again.');
     } finally {

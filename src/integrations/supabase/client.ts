@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // HMR-Safe Supabase Client - Prevents Multiple GoTrueClient Instances
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database.types';
@@ -41,13 +42,13 @@ let isInitialized = false;
 export const initializeSupabase = () => {
   if (isInitialized) {
     if (import.meta.env.DEV) {
-      console.log('Supabase client already initialized.');
+      log.debug('App', 'Supabase client already initialized.');
     }
     return;
   }
   
   if (import.meta.env.DEV) {
-    console.log('Initializing Supabase client...');
+    log.debug('App', 'Initializing Supabase client...');
   }
   
   getSupabaseClient();

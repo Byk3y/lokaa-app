@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useState } from 'react';
 import { shouldEnableMobileFeatures } from './mobileDetection';
 
@@ -49,14 +50,14 @@ class PageVisibilityManager {
 
     // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
     if (typeof window !== 'undefined' && (window as any).DISABLE_PAGE_VISIBILITY_MANAGER) {
-      console.log('🔧 [PageVisibilityManager] DISABLED - Mobile Event Coordinator is managing events');
+      log.debug('Utils', '🔧 [PageVisibilityManager] DISABLED - Mobile Event Coordinator is managing events');
       this.initialized = true; // Mark as initialized but don't set up listeners
       return;
     }
 
     // Only enable page visibility management on mobile devices
     if (!shouldEnableMobileFeatures()) {
-      console.log('🔋 [PageVisibilityManager] Desktop detected - page visibility management disabled');
+      log.debug('Utils', '🔋 [PageVisibilityManager] Desktop detected - page visibility management disabled');
       this.initialized = true; // Mark as initialized but don't set up listeners
       return;
     }
@@ -71,7 +72,7 @@ class PageVisibilityManager {
 
     this.initialized = true;
 
-    console.log('🔋 [PageVisibilityManager] Initialized - managing background activity on mobile device');
+    log.debug('Utils', '🔋 [PageVisibilityManager] Initialized - managing background activity on mobile device');
     
     // Expose to window for debugging
     (window as any).pageVisibilityManager = this;
@@ -88,9 +89,9 @@ class PageVisibilityManager {
     if (!this.isVisible) {
       try {
         activity.pause();
-        console.log(`⏸️ [PageVisibilityManager] Immediately paused ${activity.id} (${activity.type})`);
+        log.debug('Utils', `⏸️ [PageVisibilityManager] Immediately paused ${activity.id} (${activity.type})`);
       } catch (error) {
-        console.warn(`⚠️ [PageVisibilityManager] Failed to pause ${activity.id}:`, error);
+        log.warn('Utils', `⚠️ [PageVisibilityManager] Failed to pause ${activity.id}:`, error);
       }
     }
   }
@@ -102,7 +103,7 @@ class PageVisibilityManager {
     const activity = this.activities.get(id);
     if (activity) {
       this.activities.delete(id);
-      console.log(`🗑️ [PageVisibilityManager] Unregistered ${id}`);
+      log.debug('Utils', `🗑️ [PageVisibilityManager] Unregistered ${id}`);
     }
   }
 
@@ -133,7 +134,7 @@ class PageVisibilityManager {
     this.isVisible = !document.hidden;
     
     if (wasVisible !== this.isVisible) {
-      console.log(`🔋 [PageVisibilityManager] Page ${this.isVisible ? 'visible' : 'hidden'} - ${this.isVisible ? 'resuming' : 'pausing'} ${this.activities.size} activities`);
+      log.debug('Utils', `🔋 [PageVisibilityManager] Page ${this.isVisible ? 'visible' : 'hidden'} - ${this.isVisible ? 'resuming' : 'pausing'} ${this.activities.size} activities`);
       
       if (this.isVisible) {
         this.resumeAllActivities();
@@ -146,7 +147,7 @@ class PageVisibilityManager {
         try {
           listener(this.isVisible);
         } catch (error) {
-          console.warn('⚠️ [PageVisibilityManager] Listener error:', error);
+          log.warn('Utils', '⚠️ [PageVisibilityManager] Listener error:', error);
         }
       });
     }
@@ -157,7 +158,7 @@ class PageVisibilityManager {
    */
   private handleFocus(): void {
     if (!this.isVisible) {
-      console.log('🔋 [PageVisibilityManager] Window focused - resuming activities');
+      log.debug('Utils', '🔋 [PageVisibilityManager] Window focused - resuming activities');
       this.isVisible = true;
       this.resumeAllActivities();
       this.listeners.forEach(listener => listener(true));
@@ -171,7 +172,7 @@ class PageVisibilityManager {
     // Add small delay to avoid false positives from quick focus changes
     setTimeout(() => {
       if (document.hidden && this.isVisible) {
-        console.log('🔋 [PageVisibilityManager] Window blurred and hidden - pausing activities');
+        log.debug('Utils', '🔋 [PageVisibilityManager] Window blurred and hidden - pausing activities');
         this.isVisible = false;
         this.pauseAllActivities();
         this.listeners.forEach(listener => listener(false));
@@ -189,13 +190,13 @@ class PageVisibilityManager {
       try {
         activity.pause();
         pausedCount++;
-        console.log(`⏸️ [PageVisibilityManager] Paused ${id} (${activity.type})`);
+        log.debug('Utils', `⏸️ [PageVisibilityManager] Paused ${id} (${activity.type})`);
       } catch (error) {
-        console.warn(`⚠️ [PageVisibilityManager] Failed to pause ${id}:`, error);
+        log.warn('Utils', `⚠️ [PageVisibilityManager] Failed to pause ${id}:`, error);
       }
     });
     
-    console.log(`⏸️ [PageVisibilityManager] Paused ${pausedCount}/${this.activities.size} background activities`);
+    log.debug('Utils', `⏸️ [PageVisibilityManager] Paused ${pausedCount}/${this.activities.size} background activities`);
   }
 
   /**
@@ -210,13 +211,13 @@ class PageVisibilityManager {
         try {
           activity.resume();
           resumedCount++;
-          console.log(`▶️ [PageVisibilityManager] Resumed ${id} (${activity.type})`);
+          log.debug('Utils', `▶️ [PageVisibilityManager] Resumed ${id} (${activity.type})`);
         } catch (error) {
-          console.warn(`⚠️ [PageVisibilityManager] Failed to resume ${id}:`, error);
+          log.warn('Utils', `⚠️ [PageVisibilityManager] Failed to resume ${id}:`, error);
         }
       });
       
-      console.log(`▶️ [PageVisibilityManager] Resumed ${resumedCount}/${this.activities.size} background activities`);
+      log.debug('Utils', `▶️ [PageVisibilityManager] Resumed ${resumedCount}/${this.activities.size} background activities`);
     }, 250); // 250ms delay for smooth resume
   }
 
@@ -249,7 +250,7 @@ class PageVisibilityManager {
     this.listeners.clear();
     this.initialized = false;
     
-    console.log('🔋 [PageVisibilityManager] Destroyed');
+    log.debug('Utils', '🔋 [PageVisibilityManager] Destroyed');
   }
 }
 
@@ -260,7 +261,7 @@ function getPageVisibilityManager(): PageVisibilityManager {
   if (!pageVisibilityManagerInstance) {
     // Check disable flag before creating instance
     if (typeof window !== 'undefined' && (window as any).DISABLE_PAGE_VISIBILITY_MANAGER) {
-      console.log('🔧 [PageVisibilityManager] Singleton creation DISABLED - Mobile Event Coordinator is managing events');
+      log.debug('Utils', '🔧 [PageVisibilityManager] Singleton creation DISABLED - Mobile Event Coordinator is managing events');
       // Return a no-op instance
       pageVisibilityManagerInstance = {
         initialize: () => {},
@@ -371,7 +372,7 @@ export function createManagedSubscription(
         try {
           subscription = setupFn();
         } catch (error) {
-          console.warn(`⚠️ [PageVisibilityManager] Failed to resume subscription ${id}:`, error);
+          log.warn('Utils', `⚠️ [PageVisibilityManager] Failed to resume subscription ${id}:`, error);
         }
       }
     }

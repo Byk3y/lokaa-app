@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, memo, useRef } from 'react';
 import { Globe, Lock, Users, Settings, Edit3, ImageUp, UserPlus, Copy, Check, Image as ImageIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -74,7 +75,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   const { totalMembers, adminMembers, onlineMembers, loading: countsLoading } = useSimpleMemberCounts(spaceId || '');
 
   const resolvedCoverUrl = coverImage ? resolveImageUrl(coverImage, spaceName) : null;
-  const spaceUrl = subdomain ? `lokaa.com/${subdomain}` : "lokaa.com/your-space";
+  const spaceUrl = subdomain ? `lokaa.app/${subdomain}` : "lokaa.app/your-space";
 
   // Use passed props for counts, fallback to hook data
   const displayMemberCount = memberCount ?? totalMembers ?? 0;
@@ -85,7 +86,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   const handleOpenSettings = async () => {
     // SECURITY CHECK: Double-verify user has settings access (owner or admin)
     if (!canAccessSettings) {
-      console.error("🚨 SECURITY VIOLATION: User without settings access attempted to open settings", {
+      log.error('Component', "🚨 SECURITY VIOLATION: User without settings access attempted to open settings", {
         userId: user?.id,
         spaceId: spaceId,
         canAccessSettings,
@@ -100,7 +101,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
       await storeActions.loadActiveSpace({ subdomain, spaceId: spaceId }, user.id, false);
       storeActions.openModal(); // Open modal using the new store
     } else {
-      console.warn("Subdomain, SpaceId, or UserID not available for opening settings.");
+      log.warn('Component', "Subdomain, SpaceId, or UserID not available for opening settings.");
       // Optionally, show a toast message to the user
     }
   };
@@ -108,7 +109,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   const handleOpenGeneralSettings = async () => {
     // SECURITY CHECK: Double-verify user has settings access (owner or admin)
     if (!canAccessSettings) {
-      console.error("🚨 SECURITY VIOLATION: User without settings access attempted to open settings", {
+      log.error('Component', "🚨 SECURITY VIOLATION: User without settings access attempted to open settings", {
         userId: user?.id,
         spaceId: spaceId,
         canAccessSettings,
@@ -123,7 +124,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
       await storeActions.loadActiveSpace({ subdomain, spaceId: spaceId }, user.id, false);
       storeActions.openModalToTab("general"); // Open modal to the general tab specifically
     } else {
-      console.warn("Subdomain, SpaceId, or UserID not available for opening settings.");
+      log.warn('Component', "Subdomain, SpaceId, or UserID not available for opening settings.");
       // Optionally, show a toast message to the user
     }
   };

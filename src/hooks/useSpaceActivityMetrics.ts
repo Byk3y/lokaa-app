@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -73,7 +74,7 @@ export const useSpaceActivityMetrics = (spaceId: string, days: number = 30): Act
         .eq('status', 'active');
 
       if (membersError) {
-        console.error('Error fetching total members:', membersError);
+        log.error('Hook', 'Error fetching total members:', membersError);
         setActivityData(prev => ({
           ...prev,
           loading: false,
@@ -102,7 +103,7 @@ export const useSpaceActivityMetrics = (spaceId: string, days: number = 30): Act
       ]);
 
       if (postsResult.error) {
-        console.error('Error fetching posts data:', postsResult.error);
+        log.error('Hook', 'Error fetching posts data:', postsResult.error);
         setActivityData(prev => ({
           ...prev,
           loading: false,
@@ -112,7 +113,7 @@ export const useSpaceActivityMetrics = (spaceId: string, days: number = 30): Act
       }
 
       if (commentsResult.error) {
-        console.error('Error fetching comments data:', commentsResult.error);
+        log.error('Hook', 'Error fetching comments data:', commentsResult.error);
         setActivityData(prev => ({
           ...prev,
           loading: false,
@@ -177,7 +178,7 @@ export const useSpaceActivityMetrics = (spaceId: string, days: number = 30): Act
       lastFetchRef.current = cacheKey;
 
     } catch (error) {
-      console.error('Error in fetchActivityMetrics:', error);
+      log.error('Hook', 'Error in fetchActivityMetrics:', error);
       setActivityData(prev => ({
         ...prev,
         loading: false,

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Utilities for reliable profile page navigation and redirection
  */
@@ -50,7 +51,7 @@ export function parseProfileUrl(url: string): {
     if (oldMatch) {
       const username = oldMatch[1];
       const correctUrl = `/profile/${username}`;
-      console.warn(`parseProfileUrl: Detected old format /@${username}, converting to ${correctUrl}`);
+      log.warn('Utils', `parseProfileUrl: Detected old format /@${username}, converting to ${correctUrl}`);
       return {
         isProfileUrl: true,
         username,
@@ -87,7 +88,7 @@ export function safelyNavigateToProfile(
   username: string
 ): boolean {
   if (!username) {
-    console.warn('safelyNavigateToProfile: Empty username provided');
+    log.warn('Utils', 'safelyNavigateToProfile: Empty username provided');
     return false;
   }
   
@@ -96,12 +97,12 @@ export function safelyNavigateToProfile(
   
   // Check if we've already tried too many times
   if (redirectTracker.recordAttempt(targetUrl)) {
-    console.warn(`Profile redirect loop detected for ${targetUrl}, stopping redirects`);
+    log.warn('Utils', `Profile redirect loop detected for ${targetUrl}, stopping redirects`);
     return false;
   }
   
   // Perform the navigation
-  console.log(`Navigating to profile: ${targetUrl}`);
+  log.debug('Utils', `Navigating to profile: ${targetUrl}`);
   navigate(targetUrl, { replace: true });
   return true;
 }

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { ErrorInfo, ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -24,8 +25,8 @@ export default class WhiteScreenFix extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('🚨 [WhiteScreenFix] React Error Caught:', error);
-    console.error('🚨 [WhiteScreenFix] Error Info:', errorInfo);
+    log.error('Component', '🚨 [WhiteScreenFix] React Error Caught:', error);
+    log.error('Component', '🚨 [WhiteScreenFix] Error Info:', errorInfo);
     this.setState({ errorInfo });
   }
 
@@ -57,8 +58,8 @@ export default class WhiteScreenFix extends React.Component<Props, State> {
                   </Button>
                   <Button 
                     onClick={() => {
-                      console.log('🔍 [Debug] Error details:', this.state.error);
-                      console.log('🔍 [Debug] Component stack:', this.state.errorInfo?.componentStack);
+                      log.debug('Component', '🔍 [Debug] Error details:', this.state.error);
+                      log.debug('Component', '🔍 [Debug] Component stack:', this.state.errorInfo?.componentStack);
                     }} 
                     variant="ghost"
                     className="w-full text-gray-600 hover:bg-gray-100 dark:text-gray-400"

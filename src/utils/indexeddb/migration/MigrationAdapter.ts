@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Migration Adapter
  * 
@@ -30,7 +31,7 @@ function isRollbackActive(): boolean {
   if (typeof window === 'undefined') return false;
   const rollback = localStorage.getItem('FORCE_LEGACY_INDEXEDDB') === 'true';
   if (rollback) {
-    console.warn('[MigrationAdapter] Legacy rollback requested but legacy bridge removed. Use emergency procedures.');
+    log.warn('Utils', '[MigrationAdapter] Legacy rollback requested but legacy bridge removed. Use emergency procedures.');
   }
   return rollback;
 }
@@ -251,5 +252,5 @@ if (typeof window !== 'undefined') {
     cleanupStalePresence: (spaceId: string) => migrationAdapter.cleanupStalePresence(spaceId)
   };
 
-  console.log('[MigrationAdapter] V2-only interface available at window.migrationAdapter');
+  log.debug('Utils', '[MigrationAdapter] V2-only interface available at window.migrationAdapter');
 } 

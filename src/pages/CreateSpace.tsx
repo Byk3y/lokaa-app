@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -101,7 +102,7 @@ export default function CreateSpace() {
       
       if (accessError) {
         if (process.env.NODE_ENV === 'development') {
-          console.error("Error adding owner access record:", accessError);
+          log.error('Page', "Error adding owner access record:", accessError);
         }
         // We don't throw here since the space was created successfully
         // and the database trigger should have added the access record
@@ -145,7 +146,7 @@ export default function CreateSpace() {
         devLogger.log('SpaceManagement', '✅ Cache verification:', verifyCachedSpace ? 'Space successfully cached' : 'Cache failed');
       } catch (cacheError) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('⚠️ Failed to cache space in localStorage:', cacheError);
+          log.error('Page', '⚠️ Failed to cache space in localStorage:', cacheError);
         }
         // Continue even if caching fails
       }
@@ -163,14 +164,14 @@ export default function CreateSpace() {
           const redirected = await redirectToSpace(navigate, true);
           if (!redirected) {
             if (process.env.NODE_ENV === 'development') {
-              console.warn('⚠️ Direct redirection failed, using hard navigation to space');
+              log.warn('Page', '⚠️ Direct redirection failed, using hard navigation to space');
             }
             navigate(`/space/${newSpace.subdomain}`, { replace: true });
           }
         }, 300);
       } catch (redirectError) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('⚠️ Error using redirectToSpace utility:', redirectError);
+          log.error('Page', '⚠️ Error using redirectToSpace utility:', redirectError);
         }
         
         // Fallback to direct navigation
@@ -182,7 +183,7 @@ export default function CreateSpace() {
       
     } catch (error: unknown) {
       if (process.env.NODE_ENV === 'development') {
-        console.error("Error creating space:", error);
+        log.error('Page', "Error creating space:", error);
       }
       const message = error instanceof Error ? error.message : String(error);
       toast({

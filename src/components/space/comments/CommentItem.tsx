@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, memo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -23,22 +24,39 @@ import { cn } from '@/lib/utils';
 const renderWithMentions = (content: string) => {
   if (!content) return null;
   
-  // Regex to match @ followed by up to 3 words. This is a heuristic.
-  const mentionRegex = /(@[A-Za-z]+(?: [A-Za-z]+){0,2})/g;
-  const parts = content.split(mentionRegex);
+  const mentionRegex = /@[A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)?/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      const beforeText = content.substring(lastIndex, match.index);
+      parts.push({ text: beforeText, isMention: false });
+    }
+    
+    parts.push({ text: match[0], isMention: true });
+    lastIndex = match.index + match[0].length;
+  }
+  
+  if (lastIndex < content.length) {
+    const remainingText = content.substring(lastIndex);
+    parts.push({ text: remainingText, isMention: false });
+  }
+
+  if (parts.length === 0) return content;
 
   return (
     <>
-      {parts.map((part, i) => {
-        if (i % 2 === 1) { // It's a mention
-          return (
-            <span key={i} className="text-blue-600 font-medium">
-              {part}
-            </span>
-          );
-        }
-        return part;
-      })}
+      {parts.map((part, i) => 
+        part.isMention ? (
+          <span key={i} className="text-blue-600 font-medium">
+            {part.text}
+          </span>
+        ) : (
+          <span key={i}>{part.text}</span>
+        )
+      )}
     </>
   );
 };
@@ -146,14 +164,14 @@ const CommentItem: React.FC<CommentItemProps> = ({
   // 🚀 Real-time comment like updates from other users
   const handleRealtimeCommentLikeAdded = useCallback((commentId: string, userId: string) => {
     if (commentId === id) {
-      console.log('🔔 [CommentItem] Real-time comment like added:', { commentId, userId });
+      log.debug('Component', '🔔 [CommentItem] Real-time comment like added:', { commentId, userId });
       setOptimisticLikeCount(prevCount => prevCount + 1);
     }
   }, [id]);
 
   const handleRealtimeCommentLikeRemoved = useCallback((commentId: string, userId: string) => {
     if (commentId === id) {
-      console.log('🔔 [CommentItem] Real-time comment like removed:', { commentId, userId });
+      log.debug('Component', '🔔 [CommentItem] Real-time comment like removed:', { commentId, userId });
       setOptimisticLikeCount(prevCount => Math.max(0, prevCount - 1));
     }
   }, [id]);
@@ -200,7 +218,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error toggling like:', error);
+      log.error('Component', 'Error toggling like:', error);
       setOptimisticLiked(!newLikedState);
       setOptimisticLikeCount(newLikedState ? optimisticLikeCount - 1 : optimisticLikeCount + 1);
       toast({
@@ -242,7 +260,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
       setAdditionalReplies(additionalFetched);
       setShowMoreReplies(true);
     } catch (error) {
-      console.error(`Error loading additional replies for ${id}:`, error);
+      log.error('Component', `Error loading additional replies for ${id}:`, error);
     } finally {
       setIsLoadingMoreReplies(false);
     }
@@ -256,7 +274,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         const fetched = await fetchRepliesHook(id);
         setLoadedReplies(fetched);
       } catch (error) {
-        console.error(`Error in CommentItem loading replies for ${id}:`, error);
+        log.error('Component', `Error in CommentItem loading replies for ${id}:`, error);
       } finally {
         setIsLoadingReplies(false);
       }

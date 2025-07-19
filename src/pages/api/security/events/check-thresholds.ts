@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { NextApiRequest, NextApiResponse } from 'next';
 
@@ -21,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .throwOnError();
 
     if (countError) {
-      console.error('Failed to get event counts:', countError);
+      log.error('Page', 'Failed to get event counts:', countError);
       return res.status(500).json({ error: 'Failed to get event counts' });
     }
 
@@ -43,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
 
         if (alertError) {
-          console.error('Failed to create alert:', alertError);
+          log.error('Page', 'Failed to create alert:', alertError);
           continue;
         }
 
@@ -57,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ alerts });
   } catch (error) {
-    console.error('Error checking thresholds:', error);
+    log.error('Page', 'Error checking thresholds:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 } 

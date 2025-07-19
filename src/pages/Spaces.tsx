@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { SpaceCard } from "@/components/spaces/SpaceCard";
 import { getSupabaseClient } from "@/integrations/supabase/client";
@@ -51,7 +52,7 @@ export default function Spaces() {
 
         setSpaces(spacesWithDefaultCount as SpaceWithMemberCount[]);
       } catch (err: unknown) {
-        console.error("Error fetching spaces:", err);
+        log.error('Page', "Error fetching spaces:", err);
         const message = err instanceof Error ? err.message : "Failed to load spaces";
         setError(message);
       } finally {

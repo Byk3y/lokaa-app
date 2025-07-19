@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 SIMPLE MEMBER COUNTS SYSTEM
  * 
@@ -36,7 +37,7 @@ const activeMemberCountInstances = new Map<string, boolean>();
 
 const debugMemberCounts = (message: string, data: any) => {
   if (process.env.NODE_ENV === 'development') {
-    console.log(`🔢 [SimpleMemberCounts] ${message}:`, {
+    log.debug('Hook', `🔢 [SimpleMemberCounts] ${message}:`, {
       ...data,
       timestamp: new Date().toISOString()
     });
@@ -84,7 +85,7 @@ export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
         .eq('status', 'active');
 
       if (error) {
-        console.error('Error fetching member counts:', error);
+        log.error('Hook', 'Error fetching member counts:', error);
         if (mountedRef.current) {
           setCounts(prev => ({ ...prev, loading: false }));
         }
@@ -125,7 +126,7 @@ export const useSimpleMemberCounts = (spaceId: string): MemberCounts => {
         }
       }
     } catch (error) {
-      console.error('Error in fetchCounts:', error);
+      log.error('Hook', 'Error in fetchCounts:', error);
       if (mountedRef.current) {
         setCounts(prev => ({ ...prev, loading: false }));
       }

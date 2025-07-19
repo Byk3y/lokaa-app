@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📱 Install Prompt Component - Phase 6A PWA
  * 
@@ -48,7 +49,7 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({
         });
       }
     } catch (error) {
-      console.error('Install failed:', error);
+      log.error('Component', 'Install failed:', error);
       toast({
         title: "Installation Failed",
         description: "Unable to install the app. Please try again.",

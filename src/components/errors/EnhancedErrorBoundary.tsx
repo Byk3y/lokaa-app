@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🛡️ Enhanced Error Boundary - Phase 4 Error Handling
  * 
@@ -51,7 +52,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('🚨 [EnhancedErrorBoundary] Error caught:', error, errorInfo);
+    log.error('Component', '🚨 [EnhancedErrorBoundary] Error caught:', error, errorInfo);
 
     // Classify the error using our error handling system
     const appError = errorHandlingSystem.classifyError(error, {
@@ -102,13 +103,13 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
         this.setState({ isRecovering: false });
       }
     } catch (recoveryError) {
-      console.error('Recovery attempt failed:', recoveryError);
+      log.error('Component', 'Recovery attempt failed:', recoveryError);
       this.setState({ isRecovering: false });
     }
   };
 
   private handleRetry = (): void => {
-    console.log('🔄 [EnhancedErrorBoundary] Retrying after error...');
+    log.debug('Component', '🔄 [EnhancedErrorBoundary] Retrying after error...');
     
     this.setState(prevState => ({
       hasError: false,

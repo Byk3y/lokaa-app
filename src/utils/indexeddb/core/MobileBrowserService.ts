@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Mobile Browser Detection Service
  * 
@@ -27,7 +28,7 @@ export class MobileBrowserService implements IMobileBrowserService {
   setupMobileDetection(): void {
     // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
     if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_BROWSER_SERVICE) {
-      console.log('🔧 [MobileBrowserService] DISABLED - Mobile Event Coordinator is managing events');
+      log.debug('Utils', '🔧 [MobileBrowserService] DISABLED - Mobile Event Coordinator is managing events');
       return;
     }
     
@@ -56,7 +57,7 @@ export class MobileBrowserService implements IMobileBrowserService {
       (window as any).__mobileBackgroundState = this.mobileBackgroundState;
     }
 
-    console.log('[MobileBrowserService] Mobile detection setup completed');
+    log.debug('Utils', '[MobileBrowserService] Mobile detection setup completed');
   }
 
   /**
@@ -142,7 +143,7 @@ export class MobileBrowserService implements IMobileBrowserService {
     const env = this.detectEnvironment();
     
     if (env.isMobile) {
-      console.log('[MobileBrowserService] Mobile user returned from background - checking for blocking');
+      log.debug('Utils', '[MobileBrowserService] Mobile user returned from background - checking for blocking');
       
       // Set flag for potential blocking
       this.mobileBackgroundState = true;
@@ -169,7 +170,7 @@ export class MobileBrowserService implements IMobileBrowserService {
     const env = this.detectEnvironment();
     
     if (env.isMobile) {
-      console.log('[MobileBrowserService] Mobile user went to background');
+      log.debug('Utils', '[MobileBrowserService] Mobile user went to background');
       // Could implement additional background handling here
     }
   }
@@ -202,7 +203,7 @@ export class MobileBrowserService implements IMobileBrowserService {
     if (typeof window !== 'undefined') {
       (window as any).__mobileBackgroundState = true;
     }
-    console.log('[MobileBrowserService] Cache-first mode forced');
+    log.debug('Utils', '[MobileBrowserService] Cache-first mode forced');
   }
 
   /**
@@ -213,7 +214,7 @@ export class MobileBrowserService implements IMobileBrowserService {
     if (typeof window !== 'undefined') {
       (window as any).__mobileBackgroundState = false;
     }
-    console.log('[MobileBrowserService] Cache-first mode cleared');
+    log.debug('Utils', '[MobileBrowserService] Cache-first mode cleared');
   }
 
   /**
@@ -263,7 +264,7 @@ export class MobileBrowserService implements IMobileBrowserService {
       delete (window as any).__mobileBackgroundState;
     }
 
-    console.log('[MobileBrowserService] Cleanup completed');
+    log.debug('Utils', '[MobileBrowserService] Cleanup completed');
   }
 
   /**
@@ -300,7 +301,7 @@ export const mobileBrowserService = new Proxy({} as MobileBrowserService, {
     // Check disable flag on EVERY method/property access
     if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_BROWSER_SERVICE) {
       // Return no-op functions for disabled state
-      if (prop === 'setupMobileDetection') return () => console.log('🔧 [MobileBrowserService] setupMobileDetection DISABLED - Mobile Event Coordinator is managing events');
+      if (prop === 'setupMobileDetection') return () => log.debug('Utils', '🔧 [MobileBrowserService] setupMobileDetection DISABLED - Mobile Event Coordinator is managing events');
       if (prop === 'detectEnvironment') return () => ({
         isMobile: false,
         userAgent: '',

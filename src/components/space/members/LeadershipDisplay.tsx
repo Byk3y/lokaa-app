@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState } from 'react';
 import { DisplayMember } from '@/components/space/MembersTab'; 
 import { MemberRole } from '@/types/members';
@@ -53,25 +54,25 @@ const AdminOwnerCard: React.FC<{
 
   const handleChatClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log(`🗨️ [LeadershipDisplay] Chat button clicked for member:`, member.user_id, member.full_name);
+    log.debug('Component', `🗨️ [LeadershipDisplay] Chat button clicked for member:`, member.user_id, member.full_name);
     
     if (!onChatClick) {
-      console.warn('🗨️ [LeadershipDisplay] No onChatClick function provided');
+      log.warn('Component', '🗨️ [LeadershipDisplay] No onChatClick function provided');
       return;
     }
     
     if (isStartingChat) {
-      console.log('🗨️ [LeadershipDisplay] Chat already starting, ignoring click');
+      log.debug('Component', '🗨️ [LeadershipDisplay] Chat already starting, ignoring click');
       return;
     }
     
     setIsStartingChat(true);
     try {
-      console.log('🗨️ [LeadershipDisplay] Calling onChatClick function...');
+      log.debug('Component', '🗨️ [LeadershipDisplay] Calling onChatClick function...');
       await onChatClick(member);
-      console.log('🗨️ [LeadershipDisplay] onChatClick completed successfully');
+      log.debug('Component', '🗨️ [LeadershipDisplay] onChatClick completed successfully');
     } catch (error) {
-      console.error('🗨️ [LeadershipDisplay] Error in chat click handler:', error);
+      log.error('Component', '🗨️ [LeadershipDisplay] Error in chat click handler:', error);
     } finally {
       setIsStartingChat(false);
     }

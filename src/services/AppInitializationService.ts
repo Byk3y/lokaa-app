@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // App Initialization Service - extracted from App.tsx
 // Handles all app initialization logic in a centralized service
 
@@ -99,7 +100,7 @@ export class AppInitializationService {
       result.errors.push(errorMessage);
       result.success = false;
       if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [AppInitialization] Initialization failed:', error);
+        log.error('Service', '❌ [AppInitialization] Initialization failed:', error);
       }
     }
 
@@ -119,7 +120,7 @@ export class AppInitializationService {
       const message = 'Supabase initialization failed';
       result.errors.push(message);
       if (process.env.NODE_ENV === 'development') {
-        console.error('❌ [AppInitialization]', message, error);
+        log.error('Service', '❌ [AppInitialization]', message, error);
       }
     }
   }

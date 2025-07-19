@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Chat API Service
  * 
@@ -93,7 +94,7 @@ export class ChatApiService {
     options: { forceNetwork?: boolean } = {}
   ): Promise<ApiResponse<Conversation[]>> {
     try {
-      console.log('[ChatApiService] 📱 Using V2 adapter for user:', userId);
+      log.debug('Service', '[ChatApiService] 📱 Using V2 adapter for user:', userId);
       
       // Use the adapter to get data through V2 system with proper format transformation
       const result = await chatApiServiceAdapter.getUserConversations(userId, {
@@ -101,23 +102,23 @@ export class ChatApiService {
       });
         
       if (result.error) {
-        console.error('[ChatApiService] V2 adapter error:', result.error);
+        log.error('Service', '[ChatApiService] V2 adapter error:', result.error);
         throw result.error;
       }
       
-      console.log('[ChatApiService] Data received from V2 adapter:', result.data?.length || 0, 'conversations');
-      console.log('[ChatApiService] Source:', result.fromCache ? 'cache' : 'network', result.reason ? `(${result.reason})` : '');
+      log.debug('Service', '[ChatApiService] Data received from V2 adapter:', result.data?.length || 0, 'conversations');
+      log.debug('Service', '[ChatApiService] Source:', result.fromCache ? 'cache' : 'network', result.reason ? `(${result.reason})` : '');
       
       const transformedData: Conversation[] = (result.data || []).map((record: any) => 
         this.transformConversationRecord(record)
       );
       
-      console.log('[ChatApiService] Transformed data:', transformedData.length, 'conversations');
+      log.debug('Service', '[ChatApiService] Transformed data:', transformedData.length, 'conversations');
       
       return { data: transformedData, error: null };
       
     } catch (error) {
-      console.error('[ChatApiService] Error fetching conversations via V2:', error);
+      log.error('Service', '[ChatApiService] Error fetching conversations via V2:', error);
       return { 
         data: null, 
         error: error instanceof Error ? error : new Error('Failed to fetch conversations')
@@ -135,7 +136,7 @@ export class ChatApiService {
     userId: string
   ): Promise<ApiResponse<Conversation[]>> {
     try {
-      console.log('[ChatApiService] 🖥️ Direct network call for user:', userId);
+      log.debug('Service', '[ChatApiService] 🖥️ Direct network call for user:', userId);
       
       const result = await getSupabaseClient()
         .from('user_conversations')
@@ -144,22 +145,22 @@ export class ChatApiService {
         .order('last_message_at', { ascending: false });
         
       if (result.error) {
-        console.error('[ChatApiService] Database error:', result.error);
+        log.error('Service', '[ChatApiService] Database error:', result.error);
         throw result.error;
       }
       
-      console.log('[ChatApiService] Raw data received:', result.data?.length || 0, 'conversations');
+      log.debug('Service', '[ChatApiService] Raw data received:', result.data?.length || 0, 'conversations');
       
       const transformedData: Conversation[] = (result.data || []).map((record: any) => 
         this.transformConversationRecord(record)
       );
       
-      console.log('[ChatApiService] Transformed data:', transformedData.length, 'conversations');
+      log.debug('Service', '[ChatApiService] Transformed data:', transformedData.length, 'conversations');
       
       return { data: transformedData, error: null };
       
     } catch (error) {
-      console.error('[ChatApiService] Error fetching conversations:', error);
+      log.error('Service', '[ChatApiService] Error fetching conversations:', error);
       return { 
         data: null, 
         error: error instanceof Error ? error : new Error('Failed to fetch conversations')
@@ -207,7 +208,7 @@ export class ChatApiService {
       return { data: transformedMessages, error: null };
       
     } catch (error) {
-      console.error('[ChatApiService] Error fetching messages:', error);
+      log.error('Service', '[ChatApiService] Error fetching messages:', error);
       return { 
         data: null, 
         error: error instanceof Error ? error : new Error('Failed to fetch messages')
@@ -258,7 +259,7 @@ export class ChatApiService {
 
       return { data, error: null };
     } catch (error) {
-      console.error('[ChatApiService] Error sending message:', error);
+      log.error('Service', '[ChatApiService] Error sending message:', error);
       return {
         data: null,
         error: error instanceof Error ? error : new Error('Failed to send message')
@@ -288,7 +289,7 @@ export class ChatApiService {
 
       return { data: undefined, error: null };
     } catch (error) {
-      console.error('[ChatApiService] Error marking conversation as read:', error);
+      log.error('Service', '[ChatApiService] Error marking conversation as read:', error);
       return {
         data: null,
         error: error instanceof Error ? error : new Error('Failed to mark conversation as read')
@@ -359,7 +360,7 @@ export class ChatApiService {
       
       return { data: conversationId, error: null };
     } catch (error) {
-      console.error('[ChatApiService] Error creating conversation:', error);
+      log.error('Service', '[ChatApiService] Error creating conversation:', error);
       return { 
         data: null, 
         error: error instanceof Error ? error : new Error('Failed to create conversation')
@@ -399,7 +400,7 @@ export class ChatApiService {
       return { data: conversation, error: null };
       
     } catch (error) {
-      console.error('[ChatApiService] Error finding conversation by slug:', error);
+      log.error('Service', '[ChatApiService] Error finding conversation by slug:', error);
       return { 
         data: null, 
         error: error instanceof Error ? error : new Error('Failed to find conversation by slug')
@@ -425,7 +426,7 @@ export class ChatApiService {
         participants = Array.isArray(record.participants) ? record.participants : [record.participants];
       }
     } catch (err) {
-      console.error('[ChatApiService] Error parsing participants:', err);
+      log.error('Service', '[ChatApiService] Error parsing participants:', err);
       participants = [];
     }
 
@@ -461,7 +462,7 @@ export class ChatApiService {
       const userResponse = await getProtectedCurrentUser();
       return userResponse?.data?.user || null;
     } catch (error) {
-      console.error('[ChatApiService] Error getting current user:', error);
+      log.error('Service', '[ChatApiService] Error getting current user:', error);
       return null;
     }
   }

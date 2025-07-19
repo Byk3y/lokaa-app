@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Mobile Loading Test Utility
  * 
@@ -23,42 +24,42 @@ class MobileLoadingTest {
     logAccessPatterns?: boolean;
   } = {}) {
     if (this.isRunning) {
-      console.warn('📱 [Test] Test already running. Please wait or call stopTest() first.');
+      log.warn('Utils', '📱 [Test] Test already running. Please wait or call stopTest() first.');
       return;
     }
     
     this.isRunning = true;
-    console.log('📱 [Test] Starting mobile loading test with options:', options);
+    log.debug('Utils', '📱 [Test] Starting mobile loading test with options:', options);
     
     // 1. Enable logging
     if (options.logAccessPatterns) {
       localStorage.setItem('mobile_debug', 'true');
-      console.log('📱 [Test] Enhanced logging enabled');
+      log.debug('Utils', '📱 [Test] Enhanced logging enabled');
     }
     
     // 2. Simulate slow network if requested
     if (options.simulateSlowNetwork) {
       this.applyNetworkDelay();
-      console.log('📱 [Test] Network delay simulation active');
+      log.debug('Utils', '📱 [Test] Network delay simulation active');
     }
     
     // 3. Clear localStorage if requested
     if (options.clearLocalStorage) {
       this.clearCaches();
-      console.log('📱 [Test] Local storage caches cleared');
+      log.debug('Utils', '📱 [Test] Local storage caches cleared');
     }
     
     // 4. Force reload if requested
     if (options.forceReload) {
-      console.log('📱 [Test] Reloading page in 1 second...');
+      log.debug('Utils', '📱 [Test] Reloading page in 1 second...');
       setTimeout(() => {
         window.location.reload();
       }, 1000);
       return;
     }
     
-    console.log('📱 [Test] Test ready. Navigate through the app to observe behavior.');
-    console.log('📱 [Test] Call window.mobileLoadingTest.stopTest() when finished.');
+    log.debug('Utils', '📱 [Test] Test ready. Navigate through the app to observe behavior.');
+    log.debug('Utils', '📱 [Test] Call window.mobileLoadingTest.stopTest() when finished.');
   }
   
   /**
@@ -66,7 +67,7 @@ class MobileLoadingTest {
    */
   stopTest() {
     if (!this.isRunning) {
-      console.warn('📱 [Test] No test is currently running.');
+      log.warn('Utils', '📱 [Test] No test is currently running.');
       return;
     }
     
@@ -77,7 +78,7 @@ class MobileLoadingTest {
     localStorage.removeItem('mobile_debug');
     
     this.isRunning = false;
-    console.log('📱 [Test] Test stopped and normal behavior restored.');
+    log.debug('Utils', '📱 [Test] Test stopped and normal behavior restored.');
   }
   
   /**
@@ -87,7 +88,7 @@ class MobileLoadingTest {
     // Replace fetch with delayed version
     window.fetch = (...args) => {
       const delay = Math.random() * (maxDelay - minDelay) + minDelay;
-      console.log(`📱 [Test] Delaying fetch by ${Math.round(delay)}ms`);
+      log.debug('Utils', `📱 [Test] Delaying fetch by ${Math.round(delay)}ms`);
       
       return new Promise((resolve) => {
         setTimeout(() => {
@@ -125,18 +126,18 @@ class MobileLoadingTest {
    */
   simulateBackgroundCycle(backgroundTimeMs = 5000) {
     if (!this.isRunning) {
-      console.warn('📱 [Test] Please start a test first with runTest()');
+      log.warn('Utils', '📱 [Test] Please start a test first with runTest()');
       return;
     }
     
-    console.log(`📱 [Test] Simulating app going to background for ${backgroundTimeMs}ms`);
+    log.debug('Utils', `📱 [Test] Simulating app going to background for ${backgroundTimeMs}ms`);
     
     // Trigger blur event to simulate backgrounding
     window.dispatchEvent(new Event('blur'));
     
     // Set a timeout to simulate coming back to foreground
     setTimeout(() => {
-      console.log('📱 [Test] Simulating app returning to foreground');
+      log.debug('Utils', '📱 [Test] Simulating app returning to foreground');
       window.dispatchEvent(new Event('focus'));
     }, backgroundTimeMs);
   }

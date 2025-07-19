@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -78,7 +79,7 @@ export default function CreateYourSpace() {
     
     if (!user) {
       if (process.env.NODE_ENV === 'development') {
-        console.error("No authenticated user found");
+        log.error('Page', "No authenticated user found");
       }
       toast({
         title: "Error",
@@ -90,7 +91,7 @@ export default function CreateYourSpace() {
     
     if (!spaceName.trim()) {
       if (process.env.NODE_ENV === 'development') {
-        console.error("Space name is empty");
+        log.error('Page', "Space name is empty");
       }
       toast({
         title: "Error",
@@ -120,13 +121,13 @@ export default function CreateYourSpace() {
         
       if (checkError && !checkError.message.includes("No rows found")) {
         if (process.env.NODE_ENV === 'development') {
-          console.error("Error checking for existing space:", checkError);
+          log.error('Page', "Error checking for existing space:", checkError);
         }
       }
       
       if (existingSpace) {
         if (process.env.NODE_ENV === 'development') {
-          console.error("Space with this slug already exists:", existingSpace);
+          log.error('Page', "Space with this slug already exists:", existingSpace);
         }
         toast({
           title: "Space name already taken",
@@ -157,7 +158,7 @@ export default function CreateYourSpace() {
           
         if (funcError) {
           if (process.env.NODE_ENV === 'development') {
-            console.warn("[CreateSpace] Admin function attempt failed:", funcError);
+            log.warn('Page', "[CreateSpace] Admin function attempt failed:", funcError);
           }
           throw funcError; // Move to direct insert attempt
         }
@@ -189,7 +190,7 @@ export default function CreateYourSpace() {
             
           if (insertError) {
             if (process.env.NODE_ENV === 'development') {
-              console.warn("[CreateSpace] Standard insert failed:", insertError);
+              log.warn('Page', "[CreateSpace] Standard insert failed:", insertError);
             }
             throw insertError; // Move to minimal fields attempt
           }
@@ -271,7 +272,7 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
               }
             } else if (insertError) {
               if (process.env.NODE_ENV === 'development') {
-                console.error("[CreateSpace] All attempts failed:", insertError);
+                log.error('Page', "[CreateSpace] All attempts failed:", insertError);
               }
               throw insertError;
             } else if (data) {
@@ -282,7 +283,7 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
           } catch (thirdAttemptError) {
             if (!creationSuccess) { // Only throw if not already successful
               if (process.env.NODE_ENV === 'development') {
-                console.error("[CreateSpace] All attempts failed:", thirdAttemptError);
+                log.error('Page', "[CreateSpace] All attempts failed:", thirdAttemptError);
               }
               throw thirdAttemptError;
             }
@@ -321,7 +322,7 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
       }
     } catch (error: unknown) {
       if (process.env.NODE_ENV === 'development') {
-        console.error("Error creating space:", error);
+        log.error('Page', "Error creating space:", error);
       }
       
       // Provide more specific error messages based on error type
@@ -338,7 +339,7 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
         } else if (error.message.includes("violates not-null constraint")) {
           errorMessage = "Missing required information. Please check console for details.";
           if (process.env.NODE_ENV === 'development') {
-            console.error("Missing field error:", error.message);
+            log.error('Page', "Missing field error:", error.message);
           }
         } 
         // Check for a 'code' property, common in Supabase errors
@@ -389,7 +390,7 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
       }, 1500);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.error("Error clearing cache:", error);
+        log.error('Page', "Error clearing cache:", error);
       }
       toast({
         title: "Error",
@@ -456,7 +457,7 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
           </div>
           
           <div className="mt-8 text-gray-500">
-            help@lokaa.com
+            help@lokaa.app
           </div>
           
           {/* Troubleshooting section */}

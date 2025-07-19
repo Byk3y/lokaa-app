@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -54,7 +55,7 @@ export default function ProfileComments({ userId }: ProfileCommentsProps) {
         } else if (typeof (error as PostgrestError)?.message === 'string') {
           errorMessage = (error as PostgrestError).message;
         }
-        console.error('Error fetching comments:', error);
+        log.error('Component', 'Error fetching comments:', error);
         toast({
           title: "Error loading comments",
           description: errorMessage,

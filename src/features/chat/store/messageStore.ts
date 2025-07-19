@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Message Store
  * 
@@ -97,7 +98,7 @@ export const useMessageStore = create<MessageStore>()(
       fetchMessages: async (conversationId: string) => {
         const { loadingMessages } = get();
         if (loadingMessages[conversationId]) {
-          console.log('[MessageStore] Already loading messages for conversation:', conversationId);
+          log.debug('App', '[MessageStore] Already loading messages for conversation:', conversationId);
           return;
         }
 
@@ -125,9 +126,9 @@ export const useMessageStore = create<MessageStore>()(
             lastUpdate: Date.now()
           }));
 
-          console.log('[MessageStore] Fetched messages for conversation:', conversationId, result.data?.length || 0);
+          log.debug('App', '[MessageStore] Fetched messages for conversation:', conversationId, result.data?.length || 0);
         } catch (error) {
-          console.error('[MessageStore] Error fetching messages:', error);
+          log.error('App', '[MessageStore] Error fetching messages:', error);
           set(state => ({
             loadingMessages: {
               ...state.loadingMessages,
@@ -144,7 +145,7 @@ export const useMessageStore = create<MessageStore>()(
         const currentUser = await chatApiService.getCurrentUser();
         if (!currentUser) {
           const error = new Error('No authenticated user found');
-          console.error('[MessageStore] Failed to send message:', error);
+          log.error('App', '[MessageStore] Failed to send message:', error);
           set({ error: error.message });
           return;
         }
@@ -165,7 +166,7 @@ export const useMessageStore = create<MessageStore>()(
           // Replace optimistic message with real message
           get().confirmOptimisticMessage(tempId, result.data!);
           
-          console.log('[MessageStore] Message sent successfully:', result.data?.id);
+          log.debug('App', '[MessageStore] Message sent successfully:', result.data?.id);
           
           // ✅ CRITICAL FIX: Update conversation list with the new latest message
           try {
@@ -182,10 +183,10 @@ export const useMessageStore = create<MessageStore>()(
             // Reorder conversations to show this one at the top
             conversationStore.reorderConversations();
             
-            console.log('[MessageStore] ✅ Updated conversation list with new message:', sentMessage.content?.substring(0, 50) + '...');
+            log.debug('App', '[MessageStore] ✅ Updated conversation list with new message:', sentMessage.content?.substring(0, 50) + '...');
             
             // ✅ CRITICAL FIX: Force urgent refresh to ensure database sync
-            console.log('[MessageStore] 🚨 URGENT: Forcing conversation list refresh after sending message');
+            log.debug('App', '[MessageStore] 🚨 URGENT: Forcing conversation list refresh after sending message');
             await conversationStore.fetchConversations(currentUser.id, { 
               forceNetwork: true, 
               urgent: true 
@@ -193,7 +194,7 @@ export const useMessageStore = create<MessageStore>()(
             
             // ✅ NUCLEAR OPTION: Force React re-render by manually triggering state change
             setTimeout(() => {
-              console.log('[MessageStore] 🔄 Nuclear option: Forcing conversation store state update');
+              log.debug('App', '[MessageStore] 🔄 Nuclear option: Forcing conversation store state update');
               const currentState = useConversationStore.getState();
               useConversationStore.setState({
                 ...currentState,
@@ -216,10 +217,10 @@ export const useMessageStore = create<MessageStore>()(
             }));
             
           } catch (storeError) {
-            console.warn('[MessageStore] Failed to update conversation store after sending message:', storeError);
+            log.warn('App', '[MessageStore] Failed to update conversation store after sending message:', storeError);
           }
         } catch (error) {
-          console.error('[MessageStore] Failed to send message:', error);
+          log.error('App', '[MessageStore] Failed to send message:', error);
           
           // Mark optimistic message as failed
           get().markOptimisticMessageFailed(tempId);
@@ -253,7 +254,7 @@ export const useMessageStore = create<MessageStore>()(
             throw result.error;
           }
           
-          console.log('[MessageStore] Marked conversation as read:', conversationId);
+          log.debug('App', '[MessageStore] Marked conversation as read:', conversationId);
           
           // ✅ CRITICAL FIX: Update conversation store to reflect read status
           try {
@@ -265,9 +266,9 @@ export const useMessageStore = create<MessageStore>()(
             // ✅ CRITICAL FIX: Force refresh to get latest data from database
             await conversationStore.refreshConversations(currentUser.id, { forceNetwork: true });
             
-            console.log('[MessageStore] ✅ Updated conversation list after marking as read:', conversationId);
+            log.debug('App', '[MessageStore] ✅ Updated conversation list after marking as read:', conversationId);
           } catch (storeError) {
-            console.warn('[MessageStore] Failed to update conversation store:', storeError);
+            log.warn('App', '[MessageStore] Failed to update conversation store:', storeError);
           }
           
           // ✅ CRITICAL FIX: Dispatch event to notify other components  
@@ -279,7 +280,7 @@ export const useMessageStore = create<MessageStore>()(
           }));
           
         } catch (error) {
-          console.error('[MessageStore] Error marking as read:', error);
+          log.error('App', '[MessageStore] Error marking as read:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to mark as read' });
         }
       },
@@ -338,7 +339,7 @@ export const useMessageStore = create<MessageStore>()(
           const currentUser = await chatApiService.getCurrentUser();
           
           if (!currentUser) {
-            console.warn('[MessageStore] No current user found for optimistic message');
+            log.warn('App', '[MessageStore] No current user found for optimistic message');
             return tempId;
           }
 
@@ -371,7 +372,7 @@ export const useMessageStore = create<MessageStore>()(
           }));
 
         } catch (error) {
-          console.error('[MessageStore] Failed to add optimistic message:', error);
+          log.error('App', '[MessageStore] Failed to add optimistic message:', error);
         }
 
         return tempId;
@@ -474,7 +475,7 @@ export const useMessageStore = create<MessageStore>()(
 
         for (const item of retryQueue) {
           if (item.attempts >= maxAttempts) {
-            console.warn('[MessageStore] Max retry attempts reached for message:', item.tempId);
+            log.warn('App', '[MessageStore] Max retry attempts reached for message:', item.tempId);
             get().removeFromRetryQueue(item.tempId);
             continue;
           }
@@ -485,7 +486,7 @@ export const useMessageStore = create<MessageStore>()(
           }
 
           try {
-            console.log('[MessageStore] Retrying failed message:', item.tempId, `attempt ${item.attempts + 1}`);
+            log.debug('App', '[MessageStore] Retrying failed message:', item.tempId, `attempt ${item.attempts + 1}`);
             
             // Get current user for retry
             const currentUser = await chatApiService.getCurrentUser();
@@ -511,9 +512,9 @@ export const useMessageStore = create<MessageStore>()(
             get().removeFromRetryQueue(item.tempId);
             get().confirmOptimisticMessage(item.tempId, result.data!);
             
-            console.log('[MessageStore] Retry successful for message:', item.tempId);
+            log.debug('App', '[MessageStore] Retry successful for message:', item.tempId);
           } catch (error) {
-            console.error('[MessageStore] Retry failed for message:', item.tempId, error);
+            log.error('App', '[MessageStore] Retry failed for message:', item.tempId, error);
             
             // Update retry count and last attempt time
             set(state => ({

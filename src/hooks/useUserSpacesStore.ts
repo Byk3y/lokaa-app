@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -50,7 +51,7 @@ const loadCachedSpaces = (userId: string): UserSpacesState => {
       
       // Use cache if it's less than 30 minutes old (more generous for mobile)
       if (cacheAge < 30 * 60 * 1000 && Array.isArray(parsedCache.spaces)) {
-        console.log(`🚀 [UserSpacesStore] Loaded ${parsedCache.spaces.length} spaces from localStorage cache`);
+        log.debug('Hook', `🚀 [UserSpacesStore] Loaded ${parsedCache.spaces.length} spaces from localStorage cache`);
         return {
           spaces: parsedCache.spaces,
           loading: false,
@@ -61,7 +62,7 @@ const loadCachedSpaces = (userId: string): UserSpacesState => {
       }
     }
   } catch (error) {
-    console.warn('[UserSpacesStore] Error loading cached spaces:', error);
+    log.warn('Hook', '[UserSpacesStore] Error loading cached spaces:', error);
   }
   
   return {
@@ -80,7 +81,7 @@ const saveCachedSpaces = (userId: string, spaces: Space[], lastFetchTime: number
     };
     localStorage.setItem(`${STORAGE_KEY}_${userId}`, JSON.stringify(cacheData));
   } catch (error) {
-    console.warn('[UserSpacesStore] Error saving spaces to cache:', error);
+    log.warn('Hook', '[UserSpacesStore] Error saving spaces to cache:', error);
   }
 };
 
@@ -108,11 +109,11 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
       if (cachedState.spaces.length > 0 && !forceRefresh) {
         const cacheAge = now - cachedState.lastFetchTime;
         if (cacheAge < CACHE_TTL) {
-          console.log('🚀 [UserSpacesStore] Using fresh cached data, skipping fetch');
+          log.debug('Hook', '🚀 [UserSpacesStore] Using fresh cached data, skipping fetch');
           return;
         }
         // Cache is stale but exists, do background refresh
-        console.log('🔄 [UserSpacesStore] Cached data is stale, background refresh');
+        log.debug('Hook', '🔄 [UserSpacesStore] Cached data is stale, background refresh');
       }
     }
     
@@ -121,7 +122,7 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
         state.userId === userId && 
         state.spaces.length > 0 && 
         now - state.lastFetchTime < CACHE_TTL) {
-      console.log('🚀 [UserSpacesStore] Using cached spaces data');
+      log.debug('Hook', '🚀 [UserSpacesStore] Using cached spaces data');
       return;
     }
 
@@ -137,7 +138,7 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
       set({ loading: true, error: null });
     } else {
       // Background refresh - don't show loading state
-      console.log('🔄 [UserSpacesStore] Background refresh of spaces data');
+      log.debug('Hook', '🔄 [UserSpacesStore] Background refresh of spaces data');
     }
 
     try {
@@ -148,7 +149,7 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
         .eq('owner_id', userId);
 
       if (ownedError) {
-        console.error('[UserSpacesStore] Error fetching owned spaces:', ownedError);
+        log.error('Hook', '[UserSpacesStore] Error fetching owned spaces:', ownedError);
       }
 
       // Fetch spaces the user has access to via space_members table
@@ -162,7 +163,7 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
         .returns<SpaceMemberRecord[]>();
 
       if (memberError) {
-        console.error('[UserSpacesStore] Error fetching joined spaces:', memberError);
+        log.error('Hook', '[UserSpacesStore] Error fetching joined spaces:', memberError);
       }
 
       const ownedSpacesArray = ownedSpaces || [];
@@ -176,7 +177,7 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
 
       const allSpaces = Array.from(allSpacesMap.values());
       
-      console.log(`✅ [UserSpacesStore] Fetched ${allSpaces.length} spaces for user`);
+      log.debug('Hook', `✅ [UserSpacesStore] Fetched ${allSpaces.length} spaces for user`);
       
       // MOBILE OPTIMIZATION: Save to localStorage cache
       saveCachedSpaces(userId, allSpaces, now);
@@ -189,7 +190,7 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
         userId,
       });
     } catch (error) {
-      console.error('[UserSpacesStore] Error fetching user spaces:', error);
+      log.error('Hook', '[UserSpacesStore] Error fetching user spaces:', error);
       set({
         loading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch spaces',
@@ -203,14 +204,14 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
     if (state.userId !== userId) {
       const cachedState = loadCachedSpaces(userId);
       if (cachedState.spaces.length > 0) {
-        console.log(`🚀 [UserSpacesStore] Preloaded ${cachedState.spaces.length} spaces from cache`);
+        log.debug('Hook', `🚀 [UserSpacesStore] Preloaded ${cachedState.spaces.length} spaces from cache`);
         set(cachedState);
         
         // Start background refresh if cache is stale
         const now = Date.now();
         const cacheAge = now - cachedState.lastFetchTime;
         if (cacheAge > STALE_THRESHOLD) {
-          console.log('🔄 [UserSpacesStore] Preloaded cache is stale, starting background refresh');
+          log.debug('Hook', '🔄 [UserSpacesStore] Preloaded cache is stale, starting background refresh');
           // Use setTimeout to avoid blocking the login flow
           setTimeout(() => {
             get().fetchUserSpaces(userId);
@@ -221,20 +222,20 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
   },
 
   clearCache: () => {
-    console.log('🗑️ [UserSpacesStore] Clearing spaces cache');
+    log.debug('Hook', '🗑️ [UserSpacesStore] Clearing spaces cache');
     const state = get();
     if (state.userId) {
       try {
         localStorage.removeItem(`${STORAGE_KEY}_${state.userId}`);
       } catch (error) {
-        console.warn('[UserSpacesStore] Error clearing localStorage cache:', error);
+        log.warn('Hook', '[UserSpacesStore] Error clearing localStorage cache:', error);
       }
     }
     set(initialState);
   },
 
   invalidateCache: () => {
-    console.log('♻️ [UserSpacesStore] Invalidating spaces cache');
+    log.debug('Hook', '♻️ [UserSpacesStore] Invalidating spaces cache');
     set(state => ({ ...state, lastFetchTime: 0 }));
   },
 
@@ -248,7 +249,7 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
 setInterval(() => {
   const state = useUserSpacesStore.getState();
   if (Date.now() - state.lastFetchTime > CACHE_TTL + (5 * 60 * 1000)) {
-    console.log('🧹 [UserSpacesStore] Auto-cleanup: clearing stale cache');
+    log.debug('Hook', '🧹 [UserSpacesStore] Auto-cleanup: clearing stale cache');
     state.clearCache();
   }
 }, 15 * 60 * 1000);

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Global Cache Coordinator
  * 
@@ -400,7 +401,7 @@ class GlobalCacheCoordinator {
    * **CRITICAL SECURITY FIX**: Clear all cache entries (called on logout)
    */
   clearAll(): void {
-    console.log('🧹 [GlobalCacheCoordinator] SECURITY: Clearing all cache entries for user logout');
+    log.debug('Utils', '🧹 [GlobalCacheCoordinator] SECURITY: Clearing all cache entries for user logout');
     
     // Cancel all active queries
     this.activeQueries.clear();
@@ -430,10 +431,8 @@ export const clearGlobalCache = () => {
 
 // Make it available for debugging
 if (typeof window !== 'undefined') {
-  (window as any).globalCache = {
-    ...globalCache,
-    clearAll: clearGlobalCache
-  };
+  (window as any).globalCache = globalCache;
+  (window as any).clearGlobalCache = clearGlobalCache;
 }
 
 /**

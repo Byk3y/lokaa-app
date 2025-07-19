@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 UNIFIED MEMBER COUNTS HOOK
  * 
@@ -51,7 +52,7 @@ export function useSpaceMemberCounts(spaceId: string | undefined): MemberCounts 
     const fetchCounts = async () => {
       try {
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔢 [MemberCounts] Fetching counts for space', spaceId);
+          log.debug('Hook', '🔢 [MemberCounts] Fetching counts for space', spaceId);
         }
         
         const supabase = getSupabaseClient();
@@ -61,7 +62,7 @@ export function useSpaceMemberCounts(spaceId: string | undefined): MemberCounts 
         if (error) throw error;
 
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔢 [MemberCounts] Successfully fetched counts:', data);
+          log.debug('Hook', '🔢 [MemberCounts] Successfully fetched counts:', data);
         }
         
         setCounts({
@@ -72,7 +73,7 @@ export function useSpaceMemberCounts(spaceId: string | undefined): MemberCounts 
           error: null
         });
       } catch (err) {
-        console.error('Failed to fetch member counts:', err);
+        log.error('Hook', 'Failed to fetch member counts:', err);
         setCounts(prev => ({ 
           ...prev, 
           loading: false,
@@ -93,7 +94,7 @@ export function useSpaceMemberCounts(spaceId: string | undefined): MemberCounts 
         filter: `space_id=eq.${spaceId}`
       }, () => {
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔢 [MemberCounts] Members updated, refreshing counts');
+          log.debug('Hook', '🔢 [MemberCounts] Members updated, refreshing counts');
         }
         fetchCounts();
       })

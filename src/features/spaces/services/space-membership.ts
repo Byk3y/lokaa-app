@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space membership service
  * Handles joining spaces and updating cache for memberships
@@ -25,7 +26,7 @@ export async function updateLastJoinedSpace(spaceId: string, userId: string): Pr
       .maybeSingle();
 
     if (error || !space) {
-      console.error('Error fetching space data for lastJoinedSpace update:', error);
+      log.error('Service', 'Error fetching space data for lastJoinedSpace update:', error);
       return;
     }
 
@@ -38,14 +39,14 @@ export async function updateLastJoinedSpace(spaceId: string, userId: string): Pr
 
     setLastJoinedSpace(cacheEntry);
     
-    console.log('Updated lastJoinedSpace cache for user joining space:', {
+    log.debug('Service', 'Updated lastJoinedSpace cache for user joining space:', {
       userId,
       spaceId,
       spaceName: space.name,
       subdomain: space.subdomain,
     });
   } catch (error) {
-    console.error('Exception updating lastJoinedSpace:', error);
+    log.error('Service', 'Exception updating lastJoinedSpace:', error);
   }
 }
 
@@ -67,13 +68,13 @@ export async function joinSpace(spaceId: string, userId: string): Promise<boolea
       .maybeSingle();
 
     if (spaceError || !space) {
-      console.error('Error fetching space for join operation:', spaceError);
+      log.error('Service', 'Error fetching space for join operation:', spaceError);
       return false;
     }
 
     // Check if user is already the owner
     if (space.owner_id === userId) {
-      console.log('User already owns this space, updating cache only');
+      log.debug('Service', 'User already owns this space, updating cache only');
       
       // Cache as visited space since they own it
       cacheSpaceForRedirection(space, userId);
@@ -90,7 +91,7 @@ export async function joinSpace(spaceId: string, userId: string): Promise<boolea
       .maybeSingle();
 
     if (existingMember?.status === 'active') {
-      console.log('User already has active membership to this space');
+      log.debug('Service', 'User already has active membership to this space');
       
       // Update cache since they joined
       await updateLastJoinedSpace(spaceId, userId);
@@ -106,11 +107,11 @@ export async function joinSpace(spaceId: string, userId: string): Promise<boolea
         .eq('id', existingMember.id);
 
       if (updateError) {
-        console.error('Error reactivating space membership:', updateError);
+        log.error('Service', 'Error reactivating space membership:', updateError);
         return false;
       }
 
-      console.log('Reactivated existing space membership');
+      log.debug('Service', 'Reactivated existing space membership');
     } else {
       // Create new space membership record
       const { error: insertError } = await getSupabaseClient()
@@ -124,11 +125,11 @@ export async function joinSpace(spaceId: string, userId: string): Promise<boolea
         });
 
       if (insertError) {
-        console.error('Error creating space membership record:', insertError);
+        log.error('Service', 'Error creating space membership record:', insertError);
         return false;
       }
 
-      console.log('Created new space membership record');
+      log.debug('Service', 'Created new space membership record');
     }
 
     // Update cache for the newly joined space
@@ -136,7 +137,7 @@ export async function joinSpace(spaceId: string, userId: string): Promise<boolea
 
     return true;
   } catch (error) {
-    console.error('Exception in joinSpace:', error);
+    log.error('Service', 'Exception in joinSpace:', error);
     return false;
   }
 }
@@ -158,7 +159,7 @@ export async function leaveSpace(spaceId: string, userId: string): Promise<boole
       .maybeSingle();
 
     if (space?.owner_id === userId) {
-      console.error('Space owners cannot leave their own spaces');
+      log.error('Service', 'Space owners cannot leave their own spaces');
       return false;
     }
 
@@ -170,14 +171,14 @@ export async function leaveSpace(spaceId: string, userId: string): Promise<boole
       .eq('space_id', spaceId);
 
     if (error) {
-      console.error('Error leaving space:', error);
+      log.error('Service', 'Error leaving space:', error);
       return false;
     }
 
-    console.log('Successfully left space:', spaceId);
+    log.debug('Service', 'Successfully left space:', spaceId);
     return true;
   } catch (error) {
-    console.error('Exception in leaveSpace:', error);
+    log.error('Service', 'Exception in leaveSpace:', error);
     return false;
   }
 }
@@ -213,7 +214,7 @@ export async function isSpaceMember(spaceId: string, userId: string): Promise<bo
 
     return !!member;
   } catch (error) {
-    console.error('Error checking space membership:', error);
+    log.error('Service', 'Error checking space membership:', error);
     return false;
   }
 }
@@ -233,13 +234,13 @@ export async function getSpaceMembers(spaceId: string): Promise<string[]> {
       .eq('status', 'active');
 
     if (error) {
-      console.error('Error fetching space members:', error);
+      log.error('Service', 'Error fetching space members:', error);
       return [];
     }
 
     return (members || []).map(member => member.user_id);
   } catch (error) {
-    console.error('Exception fetching space members:', error);
+    log.error('Service', 'Exception fetching space members:', error);
     return [];
   }
 } 

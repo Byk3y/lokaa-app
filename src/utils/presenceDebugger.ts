@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Presence System Debugger
  * Utility functions to test and debug the unified presence system
@@ -21,13 +22,13 @@ export class PresenceDebugger {
    * Test basic presence functionality
    */
   public async testPresenceBasics(spaceId: string, userId: string): Promise<void> {
-    console.log('🧪 [PresenceDebugger] Testing basic presence functionality...');
+    log.debug('Utils', '🧪 [PresenceDebugger] Testing basic presence functionality...');
     
     try {
       const supabase = getSupabaseClient();
       
       // Test 1: Update presence
-      console.log('📝 Test 1: Updating presence...');
+      log.debug('Utils', '📝 Test 1: Updating presence...');
       const { error: updateError } = await supabase
         .from('user_presence')
         .upsert({
@@ -38,13 +39,13 @@ export class PresenceDebugger {
         });
       
       if (updateError) {
-        console.error('❌ Test 1 failed:', updateError);
+        log.error('Utils', '❌ Test 1 failed:', updateError);
       } else {
-        console.log('✅ Test 1 passed: Presence updated successfully');
+        log.debug('Utils', '✅ Test 1 passed: Presence updated successfully');
       }
       
       // Test 2: Query presence
-      console.log('📝 Test 2: Querying presence...');
+      log.debug('Utils', '📝 Test 2: Querying presence...');
       const { data: presenceData, error: queryError } = await supabase
         .from('user_presence')
         .select('*')
@@ -52,14 +53,14 @@ export class PresenceDebugger {
         .eq('is_online', true);
       
       if (queryError) {
-        console.error('❌ Test 2 failed:', queryError);
+        log.error('Utils', '❌ Test 2 failed:', queryError);
       } else {
-        console.log('✅ Test 2 passed:', presenceData?.length, 'online users found');
-        console.log('📊 Online users:', presenceData);
+        log.debug('Utils', '✅ Test 2 passed:', presenceData?.length, 'online users found');
+        log.debug('Utils', '📊 Online users:', presenceData);
       }
       
       // Test 3: Test realtime subscription
-      console.log('📝 Test 3: Testing realtime subscription...');
+      log.debug('Utils', '📝 Test 3: Testing realtime subscription...');
       const channel = supabase
         .channel(`presence-test-${spaceId}`)
         .on('postgres_changes', {
@@ -68,23 +69,23 @@ export class PresenceDebugger {
           table: 'user_presence',
           filter: `space_id=eq.${spaceId}`
         }, (payload) => {
-          console.log('🔄 Realtime presence change:', payload);
+          log.debug('Utils', '🔄 Realtime presence change:', payload);
         })
         .subscribe((status) => {
-          console.log('📡 Subscription status:', status);
+          log.debug('Utils', '📡 Subscription status:', status);
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Test 3 passed: Realtime subscription active');
+            log.debug('Utils', '✅ Test 3 passed: Realtime subscription active');
             
             // Clean up after 5 seconds
             setTimeout(() => {
               channel.unsubscribe();
-              console.log('🧹 Test subscription cleaned up');
+              log.debug('Utils', '🧹 Test subscription cleaned up');
             }, 5000);
           }
         });
       
     } catch (error) {
-      console.error('❌ Presence test failed:', error);
+      log.error('Utils', '❌ Presence test failed:', error);
     }
   }
   
@@ -110,7 +111,7 @@ export class PresenceDebugger {
         .order('last_seen', { ascending: false });
       
       if (error) {
-        console.error('❌ Failed to get presence state:', error);
+        log.error('Utils', '❌ Failed to get presence state:', error);
         return null;
       }
       
@@ -133,11 +134,11 @@ export class PresenceDebugger {
         }))
       };
       
-      console.log('📊 Current presence state:', state);
+      log.debug('Utils', '📊 Current presence state:', state);
       return state;
       
     } catch (error) {
-      console.error('❌ Error getting presence state:', error);
+      log.error('Utils', '❌ Error getting presence state:', error);
       return null;
     }
   }
@@ -159,8 +160,8 @@ if (typeof window !== 'undefined') {
     return presenceDebugger.getPresenceState(spaceId);
   };
   
-  console.log('🧪 Presence debugger loaded. Available functions:');
-  console.log('  - testPresence(spaceId, userId)');
-  console.log('  - getPresenceState(spaceId)');
-  console.log('  - getUnifiedPresenceState() (from unified system)');
+  log.debug('Utils', '🧪 Presence debugger loaded. Available functions:');
+  log.debug('Utils', '  - testPresence(spaceId, userId)');
+  log.debug('Utils', '  - getPresenceState(spaceId)');
+  log.debug('Utils', '  - getUnifiedPresenceState() (from unified system)');
 } 

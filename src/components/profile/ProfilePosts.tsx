@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -27,7 +28,7 @@ export default function ProfilePosts({ userId }: ProfilePostsProps) {
         if (error) throw error;
         setPosts(data || []);
       } catch (error) {
-        console.error('Error fetching posts:', error);
+        log.error('Component', 'Error fetching posts:', error);
         toast({
           title: "Error loading posts",
           description: "Could not load posts for this user.",

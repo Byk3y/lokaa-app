@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Search, Bell, Bookmark } from "lucide-react";
@@ -15,11 +16,11 @@ export default function AppLayout() {
 
   // Debug logging for space preview state
   useEffect(() => {
-    console.log("Space preview state:", { isOpen, spaceId });
+    log.debug('Component', "Space preview state:", { isOpen, spaceId });
   }, [isOpen, spaceId]);
 
   const handleJoinSpace = (spaceId: string) => {
-    console.log("Joining space:", spaceId);
+    log.debug('Component', "Joining space:", spaceId);
     // Navigate to the space join or request access page
     navigate(`/space/join/${spaceId}`);
   };

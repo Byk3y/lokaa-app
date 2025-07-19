@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Enhanced Session-Aware Comment Time Utilities
  * Shows "New comment" for comments posted after user's session start AND within time window
@@ -112,7 +113,7 @@ export function getSimpleCommentInfo(
   
   // Double-check that author exists (safety check)
   if (!mostRecent.author) {
-    console.warn('[CommentUtils] Most recent comment has null author, skipping');
+    log.warn('Utils', '[CommentUtils] Most recent comment has null author, skipping');
     return null;
   }
   

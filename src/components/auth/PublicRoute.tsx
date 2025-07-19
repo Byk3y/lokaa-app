@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
@@ -39,7 +40,7 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
         location.pathname === "/" && 
         (!document.referrer || !document.referrer.includes(window.location.origin));
         
-      console.log('PublicRoute: Navigation check:', {
+      log.debug('Component', 'PublicRoute: Navigation check:', {
         pathname: location.pathname,
         referrer: document.referrer,
         isDirect,
@@ -74,7 +75,7 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
             // 🚀 [Phase 2] More lenient validation for instant navigation
             const isValid = !space.timestamp || (Date.now() - space.timestamp) < (10 * 60 * 1000); // 10 minutes
             if (isValid) {
-              console.log(`🚀 [Phase 2] PublicRoute found cached space: ${space.name}, enabling direct navigation`);
+              log.debug('Component', `🚀 [Phase 2] PublicRoute found cached space: ${space.name}, enabling direct navigation`);
               setHasSpaces(true);
               return;
             }
@@ -91,13 +92,13 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
               if (Array.isArray(spaces) && spaces.length > 0) {
                 const validSpace = spaces.find(s => s && s.subdomain);
                 if (validSpace) {
-                  console.log(`🚀 [Phase 2] PublicRoute found membership data in ${source}, enabling direct navigation`);
+                  log.debug('Component', `🚀 [Phase 2] PublicRoute found membership data in ${source}, enabling direct navigation`);
                   setHasSpaces(true);
                   return;
                 }
               }
             } catch (e) {
-              console.warn(`🚀 [Phase 2] Error parsing ${source}:`, e);
+              log.warn('Component', `🚀 [Phase 2] Error parsing ${source}:`, e);
             }
           }
           
@@ -107,16 +108,16 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
           );
           
           if (spaceKeys.length > 0) {
-            console.log(`🚀 [Phase 2] PublicRoute found space-related data keys: ${spaceKeys.join(', ')}`);
+            log.debug('Component', `🚀 [Phase 2] PublicRoute found space-related data keys: ${spaceKeys.join(', ')}`);
             setHasSpaces(true);
             return;
           }
           
           // No valid space data found
-          console.log('🚀 [Phase 2] PublicRoute: No space data found, user needs space detection');
+          log.debug('Component', '🚀 [Phase 2] PublicRoute: No space data found, user needs space detection');
           setHasSpaces(false);
         } catch (error) {
-          console.warn('🚀 [Phase 2] PublicRoute: Error checking cached spaces:', error);
+          log.warn('Component', '🚀 [Phase 2] PublicRoute: Error checking cached spaces:', error);
           setHasSpaces(false);
         }
       };
@@ -132,7 +133,7 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
         // Check if we're coming from a sign out to skip verification
         const isSignOutRedirect = sessionStorage.getItem('lokaa-signing-out') === 'true';
         if (isSignOutRedirect) {
-          console.log('PublicRoute: Detected sign out redirect, skipping session verification');
+          log.debug('Component', 'PublicRoute: Detected sign out redirect, skipping session verification');
           sessionStorage.removeItem('lokaa-signing-out');
           setHasActiveSession(false);
           setIsCheckingActiveSession(false);
@@ -142,10 +143,10 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
         setIsCheckingActiveSession(true);
         try {
           const isActive = await checkActiveSession();
-          console.log('PublicRoute: Additional session check result:', isActive);
+          log.debug('Component', 'PublicRoute: Additional session check result:', isActive);
           setHasActiveSession(isActive);
         } catch (error) {
-          console.error('PublicRoute: Error in additional session check:', error);
+          log.error('Component', 'PublicRoute: Error in additional session check:', error);
         } finally {
           setIsCheckingActiveSession(false);
         }
@@ -155,7 +156,7 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
     verifySession();
   }, [location.pathname, user]);
 
-  console.log('🔥 [CRITICAL FIX] PublicRoute Debug:', {
+  log.debug('Component', '🔥 [CRITICAL FIX] PublicRoute Debug:', {
     user: user ? `logged in as ${user.email}` : 'not logged in',
     loading,
     redirectTo,
@@ -171,7 +172,7 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
 
   // 🔥 [CRITICAL FIX] Enhanced loading states to prevent race conditions
   if (loading || isCheckingActiveSession) {
-    console.log('🔥 [CRITICAL FIX] PublicRoute: Auth loading, preventing premature redirects...');
+    log.debug('Component', '🔥 [CRITICAL FIX] PublicRoute: Auth loading, preventing premature redirects...');
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -186,7 +187,7 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
 
   // 🔥 [CRITICAL FIX] Additional safety check for session/user race condition
   if (hasActiveSession && !user && !loading) {
-    console.log('🔥 [CRITICAL FIX] PublicRoute: Session detected but user not loaded yet, waiting...');
+    log.debug('Component', '🔥 [CRITICAL FIX] PublicRoute: Session detected but user not loaded yet, waiting...');
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -201,33 +202,33 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
 
   // 🔥 [CRITICAL FIX] Only navigate if auth is completely loaded
   if (user && !forcePublic && !loading && hasSpaces === true) {
-    console.log('🚀 [Phase 2] PublicRoute: User has cached spaces and auth complete, triggering direct navigation flow');
+    log.debug('Component', '🚀 [Phase 2] PublicRoute: User has cached spaces and auth complete, triggering direct navigation flow');
     return <Navigate to={redirectTo} replace state={{ from: location, directSpaceNavigation: true, skipApp: true }} />;
   }
 
   // 🔥 [CRITICAL FIX] Only navigate if auth is completely loaded
   if (user && !forcePublic && !loading && hasSpaces === false) {
-    console.log('🚀 [Phase 2] PublicRoute: User authenticated and auth complete but no cached spaces, using QuickSpaceRedirect flow');
+    log.debug('Component', '🚀 [Phase 2] PublicRoute: User authenticated and auth complete but no cached spaces, using QuickSpaceRedirect flow');
     return <Navigate to={redirectTo} replace state={{ from: location, needsSpaceDetection: true, useQuickRedirect: true }} />;
   }
 
   // If direct navigation to root, show landing page only if user is NOT logged in
   if (isDirectNavigation && location.pathname === "/" && !user) {
-    console.log('PublicRoute: Direct navigation to root by unauthenticated user, showing landing page');
+    log.debug('Component', 'PublicRoute: Direct navigation to root by unauthenticated user, showing landing page');
     return <>{component}</>;
   }
 
   // ✅ CRITICAL FIX: Handle back button navigation gracefully
   // If user navigated back to root, respect their choice and show landing page
   if (isBackNavigation && user && !forcePublic && !loading) {
-    console.log('🚀 [Phase 2] PublicRoute: Back navigation detected, showing landing page (user can navigate manually)');
+    log.debug('Component', '🚀 [Phase 2] PublicRoute: Back navigation detected, showing landing page (user can navigate manually)');
     // Don't auto-redirect on back navigation - let user choose where to go
     return <>{component}</>;
   }
 
   // 🔥 [CRITICAL FIX] Only redirect if we have BOTH user AND complete auth loading
   if (user && !forcePublic && !loading && !isBackNavigation) {
-    console.log('🚀 [Phase 2] PublicRoute: User is authenticated and auth loading complete, triggering smart redirect system:', redirectTo);
+    log.debug('Component', '🚀 [Phase 2] PublicRoute: User is authenticated and auth loading complete, triggering smart redirect system:', redirectTo);
     // Use replace to prevent flashing of content
     return <Navigate to={redirectTo} replace state={{ from: location, smartRedirect: true }} />;
   }
@@ -235,16 +236,16 @@ export default function PublicRoute({ component, redirectTo = "/app", forcePubli
   // 🔥 [CRITICAL FIX] Do NOT redirect on session alone - wait for user object
   // This prevents the infinite loop between PublicRoute and ProtectedRoute
   if (location.pathname === "/" && hasActiveSession && !forcePublic && !isDirectNavigation && user && !loading) {
-    console.log('🚀 [Phase 2] PublicRoute: Active session detected with complete user, triggering smart redirect system:', redirectTo);
+    log.debug('Component', '🚀 [Phase 2] PublicRoute: Active session detected with complete user, triggering smart redirect system:', redirectTo);
     return <Navigate to={redirectTo} replace state={{ from: location, sessionDetected: true }} />;
   }
 
   // If there's an active session but forcePublic is true, don't redirect but warn about it
   if ((user || (location.pathname === "/" && hasActiveSession)) && forcePublic && location.pathname === "/") {
-    console.warn('PublicRoute: User is authenticated but showing public content due to forcePublic flag');
+    log.warn('Component', 'PublicRoute: User is authenticated but showing public content due to forcePublic flag');
   }
 
   // If user is not authenticated or we're forcing public view, show the public content
-  console.log('PublicRoute: Showing public content');
+  log.debug('Component', 'PublicRoute: Showing public content');
   return <>{component}</>;
 } 

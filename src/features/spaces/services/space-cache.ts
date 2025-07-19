@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space caching service for localStorage operations
  * Manages user space preferences and navigation hints
@@ -24,7 +25,7 @@ export const getLastJoinedSpace = (): SpaceCacheEntry | null => {
     const parsed = JSON.parse(cached);
     return parsed && parsed.subdomain ? parsed : null;
   } catch (error) {
-    console.warn('Error reading lastJoinedSpace:', error);
+    log.warn('Service', 'Error reading lastJoinedSpace:', error);
     return null;
   }
 };
@@ -40,7 +41,7 @@ export const getLastCreatedSpace = (): SpaceCacheEntry | null => {
     const parsed = JSON.parse(cached);
     return parsed && parsed.subdomain ? parsed : null;
   } catch (error) {
-    console.warn('Error reading lastCreatedSpace:', error);
+    log.warn('Service', 'Error reading lastCreatedSpace:', error);
     return null;
   }
 };
@@ -56,7 +57,7 @@ export const getLastVisitedSpace = (): SpaceCacheEntry | null => {
     const parsed = JSON.parse(cached);
     return parsed && parsed.subdomain ? parsed : null;
   } catch (error) {
-    console.warn('Error reading lastVisitedSpace:', error);
+    log.warn('Service', 'Error reading lastVisitedSpace:', error);
     return null;
   }
 };
@@ -71,9 +72,9 @@ export const setLastJoinedSpace = (space: SpaceCacheEntry): void => {
       joinedAt: new Date().toISOString(),
     };
     localStorage.setItem(CACHE_KEYS.LAST_JOINED, JSON.stringify(cacheEntry));
-    console.log('Updated last joined space:', cacheEntry);
+    log.debug('Service', 'Updated last joined space:', cacheEntry);
   } catch (error) {
-    console.error('Error setting lastJoinedSpace:', error);
+    log.error('Service', 'Error setting lastJoinedSpace:', error);
   }
 };
 
@@ -88,9 +89,9 @@ export const setLastCreatedSpace = (space: SpaceCacheEntry, userId?: string): vo
       created_at: new Date().toISOString(),
     };
     localStorage.setItem(CACHE_KEYS.LAST_CREATED, JSON.stringify(cacheEntry));
-    console.log('Updated last created space:', cacheEntry);
+    log.debug('Service', 'Updated last created space:', cacheEntry);
   } catch (error) {
-    console.error('Error setting lastCreatedSpace:', error);
+    log.error('Service', 'Error setting lastCreatedSpace:', error);
   }
 };
 
@@ -105,9 +106,9 @@ export const setLastVisitedSpace = (space: SpaceCacheEntry): void => {
     };
     localStorage.setItem(CACHE_KEYS.LAST_VISITED, JSON.stringify(cacheEntry));
     localStorage.setItem(CACHE_KEYS.SELECTED_SPACE_ID, space.id);
-    console.log('Updated last visited space:', cacheEntry);
+    log.debug('Service', 'Updated last visited space:', cacheEntry);
   } catch (error) {
-    console.error('Error setting lastVisitedSpace:', error);
+    log.error('Service', 'Error setting lastVisitedSpace:', error);
   }
 };
 
@@ -132,9 +133,9 @@ export const cacheSpaceForRedirection = (space: SpaceRedirectData, userId?: stri
       }, userId);
     }
     
-    console.log('Successfully cached space for future redirections');
+    log.debug('Service', 'Successfully cached space for future redirections');
   } catch (error) {
-    console.warn('Error caching space for redirection:', error);
+    log.warn('Service', 'Error caching space for redirection:', error);
   }
 };
 
@@ -145,9 +146,9 @@ export const clearCacheEntry = (key: keyof typeof CACHE_KEYS): void => {
   try {
     const cacheKey = CACHE_KEYS[key];
     localStorage.removeItem(cacheKey);
-    console.log(`Cleared cache entry: ${cacheKey}`);
+    log.debug('Service', `Cleared cache entry: ${cacheKey}`);
   } catch (error) {
-    console.error(`Error clearing cache entry ${key}:`, error);
+    log.error('Service', `Error clearing cache entry ${key}:`, error);
   }
 };
 
@@ -159,9 +160,9 @@ export const clearAllSpaceCache = (): void => {
     Object.values(CACHE_KEYS).forEach(key => {
       localStorage.removeItem(key);
     });
-    console.log('Cleared all space cache entries');
+    log.debug('Service', 'Cleared all space cache entries');
   } catch (error) {
-    console.error('Error clearing all space cache:', error);
+    log.error('Service', 'Error clearing all space cache:', error);
   }
 };
 

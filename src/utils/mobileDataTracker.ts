@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Mobile Data Tracker
  * 
@@ -46,7 +47,7 @@ class MobileDataTracker {
       metadata
     });
     
-    console.log(`📱 [Mobile] ${component} accessed ${source}: ${data?.id || 'null'}`);
+    log.debug('Utils', `📱 [Mobile] ${component} accessed ${source}: ${data?.id || 'null'}`);
   }
   
   trackUpdate(component: string, source: 'storeSpace' | 'contextSpace' | 'currentSpaceData', data: any, metadata?: Record<string, any>) {
@@ -62,7 +63,7 @@ class MobileDataTracker {
       metadata
     });
     
-    console.log(`📱 [Mobile] ${component} updated ${source}: ${data?.id || 'null'}`);
+    log.debug('Utils', `📱 [Mobile] ${component} updated ${source}: ${data?.id || 'null'}`);
   }
   
   trackClear(component: string, source: 'storeSpace' | 'contextSpace' | 'currentSpaceData', metadata?: Record<string, any>) {
@@ -78,7 +79,7 @@ class MobileDataTracker {
       metadata
     });
     
-    console.log(`📱 [Mobile] ${component} cleared ${source}`);
+    log.debug('Utils', `📱 [Mobile] ${component} cleared ${source}`);
   }
   
   private recordEvent(event: DataAccessEvent) {

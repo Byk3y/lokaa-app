@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Legacy Space Access Fix Utility - Re-export Layer
  * 
@@ -16,7 +17,7 @@ const spaceAccessFix = {
   
   init: function(supabaseClient) {
     if (!env.isDevelopment) {
-      console.warn('Space access fix utility is only available in development mode');
+      log.warn('Utils', 'Space access fix utility is only available in development mode');
       return this;
     }
     
@@ -29,29 +30,29 @@ const spaceAccessFix = {
   // Legacy method - redirects to new service
   checkAccess: async function(spaceSubdomain) {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false, error: 'Not available in production' };
     }
     
-    console.warn('checkAccess is deprecated. Use spaceAccessDebugger.clientSideCheck() instead.');
+    log.warn('Utils', 'checkAccess is deprecated. Use spaceAccessDebugger.clientSideCheck() instead.');
     return await spaceAccessDebugger.clientSideCheck(spaceSubdomain);
   },
   
   // Legacy method - redirects to new service
   checkUserAccess: async function(userId, spaceSubdomain) {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false, error: 'Not available in production' };
     }
     
-    console.warn('checkUserAccess is deprecated. Use spaceAccessDebugger.clientSideCheck() instead.');
+    log.warn('Utils', 'checkUserAccess is deprecated. Use spaceAccessDebugger.clientSideCheck() instead.');
     return await spaceAccessDebugger.clientSideCheck(spaceSubdomain);
   },
   
   // Legacy method - redirects to new service
   clientSideCheck: async function(spaceSubdomain) {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false, error: 'Not available in production' };
     }
     
@@ -61,7 +62,7 @@ const spaceAccessFix = {
   // Legacy method - redirects to new service
   fixAccess: async function(spaceSubdomain) {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Utils', 'Debug functions are only available in development mode');
       return { success: false, error: 'Not available in production' };
     }
     
@@ -70,7 +71,7 @@ const spaceAccessFix = {
   
   // Deprecated method
   createAccessRecord: async function(userId, spaceId) {
-    console.warn('createAccessRecord is disabled due to space_members migration.');
+    log.warn('Utils', 'createAccessRecord is disabled due to space_members migration.');
     return { success: false, error: 'Function disabled due to space_members migration.' };
   }
 };

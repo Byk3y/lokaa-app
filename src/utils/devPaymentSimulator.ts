@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Development Payment Simulator
  * 
@@ -42,7 +43,7 @@ export class DevPaymentSimulator {
    */
   static async grantPaidAccess(userId: string, spaceId: string): Promise<boolean> {
     if (!this.isDevMode()) {
-      console.warn('Payment simulator only available in development mode');
+      log.warn('Utils', 'Payment simulator only available in development mode');
       return false;
     }
 
@@ -95,7 +96,7 @@ export class DevPaymentSimulator {
 
       return true;
     } catch (error) {
-      console.error('Error granting paid access:', error);
+      log.error('Utils', 'Error granting paid access:', error);
       toast({
         title: "Error",
         description: "Failed to grant paid access",
@@ -110,7 +111,7 @@ export class DevPaymentSimulator {
    */
   static async startTrial(userId: string, spaceId: string, trialDays: number = 7): Promise<boolean> {
     if (!this.isDevMode()) {
-      console.warn('Payment simulator only available in development mode');
+      log.warn('Utils', 'Payment simulator only available in development mode');
       return false;
     }
 
@@ -142,7 +143,7 @@ export class DevPaymentSimulator {
 
       return result;
     } catch (error) {
-      console.error('Error starting trial:', error);
+      log.error('Utils', 'Error starting trial:', error);
       return false;
     }
   }
@@ -152,7 +153,7 @@ export class DevPaymentSimulator {
    */
   static async cancelSubscription(userId: string, spaceId: string): Promise<boolean> {
     if (!this.isDevMode()) {
-      console.warn('Payment simulator only available in development mode');
+      log.warn('Utils', 'Payment simulator only available in development mode');
       return false;
     }
 
@@ -183,7 +184,7 @@ export class DevPaymentSimulator {
 
       return true;
     } catch (error) {
-      console.error('Error cancelling subscription:', error);
+      log.error('Utils', 'Error cancelling subscription:', error);
       return false;
     }
   }
@@ -193,7 +194,7 @@ export class DevPaymentSimulator {
    */
   static async expireSubscription(userId: string, spaceId: string): Promise<boolean> {
     if (!this.isDevMode()) {
-      console.warn('Payment simulator only available in development mode');
+      log.warn('Utils', 'Payment simulator only available in development mode');
       return false;
     }
 
@@ -227,7 +228,7 @@ export class DevPaymentSimulator {
 
       return true;
     } catch (error) {
-      console.error('Error expiring subscription:', error);
+      log.error('Utils', 'Error expiring subscription:', error);
       return false;
     }
   }
@@ -237,7 +238,7 @@ export class DevPaymentSimulator {
    */
   static async revokeAccess(userId: string, spaceId: string): Promise<boolean> {
     if (!this.isDevMode()) {
-      console.warn('Payment simulator only available in development mode');
+      log.warn('Utils', 'Payment simulator only available in development mode');
       return false;
     }
 
@@ -268,7 +269,7 @@ export class DevPaymentSimulator {
 
       return true;
     } catch (error) {
-      console.error('Error revoking access:', error);
+      log.error('Utils', 'Error revoking access:', error);
       return false;
     }
   }
@@ -308,7 +309,7 @@ export class DevPaymentSimulator {
    */
   static async resetSpaceSimulation(spaceId: string): Promise<void> {
     if (!this.isDevMode()) {
-      console.warn('Payment simulator only available in development mode');
+      log.warn('Utils', 'Payment simulator only available in development mode');
       return;
     }
 

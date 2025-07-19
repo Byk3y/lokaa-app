@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space Access Recovery Service
  * 
@@ -100,13 +101,13 @@ async function getSpaceBySubdomain(subdomain: string): Promise<SpaceRow | null> 
       .maybeSingle<SpaceRow>();
     
     if (error && error.code !== 'PGRST116') {
-      console.error("Error fetching space:", error);
+      log.error('Service', "Error fetching space:", error);
       return null;
     }
     
     return data;
   } catch (error) {
-    console.error("Exception fetching space:", error);
+    log.error('Service', "Exception fetching space:", error);
     return null;
   }
 }
@@ -116,7 +117,7 @@ async function getSpaceBySubdomain(subdomain: string): Promise<SpaceRow | null> 
  */
 async function alternativeSpaceLookup(subdomain: string): Promise<SpaceRow | null> {
   try {
-    console.log("Attempting alternative space lookup for:", subdomain);
+    log.debug('Service', "Attempting alternative space lookup for:", subdomain);
     
     // Try using the RPC function if available
     const { data: rpcData, error: rpcError } = await getSupabaseClient()
@@ -128,7 +129,7 @@ async function alternativeSpaceLookup(subdomain: string): Promise<SpaceRow | nul
     
     return null;
   } catch (error) {
-    console.error("Alternative lookup failed:", error);
+    log.error('Service', "Alternative lookup failed:", error);
     return null;
   }
 }
@@ -142,7 +143,7 @@ export async function createSpaceMembership(spaceId: string, role: string = 'mem
     // Get current user
     const { data: { user } } = await getSupabaseClient().auth.getUser();
     if (!user) {
-      console.error("Not authenticated");
+      log.error('Service', "Not authenticated");
       return { success: false, error: new Error("Not authenticated") };
     }
     
@@ -157,14 +158,14 @@ export async function createSpaceMembership(spaceId: string, role: string = 'mem
       });
       
     if (error && error.code !== '23505') { // Ignore duplicate key errors
-      console.error("Error creating membership record:", error);
+      log.error('Service', "Error creating membership record:", error);
       return { success: false, error };
     }
     
-    console.log("Space membership created for user", user.id, "to space", spaceId);
+    log.debug('Service', "Space membership created for user", user.id, "to space", spaceId);
     return { success: true, message: "Space membership granted successfully" };
   } catch (error) {
-    console.error("Error creating space membership:", error);
+    log.error('Service', "Error creating space membership:", error);
     return { 
       success: false, 
       error: error instanceof Error ? error : new Error(String(error)) 
@@ -192,14 +193,14 @@ export async function removeSpaceMembership(spaceId: string): Promise<AccessReco
       .eq('user_id', user.id);
       
     if (error) {
-      console.error("Error removing membership:", error);
+      log.error('Service', "Error removing membership:", error);
       return { success: false, error };
     }
     
-    console.log("Space membership removed for user", user.id, "from space", spaceId);
+    log.debug('Service', "Space membership removed for user", user.id, "from space", spaceId);
     return { success: true, message: "Space membership removed successfully" };
   } catch (error) {
-    console.error("Error removing space membership:", error);
+    log.error('Service', "Error removing space membership:", error);
     return { 
       success: false, 
       error: error instanceof Error ? error : new Error(String(error)) 
@@ -224,14 +225,14 @@ export async function updateMembershipStatus(spaceId: string, status: 'active' |
       .eq('user_id', user.id);
       
     if (error) {
-      console.error("Error updating membership status:", error);
+      log.error('Service', "Error updating membership status:", error);
       return { success: false, error };
     }
     
-    console.log("Membership status updated for user", user.id, "in space", spaceId, "to", status);
+    log.debug('Service', "Membership status updated for user", user.id, "in space", spaceId, "to", status);
     return { success: true, message: `Membership status updated to ${status}` };
   } catch (error) {
-    console.error("Error updating membership status:", error);
+    log.error('Service', "Error updating membership status:", error);
     return { 
       success: false, 
       error: error instanceof Error ? error : new Error(String(error)) 
@@ -343,7 +344,7 @@ export async function checkCurrentSpaceAccess(subdomain: string): Promise<CheckA
       .maybeSingle<SpaceMemberRow>();
       
     if (smError && smError.code !== 'PGRST116') {
-      console.error("Error fetching space_members record:", smError);
+      log.error('Service', "Error fetching space_members record:", smError);
       return { space, isOwner, hasAccess: isOwner, memberRecord: null, membershipRole: (isOwner ? 'owner' : null), membershipStatus: (isOwner ? 'active' : null), user: currentUser };
     }
     
@@ -366,7 +367,7 @@ export async function checkCurrentSpaceAccess(subdomain: string): Promise<CheckA
 
     return { space, isOwner, hasAccess, memberRecord, membershipRole, membershipStatus, user: currentUser };
   } catch (err) {
-    console.error("Error checking current space access:", err);
+    log.error('Service', "Error checking current space access:", err);
     return { space: null, isOwner: false, hasAccess: false, memberRecord: null, membershipRole: null, membershipStatus: null, user: null };
   }
 }
@@ -387,7 +388,7 @@ export async function directSpaceAccessCheck(subdomain: string): Promise<DirectC
     let space: SpaceRow | null = await getSpaceBySubdomain(subdomain);
     if (!space) {
       // Fallback logic for space lookup
-      console.log("Trying alternate space lookup method for directSpaceAccessCheck");
+      log.debug('Service', "Trying alternate space lookup method for directSpaceAccessCheck");
       space = await alternativeSpaceLookup(subdomain);
       
       if (!space) {
@@ -410,7 +411,7 @@ export async function directSpaceAccessCheck(subdomain: string): Promise<DirectC
       .maybeSingle<SpaceMemberRow>();
         
     if (smError && smError.code !== 'PGRST116') {
-      console.warn("Error checking space_members records:", smError);
+      log.warn('Service', "Error checking space_members records:", smError);
     }
     
     if (smData) {
@@ -594,7 +595,7 @@ export const removeSpaceAccess = removeSpaceMembership;
  */
 export function prepareSpaceNavigation(space: SpaceRow, pageType: 'space' | 'about' = 'space'): string {
   if (!space || !space.subdomain) {
-    console.error("Invalid space data for navigation:", space);
+    log.error('Service', "Invalid space data for navigation:", space);
     return '/discover';
   }
   
@@ -613,7 +614,7 @@ export function prepareSpaceNavigation(space: SpaceRow, pageType: 'space' | 'abo
       return `/${space.subdomain}`;
     }
   } catch (error) {
-    console.warn('Failed to cache space selection:', error);
+    log.warn('Service', 'Failed to cache space selection:', error);
     // Still return the URL even if caching fails
     return pageType === 'about' ? `/${space.subdomain}/about` : `/${space.subdomain}`;
   }

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Unified Performance Monitor
  * 
@@ -81,7 +82,7 @@ class UnifiedPerformanceMonitor {
   private initialize(): void {
     if (this.isInitialized) return;
     
-    console.log('🔍 [UnifiedPerformance] Lazy initialization starting...');
+    log.debug('Utils', '🔍 [UnifiedPerformance] Lazy initialization starting...');
     
     // Setup paint observer
     if (this.config.enablePaintTracking) {
@@ -105,7 +106,7 @@ class UnifiedPerformanceMonitor {
     this.setupPeriodicReporting();
 
     this.isInitialized = true;
-    console.log('✅ [UnifiedPerformance] Initialization complete');
+    log.debug('Utils', '✅ [UnifiedPerformance] Initialization complete');
   }
 
   /**
@@ -126,7 +127,7 @@ class UnifiedPerformanceMonitor {
 
     // Log significant metrics in development
     if (this.isDevelopment && this.shouldLogMetric(type, value)) {
-      console.log(`📊 [Performance] ${type}: ${value.toFixed(2)}${this.getMetricUnit(type)}`);
+      log.debug('Utils', `📊 [Performance] ${type}: ${value.toFixed(2)}${this.getMetricUnit(type)}`);
     }
   }
 
@@ -165,7 +166,7 @@ class UnifiedPerformanceMonitor {
     this.recordMetric('realtimeEvents', latency);
     
     if (this.isDevelopment && latency > 2000) {
-      console.warn(`🐌 [Performance] Slow realtime event: ${eventType} (${latency.toFixed(0)}ms)`);
+      log.warn('Utils', `🐌 [Performance] Slow realtime event: ${eventType} (${latency.toFixed(0)}ms)`);
     }
   }
 
@@ -178,7 +179,7 @@ class UnifiedPerformanceMonitor {
     this.recordMetric('networkRequests', duration);
     
     if (this.isDevelopment && duration > 3000) {
-      console.warn(`🐌 [Performance] Slow network request: ${url} (${duration.toFixed(0)}ms)`);
+      log.warn('Utils', `🐌 [Performance] Slow network request: ${url} (${duration.toFixed(0)}ms)`);
     }
   }
 
@@ -228,7 +229,7 @@ class UnifiedPerformanceMonitor {
       paintObserver.observe({ entryTypes: ['paint', 'navigation'] });
       this.observers.set('paint', paintObserver);
     } catch (error) {
-      console.warn('[UnifiedPerformance] Paint observer not supported:', error);
+      log.warn('Utils', '[UnifiedPerformance] Paint observer not supported:', error);
     }
   }
 
@@ -257,7 +258,7 @@ class UnifiedPerformanceMonitor {
           this.recordMetric('longTasks', entry.duration);
           
           if (this.isDevelopment && entry.duration > 50) {
-            console.warn(`⏰ [Performance] Long task detected: ${entry.duration.toFixed(0)}ms`);
+            log.warn('Utils', `⏰ [Performance] Long task detected: ${entry.duration.toFixed(0)}ms`);
           }
         });
       });
@@ -265,7 +266,7 @@ class UnifiedPerformanceMonitor {
       longTaskObserver.observe({ entryTypes: ['longtask'] });
       this.observers.set('longtask', longTaskObserver);
     } catch (error) {
-      console.warn('[UnifiedPerformance] Long task observer not supported:', error);
+      log.warn('Utils', '[UnifiedPerformance] Long task observer not supported:', error);
     }
   }
 
@@ -290,7 +291,7 @@ class UnifiedPerformanceMonitor {
     });
 
     import.meta.hot.on('vite:error', (error) => {
-      console.warn('🚨 [Performance] HMR Error detected:', error);
+      log.warn('Utils', '🚨 [Performance] HMR Error detected:', error);
     });
   }
 
@@ -305,7 +306,7 @@ class UnifiedPerformanceMonitor {
       const hasSignificantData = Object.values(summary).some((s: any) => s.count > 0);
       
       if (hasSignificantData) {
-        console.log('📊 [Performance] Periodic Report:', summary);
+        log.debug('Utils', '📊 [Performance] Periodic Report:', summary);
       }
     }, this.config.reportingInterval);
 

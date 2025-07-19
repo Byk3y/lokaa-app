@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSpace } from '@/hooks/useSpace';
@@ -93,9 +94,9 @@ export default function SpaceDebugPage() {
 
       // The rpcResponseData is now correctly typed as DiagnosticResult | null
       setDiagnostic(rpcResponseData);
-      console.log("Diagnostic results:", rpcResponseData);
+      log.debug('Page', "Diagnostic results:", rpcResponseData);
     } catch (err) {
-      console.error("Error running diagnostic:", err);
+      log.error('Page', "Error running diagnostic:", err);
       toast({
         title: "Diagnostic Failed",
         description: err instanceof Error ? err.message : "Unknown error occurred",
@@ -133,7 +134,7 @@ export default function SpaceDebugPage() {
 
       // The fixRpcResponseData is now correctly typed as FixResult | null
       setFixResult(fixRpcResponseData);
-      console.log("Fix results:", fixRpcResponseData);
+      log.debug('Page', "Fix results:", fixRpcResponseData);
 
       if (fixRpcResponseData?.success) {
         toast({
@@ -145,7 +146,7 @@ export default function SpaceDebugPage() {
         runDiagnostic();
       }
     } catch (err) {
-      console.error("Error fixing members:", err);
+      log.error('Page', "Error fixing members:", err);
       toast({
         title: "Fix Failed",
         description: err instanceof Error ? err.message : "Unknown error occurred",

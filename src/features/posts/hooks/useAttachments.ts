@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -80,7 +81,7 @@ export function useAttachments({
       setUploadingFiles(prev => new Map(prev).set(fileId, 0));
       
       try {
-        console.log(`Starting upload for file: ${file.name} (${file.size} bytes)`);
+        log.debug('Hook', `Starting upload for file: ${file.name} (${file.size} bytes)`);
         
         // Generate storage path
         const storagePath = generateStoragePath(spaceId, userId, file.name);
@@ -99,7 +100,7 @@ export function useAttachments({
           });
           
         if (uploadError) {
-          console.error('Upload error:', uploadError);
+          log.error('Hook', 'Upload error:', uploadError);
           throw uploadError;
         }
         
@@ -108,7 +109,7 @@ export function useAttachments({
           .from('post-attachments')
           .getPublicUrl(storagePath);
           
-        console.log(`Upload successful for ${file.name}. Public URL: ${publicUrl}`);
+        log.debug('Hook', `Upload successful for ${file.name}. Public URL: ${publicUrl}`);
         
         // Create attachment with Supabase URL (not blob URL)
         const newAttachment: Attachment = {
@@ -122,7 +123,7 @@ export function useAttachments({
                   isLoading: false 
         };
         
-        console.log('[useAttachments] Created attachment for display:', {
+        log.debug('Hook', '[useAttachments] Created attachment for display:', {
           id: newAttachment.id,
           name: newAttachment.name,
           fileType: newAttachment.fileType,
@@ -135,7 +136,7 @@ export function useAttachments({
         setAttachments(prev => [...prev, newAttachment]);
         
       } catch (error) {
-        console.error('Error uploading file:', error);
+        log.error('Hook', 'Error uploading file:', error);
         
         // Create error attachment to show user what failed
         const errorAttachment: Attachment = {
@@ -217,10 +218,10 @@ export function useAttachments({
           .remove([attachmentToRemove.storagePath]);
           
         if (error) {
-          console.error('Error removing file from storage:', error);
+          log.error('Hook', 'Error removing file from storage:', error);
         }
       } catch (error) {
-        console.error('Error removing file from storage:', error);
+        log.error('Hook', 'Error removing file from storage:', error);
       }
     }
     

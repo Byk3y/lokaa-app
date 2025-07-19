@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -21,7 +22,7 @@ export default function SpaceRedirect() {
   useEffect(() => {
     // Prevent infinite redirect loops
     if (redirectAttempted.current) {
-      console.log('SpaceRedirect: Redirect already attempted, preventing loop');
+      log.debug('Page', 'SpaceRedirect: Redirect already attempted, preventing loop');
       return;
     }
     
@@ -33,7 +34,7 @@ export default function SpaceRedirect() {
     // Check for malformed URLs that could cause routing issues
     const currentPath = location.pathname;
     if (currentPath.includes('/space/space')) {
-      console.warn('SpaceRedirect: Detected malformed URL with /space/space duplication:', currentPath);
+      log.warn('Page', 'SpaceRedirect: Detected malformed URL with /space/space duplication:', currentPath);
       const correctedPath = currentPath.replace(/\/space\/space/g, '/space');
       navigate(correctedPath, { replace: true });
       return;
@@ -42,7 +43,7 @@ export default function SpaceRedirect() {
     // If subdomain is not yet resolved or is the placeholder, wait for a re-render.
     // If auth has loaded and subdomain is still undefined/null (not the placeholder), redirect to discover.
     if (!subdomain || subdomain === ":subdomain") {
-      console.log(`SpaceRedirect: Subdomain ('${subdomain}') not yet resolved or is placeholder, waiting or redirecting...`);
+      log.debug('Page', `SpaceRedirect: Subdomain ('${subdomain}') not yet resolved or is placeholder, waiting or redirecting...`);
       if (subdomain === ":subdomain") {
         return; // Wait for router to provide the actual subdomain
       }
@@ -53,7 +54,7 @@ export default function SpaceRedirect() {
 
     // Validate subdomain format to prevent problematic routing
     if (subdomain && (subdomain === 'space' || subdomain.includes('/') || subdomain.length < 1)) {
-      console.warn('SpaceRedirect: Invalid subdomain format detected:', subdomain);
+      log.warn('Page', 'SpaceRedirect: Invalid subdomain format detected:', subdomain);
       setError('Invalid URL format');
       return;
     }
@@ -62,7 +63,7 @@ export default function SpaceRedirect() {
     redirectAttempted.current = true;
     
     if (!subdomain) {
-      console.log('SpaceRedirect: No subdomain, redirecting to discover');
+      log.debug('Page', 'SpaceRedirect: No subdomain, redirecting to discover');
       navigate('/discover', { replace: true });
       return;
     }
@@ -70,16 +71,16 @@ export default function SpaceRedirect() {
     // Handle profile URLs (starting with @)
     if (subdomain.startsWith('@')) {
       const profileUrl = subdomain.substring(1);
-      console.log('SpaceRedirect Profile Check: current location.pathname:', JSON.stringify(location.pathname));
-      console.log('SpaceRedirect Profile Check: constructed path:', JSON.stringify(`/profile/${profileUrl}`));
-      console.log('SpaceRedirect Profile Check: subdomain:', JSON.stringify(subdomain));
+      log.debug('Page', 'SpaceRedirect Profile Check: current location.pathname:', JSON.stringify(location.pathname));
+      log.debug('Page', 'SpaceRedirect Profile Check: constructed path:', JSON.stringify(`/profile/${profileUrl}`));
+      log.debug('Page', 'SpaceRedirect Profile Check: subdomain:', JSON.stringify(subdomain));
 
       if (location.pathname === `/profile/${profileUrl}`) {
-        console.log('SpaceRedirect: Already on profile route, effect is returning (no navigation).');
+        log.debug('Page', 'SpaceRedirect: Already on profile route, effect is returning (no navigation).');
         return;
       }
 
-      console.log(`SpaceRedirect: Detected profile URL @${profileUrl}, redirecting to /profile/${profileUrl} via router`);
+      log.debug('Page', `SpaceRedirect: Detected profile URL @${profileUrl}, redirecting to /profile/${profileUrl} via router`);
       navigate(`/profile/${profileUrl}`, { replace: true });
       return;
     }
@@ -87,20 +88,20 @@ export default function SpaceRedirect() {
     // Regular space routing
     try {
       if (user) {
-        console.log(`SpaceRedirect: Redirecting to space root: /${subdomain}/space`);
+        log.debug('Page', `SpaceRedirect: Redirecting to space root: /${subdomain}/space`);
         navigate(`/${subdomain}/space`, { replace: true });
       } else {
-        console.log(`SpaceRedirect: Redirecting to space about: /${subdomain}/about`);
+        log.debug('Page', `SpaceRedirect: Redirecting to space about: /${subdomain}/about`);
         navigate(`/${subdomain}/about`, { replace: true });
       }
     } catch (err) {
-      console.error('SpaceRedirect: Error during navigation:', err);
+      log.error('Page', 'SpaceRedirect: Error during navigation:', err);
       setError('Navigation error. Please try refreshing the page.');
     }
   }, [subdomain, user, loading, navigate, location.pathname]);
   
   if (subdomain && subdomain.startsWith('@') && location.pathname === `/profile/${subdomain.substring(1)}`) {
-    console.log('SpaceRedirect: Render check - on correct profile page, rendering null.');
+    log.debug('Page', 'SpaceRedirect: Render check - on correct profile page, rendering null.');
     return null;
   }
 
@@ -140,7 +141,7 @@ export function SpaceRedirectWithValidation() {
   
   // If subdomain is empty, undefined, or just whitespace, redirect to root
   if (!subdomain || subdomain.trim() === '') {
-    console.log('SpaceRedirectWithValidation: Empty subdomain detected, redirecting to /');
+    log.debug('Page', 'SpaceRedirectWithValidation: Empty subdomain detected, redirecting to /');
     navigate('/', { replace: true });
     return null;
   }

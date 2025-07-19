@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -73,7 +74,7 @@ const SpaceTabContent = () => {
   
   // DEBUGGING: Log tab determination logic
   if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [SpaceTabContent] Tab determination:', {
+    log.debug('Component', '🔍 [SpaceTabContent] Tab determination:', {
       activeTab,
       extractedTab,
       currentTab,

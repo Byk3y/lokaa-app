@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React from 'react';
 
 /**
@@ -80,7 +81,7 @@ class HMROptimizer {
     }
 
     this.isInitialized = true;
-    console.log('🔥 [HMR Optimizer] Initialized with debouncing and lazy loading');
+    log.debug('Utils', '🔥 [HMR Optimizer] Initialized with debouncing and lazy loading');
   }
 
   /**
@@ -117,7 +118,7 @@ class HMROptimizer {
   ): T {
     // In development, provide additional debugging
     if (process.env.NODE_ENV === 'development' && key) {
-      console.log(`🔧 [HMR] Memoizing ${key} with deps:`, deps);
+      log.debug('Utils', `🔧 [HMR] Memoizing ${key} with deps:`, deps);
     }
 
     return React.useMemo(factory, deps);
@@ -143,7 +144,7 @@ class HMROptimizer {
     }
 
     const LazyComponent = React.lazy(() => {
-      console.log(`🔧 [HMR] Lazy loading ${displayName || 'component'}`);
+      log.debug('Utils', `🔧 [HMR] Lazy loading ${displayName || 'component'}`);
       return importFn();
     });
 
@@ -196,7 +197,7 @@ class HMROptimizer {
       optimizedReloads: 0,
       timesSaved: 0,
     };
-    console.log('🔥 [HMR Optimizer] Metrics reset');
+    log.debug('Utils', '🔥 [HMR Optimizer] Metrics reset');
   }
 
   /**
@@ -204,7 +205,7 @@ class HMROptimizer {
    */
   public enableOptimization(type: keyof HMRConfig): void {
     (this.config as any)[type] = true;
-    console.log(`🔥 [HMR Optimizer] Enabled ${type}`);
+    log.debug('Utils', `🔥 [HMR Optimizer] Enabled ${type}`);
   }
 
   /**
@@ -212,27 +213,27 @@ class HMROptimizer {
    */
   public disableOptimization(type: keyof HMRConfig): void {
     (this.config as any)[type] = false;
-    console.log(`🔥 [HMR Optimizer] Disabled ${type}`);
+    log.debug('Utils', `🔥 [HMR Optimizer] Disabled ${type}`);
   }
 
   /**
    * Test all optimizations
    */
   public testOptimizations(): void {
-    console.log('🔥 [HMR Optimizer] Testing optimizations...');
+    log.debug('Utils', '🔥 [HMR Optimizer] Testing optimizations...');
     
     // Test debouncing
     this.debounceStateUpdate('test', () => {
-      console.log('✅ Debouncing test passed');
+      log.debug('Utils', '✅ Debouncing test passed');
     });
 
     // Test metrics
-    console.log('📊 Current metrics:', this.getMetrics());
+    log.debug('Utils', '📊 Current metrics:', this.getMetrics());
 
     // Test recommendations
-    console.log('💡 Recommendations:', this.getImportOptimizations());
+    log.debug('Utils', '💡 Recommendations:', this.getImportOptimizations());
 
-    console.log('🎉 All HMR optimizations tested successfully!');
+    log.debug('Utils', '🎉 All HMR optimizations tested successfully!');
   }
 }
 
@@ -257,7 +258,7 @@ export const createOptimizedComponent = <P extends object>(
 export const useHMROptimization = (componentName: string) => {
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔧 [HMR] ${componentName} using HMR optimizations`);
+      log.debug('Utils', `🔧 [HMR] ${componentName} using HMR optimizations`);
     }
   }, [componentName]);
 

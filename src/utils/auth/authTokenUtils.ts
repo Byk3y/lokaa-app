@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Centralized Authentication Token Utilities
  * 
@@ -67,7 +68,7 @@ export const clearAllAuthTokens = (preserveSupabaseKeys: boolean = true): string
           clearedKeys.push(key);
         }
       } catch (error) {
-        console.warn(`⚠️ [AuthTokenUtils] Failed to clear key ${key}:`, error);
+        log.warn('Utils', `⚠️ [AuthTokenUtils] Failed to clear key ${key}:`, error);
       }
     });
     
@@ -81,18 +82,18 @@ export const clearAllAuthTokens = (preserveSupabaseKeys: boolean = true): string
               localStorage.removeItem(key);
               clearedKeys.push(key);
             } catch (error) {
-              console.warn(`⚠️ [AuthTokenUtils] Failed to clear Supabase key ${key}:`, error);
+              log.warn('Utils', `⚠️ [AuthTokenUtils] Failed to clear Supabase key ${key}:`, error);
             }
           });
       } catch (error) {
-        console.warn('⚠️ [AuthTokenUtils] Error during Supabase key cleanup:', error);
+        log.warn('Utils', '⚠️ [AuthTokenUtils] Error during Supabase key cleanup:', error);
       }
     }
     
     return clearedKeys;
     
   } catch (error) {
-    console.error('❌ [AuthTokenUtils] Critical error during auth token cleanup:', error);
+    log.error('Utils', '❌ [AuthTokenUtils] Critical error during auth token cleanup:', error);
     return clearedKeys;
   }
 };
@@ -134,7 +135,7 @@ export const validateAuthSession = async (): Promise<AuthValidationResult> => {
     const { data: { session }, error } = await getSupabaseClient().auth.getSession();
     
     if (error) {
-      console.warn('⚠️ [AuthTokenUtils] Session validation error:', error);
+      log.warn('Utils', '⚠️ [AuthTokenUtils] Session validation error:', error);
       return result;
     }
     
@@ -142,13 +143,13 @@ export const validateAuthSession = async (): Promise<AuthValidationResult> => {
     result.isValid = !!session;
     
     if (result.hasInconsistentKeys) {
-      console.warn(`⚠️ [AuthTokenUtils] Found ${result.problematicKeys.length} inconsistent auth keys:`, result.problematicKeys);
+      log.warn('Utils', `⚠️ [AuthTokenUtils] Found ${result.problematicKeys.length} inconsistent auth keys:`, result.problematicKeys);
     }
     
     return result;
     
   } catch (error) {
-    console.error('❌ [AuthTokenUtils] Critical error during session validation:', error);
+    log.error('Utils', '❌ [AuthTokenUtils] Critical error during session validation:', error);
     return result;
   }
 };
@@ -164,13 +165,13 @@ export const isValidAuthSession = async (): Promise<boolean> => {
     const { data: { session }, error } = await getSupabaseClient().auth.getSession();
     
     if (error) {
-      console.warn('⚠️ [AuthTokenUtils] Quick session check error:', error);
+      log.warn('Utils', '⚠️ [AuthTokenUtils] Quick session check error:', error);
       return false;
     }
     
     return !!session;
   } catch (error) {
-    console.error('❌ [AuthTokenUtils] Error during quick session check:', error);
+    log.error('Utils', '❌ [AuthTokenUtils] Error during quick session check:', error);
     return false;
   }
 };
@@ -198,7 +199,7 @@ export const performAuthMigration = async (forceFullCleanup: boolean = false): P
     return postCleanupValidation;
     
   } catch (error) {
-    console.error('❌ [AuthTokenUtils] Critical error during auth migration:', error);
+    log.error('Utils', '❌ [AuthTokenUtils] Critical error during auth migration:', error);
     throw error;
   }
 };
@@ -241,7 +242,7 @@ export const getAuthStorageDiagnostics = () => {
     
     return diagnostics;
   } catch (error) {
-    console.error('❌ [AuthTokenUtils] Error getting storage diagnostics:', error);
+    log.error('Utils', '❌ [AuthTokenUtils] Error getting storage diagnostics:', error);
     return diagnostics;
   }
 };
@@ -269,13 +270,13 @@ export const emergencyAuthRecovery = async (): Promise<boolean> => {
     const recoverySuccess = !postRecoveryValidation.hasInconsistentKeys;
     
     if (!recoverySuccess) {
-      console.error('❌ [AuthTokenUtils] Emergency recovery failed - inconsistencies remain.');
+      log.error('Utils', '❌ [AuthTokenUtils] Emergency recovery failed - inconsistencies remain.');
     }
     
     return recoverySuccess;
     
   } catch (error) {
-    console.error('❌ [AuthTokenUtils] Critical error during emergency recovery:', error);
+    log.error('Utils', '❌ [AuthTokenUtils] Critical error during emergency recovery:', error);
     return false;
   }
 };

@@ -4,6 +4,7 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import ChatButton from '@/components/chat/ChatButton';
 import ProfileDropdown from '@/components/common/ProfileDropdown';
 import { TopNavChatIcon, TopNavBellIcon } from '@/components/ui/nav-icons';
+import NotificationBadge from '@/components/notifications/NotificationBadge';
 
 interface HeaderActionsProps {
   variant?: 'default' | 'elevated'; // Different styling variants
@@ -62,15 +63,12 @@ export default function HeaderActions({
         className="text-gray-500 p-2"
       />
       
-      {/* Bell Icon */}
-      <Button
-        variant="ghost"
-        size="icon"
+      {/* Notification Badge */}
+      <NotificationBadge 
+        variant="desktop" 
+        size="md" 
         className="h-10 w-10 text-gray-500"
-        aria-label="Notifications"
-      >
-        <TopNavBellIcon className="h-7 w-7" />
-      </Button>
+      />
       
       {/* Profile Dropdown */}
       <div className="relative">

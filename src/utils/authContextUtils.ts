@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client'; // Ensure this path is correct
 import { PostgrestError } from '@supabase/supabase-js'; // ADDED IMPORT
 
@@ -30,7 +31,7 @@ interface SpaceAccessRecord {
 
 export async function getUserPreferredSpace(userId: string): Promise<{ subdomain: string } | null> {
   if (!userId) {
-    console.error('❌ getUserPreferredSpace called with empty userId');
+    log.error('Utils', '❌ getUserPreferredSpace called with empty userId');
     return null;
   }
 
@@ -41,14 +42,14 @@ export async function getUserPreferredSpace(userId: string): Promise<{ subdomain
       const parsed = JSON.parse(lastCreated);
       
       if (parsed && parsed.subdomain && parsed.owner_id === userId) {
-        console.log(`✅ Found last created space: ${parsed.subdomain}`);
+        log.debug('Utils', `✅ Found last created space: ${parsed.subdomain}`);
         return { subdomain: parsed.subdomain };
       } else if (parsed && parsed.subdomain && parsed.owner_id !== userId) {
-        console.log(`⚠️ Found last created space but owned by different user: ${parsed.subdomain}`);
+        log.debug('Utils', `⚠️ Found last created space but owned by different user: ${parsed.subdomain}`);
       }
     }
   } catch (e) {
-    console.warn('Error parsing lastCreatedSpace:', e);
+    log.warn('Utils', 'Error parsing lastCreatedSpace:', e);
   }
 
   // Priority 2: Check for spaces directly owned by the user
@@ -61,9 +62,9 @@ export async function getUserPreferredSpace(userId: string): Promise<{ subdomain
       .limit(1);
 
     if (ownedSpacesError) {
-      console.error('Error fetching owned spaces:', ownedSpacesError);
+      log.error('Utils', 'Error fetching owned spaces:', ownedSpacesError);
     } else if (ownedSpaces && ownedSpaces.length > 0) {
-      console.log(`✅ Found owned space: ${ownedSpaces[0].subdomain}`);
+      log.debug('Utils', `✅ Found owned space: ${ownedSpaces[0].subdomain}`);
       
       // Cache this result for faster access next time
       try {
@@ -74,13 +75,13 @@ export async function getUserPreferredSpace(userId: string): Promise<{ subdomain
           owner_id: userId
         }));
       } catch (e) {
-        console.warn('Error caching lastCreatedSpace:', e);
+        log.warn('Utils', 'Error caching lastCreatedSpace:', e);
       }
       
       return { subdomain: ownedSpaces[0].subdomain };
     }
   } catch (e) {
-    console.error('Error in owned spaces query:', e);
+    log.error('Utils', 'Error in owned spaces query:', e);
   }
 
   // Priority 3: Check for space memberships for the user
@@ -101,14 +102,14 @@ export async function getUserPreferredSpace(userId: string): Promise<{ subdomain
       .limit(1);
 
     if (accessSpacesError) {
-      console.error('Error fetching space memberships:', accessSpacesError);
+      log.error('Utils', 'Error fetching space memberships:', accessSpacesError);
     } else if (accessSpaces && accessSpaces.length > 0 && accessSpaces[0].spaces) {
       const spaceData = accessSpaces[0].spaces;
-      console.log(`✅ Found space access: ${spaceData.subdomain}`);
+      log.debug('Utils', `✅ Found space access: ${spaceData.subdomain}`);
       return { subdomain: spaceData.subdomain };
     }
   } catch (e) {
-    console.error('Error in space access query:', e);
+    log.error('Utils', 'Error in space access query:', e);
   }
 
   // No space found

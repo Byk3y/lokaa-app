@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Phase 3 Component Rendering Optimizer
  * React component memoization strategies, render cycle optimization, state update batching, and re-render prevention
@@ -62,7 +63,7 @@ class Phase3RenderOptimizer {
   constructor() {
     this.initializeRenderTracking();
     this.setupPerformanceObserver();
-    console.log('🎨 Phase 3 Render Optimizer initialized');
+    log.debug('Utils', '🎨 Phase 3 Render Optimizer initialized');
   }
 
   /**
@@ -105,7 +106,7 @@ class Phase3RenderOptimizer {
   private patchReactRender(): void {
     // This is a simplified version - in a real implementation, 
     // you'd use React DevTools profiler or custom hooks
-    console.log('🔧 React render tracking enabled');
+    log.debug('Utils', '🔧 React render tracking enabled');
   }
 
   /**
@@ -162,7 +163,7 @@ class Phase3RenderOptimizer {
     // Check if render could have been prevented with memoization
     if (componentInfo.propsHash === propsHash && !componentInfo.isMemoized) {
       this.renderMetrics.preventedRenders++;
-      console.log(`🚫 [RenderOptimizer] Unnecessary render prevented for ${componentName}`);
+      log.debug('Utils', `🚫 [RenderOptimizer] Unnecessary render prevented for ${componentName}`);
     }
 
     componentInfo.propsHash = propsHash;
@@ -227,7 +228,7 @@ class Phase3RenderOptimizer {
         componentInfo.propsHash === propsHash && 
         componentInfo.isMemoized) {
       this.renderMetrics.preventedRenders++;
-      console.log(`⚡ [RenderOptimizer] Memoized render for ${componentName}`);
+      log.debug('Utils', `⚡ [RenderOptimizer] Memoized render for ${componentName}`);
       return componentInfo.props.lastResult;
     }
 
@@ -309,7 +310,7 @@ class Phase3RenderOptimizer {
       const batchTime = performance.now() - startTime;
       this.renderMetrics.batchedUpdates += updates.length;
       
-      console.log(`📦 [RenderOptimizer] Batched ${updates.length} updates in ${batchTime.toFixed(2)}ms`);
+      log.debug('Utils', `📦 [RenderOptimizer] Batched ${updates.length} updates in ${batchTime.toFixed(2)}ms`);
     } catch (error) {
       logError('Error in batch update', error);
     } finally {

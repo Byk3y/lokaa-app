@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚨 Phase 4A: Advanced Error Tracking & Reporting System
  * 
@@ -145,7 +146,7 @@ class ErrorTrackingSystem {
     // TEMPORARY: Disable user action tracking to prevent infinite loops
     // This will be re-enabled on next page load with the fixed code
     if (import.meta.env?.DEV) {
-      console.log('🔧 [ErrorTracking] User action tracking temporarily disabled to prevent loops');
+      log.debug('Utils', '🔧 [ErrorTracking] User action tracking temporarily disabled to prevent loops');
       return;
     }
 
@@ -163,7 +164,7 @@ class ErrorTrackingSystem {
         // Silently ignore errors in user action tracking to prevent loops
         // Only log in development mode
         if (process.env.NODE_ENV === 'development') {
-          console.warn('Error in click tracking (ignored):', error);
+          log.warn('Utils', 'Error in click tracking (ignored):', error);
         }
       }
     });
@@ -184,14 +185,14 @@ class ErrorTrackingSystem {
         } catch (error) {
           // Silently ignore navigation tracking errors
           if (process.env.NODE_ENV === 'development') {
-            console.warn('Error in navigation tracking (ignored):', error);
+            log.warn('Utils', 'Error in navigation tracking (ignored):', error);
           }
         }
       }).observe(document, { subtree: true, childList: true });
     } catch (error) {
       // If MutationObserver setup fails, continue without navigation tracking
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Navigation tracking setup failed (ignored):', error);
+        log.warn('Utils', 'Navigation tracking setup failed (ignored):', error);
       }
     }
 
@@ -252,9 +253,9 @@ class ErrorTrackingSystem {
 
     // Log error appropriately
     if (errorData.severity.level === 'critical') {
-      console.error(`🚨 [CRITICAL ERROR] ${errorData.message}`, errorReport);
+      log.error('Utils', `🚨 [CRITICAL ERROR] ${errorData.message}`, errorReport);
     } else if (errorData.severity.level === 'high') {
-      console.warn(`⚠️ [HIGH ERROR] ${errorData.message}`, errorReport);
+      log.warn('Utils', `⚠️ [HIGH ERROR] ${errorData.message}`, errorReport);
     } else if (process.env.NODE_ENV === 'development') {
       devLogger.log('ErrorTracking', `Error captured: ${errorData.message}`, errorReport);
     }
@@ -696,7 +697,7 @@ class ErrorTrackingSystem {
    */
   public clearErrors(): void {
     this.errors.clear();
-    console.log('🧹 All errors cleared');
+    log.debug('Utils', '🧹 All errors cleared');
   }
 
   /**
@@ -754,7 +755,7 @@ class ErrorTrackingSystem {
     const oldErrors = Array.from(this.errors.values()).filter(e => e.lastSeen < last24Hours);
     oldErrors.forEach(e => this.errors.delete(e.fingerprint));
     
-    console.log(`🧹 Cleared ${oldErrors.length} old cached errors`);
+    log.debug('Utils', `🧹 Cleared ${oldErrors.length} old cached errors`);
   }
 }
 

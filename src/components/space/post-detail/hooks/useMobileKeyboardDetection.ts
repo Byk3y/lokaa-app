@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 
@@ -22,7 +23,7 @@ export function useMobileKeyboardDetection() {
       
       setIsKeyboardOpen(keyboardIsOpen);
       
-      console.log('🔥 [useMobileKeyboardDetection] Keyboard state:', {
+      log.debug('Component', '🔥 [useMobileKeyboardDetection] Keyboard state:', {
         keyboardIsOpen,
         currentViewportHeight,
         windowHeight,

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { z } from 'zod';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { devLogger } from '@/utils/developmentLogger';
@@ -138,7 +139,7 @@ export function debugTabExtraction(pathname: string, tab?: string, activeTab?: s
     const windowPathname = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 [TabUtils] Debug info:', {
+      log.debug('Utils', '🔍 [TabUtils] Debug info:', {
         pathname,
         windowPathname,
         pathnameDifference: pathname !== windowPathname ? 'DIFFERENT!' : 'same',

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Preloads images to improve perceived performance
  * @param urls Array of image URLs to preload
@@ -11,7 +12,7 @@ export function preloadImages(urls: (string | null | undefined)[]): Promise<void
     return Promise.resolve([]);
   }
   
-  console.log(`[preloadImages] Preloading ${validUrls.length} images`);
+  log.debug('Utils', `[preloadImages] Preloading ${validUrls.length} images`);
   
   // Create an array of promises for each image
   const preloadPromises = validUrls.map(url => {
@@ -19,12 +20,12 @@ export function preloadImages(urls: (string | null | undefined)[]): Promise<void
       const img = new Image();
       
       img.onload = () => {
-        console.log(`[preloadImages] Successfully preloaded: ${url}`);
+        log.debug('Utils', `[preloadImages] Successfully preloaded: ${url}`);
         resolve();
       };
       
       img.onerror = () => {
-        console.warn(`[preloadImages] Failed to preload: ${url}`);
+        log.warn('Utils', `[preloadImages] Failed to preload: ${url}`);
         resolve(); // Resolve anyway to not block other images
       };
       
@@ -78,6 +79,6 @@ export function preloadSpaceAssets(space: SpaceAssetData | null | undefined): vo
   
   // Preload in background, don't await
   preloadImages(assetsToPreload)
-    .then(() => console.log('[preloadSpaceAssets] All space assets preloaded'))
-    .catch(err => console.warn('[preloadSpaceAssets] Error preloading assets:', err));
+    .then(() => log.debug('Utils', '[preloadSpaceAssets] All space assets preloaded'))
+    .catch(err => log.warn('Utils', '[preloadSpaceAssets] Error preloading assets:', err));
 } 

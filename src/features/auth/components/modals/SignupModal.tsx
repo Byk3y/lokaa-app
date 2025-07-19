@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Signup Modal Component
  * 
@@ -65,12 +66,12 @@ export default function SignupModal({
       });
 
       if (authError) {
-        console.error('Signup error:', authError);
+        log.error('Component', 'Signup error:', authError);
         onError?.(authError.message || 'Signup failed');
         return;
       }
 
-      console.log('Signup successful', data);
+      log.debug('Component', 'Signup successful', data);
 
       // Close modal first
       closeSignupModal();
@@ -90,7 +91,7 @@ export default function SignupModal({
       }
 
     } catch (err: any) {
-      console.error('Signup exception:', err);
+      log.error('Component', 'Signup exception:', err);
       const errorMessage = err.message || 'An unexpected error occurred. Please try again.';
       onError?.(errorMessage);
     } finally {

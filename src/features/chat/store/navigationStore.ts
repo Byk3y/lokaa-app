@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Navigation Store - Specialized store for mobile URL navigation
  */
@@ -60,7 +61,7 @@ export const useNavigationStore = create<NavigationStore>()(
         const { isMobileDevice, urlParsingEnabled } = get();
         
         if (!isMobileDevice || !urlParsingEnabled) {
-          console.log('[NavigationStore] URL navigation disabled for desktop or disabled state');
+          log.debug('App', '[NavigationStore] URL navigation disabled for desktop or disabled state');
           return;
         }
 
@@ -81,15 +82,15 @@ export const useNavigationStore = create<NavigationStore>()(
             const success = navigateToConversation(conversationId, false); // false = pushState, not replaceState
             
             if (success) {
-              console.log('[NavigationStore] Navigated to conversation:', { slug, conversationId });
+              log.debug('App', '[NavigationStore] Navigated to conversation:', { slug, conversationId });
             } else {
-              console.warn('[NavigationStore] Navigation failed for:', { slug, conversationId });
+              log.warn('App', '[NavigationStore] Navigation failed for:', { slug, conversationId });
             }
           } else {
-            console.warn('[NavigationStore] No conversation found for slug:', slug);
+            log.warn('App', '[NavigationStore] No conversation found for slug:', slug);
           }
         } catch (error) {
-          console.error('[NavigationStore] Navigation failed:', error);
+          log.error('App', '[NavigationStore] Navigation failed:', error);
         }
       },
 
@@ -98,7 +99,7 @@ export const useNavigationStore = create<NavigationStore>()(
         const { isMobileDevice, urlParsingEnabled } = get();
         
         if (!isMobileDevice || !urlParsingEnabled) {
-          console.log('[NavigationStore] Direct ID navigation for desktop');
+          log.debug('App', '[NavigationStore] Direct ID navigation for desktop');
           return;
         }
 
@@ -106,7 +107,7 @@ export const useNavigationStore = create<NavigationStore>()(
           const slug = generateConversationSlug(conversationId);
           get().navigateToConversationBySlug(slug);
         } catch (error) {
-          console.error('[NavigationStore] Failed to generate slug for conversation:', conversationId, error);
+          log.error('App', '[NavigationStore] Failed to generate slug for conversation:', conversationId, error);
         }
       },
 
@@ -122,7 +123,7 @@ export const useNavigationStore = create<NavigationStore>()(
           
           return params;
         } catch (error) {
-          console.error('[NavigationStore] Failed to parse URL parameters:', error);
+          log.error('App', '[NavigationStore] Failed to parse URL parameters:', error);
           return { conversationId: null, slug: null };
         }
       },
@@ -132,7 +133,7 @@ export const useNavigationStore = create<NavigationStore>()(
         try {
           return generateConversationSlug(conversationId);
         } catch (error) {
-          console.error('[NavigationStore] Failed to generate slug:', error);
+          log.error('App', '[NavigationStore] Failed to generate slug:', error);
           return '';
         }
       },
@@ -151,10 +152,10 @@ export const useNavigationStore = create<NavigationStore>()(
           // 1. Get conversations from ConversationStore
           // 2. Try the lookup again with full conversation list
           // For now, return null to indicate cache miss
-          console.warn('[NavigationStore] Cache miss for slug, consider refreshing conversations:', slug);
+          log.warn('App', '[NavigationStore] Cache miss for slug, consider refreshing conversations:', slug);
           return null;
         } catch (error) {
-          console.error('[NavigationStore] Failed to find conversation from slug:', error);
+          log.error('App', '[NavigationStore] Failed to find conversation from slug:', error);
           return null;
         }
       },
@@ -187,7 +188,7 @@ export const useNavigationStore = create<NavigationStore>()(
         const { navigationHistory, currentSlug } = get();
         
         if (navigationHistory.length < 2) {
-          console.log('[NavigationStore] No previous conversation in history');
+          log.debug('App', '[NavigationStore] No previous conversation in history');
           return;
         }
         
@@ -214,13 +215,13 @@ export const useNavigationStore = create<NavigationStore>()(
       // Set mobile device status
       setMobileDevice: (isMobile: boolean) => {
         set({ isMobileDevice: isMobile });
-        console.log('[NavigationStore] Mobile device status:', isMobile);
+        log.debug('App', '[NavigationStore] Mobile device status:', isMobile);
       },
 
       // Toggle URL parsing
       toggleUrlParsing: (enabled: boolean) => {
         set({ urlParsingEnabled: enabled });
-        console.log('[NavigationStore] URL parsing enabled:', enabled);
+        log.debug('App', '[NavigationStore] URL parsing enabled:', enabled);
       },
 
       // Set current slug

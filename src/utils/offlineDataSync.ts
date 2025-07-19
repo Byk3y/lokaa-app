@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔄 Offline Data Synchronization Service
  * 
@@ -49,7 +50,7 @@ class OfflineDataSyncService {
    */
   async initialize(): Promise<void> {
     try {
-      console.log('🔄 [OfflineSync] Initializing offline data sync service...');
+      log.debug('Utils', '🔄 [OfflineSync] Initializing offline data sync service...');
       
       // Load persisted actions from localStorage
       this.loadPersistedActions();
@@ -70,9 +71,9 @@ class OfflineDataSyncService {
         }
       });
       
-      console.log('✅ [OfflineSync] Offline data sync service initialized');
+      log.debug('Utils', '✅ [OfflineSync] Offline data sync service initialized');
     } catch (error) {
-      console.error('❌ [OfflineSync] Initialization failed:', error);
+      log.error('Utils', '❌ [OfflineSync] Initialization failed:', error);
       const appError = classifyError(error, { component: 'OfflineSync', operation: 'initialization' });
       logError(appError);
     }
@@ -93,7 +94,7 @@ class OfflineDataSyncService {
    * Handle online event
    */
   private async handleOnline(): Promise<void> {
-    console.log('🌐 [OfflineSync] Connection restored');
+    log.debug('Utils', '🌐 [OfflineSync] Connection restored');
     this.isOnline = true;
     this.errors = []; // Clear previous errors
     
@@ -116,7 +117,7 @@ class OfflineDataSyncService {
    * Handle offline event
    */
   private async handleOffline(): Promise<void> {
-    console.log('📴 [OfflineSync] Connection lost');
+    log.debug('Utils', '📴 [OfflineSync] Connection lost');
     this.isOnline = false;
     this.stopPeriodicSync();
     
@@ -136,7 +137,7 @@ class OfflineDataSyncService {
    */
   private async handleVisibilityChange(): Promise<void> {
     if (!document.hidden && this.isOnline && this.actions.length > 0) {
-      console.log('👁️ [OfflineSync] App became visible, syncing pending actions...');
+      log.debug('Utils', '👁️ [OfflineSync] App became visible, syncing pending actions...');
       await this.forceSync();
     }
   }
@@ -162,7 +163,7 @@ class OfflineDataSyncService {
     this.actions.push(action);
     this.persistActions();
 
-    console.log(`📝 [OfflineSync] Action queued: ${type} on ${table}`, action.id);
+    log.debug('Utils', `📝 [OfflineSync] Action queued: ${type} on ${table}`, action.id);
 
     // If online, try to sync immediately
     if (this.isOnline && !this.syncInProgress) {
@@ -190,22 +191,22 @@ class OfflineDataSyncService {
    */
   async forceSync(): Promise<{ success: number; failed: number; errors: string[] }> {
     if (this.syncInProgress) {
-      console.log('⏳ [OfflineSync] Sync already in progress, skipping...');
+      log.debug('Utils', '⏳ [OfflineSync] Sync already in progress, skipping...');
       return { success: 0, failed: 0, errors: ['Sync already in progress'] };
     }
 
     if (!this.isOnline) {
-      console.log('📴 [OfflineSync] Cannot sync while offline');
+      log.debug('Utils', '📴 [OfflineSync] Cannot sync while offline');
       return { success: 0, failed: 0, errors: ['Device is offline'] };
     }
 
     if (this.actions.length === 0) {
-      console.log('✅ [OfflineSync] No pending actions to sync');
+      log.debug('Utils', '✅ [OfflineSync] No pending actions to sync');
       return { success: 0, failed: 0, errors: [] };
     }
 
     this.syncInProgress = true;
-    console.log(`🔄 [OfflineSync] Starting sync of ${this.actions.length} actions...`);
+    log.debug('Utils', `🔄 [OfflineSync] Starting sync of ${this.actions.length} actions...`);
 
     let successCount = 0;
     let failedCount = 0;
@@ -232,7 +233,7 @@ class OfflineDataSyncService {
           // Increment retry count
           action.retryCount++;
           if (action.retryCount >= action.maxRetries) {
-            console.error(`❌ [OfflineSync] Action ${action.id} exceeded max retries, removing`);
+            log.error('Utils', `❌ [OfflineSync] Action ${action.id} exceeded max retries, removing`);
             this.removeAction(action.id);
           }
         }
@@ -249,7 +250,7 @@ class OfflineDataSyncService {
     this.errors = syncErrors;
     this.persistActions();
 
-    console.log(`✅ [OfflineSync] Sync completed: ${successCount} success, ${failedCount} failed`);
+    log.debug('Utils', `✅ [OfflineSync] Sync completed: ${successCount} success, ${failedCount} failed`);
 
     // Track sync completion
     await logAnalyticsEvent({
@@ -272,20 +273,20 @@ class OfflineDataSyncService {
    */
   private async syncAction(action: OfflineAction): Promise<boolean> {
     try {
-      console.log(`🔄 [OfflineSync] Syncing action ${action.id}: ${action.type} on ${action.table}`);
+      log.debug('Utils', `🔄 [OfflineSync] Syncing action ${action.id}: ${action.type} on ${action.table}`);
       
       // Simulate API call - in real implementation, this would call Supabase
       // For now, we'll just simulate success/failure
       const success = Math.random() > 0.1; // 90% success rate for testing
       
       if (success) {
-        console.log(`✅ [OfflineSync] Action ${action.id} synced successfully`);
+        log.debug('Utils', `✅ [OfflineSync] Action ${action.id} synced successfully`);
         return true;
       } else {
         throw new Error('Simulated sync failure');
       }
     } catch (error) {
-      console.error(`❌ [OfflineSync] Failed to sync action ${action.id}:`, error);
+      log.error('Utils', `❌ [OfflineSync] Failed to sync action ${action.id}:`, error);
       const appError = classifyError(error, { component: 'OfflineSync', operation: 'syncAction', actionId: action.id });
       logError(appError);
       return false;
@@ -303,7 +304,7 @@ class OfflineDataSyncService {
    * Clear all pending actions
    */
   async clearPendingActions(): Promise<void> {
-    console.log('🗑️ [OfflineSync] Clearing all pending actions');
+    log.debug('Utils', '🗑️ [OfflineSync] Clearing all pending actions');
     this.actions = [];
     this.persistActions();
     
@@ -369,7 +370,7 @@ class OfflineDataSyncService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.actions));
     } catch (error) {
-      console.error('❌ [OfflineSync] Failed to persist actions:', error);
+      log.error('Utils', '❌ [OfflineSync] Failed to persist actions:', error);
     }
   }
 
@@ -381,10 +382,10 @@ class OfflineDataSyncService {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
         this.actions = JSON.parse(stored);
-        console.log(`📂 [OfflineSync] Loaded ${this.actions.length} persisted actions`);
+        log.debug('Utils', `📂 [OfflineSync] Loaded ${this.actions.length} persisted actions`);
       }
     } catch (error) {
-      console.error('❌ [OfflineSync] Failed to load persisted actions:', error);
+      log.error('Utils', '❌ [OfflineSync] Failed to load persisted actions:', error);
       this.actions = [];
     }
   }

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Mobile Performance Testing Utility
  * Tracks data loading times and mobile-specific performance metrics
@@ -48,7 +49,7 @@ class MobilePerformanceTracker {
       metadata
     });
     
-    console.log(`📱 [Mobile Perf] Starting: ${name}`, metadata || '');
+    log.debug('Utils', `📱 [Mobile Perf] Starting: ${name}`, metadata || '');
   }
 
   endTracking(name: string, additionalMetadata?: Record<string, any>) {
@@ -56,7 +57,7 @@ class MobilePerformanceTracker {
     
     const metric = this.metrics.get(name);
     if (!metric) {
-      console.warn(`📱 [Mobile Perf] No metric found for: ${name}`);
+      log.warn('Utils', `📱 [Mobile Perf] No metric found for: ${name}`);
       return;
     }
     
@@ -67,7 +68,7 @@ class MobilePerformanceTracker {
       metric.metadata = {...(metric.metadata || {}), ...additionalMetadata};
     }
     
-    console.log(`📱 [Mobile Perf] Completed: ${name} in ${metric.duration.toFixed(2)}ms`, metric.metadata || '');
+    log.debug('Utils', `📱 [Mobile Perf] Completed: ${name} in ${metric.duration.toFixed(2)}ms`, metric.metadata || '');
   }
   
   trackDataSource(component: string, source: 'storeSpace' | 'spaceData' | 'currentSpaceData', type: 'access' | 'update' | 'clear', data: any) {
@@ -82,7 +83,7 @@ class MobilePerformanceTracker {
       spaceId: data?.id || null
     });
     
-    console.log(`📱 [Mobile Data] ${component} ${type} ${source}: ${data?.id || 'null'}`);
+    log.debug('Utils', `📱 [Mobile Data] ${component} ${type} ${source}: ${data?.id || 'null'}`);
   }
   
   getDataSourceMetrics() {
@@ -91,7 +92,7 @@ class MobilePerformanceTracker {
   
   logMobileNavigation(from: string, to: string, metadata?: Record<string, any>) {
     if (!this.isEnabled) return;
-    console.log(`📱 [Mobile Nav] ${from} → ${to}`, metadata || '');
+    log.debug('Utils', `📱 [Mobile Nav] ${from} → ${to}`, metadata || '');
   }
   
   detectPageReload() {
@@ -102,7 +103,7 @@ class MobilePerformanceTracker {
     
     const isReload = !!lastInstanceId && lastInstanceId !== this.instanceId;
     if (isReload) {
-      console.log(`📱 [Mobile Perf] Page reload detected`);
+      log.debug('Utils', `📱 [Mobile Perf] Page reload detected`);
     }
     
     return isReload;
@@ -201,12 +202,12 @@ export const getMobileConnectionType = (): string => {
 if (typeof window !== 'undefined') {
   (window as any).enableMobilePerfDebug = () => {
     localStorage.setItem('mobile_perf_debug', 'true');
-    console.log('📱 Mobile performance debugging enabled');
+    log.debug('Utils', '📱 Mobile performance debugging enabled');
   };
   
   (window as any).disableMobilePerfDebug = () => {
     localStorage.removeItem('mobile_perf_debug');
-    console.log('📱 Mobile performance debugging disabled');
+    log.debug('Utils', '📱 Mobile performance debugging disabled');
   };
   
   (window as any).getMobilePerfSummary = () => {

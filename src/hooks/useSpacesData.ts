@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -93,7 +94,7 @@ export default function useSpacesData(initialCategory = 'all') {
     setError(null);
 
     try {
-      console.log('[useSpacesData] Fetching spaces with direct query');
+      log.debug('Hook', '[useSpacesData] Fetching spaces with direct query');
       
       // RECOVERY FIX: Try direct table query first (more reliable after outages)
       const { data: directData, error: directError } = await getSupabaseClient()
@@ -103,7 +104,7 @@ export default function useSpacesData(initialCategory = 'all') {
         .order('created_at', { ascending: false });
       
       if (!directError && directData && Array.isArray(directData) && directData.length > 0) {
-        console.log(`✅ [useSpacesData] Direct table query successful: ${directData.length} spaces`);
+        log.debug('Hook', `✅ [useSpacesData] Direct table query successful: ${directData.length} spaces`);
         
         const processedSpaces = directData.map((space: any, index: number): Space => ({
           id: space.id,
@@ -134,11 +135,11 @@ export default function useSpacesData(initialCategory = 'all') {
       }
 
       // FALLBACK: Try RPC call if direct query fails
-      console.log('⚠️ [useSpacesData] Direct query failed, trying RPC fallback');
+      log.debug('Hook', '⚠️ [useSpacesData] Direct query failed, trying RPC fallback');
       const { data: rpcData, error: rpcError } = await getSupabaseClient().rpc('get_public_spaces');
       
       if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
-        console.log(`✅ [useSpacesData] RPC fallback successful: ${rpcData.length} spaces`);
+        log.debug('Hook', `✅ [useSpacesData] RPC fallback successful: ${rpcData.length} spaces`);
         
         const processedSpaces = rpcData.map((space: any, index: number): Space => ({
           id: space.id,
@@ -169,7 +170,7 @@ export default function useSpacesData(initialCategory = 'all') {
 
       // FIXED: Only use emergency recovery if we get actual 406/policy errors
       if (EmergencyDatabaseRecovery.isPolicyError(directError) || EmergencyDatabaseRecovery.isPolicyError(rpcError)) {
-        console.log('🚨 [useSpacesData] Policy error detected, using emergency recovery');
+        log.debug('Hook', '🚨 [useSpacesData] Policy error detected, using emergency recovery');
         
         const recoveryResult = await EmergencyDatabaseRecovery.safeSpaceQuery(
           user?.id || 'anonymous',
@@ -213,11 +214,11 @@ export default function useSpacesData(initialCategory = 'all') {
       throw directError || rpcError || new Error('Failed to fetch spaces');
 
     } catch (err) {
-      console.error('[useSpacesData] Error fetching spaces:', err);
+      log.error('Hook', '[useSpacesData] Error fetching spaces:', err);
       
       // Check if this is an authentication error that might need recovery
       if (AuthRecovery.isAuthError(err)) {
-        console.log('🔄 [useSpacesData] Detected auth error, attempting recovery...');
+        log.debug('Hook', '🔄 [useSpacesData] Detected auth error, attempting recovery...');
         
         try {
           const recovered = await AuthRecovery.recoverAuth({
@@ -227,7 +228,7 @@ export default function useSpacesData(initialCategory = 'all') {
           });
           
           if (recovered) {
-            console.log('✅ [useSpacesData] Auth recovery successful, retrying fetch...');
+            log.debug('Hook', '✅ [useSpacesData] Auth recovery successful, retrying fetch...');
             // Don't retry immediately to avoid infinite loops
             setTimeout(() => {
               fetchSpaces();
@@ -235,7 +236,7 @@ export default function useSpacesData(initialCategory = 'all') {
             return;
           }
         } catch (recoveryError) {
-          console.error('❌ [useSpacesData] Auth recovery failed:', recoveryError);
+          log.error('Hook', '❌ [useSpacesData] Auth recovery failed:', recoveryError);
         }
       }
       
@@ -280,7 +281,7 @@ export default function useSpacesData(initialCategory = 'all') {
           setJoinedSpaces(userSpaces);
         } else if (EmergencyDatabaseRecovery.isPolicyError(memberError)) {
           // Only use recovery for policy errors
-          console.log('🚨 [useSpacesData] Using emergency recovery for joined spaces');
+          log.debug('Hook', '🚨 [useSpacesData] Using emergency recovery for joined spaces');
           const recoveryResult = await EmergencyDatabaseRecovery.safeSpaceQuery(
             user.id,
             { retryAttempts: 2, fallbackToPublic: false, useCache: true }
@@ -303,7 +304,7 @@ export default function useSpacesData(initialCategory = 'all') {
         }
         
       } catch (error) {
-        console.error('[useSpacesData] Error fetching joined spaces:', error);
+        log.error('Hook', '[useSpacesData] Error fetching joined spaces:', error);
         setJoinedSpaces([]);
       } finally {
         setJoinedSpacesLoading(false);

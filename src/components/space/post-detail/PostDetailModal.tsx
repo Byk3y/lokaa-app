@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -253,7 +254,7 @@ export default function PostDetailModal({
         description: "Your post has been deleted successfully.",
       });
     } catch (error) {
-      console.error('Error deleting post:', error);
+      log.error('Component', 'Error deleting post:', error);
       toast({
         title: "Error",
         description: "Failed to delete post. Please try again.",
@@ -516,7 +517,7 @@ export default function PostDetailModal({
               
               // Only log in development mode
               if (process.env.NODE_ENV === 'development') {
-                console.log('🖼️ [PostDetailModal] Converted media for MediaGallery:', convertedMedia);
+                log.debug('Component', '🖼️ [PostDetailModal] Converted media for MediaGallery:', convertedMedia);
               }
               
               return convertedMedia.length > 0 ? (
@@ -586,7 +587,7 @@ export default function PostDetailModal({
                       has_more_replies={comment.has_more_replies}
                       onCommentLikeToggled={(commentId, isLiked, likeCount) => {
                           // 🎭 PHASE 1 OPTIMIZATION: Comment like handling temporarily disabled
-                          console.log('Comment like toggled:', { commentId, isLiked, likeCount });
+                          log.debug('Component', 'Comment like toggled:', { commentId, isLiked, likeCount });
                         }}
                     />
                   ))}

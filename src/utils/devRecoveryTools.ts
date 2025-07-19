@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Development Recovery Tools
  * 
@@ -14,7 +15,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
    * Clear all caches and force reload
    */
   (window as any).clearAllCaches = () => {
-    console.log('🧹 [DevTools] Clearing all caches...');
+    log.debug('Utils', '🧹 [DevTools] Clearing all caches...');
     
     // Clear localStorage
     localStorage.clear();
@@ -36,7 +37,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
       (window as any).persistentCache.clear();
     }
     
-    console.log('🧹 [DevTools] All caches cleared, reloading...');
+    log.debug('Utils', '🧹 [DevTools] All caches cleared, reloading...');
     setTimeout(() => window.location.reload(), 500);
   };
   
@@ -44,7 +45,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
    * Fix HMR module import issues
    */
   (window as any).fixHMR = () => {
-    console.log('🔄 [DevTools] Fixing HMR module import issues...');
+    log.debug('Utils', '🔄 [DevTools] Fixing HMR module import issues...');
     
     // Try to reset Vite's module cache
     if ((window as any).__vite_plugin_react_preamble_installed__) {
@@ -61,7 +62,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
    * Quick recovery from module errors
    */
   (window as any).recoverFromModuleError = () => {
-    console.log('🚑 [DevTools] Emergency module error recovery...');
+    log.debug('Utils', '🚑 [DevTools] Emergency module error recovery...');
     
     // Clear problematic localStorage entries
     const keysToRemove = [];
@@ -74,7 +75,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
     
     keysToRemove.forEach(key => {
       localStorage.removeItem(key);
-      console.log(`🗑️ Removed: ${key}`);
+      log.debug('Utils', `🗑️ Removed: ${key}`);
     });
     
     // Hard reload
@@ -85,8 +86,8 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
    * Check system health
    */
   (window as any).checkSystemHealth = () => {
-    console.log('🔍 [DevTools] System Health Check');
-    console.log('================================');
+    log.debug('Utils', '🔍 [DevTools] System Health Check');
+    log.debug('Utils', '================================');
     
     const report = {
       timestamp: new Date().toISOString(),
@@ -111,7 +112,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
       }
     };
     
-    console.table(report);
+    log.table('Utils',(report);
     return report;
   };
   
@@ -125,15 +126,15 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
     };
     
     if (isMobileBrowser()) {
-      console.log('🤖 [DevTools] Auto-recovery DISABLED on mobile browser (prevents false positives from network blocking)');
+      log.debug('Utils', '🤖 [DevTools] Auto-recovery DISABLED on mobile browser (prevents false positives from network blocking)');
       return;
     }
     
-    console.log('🤖 [DevTools] Auto-recovery enabled (desktop browser)');
+    log.debug('Utils', '🤖 [DevTools] Auto-recovery enabled (desktop browser)');
     
     window.addEventListener('error', (event) => {
       if (event.message?.includes('Importing a module script failed')) {
-        console.warn('🔄 [AutoRecovery] Module import failure detected, auto-recovering...');
+        log.warn('Utils', '🔄 [AutoRecovery] Module import failure detected, auto-recovering...');
         (window as any).__lastError = event.error;
         
         setTimeout(() => {
@@ -144,7 +145,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
     
     window.addEventListener('unhandledrejection', (event) => {
       if (event.reason?.message?.includes('Importing a module script failed')) {
-        console.warn('🔄 [AutoRecovery] Async module failure detected, auto-recovering...');
+        log.warn('Utils', '🔄 [AutoRecovery] Async module failure detected, auto-recovering...');
         event.preventDefault();
         
         setTimeout(() => {
@@ -158,11 +159,11 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
   (window as any).enableAutoRecovery();
   
   // Print available tools
-  console.log('🔧 [DevTools] Recovery tools loaded:');
-  console.log('   - window.clearAllCaches()');
-  console.log('   - window.fixHMR()');
-  console.log('   - window.recoverFromModuleError()');
-  console.log('   - window.checkSystemHealth()');
-  console.log('   - window.enableAutoRecovery() (already enabled)');
+  log.debug('Utils', '🔧 [DevTools] Recovery tools loaded:');
+  log.debug('Utils', '   - window.clearAllCaches()');
+  log.debug('Utils', '   - window.fixHMR()');
+  log.debug('Utils', '   - window.recoverFromModuleError()');
+  log.debug('Utils', '   - window.checkSystemHealth()');
+  log.debug('Utils', '   - window.enableAutoRecovery() (already enabled)');
   
 } 

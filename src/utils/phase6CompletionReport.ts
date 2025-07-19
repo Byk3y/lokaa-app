@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Phase 6: Completion Report
  * 
@@ -41,7 +42,7 @@ class Phase6CompletionReport {
    * Generate comprehensive Phase 6 report
    */
   private generateReport(): void {
-    console.log('🚀 [Phase6] Generating completion report...');
+    log.debug('Utils', '🚀 [Phase6] Generating completion report...');
 
     this.optimizations = {
       performanceMonitoring: {
@@ -344,11 +345,11 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   (window as any).getPhase6Metrics = () => phase6CompletionReport.getPhase6Metrics();
   (window as any).getPerformanceComparison = () => phase6CompletionReport.generatePerformanceComparison();
   
-  console.log('📊 [Phase6] Completion report ready');
-  console.log('🔧 Phase 6 validation available:');
-  console.log('   - window.validatePhase6()');
-  console.log('   - window.getPhase6Report()');
-  console.log('   - window.getPerformanceComparison()');
+  log.debug('Utils', '📊 [Phase6] Completion report ready');
+  log.debug('Utils', '🔧 Phase 6 validation available:');
+  log.debug('Utils', '   - window.validatePhase6()');
+  log.debug('Utils', '   - window.getPhase6Report()');
+  log.debug('Utils', '   - window.getPerformanceComparison()');
 }
 
 export default phase6CompletionReport; 

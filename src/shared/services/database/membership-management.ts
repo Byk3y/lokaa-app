@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import type { MemberRole } from '@/contexts/MembershipContext';
 
@@ -40,7 +41,7 @@ export async function addUserToSpace(
   userId: string, 
   roleParam: MemberRole = 'admin'
 ): Promise<MembershipResult> {
-  console.log("[membership-management addUserToSpace] Adding user to space:", { spaceId, userId, roleParam });
+  log.debug('Service', "[membership-management addUserToSpace] Adding user to space:", { spaceId, userId, roleParam });
   
   // Convert role to space_members format
   const roleForSpaceMembers: 'admin' | 'member' = (roleParam === 'owner' || roleParam === 'admin') ? 'admin' : 'member';
@@ -58,7 +59,7 @@ export async function addUserToSpace(
       });
 
     if (memberInsertError) {
-      console.error("[membership-management addUserToSpace] Error inserting into space_members:", memberInsertError);
+      log.error('Service', "[membership-management addUserToSpace] Error inserting into space_members:", memberInsertError);
       return { 
         success: false, 
         error: memberInsertError, 
@@ -66,11 +67,11 @@ export async function addUserToSpace(
       };
     }
     
-    console.log("[membership-management addUserToSpace] Successfully inserted into space_members.");
+    log.debug('Service', "[membership-management addUserToSpace] Successfully inserted into space_members.");
     return { success: true };
 
   } catch (err) {
-    console.error("Unexpected error in addUserToSpace:", err);
+    log.error('Service', "Unexpected error in addUserToSpace:", err);
     return { 
       success: false, 
       error: err instanceof Error ? err : new Error(String(err)),
@@ -83,7 +84,7 @@ export async function addUserToSpace(
  * Removes a user from a space using only space_members table
  */
 export async function removeUserFromSpace(spaceId: string, userId: string): Promise<MembershipResult> {
-  console.log("[membership-management removeUserFromSpace] Removing user from space:", { spaceId, userId });
+  log.debug('Service', "[membership-management removeUserFromSpace] Removing user from space:", { spaceId, userId });
   
   try {
     // Remove from space_members only
@@ -94,15 +95,15 @@ export async function removeUserFromSpace(spaceId: string, userId: string): Prom
       .eq('user_id', userId);
     
     if (memberError) {
-      console.error("Error removing user from space_members:", memberError);
+      log.error('Service', "Error removing user from space_members:", memberError);
       return { success: false, error: memberError };
     }
     
-    console.log("[membership-management removeUserFromSpace] Successfully removed user from space_members.");
+    log.debug('Service', "[membership-management removeUserFromSpace] Successfully removed user from space_members.");
     return { success: true };
     
   } catch (err) {
-    console.error("Unexpected error removing user from space:", err);
+    log.error('Service', "Unexpected error removing user from space:", err);
     return { 
       success: false, 
       error: err instanceof Error ? err : new Error(String(err))
@@ -118,7 +119,7 @@ export async function updateUserRole(
   userId: string, 
   newRole: MemberRole
 ): Promise<MembershipResult> {
-  console.log("[membership-management updateUserRole] Updating user role:", { spaceId, userId, newRole });
+  log.debug('Service', "[membership-management updateUserRole] Updating user role:", { spaceId, userId, newRole });
   
   const roleForSpaceMembers: 'admin' | 'member' = (newRole === 'owner' || newRole === 'admin') ? 'admin' : 'member';
   
@@ -131,7 +132,7 @@ export async function updateUserRole(
       .eq('user_id', userId);
     
     if (memberError) {
-      console.error("Error updating role in space_members:", memberError);
+      log.error('Service', "Error updating role in space_members:", memberError);
       return { 
         success: false, 
         error: memberError,
@@ -139,11 +140,11 @@ export async function updateUserRole(
       };
     }
     
-    console.log("[membership-management updateUserRole] Successfully updated user role in space_members.");
+    log.debug('Service', "[membership-management updateUserRole] Successfully updated user role in space_members.");
     return { success: true };
     
   } catch (err) {
-    console.error("Unexpected error updating user role:", err);
+    log.error('Service', "Unexpected error updating user role:", err);
     return { 
       success: false, 
       error: err instanceof Error ? err : new Error(String(err))
@@ -172,13 +173,13 @@ export async function getSpaceMembers(spaceId: string): Promise<{ success: boole
       .eq('status', 'active');
     
     if (error) {
-      console.error("Error fetching space members:", error);
+      log.error('Service', "Error fetching space members:", error);
       return { success: false, error };
     }
     
     return { success: true, members: data };
   } catch (err) {
-    console.error("Unexpected error fetching space members:", err);
+    log.error('Service', "Unexpected error fetching space members:", err);
     return { 
       success: false, 
       error: err instanceof Error ? err : new Error(String(err))

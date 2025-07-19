@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Enhanced Performance Monitor (Phase 6 Unified)
  * 
@@ -76,7 +77,7 @@ class PerformanceMonitor {
   private initialize(): void {
     if (this.isInitialized) return;
     
-    console.log('📊 [UnifiedPerformance] Lazy initialization starting...');
+    log.debug('Utils', '📊 [UnifiedPerformance] Lazy initialization starting...');
     
     this.setupLongTaskMonitoring();
     this.setupPaintMonitoring();
@@ -88,7 +89,7 @@ class PerformanceMonitor {
     }
     
     this.isInitialized = true;
-    console.log('✅ [UnifiedPerformance] Initialization complete');
+    log.debug('Utils', '✅ [UnifiedPerformance] Initialization complete');
   }
 
   /**
@@ -110,7 +111,7 @@ class PerformanceMonitor {
     // Enhanced logging with thresholds
     if (this.isDevelopment && this.shouldLogMetric(name, value)) {
       const unit = name === 'memory' ? 'MB' : 'ms';
-      console.log(`📊 [Performance] ${name}: ${value.toFixed(2)}${unit}`);
+      log.debug('Utils', `📊 [Performance] ${name}: ${value.toFixed(2)}${unit}`);
     }
   }
 
@@ -138,7 +139,7 @@ class PerformanceMonitor {
 
     // Enhanced component performance logging
     if (this.isDevelopment && duration > THRESHOLDS.componentRender) {
-      console.warn(`🐌 [Performance] Slow component: ${timing.name} (${duration.toFixed(0)}ms)`);
+      log.warn('Utils', `🐌 [Performance] Slow component: ${timing.name} (${duration.toFixed(0)}ms)`);
     }
 
     return duration;
@@ -151,7 +152,7 @@ class PerformanceMonitor {
     this.recordMetric('realtimeEvents', latency);
     
     if (this.isDevelopment && latency > THRESHOLDS.realtimeLatency) {
-      console.warn(`🐌 [Performance] Slow realtime event: ${eventType} (${latency.toFixed(0)}ms)`);
+      log.warn('Utils', `🐌 [Performance] Slow realtime event: ${eventType} (${latency.toFixed(0)}ms)`);
     }
   }
 
@@ -162,7 +163,7 @@ class PerformanceMonitor {
     this.recordMetric('networkRequests', duration);
     
     if (this.isDevelopment && duration > THRESHOLDS.networkRequest) {
-      console.warn(`🐌 [Performance] Slow network request: ${url} (${duration.toFixed(0)}ms)`);
+      log.warn('Utils', `🐌 [Performance] Slow network request: ${url} (${duration.toFixed(0)}ms)`);
     }
   }
 
@@ -176,7 +177,7 @@ class PerformanceMonitor {
           this.recordMetric('longTasks', entry.duration);
           
           if (this.isDevelopment && entry.duration > THRESHOLDS.longTask) {
-            console.warn(`⏰ [Performance] Long task: ${entry.duration.toFixed(0)}ms`);
+            log.warn('Utils', `⏰ [Performance] Long task: ${entry.duration.toFixed(0)}ms`);
           }
         });
       });
@@ -185,7 +186,7 @@ class PerformanceMonitor {
       this.observers.set('longtask', longTaskObserver);
     } catch (error) {
       if (this.isDevelopment) {
-        console.warn('[Performance] Long task observer not supported:', error);
+        log.warn('Utils', '[Performance] Long task observer not supported:', error);
       }
     }
   }
@@ -206,7 +207,7 @@ class PerformanceMonitor {
       this.observers.set('paint', paintObserver);
     } catch (error) {
       if (this.isDevelopment) {
-        console.warn('[Performance] Paint observer not supported:', error);
+        log.warn('Utils', '[Performance] Paint observer not supported:', error);
       }
     }
   }
@@ -236,7 +237,7 @@ class PerformanceMonitor {
       } else {
         // Log invalid measurements but don't report as errors
         if (this.isDevelopment) {
-          console.warn(`📊 [Performance] Invalid memory measurement detected: ${usedMB}MB used, ${totalMB}MB total`);
+          log.warn('Utils', `📊 [Performance] Invalid memory measurement detected: ${usedMB}MB used, ${totalMB}MB total`);
         }
       }
     }, interval);
@@ -262,7 +263,7 @@ class PerformanceMonitor {
         this.recordMetric('hmrUpdates', duration);
         
         if (duration > THRESHOLDS.hmrUpdate) {
-          console.warn(`🔥 [Performance] Slow HMR update: ${duration.toFixed(0)}ms`);
+          log.warn('Utils', `🔥 [Performance] Slow HMR update: ${duration.toFixed(0)}ms`);
         }
         
         hmrStartTime = 0;
@@ -270,7 +271,7 @@ class PerformanceMonitor {
     });
 
     import.meta.hot.on('vite:error', (error) => {
-      console.warn('🚨 [Performance] HMR Error:', error);
+      log.warn('Utils', '🚨 [Performance] HMR Error:', error);
     });
   }
 
@@ -295,7 +296,7 @@ class PerformanceMonitor {
   private reportCriticalMetric(name: string, value: number): void {
     if (this.isDevelopment) {
       const unit = name === 'memory' ? 'MB' : 'ms';
-      console.warn(`🚨 [Performance] Critical ${name}: ${value.toFixed(1)}${unit}`);
+      log.warn('Utils', `🚨 [Performance] Critical ${name}: ${value.toFixed(1)}${unit}`);
     }
   }
 
@@ -370,7 +371,7 @@ class PerformanceMonitor {
       try {
         observer.disconnect();
       } catch (error) {
-        console.warn('[Performance] Error disconnecting observer:', error);
+        log.warn('Utils', '[Performance] Error disconnecting observer:', error);
       }
     });
     
@@ -381,7 +382,7 @@ class PerformanceMonitor {
     this.componentTimings.clear();
     this.isInitialized = false;
     
-    console.log('🧹 [Performance] Monitor cleaned up');
+    log.debug('Utils', '🧹 [Performance] Monitor cleaned up');
   }
 
   /**

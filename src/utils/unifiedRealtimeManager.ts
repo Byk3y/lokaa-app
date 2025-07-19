@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Unified Realtime Manager
  * 
@@ -125,7 +126,7 @@ class UnifiedRealtimeManager {
     // Add event listener to existing channel
     this.addEventListenerToChannel(channel, event, filter || '', subscription);
 
-    console.log(`🔔 [UnifiedRealtime] Subscription created: ${subscriptionId} for ${table} in space ${spaceId}`);
+    log.debug('Utils', `🔔 [UnifiedRealtime] Subscription created: ${subscriptionId} for ${table} in space ${spaceId}`);
     
     return subscriptionId;
   }
@@ -159,7 +160,7 @@ class UnifiedRealtimeManager {
       this.removeChannel(channelKey);
     }
 
-    console.log(`🔔 [UnifiedRealtime] Subscription removed: ${subscriptionId}`);
+    log.debug('Utils', `🔔 [UnifiedRealtime] Subscription removed: ${subscriptionId}`);
   }
 
   /**
@@ -227,7 +228,7 @@ class UnifiedRealtimeManager {
     try {
       subscription.callback(payload);
     } catch (error) {
-      console.error(`🔔 [UnifiedRealtime] Error in callback for ${subscription.id}:`, error);
+      log.error('Utils', `🔔 [UnifiedRealtime] Error in callback for ${subscription.id}:`, error);
     }
   }
 
@@ -283,7 +284,7 @@ class UnifiedRealtimeManager {
     queue.length = 0; // Clear queue
 
     if (import.meta.env.DEV) {
-      console.log(`🔔 [UnifiedRealtime] Processing batch of ${events.length} events for ${subscriptionId}`);
+      log.debug('Utils', `🔔 [UnifiedRealtime] Processing batch of ${events.length} events for ${subscriptionId}`);
     }
 
     // Call callback with each event
@@ -291,7 +292,7 @@ class UnifiedRealtimeManager {
       try {
         callback(payload);
       } catch (error) {
-        console.error(`🔔 [UnifiedRealtime] Batch callback error:`, error);
+        log.error('Utils', `🔔 [UnifiedRealtime] Batch callback error:`, error);
       }
     });
   }
@@ -303,7 +304,7 @@ class UnifiedRealtimeManager {
     const prevStatus = this.connectionStatus.get(channelKey);
     this.connectionStatus.set(channelKey, status as ConnectionStatus);
 
-    console.log(`🔔 [UnifiedRealtime] Connection status for ${channelKey}: ${status}`);
+    log.debug('Utils', `🔔 [UnifiedRealtime] Connection status for ${channelKey}: ${status}`);
 
     switch (status) {
       case 'SUBSCRIBED':
@@ -335,7 +336,7 @@ class UnifiedRealtimeManager {
     const currentAttempts = this.reconnectAttempts.get(channelKey) || 0;
     
     if (currentAttempts >= this.config.maxReconnectAttempts) {
-      console.error(`🔔 [UnifiedRealtime] Max reconnection attempts reached for ${channelKey}`);
+      log.error('Utils', `🔔 [UnifiedRealtime] Max reconnection attempts reached for ${channelKey}`);
       this.connectionStatus.set(channelKey, 'error');
       return;
     }
@@ -348,7 +349,7 @@ class UnifiedRealtimeManager {
       30000
     ) + Math.random() * 1000;
 
-    console.log(`🔔 [UnifiedRealtime] Reconnecting ${channelKey} in ${delay.toFixed(0)}ms (attempt ${currentAttempts + 1})`);
+    log.debug('Utils', `🔔 [UnifiedRealtime] Reconnecting ${channelKey} in ${delay.toFixed(0)}ms (attempt ${currentAttempts + 1})`);
 
     setTimeout(() => {
       this.attemptReconnection(channelKey);
@@ -391,7 +392,7 @@ class UnifiedRealtimeManager {
     const heartbeatTimer = setInterval(() => {
       const metrics = this.connectionMetrics.get(channelKey);
       if (metrics && Date.now() - metrics.lastHeartbeat > this.config.heartbeatInterval * 2) {
-        console.warn(`🔔 [UnifiedRealtime] Heartbeat timeout for ${channelKey}`);
+        log.warn('Utils', `🔔 [UnifiedRealtime] Heartbeat timeout for ${channelKey}`);
         this.handleConnectionError(channelKey);
       }
     }, this.config.heartbeatInterval);
@@ -410,7 +411,7 @@ class UnifiedRealtimeManager {
     }
 
     this.cleanupChannel(channelKey);
-    console.log(`🔔 [UnifiedRealtime] Channel removed: ${channelKey}`);
+    log.debug('Utils', `🔔 [UnifiedRealtime] Channel removed: ${channelKey}`);
   }
 
   /**
@@ -448,12 +449,12 @@ class UnifiedRealtimeManager {
     // Handle network changes
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
-        console.log('🔔 [UnifiedRealtime] Network back online, resuming connections');
+        log.debug('Utils', '🔔 [UnifiedRealtime] Network back online, resuming connections');
         this.resumeConnections();
       });
 
       window.addEventListener('offline', () => {
-        console.log('🔔 [UnifiedRealtime] Network offline, pausing connections');
+        log.debug('Utils', '🔔 [UnifiedRealtime] Network offline, pausing connections');
         this.pauseConnections();
       });
     }
@@ -464,7 +465,7 @@ class UnifiedRealtimeManager {
    */
   private pauseConnections(): void {
     this.isEnabled = false;
-    console.log('🔔 [UnifiedRealtime] Pausing all realtime connections');
+    log.debug('Utils', '🔔 [UnifiedRealtime] Pausing all realtime connections');
   }
 
   /**
@@ -472,7 +473,7 @@ class UnifiedRealtimeManager {
    */
   private resumeConnections(): void {
     this.isEnabled = true;
-    console.log('🔔 [UnifiedRealtime] Resuming all realtime connections');
+    log.debug('Utils', '🔔 [UnifiedRealtime] Resuming all realtime connections');
     
     // Check and reconnect any failed connections
     this.connectionStatus.forEach((status, channelKey) => {
@@ -566,7 +567,7 @@ class UnifiedRealtimeManager {
     this.connectionStatus.clear();
     this.batchQueues.clear();
 
-    console.log('🔔 [UnifiedRealtime] Complete cleanup performed');
+    log.debug('Utils', '🔔 [UnifiedRealtime] Complete cleanup performed');
   }
 }
 

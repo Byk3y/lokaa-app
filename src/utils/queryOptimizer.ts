@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Query Optimization Utility
  * Handles timeouts, retries, and fallback strategies for Supabase queries
@@ -42,7 +43,7 @@ export async function optimizedQuery<T>(
       
       // Success - log if this was a retry
       if (attempt > 0 && import.meta.env.DEV) {
-        console.log(`✅ Query succeeded on attempt ${attempt + 1}${cacheKey ? ` for ${cacheKey}` : ''}`);
+        log.debug('Utils', `✅ Query succeeded on attempt ${attempt + 1}${cacheKey ? ` for ${cacheKey}` : ''}`);
       }
       
       return result;
@@ -50,7 +51,7 @@ export async function optimizedQuery<T>(
       lastError = error instanceof Error ? error : new Error(String(error));
       
       if (import.meta.env.DEV) {
-        console.warn(`⚠️ Query attempt ${attempt + 1} failed${cacheKey ? ` for ${cacheKey}` : ''}:`, lastError.message);
+        log.warn('Utils', `⚠️ Query attempt ${attempt + 1} failed${cacheKey ? ` for ${cacheKey}` : ''}:`, lastError.message);
       }
       
       // If this is the last attempt, break
@@ -64,7 +65,7 @@ export async function optimizedQuery<T>(
   // All attempts failed
   if (fallbackValue !== undefined) {
     if (import.meta.env.DEV) {
-      console.warn(`🔄 Using fallback value${cacheKey ? ` for ${cacheKey}` : ''} after ${retries + 1} attempts`);
+      log.warn('Utils', `🔄 Using fallback value${cacheKey ? ` for ${cacheKey}` : ''} after ${retries + 1} attempts`);
     }
     return fallbackValue;
   }

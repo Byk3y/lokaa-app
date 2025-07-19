@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef, useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -70,18 +71,18 @@ export const useRealtimePosts = ({
   const addNewPostId = (postId: string, postUserId: string, postData: NewPostData) => {
     // Don't show notification for user's own posts
     if (postUserId === userId) {
-      console.log(`🚫 [Realtime] Ignoring own post: ${postId}`);
+      log.debug('Hook', `🚫 [Realtime] Ignoring own post: ${postId}`);
       return;
     }
 
     // Don't add posts if they're too close to page load (avoid duplicates)
     const timeSincePageLoad = Date.now() - lastPageLoad.getTime();
     if (timeSincePageLoad < 5000) {
-      console.log(`⏳ [Realtime] Ignoring post too close to page load: ${postId}`);
+      log.debug('Hook', `⏳ [Realtime] Ignoring post too close to page load: ${postId}`);
       return;
     }
 
-    console.log(`📦 [Realtime] Batching new post: ${postId}`);
+    log.debug('Hook', `📦 [Realtime] Batching new post: ${postId}`);
     
     // Add to current batch
     batchRef.current.posts.push(postData);
@@ -97,12 +98,12 @@ export const useRealtimePosts = ({
     
     if (isUserScrolling && delayOnScroll) {
       delay = debounceMs * 1.5; // Increase delay if user is scrolling
-      console.log(`🐌 [Realtime] User scrolling, delaying notification`);
+      log.debug('Hook', `🐌 [Realtime] User scrolling, delaying notification`);
     }
 
     if (batchRef.current.posts.length >= maxBatchSize) {
       delay = 500; // Faster processing for large batches
-      console.log(`🚀 [Realtime] Large batch detected, processing quickly`);
+      log.debug('Hook', `🚀 [Realtime] Large batch detected, processing quickly`);
     }
 
     // Set new timeout with smart delay
@@ -116,7 +117,7 @@ export const useRealtimePosts = ({
             .filter(id => !prev.includes(id));
           
           if (newIds.length > 0) {
-            console.log(`✨ [Realtime] Processing batch of ${newIds.length} posts:`, newIds);
+            log.debug('Hook', `✨ [Realtime] Processing batch of ${newIds.length} posts:`, newIds);
             return [...prev, ...newIds];
           }
           return prev;
@@ -141,9 +142,9 @@ export const useRealtimePosts = ({
   useEffect(() => {
     if (!isEnabled || !spaceId) return;
 
-    console.log(`🔔 [RealtimePosts] Setting up subscription for space: ${spaceId}`);
-    console.log(`🔔 [RealtimePosts] Filter: space_id=eq.${spaceId}`);
-    console.log(`🔔 [RealtimePosts] Current user ID: ${userId}`);
+    log.debug('Hook', `🔔 [RealtimePosts] Setting up subscription for space: ${spaceId}`);
+    log.debug('Hook', `🔔 [RealtimePosts] Filter: space_id=eq.${spaceId}`);
+    log.debug('Hook', `🔔 [RealtimePosts] Current user ID: ${userId}`);
 
     // Create channel for this space
     const channel = getSupabaseClient()
@@ -157,8 +158,8 @@ export const useRealtimePosts = ({
           filter: `space_id=eq.${spaceId}`,
         },
         (payload) => {
-          console.log('🔔 [RealtimePosts] New post detected:', payload);
-          console.log('🔔 [RealtimePosts] Payload details:', {
+          log.debug('Hook', '🔔 [RealtimePosts] New post detected:', payload);
+          log.debug('Hook', '🔔 [RealtimePosts] Payload details:', {
             event: payload.eventType,
             table: payload.table,
             schema: payload.schema,
@@ -168,7 +169,7 @@ export const useRealtimePosts = ({
           
           if (payload.new && typeof payload.new === 'object') {
             const newPost = payload.new as NewPostData;
-            console.log('🔔 [RealtimePosts] Processing new post:', {
+            log.debug('Hook', '🔔 [RealtimePosts] Processing new post:', {
               id: newPost.id,
               user_id: newPost.user_id,
               space_id: (newPost as any).space_id,
@@ -177,12 +178,12 @@ export const useRealtimePosts = ({
             });
             addNewPostId(newPost.id, newPost.user_id, newPost);
           } else {
-            console.warn('🔔 [RealtimePosts] Invalid payload.new:', payload.new);
+            log.warn('Hook', '🔔 [RealtimePosts] Invalid payload.new:', payload.new);
           }
         }
       )
       .subscribe((status) => {
-        console.log(`🔔 [RealtimePosts] Subscription status: ${status}`);
+        log.debug('Hook', `🔔 [RealtimePosts] Subscription status: ${status}`);
         setIsConnected(status === 'SUBSCRIBED');
       });
 
@@ -190,7 +191,7 @@ export const useRealtimePosts = ({
 
     // Cleanup function
     return () => {
-      console.log('🔔 [RealtimePosts] Cleaning up subscription');
+      log.debug('Hook', '🔔 [RealtimePosts] Cleaning up subscription');
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }

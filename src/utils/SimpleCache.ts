@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Simple Unified Cache System
  * 
@@ -166,7 +167,7 @@ export class SimpleCache {
     try {
       localStorage.setItem(`cache:${key}`, JSON.stringify(item));
     } catch (error) {
-      console.warn('[SimpleCache] localStorage set failed:', error);
+      log.warn('Utils', '[SimpleCache] localStorage set failed:', error);
     }
   }
 
@@ -175,7 +176,7 @@ export class SimpleCache {
       const item = localStorage.getItem(`cache:${key}`);
       return item ? JSON.parse(item) : null;
     } catch (error) {
-      console.warn('[SimpleCache] localStorage get failed:', error);
+      log.warn('Utils', '[SimpleCache] localStorage get failed:', error);
       return null;
     }
   }
@@ -192,12 +193,12 @@ export const simpleCache = new SimpleCache();
 setInterval(() => {
   const cleaned = simpleCache.cleanup();
   if (cleaned > 0) {
-    console.log(`🧹 [SimpleCache] Auto-cleanup removed ${cleaned} expired items`);
+    log.debug('Utils', `🧹 [SimpleCache] Auto-cleanup removed ${cleaned} expired items`);
   }
 }, 5 * 60 * 1000);
 
 // Expose globally for debugging
 if (typeof window !== 'undefined') {
   (window as any).simpleCache = simpleCache;
-  console.log('💾 [SimpleCache] Unified cache system initialized');
+  log.debug('Utils', '💾 [SimpleCache] Unified cache system initialized');
 } 

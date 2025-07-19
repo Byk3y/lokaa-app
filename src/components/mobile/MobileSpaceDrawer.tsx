@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Globe, Search, Check, X } from 'lucide-react';
@@ -62,11 +63,11 @@ export default function MobileSpaceDrawer({
       // If we have cached spaces, don't show loading state while refreshing
       if (hasCachedSpaces) {
         // Background refresh without loading state
-        console.log('🔄 [MobileSpaceDrawer] Background refresh with cached data');
+        log.debug('Component', '🔄 [MobileSpaceDrawer] Background refresh with cached data');
         fetchUserSpaces(userId, false); // Don't force refresh if cache is fresh
       } else {
         // No cached data, fetch with loading state
-        console.log('🔄 [MobileSpaceDrawer] Initial fetch - no cached data');
+        log.debug('Component', '🔄 [MobileSpaceDrawer] Initial fetch - no cached data');
         fetchUserSpaces(userId, false);
       }
     }
@@ -75,7 +76,7 @@ export default function MobileSpaceDrawer({
   // Handle membership store refresh trigger (when user joins/leaves spaces)
   useEffect(() => {
     if (userId && refreshSpacesTrigger > 0) {
-      console.log('🔄 [MobileSpaceDrawer] Membership changed, refreshing spaces');
+      log.debug('Component', '🔄 [MobileSpaceDrawer] Membership changed, refreshing spaces');
       fetchUserSpaces(userId, true); // Force refresh
     }
   }, [refreshSpacesTrigger, userId, fetchUserSpaces]);
@@ -83,7 +84,7 @@ export default function MobileSpaceDrawer({
   // Background refresh if data is stale and drawer is open
   useEffect(() => {
     if (isOpen && userId && isStale() && hasCachedSpaces) {
-      console.log('🔄 [MobileSpaceDrawer] Data is stale, triggering background refresh');
+      log.debug('Component', '🔄 [MobileSpaceDrawer] Data is stale, triggering background refresh');
       fetchUserSpaces(userId);
     }
   }, [isOpen, userId, isStale, fetchUserSpaces, hasCachedSpaces]);
@@ -101,7 +102,7 @@ export default function MobileSpaceDrawer({
       try {
         sessionStorage.setItem('navigatedFromSpace', JSON.stringify(spaceInfo));
       } catch (e) {
-        console.error('Error storing space context:', e);
+        log.error('Component', 'Error storing space context:', e);
       }
     }
     
@@ -132,7 +133,7 @@ export default function MobileSpaceDrawer({
         }
       }
     } catch (e) {
-      console.error('Error retrieving space from navigation context:', e);
+      log.error('Component', 'Error retrieving space from navigation context:', e);
     }
     
     // Fallback to the passed subdomain

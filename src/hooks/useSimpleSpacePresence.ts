@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 SIMPLE SPACE PRESENCE SYSTEM
  * 
@@ -38,7 +39,7 @@ const activeHookInstances = new Map<string, boolean>();
 // Debug helper
 const debugPresence = (message: string, data: any) => {
   if (process.env.NODE_ENV === 'development') {
-    console.log(`🌐 [SimplePresence] ${message}:`, {
+    log.debug('Hook', `🌐 [SimplePresence] ${message}:`, {
       ...data,
       timestamp: new Date().toISOString()
     });
@@ -95,7 +96,7 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
         .gte('online_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
 
       if (error) {
-        console.error('Error fetching presence data:', error);
+        log.error('Hook', 'Error fetching presence data:', error);
         if (mountedRef.current) {
           setPresence(prev => ({ ...prev, loading: false, error: error.message }));
         }
@@ -131,7 +132,7 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
       }
 
     } catch (error: any) {
-      console.error('Exception fetching presence data:', error);
+      log.error('Hook', 'Exception fetching presence data:', error);
       if (mountedRef.current) {
         setPresence(prev => ({ ...prev, loading: false, error: error.message }));
       }
@@ -172,7 +173,7 @@ export const useSimpleSpacePresence = (spaceId: string): SpacePresenceResult => 
 
       debugPresence('Updated user presence', { userId: user.id, spaceId });
     } catch (error) {
-      console.error('Failed to update user presence:', error);
+      log.error('Hook', 'Failed to update user presence:', error);
     }
   };
 

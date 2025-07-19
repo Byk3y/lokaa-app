@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -191,7 +192,7 @@ export function usePostDetail(postId: string, loggedInUserId?: string, initialDa
       if (context?.rollback) {
         context.rollback();
       }
-      console.error('Like toggle failed:', error);
+      log.error('Hook', 'Like toggle failed:', error);
     },
     onSuccess: async (result, { postId, userId }) => {
       // Invalidate related queries to sync with server

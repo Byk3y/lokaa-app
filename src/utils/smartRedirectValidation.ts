@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚀 Smart Redirect Validation Tool
  * Tests the next-level space redirect system
@@ -28,7 +29,7 @@ class SmartRedirectValidator {
    * Run comprehensive validation of smart redirect system
    */
   async validate(): Promise<ValidationReport> {
-    console.log('🚀 Starting Smart Redirect Validation...\n');
+    log.debug('Utils', '🚀 Starting Smart Redirect Validation...\n');
     
     const results: ValidationResult[] = [];
     
@@ -199,7 +200,7 @@ class SmartRedirectValidator {
       // Test the aggressive discover override logic
       const mockUserId = 'test-user-id';
       const mockNavigate = (path: string) => {
-        console.log(`Mock navigate to: ${path}`);
+        log.debug('Utils', `Mock navigate to: ${path}`);
         return path;
       };
       
@@ -289,38 +290,38 @@ class SmartRedirectValidator {
    * Print comprehensive report
    */
   private printReport(report: ValidationReport): void {
-    console.log('\n🏁 Smart Redirect Validation Complete!\n');
-    console.log('📊 VALIDATION SUMMARY:');
-    console.log(`   Total Tests: ${report.totalTests}`);
-    console.log(`   ✅ Passed: ${report.passed}`);
-    console.log(`   ❌ Failed: ${report.failed}`);
-    console.log(`   🎯 Score: ${report.overallScore}%`);
+    log.debug('Utils', '\n🏁 Smart Redirect Validation Complete!\n');
+    log.debug('Utils', '📊 VALIDATION SUMMARY:');
+    log.debug('Utils', `   Total Tests: ${report.totalTests}`);
+    log.debug('Utils', `   ✅ Passed: ${report.passed}`);
+    log.debug('Utils', `   ❌ Failed: ${report.failed}`);
+    log.debug('Utils', `   🎯 Score: ${report.overallScore}%`);
     
-    console.log('\n📋 DETAILED RESULTS:');
+    log.debug('Utils', '\n📋 DETAILED RESULTS:');
     report.results.forEach(result => {
       const status = result.passed ? '✅' : '❌';
       const performance = result.performance ? ` (${result.performance.toFixed(2)}ms)` : '';
-      console.log(`   ${status} ${result.name}${performance}`);
+      log.debug('Utils', `   ${status} ${result.name}${performance}`);
       
       if (result.issue) {
-        console.log(`      ⚠️ Issue: ${result.issue}`);
+        log.debug('Utils', `      ⚠️ Issue: ${result.issue}`);
       }
       
       if (result.details && process.env.NODE_ENV === 'development') {
-        console.log(`      📝 Details:`, result.details);
+        log.debug('Utils', `      📝 Details:`, result.details);
       }
     });
     
-    console.log(`\n${report.summary}`);
+    log.debug('Utils', `\n${report.summary}`);
     
-    console.log('\n🎯 NEXT STEPS:');
+    log.debug('Utils', '\n🎯 NEXT STEPS:');
     if (report.overallScore >= 95) {
-      console.log('   - Test in incognito mode to verify instant space landing');
-      console.log('   - Monitor user feedback for space redirect satisfaction');
+      log.debug('Utils', '   - Test in incognito mode to verify instant space landing');
+      log.debug('Utils', '   - Monitor user feedback for space redirect satisfaction');
     } else {
-      console.log('   - Fix failing tests before deploying');
-      console.log('   - Re-run validation after fixes');
-      console.log('   - Consider additional performance optimizations');
+      log.debug('Utils', '   - Fix failing tests before deploying');
+      log.debug('Utils', '   - Re-run validation after fixes');
+      log.debug('Utils', '   - Consider additional performance optimizations');
     }
   }
 }
@@ -332,8 +333,8 @@ export const smartRedirectValidator = new SmartRedirectValidator();
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).validateSmartRedirect = () => smartRedirectValidator.validate();
   
-  console.log('🚀 Smart Redirect validation available:');
-  console.log('   - window.validateSmartRedirect()');
+  log.debug('Utils', '🚀 Smart Redirect validation available:');
+  log.debug('Utils', '   - window.validateSmartRedirect()');
 }
 
 export default SmartRedirectValidator; 

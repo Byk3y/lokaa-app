@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useMessages } from '@/features/chat';
@@ -61,7 +62,7 @@ export default function ChatView({
   const isMobile = useMediaQuery("(max-width: 640px)");
   
   // DEBUG: Log conversation data
-  console.log('🗨️ [ChatView] Rendered with conversation:', {
+  log.debug('Component', '🗨️ [ChatView] Rendered with conversation:', {
     conversationId: initialConversation?.conversation_id,
     conversationName: initialConversation?.conversation_name,
     isGroup: initialConversation?.is_group,
@@ -79,7 +80,7 @@ export default function ChatView({
   const otherParticipant = isDirectConversation && currentConversation.other_participants?.[0];
 
   // DEBUG: Log conversation context
-  console.log('🗨️ [ChatView] Conversation context:', {
+  log.debug('Component', '🗨️ [ChatView] Conversation context:', {
     isDirectConversation,
     otherParticipant: otherParticipant ? {
       userId: otherParticipant.user_id,
@@ -99,7 +100,7 @@ export default function ChatView({
     
     // Only update if this represents a significant change (prevent late loading issues)
     if (newHasOtherParticipant !== shouldShowConnectionContext && initialConversation.other_participants?.length > 0) {
-      console.log('🗨️ [ChatView] 🔄 Connection context visibility updated:', newHasOtherParticipant);
+      log.debug('Component', '🗨️ [ChatView] 🔄 Connection context visibility updated:', newHasOtherParticipant);
       setShouldShowConnectionContext(newHasOtherParticipant);
     }
   }, [initialConversation, shouldShowConnectionContext]);
@@ -107,7 +108,7 @@ export default function ChatView({
   // ✅ FIXED: Auto-refresh messages when conversation changes
   useEffect(() => {
     if (currentConversation?.conversation_id) {
-      console.log('🗨️ [ChatView] Conversation changed, refreshing messages for:', currentConversation.conversation_id);
+      log.debug('Component', '🗨️ [ChatView] Conversation changed, refreshing messages for:', currentConversation.conversation_id);
       
       // ✅ CRITICAL FIX: Reset flags for new conversation
       isInitialLoad.current = true;
@@ -121,9 +122,9 @@ export default function ChatView({
         // Use the markAsRead from useMessages hook
         import('@/features/chat/store/messageStore').then(({ useMessageStore }) => {
           useMessageStore.getState().markAsRead(currentConversation.conversation_id);
-          console.log('🗨️ [ChatView] ✅ Marked conversation as read for current user');
+          log.debug('Component', '🗨️ [ChatView] ✅ Marked conversation as read for current user');
         }).catch(error => {
-          console.warn('🗨️ [ChatView] ⚠️ Failed to mark as read:', error);
+          log.warn('Component', '🗨️ [ChatView] ⚠️ Failed to mark as read:', error);
         });
       }
     }
@@ -151,7 +152,7 @@ export default function ChatView({
             // Method 2: Also use scrollIntoView without animation as backup
             messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
             
-            console.log('🗨️ [ChatView] Initial load: Positioned at bottom', {
+            log.debug('Component', '🗨️ [ChatView] Initial load: Positioned at bottom', {
               scrollTop: container.scrollTop,
               scrollHeight: container.scrollHeight,
               clientHeight: container.clientHeight
@@ -176,7 +177,7 @@ export default function ChatView({
       if (isConnectionContextChange) {
         // ConnectionContext loaded - this is a layout change, not a new message
         connectionContextLoaded.current = true;
-        console.log('🗨️ [ChatView] ConnectionContext loaded: Re-positioning to bottom');
+        log.debug('Component', '🗨️ [ChatView] ConnectionContext loaded: Re-positioning to bottom');
         
         // ✅ CRITICAL FIX: When ConnectionContext loads, scroll to bottom to show last message
         const scrollToBottomAfterContext = () => {
@@ -184,7 +185,7 @@ export default function ChatView({
             // Scroll to very bottom to ensure last message is visible
             container.scrollTop = container.scrollHeight - container.clientHeight;
             messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
-            console.log('🗨️ [ChatView] ConnectionContext: Repositioned to bottom', {
+            log.debug('Component', '🗨️ [ChatView] ConnectionContext: Repositioned to bottom', {
               scrollTop: container.scrollTop,
               scrollHeight: container.scrollHeight,
               clientHeight: container.clientHeight
@@ -203,7 +204,7 @@ export default function ChatView({
         if (wasNearBottom) {
           setTimeout(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            console.log('🗨️ [ChatView] New message: Smooth scroll to bottom');
+            log.debug('Component', '🗨️ [ChatView] New message: Smooth scroll to bottom');
           }, 10);
         }
         
@@ -224,7 +225,7 @@ export default function ChatView({
         onConversationUpdated();
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      log.error('Component', "Error sending message:", error);
     } finally {
       setSending(false);
     }

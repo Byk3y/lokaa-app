@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚨 Emergency Database Recovery Utility
  * Handles RLS policy errors and provides fallback mechanisms
@@ -51,26 +52,26 @@ class EmergencyDatabaseRecovery {
       useCache = true 
     } = options;
 
-    console.log('🚨 [Recovery] Starting safe space query for user:', userId);
+    log.debug('Utils', '🚨 [Recovery] Starting safe space query for user:', userId);
 
     // Strategy 1: Try direct space access
     for (let attempt = 1; attempt <= retryAttempts; attempt++) {
       try {
         const result = await this.tryDirectSpaceAccess(userId);
         if (result.success) {
-          console.log(`✅ [Recovery] Direct access successful on attempt ${attempt}`);
+          log.debug('Utils', `✅ [Recovery] Direct access successful on attempt ${attempt}`);
           return result;
         }
       } catch (error) {
-        console.warn(`⚠️ [Recovery] Attempt ${attempt} failed:`, error);
+        log.warn('Utils', `⚠️ [Recovery] Attempt ${attempt} failed:`, error);
         
         if (this.isPolicyError(error)) {
-          console.log('🔧 [Recovery] Policy error detected, switching to fallback');
+          log.debug('Utils', '🔧 [Recovery] Policy error detected, switching to fallback');
           break; // Skip remaining retries for policy errors
         }
         
         if (attempt === retryAttempts) {
-          console.error('💥 [Recovery] All direct attempts failed');
+          log.error('Utils', '💥 [Recovery] All direct attempts failed');
         }
       }
     }
@@ -80,11 +81,11 @@ class EmergencyDatabaseRecovery {
       try {
         const publicResult = await this.tryPublicSpacesFallback(userId);
         if (publicResult.success) {
-          console.log('✅ [Recovery] Public fallback successful');
+          log.debug('Utils', '✅ [Recovery] Public fallback successful');
           return publicResult;
         }
       } catch (error) {
-        console.warn('⚠️ [Recovery] Public fallback failed:', error);
+        log.warn('Utils', '⚠️ [Recovery] Public fallback failed:', error);
       }
     }
 
@@ -93,11 +94,11 @@ class EmergencyDatabaseRecovery {
       try {
         const cacheResult = await this.tryCacheFallback(userId);
         if (cacheResult.success) {
-          console.log('✅ [Recovery] Cache fallback successful');
+          log.debug('Utils', '✅ [Recovery] Cache fallback successful');
           return cacheResult;
         }
       } catch (error) {
-        console.warn('⚠️ [Recovery] Cache fallback failed:', error);
+        log.warn('Utils', '⚠️ [Recovery] Cache fallback failed:', error);
       }
     }
 
@@ -127,7 +128,7 @@ class EmergencyDatabaseRecovery {
         throw new Error(rpcError?.message || 'RPC call failed');
       }
     } catch (rpcError) {
-      console.warn('🚨 [Recovery] RPC method failed:', rpcError);
+      log.warn('Utils', '🚨 [Recovery] RPC method failed:', rpcError);
       throw rpcError; // Don't fallback to direct queries that cause 406 errors
     }
   }
@@ -208,7 +209,7 @@ class EmergencyDatabaseRecovery {
       }
 
     } catch (error) {
-      console.warn('🚨 [Recovery] Safe membership check failed:', error);
+      log.warn('Utils', '🚨 [Recovery] Safe membership check failed:', error);
     }
 
     // Ultimate fallback: assume no access (conservative approach)
@@ -268,7 +269,7 @@ class EmergencyDatabaseRecovery {
       });
     });
 
-    console.log('🧹 [Recovery] Cleared problematic cache entries');
+    log.debug('Utils', '🧹 [Recovery] Cleared problematic cache entries');
   }
 
   /**
@@ -281,7 +282,7 @@ class EmergencyDatabaseRecovery {
     error?: string;
   }> {
     try {
-      console.log('🚨 [Recovery] Getting space members safely for space:', spaceId);
+      log.debug('Utils', '🚨 [Recovery] Getting space members safely for space:', spaceId);
       
       const { data, error } = await getSupabaseClient()
         .rpc('get_space_members_safe', {
@@ -289,7 +290,7 @@ class EmergencyDatabaseRecovery {
         });
 
       if (error) {
-        console.error('🚨 [Recovery] Safe space members query failed:', error);
+        log.error('Utils', '🚨 [Recovery] Safe space members query failed:', error);
         return {
           success: false,
           data: null,
@@ -298,7 +299,7 @@ class EmergencyDatabaseRecovery {
         };
       }
 
-      console.log('✅ [Recovery] Safe space members query successful, found members:', data?.length || 0);
+      log.debug('Utils', '✅ [Recovery] Safe space members query successful, found members:', data?.length || 0);
       
       return {
         success: true,
@@ -306,7 +307,7 @@ class EmergencyDatabaseRecovery {
         strategy: 'safe-rpc-members'
       };
     } catch (error) {
-      console.error('🚨 [Recovery] Exception in safe space members query:', error);
+      log.error('Utils', '🚨 [Recovery] Exception in safe space members query:', error);
       return {
         success: false,
         data: null,
@@ -320,11 +321,11 @@ class EmergencyDatabaseRecovery {
    * Debug function to help identify white screen issues
    */
   static debugSpaceAccess(userId: string, spaceSubdomain?: string) {
-    console.log('🔍 [Recovery] === DEBUG SPACE ACCESS ===');
-    console.log('🔍 [Recovery] User ID:', userId);
-    console.log('🔍 [Recovery] Space Subdomain:', spaceSubdomain);
-    console.log('🔍 [Recovery] Current URL:', window.location.href);
-    console.log('🔍 [Recovery] React DevTools available:', !!(window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__);
+    log.debug('Utils', '🔍 [Recovery] === DEBUG SPACE ACCESS ===');
+    log.debug('Utils', '🔍 [Recovery] User ID:', userId);
+    log.debug('Utils', '🔍 [Recovery] Space Subdomain:', spaceSubdomain);
+    log.debug('Utils', '🔍 [Recovery] Current URL:', window.location.href);
+    log.debug('Utils', '🔍 [Recovery] React DevTools available:', !!(window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__);
     
     // Check if we have the global debug functions
     const debugFunctions = [
@@ -335,41 +336,41 @@ class EmergencyDatabaseRecovery {
     ];
     
     debugFunctions.forEach(func => {
-      console.log(`🔍 [Recovery] ${func} available:`, typeof (window as any)[func] === 'function');
+      log.debug('Utils', `🔍 [Recovery] ${func} available:`, typeof (window as any)[func] === 'function');
     });
     
     // Check local storage and session storage
-    console.log('🔍 [Recovery] Local storage items:', Object.keys(localStorage));
-    console.log('🔍 [Recovery] Session storage items:', Object.keys(sessionStorage));
+    log.debug('Utils', '🔍 [Recovery] Local storage items:', Object.keys(localStorage));
+    log.debug('Utils', '🔍 [Recovery] Session storage items:', Object.keys(sessionStorage));
     
     // Check for any errors in console
-    console.log('🔍 [Recovery] === DEBUG COMPLETE ===');
+    log.debug('Utils', '🔍 [Recovery] === DEBUG COMPLETE ===');
   }
 
   /**
    * Test emergency functions to ensure they're working
    */
   static async testEmergencyFunctions(userId: string) {
-    console.log('🧪 [Recovery] Testing emergency functions...');
+    log.debug('Utils', '🧪 [Recovery] Testing emergency functions...');
     
     try {
       // Test 1: Safe space query
       const spaceResult = await this.safeSpaceQuery(userId, { retryAttempts: 1 });
-      console.log('🧪 [Recovery] Safe space query result:', spaceResult.success ? 'PASS' : 'FAIL');
+      log.debug('Utils', '🧪 [Recovery] Safe space query result:', spaceResult.success ? 'PASS' : 'FAIL');
       
       if (spaceResult.data && spaceResult.data.length > 0) {
         const firstSpace = spaceResult.data[0];
-        console.log('🧪 [Recovery] First space found:', firstSpace.name, firstSpace.subdomain);
+        log.debug('Utils', '🧪 [Recovery] First space found:', firstSpace.name, firstSpace.subdomain);
         
         // Test 2: Membership check
         const membershipResult = await this.safeMembershipCheck(firstSpace.id, userId);
-        console.log('🧪 [Recovery] Membership check result:', membershipResult.isMember ? 'MEMBER' : 'NOT_MEMBER');
-        console.log('🧪 [Recovery] Ownership check result:', membershipResult.isOwner ? 'OWNER' : 'NOT_OWNER');
+        log.debug('Utils', '🧪 [Recovery] Membership check result:', membershipResult.isMember ? 'MEMBER' : 'NOT_MEMBER');
+        log.debug('Utils', '🧪 [Recovery] Ownership check result:', membershipResult.isOwner ? 'OWNER' : 'NOT_OWNER');
       }
       
-      console.log('✅ [Recovery] Emergency functions test completed');
+      log.debug('Utils', '✅ [Recovery] Emergency functions test completed');
     } catch (error) {
-      console.error('❌ [Recovery] Emergency functions test failed:', error);
+      log.error('Utils', '❌ [Recovery] Emergency functions test failed:', error);
     }
   }
 }

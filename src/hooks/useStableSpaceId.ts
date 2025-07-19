@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useMemo, useRef } from 'react';
 
 interface UseStableSpaceIdOptions {
@@ -28,13 +29,13 @@ export function useStableSpaceId({
   const stableSpaceId = useMemo(() => {
     // Early return if auth is still loading
     if (authLoading) {
-      console.log('🔒 [useStableSpaceId] Auth loading, waiting...');
+      log.debug('Hook', '🔒 [useStableSpaceId] Auth loading, waiting...');
       return undefined;
     }
 
     // Early return if no subdomain
     if (!subdomain) {
-      console.log('🔒 [useStableSpaceId] No subdomain provided');
+      log.debug('Hook', '🔒 [useStableSpaceId] No subdomain provided');
       return undefined;
     }
 
@@ -42,7 +43,7 @@ export function useStableSpaceId({
     const subdomainChanged = lastResolvedRef.current.subdomain !== subdomain;
     
     if (subdomainChanged) {
-      console.log(`🔄 [useStableSpaceId] Resolving space ID for ${subdomain} (previous: ${lastResolvedRef.current.subdomain})`);
+      log.debug('Hook', `🔄 [useStableSpaceId] Resolving space ID for ${subdomain} (previous: ${lastResolvedRef.current.subdomain})`);
     }
 
     let resolvedSpaceId: string | undefined;
@@ -51,14 +52,14 @@ export function useStableSpaceId({
     if (contextSpaceData?.id) {
       resolvedSpaceId = contextSpaceData.id;
       if (subdomainChanged) {
-        console.log(`🔒 [useStableSpaceId] Using context data for ${subdomain}: ${resolvedSpaceId}`);
+        log.debug('Hook', `🔒 [useStableSpaceId] Using context data for ${subdomain}: ${resolvedSpaceId}`);
       }
     }
     // Priority 2: Current space data
     else if (currentSpaceData?.id) {
       resolvedSpaceId = currentSpaceData.id;
       if (subdomainChanged) {
-        console.log(`🔒 [useStableSpaceId] Using current data for ${subdomain}: ${resolvedSpaceId}`);
+        log.debug('Hook', `🔒 [useStableSpaceId] Using current data for ${subdomain}: ${resolvedSpaceId}`);
       }
     }
     // Priority 3: localStorage cache
@@ -70,19 +71,19 @@ export function useStableSpaceId({
           if (parsedCache?.id) {
             resolvedSpaceId = parsedCache.id;
             if (subdomainChanged) {
-              console.log(`🔒 [useStableSpaceId] Using localStorage cache for ${subdomain}: ${resolvedSpaceId}`);
+              log.debug('Hook', `🔒 [useStableSpaceId] Using localStorage cache for ${subdomain}: ${resolvedSpaceId}`);
             }
           }
         }
       } catch (error) {
-        console.warn('🔒 [useStableSpaceId] Failed to read localStorage cache:', error);
+        log.warn('Hook', '🔒 [useStableSpaceId] Failed to read localStorage cache:', error);
       }
     }
 
     // Update ref if we successfully resolved
     if (resolvedSpaceId && subdomainChanged) {
       lastResolvedRef.current = { subdomain, spaceId: resolvedSpaceId };
-      console.log(`🔒 [useStableSpaceId] Successfully resolved stable space ID for ${subdomain}: ${resolvedSpaceId}`);
+      log.debug('Hook', `🔒 [useStableSpaceId] Successfully resolved stable space ID for ${subdomain}: ${resolvedSpaceId}`);
     }
 
     // Return the resolved space ID or keep the last valid one

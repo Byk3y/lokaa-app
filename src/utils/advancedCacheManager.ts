@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // =====================================
 // ADVANCED CACHE MANAGEMENT SYSTEM
 // =====================================
@@ -94,7 +95,7 @@ export class AdvancedCacheManager {
           serializedData = this.simpleCompress(serializedData);
           compressed = true;
         } catch (error) {
-          console.warn('Cache compression failed:', error);
+          log.warn('Utils', 'Cache compression failed:', error);
         }
       }
 
@@ -121,10 +122,10 @@ export class AdvancedCacheManager {
       this.stats.size++;
       this.stats.memoryUsage += size;
       
-      console.log(`[AdvancedCache] Set ${key} (${this.formatBytes(size)}, TTL: ${fullConfig.ttl}ms)`);
+      log.debug('Utils', `[AdvancedCache] Set ${key} (${this.formatBytes(size)}, TTL: ${fullConfig.ttl}ms)`);
 
     } catch (error) {
-      console.error('Cache set error:', error);
+      log.error('Utils', 'Cache set error:', error);
     }
   }
 
@@ -163,11 +164,11 @@ export class AdvancedCacheManager {
 
       const parsedData = JSON.parse(data);
       
-      console.log(`[AdvancedCache] Hit ${key} (${item.accessCount} accesses)`);
+      log.debug('Utils', `[AdvancedCache] Hit ${key} (${item.accessCount} accesses)`);
       return parsedData;
 
     } catch (error) {
-      console.error('Cache get error:', error);
+      log.error('Utils', 'Cache get error:', error);
       this.stats.misses++;
       this.updateHitRate();
       return null;
@@ -183,7 +184,7 @@ export class AdvancedCacheManager {
       this.cache.delete(key);
       this.stats.size--;
       this.stats.memoryUsage -= item.size;
-      console.log(`[AdvancedCache] Deleted ${key}`);
+      log.debug('Utils', `[AdvancedCache] Deleted ${key}`);
       return true;
     }
     return false;
@@ -202,7 +203,7 @@ export class AdvancedCacheManager {
       }
     }
     
-    console.log(`[AdvancedCache] Cleared ${cleared} items by tags:`, tags);
+    log.debug('Utils', `[AdvancedCache] Cleared ${cleared} items by tags:`, tags);
     return cleared;
   }
 
@@ -214,7 +215,7 @@ export class AdvancedCacheManager {
     this.cache.clear();
     this.stats.size = 0;
     this.stats.memoryUsage = 0;
-    console.log(`[AdvancedCache] Cleared all ${size} items`);
+    log.debug('Utils', `[AdvancedCache] Cleared all ${size} items`);
   }
 
   /**
@@ -289,7 +290,7 @@ export class AdvancedCacheManager {
       this.set(key, data, { ...config, priority: 'high' });
       return data;
     } catch (error) {
-      console.error('Prefetch failed:', error);
+      log.error('Utils', 'Prefetch failed:', error);
       throw error;
     }
   }
@@ -305,7 +306,7 @@ export class AdvancedCacheManager {
     });
     
     const duration = performance.now() - startTime;
-    console.log(`[AdvancedCache] Batch set ${items.length} items in ${duration.toFixed(2)}ms`);
+    log.debug('Utils', `[AdvancedCache] Batch set ${items.length} items in ${duration.toFixed(2)}ms`);
   }
 
   batchGet<T>(keys: string[]): Map<string, T | null> {
@@ -317,7 +318,7 @@ export class AdvancedCacheManager {
     });
     
     const duration = performance.now() - startTime;
-    console.log(`[AdvancedCache] Batch get ${keys.length} items in ${duration.toFixed(2)}ms`);
+    log.debug('Utils', `[AdvancedCache] Batch get ${keys.length} items in ${duration.toFixed(2)}ms`);
     
     return results;
   }
@@ -326,7 +327,7 @@ export class AdvancedCacheManager {
    * Smart eviction based on priority and access patterns
    */
   private evictItems(requiredSpace: number): void {
-    console.log(`[AdvancedCache] Evicting items to free ${this.formatBytes(requiredSpace)}`);
+    log.debug('Utils', `[AdvancedCache] Evicting items to free ${this.formatBytes(requiredSpace)}`);
     
     const items = Array.from(this.cache.entries()).map(([key, item]) => ({
       key,
@@ -349,7 +350,7 @@ export class AdvancedCacheManager {
       this.stats.evictions++;
     }
 
-    console.log(`[AdvancedCache] Evicted ${evicted} items, freed ${this.formatBytes(freedSpace)}`);
+    log.debug('Utils', `[AdvancedCache] Evicted ${evicted} items, freed ${this.formatBytes(freedSpace)}`);
   }
 
   /**
@@ -389,7 +390,7 @@ export class AdvancedCacheManager {
     }
 
     if (cleaned > 0) {
-      console.log(`[AdvancedCache] Cleanup removed ${cleaned} expired items`);
+      log.debug('Utils', `[AdvancedCache] Cleanup removed ${cleaned} expired items`);
     }
   }
 
@@ -403,7 +404,7 @@ export class AdvancedCacheManager {
         const usagePercent = (memInfo.usedJSHeapSize / memInfo.jsHeapSizeLimit) * 100;
         
         if (usagePercent > 85) {
-          console.warn('[AdvancedCache] High memory usage detected, reducing cache size');
+          log.warn('Utils', '[AdvancedCache] High memory usage detected, reducing cache size');
           this.evictItems(this.stats.memoryUsage * 0.25); // Evict 25% of cache
         }
       }, 30000); // Check every 30 seconds
@@ -450,7 +451,7 @@ export class AdvancedCacheManager {
       this.cleanupInterval = null;
     }
     this.clear();
-    console.log('[AdvancedCache] Destroyed');
+    log.debug('Utils', '[AdvancedCache] Destroyed');
   }
 }
 
@@ -463,5 +464,5 @@ if (typeof window !== 'undefined') {
   (window as any).getCacheStats = () => advancedCache.getStats();
   (window as any).getCacheHealth = () => advancedCache.getHealthReport();
   
-  console.log('🚀 [AdvancedCache] Cache manager initialized');
+  log.debug('Utils', '🚀 [AdvancedCache] Cache manager initialized');
 } 

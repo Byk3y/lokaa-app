@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📱 Mobile Session Manager - Phase 1
  * 
@@ -94,13 +95,13 @@ class MobileSessionManager {
 
     // OPTION C FIX: Check disable flag - don't initialize if Mobile Event Coordinator is managing events
     if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_SESSION_MANAGER) {
-      console.log('🔧 [MobileSessionManager] DISABLED - Mobile Event Coordinator is managing events');
+      log.debug('Utils', '🔧 [MobileSessionManager] DISABLED - Mobile Event Coordinator is managing events');
       return;
     }
 
     // Only enable mobile session management on actual mobile devices
     if (!shouldEnableMobileFeatures()) {
-      console.log('📱 [MobileSessionManager] Desktop detected - mobile session management disabled');
+      log.debug('Utils', '📱 [MobileSessionManager] Desktop detected - mobile session management disabled');
       return;
     }
 
@@ -113,7 +114,7 @@ class MobileSessionManager {
         this.state.lastActiveTimestamp = now;
         this.persistState();
         
-        console.log('📱 [MobileSessionManager] App backgrounded');
+        log.debug('Utils', '📱 [MobileSessionManager] App backgrounded');
       } else {
         // App returning from background
         const timeInBackground = now - this.state.backgroundTimestamp;
@@ -121,7 +122,7 @@ class MobileSessionManager {
         if (timeInBackground > this.BACKGROUND_THRESHOLD) {
           this.state.isReturningFromBackground = true;
           
-          console.log(`📱 [MobileSessionManager] Returning from background after ${Math.round(timeInBackground / 1000)}s`);
+          log.debug('Utils', `📱 [MobileSessionManager] Returning from background after ${Math.round(timeInBackground / 1000)}s`);
           
           // Clear the flag after processing
           setTimeout(() => {
@@ -164,7 +165,7 @@ class MobileSessionManager {
    * Clear stale states that might cause issues on mobile return
    */
   clearStaleStates(): void {
-    console.log('📱 [MobileSessionManager] Clearing stale states');
+    log.debug('Utils', '📱 [MobileSessionManager] Clearing stale states');
     
     try {
       // Clear React Router stale states
@@ -182,9 +183,9 @@ class MobileSessionManager {
       );
       loadingKeys.forEach(key => sessionStorage.removeItem(key));
       
-      console.log('📱 [MobileSessionManager] Cleared stale states');
+      log.debug('Utils', '📱 [MobileSessionManager] Cleared stale states');
     } catch (error) {
-      console.warn('📱 [MobileSessionManager] Error clearing stale states:', error);
+      log.warn('Utils', '📱 [MobileSessionManager] Error clearing stale states:', error);
     }
   }
 
@@ -193,7 +194,7 @@ class MobileSessionManager {
    */
   async quickMobileAuthCheck(): Promise<{ authenticated: boolean; userId?: string; error?: string }> {
     try {
-      console.log('📱 [MobileSessionManager] Quick mobile auth check');
+      log.debug('Utils', '📱 [MobileSessionManager] Quick mobile auth check');
       
       // First check localStorage for token (fastest)
       const hasLocalToken = Object.keys(localStorage).some(key => 
@@ -261,7 +262,7 @@ class MobileSessionManager {
             // Validate cache age
             const age = data.timestamp ? Date.now() - data.timestamp : Infinity;
             if (age < this.CACHE_TTL) {
-              console.log(`📱 [MobileSessionManager] Found valid cache in ${key}`);
+              log.debug('Utils', `📱 [MobileSessionManager] Found valid cache in ${key}`);
               return {
                 subdomain: data.subdomain,
                 id: data.id,
@@ -276,7 +277,7 @@ class MobileSessionManager {
       
       return null;
     } catch (error) {
-      console.warn('📱 [MobileSessionManager] Error getting cached space:', error);
+      log.warn('Utils', '📱 [MobileSessionManager] Error getting cached space:', error);
       return null;
     }
   }
@@ -308,7 +309,7 @@ class MobileSessionManager {
       proactiveValidation = true 
     } = options;
     
-    console.log(`📱 [Phase1] Proactive session validation (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    log.debug('Utils', `📱 [Phase1] Proactive session validation (attempt ${retryCount + 1}/${maxRetries + 1})`);
     
     try {
       // Step 1: Check if session validation is needed
@@ -317,11 +318,11 @@ class MobileSessionManager {
       const isLongBackground = timeInBackground > this.LONG_BACKGROUND_THRESHOLD;
       
       if (!shouldValidate) {
-        console.log('📱 [Phase1] Session validation not needed - short background duration');
+        log.debug('Utils', '📱 [Phase1] Session validation not needed - short background duration');
         return { isValid: true, needsRefresh: false, action: 'valid' };
       }
       
-      console.log(`📱 [Phase1] Session validation needed - background: ${Math.round(timeInBackground/1000)}s, longBackground: ${isLongBackground}`);
+      log.debug('Utils', `📱 [Phase1] Session validation needed - background: ${Math.round(timeInBackground/1000)}s, longBackground: ${isLongBackground}`);
       
       // Step 2: Quick session check with timeout (longer timeout for long backgrounds)
       const sessionTimeout = isLongBackground ? 10000 : 5000; // 10s for long backgrounds, 5s for normal
@@ -337,7 +338,7 @@ class MobileSessionManager {
       }
       
       if (!data.session) {
-        console.log('📱 [Phase1] No active session found');
+        log.debug('Utils', '📱 [Phase1] No active session found');
         return { isValid: false, needsRefresh: false, action: 'expired' };
       }
       
@@ -351,13 +352,13 @@ class MobileSessionManager {
       const isOldSession = sessionAge > this.SESSION_REFRESH_THRESHOLD;
       
       if (expiresAt <= now) {
-        console.log('📱 [Phase1] Session expired');
+        log.debug('Utils', '📱 [Phase1] Session expired');
         return { isValid: false, needsRefresh: true, action: 'expired' };
       }
       
       // Step 4: Proactive refresh if session is old or expires soon
       if (isExpiredSoon || isOldSession) {
-        console.log(`📱 [Phase1] Session needs refresh - expires soon: ${isExpiredSoon}, old: ${isOldSession}`);
+        log.debug('Utils', `📱 [Phase1] Session needs refresh - expires soon: ${isExpiredSoon}, old: ${isOldSession}`);
         
         try {
           const refreshPromise = getSupabaseClient().auth.refreshSession();
@@ -374,13 +375,13 @@ class MobileSessionManager {
             throw new Error(`Session refresh failed: ${refreshError?.message || 'No session returned'}`);
           }
           
-          console.log('📱 [Phase1] Session refreshed successfully');
+          log.debug('Utils', '📱 [Phase1] Session refreshed successfully');
           this.state.authState = 'verified';
           this.persistState();
           
           return { isValid: true, needsRefresh: false, action: 'refreshed' };
         } catch (refreshError) {
-          console.warn('📱 [Phase1] Session refresh failed:', refreshError);
+          log.warn('Utils', '📱 [Phase1] Session refresh failed:', refreshError);
           // Continue with existing session if refresh fails but session is still valid
           if (expiresAt > now + 60000) { // At least 1 minute left
             return { isValid: true, needsRefresh: true, action: 'valid' };
@@ -407,25 +408,25 @@ class MobileSessionManager {
             testError.message?.includes('JWT') ||
             testError.message?.includes('token')) {
           
-          console.log('📱 [MobileSession] 401 error detected, attempting emergency session refresh');
+          log.debug('Utils', '📱 [MobileSession] 401 error detected, attempting emergency session refresh');
           
           try {
             // Attempt session refresh
             const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession();
             
             if (refreshError || !refreshData.session) {
-              console.warn('📱 [MobileSession] Emergency session refresh failed');
+              log.warn('Utils', '📱 [MobileSession] Emergency session refresh failed');
               throw new Error(`Session expired and refresh failed: ${refreshError?.message}`);
             }
             
-            console.log('📱 [MobileSession] Emergency session refresh successful');
+            log.debug('Utils', '📱 [MobileSession] Emergency session refresh successful');
             this.state.authState = 'verified';
             this.persistState();
             
             // Don't throw - continue with successful validation
             
           } catch (refreshException) {
-            console.warn('📱 [MobileSession] Emergency session refresh exception:', refreshException);
+            log.warn('Utils', '📱 [MobileSession] Emergency session refresh exception:', refreshException);
             throw new Error(`Session refresh exception: ${refreshException}`);
           }
         } else {
@@ -433,7 +434,7 @@ class MobileSessionManager {
         }
       }
       
-      console.log('📱 [Phase1] Session validation successful');
+      log.debug('Utils', '📱 [Phase1] Session validation successful');
       this.state.authState = 'verified';
       this.persistState();
       
@@ -441,13 +442,13 @@ class MobileSessionManager {
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
-      console.warn(`📱 [Phase1] Session validation failed (attempt ${retryCount + 1}):`, errorMessage);
+      log.warn('Utils', `📱 [Phase1] Session validation failed (attempt ${retryCount + 1}):`, errorMessage);
       
       // PHASE 1: Smart retry logic with exponential backoff
       if (retryCount < maxRetries) {
         const delay = exponentialBackoff ? this.RETRY_DELAYS[retryCount] || 4000 : 1000;
         
-        console.log(`📱 [Phase1] Retrying session validation in ${delay}ms`);
+        log.debug('Utils', `📱 [Phase1] Retrying session validation in ${delay}ms`);
         
         await new Promise(resolve => setTimeout(resolve, delay));
         
@@ -473,7 +474,7 @@ class MobileSessionManager {
    * PHASE 1: Enhanced recovery with proactive session validation
    */
   async performEnhancedMobileRecovery(navigate?: NavigateFunction): Promise<MobileRecoveryResult> {
-    console.log('📱 [Phase1] Starting enhanced mobile recovery with proactive validation');
+    log.debug('Utils', '📱 [Phase1] Starting enhanced mobile recovery with proactive validation');
     
     // Increment recovery attempts
     this.state.mobileRecoveryAttempts++;
@@ -486,7 +487,7 @@ class MobileSessionManager {
     
     // Prevent infinite recovery loops
     if (this.state.mobileRecoveryAttempts > maxAttempts) {
-      console.warn(`📱 [Phase1] Max recovery attempts reached (${this.state.mobileRecoveryAttempts}/${maxAttempts}), returning success to avoid refresh`);
+      log.warn('Utils', `📱 [Phase1] Max recovery attempts reached (${this.state.mobileRecoveryAttempts}/${maxAttempts}), returning success to avoid refresh`);
       // Reset attempts and return success to prevent forced reload
       this.state.mobileRecoveryAttempts = 0;
       this.persistState();
@@ -499,14 +500,14 @@ class MobileSessionManager {
     
     try {
       // PHASE 1: Step 1 - Proactive session validation
-      console.log('📱 [Phase1] Step 1: Proactive session validation');
+      log.debug('Utils', '📱 [Phase1] Step 1: Proactive session validation');
       const validationResult = await this.validateSessionProactively({
         proactiveValidation: true,
         exponentialBackoff: true
       });
       
       if (!validationResult.isValid) {
-        console.log('📱 [Phase1] Session validation failed, redirecting to login');
+        log.debug('Utils', '📱 [Phase1] Session validation failed, redirecting to login');
         return {
           success: false,
           action: 'redirect',
@@ -515,22 +516,22 @@ class MobileSessionManager {
         };
       }
       
-      console.log(`📱 [Phase1] Session validation successful - action: ${validationResult.action}`);
+      log.debug('Utils', `📱 [Phase1] Session validation successful - action: ${validationResult.action}`);
       
       // Step 2: Clear stale states
       this.clearStaleStates();
       
       // Step 3: Integration with health monitor for comprehensive recovery
       if (typeof window !== 'undefined' && (window as any).supabaseHealthMonitor) {
-        console.log('📱 [Phase1] Step 3: Health monitor integration');
+        log.debug('Utils', '📱 [Phase1] Step 3: Health monitor integration');
         try {
           const healthStatus = (window as any).supabaseHealthMonitor.getHealthStatus();
           if (!healthStatus.isHealthy && !healthStatus.isRecovering) {
-            console.log('📱 [Phase1] Triggering health monitor recovery');
+            log.debug('Utils', '📱 [Phase1] Triggering health monitor recovery');
             await (window as any).supabaseHealthMonitor.recoverClient();
           }
         } catch (healthError) {
-          console.warn('📱 [Phase1] Health monitor recovery failed:', healthError);
+          log.warn('Utils', '📱 [Phase1] Health monitor recovery failed:', healthError);
           // Continue with mobile recovery even if health monitor fails
         }
       }
@@ -541,7 +542,7 @@ class MobileSessionManager {
         const currentPath = window.location.pathname;
         const targetPath = `/${currentSpace.subdomain}/space`;
         
-        console.log(`📱 [Phase1] Step 4: Enhanced navigation recovery to: ${targetPath}`);
+        log.debug('Utils', `📱 [Phase1] Step 4: Enhanced navigation recovery to: ${targetPath}`);
         
         // PHASE 1: Set enhanced auth cache with session validation timestamp
         if (this.state.userId) {
@@ -565,7 +566,7 @@ class MobileSessionManager {
             validationResult: validationResult.action
           }));
           
-          console.log(`📱 [Phase1] Set enhanced auth cache for ${currentSpace.subdomain}`);
+          log.debug('Utils', `📱 [Phase1] Set enhanced auth cache for ${currentSpace.subdomain}`);
         }
         
         // Gentle navigation with phase1 recovery state (avoid force refresh)
@@ -595,7 +596,7 @@ class MobileSessionManager {
       if (cachedSpace && navigate) {
         const targetPath = `/${cachedSpace.subdomain}/space`;
         
-        console.log(`📱 [Phase1] Step 5: Enhanced cached space recovery: ${targetPath}`);
+        log.debug('Utils', `📱 [Phase1] Step 5: Enhanced cached space recovery: ${targetPath}`);
         
         // PHASE 1: Set enhanced cache for cached space recovery
         if (this.state.userId) {
@@ -612,7 +613,7 @@ class MobileSessionManager {
             JSON.stringify(cacheData)
           );
           
-          console.log(`📱 [Phase1] Set enhanced auth cache for cached space ${cachedSpace.subdomain}`);
+          log.debug('Utils', `📱 [Phase1] Set enhanced auth cache for cached space ${cachedSpace.subdomain}`);
         }
         
         // Navigate with enhanced phase1 recovery flag (gentle approach)
@@ -641,7 +642,7 @@ class MobileSessionManager {
       
       // Step 6: Fallback to app root with session validation (gentle approach)
       if (navigate) {
-        console.log('📱 [Phase1] Step 6: Fallback to /app with session validation');
+        log.debug('Utils', '📱 [Phase1] Step 6: Fallback to /app with session validation');
         navigate('/app', { 
           replace: false, // Don't force replace
           state: { 
@@ -665,7 +666,7 @@ class MobileSessionManager {
       };
       
     } catch (error) {
-      console.error('📱 [Phase1] Enhanced recovery error:', error);
+      log.error('Utils', '📱 [Phase1] Enhanced recovery error:', error);
       
       // ENHANCED: Only force reload after more attempts, especially for long backgrounds
       const backgroundDuration = Date.now() - this.state.backgroundTimestamp;
@@ -673,7 +674,7 @@ class MobileSessionManager {
       const reloadThreshold = isLongBackground ? 4 : 2; // More attempts for long backgrounds before reload
       
       if (this.state.mobileRecoveryAttempts >= reloadThreshold) {
-        console.warn(`📱 [Phase1] Force reload triggered after ${this.state.mobileRecoveryAttempts} attempts (background: ${Math.round(backgroundDuration/1000)}s)`);
+        log.warn('Utils', `📱 [Phase1] Force reload triggered after ${this.state.mobileRecoveryAttempts} attempts (background: ${Math.round(backgroundDuration/1000)}s)`);
         return this.forceReload();
       }
       
@@ -706,7 +707,7 @@ class MobileSessionManager {
    * Force reload as last resort
    */
   private forceReload(): MobileRecoveryResult {
-    console.log('📱 [MobileSessionManager] Forcing page reload');
+    log.debug('Utils', '📱 [MobileSessionManager] Forcing page reload');
     
     try {
       // CRITICAL: Set recent auth cache before reload to prevent re-stuck
@@ -716,7 +717,7 @@ class MobileSessionManager {
           timestamp: Date.now(),
           source: 'mobile-force-reload'
         }));
-        console.log(`📱 [MobileSessionManager] Set recent auth cache before reload for ${currentSpace.subdomain}`);
+        log.debug('Utils', `📱 [MobileSessionManager] Set recent auth cache before reload for ${currentSpace.subdomain}`);
       }
       
       // Clear mobile-specific flags before reload
@@ -762,7 +763,7 @@ class MobileSessionManager {
     try {
       sessionStorage.setItem('mobile-session-state', JSON.stringify(this.state));
     } catch (error) {
-      console.warn('📱 [MobileSessionManager] Failed to persist state:', error);
+      log.warn('Utils', '📱 [MobileSessionManager] Failed to persist state:', error);
     }
   }
 
@@ -780,7 +781,7 @@ class MobileSessionManager {
         this.state.isReturningFromBackground = false;
       }
     } catch (error) {
-      console.warn('📱 [MobileSessionManager] Failed to load persisted state:', error);
+      log.warn('Utils', '📱 [MobileSessionManager] Failed to load persisted state:', error);
     }
   }
 
@@ -806,7 +807,7 @@ class MobileSessionManager {
         userId: this.state.userId
       }));
     } catch (error) {
-      console.warn('📱 [MobileSessionManager] Failed to update space cache:', error);
+      log.warn('Utils', '📱 [MobileSessionManager] Failed to update space cache:', error);
     }
   }
 }
@@ -818,7 +819,7 @@ function getMobileSessionManager(): MobileSessionManager {
   if (!mobileSessionManagerInstance) {
     // Check disable flag before creating instance
     if (typeof window !== 'undefined' && (window as any).DISABLE_MOBILE_SESSION_MANAGER) {
-      console.log('🔧 [MobileSessionManager] Singleton creation DISABLED - Mobile Event Coordinator is managing events');
+      log.debug('Utils', '🔧 [MobileSessionManager] Singleton creation DISABLED - Mobile Event Coordinator is managing events');
       // Return a no-op instance
       mobileSessionManagerInstance = {
         isReturningFromBackground: () => false,
@@ -869,8 +870,8 @@ export const mobileSessionManager = new Proxy({} as MobileSessionManager, {
 // Debug helpers for development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).debugMobileSession = () => {
-    console.log('📱 [Debug] Mobile Session State:', mobileSessionManager.getState());
-    console.log('📱 [Debug] Background Time:', mobileSessionManager.getBackgroundTime());
-    console.log('📱 [Debug] Cached Space:', mobileSessionManager.getCachedSpaceInfo());
+    log.debug('Utils', '📱 [Debug] Mobile Session State:', mobileSessionManager.getState());
+    log.debug('Utils', '📱 [Debug] Background Time:', mobileSessionManager.getBackgroundTime());
+    log.debug('Utils', '📱 [Debug] Cached Space:', mobileSessionManager.getCachedSpaceInfo());
   };
 } 

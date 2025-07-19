@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { ReactNode, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
@@ -72,7 +73,7 @@ export default function SpaceNav({ subdomain, activeTab, onTabChange }: SpaceNav
     }
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔄 [SpaceNav] Tab change requested: ${activeTab} -> ${newTab}`);
+      log.debug('Component', `🔄 [SpaceNav] Tab change requested: ${activeTab} -> ${newTab}`);
     }
     
     // Call the parent's tab change handler - SpaceShellLayout will handle the navigation

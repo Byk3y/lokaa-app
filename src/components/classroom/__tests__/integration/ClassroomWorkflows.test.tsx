@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -86,7 +87,7 @@ const MockClassroomContainer = ({
   });
 
   const editCourse = vi.fn(async (course: any) => {
-    console.log('Editing course:', course);
+    log.debug('Component', 'Editing course:', course);
     toast.toast({ title: 'Course updated' });
   });
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔔 Push Notification Service - Phase 5 PWA
  * 
@@ -77,7 +78,7 @@ class PushNotificationService {
     }
 
     try {
-      console.log('🔔 [PushNotifications] Initializing...');
+      log.debug('Utils', '🔔 [PushNotifications] Initializing...');
 
       // Update permission state
       this.state.permission = Notification.permission;
@@ -91,13 +92,13 @@ class PushNotificationService {
         this.state.isSubscribed = !!subscription;
 
         if (subscription) {
-          console.log('🔔 [PushNotifications] Existing subscription found');
+          log.debug('Utils', '🔔 [PushNotifications] Existing subscription found');
           await this.syncSubscriptionWithServer(subscription);
         }
       }
 
       this.isInitialized = true;
-      console.log('✅ [PushNotifications] Initialized successfully');
+      log.debug('Utils', '✅ [PushNotifications] Initialized successfully');
 
       // Track initialization
       await logAnalyticsEvent({
@@ -112,7 +113,7 @@ class PushNotificationService {
 
       return true;
     } catch (error) {
-      console.error('❌ [PushNotifications] Initialization failed:', error);
+      log.error('Utils', '❌ [PushNotifications] Initialization failed:', error);
       logError({
         message: error instanceof Error ? error.message : 'Push notification initialization failed',
         stack: error instanceof Error ? error.stack : undefined,
@@ -140,7 +141,7 @@ class PushNotificationService {
    */
   public async requestPermission(): Promise<NotificationPermission> {
     if (!this.state.isSupported) {
-      console.warn('⚠️ [PushNotifications] Not supported in this browser');
+      log.warn('Utils', '⚠️ [PushNotifications] Not supported in this browser');
       return 'denied';
     }
 
@@ -148,7 +149,7 @@ class PushNotificationService {
       const permission = await Notification.requestPermission();
       this.state.permission = permission;
 
-      console.log(`🔔 [PushNotifications] Permission ${permission}`);
+      log.debug('Utils', `🔔 [PushNotifications] Permission ${permission}`);
 
       // Track permission request
       await logAnalyticsEvent({
@@ -159,7 +160,7 @@ class PushNotificationService {
 
       return permission;
     } catch (error) {
-      console.error('❌ [PushNotifications] Permission request failed:', error);
+      log.error('Utils', '❌ [PushNotifications] Permission request failed:', error);
       logError({
         message: error instanceof Error ? error.message : 'Permission request failed',
         stack: error instanceof Error ? error.stack : undefined,
@@ -176,7 +177,7 @@ class PushNotificationService {
    */
   public async subscribe(): Promise<PushSubscription | null> {
     if (!this.state.isSupported || this.state.permission !== 'granted') {
-      console.warn('⚠️ [PushNotifications] Cannot subscribe - permission not granted');
+      log.warn('Utils', '⚠️ [PushNotifications] Cannot subscribe - permission not granted');
       return null;
     }
 
@@ -196,7 +197,7 @@ class PushNotificationService {
       this.state.subscription = subscription;
       this.state.isSubscribed = true;
 
-      console.log('🔔 [PushNotifications] Subscribed successfully');
+      log.debug('Utils', '🔔 [PushNotifications] Subscribed successfully');
 
       // Sync with server
       await this.syncSubscriptionWithServer(subscription);
@@ -213,7 +214,7 @@ class PushNotificationService {
 
       return subscription;
     } catch (error) {
-      console.error('❌ [PushNotifications] Subscription failed:', error);
+      log.error('Utils', '❌ [PushNotifications] Subscription failed:', error);
       logError({
         message: error instanceof Error ? error.message : 'Subscription failed',
         stack: error instanceof Error ? error.stack : undefined,
@@ -243,7 +244,7 @@ class PushNotificationService {
         this.state.subscription = null;
         this.state.isSubscribed = false;
 
-        console.log('🔔 [PushNotifications] Unsubscribed successfully');
+        log.debug('Utils', '🔔 [PushNotifications] Unsubscribed successfully');
 
         // Track unsubscription
         await logAnalyticsEvent({
@@ -255,7 +256,7 @@ class PushNotificationService {
 
       return success;
     } catch (error) {
-      console.error('❌ [PushNotifications] Unsubscription failed:', error);
+      log.error('Utils', '❌ [PushNotifications] Unsubscription failed:', error);
       logError({
         message: error instanceof Error ? error.message : 'Unsubscription failed',
         stack: error instanceof Error ? error.stack : undefined,
@@ -272,7 +273,7 @@ class PushNotificationService {
    */
   public async showNotification(options: NotificationOptions): Promise<boolean> {
     if (!this.state.isSupported || this.state.permission !== 'granted') {
-      console.warn('⚠️ [PushNotifications] Cannot show notification - permission not granted');
+      log.warn('Utils', '⚠️ [PushNotifications] Cannot show notification - permission not granted');
       return false;
     }
 
@@ -291,7 +292,7 @@ class PushNotificationService {
 
       await registration.showNotification(options.title, notificationOptions);
 
-      console.log('🔔 [PushNotifications] Notification shown:', options.title);
+      log.debug('Utils', '🔔 [PushNotifications] Notification shown:', options.title);
 
       // Track notification
       await logAnalyticsEvent({
@@ -306,7 +307,7 @@ class PushNotificationService {
 
       return true;
     } catch (error) {
-      console.error('❌ [PushNotifications] Show notification failed:', error);
+      log.error('Utils', '❌ [PushNotifications] Show notification failed:', error);
       logError({
         message: error instanceof Error ? error.message : 'Show notification failed',
         stack: error instanceof Error ? error.stack : undefined,
@@ -346,12 +347,26 @@ class PushNotificationService {
         }
       };
 
-      // Store subscription in database (you'll need to create this table)
-      // await supabase.from('push_subscriptions').upsert(subscriptionData);
+      // Store subscription in database
+      if (user?.id) {
+        const { error } = await supabase.from('push_subscriptions').upsert({
+          user_id: user.id,
+          endpoint: subscription.endpoint,
+          p256dh_key: subscriptionData.keys.p256dh,
+          auth_key: subscriptionData.keys.auth,
+          device_info: subscriptionData.device_info,
+          is_active: true
+        });
 
-      console.log('🔔 [PushNotifications] Subscription synced with server');
+        if (error) {
+          log.error('Utils', '❌ [PushNotifications] Database storage failed:', error);
+          throw error;
+        }
+      }
+
+      log.debug('Utils', '🔔 [PushNotifications] Subscription synced with server');
     } catch (error) {
-      console.error('❌ [PushNotifications] Server sync failed:', error);
+      log.error('Utils', '❌ [PushNotifications] Server sync failed:', error);
       // Don't throw - this is not critical for local functionality
     }
   }
@@ -364,13 +379,18 @@ class PushNotificationService {
       const supabase = getSupabaseClient();
       
       // Remove subscription from database
-      // await supabase.from('push_subscriptions')
-      //   .delete()
-      //   .eq('endpoint', subscription.endpoint);
+      const { error } = await supabase.from('push_subscriptions')
+        .delete()
+        .eq('endpoint', subscription.endpoint);
 
-      console.log('🔔 [PushNotifications] Subscription removed from server');
+      if (error) {
+        log.error('Utils', '❌ [PushNotifications] Database removal failed:', error);
+        throw error;
+      }
+
+      log.debug('Utils', '🔔 [PushNotifications] Subscription removed from server');
     } catch (error) {
-      console.error('❌ [PushNotifications] Server removal failed:', error);
+      log.error('Utils', '❌ [PushNotifications] Server removal failed:', error);
       // Don't throw - this is not critical
     }
   }

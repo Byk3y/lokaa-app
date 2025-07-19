@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,7 +86,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({
         variant: "default"
       });
     } catch (error: any) {
-      console.error('Error saving lesson:', error);
+      log.error('Component', 'Error saving lesson:', error);
       toast({
         title: "Error Saving Lesson",
         description: error.message || "An unexpected error occurred",

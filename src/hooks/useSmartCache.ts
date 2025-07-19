@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useCallback, useRef } from 'react';
 
 /**
@@ -47,7 +48,7 @@ export function useSmartCache<T>(options: CacheOptions) {
     const lruKey = accessOrder.current.shift();
     if (lruKey && cache.current.has(lruKey)) {
       cache.current.delete(lruKey);
-      console.log(`[SmartCache] Evicted LRU entry: ${lruKey}`);
+      log.debug('Hook', `[SmartCache] Evicted LRU entry: ${lruKey}`);
     }
   }, []);
   
@@ -75,9 +76,9 @@ export function useSmartCache<T>(options: CacheOptions) {
       try {
         // For now, just mark as compressed - actual compression can be added later
         compressed = true;
-        console.log(`[SmartCache] Large object detected (${size} bytes), marked for compression`);
+        log.debug('Hook', `[SmartCache] Large object detected (${size} bytes), marked for compression`);
       } catch (error) {
-        console.warn('[SmartCache] Compression failed:', error);
+        log.warn('Hook', '[SmartCache] Compression failed:', error);
       }
     }
     
@@ -109,7 +110,7 @@ export function useSmartCache<T>(options: CacheOptions) {
     // Update access order
     updateAccessOrder(key);
     
-    console.log(`[SmartCache] Cached entry: ${key} (${size} bytes, compressed: ${compressed})`);
+    log.debug('Hook', `[SmartCache] Cached entry: ${key} (${size} bytes, compressed: ${compressed})`);
   }, [options.maxSize, evictLRU, maybeCompress, updateAccessOrder]);
   
   /**
@@ -128,14 +129,14 @@ export function useSmartCache<T>(options: CacheOptions) {
       if (orderIndex > -1) {
         accessOrder.current.splice(orderIndex, 1);
       }
-      console.log(`[SmartCache] Expired entry removed: ${key} (age: ${age}ms)`);
+      log.debug('Hook', `[SmartCache] Expired entry removed: ${key} (age: ${age}ms)`);
       return null;
     }
     
     // Update access order
     updateAccessOrder(key);
     
-    console.log(`[SmartCache] Cache hit: ${key} (age: ${age}ms)`);
+    log.debug('Hook', `[SmartCache] Cache hit: ${key} (age: ${age}ms)`);
     return entry.data;
   }, [options.ttl, updateAccessOrder]);
   
@@ -160,11 +161,11 @@ export function useSmartCache<T>(options: CacheOptions) {
       if (orderIndex > -1) {
         accessOrder.current.splice(orderIndex, 1);
       }
-      console.log(`[SmartCache] Cleared entry: ${key}`);
+      log.debug('Hook', `[SmartCache] Cleared entry: ${key}`);
     } else {
       cache.current.clear();
       accessOrder.current = [];
-      console.log('[SmartCache] Cleared entire cache');
+      log.debug('Hook', '[SmartCache] Cleared entire cache');
     }
   }, []);
   

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, X, ChevronUp, TrendingUp, Clock, Wifi, WifiOff } from 'lucide-react';
@@ -57,7 +58,7 @@ export const AdvancedNewPostNotification: React.FC<AdvancedNewPostNotificationPr
       startTimeRef.current = Date.now();
       viewCountRef.current++;
       
-      console.log(`📊 [Analytics] Notification shown (view #${viewCountRef.current})`);
+      log.debug('Component', `📊 [Analytics] Notification shown (view #${viewCountRef.current})`);
     }
 
     return () => {
@@ -123,7 +124,7 @@ export const AdvancedNewPostNotification: React.FC<AdvancedNewPostNotificationPr
   const handleLoadClick = useCallback(() => {
     if (enableAnalytics) {
       clickCountRef.current++;
-      console.log(`📊 [Analytics] Load button clicked (click #${clickCountRef.current})`);
+      log.debug('Component', `📊 [Analytics] Load button clicked (click #${clickCountRef.current})`);
     }
     onLoadPosts();
   }, [onLoadPosts, enableAnalytics]);
@@ -131,7 +132,7 @@ export const AdvancedNewPostNotification: React.FC<AdvancedNewPostNotificationPr
   const handleDismissClick = useCallback(() => {
     if (enableAnalytics) {
       dismissCountRef.current++;
-      console.log(`📊 [Analytics] Notification dismissed manually`);
+      log.debug('Component', `📊 [Analytics] Notification dismissed manually`);
     }
     onDismiss();
   }, [onDismiss, enableAnalytics]);

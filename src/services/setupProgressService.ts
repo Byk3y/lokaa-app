@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Database } from '@/types/database.types';
 
@@ -59,7 +60,7 @@ export class SetupProgressService {
       .eq('space_id', spaceId);
 
     if (userError) {
-      console.error('[SetupProgressService] Error fetching user setup progress:', userError);
+      log.error('Service', '[SetupProgressService] Error fetching user setup progress:', userError);
       throw userError;
     }
 
@@ -71,7 +72,7 @@ export class SetupProgressService {
       .not('completed_at', 'is', null);
 
     if (spaceError) {
-      console.error('[SetupProgressService] Error fetching space setup progress:', spaceError);
+      log.error('Service', '[SetupProgressService] Error fetching space setup progress:', spaceError);
       throw spaceError;
     }
 
@@ -145,7 +146,7 @@ export class SetupProgressService {
       });
 
     if (error) {
-      console.error(`[SetupProgressService] Error updating task completion for ${taskType}:`, error);
+      log.error('Service', `[SetupProgressService] Error updating task completion for ${taskType}:`, error);
       throw error;
     }
   }
@@ -169,7 +170,7 @@ export class SetupProgressService {
       });
 
     if (error) {
-      console.error('Error dismissing setup guide:', error);
+      log.error('Service', 'Error dismissing setup guide:', error);
       throw error;
     }
   }
@@ -193,7 +194,7 @@ export class SetupProgressService {
         .limit(1);
 
       if (error) {
-        console.error(`Error checking space-level task completion for ${taskType}:`, error);
+        log.error('Service', `Error checking space-level task completion for ${taskType}:`, error);
         throw error;
       }
 
@@ -214,7 +215,7 @@ export class SetupProgressService {
       if (error.code === 'PGRST116') {
         return false;
       }
-      console.error(`Error checking user-level task completion for ${taskType}:`, error);
+      log.error('Service', `Error checking user-level task completion for ${taskType}:`, error);
       throw error;
     }
 
@@ -248,10 +249,10 @@ export class SetupProgressService {
         localStorage.removeItem(`invite-task-completed-${spaceId}`);
         localStorage.removeItem(`setup-dismissed-${spaceId}`);
         
-        console.log('Successfully migrated setup progress from localStorage to database');
+        log.debug('Service', 'Successfully migrated setup progress from localStorage to database');
       }
     } catch (error) {
-      console.error('Error migrating setup progress from localStorage:', error);
+      log.error('Service', 'Error migrating setup progress from localStorage:', error);
       // Don't throw - migration should be non-blocking
     }
   }
@@ -267,7 +268,7 @@ export class SetupProgressService {
       .eq('space_id', spaceId);
 
     if (error) {
-      console.error('Error resetting setup progress:', error);
+      log.error('Service', 'Error resetting setup progress:', error);
       throw error;
     }
   }

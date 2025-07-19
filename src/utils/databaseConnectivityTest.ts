@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Database Connectivity Test Utility
  * 
@@ -24,7 +25,7 @@ class DatabaseConnectivityTest {
   async runFullTest(): Promise<ConnectivityTestResult[]> {
     this.results = [];
     
-    console.log('🔍 [DB Test] Starting database connectivity test...');
+    log.debug('Utils', '🔍 [DB Test] Starting database connectivity test...');
     
     // Test 1: Basic connection test
     await this.testBasicConnection();
@@ -54,7 +55,7 @@ class DatabaseConnectivityTest {
   async runQuickTest(): Promise<ConnectivityTestResult[]> {
     this.results = [];
     
-    console.log('⚡ [DB Test] Running quick connectivity test...');
+    log.debug('Utils', '⚡ [DB Test] Running quick connectivity test...');
     
     await this.testBasicConnection();
     await this.testSimpleCount();
@@ -281,8 +282,8 @@ class DatabaseConnectivityTest {
   }
 
   private printResults() {
-    console.log('\n📊 [DB Test] Database Connectivity Test Results:');
-    console.log('================================================');
+    log.debug('Utils', '\n📊 [DB Test] Database Connectivity Test Results:');
+    log.debug('Utils', '================================================');
     
     let totalTests = this.results.length;
     let passedTests = this.results.filter(r => r.success).length;
@@ -292,41 +293,41 @@ class DatabaseConnectivityTest {
       const status = result.success ? '✅' : '❌';
       const duration = `${result.duration.toFixed(0)}ms`;
       
-      console.log(`${status} ${result.test}: ${duration}`);
+      log.debug('Utils', `${status} ${result.test}: ${duration}`);
       
       if (result.success && result.details) {
-        console.log(`   Details:`, result.details);
+        log.debug('Utils', `   Details:`, result.details);
       }
       
       if (!result.success && result.error) {
-        console.log(`   Error: ${result.error}`);
+        log.debug('Utils', `   Error: ${result.error}`);
       }
     });
     
-    console.log('================================================');
-    console.log(`📈 Summary: ${passedTests}/${totalTests} tests passed`);
+    log.debug('Utils', '================================================');
+    log.debug('Utils', `📈 Summary: ${passedTests}/${totalTests} tests passed`);
     
     if (failedTests > 0) {
-      console.log('🔧 Recommendations:');
+      log.debug('Utils', '🔧 Recommendations:');
       
       const hasTimeouts = this.results.some(r => !r.success && r.error?.includes('timeout'));
       const hasSlowQueries = this.results.some(r => r.success && r.duration > 5000);
       
       if (hasTimeouts) {
-        console.log('  - Database queries are timing out - check network connectivity');
-        console.log('  - Consider increasing timeout values if network is slow');
-        console.log('  - Check if Supabase service is experiencing issues');
+        log.debug('Utils', '  - Database queries are timing out - check network connectivity');
+        log.debug('Utils', '  - Consider increasing timeout values if network is slow');
+        log.debug('Utils', '  - Check if Supabase service is experiencing issues');
       }
       
       if (hasSlowQueries) {
-        console.log('  - Some queries are slow (>5s) - database may be under load');
-        console.log('  - Consider optimizing queries or adding indexes');
+        log.debug('Utils', '  - Some queries are slow (>5s) - database may be under load');
+        log.debug('Utils', '  - Consider optimizing queries or adding indexes');
       }
     } else {
-      console.log('🎉 All database connectivity tests passed!');
+      log.debug('Utils', '🎉 All database connectivity tests passed!');
     }
     
-    console.log('\n');
+    log.debug('Utils', '\n');
   }
 
   /**
@@ -360,11 +361,11 @@ if (typeof window !== 'undefined') {
 if (process.env.NODE_ENV === 'development') {
   // Only show availability message, don't auto-run tests
   setTimeout(() => {
-    console.log('🔍 [DB Test] Database connectivity test utility loaded (auto-run disabled)');
-    console.log('🔧 Available commands:');
-    console.log('  - window.testDatabaseConnectivity() - Run full connectivity test');
-    console.log('  - window.quickDbTest() - Run quick connectivity test');
-    console.log('  - window.dbConnectivityTest.getNetworkInfo() - Show network information');
+    log.debug('Utils', '🔍 [DB Test] Database connectivity test utility loaded (auto-run disabled)');
+    log.debug('Utils', '🔧 Available commands:');
+    log.debug('Utils', '  - window.testDatabaseConnectivity() - Run full connectivity test');
+    log.debug('Utils', '  - window.quickDbTest() - Run quick connectivity test');
+    log.debug('Utils', '  - window.dbConnectivityTest.getNetworkInfo() - Show network information');
   }, 3000);
 }
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import type { FetchedPostType } from "@/types/feedTypes";
 
 /**
@@ -30,28 +31,28 @@ export const updatePinPositions = async (posts: FetchedPostType[], supabaseClien
           });
         
         if (error) {
-          console.log('RPC function not available, falling back to direct update:', error);
+          log.debug('Utils', 'RPC function not available, falling back to direct update:', error);
           // Fall back to direct update
           const { error: upsertError } = await supabaseClient
             .from('posts')
             .upsert(updates, { onConflict: 'id' });
           
           if (upsertError) {
-            console.error('Error updating pin positions:', upsertError);
+            log.error('Utils', 'Error updating pin positions:', upsertError);
             return false;
           }
         } else {
-          console.log('Successfully updated pin positions via RPC');
+          log.debug('Utils', 'Successfully updated pin positions via RPC');
         }
       } catch (rpcError) {
         // RPC function might not exist, so fall back to direct update
-        console.log('RPC failed, using direct update instead');
+        log.debug('Utils', 'RPC failed, using direct update instead');
         const { error: upsertError } = await supabaseClient
           .from('posts')
           .upsert(updates, { onConflict: 'id' });
         
         if (upsertError) {
-          console.error('Error updating pin positions:', upsertError);
+          log.error('Utils', 'Error updating pin positions:', upsertError);
           return false;
         }
       }
@@ -59,7 +60,7 @@ export const updatePinPositions = async (posts: FetchedPostType[], supabaseClien
     
     return true;
   } catch (err) {
-    console.error('Exception updating pin positions:', err);
+    log.error('Utils', 'Exception updating pin positions:', err);
     return false;
   }
 };

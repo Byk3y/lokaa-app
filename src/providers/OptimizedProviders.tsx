@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { memo, useRef, useEffect, useMemo, useCallback, Component, ErrorInfo } from 'react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
@@ -49,9 +50,9 @@ const MemoizedAuthProvider = React.memo(({ children }: { children: React.ReactNo
   const mountTime = useRef(Date.now());
   
   useEffect(() => {
-    console.log('[MemoizedAuthProvider] Mounted with optimized cleanup tracking');
+    log.debug('App', '[MemoizedAuthProvider] Mounted with optimized cleanup tracking');
     return () => {
-      console.log('[MemoizedAuthProvider] Unmounted after', Date.now() - mountTime.current, 'ms');
+      log.debug('App', '[MemoizedAuthProvider] Unmounted after', Date.now() - mountTime.current, 'ms');
     };
   }, []); // FIXED: Empty dependency array to prevent unnecessary remounts
   
@@ -73,7 +74,7 @@ const MemoizedSpaceProvider = memo(function MemoizedSpaceProvider({
   // FIXED: Minimal logging
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('[MemoizedSpaceProvider] Mounted');
+      log.debug('App', '[MemoizedSpaceProvider] Mounted');
     }
   }, []);
   
@@ -91,7 +92,7 @@ const MemoizedPresenceProvider = memo(function MemoizedPresenceProvider({
   // FIXED: Minimal logging
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('[MemoizedPresenceProvider] Mounted');
+      log.debug('App', '[MemoizedPresenceProvider] Mounted');
     }
   }, []);
   
@@ -110,7 +111,7 @@ const OptimizedQueryProvider = memo(function OptimizedQueryProvider({
   const stableQueryClient = useMemo(() => queryClient, []);
   
   useEffect(() => {
-    console.log('[OptimizedQueryProvider] Mounted with stable client');
+    log.debug('App', '[OptimizedQueryProvider] Mounted with stable client');
     // FIXED: Removed expensive cleanup subscription tracking
   }, []);
   
@@ -155,21 +156,21 @@ export const OptimizedProviderTree = memo(function OptimizedProviderTree({
     const initializeSystems = async () => {
       // CHECK FOR ULTRA AGGRESSIVE DISABLE FLAGS
       if ((window as any).__DISABLE_ALL_MOBILE_SYSTEMS__) {
-        console.log('🚨 [OptimizedProviders] UltraKiller flags detected - ALL mobile systems disabled');
+        log.debug('App', '🚨 [OptimizedProviders] UltraKiller flags detected - ALL mobile systems disabled');
         return;
       }
       
       // DISABLED: All mobile optimization systems for bfcache compatibility
       // Complex mobile systems prevent browser's native Back/Forward Cache optimization
-      console.log('📱 [OptimizedProviders] All mobile systems disabled for bfcache optimization');
-      console.log('📱 [OptimizedProviders] Bundle optimizer disabled for bfcache optimization');
-      console.log('📱 [OptimizedProviders] Phase 6 systems disabled for bfcache optimization');
+      log.debug('App', '📱 [OptimizedProviders] All mobile systems disabled for bfcache optimization');
+      log.debug('App', '📱 [OptimizedProviders] Bundle optimizer disabled for bfcache optimization');
+      log.debug('App', '📱 [OptimizedProviders] Phase 6 systems disabled for bfcache optimization');
       
       // bfcache works best with minimal JavaScript intervention
-      console.log('🚀 [OptimizedProviders] PWA + bfcache optimization active');
+      log.debug('App', '🚀 [OptimizedProviders] PWA + bfcache optimization active');
     };
     
-    initializeSystems().catch(console.error);
+    initializeSystems().catch(err => log.error('App', 'Failed to initialize systems:', err));
   }, []);
   
   // FIXED: Reduced performance monitoring overhead
@@ -185,12 +186,12 @@ export const OptimizedProviderTree = memo(function OptimizedProviderTree({
     
     // FIXED: Only log every 10th render to reduce noise (was every 5th)
     if (process.env.NODE_ENV === 'development' && renderCount.current % 10 === 0) {
-      console.log(`[OptimizedProviderTree] Render #${renderCount.current} (${timeSinceLastRender.toFixed(2)}ms since last)`);
+      log.debug('App', `[OptimizedProviderTree] Render #${renderCount.current} (${timeSinceLastRender.toFixed(2)}ms since last)`);
     }
     
     // FIXED: Only warn on truly rapid re-renders (reduced threshold)
     if (renderCount.current > 1 && timeSinceLastRender < 30) {
-      console.warn(`[OptimizedProviderTree] 🚨 Very rapid re-render detected! ${timeSinceLastRender.toFixed(2)}ms`);
+      log.warn('App', `[OptimizedProviderTree] 🚨 Very rapid re-render detected! ${timeSinceLastRender.toFixed(2)}ms`);
       // FIXED: Removed expensive performance metric recording
     }
   });
@@ -238,8 +239,8 @@ if (process.env.NODE_ENV === 'development') {
     };
   };
   
-  console.log('🔧 Provider debugging tools available:');
-  console.log('- window.getProviderPerformance()');
+  log.debug('App', '🔧 Provider debugging tools available:');
+  log.debug('App', '- window.getProviderPerformance()');
 }
 
 // Module Error Boundary for handling lazy loading failures
@@ -265,7 +266,7 @@ class ModuleErrorBoundary extends Component<{ children: React.ReactNode }, Modul
     );
 
     if (isModuleError) {
-      console.error('🚨 [ModuleErrorBoundary] Caught module import error:', error);
+      log.error('App', '🚨 [ModuleErrorBoundary] Caught module import error:', error);
       return { hasError: true, error };
     }
 
@@ -274,7 +275,7 @@ class ModuleErrorBoundary extends Component<{ children: React.ReactNode }, Modul
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('🚨 [ModuleErrorBoundary] Module error details:', { error, errorInfo });
+    log.error('App', '🚨 [ModuleErrorBoundary] Module error details:', { error, errorInfo });
   }
 
   handleRetry = () => {

@@ -1,47 +1,94 @@
+import { log } from '@/utils/logger';
 import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { useClassroomStore } from '@/stores/classroom/classroomStore';
 import { useClassroomAuth } from './useClassroomAuth';
 import { useCourseManagement } from './useCourseManagement';
 import { useClassroomSearch } from './useClassroomSearch';
-import type { ClassroomTabProps, UseClassroomAuthReturn } from '@/types/classroom';
+import type { 
+  ClassroomTabProps, 
+  UseClassroomAuthReturn, 
+  CourseDisplayData,
+  ClassroomPermissions,
+  CourseDialogState,
+  ModuleDialogState,
+  LessonDialogState
+} from '@/types/classroom';
+
+// Properly typed store state interface
+interface ClassroomStoreState {
+  courses: CourseDisplayData[];
+  loading: boolean;
+  error: string | null;
+  searchTerm: string;
+  activeTab: 'all-courses' | 'my-courses';
+  isRefreshing: boolean;
+  hasValidCache: boolean;
+  lastRefreshTime: number | null;
+  courseDialog: CourseDialogState;
+  moduleDialog: ModuleDialogState;
+  lessonDialog: LessonDialogState;
+  auth: UseClassroomAuthReturn | null;
+  permissions: ClassroomPermissions | null;
+  getFilteredCourses: () => CourseDisplayData[];
+  setAuth: (auth: UseClassroomAuthReturn) => void;
+  clearAuth: () => void;
+  setCourses: (courses: CourseDisplayData[]) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  setSearchTerm: (term: string) => void;
+  setActiveTab: (tab: 'all-courses' | 'my-courses') => void;
+  refreshCourses: () => void;
+  invalidateCache: () => void;
+  markCacheAsValid: () => void;
+  updateCourse: (courseId: string, updates: Partial<CourseDisplayData>) => void;
+  removeCourse: (courseId: string) => void;
+  enrollInCourse: (courseId: string) => void;
+  unenrollFromCourse: (courseId: string) => void;
+  openCourseDialog: (mode: 'create' | 'edit' | 'view', course?: CourseDisplayData) => void;
+  closeCourseDialog: () => void;
+  openModuleDialog: (mode: 'create' | 'edit' | 'delete', module?: any) => void;
+  closeModuleDialog: () => void;
+  openLessonDialog: (mode: 'create' | 'edit' | 'view', lesson?: any, moduleId?: string) => void;
+  closeLessonDialog: () => void;
+}
 
 // Create stable selectors outside the component to prevent recreating them
-const selectCourses = (state: any) => state.courses;
-const selectLoading = (state: any) => state.loading;
-const selectError = (state: any) => state.error;
-const selectSearchTerm = (state: any) => state.searchTerm;
-const selectActiveTab = (state: any) => state.activeTab;
-const selectIsRefreshing = (state: any) => state.isRefreshing;
-const selectHasValidCache = (state: any) => state.hasValidCache;
-const selectLastRefreshTime = (state: any) => state.lastRefreshTime;
-const selectCourseDialog = (state: any) => state.courseDialog;
-const selectModuleDialog = (state: any) => state.moduleDialog;
-const selectLessonDialog = (state: any) => state.lessonDialog;
-const selectAuth = (state: any) => state.auth;
-const selectPermissions = (state: any) => state.permissions;
-const selectGetFilteredCourses = (state: any) => state.getFilteredCourses;
+const selectCourses = (state: ClassroomStoreState) => state.courses;
+const selectLoading = (state: ClassroomStoreState) => state.loading;
+const selectError = (state: ClassroomStoreState) => state.error;
+const selectSearchTerm = (state: ClassroomStoreState) => state.searchTerm;
+const selectActiveTab = (state: ClassroomStoreState) => state.activeTab;
+const selectIsRefreshing = (state: ClassroomStoreState) => state.isRefreshing;
+const selectHasValidCache = (state: ClassroomStoreState) => state.hasValidCache;
+const selectLastRefreshTime = (state: ClassroomStoreState) => state.lastRefreshTime;
+const selectCourseDialog = (state: ClassroomStoreState) => state.courseDialog;
+const selectModuleDialog = (state: ClassroomStoreState) => state.moduleDialog;
+const selectLessonDialog = (state: ClassroomStoreState) => state.lessonDialog;
+const selectAuth = (state: ClassroomStoreState) => state.auth;
+const selectPermissions = (state: ClassroomStoreState) => state.permissions;
+const selectGetFilteredCourses = (state: ClassroomStoreState) => state.getFilteredCourses;
 
 // Individual stable action selectors (these return the same function reference each time)
-const selectSetAuth = (state: any) => state.setAuth;
-const selectClearAuth = (state: any) => state.clearAuth;
-const selectSetCourses = (state: any) => state.setCourses;
-const selectSetLoading = (state: any) => state.setLoading;
-const selectSetError = (state: any) => state.setError;
-const selectSetSearchTerm = (state: any) => state.setSearchTerm;
-const selectSetActiveTab = (state: any) => state.setActiveTab;
-const selectRefreshCourses = (state: any) => state.refreshCourses;
-const selectInvalidateCache = (state: any) => state.invalidateCache;
-const selectMarkCacheAsValid = (state: any) => state.markCacheAsValid;
-const selectUpdateCourse = (state: any) => state.updateCourse;
-const selectRemoveCourse = (state: any) => state.removeCourse;
-const selectEnrollInCourse = (state: any) => state.enrollInCourse;
-const selectUnenrollFromCourse = (state: any) => state.unenrollFromCourse;
-const selectOpenCourseDialog = (state: any) => state.openCourseDialog;
-const selectCloseCourseDialog = (state: any) => state.closeCourseDialog;
-const selectOpenModuleDialog = (state: any) => state.openModuleDialog;
-const selectCloseModuleDialog = (state: any) => state.closeModuleDialog;
-const selectOpenLessonDialog = (state: any) => state.openLessonDialog;
-const selectCloseLessonDialog = (state: any) => state.closeLessonDialog;
+const selectSetAuth = (state: ClassroomStoreState) => state.setAuth;
+const selectClearAuth = (state: ClassroomStoreState) => state.clearAuth;
+const selectSetCourses = (state: ClassroomStoreState) => state.setCourses;
+const selectSetLoading = (state: ClassroomStoreState) => state.setLoading;
+const selectSetError = (state: ClassroomStoreState) => state.setError;
+const selectSetSearchTerm = (state: ClassroomStoreState) => state.setSearchTerm;
+const selectSetActiveTab = (state: ClassroomStoreState) => state.setActiveTab;
+const selectRefreshCourses = (state: ClassroomStoreState) => state.refreshCourses;
+const selectInvalidateCache = (state: ClassroomStoreState) => state.invalidateCache;
+const selectMarkCacheAsValid = (state: ClassroomStoreState) => state.markCacheAsValid;
+const selectUpdateCourse = (state: ClassroomStoreState) => state.updateCourse;
+const selectRemoveCourse = (state: ClassroomStoreState) => state.removeCourse;
+const selectEnrollInCourse = (state: ClassroomStoreState) => state.enrollInCourse;
+const selectUnenrollFromCourse = (state: ClassroomStoreState) => state.unenrollFromCourse;
+const selectOpenCourseDialog = (state: ClassroomStoreState) => state.openCourseDialog;
+const selectCloseCourseDialog = (state: ClassroomStoreState) => state.closeCourseDialog;
+const selectOpenModuleDialog = (state: ClassroomStoreState) => state.openModuleDialog;
+const selectCloseModuleDialog = (state: ClassroomStoreState) => state.closeModuleDialog;
+const selectOpenLessonDialog = (state: ClassroomStoreState) => state.openLessonDialog;
+const selectCloseLessonDialog = (state: ClassroomStoreState) => state.closeLessonDialog;
 
 /**
  * Integration hook that bridges existing classroom hooks with the Zustand store
@@ -66,7 +113,7 @@ export function useClassroomIntegration(space: ClassroomTabProps['space']) {
   const shouldAllowUpdate = useCallback(() => {
     resetUpdateCounter();
     if (updateCountRef.current >= MAX_UPDATES_PER_SECOND) {
-      console.warn('🚨 [useClassroomIntegration] Update rate limit exceeded, skipping update');
+      log.warn('Hook', '🚨 [useClassroomIntegration] Update rate limit exceeded, skipping update');
       return false;
     }
     updateCountRef.current++;
@@ -122,13 +169,13 @@ export function useClassroomIntegration(space: ClassroomTabProps['space']) {
     // Only update if the auth hook reference actually changed (not just re-rendered)
     if (authHook && authHook !== prevAuthHookRef.current) {
       if (shouldAllowUpdate()) {
-        console.log('🔄 [useClassroomIntegration] Auth state changed, updating store');
+        log.debug('Hook', '🔄 [useClassroomIntegration] Auth state changed, updating store');
         setAuth(authHook);
         prevAuthHookRef.current = authHook;
       }
     } else if (!authHook && prevAuthHookRef.current) {
       if (shouldAllowUpdate()) {
-        console.log('🔄 [useClassroomIntegration] Auth cleared, clearing store');
+        log.debug('Hook', '🔄 [useClassroomIntegration] Auth cleared, clearing store');
         clearAuth();
         prevAuthHookRef.current = null;
       }
@@ -152,7 +199,7 @@ export function useClassroomIntegration(space: ClassroomTabProps['space']) {
     if (courseManagement.courses.length > 0 && 
         JSON.stringify(courseManagement.courses) !== JSON.stringify(prevCoursesRef.current)) {
       if (shouldAllowUpdate()) {
-        console.log('🔄 [useClassroomIntegration] Courses updated, syncing to store');
+        log.debug('Hook', '🔄 [useClassroomIntegration] Courses updated, syncing to store');
         setCourses(courseManagement.courses);
         prevCoursesRef.current = courseManagement.courses;
         lastCourseUpdateRef.current = now;
@@ -166,7 +213,7 @@ export function useClassroomIntegration(space: ClassroomTabProps['space']) {
   useEffect(() => {
     if (courseManagement.loading !== prevLoadingRef.current) {
       if (shouldAllowUpdate()) {
-        console.log('🔄 [useClassroomIntegration] Loading state changed:', courseManagement.loading);
+        log.debug('Hook', '🔄 [useClassroomIntegration] Loading state changed:', courseManagement.loading);
         setLoadingState(courseManagement.loading);
         prevLoadingRef.current = courseManagement.loading;
       }
@@ -179,7 +226,7 @@ export function useClassroomIntegration(space: ClassroomTabProps['space']) {
   useEffect(() => {
     if (courseManagement.error !== prevErrorRef.current) {
       if (shouldAllowUpdate()) {
-        console.log('🔄 [useClassroomIntegration] Error state changed:', courseManagement.error);
+        log.debug('Hook', '🔄 [useClassroomIntegration] Error state changed:', courseManagement.error);
         if (courseManagement.error) {
           setError(courseManagement.error);
         }

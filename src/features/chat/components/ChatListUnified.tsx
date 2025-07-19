@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * ChatListUnified Component
  * 
@@ -119,19 +120,19 @@ export function ChatListUnified({
   useEffect(() => {
     // ✅ CRITICAL FIX: Only fetch when user is authenticated
     if (!currentUserId) {
-      console.log('[ChatListUnified] No user ID available, skipping fetch conversations');
+      log.debug('Component', '[ChatListUnified] No user ID available, skipping fetch conversations');
       return;
     }
     
     if (variant === 'popover') {
       if (isPopoverOpen && !loading) {
-        console.log('[ChatListUnified] Popover opened, fetching conversations for user:', currentUserId);
+        log.debug('Component', '[ChatListUnified] Popover opened, fetching conversations for user:', currentUserId);
         fetchConversations();
       }
     } else {
       // Always fetch for fullscreen
       if (!loading) {
-        console.log('[ChatListUnified] Fullscreen mode, fetching conversations for user:', currentUserId);
+        log.debug('Component', '[ChatListUnified] Fullscreen mode, fetching conversations for user:', currentUserId);
         fetchConversations();
       }
     }
@@ -140,11 +141,11 @@ export function ChatListUnified({
   // Listen for real-time conversation updates
   useEffect(() => {
     const handleConversationUpdate = (event: CustomEvent) => {
-      console.log('[ChatListUnified] Real-time conversation update detected:', event.detail);
+      log.debug('Component', '[ChatListUnified] Real-time conversation update detected:', event.detail);
       
       // ✅ ENHANCED: More aggressive refresh for urgent updates (messages from other users)
       if (event.detail?.urgent && event.detail?.isFromOtherUser) {
-        console.log('[ChatListUnified] 🚨 URGENT: Message from other user - forcing immediate refresh');
+        log.debug('Component', '[ChatListUnified] 🚨 URGENT: Message from other user - forcing immediate refresh');
         
         // Multiple refresh strategies for urgent updates - using urgent flag
         if (!loading) {
@@ -154,7 +155,7 @@ export function ChatListUnified({
           // Secondary urgent refresh after short delay
           setTimeout(() => {
             if (!loading) {
-              console.log('[ChatListUnified] 🔄 Secondary URGENT refresh');
+              log.debug('Component', '[ChatListUnified] 🔄 Secondary URGENT refresh');
               refreshConversations(undefined, { urgent: true });
             }
           }, 200);
@@ -162,7 +163,7 @@ export function ChatListUnified({
           // Final urgent refresh to ensure consistency
           setTimeout(() => {
             if (!loading) {
-              console.log('[ChatListUnified] 🔄 Final URGENT refresh');
+              log.debug('Component', '[ChatListUnified] 🔄 Final URGENT refresh');
               refreshConversations(undefined, { urgent: true });
             }
           }, 1000);
@@ -176,7 +177,7 @@ export function ChatListUnified({
     };
 
     const handleConversationMarkedAsRead = (event: CustomEvent) => {
-      console.log('[ChatListUnified] Conversation marked as read:', event.detail);
+      log.debug('Component', '[ChatListUnified] Conversation marked as read:', event.detail);
       
       // ✅ CRITICAL FIX: Force refresh when conversation is marked as read
       if (!loading) {
@@ -185,7 +186,7 @@ export function ChatListUnified({
         // Additional refresh after delay to ensure consistency
         setTimeout(() => {
           if (!loading) {
-            console.log('[ChatListUnified] 🔄 Secondary read status refresh');
+            log.debug('Component', '[ChatListUnified] 🔄 Secondary read status refresh');
             refreshConversations();
           }
         }, 500);
@@ -290,7 +291,7 @@ export function ChatListUnified({
       await refreshConversations();
       
     } catch (error) {
-      console.error('[ChatListUnified] Error marking all as read:', error);
+      log.error('Component', '[ChatListUnified] Error marking all as read:', error);
       toast({
         title: "Error",
         description: "Failed to mark all conversations as read. Please try again.",

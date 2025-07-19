@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import globalPerformanceService from '@/services/GlobalPerformanceService';
 
@@ -67,7 +68,7 @@ export const useGlobalPerformanceDashboard = (): UseGlobalPerformanceDashboard =
       refreshMetrics: () => globalPerformanceService.refreshMetrics()
     };
 
-    console.log(`
+    log.debug('Hook', `
 🚀 Global Performance Dashboard Available!
    
 📊 Controls:

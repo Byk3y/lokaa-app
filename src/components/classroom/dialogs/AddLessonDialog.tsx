@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ export default function AddLessonDialog({
 
   const handleSubmit = async () => {
     if (!moduleId) {
-      console.error("Module ID is missing in AddLessonDialog");
+      log.error('Component', "Module ID is missing in AddLessonDialog");
       return;
     }
     if (!title.trim()) {
@@ -119,7 +120,7 @@ export default function AddLessonDialog({
         variant: "default"
       });
     } catch (error: any) {
-      console.error('Error creating lesson:', error);
+      log.error('Component', 'Error creating lesson:', error);
       toast({
         title: "Error Creating Lesson",
         description: error.message || "An unexpected error occurred",

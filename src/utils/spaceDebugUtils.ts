@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Legacy Space Debug Utils - Deprecated
  * 
@@ -14,10 +15,10 @@ import { spaceAccessDebugger } from '@/shared/services/debug/space-access-debug'
  * @deprecated Use spaceAccessDebugger.debugSpacePermissions() from @/shared/services/debug instead
  */
 export async function debugSpacePermissions(userId: string, spaceId: string) {
-  console.warn('debugSpacePermissions is deprecated. Use spaceAccessDebugger.debugSpacePermissions() from @/shared/services/debug instead.');
+  log.warn('Utils', 'debugSpacePermissions is deprecated. Use spaceAccessDebugger.debugSpacePermissions() from @/shared/services/debug instead.');
   
   if (!env.isDevelopment) {
-    console.warn('Debug functions are only available in development mode');
+    log.warn('Utils', 'Debug functions are only available in development mode');
     return {
       userId,
       spaceId,

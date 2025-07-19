@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * User Profile Service
  * 
@@ -372,7 +373,7 @@ export class UserProfileService {
       devLogger.log('IndexedDB', `[UserProfileService] Invalidated cache for user: ${userId}`);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.error('[UserProfileService] Error invalidating user cache:', error);
+        log.error('Utils', '[UserProfileService] Error invalidating user cache:', error);
       }
     }
   }

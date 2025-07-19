@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { NextApiRequest, NextApiResponse } from 'next';
 // import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs'; // Old import
 import { createServerClient, type CookieOptions } from '@supabase/ssr'; // New import
@@ -171,7 +172,7 @@ export default async function handler(
       return res.status(200).json({ result });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'An error occurred on the server';
-      console.error('Debug API error:', message);
+      log.error('Page', 'Debug API error:', message);
       return res.status(500).json({ error: message });
     }
   }

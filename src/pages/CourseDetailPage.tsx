@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useOptimizedAuth } from '@/contexts/AuthContext';
@@ -43,7 +44,7 @@ const CourseDetailPage: React.FC = () => {
     return null;
   }
   
-  console.log('🎓 [CourseDetailPage] Rendering with params:', {
+  log.debug('Page', '🎓 [CourseDetailPage] Rendering with params:', {
     courseSlug,
     subdomain,
     moduleId,

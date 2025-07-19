@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getSupabaseClient } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ import ProfileDropdown from "@/components/common/ProfileDropdown";
 import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
 import SpaceContextBanner from '@/components/profile/SpaceContextBanner';
 import MobileProfileEditModal from '@/components/profile/MobileProfileEditModal';
+import MobileProfileModal from '@/components/profile/MobileProfileModal';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { Space } from "@/types/space";
 import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
@@ -58,7 +60,7 @@ function ProfileHeader({ user }: { user: any }) {
           .eq('user_id', currentUser.id);
 
         if (error) {
-          console.error('Error fetching user spaces:', error);
+          log.error('Page', 'Error fetching user spaces:', error);
           return;
         }
 
@@ -78,7 +80,7 @@ function ProfileHeader({ user }: { user: any }) {
         
         setUserSpaces(spaces);
       } catch (error) {
-        console.error('Error fetching user spaces:', error);
+        log.error('Page', 'Error fetching user spaces:', error);
       } finally {
         setLoadingSpaces(false);
       }
@@ -282,6 +284,7 @@ export default function Profile() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [spaceDrawerOpen, setSpaceDrawerOpen] = useState(false);
   const [showMobileProfileEdit, setShowMobileProfileEdit] = useState(false);
+  const [showMobileProfileModal, setShowMobileProfileModal] = useState(false);
   
   // Detect mobile vs desktop for different layouts - use same detection as BottomNav
   const isMobile = shouldEnableMobileFeatures();
@@ -301,7 +304,7 @@ export default function Profile() {
     pointsToNextLevel
   } = useUserProfile();
 
-  console.log('Profile component: Rendering with slug:', slug);
+  log.debug('Page', 'Profile component: Rendering with slug:', slug);
 
   // Load space data when we have space context
   useEffect(() => {
@@ -311,7 +314,7 @@ export default function Profile() {
       const hasMatchingSpaceData = storeSpace && storeSpace.subdomain === spaceContext.subdomain;
       
       if (!hasMatchingSpaceData) {
-        console.log(`🔍 [Profile] Loading space data for context: ${spaceContext.subdomain}`);
+        log.debug('Page', `🔍 [Profile] Loading space data for context: ${spaceContext.subdomain}`);
         loadActiveSpace({ subdomain: spaceContext.subdomain }, user.id, false);
       }
     }
@@ -320,25 +323,25 @@ export default function Profile() {
   // Fetch profile data when slug changes
   useEffect(() => {
     if (slug) {
-      console.log(`Profile component: Fetching profile for slug: ${slug}`);
+      log.debug('Page', `Profile component: Fetching profile for slug: ${slug}`);
       fetchProfileBySlug(slug)
         .then(() => {
-          console.log(`Profile component: Finished initial fetch for ${slug}`);
+          log.debug('Page', `Profile component: Finished initial fetch for ${slug}`);
           setIsInitialLoading(false);
         })
         .catch(err => {
-          console.error(`Profile component: Error fetching profile for ${slug}:`, err);
+          log.error('Page', `Profile component: Error fetching profile for ${slug}:`, err);
           setIsInitialLoading(false);
         });
     } else {
-      console.error('Profile component: No slug provided');
+      log.error('Page', 'Profile component: No slug provided');
       setIsInitialLoading(false);
     }
   }, [slug, fetchProfileBySlug]);
 
   // Debug logging for component state
   useEffect(() => {
-    console.log('Profile component: State update', {
+    log.debug('Page', 'Profile component: State update', {
       hasProfile: !!profile,
       isLoading,
       error,
@@ -350,11 +353,11 @@ export default function Profile() {
   // Check for any issues with the profile URL
   useEffect(() => {
     if (!isLoading && error) {
-      console.error(`Profile component: Error loading profile: ${error}`);
+      log.error('Page', `Profile component: Error loading profile: ${error}`);
     }
     
     if (!isLoading && !error && !profile && !isInitialLoading) {
-      console.error('Profile component: No profile data loaded but no error reported');
+      log.error('Page', 'Profile component: No profile data loaded but no error reported');
     }
   }, [isLoading, error, profile, isInitialLoading]);
 
@@ -403,7 +406,7 @@ export default function Profile() {
     const currentSpaceSubdomain = spaceContext?.subdomain || '';
     
     // Debug logging to understand space data flow
-    console.log('🔍 [Profile Mobile Header] Space data:', {
+    log.debug('Page', '🔍 [Profile Mobile Header] Space data:', {
       spaceContext,
       storeSpace: storeSpace?.name,
       storeSpaceSubdomain: storeSpace?.subdomain,
@@ -435,7 +438,7 @@ export default function Profile() {
                   subdomain: currentSpaceSubdomain
                 });
                 
-                console.log('🎨 [Profile Mobile Header] SpaceAssets result:', {
+                log.debug('Page', '🎨 [Profile Mobile Header] SpaceAssets result:', {
                   hasIcon: spaceAssets.hasIcon,
                   iconUrl: spaceAssets.iconUrl,
                   initials: spaceAssets.initials,
@@ -475,7 +478,10 @@ export default function Profile() {
               <button className="p-2 text-gray-600 hover:bg-gray-100" onClick={() => navigate('/search')}>
                 <Search className="h-5 w-5" />
               </button>
-              <button className="p-2 text-gray-600 hover:bg-gray-100">
+              <button 
+                className="p-2 text-gray-600 hover:bg-gray-100" 
+                onClick={() => setShowMobileProfileModal(true)}
+              >
                 <MoreHorizontal className="h-5 w-5" />
               </button>
             </div>
@@ -631,6 +637,13 @@ export default function Profile() {
           isOpen={showMobileProfileEdit}
           onClose={() => setShowMobileProfileEdit(false)}
           user={user}
+        />
+        
+        {/* Mobile Profile Modal */}
+        <MobileProfileModal
+          isOpen={showMobileProfileModal}
+          onClose={() => setShowMobileProfileModal(false)}
+          profileUrl={profile.profile_url}
         />
       </div>
     );

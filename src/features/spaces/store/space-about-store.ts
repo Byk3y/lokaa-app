@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Space About Store
  * 
@@ -130,7 +131,7 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
     
     // Check cache first
     if (cache[cacheKey] && now - cache[cacheKey].timestamp < CACHE_TTL) {
-      console.log(`[SpaceAboutStore] Using cached data for: ${cacheKey}`);
+      log.debug('App', `[SpaceAboutStore] Using cached data for: ${cacheKey}`);
       set({ 
         spaceAboutData: cache[cacheKey].data,
         loading: false,
@@ -143,8 +144,8 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      console.log(`[SpaceAboutStore] Fetching space about data for: ${spaceId || subdomain}`);
-      console.log(`[SpaceAboutStore] Using spaceId: ${spaceId}, subdomain: ${subdomain}`);
+      log.debug('App', `[SpaceAboutStore] Fetching space about data for: ${spaceId || subdomain}`);
+      log.debug('App', `[SpaceAboutStore] Using spaceId: ${spaceId}, subdomain: ${subdomain}`);
       
       let query = getSupabaseClient()
         .from('spaces')
@@ -176,24 +177,24 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
       
       if (spaceId) {
         query = query.eq('id', spaceId);
-        console.log(`[SpaceAboutStore] Querying by spaceId: ${spaceId}`);
+        log.debug('App', `[SpaceAboutStore] Querying by spaceId: ${spaceId}`);
       } else if (subdomain) {
         query = query.eq('subdomain', subdomain);
-        console.log(`[SpaceAboutStore] Querying by subdomain: ${subdomain}`);
+        log.debug('App', `[SpaceAboutStore] Querying by subdomain: ${subdomain}`);
       }
       
-      console.log(`[SpaceAboutStore] Executing query...`);
+      log.debug('App', `[SpaceAboutStore] Executing query...`);
       const { data, error } = await query.single();
       
-      console.log(`[SpaceAboutStore] Query result:`, { data, error });
+      log.debug('App', `[SpaceAboutStore] Query result:`, { data, error });
       
       if (error) {
-        console.error(`[SpaceAboutStore] Database error:`, error);
+        log.error('App', `[SpaceAboutStore] Database error:`, error);
         throw error;
       }
       
       if (!data) {
-        console.error(`[SpaceAboutStore] No data returned from query`);
+        log.error('App', `[SpaceAboutStore] No data returned from query`);
         throw new Error('Space not found');
       }
       
@@ -238,7 +239,7 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
           }
         } catch (memberError) {
           // Log but don't fail the whole request for member count errors
-          console.warn('[SpaceAboutStore] Failed to fetch real-time member counts, using cached values:', memberError);
+          log.warn('App', '[SpaceAboutStore] Failed to fetch real-time member counts, using cached values:', memberError);
         }
       }
       
@@ -289,10 +290,10 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
         cache: updatedCache
       });
       
-      console.log(`[SpaceAboutStore] Successfully fetched space about data for: ${data.name}`);
+      log.debug('App', `[SpaceAboutStore] Successfully fetched space about data for: ${data.name}`);
       
     } catch (error) {
-      console.error('[SpaceAboutStore] Error fetching space about data:', error);
+      log.error('App', '[SpaceAboutStore] Error fetching space about data:', error);
       
       // Provide more specific error messages
       let errorMessage = 'Failed to fetch space data';
@@ -344,7 +345,7 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
     set({ isRefetching: true });
     
     try {
-      console.log(`[SpaceAboutStore] Refetching member counts for space: ${spaceAboutData.id}`);
+      log.debug('App', `[SpaceAboutStore] Refetching member counts for space: ${spaceAboutData.id}`);
       
       const [memberCountResult, adminCountResult] = await Promise.allSettled([
         getSupabaseClient()
@@ -390,7 +391,7 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
       set({ cache: updatedCache });
       
     } catch (error) {
-      console.error('[SpaceAboutStore] Error refetching member counts:', error);
+      log.error('App', '[SpaceAboutStore] Error refetching member counts:', error);
       set({ isRefetching: false });
     }
   },

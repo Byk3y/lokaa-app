@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📦 Phase 6: Bundle Optimization & Code Splitting Integration
  * 
@@ -67,18 +68,18 @@ class Phase6Integration {
   private async performInitialization(): Promise<boolean> {
     try {
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('📦 [Phase 6] Starting bundle optimization & code splitting initialization...');
+        log.debug('Utils', '📦 [Phase 6] Starting bundle optimization & code splitting initialization...');
       }
 
       // Initialize bundle optimizer
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('📊 [Phase 6] Initializing bundle optimizer...');
+        log.debug('Utils', '📊 [Phase 6] Initializing bundle optimizer...');
       }
       // Bundle optimizer is already a singleton, just ensure it's loaded
 
       // Initialize consolidation manager
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('🔄 [Phase 6] Initializing system consolidation...');
+        log.debug('Utils', '🔄 [Phase 6] Initializing system consolidation...');
       }
       await phase6ConsolidationManager.initialize();
 
@@ -98,12 +99,12 @@ class Phase6Integration {
 
       this.isInitialized = true;
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('✅ [Phase 6] Bundle optimization & code splitting initialized successfully');
+        log.debug('Utils', '✅ [Phase 6] Bundle optimization & code splitting initialized successfully');
       }
       return true;
 
     } catch (error) {
-      console.error('❌ [Phase 6] Initialization failed:', error);
+      log.error('Utils', '❌ [Phase 6] Initialization failed:', error);
       return false;
     }
   }
@@ -194,25 +195,25 @@ class Phase6Integration {
    * Test bundle optimization
    */
   public async testBundleOptimization(): Promise<void> {
-    console.log('🧪 [Phase 6] Testing bundle optimization...');
+    log.debug('Utils', '🧪 [Phase 6] Testing bundle optimization...');
     
     try {
       // Test bundle analysis
       const analysis = phase6BundleOptimizer.getBundleAnalysisReport();
-      console.log('📊 Bundle analysis:', analysis);
+      log.debug('Utils', '📊 Bundle analysis:', analysis);
 
       // Test simulation
       const simulation = phase6BundleOptimizer.simulateOptimization();
-      console.log('🎯 Optimization simulation:', simulation);
+      log.debug('Utils', '🎯 Optimization simulation:', simulation);
 
       // Test migration guide
       const migrationGuide = phase6BundleOptimizer.generateMigrationGuide();
-      console.log('📋 Migration guide:', migrationGuide);
+      log.debug('Utils', '📋 Migration guide:', migrationGuide);
 
-      console.log('✅ Bundle optimization test completed');
+      log.debug('Utils', '✅ Bundle optimization test completed');
 
     } catch (error) {
-      console.error('❌ Bundle optimization test failed:', error);
+      log.error('Utils', '❌ Bundle optimization test failed:', error);
       throw error;
     }
   }
@@ -221,7 +222,7 @@ class Phase6Integration {
    * Validate all optimizations
    */
   public async validateOptimizations(): Promise<any> {
-    console.log('🔍 [Phase 6] Validating optimizations...');
+    log.debug('Utils', '🔍 [Phase 6] Validating optimizations...');
 
     const results = {
       bundleOptimization: false,
@@ -257,11 +258,11 @@ class Phase6Integration {
       // Validate performance gains
       results.performanceGains = results.bundleOptimization && results.systemConsolidation;
 
-      console.log('🔍 Validation results:', results);
+      log.debug('Utils', '🔍 Validation results:', results);
       return results;
 
     } catch (error) {
-      console.error('❌ Validation failed:', error);
+      log.error('Utils', '❌ Validation failed:', error);
       results.issues.push(`Validation error: ${error}`);
       return results;
     }
@@ -271,29 +272,29 @@ class Phase6Integration {
    * Run all Phase 6 tests
    */
   public async runAllTests(): Promise<void> {
-    console.log('🚀 [Phase 6] Running comprehensive test suite...');
+    log.debug('Utils', '🚀 [Phase 6] Running comprehensive test suite...');
 
     try {
       // Test bundle optimization
       await this.testBundleOptimization();
 
       // Test system consolidation
-      console.log('🔄 Testing system consolidation...');
+      log.debug('Utils', '🔄 Testing system consolidation...');
       const consolidationStatus = phase6ConsolidationManager.getSystemHealth();
-      console.log('🏥 System health:', consolidationStatus);
+      log.debug('Utils', '🏥 System health:', consolidationStatus);
 
       // Validate all optimizations
       const validation = await this.validateOptimizations();
-      console.log('✅ Validation complete:', validation);
+      log.debug('Utils', '✅ Validation complete:', validation);
 
       // Generate comprehensive report
       const report = this.generateReport();
-      console.log('📊 Phase 6 Report:', report);
+      log.debug('Utils', '📊 Phase 6 Report:', report);
 
-      console.log('🎉 All Phase 6 tests completed successfully!');
+      log.debug('Utils', '🎉 All Phase 6 tests completed successfully!');
 
     } catch (error) {
-      console.error('❌ Phase 6 tests failed:', error);
+      log.error('Utils', '❌ Phase 6 tests failed:', error);
       throw error;
     }
   }
@@ -347,18 +348,18 @@ export const phase6Integration = Phase6Integration.getInstance();
 const initializePhase6 = async () => {
   try {
     if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-      console.log('📦 [Phase 6] Module loaded, starting initialization...');
+      log.debug('Utils', '📦 [Phase 6] Module loaded, starting initialization...');
     }
     const success = await phase6Integration.initialize();
     if (success) {
       if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-        console.log('✅ [Phase 6] Initialization completed successfully');
+        log.debug('Utils', '✅ [Phase 6] Initialization completed successfully');
       }
     } else {
-      console.error('❌ [Phase 6] Initialization failed');
+      log.error('Utils', '❌ [Phase 6] Initialization failed');
     }
   } catch (error) {
-    console.error('❌ [Phase 6] Initialization error:', error);
+    log.error('Utils', '❌ [Phase 6] Initialization error:', error);
   }
 };
 
@@ -382,8 +383,8 @@ if (typeof window !== 'undefined') {
   (window as any).phase6 = phase6API;
   
   if (!globalConsoleFlags?.DISABLE_PHASE_INIT_LOGS) {
-    console.log('📦 [Phase 6] Global API available at window.phase6');
-    console.log('📦 [Phase 6] API object:', phase6API);
+    log.debug('Utils', '📦 [Phase 6] Global API available at window.phase6');
+    log.debug('Utils', '📦 [Phase 6] API object:', phase6API);
   }
 }
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -82,7 +83,7 @@ export default function SpaceRoutingDebug() {
 
       setDebugData(data);
     } catch (error) {
-      console.error('Error fetching debug data:', error);
+      log.error('Component', 'Error fetching debug data:', error);
     } finally {
       setLoading(false);
     }
@@ -114,7 +115,7 @@ export default function SpaceRoutingDebug() {
       
       alert('All space preferences cleared!');
     } catch (error) {
-      console.error('Error clearing preferences:', error);
+      log.error('Component', 'Error clearing preferences:', error);
     }
   };
 
@@ -140,7 +141,7 @@ export default function SpaceRoutingDebug() {
       
       alert(`Set ${name} as preferred space!`);
     } catch (error) {
-      console.error('Error setting preferred space:', error);
+      log.error('Component', 'Error setting preferred space:', error);
     }
   };
 

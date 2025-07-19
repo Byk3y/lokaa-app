@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React from 'react';
 import type { LegacyConversation } from '@/features/chat/types';
 import { ChatAvatar } from '@/components/ui/OptimizedAvatar';
@@ -33,7 +34,7 @@ export default function ChatListItem({ conversation, onSelect, currentUserId }: 
     : '';
 
   // Enhanced debug logging for conversation data (after variable declarations)
-  console.log('[ChatListItem] 📋 CONVERSATION DATA:', {
+  log.debug('Component', '[ChatListItem] 📋 CONVERSATION DATA:', {
     conversationId: conversation.conversation_id,
     latestMessage: {
       content: conversation.latest_message_content,
@@ -54,16 +55,16 @@ export default function ChatListItem({ conversation, onSelect, currentUserId }: 
       // Mobile: Use URL navigation with conversation slugs
       const success = navigateToConversation(conversation.conversation_id);
       if (success) {
-        console.log('📱 [ChatListItem] Mobile: Navigated to conversation URL:', conversation.conversation_id);
+        log.debug('Component', '📱 [ChatListItem] Mobile: Navigated to conversation URL:', conversation.conversation_id);
         // Still call onSelect to ensure any parent state is updated if needed
         onSelect();
       } else {
-        console.warn('📱 [ChatListItem] Mobile: URL navigation failed, falling back to direct state');
+        log.warn('Component', '📱 [ChatListItem] Mobile: URL navigation failed, falling back to direct state');
         onSelect();
       }
     } else {
       // Desktop: Use existing direct state management
-      console.log('🖥️ [ChatListItem] Desktop: Using direct state management');
+      log.debug('Component', '🖥️ [ChatListItem] Desktop: Using direct state management');
       onSelect();
     }
   };

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useTimezone } from '@/hooks/useTimezone';
@@ -108,7 +109,7 @@ export function OnlineMembers({
       setMembers(sortedMembers);
       
     } catch (error) {
-      console.error('Error fetching members:', error);
+      log.error('Component', 'Error fetching members:', error);
     } finally {
       setLoading(false);
       setIsRefreshing(false);

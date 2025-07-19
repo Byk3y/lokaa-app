@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Safety Mechanisms for IndexedDB Refactoring
  * 
@@ -29,7 +30,7 @@ export class EmergencyRollback {
    * Force rollback to legacy system
    */
   async forceLegacyMode(reason: string = 'manual_rollback'): Promise<void> {
-    console.warn('🚨 [EmergencyRollback] Initiating emergency rollback...');
+    log.warn('Utils', '🚨 [EmergencyRollback] Initiating emergency rollback...');
     
     // Store rollback flags
     this.setRollbackFlags(reason);
@@ -76,7 +77,7 @@ export class EmergencyRollback {
     localStorage.removeItem('FORCE_LEGACY_INDEXEDDB');
     localStorage.removeItem('ROLLBACK_TIMESTAMP');
     localStorage.removeItem('ROLLBACK_REASON');
-    console.log('✅ [EmergencyRollback] Rollback cleared');
+    log.debug('Utils', '✅ [EmergencyRollback] Rollback cleared');
   }
 
   private setRollbackFlags(reason: string): void {
@@ -88,9 +89,9 @@ export class EmergencyRollback {
   private async clearCorruptedCache(): Promise<void> {
     try {
       await indexedDB.deleteDatabase('lokaa-supabase-cache');
-      console.log('🧹 [EmergencyRollback] Cache cleared');
+      log.debug('Utils', '🧹 [EmergencyRollback] Cache cleared');
     } catch (error) {
-      console.warn('⚠️ [EmergencyRollback] Cache clear failed:', error);
+      log.warn('Utils', '⚠️ [EmergencyRollback] Cache clear failed:', error);
     }
   }
 
@@ -237,7 +238,7 @@ export const safetySystem = {
   healthChecker: new SystemHealthChecker(),
   
   async emergencyStop(): Promise<void> {
-    console.error('🛑 [SafetySystem] EMERGENCY STOP INITIATED');
+    log.error('Utils', '🛑 [SafetySystem] EMERGENCY STOP INITIATED');
     await this.rollback.forceLegacyMode('emergency_stop');
   },
 
@@ -249,7 +250,7 @@ export const safetySystem = {
     const isPerformant = performance.improvement.responseTime >= -20; // No more than 20% slower
     
     if (!isHealthy || !isPerformant) {
-      console.warn('⚠️ [SafetySystem] Migration validation failed', { health, performance });
+      log.warn('Utils', '⚠️ [SafetySystem] Migration validation failed', { health, performance });
       return false;
     }
     
@@ -264,6 +265,6 @@ if (typeof window !== 'undefined') {
   // Check for active rollback on startup
   const rollbackStatus = safetySystem.rollback.getRollbackStatus();
   if (rollbackStatus.active) {
-    console.warn('🚨 [SafetySystem] Active rollback detected!', rollbackStatus);
+    log.warn('Utils', '🚨 [SafetySystem] Active rollback detected!', rollbackStatus);
   }
 } 

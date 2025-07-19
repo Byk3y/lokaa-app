@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // Simple test to verify sanitization works
 // This can be run in browser console or Node.js with DOM environment
 
@@ -31,21 +32,21 @@ const testCases = [
 ];
 
 // Instructions for manual testing
-console.log('HTML Sanitizer Manual Test Instructions:');
-console.log('=====================================');
-console.log('1. Import the sanitizer in browser console:');
-console.log('   import { sanitizePostContent } from "/src/utils/htmlSanitizer.js";');
-console.log('');
-console.log('2. Test each case:');
+log.debug('Utils', 'HTML Sanitizer Manual Test Instructions:');
+log.debug('Utils', '=====================================');
+log.debug('Utils', '1. Import the sanitizer in browser console:');
+log.debug('Utils', '   import { sanitizePostContent } from "/src/utils/htmlSanitizer.js";');
+log.debug('Utils', '');
+log.debug('Utils', '2. Test each case:');
 testCases.forEach((test, index) => {
-  console.log(`${index + 1}. ${test.name}:`);
-  console.log(`   Input: ${test.input}`);
-  console.log(`   Expected: ${test.expected}`);
-  console.log(`   Test: sanitizePostContent('${test.input}')`);
-  console.log('');
+  log.debug('Utils', `${index + 1}. ${test.name}:`);
+  log.debug('Utils', `   Input: ${test.input}`);
+  log.debug('Utils', `   Expected: ${test.expected}`);
+  log.debug('Utils', `   Test: sanitizePostContent('${test.input}')`);
+  log.debug('Utils', '');
 });
 
-console.log('3. Verify that dangerous content is removed and safe content is preserved.');
-console.log('4. Check that external links have target="_blank" and rel="noopener noreferrer".');
+log.debug('Utils', '3. Verify that dangerous content is removed and safe content is preserved.');
+log.debug('Utils', '4. Check that external links have target="_blank" and rel="noopener noreferrer".');
 
 export { testCases };

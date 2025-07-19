@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Mobile Safari + Supabase HTTP/3 Connection Workaround
  * 
@@ -24,7 +25,7 @@ class MobileSupabaseWorkaround {
                      !/Chrome|Chromium/i.test(navigator.userAgent);
     
     if (isSafari) {
-      console.log('🔧 [MobileSupabaseWorkaround] Safari detected - activating HTTP/3 keep-alive');
+      log.debug('Utils', '🔧 [MobileSupabaseWorkaround] Safari detected - activating HTTP/3 keep-alive');
       this.start();
       
       // Stop keep-alive when page becomes hidden
@@ -49,7 +50,7 @@ class MobileSupabaseWorkaround {
       this.performKeepAlive();
     }, 90000); // 90 seconds - safely under the 2-minute timeout
     
-    console.log('🔧 [MobileSupabaseWorkaround] Keep-alive started');
+    log.debug('Utils', '🔧 [MobileSupabaseWorkaround] Keep-alive started');
   }
   
   private stop() {
@@ -62,7 +63,7 @@ class MobileSupabaseWorkaround {
       this.keepAliveInterval = null;
     }
     
-    console.log('🔧 [MobileSupabaseWorkaround] Keep-alive stopped');
+    log.debug('Utils', '🔧 [MobileSupabaseWorkaround] Keep-alive stopped');
   }
   
   private async performKeepAlive() {
@@ -75,12 +76,12 @@ class MobileSupabaseWorkaround {
         .limit(1);
         
       if (error) {
-        console.warn('🔧 [MobileSupabaseWorkaround] Keep-alive failed:', error.message);
+        log.warn('Utils', '🔧 [MobileSupabaseWorkaround] Keep-alive failed:', error.message);
       } else {
-        console.log('🔧 [MobileSupabaseWorkaround] Keep-alive successful');
+        log.debug('Utils', '🔧 [MobileSupabaseWorkaround] Keep-alive successful');
       }
     } catch (error) {
-      console.warn('🔧 [MobileSupabaseWorkaround] Keep-alive error:', error);
+      log.warn('Utils', '🔧 [MobileSupabaseWorkaround] Keep-alive error:', error);
     }
   }
   

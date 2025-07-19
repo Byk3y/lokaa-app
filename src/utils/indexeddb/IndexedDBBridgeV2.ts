@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * IndexedDB Bridge V2 - Modern Service-Based Architecture
  * 
@@ -30,7 +31,7 @@ export class IndexedDBBridgeV2 {
 
     this.initPromise = (async () => {
       try {
-        console.log('[IndexedDBBridgeV2] Initializing modern service architecture...');
+        log.debug('Utils', '[IndexedDBBridgeV2] Initializing modern service architecture...');
         
         // Initialize core database manager
         await indexedDBManager.initialize();
@@ -39,13 +40,13 @@ export class IndexedDBBridgeV2 {
         mobileBrowserService.setupMobileDetection();
         
         this.initialized = true;
-        console.log('[IndexedDBBridgeV2] Modern bridge initialized successfully');
+        log.debug('Utils', '[IndexedDBBridgeV2] Modern bridge initialized successfully');
         
         // Setup global interface for backward compatibility and debugging
         this.setupGlobalInterface();
         
       } catch (error) {
-        console.error('[IndexedDBBridgeV2] Failed to initialize:', error);
+        log.error('Utils', '[IndexedDBBridgeV2] Failed to initialize:', error);
         throw error;
       }
     })();
@@ -211,7 +212,7 @@ export class IndexedDBBridgeV2 {
     await userProfileService.clearCache();
     await conversationService.clearCache();
     await presenceService.clearCache();
-    console.log('[IndexedDBBridgeV2] All caches cleared');
+    log.debug('Utils', '[IndexedDBBridgeV2] All caches cleared');
   }
 
   /**
@@ -365,9 +366,9 @@ export class IndexedDBBridgeV2 {
       this.initialized = false;
       this.initPromise = null;
       
-      console.log('[IndexedDBBridgeV2] Cleanup completed');
+      log.debug('Utils', '[IndexedDBBridgeV2] Cleanup completed');
     } catch (error) {
-      console.error('[IndexedDBBridgeV2] Error during cleanup:', error);
+      log.error('Utils', '[IndexedDBBridgeV2] Error during cleanup:', error);
     }
   }
 
@@ -463,9 +464,9 @@ export class IndexedDBBridgeV2 {
         getCacheStatus: (spaceId: string) => this.invalidateSpaceCache(spaceId)
       };
 
-      console.log('[IndexedDBBridgeV2] Global interfaces configured:');
-      console.log('  - window.indexedDBBridgeV2 (modern API)');
-      console.log('  - window.supabaseIndexedDBBridgeV2 (compatibility API)');
+      log.debug('Utils', '[IndexedDBBridgeV2] Global interfaces configured:');
+      log.debug('Utils', '  - window.indexedDBBridgeV2 (modern API)');
+      log.debug('Utils', '  - window.supabaseIndexedDBBridgeV2 (compatibility API)');
     }
   }
 }
@@ -476,6 +477,6 @@ export const indexedDBBridgeV2 = new IndexedDBBridgeV2();
 // Auto-initialize in browser environment
 if (typeof window !== 'undefined') {
   indexedDBBridgeV2.initialize().catch(error => {
-    console.error('[IndexedDBBridgeV2] Auto-initialization failed:', error);
+    log.error('Utils', '[IndexedDBBridgeV2] Auto-initialization failed:', error);
   });
 } 

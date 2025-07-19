@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Membership API Client
  * 
@@ -58,7 +59,7 @@ export const membershipApi = {
 
       return data as { role: MemberRole; status: MemberStatus };
     } catch (error) {
-      console.error('Error checking membership status:', error);
+      log.error('App', 'Error checking membership status:', error);
       throw error;
     }
   },
@@ -67,31 +68,31 @@ export const membershipApi = {
    * Join a space
    */
   async joinSpace(spaceId: string): Promise<JoinSpaceResponse> {
-    console.log(`[MembershipAPI] Attempting to join space: ${spaceId}`);
+    log.debug('App', `[MembershipAPI] Attempting to join space: ${spaceId}`);
     
     try {
       // First try the RPC function
-      console.log(`[MembershipAPI] Calling public_join_space RPC...`);
+      log.debug('App', `[MembershipAPI] Calling public_join_space RPC...`);
       const { data, error } = await getSupabaseClient().rpc(
         'public_join_space',
         { p_space_id: spaceId }
       );
 
       if (error) {
-        console.error(`[MembershipAPI] RPC error:`, error);
+        log.error('App', `[MembershipAPI] RPC error:`, error);
         
         // If RPC fails, try direct database approach as fallback
-        console.log(`[MembershipAPI] RPC failed, trying direct database approach...`);
+        log.debug('App', `[MembershipAPI] RPC failed, trying direct database approach...`);
         return await this.joinSpaceDirectly(spaceId);
       }
 
-      console.log(`[MembershipAPI] RPC success:`, data);
+      log.debug('App', `[MembershipAPI] RPC success:`, data);
       return data as JoinSpaceResponse;
     } catch (error) {
-      console.error('Error with RPC call:', error);
+      log.error('App', 'Error with RPC call:', error);
       
       // If RPC call throws an exception, try direct database approach
-      console.log(`[MembershipAPI] RPC threw exception, trying direct database approach...`);
+      log.debug('App', `[MembershipAPI] RPC threw exception, trying direct database approach...`);
       return await this.joinSpaceDirectly(spaceId);
     }
   },
@@ -101,7 +102,7 @@ export const membershipApi = {
    */
   async joinSpaceDirectly(spaceId: string): Promise<JoinSpaceResponse> {
     try {
-      console.log(`[MembershipAPI] Direct join for space: ${spaceId}`);
+      log.debug('App', `[MembershipAPI] Direct join for space: ${spaceId}`);
       
       // Get current user
       const { data: { user }, error: authError } = await getSupabaseClient().auth.getUser();
@@ -149,7 +150,7 @@ export const membershipApi = {
           throw new Error(`Failed to reactivate membership: ${updateError.message}`);
         }
 
-        console.log(`[MembershipAPI] Reactivated membership for user ${user.id} in space ${spaceId}`);
+        log.debug('App', `[MembershipAPI] Reactivated membership for user ${user.id} in space ${spaceId}`);
         return {
           success: true,
           message: 'Membership reactivated successfully'
@@ -172,14 +173,14 @@ export const membershipApi = {
         throw new Error(`Failed to create membership: ${insertError.message}`);
       }
 
-      console.log(`[MembershipAPI] Created new membership for user ${user.id} in space ${spaceId}`);
+      log.debug('App', `[MembershipAPI] Created new membership for user ${user.id} in space ${spaceId}`);
       return {
         success: true,
         message: 'Successfully joined space'
       };
 
     } catch (error) {
-      console.error('Error in direct join:', error);
+      log.error('App', 'Error in direct join:', error);
       throw error;
     }
   },
@@ -200,7 +201,7 @@ export const membershipApi = {
 
       return true;
     } catch (error) {
-      console.error('Error leaving space:', error);
+      log.error('App', 'Error leaving space:', error);
       throw error;
     }
   },
@@ -222,7 +223,7 @@ export const membershipApi = {
 
       return true;
     } catch (error) {
-      console.error('Error changing member role:', error);
+      log.error('App', 'Error changing member role:', error);
       throw error;
     }
   },
@@ -244,7 +245,7 @@ export const membershipApi = {
 
       return true;
     } catch (error) {
-      console.error('Error removing member:', error);
+      log.error('App', 'Error removing member:', error);
       throw error;
     }
   },
@@ -309,7 +310,7 @@ export const membershipApi = {
 
       return members;
     } catch (error) {
-      console.error('Error fetching members:', error);
+      log.error('App', 'Error fetching members:', error);
       throw error;
     }
   },

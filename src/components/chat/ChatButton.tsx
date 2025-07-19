@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -47,14 +48,14 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
     if (now - lastUnreadUpdateRef.current < 2000) {
       // REDUCED LOGGING: Only log throttling in debug mode
       if (Math.random() < 0.1) { // Only log 10% of throttled attempts
-        console.log(`[ChatButton] Skipping unread count update due to debounce (${now - lastUnreadUpdateRef.current}ms ago)`);
+        log.debug('Component', `[ChatButton] Skipping unread count update due to debounce (${now - lastUnreadUpdateRef.current}ms ago)`);
       }
       return;
     }
     
     // REDUCED LOGGING: Only log when count actually changes
     if (unreadCount !== undefined) {
-      console.log(`[ChatButton] Unread count updated: ${unreadCount}`);
+      log.debug('Component', `[ChatButton] Unread count updated: ${unreadCount}`);
       lastUnreadUpdateRef.current = now;
     }
   }, [conversations, unreadCount, manualRefreshTrigger]); // Simplified dependencies
@@ -72,7 +73,7 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
       () => {
         // REDUCED LOGGING: Only log periodic refresh occasionally
         if (Math.random() < 0.2) { // Only log 20% of periodic refreshes
-          console.log('[ChatButton] Periodic refresh of conversations');
+          log.debug('Component', '[ChatButton] Periodic refresh of conversations');
         }
         fetchConversations();
       },
@@ -86,7 +87,7 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
   // Listen for custom event to open chat modal with conversation ID
   useEffect(() => {
     const handleOpenChatModal = (event: CustomEvent<{ conversationId: string }>) => {
-      console.log(`[ChatButton] Received open-chat-modal event for conversation: ${event.detail.conversationId}`);
+      log.debug('Component', `[ChatButton] Received open-chat-modal event for conversation: ${event.detail.conversationId}`);
       setSelectedConversationId(event.detail.conversationId);
       selectConversation(event.detail.conversationId);
       setIsChatModalOpen(true);
@@ -100,11 +101,11 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
   }, [selectConversation]);
   
   const handlePopoverConversationSelect = (conversation: any) => {
-    console.log(`[ChatButton] Selected conversation: ${conversation.conversation_id}`);
+    log.debug('Component', `[ChatButton] Selected conversation: ${conversation.conversation_id}`);
     
     // ✅ MODAL FIX: Safety check to ensure we have a valid conversation ID
     if (!conversation?.conversation_id) {
-      console.error('[ChatButton] No conversation ID provided - cannot open modal');
+      log.error('Component', '[ChatButton] No conversation ID provided - cannot open modal');
       setIsPopoverOpenForIcon(false);
       return;
     }
@@ -135,7 +136,7 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
         toast({ title: "Error starting chat", description: "Could not find or create a conversation.", variant: "destructive" });
       }
     } catch (error: any) {
-      console.error('Error in handleDirectChat:', error);
+      log.error('Component', 'Error in handleDirectChat:', error);
       toast({ title: "Error", description: error.message || "Failed to start chat.", variant: "destructive" });
     } finally {
       setIsLoadingDirectChat(false);
@@ -143,7 +144,7 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
   };
   
   const handleCloseChatModal = () => {
-    console.log('[ChatButton] Closing chat modal');
+    log.debug('Component', '[ChatButton] Closing chat modal');
     setIsChatModalOpen(false);
     setSelectedConversationId(null);
     selectConversation(null);
@@ -182,7 +183,7 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
           className={`h-10 w-10 text-gray-500 ${className || ''}`}
           aria-label={`Messages${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
           onClick={() => {
-            console.log('[ChatButton] Icon clicked, toggling popover:', !isPopoverOpenForIcon);
+            log.debug('Component', '[ChatButton] Icon clicked, toggling popover:', !isPopoverOpenForIcon);
             setIsPopoverOpenForIcon(prev => !prev);
           }}
         >

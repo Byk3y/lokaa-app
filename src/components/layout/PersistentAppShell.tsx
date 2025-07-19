@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import BottomNav from '@/components/mobile/BottomNav';
@@ -23,7 +24,7 @@ export const PersistentAppShell: React.FC = () => {
 
   // Track route changes for debugging
   useEffect(() => {
-    console.log('🔄 [PersistentAppShell] Route changed to:', location.pathname);
+    log.debug('Component', '🔄 [PersistentAppShell] Route changed to:', location.pathname);
   }, [location.pathname]);
 
   // Determine current route type for potential optimizations
@@ -54,6 +55,7 @@ export const PersistentAppShell: React.FC = () => {
           {/* Space-specific persistent elements */}
         </div>
       )}
+
     </div>
   );
 };

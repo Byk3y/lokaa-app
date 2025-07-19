@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { Component, ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,7 @@ export class ClassroomErrorBoundary extends Component<
     });
 
     // Log error for debugging
-    console.error('ClassroomErrorBoundary caught an error:', error, errorInfo);
+    log.error('Component', 'ClassroomErrorBoundary caught an error:', error, errorInfo);
 
     // Call custom error handler if provided
     this.props.onError?.(error, errorInfo);
@@ -108,10 +109,10 @@ export class ClassroomErrorBoundary extends Component<
       navigator.clipboard.writeText(JSON.stringify(errorDetails, null, 2))
         .then(() => {
           // Could show a toast here if available
-          console.log('Error details copied to clipboard');
+          log.debug('Component', 'Error details copied to clipboard');
         })
         .catch(() => {
-          console.log('Failed to copy error details');
+          log.debug('Component', 'Failed to copy error details');
         });
     }
   };

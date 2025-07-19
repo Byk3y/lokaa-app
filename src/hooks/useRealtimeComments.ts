@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🔔 REAL-TIME COMMENTS SYSTEM - OPTIMIZED
  * 
@@ -80,7 +81,7 @@ export const useRealtimeComments = ({
   const setupSubscriptionDebounced = useCallback((targetPostId: string) => {
     // Prevent setting up subscription for the same post multiple times
     if (stablePostIdRef.current === targetPostId && isSubscribedRef.current) {
-      console.log(`🔔 [RealtimeComments] Subscription already exists for post: ${targetPostId}`);
+      log.debug('Hook', `🔔 [RealtimeComments] Subscription already exists for post: ${targetPostId}`);
       return;
     }
 
@@ -90,8 +91,8 @@ export const useRealtimeComments = ({
     }
 
     stablePostIdRef.current = targetPostId;
-    console.log(`🔔 [RealtimeComments] Setting up subscription for post: ${targetPostId}`);
-    console.log(`🔔 [RealtimeComments] Filter: post_id=eq.${targetPostId}`);
+    log.debug('Hook', `🔔 [RealtimeComments] Setting up subscription for post: ${targetPostId}`);
+    log.debug('Hook', `🔔 [RealtimeComments] Filter: post_id=eq.${targetPostId}`);
     
     // Check if subscription already exists globally
     const existingSubscription = globalSubscriptions.get(targetPostId);
@@ -102,7 +103,7 @@ export const useRealtimeComments = ({
       existingSubscription.callbacks.add(callbackRef.current);
       setIsConnected(true);
       isSubscribedRef.current = true;
-      console.log(`🔔 [RealtimeComments] Reusing existing subscription for post: ${targetPostId} (refs: ${existingSubscription.refCount})`);
+      log.debug('Hook', `🔔 [RealtimeComments] Reusing existing subscription for post: ${targetPostId} (refs: ${existingSubscription.refCount})`);
       return;
     }
 
@@ -120,11 +121,11 @@ export const useRealtimeComments = ({
           filter: `post_id=eq.${targetPostId}`,
         },
         (payload) => {
-          console.log('🔔 [RealtimeComments] New comment detected:', payload);
+          log.debug('Hook', '🔔 [RealtimeComments] New comment detected:', payload);
           
           if (payload.new && typeof payload.new === 'object') {
             const newComment = payload.new as NewCommentData;
-            console.log('🔔 [RealtimeComments] Processing new comment:', {
+            log.debug('Hook', '🔔 [RealtimeComments] Processing new comment:', {
               id: newComment.id,
               post_id: newComment.post_id,
               user_id: newComment.user_id,
@@ -135,7 +136,7 @@ export const useRealtimeComments = ({
             // Notify all callbacks for this post
             callbacks.forEach(callback => {
               if (callback.onNewComment) {
-                console.log('🔔 [RealtimeComments] Calling onNewComment callback');
+                log.debug('Hook', '🔔 [RealtimeComments] Calling onNewComment callback');
                 callback.onNewComment(newComment);
               }
               
@@ -150,7 +151,7 @@ export const useRealtimeComments = ({
               }
             });
           } else {
-            console.warn('🔔 [RealtimeComments] Invalid payload.new:', payload.new);
+            log.warn('Hook', '🔔 [RealtimeComments] Invalid payload.new:', payload.new);
           }
         }
       )
@@ -163,7 +164,7 @@ export const useRealtimeComments = ({
           filter: `post_id=eq.${targetPostId}`,
         },
         (payload) => {
-          console.log('🔔 [RealtimeComments] Comment updated:', payload);
+          log.debug('Hook', '🔔 [RealtimeComments] Comment updated:', payload);
           if (payload.new && typeof payload.new === 'object') {
             const updatedComment = payload.new as NewCommentData;
             
@@ -177,7 +178,7 @@ export const useRealtimeComments = ({
         }
       )
       .subscribe((status) => {
-        console.log(`🔔 [RealtimeComments] Subscription status: ${status}`);
+        log.debug('Hook', `🔔 [RealtimeComments] Subscription status: ${status}`);
         
         const isSubscribed = status === 'SUBSCRIBED';
         setIsConnected(isSubscribed);
@@ -197,7 +198,7 @@ export const useRealtimeComments = ({
       callbacks
     });
 
-    console.log(`🔔 [RealtimeComments] New subscription created for post: ${targetPostId}`);
+    log.debug('Hook', `🔔 [RealtimeComments] New subscription created for post: ${targetPostId}`);
   }, []);
 
   // Cleanup subscription
@@ -205,7 +206,7 @@ export const useRealtimeComments = ({
     const subscription = globalSubscriptions.get(targetPostId);
     
     if (!subscription) {
-      console.log(`🔔 [RealtimeComments] No subscription found for cleanup: ${targetPostId}`);
+      log.debug('Hook', `🔔 [RealtimeComments] No subscription found for cleanup: ${targetPostId}`);
       return;
     }
 
@@ -213,11 +214,11 @@ export const useRealtimeComments = ({
     subscription.callbacks.delete(callbackRef.current);
     subscription.refCount--;
 
-    console.log(`🔔 [RealtimeComments] Cleaning up subscription for post: ${targetPostId} (remaining refs: ${subscription.refCount})`);
+    log.debug('Hook', `🔔 [RealtimeComments] Cleaning up subscription for post: ${targetPostId} (remaining refs: ${subscription.refCount})`);
 
     // If no more references, actually cleanup the subscription
     if (subscription.refCount <= 0) {
-      console.log(`🔔 [RealtimeComments] Fully removing subscription for post: ${targetPostId}`);
+      log.debug('Hook', `🔔 [RealtimeComments] Fully removing subscription for post: ${targetPostId}`);
       getSupabaseClient().removeChannel(subscription.channel);
       globalSubscriptions.delete(targetPostId);
     }
@@ -234,7 +235,7 @@ export const useRealtimeComments = ({
   // Set up real-time subscription with debouncing
   useEffect(() => {
     if (!isEnabled || !postId) {
-      console.log('🔔 [RealtimeComments] Subscription disabled or no postId:', { isEnabled, postId });
+      log.debug('Hook', '🔔 [RealtimeComments] Subscription disabled or no postId:', { isEnabled, postId });
       return;
     }
 

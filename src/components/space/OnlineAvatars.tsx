@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState, useRef } from 'react';
 import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { getSupabaseClient } from '@/integrations/supabase/client';
@@ -64,7 +65,7 @@ export function OnlineAvatars({ spaceId, maxDisplay = 8, className = '' }: Onlin
           setOnlineUsers([]);
         }
       } catch (error) {
-        console.error('Error fetching user profiles:', error);
+        log.error('Component', 'Error fetching user profiles:', error);
         if (mountedRef.current) {
           setOnlineUsers([]);
         }

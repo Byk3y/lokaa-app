@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 📱 Mobile Auth Context - Phase 1
  * 
@@ -45,7 +46,7 @@ export const MobileAuthProvider: React.FC<MobileAuthProviderProps> = ({ children
     if (baseAuth.user && !mobileSessionManager.getState().userId) {
       const currentState = mobileSessionManager.getState();
       if (currentState.userId !== baseAuth.user.id) {
-        console.log('📱 [MobileAuthContext] Updating mobile session manager with user ID');
+        log.debug('Context', '📱 [MobileAuthContext] Updating mobile session manager with user ID');
         // Update user ID in mobile session manager
         mobileSessionManager.getState().userId = baseAuth.user.id;
       }
@@ -61,7 +62,7 @@ export const MobileAuthProvider: React.FC<MobileAuthProviderProps> = ({ children
       baseAuth.user &&
       (baseAuth.loading || baseAuth.routingInProgress)
     ) {
-      console.log('📱 [MobileAuthContext] Auto-triggering mobile recovery');
+      log.debug('Context', '📱 [MobileAuthContext] Auto-triggering mobile recovery');
       
       // Small delay to let other systems settle
       const timeout = setTimeout(() => {

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { ReactNode, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, MessageSquare, Search, Menu, X, MoreHorizontal } from 'lucide-react';
@@ -28,7 +29,7 @@ export default function SpaceHeader({
   onSearchQueryChange,
 }: SpaceHeaderProps) {
   const { user } = useOptimizedAuth();
-  const { space: storeSpace } = useSpaceSettingsStore();
+  const { space: storeSpace, permissions } = useSpaceSettingsStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [spaceDrawerOpen, setSpaceDrawerOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
@@ -47,7 +48,7 @@ export default function SpaceHeader({
   }, [showMobileSearch]);
 
   const handleOpenChatModal = () => {
-    console.log('Opening chat modal directly from SpaceHeader');
+    log.debug('Component', 'Opening chat modal directly from SpaceHeader');
     setIsChatModalOpen(true);
   };
 
@@ -237,7 +238,7 @@ export default function SpaceHeader({
           name: storeSpace.name,
           subdomain: storeSpace.subdomain,
           icon_image: storeSpace.icon_image,
-          userRole: 'member'
+          userRole: (permissions?.isOwner ? 'owner' : permissions?.isAdmin ? 'admin' : 'member') as 'owner' | 'admin' | 'member'
         } : null}
         user={user}
       />

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🪝 usePWA Hook - Phase 6A PWA Implementation
  * 
@@ -122,9 +123,9 @@ export const usePWA = (): UsePWAReturn => {
         const cacheInfo = await serviceWorkerManager.getCacheInfo();
         setState(prev => ({ ...prev, cacheInfo }));
 
-        console.log('✅ [usePWA] PWA initialized successfully');
+        log.debug('Hook', '✅ [usePWA] PWA initialized successfully');
       } catch (error) {
-        console.error('❌ [usePWA] PWA initialization failed:', error);
+        log.error('Hook', '❌ [usePWA] PWA initialization failed:', error);
         reportError(error, { operation: 'pwa-initialization' });
       }
     };
@@ -137,7 +138,7 @@ export const usePWA = (): UsePWAReturn => {
    */
   useEffect(() => {
     const handleBeforeInstallPrompt = (event: BeforeInstallPromptEvent) => {
-      console.log('📱 [usePWA] Install prompt available');
+      log.debug('Hook', '📱 [usePWA] Install prompt available');
       
       // Prevent default prompt
       event.preventDefault();
@@ -158,7 +159,7 @@ export const usePWA = (): UsePWAReturn => {
         // Don't show prompt if page just loaded (within 5 seconds)
         const pageLoadTime = performance.now();
         if (pageLoadTime < 5000) {
-          console.log('📱 [usePWA] Page recently loaded, skipping prompt to prevent flash');
+          log.debug('Hook', '📱 [usePWA] Page recently loaded, skipping prompt to prevent flash');
           return false;
         }
         
@@ -166,7 +167,7 @@ export const usePWA = (): UsePWAReturn => {
         if (typeof performance !== 'undefined' && performance.getEntriesByType) {
           const navigationEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
           if (navigationEntries.length > 0 && navigationEntries[0].type === 'reload') {
-            console.log('📱 [usePWA] Page reload detected, skipping prompt to prevent flash');
+            log.debug('Hook', '📱 [usePWA] Page reload detected, skipping prompt to prevent flash');
             return false;
           }
         }
@@ -177,7 +178,7 @@ export const usePWA = (): UsePWAReturn => {
           const timeSince = Date.now() - parseInt(dismissedTime);
           const hours24 = 24 * 60 * 60 * 1000;
           if (timeSince < hours24) {
-            console.log('📱 [usePWA] Install prompt recently dismissed, skipping');
+            log.debug('Hook', '📱 [usePWA] Install prompt recently dismissed, skipping');
             return false;
           }
         }
@@ -197,7 +198,7 @@ export const usePWA = (): UsePWAReturn => {
         
         // Don't show more than 1 prompt per hour
         if (promptCount >= 1) {
-          console.log('📱 [usePWA] Too many prompts shown recently, throttling');
+          log.debug('Hook', '📱 [usePWA] Too many prompts shown recently, throttling');
           return false;
         }
         
@@ -207,7 +208,7 @@ export const usePWA = (): UsePWAReturn => {
         
         // On iOS, be very conservative with prompts (Safari handles this natively)
         if (isIOS) {
-          console.log('📱 [usePWA] iOS detected, skipping custom prompt (Safari handles natively)');
+          log.debug('Hook', '📱 [usePWA] iOS detected, skipping custom prompt (Safari handles natively)');
           return false;
         }
         
@@ -218,7 +219,7 @@ export const usePWA = (): UsePWAReturn => {
             const sessionTime = Date.now() - parseInt(sessionStart);
             const minutes5 = 5 * 60 * 1000;
             if (sessionTime < minutes5) {
-              console.log('📱 [usePWA] Mobile session too short for install prompt');
+              log.debug('Hook', '📱 [usePWA] Mobile session too short for install prompt');
               return false;
             }
           }
@@ -268,7 +269,7 @@ export const usePWA = (): UsePWAReturn => {
    */
   useEffect(() => {
     const handleAppInstalled = () => {
-      console.log('🎉 [usePWA] App installed successfully');
+      log.debug('Hook', '🎉 [usePWA] App installed successfully');
       
       setState(prev => ({
         ...prev,
@@ -328,7 +329,7 @@ export const usePWA = (): UsePWAReturn => {
    */
   const showInstallPrompt = useCallback(async (): Promise<boolean> => {
     if (!state.installPrompt) {
-      console.warn('⚠️ [usePWA] No install prompt available');
+      log.warn('Hook', '⚠️ [usePWA] No install prompt available');
       return false;
     }
 
@@ -336,7 +337,7 @@ export const usePWA = (): UsePWAReturn => {
       await state.installPrompt.prompt();
       const choice = await state.installPrompt.userChoice;
       
-      console.log('📱 [usePWA] Install prompt result:', choice.outcome);
+      log.debug('Hook', '📱 [usePWA] Install prompt result:', choice.outcome);
       
       if (choice.outcome === 'accepted') {
         setState(prev => ({
@@ -349,7 +350,7 @@ export const usePWA = (): UsePWAReturn => {
       
       return false;
     } catch (error) {
-      console.error('❌ [usePWA] Install prompt failed:', error);
+      log.error('Hook', '❌ [usePWA] Install prompt failed:', error);
       reportError(error, { operation: 'install-prompt' });
       return false;
     }
@@ -374,7 +375,7 @@ export const usePWA = (): UsePWAReturn => {
    */
   const registerServiceWorker = useCallback(async (): Promise<boolean> => {
     if (!state.isServiceWorkerSupported) {
-      console.warn('⚠️ [usePWA] Service Worker not supported');
+      log.warn('Hook', '⚠️ [usePWA] Service Worker not supported');
       return false;
     }
 
@@ -389,7 +390,7 @@ export const usePWA = (): UsePWAReturn => {
       
       return success;
     } catch (error) {
-      console.error('❌ [usePWA] Service worker registration failed:', error);
+      log.error('Hook', '❌ [usePWA] Service worker registration failed:', error);
       reportError(error, { operation: 'service-worker-registration' });
       return false;
     }
@@ -401,9 +402,9 @@ export const usePWA = (): UsePWAReturn => {
   const updateApp = useCallback(async (): Promise<void> => {
     try {
       await serviceWorkerManager.skipWaiting();
-      console.log('🔄 [usePWA] App update initiated');
+      log.debug('Hook', '🔄 [usePWA] App update initiated');
     } catch (error) {
-      console.error('❌ [usePWA] App update failed:', error);
+      log.error('Hook', '❌ [usePWA] App update failed:', error);
       reportError(error, { operation: 'app-update' });
     }
   }, [reportError]);
@@ -419,9 +420,9 @@ export const usePWA = (): UsePWAReturn => {
       const cacheInfo = await serviceWorkerManager.getCacheInfo();
       setState(prev => ({ ...prev, cacheInfo }));
       
-      console.log('🗑️ [usePWA] Cache cleared successfully');
+      log.debug('Hook', '🗑️ [usePWA] Cache cleared successfully');
     } catch (error) {
-      console.error('❌ [usePWA] Cache clear failed:', error);
+      log.error('Hook', '❌ [usePWA] Cache clear failed:', error);
       reportError(error, { operation: 'cache-clear' });
     }
   }, [reportError]);
@@ -435,7 +436,7 @@ export const usePWA = (): UsePWAReturn => {
       setState(prev => ({ ...prev, cacheInfo }));
       return cacheInfo;
     } catch (error) {
-      console.error('❌ [usePWA] Failed to get cache stats:', error);
+      log.error('Hook', '❌ [usePWA] Failed to get cache stats:', error);
       reportError(error, { operation: 'cache-stats' });
       return {};
     }
@@ -456,7 +457,7 @@ export const usePWA = (): UsePWAReturn => {
         duration: 3000
       });
     } catch (error) {
-      console.error('❌ [usePWA] Failed to queue offline action:', error);
+      log.error('Hook', '❌ [usePWA] Failed to queue offline action:', error);
       reportError(error, { operation: 'queue-offline-action' });
     }
   }, [reportError, updatePendingActionsCount]);
@@ -473,18 +474,18 @@ export const usePWA = (): UsePWAReturn => {
    */
   const shareContent = useCallback(async (data: ShareData): Promise<boolean> => {
     if (!canShare()) {
-      console.warn('⚠️ [usePWA] Web Share API not supported');
+      log.warn('Hook', '⚠️ [usePWA] Web Share API not supported');
       return false;
     }
 
     try {
       await navigator.share(data);
-      console.log('📤 [usePWA] Content shared successfully');
+      log.debug('Hook', '📤 [usePWA] Content shared successfully');
       return true;
     } catch (error) {
       // User cancelled sharing or error occurred
       if ((error as Error).name !== 'AbortError') {
-        console.error('❌ [usePWA] Share failed:', error);
+        log.error('Hook', '❌ [usePWA] Share failed:', error);
         reportError(error, { operation: 'web-share' });
       }
       return false;

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Routes, Route, Navigate, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useState, useEffect, Suspense } from "react";
 import { Loader2 } from "lucide-react";
@@ -37,7 +38,7 @@ function withAuthSafety<P extends object>(
       return <Component {...props} />;
     } catch (error) {
       if (error instanceof Error && error.message.includes('useOptimizedAuth must be used within an AuthProvider')) {
-        console.warn(`🔒 [${componentName}] Auth context not ready yet, skipping render`);
+        log.warn('Component', `🔒 [${componentName}] Auth context not ready yet, skipping render`);
         return null;
       }
       // Re-throw other errors
@@ -51,13 +52,13 @@ function RouteLogger() {
   const location = useLocation();
   
   useEffect(() => {
-    console.log('Route changed to:', location.pathname);
+    log.debug('Component', 'Route changed to:', location.pathname);
     
     // Import and use path restoration utilities
     import('@/utils/pathRestoration').then(({ persistPath }) => {
       persistPath(location.pathname);
     }).catch(error => {
-      console.warn('Failed to import path restoration utilities:', error);
+      log.warn('Component', 'Failed to import path restoration utilities:', error);
     });
   }, [location]);
   
@@ -79,7 +80,7 @@ const AutomationJungleRedirect = withAuthSafety(function AutomationJungleRedirec
     if (pathSegments[1] === 'automation-jungle') {
       // Prevent /space/space duplication by validating the path structure
       if (pathSegments.includes('space') && pathSegments.filter(s => s === 'space').length > 1) {
-        console.warn('Detected malformed URL with multiple "space" segments:', location.pathname);
+        log.warn('Component', 'Detected malformed URL with multiple "space" segments:', location.pathname);
         // Clean up by redirecting to the proper structure
         navigate('/automation-jungle/space', { replace: true });
         return;
@@ -97,7 +98,7 @@ const AutomationJungleRedirect = withAuthSafety(function AutomationJungleRedirec
         }
       }
       
-      console.log(`Normalizing automation jungle URL from ${location.pathname} to ${normalizedPath}`);
+      log.debug('Component', `Normalizing automation jungle URL from ${location.pathname} to ${normalizedPath}`);
       
       // Only redirect if the path actually changed
       if (normalizedPath !== location.pathname) {
@@ -152,7 +153,7 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
   // Initialize NavigationCoordinator with React Router's navigate function
   useEffect(() => {
     navigationCoordinator.initialize(navigate);
-    console.log('🚀 [NavigationCoordinator] Initialized with navigate function');
+    log.debug('Component', '🚀 [NavigationCoordinator] Initialized with navigate function');
   }, [navigate]);
   
   // The complex redirection logic has been removed.
@@ -165,7 +166,7 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
   if (isSignOutRedirect) {
     // Clear the flag and skip loading screen
     sessionStorage.removeItem('lokaa-signing-out');
-    console.log('🚪 [ApplicationRouter] Detected sign out redirect, skipping loading screen');
+    log.debug('Component', '🚪 [ApplicationRouter] Detected sign out redirect, skipping loading screen');
   } else if (loading) {
     return <AppLoadingScreen />;
   }
@@ -267,10 +268,17 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
               </Suspense>
             } />
             
-            {/* Future notifications route */}
+            {/* Notifications page - mobile optimized */}
             <Route path="/app/notifications" element={
               <Suspense fallback={<RouteLoadingFallback />}>
-                <div>Notifications coming soon!</div>
+                <LazyRoutes.NotificationsPage />
+              </Suspense>
+            } />
+            
+            {/* Short notifications route - easier to type */}
+            <Route path="/notifs" element={
+              <Suspense fallback={<RouteLoadingFallback />}>
+                <LazyRoutes.NotificationsPage />
               </Suspense>
             } />
           </Route>

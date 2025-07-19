@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { performanceMonitor } from './performanceMonitor';
 import { persistentCache, cacheInstances } from './persistentCache';
 
@@ -100,7 +101,7 @@ class OptimizedDataFetcher {
       
       // Request deduplication
       if (this.requestQueue.has(requestKey)) {
-        console.log(`[OptimizedFetcher] Deduplicating request: ${url}`);
+        log.debug('Utils', `[OptimizedFetcher] Deduplicating request: ${url}`);
         return this.requestQueue.get(requestKey)!;
       }
       
@@ -137,7 +138,7 @@ class OptimizedDataFetcher {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       
-      console.error(`[OptimizedFetcher] Request failed: ${url}`, error);
+      log.error('Utils', `[OptimizedFetcher] Request failed: ${url}`, error);
       throw error;
     }
   }
@@ -203,7 +204,7 @@ class OptimizedDataFetcher {
         // Track response performance
         const responseSize = parseInt(response.headers.get('content-length') || '0');
         if (responseSize > 100000) { // 100KB+
-          console.warn(`[OptimizedFetcher] Large response: ${(responseSize / 1024).toFixed(1)}KB for ${url}`);
+          log.warn('Utils', `[OptimizedFetcher] Large response: ${(responseSize / 1024).toFixed(1)}KB for ${url}`);
         }
         
         const data = await response.json();
@@ -219,7 +220,7 @@ class OptimizedDataFetcher {
         if (attempt < retries) {
           // Exponential backoff with jitter
           const backoffTime = Math.min(1000 * Math.pow(2, attempt), 10000) + Math.random() * 1000;
-          console.warn(`[OptimizedFetcher] Retry ${attempt + 1}/${retries} for ${url} in ${backoffTime.toFixed(0)}ms`);
+          log.warn('Utils', `[OptimizedFetcher] Retry ${attempt + 1}/${retries} for ${url} in ${backoffTime.toFixed(0)}ms`);
           await new Promise(resolve => setTimeout(resolve, backoffTime));
         }
       }
@@ -239,7 +240,7 @@ class OptimizedDataFetcher {
     tags: string[]
   ): Promise<void> {
     try {
-      console.log(`[OptimizedFetcher] Background revalidation: ${url}`);
+      log.debug('Utils', `[OptimizedFetcher] Background revalidation: ${url}`);
       
       const freshData = await this.executeRequest(url, options, {
         retries: 1, // Fewer retries for background requests
@@ -253,9 +254,9 @@ class OptimizedDataFetcher {
       // Update cache with fresh data
       await this.cacheResponse(requestKey, freshData, ttl, tags);
       
-      console.log(`[OptimizedFetcher] Background revalidation complete: ${url}`);
+      log.debug('Utils', `[OptimizedFetcher] Background revalidation complete: ${url}`);
     } catch (error) {
-      console.warn(`[OptimizedFetcher] Background revalidation failed: ${url}`, error);
+      log.warn('Utils', `[OptimizedFetcher] Background revalidation failed: ${url}`, error);
     }
   }
   
@@ -282,12 +283,12 @@ class OptimizedDataFetcher {
     // Online/offline detection
     window.addEventListener('online', () => {
       this.isOnline = true;
-      console.log('[OptimizedFetcher] Network back online');
+      log.debug('Utils', '[OptimizedFetcher] Network back online');
     });
     
     window.addEventListener('offline', () => {
       this.isOnline = false;
-      console.warn('[OptimizedFetcher] Network offline');
+      log.warn('Utils', '[OptimizedFetcher] Network offline');
     });
     
     // Connection type detection
@@ -298,7 +299,7 @@ class OptimizedDataFetcher {
         this.connectionType = connection.effectiveType || 'unknown';
         this.isSlowConnection = ['slow-2g', '2g'].includes(this.connectionType);
         
-        console.log(`[OptimizedFetcher] Connection: ${this.connectionType}, slow: ${this.isSlowConnection}`);
+        log.debug('Utils', `[OptimizedFetcher] Connection: ${this.connectionType}, slow: ${this.isSlowConnection}`);
       };
       
       connection.addEventListener('change', updateConnection);
@@ -327,7 +328,7 @@ class OptimizedDataFetcher {
         const duration = performance.now() - startTime;
         
         if (duration > 2000) { // Log slow requests
-          console.warn(`[OptimizedFetcher] Slow request: ${duration.toFixed(0)}ms for ${args[0]}`);
+          log.warn('Utils', `[OptimizedFetcher] Slow request: ${duration.toFixed(0)}ms for ${args[0]}`);
         }
         
         requestCount--;
@@ -352,7 +353,7 @@ class OptimizedDataFetcher {
     try {
       await persistentCache.set(key, data, { ttl, tags, compress: true });
     } catch (error) {
-      console.warn('[OptimizedFetcher] Failed to cache response:', error);
+      log.warn('Utils', '[OptimizedFetcher] Failed to cache response:', error);
     }
   }
   
@@ -363,7 +364,7 @@ class OptimizedDataFetcher {
     try {
       return await persistentCache.get<T>(key);
     } catch (error) {
-      console.warn('[OptimizedFetcher] Failed to get cached response:', error);
+      log.warn('Utils', '[OptimizedFetcher] Failed to get cached response:', error);
       return null;
     }
   }
@@ -455,13 +456,13 @@ if (process.env.NODE_ENV === 'development') {
   (window as any).optimizedFetcher = optimizedFetcher;
   (window as any).fetchMetrics = () => {
     const metrics = optimizedFetcher.getMetrics();
-    console.table(Array.from(metrics.entries()));
+    log.table('Utils',(Array.from(metrics.entries()));
     return metrics;
   };
   
-  console.log('🔧 Data fetching debugging tools available:');
-  console.log('- window.optimizedFetcher');
-  console.log('- window.fetchMetrics()');
+  log.debug('Utils', '🔧 Data fetching debugging tools available:');
+  log.debug('Utils', '- window.optimizedFetcher');
+  log.debug('Utils', '- window.fetchMetrics()');
 }
 
 // Auto-cleanup every 5 minutes

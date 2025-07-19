@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { 
@@ -55,7 +56,7 @@ export default function TopNav() {
         .eq('user_id', user.id)
         .then(({ data, error }) => {
           if (error) {
-            console.error("Error fetching user spaces:", error);
+            log.error('Component', "Error fetching user spaces:", error);
             setUserSpaces([]);
           } else if (data) {
             const spaces = data.map(item => item.spaces).filter(Boolean) as UserSpace[];

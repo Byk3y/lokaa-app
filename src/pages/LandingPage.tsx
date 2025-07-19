@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from "@/contexts/AuthContext";
@@ -56,7 +57,7 @@ export default function LandingPage() {
   // 🚀 [Phase 1] CRITICAL FIX: Redirect authenticated users immediately
   useEffect(() => {
     if (user) {
-      console.log('🚀 [Phase 1] User is authenticated on landing page, redirecting to /app');
+      log.debug('Page', '🚀 [Phase 1] User is authenticated on landing page, redirecting to /app');
       navigate('/app', { replace: true });
     }
   }, [user, navigate]);
@@ -444,8 +445,8 @@ function SpaceModalWithStore() {
 }
 
 export function LandingPageWrapper() {
-  console.log("🎯 LandingPageWrapper: Component is being rendered!");
-  console.log("🎯 LandingPageWrapper: Current window.location:", {
+  log.debug('Page', "🎯 LandingPageWrapper: Component is being rendered!");
+  log.debug('Page', "🎯 LandingPageWrapper: Current window.location:", {
     href: window.location.href,
     pathname: window.location.pathname,
     search: window.location.search,

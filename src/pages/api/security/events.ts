@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { NextApiRequest, NextApiResponse } from 'next';
 
@@ -30,13 +31,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
     if (error) {
-      console.error('Failed to log security event:', error);
+      log.error('Page', 'Failed to log security event:', error);
       return res.status(500).json({ error: 'Failed to log security event' });
     }
 
     return res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Error handling security event:', error);
+    log.error('Page', 'Error handling security event:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 } 

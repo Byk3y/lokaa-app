@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Preloads an array of image URLs
  * Improves perceived performance by loading images before they're needed
@@ -13,12 +14,12 @@ export function preloadImages(imageUrls: (string | null | undefined)[]): Promise
       const img = new Image();
       
       img.onload = () => {
-        console.log(`[Asset Preloader] Successfully loaded: ${url}`);
+        log.debug('Utils', `[Asset Preloader] Successfully loaded: ${url}`);
         resolve();
       };
       
       img.onerror = () => {
-        console.warn(`[Asset Preloader] Failed to load: ${url}`);
+        log.warn('Utils', `[Asset Preloader] Failed to load: ${url}`);
         resolve(); // Resolve even on error to not block other images
       };
       
@@ -52,9 +53,9 @@ export function preloadSpaceAssets(space: SpaceAssetData | null | undefined): vo
   ].filter(Boolean);
   
   if (imagesToPreload.length > 0) {
-    console.log(`[Asset Preloader] Preloading ${imagesToPreload.length} space assets`);
+    log.debug('Utils', `[Asset Preloader] Preloading ${imagesToPreload.length} space assets`);
     preloadImages(imagesToPreload).catch(err => {
-      console.warn('[Asset Preloader] Error during preload:', err);
+      log.warn('Utils', '[Asset Preloader] Error during preload:', err);
     });
   }
 } 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ export default function NewSpaceSettingsModal() {
     if (isOpen && user && space?.subdomain) {
       loadActiveSpace({ subdomain: space.subdomain }, user.id, true);
     } else if (isOpen && user && !space) {
-      console.warn("SpaceSettingsModal opened but no space context (subdomain) available in store to load.");
+      log.warn('Component', "SpaceSettingsModal opened but no space context (subdomain) available in store to load.");
     }
   }, [isOpen, user, space?.subdomain, loadActiveSpace]);
 

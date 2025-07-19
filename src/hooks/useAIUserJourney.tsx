@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useEffect, useState, useCallback } from 'react';
 import { aiUserJourneyManager } from '@/utils/aiUserJourneyManager';
 import { WelcomePrompt } from '@/components/journey/WelcomePrompt';
@@ -73,7 +74,7 @@ export const useAIUserJourney = (spaceId?: string, spaceName?: string, memberCou
 
           await aiUserJourneyManager.onSpaceEntry(context);
         } catch (error) {
-          console.error('Failed to trigger space entry journey:', error);
+          log.error('Hook', 'Failed to trigger space entry journey:', error);
         }
       };
 

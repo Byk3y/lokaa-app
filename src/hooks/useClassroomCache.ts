@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -55,7 +56,7 @@ const saveFallbackCache = (spaceId: string, courses: CourseDisplayData[]) => {
     };
     localStorage.setItem(`classroom_fallback_${spaceId}`, JSON.stringify(cacheData));
   } catch (error) {
-    console.warn('Failed to save classroom fallback cache:', error);
+    log.warn('Hook', 'Failed to save classroom fallback cache:', error);
   }
 };
 
@@ -67,12 +68,12 @@ const loadFallbackCache = (spaceId: string): CourseDisplayData[] | null => {
     if (directData) {
       const courses = JSON.parse(directData);
       if (Array.isArray(courses) && courses.length > 0) {
-        console.log(`✅ [ClassroomCache] Using REAL courses from localStorage (${courses.length} courses)`);
+        log.debug('Hook', `✅ [ClassroomCache] Using REAL courses from localStorage (${courses.length} courses)`);
         return courses;
       }
     }
   } catch (error) {
-    console.warn('Failed to load direct courses cache:', error);
+    log.warn('Hook', 'Failed to load direct courses cache:', error);
   }
   
   // PRIORITY 2: Try fallback cache format
@@ -91,7 +92,7 @@ const loadFallbackCache = (spaceId: string): CourseDisplayData[] | null => {
     
     return data.courses || [];
   } catch (error) {
-    console.warn('Failed to load classroom fallback cache:', error);
+    log.warn('Hook', 'Failed to load classroom fallback cache:', error);
     return null;
   }
 };
@@ -139,7 +140,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       if (directData) {
         const courses = JSON.parse(directData);
         if (Array.isArray(courses) && courses.length > 0) {
-          console.log(`✅ [ClassroomCache] Loading REAL courses from localStorage (${courses.length} courses)`);
+          log.debug('Hook', `✅ [ClassroomCache] Loading REAL courses from localStorage (${courses.length} courses)`);
           
           const realCoursesCache = new Map(spaceCache);
           realCoursesCache.set(spaceId, {
@@ -153,7 +154,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         }
       }
     } catch (error) {
-      console.warn('Failed to load real courses from localStorage:', error);
+      log.warn('Hook', 'Failed to load real courses from localStorage:', error);
     }
     
     // Set loading state only if we need to fetch from database
@@ -229,7 +230,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         ]);
         allEnrollmentsData = enrollmentsResult.data;
       } catch (enrollmentError) {
-        console.warn("Enrollments query timeout, continuing with course data:", enrollmentError);
+        log.warn('Hook', "Enrollments query timeout, continuing with course data:", enrollmentError);
       }
       
       // Create student counts and enrollment maps
@@ -284,13 +285,13 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       saveFallbackCache(spaceId, filteredCourses);
 
     } catch (error) {
-      console.error(`❌ Error fetching courses for space ${spaceId}:`, error);
+      log.error('Hook', `❌ Error fetching courses for space ${spaceId}:`, error);
       
       // POSTS PATTERN: Attempt fallback cache recovery
       const fallbackCourses = loadFallbackCache(spaceId);
       
       if (fallbackCourses && fallbackCourses.length > 0) {
-        console.log(`✅ [ClassroomCache] Using fallback cache data for space ${spaceId}`);
+        log.debug('Hook', `✅ [ClassroomCache] Using fallback cache data for space ${spaceId}`);
         
         const fallbackCache = new Map(get().spaceCache);
         fallbackCache.set(spaceId, {
@@ -305,7 +306,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
 
       // POSTS PATTERN: Hardcoded fallback for known space
       if (spaceId === '235e68d1-89df-4d2d-8945-e7756d60de20') {
-        console.log(`✅ [ClassroomCache] Using hardcoded fallback for nocode-architects`);
+        log.debug('Hook', `✅ [ClassroomCache] Using hardcoded fallback for nocode-architects`);
         
         const hardcodedCourses: CourseDisplayData[] = [
           {
@@ -429,7 +430,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       try {
         localStorage.removeItem(`classroom_fallback_${spaceId}`);
       } catch (error) {
-        console.warn('Failed to clear classroom fallback cache:', error);
+        log.warn('Hook', 'Failed to clear classroom fallback cache:', error);
       }
     } else {
       // Clear all cache
@@ -444,7 +445,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
           }
         });
       } catch (error) {
-        console.warn('Failed to clear all classroom fallback caches:', error);
+        log.warn('Hook', 'Failed to clear all classroom fallback caches:', error);
       }
     }
   },

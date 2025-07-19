@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Generic Cache Service
  * 
@@ -39,7 +40,7 @@ export class CacheService<T = any> implements ICacheService<T> {
     try {
       const db = indexedDBManager.getDatabase();
       if (!db) {
-        console.warn(`[CacheService:${this.storeName}] Database not available`);
+        log.warn('Utils', `[CacheService:${this.storeName}] Database not available`);
         return null;
       }
 
@@ -51,18 +52,18 @@ export class CacheService<T = any> implements ICacheService<T> {
 
       // Check if cache entry is expired (unless skipCache is true)
       if (!options.skipCache && this.isCacheExpired(cacheEntry)) {
-        console.log(`[CacheService:${this.storeName}] Cache entry expired for key: ${key}`);
+        log.debug('Utils', `[CacheService:${this.storeName}] Cache entry expired for key: ${key}`);
         
         // Clean up expired entry
         await this.invalidate(key);
         return null;
       }
 
-      console.log(`[CacheService:${this.storeName}] Cache hit for key: ${key}`);
+      log.debug('Utils', `[CacheService:${this.storeName}] Cache hit for key: ${key}`);
       return cacheEntry.data;
 
     } catch (error) {
-      console.error(`[CacheService:${this.storeName}] Error getting cache for key ${key}:`, error);
+      log.error('Utils', `[CacheService:${this.storeName}] Error getting cache for key ${key}:`, error);
       return null;
     }
   }
@@ -74,7 +75,7 @@ export class CacheService<T = any> implements ICacheService<T> {
     try {
       const db = indexedDBManager.getDatabase();
       if (!db) {
-        console.warn(`[CacheService:${this.storeName}] Database not available for caching`);
+        log.warn('Utils', `[CacheService:${this.storeName}] Database not available for caching`);
         return;
       }
 
@@ -90,10 +91,10 @@ export class CacheService<T = any> implements ICacheService<T> {
 
       await this.setCacheEntry(cacheEntry);
       
-      console.log(`[CacheService:${this.storeName}] Cached data for key: ${key} (TTL: ${ttl}ms)`);
+      log.debug('Utils', `[CacheService:${this.storeName}] Cached data for key: ${key} (TTL: ${ttl}ms)`);
 
     } catch (error) {
-      console.error(`[CacheService:${this.storeName}] Error setting cache for key ${key}:`, error);
+      log.error('Utils', `[CacheService:${this.storeName}] Error setting cache for key ${key}:`, error);
       throw error;
     }
   }
@@ -110,10 +111,10 @@ export class CacheService<T = any> implements ICacheService<T> {
 
       await this.deleteCacheEntry(key);
       
-      console.log(`[CacheService:${this.storeName}] Invalidated cache for key: ${key}`);
+      log.debug('Utils', `[CacheService:${this.storeName}] Invalidated cache for key: ${key}`);
 
     } catch (error) {
-      console.error(`[CacheService:${this.storeName}] Error invalidating cache for key ${key}:`, error);
+      log.error('Utils', `[CacheService:${this.storeName}] Error invalidating cache for key ${key}:`, error);
       throw error;
     }
   }
@@ -130,10 +131,10 @@ export class CacheService<T = any> implements ICacheService<T> {
 
       await this.clearStore();
       
-      console.log(`[CacheService:${this.storeName}] Cleared all cache entries`);
+      log.debug('Utils', `[CacheService:${this.storeName}] Cleared all cache entries`);
 
     } catch (error) {
-      console.error(`[CacheService:${this.storeName}] Error clearing cache:`, error);
+      log.error('Utils', `[CacheService:${this.storeName}] Error clearing cache:`, error);
       throw error;
     }
   }
@@ -183,7 +184,7 @@ export class CacheService<T = any> implements ICacheService<T> {
       };
 
     } catch (error) {
-      console.error(`[CacheService:${this.storeName}] Error getting cache stats:`, error);
+      log.error('Utils', `[CacheService:${this.storeName}] Error getting cache stats:`, error);
       return this.getEmptyStats();
     }
   }
@@ -206,7 +207,7 @@ export class CacheService<T = any> implements ICacheService<T> {
       });
 
     } catch (error) {
-      console.error(`[CacheService:${this.storeName}] Error getting entries by metadata:`, error);
+      log.error('Utils', `[CacheService:${this.storeName}] Error getting entries by metadata:`, error);
       return [];
     }
   }
@@ -229,13 +230,13 @@ export class CacheService<T = any> implements ICacheService<T> {
       }
 
       if (expiredEntries.length > 0) {
-        console.log(`[CacheService:${this.storeName}] Cleaned up ${expiredEntries.length} expired entries`);
+        log.debug('Utils', `[CacheService:${this.storeName}] Cleaned up ${expiredEntries.length} expired entries`);
       }
 
       return expiredEntries.length;
 
     } catch (error) {
-      console.error(`[CacheService:${this.storeName}] Error cleaning up expired entries:`, error);
+      log.error('Utils', `[CacheService:${this.storeName}] Error cleaning up expired entries:`, error);
       return 0;
     }
   }
@@ -259,7 +260,7 @@ export class CacheService<T = any> implements ICacheService<T> {
       };
 
       request.onerror = () => {
-        console.error(`[CacheService:${this.storeName}] Error getting cache entry:`, request.error);
+        log.error('Utils', `[CacheService:${this.storeName}] Error getting cache entry:`, request.error);
         resolve(null);
       };
     });
@@ -296,7 +297,7 @@ export class CacheService<T = any> implements ICacheService<T> {
 
       request.onsuccess = () => resolve();
       request.onerror = () => {
-        console.error(`[CacheService:${this.storeName}] Error deleting cache entry:`, request.error);
+        log.error('Utils', `[CacheService:${this.storeName}] Error deleting cache entry:`, request.error);
         resolve();
       };
     });
@@ -336,7 +337,7 @@ export class CacheService<T = any> implements ICacheService<T> {
       };
 
       request.onerror = () => {
-        console.error(`[CacheService:${this.storeName}] Error getting all entries:`, request.error);
+        log.error('Utils', `[CacheService:${this.storeName}] Error getting all entries:`, request.error);
         resolve([]);
       };
     });

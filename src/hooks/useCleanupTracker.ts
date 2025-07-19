@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useEffect, useRef, useCallback } from 'react';
 
 interface CleanupItem {
@@ -30,7 +31,7 @@ export function useCleanupTracker(componentName: string): CleanupTracker {
   // FIXED: Simplified logging - only in development and reduced noise
   const log = useCallback((message: string) => {
     if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) {
-      console.log(`[CleanupTracker:${componentName}] ${message}`);
+      log.debug('Hook', `[CleanupTracker:${componentName}] ${message}`);
     }
   }, [componentName]);
 
@@ -84,7 +85,7 @@ export function useCleanupTracker(componentName: string): CleanupTracker {
         cleanedCount++;
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn(`[CleanupTracker:${componentName}] Subscription cleanup error:`, error);
+          log.warn('Hook', `[CleanupTracker:${componentName}] Subscription cleanup error:`, error);
         }
       }
     });
@@ -97,7 +98,7 @@ export function useCleanupTracker(componentName: string): CleanupTracker {
         cleanedCount++;
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn(`[CleanupTracker:${componentName}] Event listener cleanup error:`, error);
+          log.warn('Hook', `[CleanupTracker:${componentName}] Event listener cleanup error:`, error);
         }
       }
     });
@@ -105,7 +106,7 @@ export function useCleanupTracker(componentName: string): CleanupTracker {
 
     // FIXED: Only log significant cleanup operations
     if (process.env.NODE_ENV === 'development' && cleanedCount > 5) {
-      console.log(`[CleanupTracker:${componentName}] Cleaned up ${cleanedCount} resources`);
+      log.debug('Hook', `[CleanupTracker:${componentName}] Cleaned up ${cleanedCount} resources`);
     }
   }, [componentName]);
 
@@ -139,7 +140,7 @@ export function useSupabaseCleanup(componentName: string) {
         try {
           subscription.unsubscribe();
         } catch (err) {
-          console.warn(`[${componentName}] Error unsubscribing from Supabase:`, err);
+          log.warn('Hook', `[${componentName}] Error unsubscribing from Supabase:`, err);
         }
       }
     });
@@ -163,7 +164,7 @@ export function useQueryCleanup(componentName: string) {
         try {
           queryClient.removeQueries(queryKey);
         } catch (err) {
-          console.warn(`[${componentName}] Error removing queries:`, err);
+          log.warn('Hook', `[${componentName}] Error removing queries:`, err);
         }
       }
     });

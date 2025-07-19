@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Auth Modal Router
  * 
@@ -59,7 +60,7 @@ export default function AuthModalRouter() {
             onSuccess={() => handleAuthModalClose('auth-login')}
             onError={(error) => {
               // Keep modal open to show error
-              console.error('Login error:', error);
+              log.error('Component', 'Login error:', error);
             }}
           />
         );

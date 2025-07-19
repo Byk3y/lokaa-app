@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -58,13 +59,13 @@ export const useSpaceMemberGrowth = (spaceId: string, days: number = 30): Member
     }
 
     try {
-      console.log('🔍 [MemberGrowth] Fetching data for spaceId:', spaceId);
+      log.debug('Hook', '🔍 [MemberGrowth] Fetching data for spaceId:', spaceId);
       const supabase = getSupabaseClient();
       const endDate = new Date();
       const startDate = new Date();
       startDate.setDate(endDate.getDate() - days);
 
-      console.log('🔍 [MemberGrowth] Date range:', { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+      log.debug('Hook', '🔍 [MemberGrowth] Date range:', { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
 
       // Get all active members with their join dates
       const { data: members, error } = await supabase
@@ -74,14 +75,14 @@ export const useSpaceMemberGrowth = (spaceId: string, days: number = 30): Member
         .eq('status', 'active')
         .order('joined_at', { ascending: true });
 
-      console.log('🔍 [MemberGrowth] Query result:', { 
+      log.debug('Hook', '🔍 [MemberGrowth] Query result:', { 
         membersCount: members?.length, 
         error,
         sampleMembers: members?.slice(0, 3).map(m => ({ joined_at: m.joined_at }))
       });
 
       if (error) {
-        console.error('Error fetching member growth data:', error);
+        log.error('Hook', 'Error fetching member growth data:', error);
         // Fallback: generate chart with current member count as flat line
         const currentMemberCount = 5; // From the UI we saw 5 members
         const dailyData: MemberGrowthDataPoint[] = [];
@@ -104,7 +105,7 @@ export const useSpaceMemberGrowth = (spaceId: string, days: number = 30): Member
       }
 
       if (!members || members.length === 0) {
-        console.log('🔍 [MemberGrowth] No members found for space');
+        log.debug('Hook', '🔍 [MemberGrowth] No members found for space');
         // Still generate chart with zero data to show proper empty state
         const dailyData: MemberGrowthDataPoint[] = [];
         for (let i = 0; i < days; i++) {
@@ -157,7 +158,7 @@ export const useSpaceMemberGrowth = (spaceId: string, days: number = 30): Member
         });
       }
 
-      console.log('🔍 [MemberGrowth] Generated daily data:', { 
+      log.debug('Hook', '🔍 [MemberGrowth] Generated daily data:', { 
         dataPoints: dailyData.length, 
         totalMembers: members?.length || 0,
         firstPoint: dailyData[0],
@@ -183,7 +184,7 @@ export const useSpaceMemberGrowth = (spaceId: string, days: number = 30): Member
       lastFetchRef.current = cacheKey;
 
     } catch (error) {
-      console.error('Error in fetchMemberGrowth:', error);
+      log.error('Hook', 'Error in fetchMemberGrowth:', error);
       setMemberGrowthData(prev => ({
         ...prev,
         loading: false,

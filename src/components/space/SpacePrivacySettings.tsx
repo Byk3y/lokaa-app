@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Label } from '@/components/ui/label';
@@ -40,7 +41,7 @@ export default function SpacePrivacySettings({ spaceId }: SpacePrivacySettingsPr
         const spaceData = data as Database['public']['Tables']['spaces']['Row'] | null;
         setIsPrivate(spaceData?.is_private === true);
       } catch (error: unknown) {
-        console.error("Error fetching privacy setting:", error instanceof Error ? error.message : String(error));
+        log.error('Component', "Error fetching privacy setting:", error instanceof Error ? error.message : String(error));
         // Still allow component to render with default value
       } finally {
         setLoading(false);
@@ -74,7 +75,7 @@ export default function SpacePrivacySettings({ spaceId }: SpacePrivacySettingsPr
         description: "Privacy settings updated successfully." 
       });
     } catch (error: unknown) {
-      console.error("Error updating privacy setting:", error);
+      log.error('Component', "Error updating privacy setting:", error);
       toast({ 
         title: "Error", 
         description: `Failed to update privacy settings: ${(error instanceof Error ? error.message : String(error)) || 'Unknown error'}`, 

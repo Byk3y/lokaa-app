@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Plus, Compass } from "lucide-react";
@@ -44,7 +45,7 @@ export function SpaceSidebar() {
         if (error) throw error;
         setOwnedSpaces(data || []);
       } catch (error) {
-        console.error('Error fetching owned spaces:', error);
+        log.error('Component', 'Error fetching owned spaces:', error);
       } finally {
         setLoadingOwned(false);
       }
@@ -134,7 +135,7 @@ export function SpaceSidebar() {
                       <AvatarImage 
                         src={space.cover_image} 
                         onError={(e) => {
-                          console.log(`Failed to load avatar for space: ${space.name}`);
+                          log.debug('Component', `Failed to load avatar for space: ${space.name}`);
                         }}
                       />
                       <AvatarFallback 
@@ -186,7 +187,7 @@ export function SpaceSidebar() {
                         <AvatarImage 
                           src={space.cover_image} 
                           onError={(e) => {
-                            console.log(`Failed to load avatar for space: ${space.name}`);
+                            log.debug('Component', `Failed to load avatar for space: ${space.name}`);
                           }}
                         />
                         <AvatarFallback 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
@@ -53,7 +54,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         );
           
         if (error) {
-          console.error('Error fetching profile URL:', error);
+          log.error('Component', 'Error fetching profile URL:', error);
           return;
         }
         
@@ -61,11 +62,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           setProfileSlug(data.profile_url);
           
           if (fromCache) {
-            console.log('🔧 [ProfileDropdown] Using cached profile_url data');
+            log.debug('Component', '🔧 [ProfileDropdown] Using cached profile_url data');
           }
         }
       } catch (err) {
-        console.error('Exception fetching profile URL:', err);
+        log.error('Component', 'Exception fetching profile URL:', err);
       }
     }
     
@@ -139,7 +140,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
         );
           
         if (error) {
-          console.error('Error fetching user name:', error);
+          log.error('Component', 'Error fetching user name:', error);
           return;
         }
         
@@ -147,11 +148,11 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
           setUserName(data.full_name);
           
           if (fromCache) {
-            console.log('🔧 [ProfileDropdown] Using cached full_name data');
+            log.debug('Component', '🔧 [ProfileDropdown] Using cached full_name data');
           }
         }
       } catch (err) {
-        console.error('Exception fetching user name:', err);
+        log.error('Component', 'Exception fetching user name:', err);
       }
     }
     

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * 🚨 Phase 4A: Error Analytics Dashboard
  * 
@@ -65,7 +66,7 @@ const ErrorAnalyticsDashboard: React.FC<ErrorAnalyticsDashboardProps> = ({
         setErrors(newErrors);
       }
     } catch (error) {
-      console.error('Failed to fetch error data:', error);
+      log.error('Component', 'Failed to fetch error data:', error);
     }
   }, []);
 
@@ -571,7 +572,7 @@ export const FloatingErrorDashboard: React.FC = () => {
           setErrorCount(metrics.totalErrors || 0);
         }
       } catch (error) {
-        console.error('Failed to fetch error count:', error);
+        log.error('Component', 'Failed to fetch error count:', error);
       }
     };
 

@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Path Restoration Utilities
  * 
@@ -74,7 +75,7 @@ export function shouldRestorePath(path: string, userId?: string): boolean {
   if (typeof window !== 'undefined' && (window as any).mobileSessionManager) {
     const isReturningFromBackground = (window as any).mobileSessionManager.isReturningFromBackground();
     if (isReturningFromBackground) {
-      console.log('🚫 [PathRestoration] Skipping path restoration - mobile session recovery active');
+      log.debug('Utils', '🚫 [PathRestoration] Skipping path restoration - mobile session recovery active');
       return false;
     }
   }
@@ -83,14 +84,14 @@ export function shouldRestorePath(path: string, userId?: string): boolean {
   if (typeof window !== 'undefined') {
     const userWantsDiscover = sessionStorage.getItem('userWantsDiscover');
     if (userWantsDiscover === 'true') {
-      console.log('🚫 [PathRestoration] Skipping path restoration - user wants discover');
+      log.debug('Utils', '🚫 [PathRestoration] Skipping path restoration - user wants discover');
       return false;
     }
   }
   
   // Don't restore if another path restoration is already in progress
   if (isPathRestorationActive()) {
-    console.log('🚫 [PathRestoration] Skipping path restoration - restoration already in progress');
+    log.debug('Utils', '🚫 [PathRestoration] Skipping path restoration - restoration already in progress');
     return false;
   }
   
@@ -114,9 +115,9 @@ export function persistPath(path: string): void {
     localStorage.setItem(STORAGE_KEY, path);
     localStorage.setItem(TIMESTAMP_KEY, pathInfo.timestamp.toString());
     
-    console.log(`💾 [PathRestoration] Persisted path: ${path}`);
+    log.debug('Utils', `💾 [PathRestoration] Persisted path: ${path}`);
   } catch (error) {
-    console.warn('Failed to persist path:', error);
+    log.warn('Utils', 'Failed to persist path:', error);
   }
 }
 
@@ -136,14 +137,14 @@ export function getLastVisitedPath(): string | null {
     const isStale = Date.now() - timestamp > PATH_EXPIRY_MS;
     
     if (isStale) {
-      console.log(`🕒 [PathRestoration] Path is stale (${Math.round((Date.now() - timestamp) / (1000 * 60 * 60))}h old), clearing`);
+      log.debug('Utils', `🕒 [PathRestoration] Path is stale (${Math.round((Date.now() - timestamp) / (1000 * 60 * 60))}h old), clearing`);
       clearLastVisitedPath();
       return null;
     }
     
     return path;
   } catch (error) {
-    console.warn('Failed to get last visited path:', error);
+    log.warn('Utils', 'Failed to get last visited path:', error);
     return null;
   }
 }
@@ -155,9 +156,9 @@ export function clearLastVisitedPath(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(TIMESTAMP_KEY);
-    console.log('🧹 [PathRestoration] Cleared stored path');
+    log.debug('Utils', '🧹 [PathRestoration] Cleared stored path');
   } catch (error) {
-    console.warn('Failed to clear last visited path:', error);
+    log.warn('Utils', 'Failed to clear last visited path:', error);
   }
 }
 
@@ -177,13 +178,13 @@ export async function validateRestoredPath(path: string, userId?: string): Promi
     
     // Basic subdomain validation
     if (!subdomain || subdomain.length < 2) {
-      console.log('🚫 [PathRestoration] Invalid subdomain in path');
+      log.debug('Utils', '🚫 [PathRestoration] Invalid subdomain in path');
       return false;
     }
     
     // For now, we'll assume the space access validation happens in SpaceProtectedRoute
     // In the future, we could add explicit permission checking here
-    console.log(`✅ [PathRestoration] Space path validation passed for: ${subdomain}`);
+    log.debug('Utils', `✅ [PathRestoration] Space path validation passed for: ${subdomain}`);
   }
   
   return true;
@@ -196,16 +197,16 @@ export async function attemptPathRestoration(navigate: any, userId?: string): Pr
   const lastPath = getLastVisitedPath();
   
   if (!lastPath) {
-    console.log('📍 [PathRestoration] No valid path to restore');
+    log.debug('Utils', '📍 [PathRestoration] No valid path to restore');
     return false;
   }
   
-  console.log(`📍 [PathRestoration] Attempting to restore path: ${lastPath}`);
+  log.debug('Utils', `📍 [PathRestoration] Attempting to restore path: ${lastPath}`);
   
   // Validate the path
   const isValid = await validateRestoredPath(lastPath, userId);
   if (!isValid) {
-    console.log('🚫 [PathRestoration] Path validation failed, clearing stored path');
+    log.debug('Utils', '🚫 [PathRestoration] Path validation failed, clearing stored path');
     clearLastVisitedPath();
     return false;
   }
@@ -213,10 +214,10 @@ export async function attemptPathRestoration(navigate: any, userId?: string): Pr
   try {
     // Navigate to the restored path
     navigate(lastPath, { replace: true, state: { fromPathRestoration: true } });
-    console.log(`✅ [PathRestoration] Successfully restored path: ${lastPath}`);
+    log.debug('Utils', `✅ [PathRestoration] Successfully restored path: ${lastPath}`);
     return true;
   } catch (error) {
-    console.error('❌ [PathRestoration] Navigation failed:', error);
+    log.error('Utils', '❌ [PathRestoration] Navigation failed:', error);
     clearLastVisitedPath();
     return false;
   }
@@ -273,7 +274,7 @@ export function markPathRestorationActive(): void {
       active: true
     }));
   } catch (error) {
-    console.warn('Failed to mark path restoration as active:', error);
+    log.warn('Utils', 'Failed to mark path restoration as active:', error);
   }
 }
 
@@ -286,7 +287,7 @@ export function clearPathRestorationActive(): void {
   try {
     sessionStorage.removeItem('pathRestoration_active');
   } catch (error) {
-    console.warn('Failed to clear path restoration active flag:', error);
+    log.warn('Utils', 'Failed to clear path restoration active flag:', error);
   }
 }
 

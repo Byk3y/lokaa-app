@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Edit, Image as ImageIcon, Plus } from "lucide-react";
@@ -61,15 +62,15 @@ const CreateCategoryModal = ({ isOpen, onClose, spaceId, userId, onCategoryCreat
         .single();
 
       if (insertError) {
-        console.error('Error creating category:', insertError);
+        log.error('Component', 'Error creating category:', insertError);
         setError(insertError.message);
       } else {
-        console.log('Category created successfully:', data);
+        log.debug('Component', 'Category created successfully:', data);
         onCategoryCreated();
         onClose();
       }
     } catch (e) {
-      console.error('Unexpected error during category creation:', e);
+      log.error('Component', 'Unexpected error during category creation:', e);
       setError('An unexpected error occurred');
     } finally {
       setIsCreating(false);

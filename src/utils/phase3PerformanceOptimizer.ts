@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Phase 3 Performance Optimizer
  * Consolidates mobile optimization utilities and creates unified performance strategy
@@ -163,7 +164,7 @@ class Phase3PerformanceOptimizer {
         element.setAttribute('data-preload-status', 'ready');
         
         // Log component preload for debugging
-        console.debug(`[Phase3] Component marked for preload: ${componentName}`);
+        log.debug('Utils', `[Phase3] Component marked for preload: ${componentName}`);
         
         // Update metrics
         this.updateMetrics('fastPathExecutions', 1);
@@ -375,19 +376,19 @@ if (typeof window !== 'undefined') {
     
     // Additional testing methods
     testPerformanceMonitoring: () => {
-      console.log('🔍 Testing Performance Monitoring...');
+      log.debug('Utils', '🔍 Testing Performance Monitoring...');
       const metrics = phase3PerformanceOptimizer.getPerformanceMetrics();
-      console.log('📊 Current Metrics:', metrics);
-      console.log('✅ Performance monitoring is active');
+      log.debug('Utils', '📊 Current Metrics:', metrics);
+      log.debug('Utils', '✅ Performance monitoring is active');
       return metrics;
     },
     
     validateMemoryMonitoring: () => {
-      console.log('🧠 Validating Memory Monitoring...');
+      log.debug('Utils', '🧠 Validating Memory Monitoring...');
       const status = phase3PerformanceOptimizer.getStatus();
       const isActive = status.metrics.memoryUsage > 0;
-      console.log('💾 Memory Usage:', status.metrics.memoryUsage, 'MB');
-      console.log(isActive ? '✅ Memory monitoring is working' : '⚠️ Memory monitoring may not be active');
+      log.debug('Utils', '💾 Memory Usage:', status.metrics.memoryUsage, 'MB');
+      log.debug('Utils', isActive ? '✅ Memory monitoring is working' : '⚠️ Memory monitoring may not be active');
       return { active: isActive, usage: status.metrics.memoryUsage };
     },
     

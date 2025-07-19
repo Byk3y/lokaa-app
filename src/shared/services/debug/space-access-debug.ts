@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { env } from "@/core/config/env";
 import {
@@ -92,13 +93,13 @@ class SpaceAccessDebugger {
    */
   init(supabaseClient: typeof supabase): this {
     if (!env.isDevelopment) {
-      console.warn('Space access debugger is only available in development mode');
+      log.warn('Service', 'Space access debugger is only available in development mode');
       return this;
     }
 
     this.supabaseClient = supabaseClient;
     this.isInitialized = true;
-    console.log('Space access debug utility initialized');
+    log.debug('Service', 'Space access debug utility initialized');
     return this;
   }
 
@@ -108,16 +109,16 @@ class SpaceAccessDebugger {
    */
   async clientSideCheck(spaceSubdomain: string): Promise<SpaceAccessDebugResult> {
     if (!this.isInitialized || !this.supabaseClient) {
-      console.error('Debugger not initialized. Call init(supabase) first.');
+      log.error('Service', 'Debugger not initialized. Call init(supabase) first.');
       return { success: false, error: 'Not initialized', phase: 'initialization' };
     }
     
     if (!spaceSubdomain) {
-      console.error('Missing required parameter: spaceSubdomain');
+      log.error('Service', 'Missing required parameter: spaceSubdomain');
       return { success: false, error: 'Missing spaceSubdomain', phase: 'validation' };
     }
     
-    console.log(`Performing client-side access check for space: ${spaceSubdomain}`);
+    log.debug('Service', `Performing client-side access check for space: ${spaceSubdomain}`);
     
     try {
       // Use the new database service for access check
@@ -139,7 +140,7 @@ class SpaceAccessDebugger {
           `User does not have access to this space (Membership status: ${accessResult.membershipStatus || 'not a member'})`
       };
     } catch (error) {
-      console.error('Exception in client-side check:', error);
+      log.error('Service', 'Exception in client-side check:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -153,33 +154,33 @@ class SpaceAccessDebugger {
    */
   async fixAccess(spaceSubdomain: string): Promise<UserSpaceAccessDebugResult> {
     if (!this.isInitialized) {
-      console.error('Debugger not initialized. Call init(supabase) first.');
+      log.error('Service', 'Debugger not initialized. Call init(supabase) first.');
       return { success: false, error: 'Not initialized', phase: 'initialization' };
     }
 
-    console.log(`Attempting to diagnose and potentially fix access for space: ${spaceSubdomain}`);
+    log.debug('Service', `Attempting to diagnose and potentially fix access for space: ${spaceSubdomain}`);
     
     try {
       // Use the new database service for access diagnosis
       const result = await diagnoseSpaceAccess(spaceSubdomain);
       
       if (result.success && result.hasAccess) {
-        console.log('Access diagnosis successful - user has access');
+        log.debug('Service', 'Access diagnosis successful - user has access');
         return { success: true };
       } else if (result.success && !result.hasAccess) {
-        console.log('Access diagnosis: user does not have access');
-        console.log('Issues found:', result.issues);
-        console.log('Recommendations:', result.recommendations);
+        log.debug('Service', 'Access diagnosis: user does not have access');
+        log.debug('Service', 'Issues found:', result.issues);
+        log.debug('Service', 'Recommendations:', result.recommendations);
         
         // Try to create access if user and space exist but no access
         if (result.user && result.space && !result.isOwner) {
-          console.log('Attempting to create space membership...');
+          log.debug('Service', 'Attempting to create space membership...');
           const createResult = await createSpaceAccess(result.space.id);
           if (createResult.success) {
-            console.log('Space membership created successfully');
+            log.debug('Service', 'Space membership created successfully');
             return { success: true };
           } else {
-            console.error('Failed to create membership:', createResult.error);
+            log.error('Service', 'Failed to create membership:', createResult.error);
             return { 
               success: false, 
               error: createResult.error instanceof Error ? createResult.error.message : 'Failed to create membership',
@@ -194,7 +195,7 @@ class SpaceAccessDebugger {
           };
         }
       } else {
-        console.error('Access diagnosis failed:', result.issues);
+        log.error('Service', 'Access diagnosis failed:', result.issues);
         return { 
           success: false, 
           error: result.issues.join(', '),
@@ -202,7 +203,7 @@ class SpaceAccessDebugger {
         };
       }
     } catch (error) {
-      console.error('Exception fixing access:', error);
+      log.error('Service', 'Exception fixing access:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -239,45 +240,45 @@ class SpaceAccessDebugger {
    */
   async debugUserSpaceAccess(userId: string): Promise<UserSpaceDebugResult> {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Service', 'Debug functions are only available in development mode');
       return { success: false, error: 'Not available in production' };
     }
 
     if (!userId) {
-      console.error('No user ID provided');
+      log.error('Service', 'No user ID provided');
       return { success: false, error: 'No user ID provided' };
     }
     
-    console.log('Debugging space access for user:', userId);
+    log.debug('Service', 'Debugging space access for user:', userId);
     
     try {
       // Check owned spaces
-      console.log('Checking owned spaces...');
+      log.debug('Service', 'Checking owned spaces...');
       const { data: ownedSpaces, error: ownedError } = await getSupabaseClient()
         .from('spaces')
         .select('*')
         .eq('owner_id', userId);
         
       if (ownedError) {
-        console.error('Error fetching owned spaces:', ownedError);
+        log.error('Service', 'Error fetching owned spaces:', ownedError);
         return { success: false, error: ownedError };
       }
       
-      console.log('Owned spaces:', ownedSpaces);
+      log.debug('Service', 'Owned spaces:', ownedSpaces);
       
       // Check space_members records
-      console.log('Checking space_members records...');
+      log.debug('Service', 'Checking space_members records...');
       const { data: memberRecords, error: memberError } = await getSupabaseClient()
         .from('space_members')
         .select('*, space:spaces(name, subdomain)')
         .eq('user_id', userId);
         
       if (memberError) {
-        console.error('Error fetching space member records:', memberError);
+        log.error('Service', 'Error fetching space member records:', memberError);
         return { success: false, error: memberError };
       }
       
-      console.log('Space member records:', memberRecords);
+      log.debug('Service', 'Space member records:', memberRecords);
       
       return {
         success: true,
@@ -285,7 +286,7 @@ class SpaceAccessDebugger {
         memberRecords
       };
     } catch (error) {
-      console.error('Unexpected error during debugging:', error);
+      log.error('Service', 'Unexpected error during debugging:', error);
       return { success: false, error };
     }
   }
@@ -295,16 +296,16 @@ class SpaceAccessDebugger {
    */
   async checkSpaceAccessForUser(userId: string, spaceSubdomain: string): Promise<SpaceAccessDebugResult> {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Service', 'Debug functions are only available in development mode');
       return { success: false, error: 'Not available in production', phase: 'environment' };
     }
 
     if (!userId || !spaceSubdomain) {
-      console.error('Missing required parameters: userId and spaceSubdomain are required');
+      log.error('Service', 'Missing required parameters: userId and spaceSubdomain are required');
       return { success: false, error: 'Missing required parameters', phase: 'validation' };
     }
     
-    console.log(`Checking access for user ${userId} to space ${spaceSubdomain}`);
+    log.debug('Service', `Checking access for user ${userId} to space ${spaceSubdomain}`);
     
     try {
       // Use the database service for comprehensive access check
@@ -334,7 +335,7 @@ class SpaceAccessDebugger {
       };
       
     } catch (error) {
-      console.error('Unexpected error during access check:', error);
+      log.error('Service', 'Unexpected error during access check:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -348,7 +349,7 @@ class SpaceAccessDebugger {
    */
   async debugSpacePermissions(userId: string, spaceId: string): Promise<SpacePermissionsDebugResult> {
     if (!env.isDevelopment) {
-      console.warn('Debug functions are only available in development mode');
+      log.warn('Service', 'Debug functions are only available in development mode');
       return {
         userId,
         spaceId,
@@ -370,10 +371,10 @@ class SpaceAccessDebugger {
       };
     }
 
-    console.log(`Debugging permissions for user ${userId} in space ${spaceId}`);
+    log.debug('Service', `Debugging permissions for user ${userId} in space ${spaceId}`);
     
     if (!userId || !spaceId) {
-      console.error('Missing userId or spaceId parameters');
+      log.error('Service', 'Missing userId or spaceId parameters');
       return {
         userId,
         spaceId,

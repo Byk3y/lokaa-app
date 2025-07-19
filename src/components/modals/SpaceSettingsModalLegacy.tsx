@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import useSpaceSettingsStore, { SpaceSettingsData } from '@/hooks/useSpaceSettingsStore';
 import { resolveImageUrl } from '@/utils/preloadAssets';
 import { IconUser, IconSettings, IconPhoto, IconPalette, IconLock, IconCreditCard, IconAlertTriangle, IconTrash, IconLoader2 } from '@tabler/icons-react';
@@ -67,8 +68,8 @@ const SpaceSettingsModal = () => {
 
   const handleSaveChanges = async () => {
     if (!storeSpace || !user || !storePermissions?.canEditSpace) return;
-    // console.log('[SpaceSettingsModal] Saving changes for space:', storeSpace.id);
-    // console.log('[SpaceSettingsModal] Current formData:', formData);
+    // log.debug('Component', '[SpaceSettingsModal] Saving changes for space:', storeSpace.id);
+    // log.debug('Component', '[SpaceSettingsModal] Current formData:', formData);
 
     setIsSubmitting(true);
     try {
@@ -95,7 +96,7 @@ const SpaceSettingsModal = () => {
       await loadActiveSpace({ spaceId: storeSpace.id }, user.id, true);
       onClose();
     } catch (e: any) {
-      console.error("Error saving space settings:", e);
+      log.error('Component', "Error saving space settings:", e);
       toast({ title: "Error", description: e.message || "Failed to update space settings.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
@@ -121,7 +122,7 @@ const SpaceSettingsModal = () => {
       window.location.reload();
 
     } catch (e: any) {
-      console.error("Error deleting space:", e);
+      log.error('Component', "Error deleting space:", e);
       toast({ title: "Error deleting space", description: e.message || "An unexpected error occurred.", variant: "destructive"});
     } finally {
       setIsSubmitting(false);

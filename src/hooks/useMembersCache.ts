@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { MemberRole } from '@/contexts/MembershipContext';
@@ -56,7 +57,7 @@ const MAX_CACHE_ENTRIES = 10; // Limit cache size
       localStorage.removeItem(key);
     }
   });
-  console.log('Members cache cleared from localStorage');
+  log.debug('Hook', 'Members cache cleared from localStorage');
 };
 
 // POSTS PATTERN: Fallback recovery helper
@@ -68,7 +69,7 @@ const tryFallbackRecovery = async (spaceId: string): Promise<CachedMemberType[] 
     if (realMembersData) {
       const realMembers = JSON.parse(realMembersData);
       if (Array.isArray(realMembers) && realMembers.length > 0) {
-        console.log(`✅ [MembersCache] Using REAL members from localStorage (${realMembers.length} members)`);
+        log.debug('Hook', `✅ [MembersCache] Using REAL members from localStorage (${realMembers.length} members)`);
         return realMembers.map((member: any) => ({
           id: member.id,
           user_id: member.userId || member.user_id, // Handle both formats
@@ -87,7 +88,7 @@ const tryFallbackRecovery = async (spaceId: string): Promise<CachedMemberType[] 
       }
     }
   } catch (error) {
-    console.warn('Real members cache recovery failed:', error);
+    log.warn('Hook', 'Real members cache recovery failed:', error);
   }
 
   // PRIORITY 2: Try persistent cache fallback
@@ -97,7 +98,7 @@ const tryFallbackRecovery = async (spaceId: string): Promise<CachedMemberType[] 
     if (cachedData) {
       const realMembers = JSON.parse(cachedData);
       if (Array.isArray(realMembers) && realMembers.length > 0) {
-        console.log(`✅ [MembersCache] Using PERSISTENT real members from localStorage (${realMembers.length} members)`);
+        log.debug('Hook', `✅ [MembersCache] Using PERSISTENT real members from localStorage (${realMembers.length} members)`);
         return realMembers.map((member: any) => ({
           id: member.id,
           user_id: member.userId || member.user_id, // Handle both formats
@@ -116,7 +117,7 @@ const tryFallbackRecovery = async (spaceId: string): Promise<CachedMemberType[] 
       }
     }
   } catch (error) {
-    console.warn('Persistent real members cache recovery failed:', error);
+    log.warn('Hook', 'Persistent real members cache recovery failed:', error);
   }
   
   // PRIORITY 3: Try regular fallback cache
@@ -147,7 +148,7 @@ const tryFallbackRecovery = async (spaceId: string): Promise<CachedMemberType[] 
       }
     }
   } catch (error) {
-    console.warn('Fallback cache recovery failed:', error);
+    log.warn('Hook', 'Fallback cache recovery failed:', error);
   }
   
   return null;
@@ -159,14 +160,14 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
   subscribeToPresence: (spaceId: string) => {
     // DEPRECATED: This function is now handled by the unified presence system in useMemberCounts
     // Return a no-op cleanup function for backward compatibility
-    console.log('🌐 [MembersCache] Presence subscription delegated to unified system');
+    log.debug('Hook', '🌐 [MembersCache] Presence subscription delegated to unified system');
     return () => {};
   },
 
   fetchMembers: async (spaceId: string, forceRefresh = false) => {
     // CRITICAL FIX: Don't attempt to fetch with invalid space IDs
     if (!spaceId || spaceId.startsWith('fallback-') || spaceId === 'fallback-id') {
-      console.warn(`⚠️ [MembersCache] Invalid space ID provided: ${spaceId} - skipping fetch to prevent database errors`);
+      log.warn('Hook', `⚠️ [MembersCache] Invalid space ID provided: ${spaceId} - skipping fetch to prevent database errors`);
       return;
     }
     
@@ -175,7 +176,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
     
     // Check if we should use cached data
     if (!forceRefresh && entry && !get().isStale(spaceId)) {
-      console.log('👥 Using cached members for space:', spaceId);
+      log.debug('Hook', '👥 Using cached members for space:', spaceId);
       return; // Use cached data
     }
 
@@ -195,7 +196,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
         if (realMembersData) {
           const realMembers = JSON.parse(realMembersData);
           if (Array.isArray(realMembers) && realMembers.length > 0) {
-            console.log(`✅ [MembersCache] Loading REAL members from localStorage (${realMembers.length} members)`);
+            log.debug('Hook', `✅ [MembersCache] Loading REAL members from localStorage (${realMembers.length} members)`);
             const convertedMembers = realMembers.map((member: any) => ({
               id: member.id,
               user_id: member.userId || member.user_id, // Handle both formats
@@ -225,14 +226,14 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
             try {
               localStorage.setItem(`PERSISTENT_members_cache_${spaceId}`, JSON.stringify(realMembers));
             } catch (e) {
-              console.warn('Failed to save persistent members cache:', e);
+              log.warn('Hook', 'Failed to save persistent members cache:', e);
             }
             
             return; // Use real members data, skip database query
           }
         }
       } catch (error) {
-        console.warn('Failed to load real members from localStorage:', error);
+        log.warn('Hook', 'Failed to load real members from localStorage:', error);
       }
     }
 
@@ -250,7 +251,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
     // Apply query deduplication to prevent duplicate database calls
     const lockKey = `members_${spaceId}`;
     if ((window as any).__membersLocks?.[lockKey]) {
-      console.log('🔒 [MembersCache] Query already in progress, skipping duplicate');
+      log.debug('Hook', '🔒 [MembersCache] Query already in progress, skipping duplicate');
       return;
     }
     
@@ -258,7 +259,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
     (window as any).__membersLocks[lockKey] = true;
 
     try {
-      console.log('🔄 Fetching members from Supabase for space:', spaceId);
+      log.debug('Hook', '🔄 Fetching members from Supabase for space:', spaceId);
       
       const supabase = getSupabaseClient(); // GET SINGLETON CLIENT
       
@@ -278,7 +279,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
             .order('joined_at', { ascending: true }),
           new Promise<never>((_, reject) => {
             setTimeout(() => {
-              console.error('[MembersCache] Query timeout for:', spaceId);
+              log.error('Hook', '[MembersCache] Query timeout for:', spaceId);
               reject(new Error('Members query timeout'));
             }, TIMEOUT_MS);
           })
@@ -288,13 +289,13 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
         memberError = error;
         
       } catch (timeoutError) {
-        console.error('[MembersCache] Query failed, attempting fallback cache recovery...');
+        log.error('Hook', '[MembersCache] Query failed, attempting fallback cache recovery...');
         
         const fallback = await tryFallbackRecovery(spaceId);
         if (fallback) {
           memberData = fallback;
           memberError = null;
-          console.log(`✅ [MembersCache] Using fallback cache data`);
+          log.debug('Hook', `✅ [MembersCache] Using fallback cache data`);
         } else {
            if (timeoutError instanceof Error) {
              memberError = timeoutError;
@@ -303,12 +304,12 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
       }
       
       if (memberError) {
-        console.error('[MembersCache] Query error:', memberError);
+        log.error('Hook', '[MembersCache] Query error:', memberError);
         throw memberError;
       }
       
       if (!memberData || !Array.isArray(memberData) || memberData.length === 0) {
-        console.warn('[MembersCache] No member data returned, clearing cache for this space.');
+        log.warn('Hook', '[MembersCache] No member data returned, clearing cache for this space.');
         
         const updatedCache = new Map(get().cache);
         updatedCache.set(spaceId, {
@@ -366,7 +367,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
           }
         }
       } catch (profileError) {
-        console.warn('⚠️ [MembersCache] Failed to fetch profiles, using basic member data:', profileError);
+        log.warn('Hook', '⚠️ [MembersCache] Failed to fetch profiles, using basic member data:', profileError);
       }
 
       const finalCache = new Map(get().cache);
@@ -395,14 +396,14 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
           timestamp: Date.now()
         }));
       } catch (cacheError) {
-        console.warn('⚠️ [MembersCache] Failed to save fallback cache:', cacheError);
+        log.warn('Hook', '⚠️ [MembersCache] Failed to save fallback cache:', cacheError);
       }
       
       // Clean up lock
       delete (window as any).__membersLocks[lockKey];
       
     } catch (error) {
-      console.error('[MembersCache] fetchMembers error:', error);
+      log.error('Hook', '[MembersCache] fetchMembers error:', error);
       
       const fallbackMembers = await tryFallbackRecovery(spaceId);
       if (fallbackMembers && fallbackMembers.length > 0) {
@@ -441,7 +442,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
       members: updatedMembers,
     });
     set({ cache: newCache });
-    console.log('✏️ Updated member in cache:', memberId);
+    log.debug('Hook', '✏️ Updated member in cache:', memberId);
   },
 
   removeMember: (spaceId: string, memberId: string) => {
@@ -457,7 +458,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
       members: filteredMembers,
     });
     set({ cache: newCache });
-    console.log('🗑️ Removed member from cache:', memberId);
+    log.debug('Hook', '🗑️ Removed member from cache:', memberId);
   },
 
   addMember: (spaceId: string, member: CachedMemberType) => {
@@ -471,7 +472,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
       members: [...entry.members, member],
     });
     set({ cache: newCache });
-    console.log('➕ Added member to cache:', member.id);
+    log.debug('Hook', '➕ Added member to cache:', member.id);
   },
 
   updateMemberRole: (spaceId: string, userId: string, newRole: MemberRole) => {
@@ -489,7 +490,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
       members: updatedMembers,
     });
     set({ cache: newCache });
-    console.log('👑 Updated member role in cache:', userId, 'to', newRole);
+    log.debug('Hook', '👑 Updated member role in cache:', userId, 'to', newRole);
   },
 
   clearCache: (spaceId?: string) => {
@@ -498,10 +499,10 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
       const newCache = new Map(cache);
       newCache.delete(spaceId);
       set({ cache: newCache });
-      console.log('🧹 Cleared cache for space:', spaceId);
+      log.debug('Hook', '🧹 Cleared cache for space:', spaceId);
     } else {
       set({ cache: new Map() });
-      console.log('🧹 Cleared all members cache');
+      log.debug('Hook', '🧹 Cleared all members cache');
     }
   },
 

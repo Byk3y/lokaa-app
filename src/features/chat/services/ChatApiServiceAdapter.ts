@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Chat API Service Adapter
  * 
@@ -50,7 +51,7 @@ export class ChatApiServiceAdapter {
       });
 
       if (result.error) {
-        console.warn('[ChatApiServiceAdapter] V2 system error:', result.error.message);
+        log.warn('Service', '[ChatApiServiceAdapter] V2 system error:', result.error.message);
         return {
           data: null,
           error: result.error,
@@ -70,7 +71,7 @@ export class ChatApiServiceAdapter {
       };
 
     } catch (error) {
-      console.error('[ChatApiServiceAdapter] Adapter error:', error);
+      log.error('Service', '[ChatApiServiceAdapter] Adapter error:', error);
       return {
         data: null,
         error: error instanceof Error ? error : new Error(String(error)),
@@ -142,7 +143,7 @@ export class ChatApiServiceAdapter {
 
     // Log warning only if we expect participants but don't find them
     if (!v2Conv.is_group) {
-      console.warn('[ChatApiServiceAdapter] No participants found for direct conversation:', v2Conv.conversation_id);
+      log.warn('Service', '[ChatApiServiceAdapter] No participants found for direct conversation:', v2Conv.conversation_id);
     }
 
     return [];
@@ -152,12 +153,12 @@ export class ChatApiServiceAdapter {
    * Test method to verify data transformation
    */
   async testTransformation(userId: string) {
-    console.log(`[ChatApiServiceAdapter] Testing transformation for user: ${userId}`);
+    log.debug('Service', `[ChatApiServiceAdapter] Testing transformation for user: ${userId}`);
     
     try {
       const result = await this.getUserConversations(userId);
       
-      console.log('[ChatApiServiceAdapter] Transformation test results:', {
+      log.debug('Service', '[ChatApiServiceAdapter] Transformation test results:', {
         success: !result.error,
         dataCount: result.data?.length || 0,
         fromCache: result.fromCache,
@@ -167,7 +168,7 @@ export class ChatApiServiceAdapter {
       
       return result;
     } catch (error) {
-      console.error('[ChatApiServiceAdapter] Transformation test failed:', error);
+      log.error('Service', '[ChatApiServiceAdapter] Transformation test failed:', error);
       throw error;
     }
   }

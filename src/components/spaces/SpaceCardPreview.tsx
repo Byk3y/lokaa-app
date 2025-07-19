@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Globe, Lock, Users, Tag } from "lucide-react";
@@ -24,7 +25,7 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
   
   // Debug logging to track the space ID being used
   useEffect(() => {
-    console.log(`🔍 [SpaceCardPreview] Component mounted with space:`, {
+    log.debug('Component', `🔍 [SpaceCardPreview] Component mounted with space:`, {
       spaceId,
       spaceName: space.name,
       subdomain: space.subdomain
@@ -43,7 +44,7 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
   
   // Debug logging to track hook results
   useEffect(() => {
-    console.log(`🔍 [SpaceCardPreview] Member counts updated for ${space.name}:`, {
+    log.debug('Component', `🔍 [SpaceCardPreview] Member counts updated for ${space.name}:`, {
       spaceId,
       totalMembers,
       onlineMembers,
@@ -61,7 +62,7 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
   // Update state from our hook - only when we have valid data and space is properly loaded
   useEffect(() => {
     if (!countsLoading && spaceId && space?.name) {
-      console.log(`🔍 [SpaceCardPreview] Updating display counts for ${space.name}:`, {
+      log.debug('Component', `🔍 [SpaceCardPreview] Updating display counts for ${space.name}:`, {
         from: { adminCount, onlineCount, activeMemberCount },
         to: { adminMembers, onlineMembers, totalMembers }
       });
@@ -108,7 +109,7 @@ export default function SpaceCardPreview({ space, onJoin }: SpaceCardPreviewProp
   const showViewMore = isTooLong;
 
   // Debug logging before rendering sidebar
-  console.log(`🔍 [SpaceCardPreview] Sidebar props for ${space.name}:`, {
+  log.debug('Component', `🔍 [SpaceCardPreview] Sidebar props for ${space.name}:`, {
     memberCount: activeMemberCount,
     adminCount,
     onlineCount,

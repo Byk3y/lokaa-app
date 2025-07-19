@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 /**
  * Utilities for saving and recovering post drafts
  */
@@ -13,7 +14,7 @@ export const savePostDraft = (spaceId: string, title: string, body: string) => {
     }));
     return true;
   } catch (e) {
-    console.error('Error saving draft:', e);
+    log.error('Utils', 'Error saving draft:', e);
     return false;
   }
 };
@@ -42,7 +43,7 @@ export const loadPostDraft = (spaceId: string) => {
       return null;
     }
   } catch (e) {
-    console.error('Error loading draft:', e);
+    log.error('Utils', 'Error loading draft:', e);
     return null;
   }
 };
@@ -53,7 +54,7 @@ export const clearPostDraft = () => {
     localStorage.removeItem('post_draft');
     return true;
   } catch (e) {
-    console.error('Error clearing draft:', e);
+    log.error('Utils', 'Error clearing draft:', e);
     return false;
   }
 }; 

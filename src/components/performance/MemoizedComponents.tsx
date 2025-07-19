@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { memo, useMemo, useCallback, useRef, useEffect } from 'react';
 import { performanceMonitor } from '../../utils/performanceMonitor';
 import { useCleanupTracker } from '../../hooks/useCleanupTracker';
@@ -30,7 +31,7 @@ export function withPerformanceMemo<P extends Record<string, any>>(
         );
         
         if (changedProps.length > 0) {
-          console.log(`[${componentName}] Re-render #${renderCount.current} caused by props:`, changedProps);
+          log.debug('Component', `[${componentName}] Re-render #${renderCount.current} caused by props:`, changedProps);
         }
       }
       
@@ -42,7 +43,7 @@ export function withPerformanceMemo<P extends Record<string, any>>(
           
           // Log slow renders
           if (duration > 16) { // 60fps threshold
-            console.warn(`[${componentName}] Slow render: ${duration.toFixed(2)}ms`);
+            log.warn('Component', `[${componentName}] Slow render: ${duration.toFixed(2)}ms`);
           }
         }
       };
@@ -56,7 +57,7 @@ export function withPerformanceMemo<P extends Record<string, any>>(
     for (const key of keys) {
       if (prevProps[key] !== nextProps[key]) {
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[${componentName}] Prop '${key}' changed:`, {
+          log.debug('Component', `[${componentName}] Prop '${key}' changed:`, {
             from: prevProps[key],
             to: nextProps[key]
           });
@@ -92,7 +93,7 @@ export function useExpensiveMemo<T>(
     if (debugName && timingRef.current) {
       const duration = performanceMonitor.endComponentTiming(timingRef.current);
       if (duration > 5) { // Log memoizations taking more than 5ms
-        console.warn(`[useMemo:${debugName}] Expensive calculation: ${duration.toFixed(2)}ms`);
+        log.warn('Component', `[useMemo:${debugName}] Expensive calculation: ${duration.toFixed(2)}ms`);
       }
     }
     
@@ -115,7 +116,7 @@ export function useStableCallback<T extends (...args: any[]) => any>(
     
     if (debugName && process.env.NODE_ENV === 'development') {
       if (callCountRef.current > 100) {
-        console.warn(`[useStableCallback:${debugName}] High call count: ${callCountRef.current}`);
+        log.warn('Component', `[useStableCallback:${debugName}] High call count: ${callCountRef.current}`);
       }
     }
     
@@ -370,9 +371,9 @@ export const PerformanceDebugger = {
     // Phase 6: Use unified performance system
     if (typeof window !== 'undefined' && window.getPerformanceSummary) {
       const summary = window.getPerformanceSummary();
-      console.log(`[${componentName}] Performance:`, summary);
+      log.debug('Component', `[${componentName}] Performance:`, summary);
     } else {
-      console.log(`[${componentName}] Performance monitoring active via Phase 6 unified system`);
+      log.debug('Component', `[${componentName}] Performance monitoring active via Phase 6 unified system`);
     }
   },
   
@@ -391,7 +392,7 @@ export const PerformanceDebugger = {
    * Start performance profiling session
    */
   startProfiling: () => {
-    console.log('🔍 Starting performance profiling...');
+    log.debug('Component', '🔍 Starting performance profiling...');
     // Phase 6: Performance monitoring is auto-initialized via unified system
   },
   
@@ -402,10 +403,10 @@ export const PerformanceDebugger = {
     // Phase 6: Use unified performance system
     if (typeof window !== 'undefined' && window.getPerformanceSummary) {
       const report = window.getPerformanceSummary();
-      console.log('📊 Performance profiling complete:', report);
+      log.debug('Component', '📊 Performance profiling complete:', report);
       return report;
     }
-    console.log('📊 Performance profiling complete - Phase 6 unified system');
+    log.debug('Component', '📊 Performance profiling complete - Phase 6 unified system');
     return { message: 'Phase 6 unified performance system active' };
   }
 };

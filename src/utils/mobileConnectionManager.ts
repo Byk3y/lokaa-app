@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 // Mobile Connection Manager
 // Serializes queries on mobile hard refresh to prevent overwhelming Safari's connection recovery
 
@@ -18,7 +19,7 @@ class MobileConnectionManager {
   private readonly FAILURE_BACKOFF_MS = 2000;
 
   constructor() {
-    console.log('🔧 [MobileConnectionManager] Initialized');
+    log.debug('Utils', '🔧 [MobileConnectionManager] Initialized');
   }
 
   async executeQuery<T>(
@@ -34,7 +35,7 @@ class MobileConnectionManager {
     
     if (!isMobile || !isHardRefresh) {
       // Not mobile hard refresh - execute immediately
-      console.log('🚀 [MobileConnectionManager] Direct execution for:', queryId);
+      log.debug('Utils', '🚀 [MobileConnectionManager] Direct execution for:', queryId);
       return await queryFn();
     }
 
@@ -43,12 +44,12 @@ class MobileConnectionManager {
       const timeSinceLastFailure = Date.now() - this.lastFailureTime;
       if (timeSinceLastFailure < this.FAILURE_BACKOFF_MS) {
         const waitTime = this.FAILURE_BACKOFF_MS - timeSinceLastFailure;
-        console.log(`⏳ [MobileConnectionManager] Backoff active, waiting ${waitTime}ms before queuing:`, queryId);
+        log.debug('Utils', `⏳ [MobileConnectionManager] Backoff active, waiting ${waitTime}ms before queuing:`, queryId);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
     }
 
-    console.log('📱 [MobileConnectionManager] Queuing serialized query:', queryId, 'Priority:', priority);
+    log.debug('Utils', '📱 [MobileConnectionManager] Queuing serialized query:', queryId, 'Priority:', priority);
     
     return new Promise<T>((resolve, reject) => {
       this.queryQueue.push({
@@ -72,13 +73,13 @@ class MobileConnectionManager {
     }
 
     this.isProcessing = true;
-    console.log('⚡ [MobileConnectionManager] Processing queue, length:', this.queryQueue.length);
+    log.debug('Utils', '⚡ [MobileConnectionManager] Processing queue, length:', this.queryQueue.length);
 
     while (this.queryQueue.length > 0) {
       const query = this.queryQueue.shift()!;
       
       try {
-        console.log('🔄 [MobileConnectionManager] Executing:', query.id);
+        log.debug('Utils', '🔄 [MobileConnectionManager] Executing:', query.id);
         const result = await query.queryFn();
         query.resolve(result);
         
@@ -89,7 +90,7 @@ class MobileConnectionManager {
         await new Promise(resolve => setTimeout(resolve, 100));
         
       } catch (error) {
-        console.error('❌ [MobileConnectionManager] Query failed:', query.id, error);
+        log.error('Utils', '❌ [MobileConnectionManager] Query failed:', query.id, error);
         query.reject(error);
         
         this.consecutiveFailures++;
@@ -97,14 +98,14 @@ class MobileConnectionManager {
         
         // If too many failures, pause queue processing
         if (this.consecutiveFailures >= this.MAX_CONSECUTIVE_FAILURES) {
-          console.error('🚨 [MobileConnectionManager] Too many failures, pausing queue');
+          log.error('Utils', '🚨 [MobileConnectionManager] Too many failures, pausing queue');
           break;
         }
       }
     }
 
     this.isProcessing = false;
-    console.log('✅ [MobileConnectionManager] Queue processing complete');
+    log.debug('Utils', '✅ [MobileConnectionManager] Queue processing complete');
   }
 
   getQueueLength(): number {
@@ -117,7 +118,7 @@ class MobileConnectionManager {
     });
     this.queryQueue = [];
     this.isProcessing = false;
-    console.log('🗑️ [MobileConnectionManager] Queue cleared');
+    log.debug('Utils', '🗑️ [MobileConnectionManager] Queue cleared');
   }
 }
 

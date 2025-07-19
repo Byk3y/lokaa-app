@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -72,7 +73,7 @@ export function ErrorRecovery({
         window.location.reload();
       }, 1000);
     } catch (error) {
-      console.error("Reset failed:", error);
+      log.error('Component', "Reset failed:", error);
       setIsResetting(false);
     }
   };
@@ -82,7 +83,7 @@ export function ErrorRecovery({
     try {
       performEmergencyReset();
     } catch (error) {
-      console.error("Emergency reset failed:", error);
+      log.error('Component', "Emergency reset failed:", error);
       setIsEmergencyResetting(false);
     }
   };

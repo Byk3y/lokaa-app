@@ -213,7 +213,7 @@ yarn dev
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000).
+Visit [https://lokaa.app](https://lokaa.app).
 
 ### Supabase Setup
 

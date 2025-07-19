@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -51,7 +52,7 @@ export default function StartNewChatView({ onBack, onConversationCreated }: Star
           .limit(5);
         
         if (userConversationsError) {
-          console.error('Error fetching recent conversations:', userConversationsError);
+          log.error('Component', 'Error fetching recent conversations:', userConversationsError);
           setRecentlyContacted([]);
           return;
         }
@@ -83,13 +84,13 @@ export default function StartNewChatView({ onBack, onConversationCreated }: Star
               }
             });
           } catch (err) {
-            console.error('Error parsing other_participants:', err);
+            log.error('Component', 'Error parsing other_participants:', err);
           }
         });
         
         setRecentlyContacted(recentUsers);
       } catch (error) {
-        console.error('Error fetching recently contacted users:', error);
+        log.error('Component', 'Error fetching recently contacted users:', error);
         setRecentlyContacted([]);
       } finally {
         setLoadingRecent(false);
@@ -120,7 +121,7 @@ export default function StartNewChatView({ onBack, onConversationCreated }: Star
         
         setUsers(data || []);
       } catch (error) {
-        console.error('Error searching users:', error);
+        log.error('Component', 'Error searching users:', error);
       } finally {
         setLoading(false);
       }
@@ -173,7 +174,7 @@ export default function StartNewChatView({ onBack, onConversationCreated }: Star
               : [conversationData.other_participants];
           }
         } catch (err) {
-          console.error('Error parsing other_participants:', err);
+          log.error('Component', 'Error parsing other_participants:', err);
           otherParticipants = [];
         }
         
@@ -197,7 +198,7 @@ export default function StartNewChatView({ onBack, onConversationCreated }: Star
         // ...
       }
     } catch (error) {
-      console.error('Error creating conversation:', error);
+      log.error('Component', 'Error creating conversation:', error);
     } finally {
       setCreating(false);
     }

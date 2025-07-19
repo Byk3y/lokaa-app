@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
@@ -80,7 +81,7 @@ export function useBatchMemberCounts(spaceIds: string[]): UseBatchMemberCountsRe
         setLoading(false);
       }
     } catch (error) {
-      console.error('Error fetching batch member counts:', error);
+      log.error('Hook', 'Error fetching batch member counts:', error);
       if (isMounted.current) {
         setLoading(false);
       }

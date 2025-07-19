@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -149,7 +150,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
   // Fetch user profile by slug
   const fetchProfileBySlug = async (slug: string) => {
     if (!slug) {
-      console.error('UserProfileContext: No profile slug provided');
+      log.error('Context', 'UserProfileContext: No profile slug provided');
       setError('No profile identifier provided');
       setIsLoading(false);
       return;
@@ -157,13 +158,13 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
 
     // If we're already loading this same slug, don't start another fetch
     if (isLoading && slug === lastFetchedSlug.current) {
-      console.log(`UserProfileContext: Already loading profile for slug ${slug}`);
+      log.debug('Context', `UserProfileContext: Already loading profile for slug ${slug}`);
       return;
     }
 
     // If the slug has changed, reset the state
     if (lastFetchedSlug.current && lastFetchedSlug.current !== slug) {
-      console.log(`UserProfileContext: Slug changed from ${lastFetchedSlug.current} to ${slug}, resetting state`);
+      log.debug('Context', `UserProfileContext: Slug changed from ${lastFetchedSlug.current} to ${slug}, resetting state`);
       setProfile(null);
       setError(null);
       setIsCurrentUser(false);
@@ -176,7 +177,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
     lastFetchedSlug.current = slug;
     setCurrentSlug(slug);
     
-    console.log(`UserProfileContext: Fetching profile for slug "${slug}"`);
+    log.debug('Context', `UserProfileContext: Fetching profile for slug "${slug}"`);
     
     // Use debounced fetch to prevent multiple API calls
     await debouncedFetch(`profile-${slug}`, async () => {
@@ -185,7 +186,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         const cleanSlug = slug.startsWith('@') ? slug.substring(1) : slug;
         
         // First attempt to fetch by profile_url
-        console.log(`UserProfileContext: First attempt - fetching profile by profile_url = "${cleanSlug}"`);
+        log.debug('Context', `UserProfileContext: First attempt - fetching profile by profile_url = "${cleanSlug}"`);
         
         // Add timeout to prevent hanging queries
         const queryTimeout = new Promise((_, reject) => {
@@ -206,7 +207,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         let { data, error } = await Promise.race([queryPromise, queryTimeout])
           .catch(err => {
             if (err.message === 'Query timeout') {
-              console.error(`UserProfileContext: Query timeout for profile_url = "${cleanSlug}"`);
+              log.error('Context', `UserProfileContext: Query timeout for profile_url = "${cleanSlug}"`);
               setError('Profile loading timed out. Please try again.');
               setIsLoading(false);
               return { data: null, error: { message: 'Timeout' } };
@@ -214,16 +215,16 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
             throw err;
           }) as any;
         
-        console.log(`UserProfileContext: Query result for profile_url = "${cleanSlug}":`, { data: !!data, error: error?.message || null });
+        log.debug('Context', `UserProfileContext: Query result for profile_url = "${cleanSlug}":`, { data: !!data, error: error?.message || null });
           
         // If not found by profile_url, try using user ID
         if (error && error.code === 'PGRST116') {
-          console.log(`UserProfileContext: Profile not found by profile_url, trying by user ID`);
+          log.debug('Context', `UserProfileContext: Profile not found by profile_url, trying by user ID`);
           
           // Try by user ID if the slug looks like a UUID
           const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
           if (uuidPattern.test(cleanSlug)) {
-            console.log(`UserProfileContext: Attempting lookup by UUID: ${cleanSlug}`);
+            log.debug('Context', `UserProfileContext: Attempting lookup by UUID: ${cleanSlug}`);
             const response = await getSupabaseClient()
               .from('users')
               .select(`
@@ -237,35 +238,35 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
               
             data = response.data;
             error = response.error;
-            console.log(`UserProfileContext: UUID lookup result:`, { data: !!data, error: error?.message || null });
+            log.debug('Context', `UserProfileContext: UUID lookup result:`, { data: !!data, error: error?.message || null });
           } else {
-            console.log(`UserProfileContext: Slug "${cleanSlug}" is not a valid UUID, cannot try ID lookup`);
+            log.debug('Context', `UserProfileContext: Slug "${cleanSlug}" is not a valid UUID, cannot try ID lookup`);
           }
         }
           
         if (error) {
           // Check if it's a "not found" error
           if (error.code === 'PGRST116') {
-            console.error(`UserProfileContext: Profile not found for slug: ${cleanSlug}`);
+            log.error('Context', `UserProfileContext: Profile not found for slug: ${cleanSlug}`);
             setError(`User profile "${cleanSlug}" not found`);
             setIsLoading(false);
             return;
           }
           
-          console.error('UserProfileContext: Database error fetching profile:', error);
+          log.error('Context', 'UserProfileContext: Database error fetching profile:', error);
           setError(`Database error: ${error.message}`);
           setIsLoading(false);
           return;
         }
 
         if (!data) {
-          console.error(`UserProfileContext: No data returned for slug: ${cleanSlug}`);
+          log.error('Context', `UserProfileContext: No data returned for slug: ${cleanSlug}`);
           setError('Profile not found');
           setIsLoading(false);
           return;
         }
 
-        console.log(`UserProfileContext: Successfully found profile:`, {
+        log.debug('Context', `UserProfileContext: Successfully found profile:`, {
           id: data.id,
           profile_url: data.profile_url,
           full_name: data.full_name
@@ -278,7 +279,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
           .eq('user_id', data.id);
         
         if (contribError) {
-          console.error('Error fetching contributions count:', contribError);
+          log.error('Context', 'Error fetching contributions count:', contribError);
         }
 
         // Check if this is the current user - PROTECTED with IndexedDB bridge
@@ -286,7 +287,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         const isCurrentUserProfile = user?.id === data.id;
         
         if (isCurrentUserProfile) {
-          console.log(`UserProfileContext: This is the current user's profile (${data.full_name})`);
+          log.debug('Context', `UserProfileContext: This is the current user's profile (${data.full_name})`);
         }
 
         // Prepare all data before updating state to minimize re-renders
@@ -304,7 +305,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         
         return profileData;
       } catch (error: any) {
-        console.error('UserProfileContext: Error fetching profile:', error);
+        log.error('Context', 'UserProfileContext: Error fetching profile:', error);
         setError('Could not load user profile');
         toast({
           title: "Error loading profile",
@@ -330,13 +331,13 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         .limit(10);
         
       if (error) {
-        console.error('Error fetching user activity:', error);
+        log.error('Context', 'Error fetching user activity:', error);
         return;
       }
       
       setRecentActivity(data || []);
     } catch (error) {
-      console.error('Error fetching user activity:', error);
+      log.error('Context', 'Error fetching user activity:', error);
     } finally {
       setActivityLoading(false);
     }

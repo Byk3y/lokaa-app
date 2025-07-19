@@ -1,3 +1,4 @@
+import { log } from '@/utils/logger';
 interface PerformanceMetrics {
   system: string;
   loadTime: number;
@@ -116,7 +117,7 @@ class GlobalPerformanceService {
       // Notify listeners
       this.notifyListeners();
     } catch (error) {
-      console.error('Failed to update performance metrics:', error);
+      log.error('Service', 'Failed to update performance metrics:', error);
     }
   }
 
@@ -169,7 +170,7 @@ class GlobalPerformanceService {
       try {
         listener(this.performanceData);
       } catch (error) {
-        console.error('Error notifying performance listener:', error);
+        log.error('Service', 'Error notifying performance listener:', error);
       }
     });
   }
