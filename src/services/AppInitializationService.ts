@@ -268,15 +268,9 @@ export class AppInitializationService {
     try {
       devLogger.log('AppInit', 'Initializing Enhanced Mobile Session Recovery...');
       
-      const { phase1Recovery } = await import('@/utils/phase1MobileRecovery');
-      phase1Recovery.initialize({
-        debugMode: import.meta.env.DEV,
-        enableHealthMonitorIntegration: true,
-        enablePresenceIntegration: true,
-        sessionValidationThreshold: 30000,
-        maxRecoveryAttempts: 3
-      });
-      devLogger.log('AppInit', 'Phase 1 mobile recovery initialized successfully');
+      // Note: phase1MobileRecovery was removed as part of Phase 1 cleanup
+      // Mobile recovery functionality is now handled by the V2 IndexedDB Bridge system
+      devLogger.log('AppInit', 'Mobile recovery system cleaned up - using V2 IndexedDB Bridge');
       
       if (enableDebugInterfaces) {
         this.debugInterfaces.testPhase1 = {
