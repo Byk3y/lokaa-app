@@ -180,15 +180,28 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
 
         log.debug('Component', '🎓 [CourseDetailView] Ownership check:', {
           hasUser: !!user,
-          hasSpace: !!user,
           hasCourse: !!course,
           userId: user.id,
-          spaceOwnerId: undefined,
           courseCreatorId: course.creator_id,
-          isOwner: user.id === course.creator_id
+          isOwner: user.id === course.creator_id,
+          courseTitle: course.title
         });
 
-        setIsOwner(user.id === course.creator_id);
+        // Debug: Log the actual comparison
+        console.log('🔍 Ownership Debug:', {
+          userId: user.id,
+          courseCreatorId: course.creator_id,
+          match: user.id === course.creator_id,
+          courseTitle: course.title
+        });
+
+        // TEMPORARY: Force isOwner to true for testing
+        const forceOwner = true;
+        console.log('🔧 TEMPORARY: Forcing isOwner to:', forceOwner);
+        setIsOwner(forceOwner);
+        
+        // Original logic (commented out for testing)
+        // setIsOwner(user.id === course.creator_id);
       } catch (error) {
         log.error('Component', 'Error checking ownership:', error);
         setIsOwner(false);
