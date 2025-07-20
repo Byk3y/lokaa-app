@@ -195,13 +195,8 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
           courseTitle: course.title
         });
 
-        // TEMPORARY: Force isOwner to true for testing
-        const forceOwner = true;
-        console.log('🔧 TEMPORARY: Forcing isOwner to:', forceOwner);
-        setIsOwner(forceOwner);
-        
-        // Original logic (commented out for testing)
-        // setIsOwner(user.id === course.creator_id);
+        // Set ownership based on user ID matching course creator
+        setIsOwner(user.id === course.creator_id);
       } catch (error) {
         log.error('Component', 'Error checking ownership:', error);
         setIsOwner(false);
