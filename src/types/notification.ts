@@ -4,7 +4,8 @@ export type NotificationType =
   | 'comment_reply'
   | 'mention'
   | 'space_join'
-  | 'post_like';
+  | 'post_like'
+  | 'new_customer';
 
 export type ActorRelationship = 
   | 'admin'
@@ -189,6 +190,7 @@ export interface UseNotificationsReturn {
   loadMore: () => void;
   markAsRead: (notificationIds: string[]) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  markVisibleAsRead: () => Promise<void>;
   refresh: () => void;
 }
 
@@ -261,6 +263,15 @@ export interface MentionNotificationData extends NotificationTriggerData {
   postId: string;
   spaceId: string;
   mentionText: string;
+}
+
+export interface NewCustomerNotificationData extends NotificationTriggerData {
+  spaceId: string;
+  spaceName: string;
+  customerEmail?: string;
+  planName?: string;
+  amount?: string;
+  currency?: string;
 }
 
 // ✅ NEW: Phase 2.5 Smart Batching System Interfaces

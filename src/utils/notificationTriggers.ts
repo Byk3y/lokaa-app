@@ -4,7 +4,8 @@ import type {
   PostLikeNotificationData,
   CommentReplyNotificationData,
   SpaceJoinNotificationData,
-  MentionNotificationData
+  MentionNotificationData,
+  NewCustomerNotificationData
 } from '@/types/notification';
 
 /**
@@ -69,9 +70,12 @@ export class NotificationTriggers {
     replierUserId: string;
     spaceId: string;
   }): Promise<void> {
+    log.debug('NotificationTriggers', '🚀 [onCommentReply] Function called with data:', data);
+    
     try {
       // Don't send notification if user replied to their own comment
       if (data.originalCommentAuthorId === data.replierUserId) {
+        log.debug('NotificationTriggers', '⏭️ [onCommentReply] Skipping self-reply notification');
         return;
       }
 
@@ -85,10 +89,12 @@ export class NotificationTriggers {
         spaceId: data.spaceId
       };
 
+      log.debug('NotificationTriggers', '🔔 [onCommentReply] Creating comment reply notification...');
       await notificationService.createCommentReplyNotification(notificationData);
-      log.debug('NotificationTriggers', 'Comment reply notification sent:', data.commentId);
+      log.debug('NotificationTriggers', '✅ [onCommentReply] Comment reply notification sent successfully:', data.commentId);
     } catch (error) {
-      log.error('NotificationTriggers', 'Error sending comment reply notification:', error);
+      log.error('NotificationTriggers', '❌ [onCommentReply] Error sending comment reply notification:', error);
+      throw error;
     }
   }
 
@@ -101,9 +107,12 @@ export class NotificationTriggers {
     spaceOwnerId: string;
     newMemberId: string;
   }): Promise<void> {
+    log.debug('NotificationTriggers', '🚀 [onSpaceJoin] Function called with data:', data);
+    
     try {
       // Don't send notification if owner joined their own space
       if (data.spaceOwnerId === data.newMemberId) {
+        log.debug('NotificationTriggers', '⏭️ [onSpaceJoin] Skipping self-join notification');
         return;
       }
 
@@ -114,10 +123,12 @@ export class NotificationTriggers {
         spaceName: data.spaceName
       };
 
+      log.debug('NotificationTriggers', '🔔 [onSpaceJoin] Creating space join notification...');
       await notificationService.createSpaceJoinNotification(notificationData);
-      log.debug('NotificationTriggers', 'Space join notification sent:', data.spaceId);
+      log.debug('NotificationTriggers', '✅ [onSpaceJoin] Space join notification sent successfully:', data.spaceId);
     } catch (error) {
-      log.error('NotificationTriggers', 'Error sending space join notification:', error);
+      log.error('NotificationTriggers', '❌ [onSpaceJoin] Error sending space join notification:', error);
+      throw error;
     }
   }
 
@@ -132,9 +143,12 @@ export class NotificationTriggers {
     mentionText: string;
     spaceId: string;
   }): Promise<void> {
+    log.debug('NotificationTriggers', '🚀 [onUserMention] Function called with data:', data);
+    
     try {
       // Don't send notification if user mentioned themselves
       if (data.mentionedUserId === data.mentionerUserId) {
+        log.debug('NotificationTriggers', '⏭️ [onUserMention] Skipping self-mention notification');
         return;
       }
 
@@ -147,10 +161,12 @@ export class NotificationTriggers {
         spaceId: data.spaceId
       };
 
+      log.debug('NotificationTriggers', '🔔 [onUserMention] Creating mention notification...');
       await notificationService.createMentionNotification(notificationData);
-      log.debug('NotificationTriggers', 'Mention notification sent:', data.postId);
+      log.debug('NotificationTriggers', '✅ [onUserMention] Mention notification sent successfully:', data.postId);
     } catch (error) {
-      log.error('NotificationTriggers', 'Error sending mention notification:', error);
+      log.error('NotificationTriggers', '❌ [onUserMention] Error sending mention notification:', error);
+      throw error;
     }
   }
 
@@ -165,25 +181,79 @@ export class NotificationTriggers {
     spaceId: string;
     recipientIds: string[]; // Space followers/admins
   }): Promise<void> {
+    log.debug('NotificationTriggers', '🚀 [onNewPost] Function called with data:', data);
+    
     try {
-      // Send notification to each recipient
-      const notifications = data.recipientIds
-        .filter(recipientId => recipientId !== data.authorId) // Don't notify author
-        .map(recipientId => 
-          notificationService.createNotification({
-            user_id: recipientId,
-            actor_id: data.authorId,
-            type: 'new_post',
-            title: data.postTitle,
-            space_id: data.spaceId,
-            target_id: data.postId
-          })
-        );
+      // Filter out the author and send notifications using smart batching
+      const validRecipients = data.recipientIds.filter(recipientId => recipientId !== data.authorId);
+      
+      log.debug('NotificationTriggers', `🔔 [onNewPost] Creating notifications for ${validRecipients.length} recipients...`);
+
+      const notifications = validRecipients.map(recipientId => 
+        notificationService.createSmartNotification({
+          user_id: recipientId,
+          actor_id: data.authorId,
+          type: 'new_post',
+          title: data.postTitle,
+          space_id: data.spaceId,
+          target_id: data.postId
+        })
+      );
 
       await Promise.all(notifications);
-      log.debug('NotificationTriggers', `New post notifications sent to ${data.recipientIds.length} recipients`);
+      log.debug('NotificationTriggers', `✅ [onNewPost] New post notifications sent to ${validRecipients.length} recipients successfully`);
     } catch (error) {
-      log.error('NotificationTriggers', 'Error sending new post notifications:', error);
+      log.error('NotificationTriggers', '❌ [onNewPost] Error sending new post notifications:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Trigger notification when a new customer subscribes/pays for space access
+   * (Ka-ching sound notification for space owners/admins)
+   */
+  static async onNewCustomer(data: {
+    spaceId: string;
+    spaceName: string;
+    customerId: string;
+    spaceOwnerIds: string[]; // Space owners and admins who should be notified
+    customerEmail?: string;
+    planName?: string;
+    amount?: string;
+    currency?: string;
+  }): Promise<void> {
+    log.debug('NotificationTriggers', '🚀 [onNewCustomer] Function called with data:', data);
+    
+    try {
+      const validRecipients = data.spaceOwnerIds.filter(ownerId => ownerId !== data.customerId);
+      
+      if (validRecipients.length === 0) {
+        log.debug('NotificationTriggers', '⏭️ [onNewCustomer] No valid recipients (owner purchased their own space)');
+        return;
+      }
+      
+      log.debug('NotificationTriggers', `💰 [onNewCustomer] Creating ka-ching notifications for ${validRecipients.length} recipients...`);
+
+      const notifications = validRecipients.map(recipientId => {
+        const notificationData: NewCustomerNotificationData = {
+          recipientId,
+          actorId: data.customerId,
+          spaceId: data.spaceId,
+          spaceName: data.spaceName,
+          customerEmail: data.customerEmail,
+          planName: data.planName,
+          amount: data.amount,
+          currency: data.currency
+        };
+
+        return notificationService.createNewCustomerNotification(notificationData);
+      });
+
+      await Promise.all(notifications);
+      log.debug('NotificationTriggers', `✅ [onNewCustomer] Ka-ching notifications sent to ${validRecipients.length} recipients successfully`);
+    } catch (error) {
+      log.error('NotificationTriggers', '❌ [onNewCustomer] Error sending new customer notifications:', error);
+      throw error;
     }
   }
 

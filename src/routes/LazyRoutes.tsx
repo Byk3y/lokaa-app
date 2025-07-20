@@ -39,7 +39,6 @@ export const LandingPageWrapper = lazy(() => import('@/pages/LandingPage').then(
 export const StorageDebugger = lazy(() => import('@/pages/StorageDebugger'));
 export const SpaceDebugPage = lazy(() => import('@/pages/SpaceDebugPage'));
 export const DebugPage = lazy(() => import('@/pages/DebugPage'));
-export const SupabaseExample = lazy(() => import('@/pages/SupabaseExample'));
 
 // Utility pages
 export const QuickSpaceRedirect = lazy(() => import('@/pages/QuickSpaceRedirect'));

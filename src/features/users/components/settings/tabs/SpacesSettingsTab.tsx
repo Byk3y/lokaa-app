@@ -61,14 +61,40 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
       return;
     }
 
+    if (!space.subdomain) {
+      log.error('Component', "Space subdomain not available for opening space settings");
+      return;
+    }
+
+    log.debug('Component', `[SpacesSettingsTab] Opening space settings for space: ${space.name} (${space.userRole})`);
+    
     try {
       const storeActions = useSpaceSettingsStore.getState();
-      // Load the space context first, then open the modal
+      log.debug('Component', `[SpacesSettingsTab] Loading active space: ${space.subdomain} (${space.id})`);
+      
+      // Load the space context first
       await storeActions.loadActiveSpace({ 
         subdomain: space.subdomain, 
         spaceId: space.id 
       }, user.id, true);
+      
+      log.debug('Component', '[SpacesSettingsTab] Space loaded, opening modal');
+      
+      // Open the modal directly without navigation
+      // This keeps the user on the settings page so back button works correctly
       storeActions.openModal();
+      
+      // Check if modal is actually open
+      setTimeout(() => {
+        const currentState = useSpaceSettingsStore.getState();
+        log.debug('Component', `[SpacesSettingsTab] Modal state after opening: isOpen=${currentState.isOpen}, space=${currentState.space?.name}`);
+        
+        if (!currentState.isOpen) {
+          log.error('Component', '[SpacesSettingsTab] Modal failed to open - isOpen is still false');
+        }
+      }, 100);
+      
+      log.debug('Component', '[SpacesSettingsTab] Space settings modal opened successfully');
     } catch (error) {
       log.error('Component', "Failed to open space settings:", error);
     }
@@ -199,7 +225,7 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
     return (
       <div className="px-4 py-6">
         <h1 className="text-xl font-semibold text-gray-900 mb-2">
-          Communities
+          Spaces
         </h1>
         
         {/* Search bar */}
@@ -210,13 +236,13 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
           <input
             type="text"
             className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 text-sm"
-            placeholder="Search communities..."
+            placeholder="Search spaces..."
             value={spaceSearchQuery}
             onChange={(e) => setSpaceSearchQuery(e.target.value)}
           />
         </div>
 
-        {/* Communities list */}
+        {/* Spaces list */}
         <div className="space-y-3">
           {loadingSpaces ? (
             <div className="py-8 flex justify-center items-center">
@@ -258,11 +284,11 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
             ))
           ) : spaceSearchQuery ? (
             <div className="py-8 text-center text-gray-500">
-              <p>No communities found matching "{spaceSearchQuery}"</p>
+              <p>No spaces found matching "{spaceSearchQuery}"</p>
             </div>
           ) : (
             <div className="py-8 text-center text-gray-500">
-              <p>You haven't joined any communities yet.</p>
+              <p>You haven't joined any spaces yet.</p>
             </div>
           )}
         </div>
@@ -274,7 +300,13 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
             setMemberModalOpen(false);
             setSelectedMemberSpace(null);
           }}
-          space={selectedMemberSpace}
+          space={selectedMemberSpace ? {
+            id: selectedMemberSpace.id,
+            name: selectedMemberSpace.name,
+            subdomain: selectedMemberSpace.subdomain || '',
+            icon_image: selectedMemberSpace.icon_image,
+            userRole: selectedMemberSpace.userRole
+          } : null}
           user={user}
         />
       </div>
@@ -367,7 +399,13 @@ export default function SpacesSettingsTab({ user }: SettingsTabProps) {
           setMemberModalOpen(false);
           setSelectedMemberSpace(null);
         }}
-        space={selectedMemberSpace}
+        space={selectedMemberSpace ? {
+          id: selectedMemberSpace.id,
+          name: selectedMemberSpace.name,
+          subdomain: selectedMemberSpace.subdomain || '',
+          icon_image: selectedMemberSpace.icon_image,
+          userRole: selectedMemberSpace.userRole
+        } : null}
         user={user}
       />
     </div>

@@ -2,9 +2,10 @@ import { log } from '@/utils/logger';
 import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, ArrowLeft } from 'lucide-react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useNavigate } from 'react-router-dom';
 import SettingsSidebar from './SettingsSidebar';
 import GeneralSettingsTab from './settings_tabs/GeneralSettingsTab';
 import CategoriesSettingsTab from './settings_tabs/CategoriesSettingsTab';
@@ -17,8 +18,19 @@ import DashboardSettingsTab from './settings_tabs/DashboardSettingsTab';
 import MetricsSettingsTab from './settings_tabs/MetricsSettingsTab';
 import { toast } from "@/hooks/use-toast";
 import { exposeValidationForTesting } from '@/utils/test-helpers';
+import { Settings, Palette, ListTree, AlertTriangle, LayoutList, DollarSign, ClipboardList, UserPlus, BarChart3, TrendingUp } from 'lucide-react';
 
 export type SettingsTabKey = "dashboard" | "general" | "categories" | "tabs" | "pricing" | "rules" | "invite" | "metrics" | "danger_zone";
+
+// Mobile tabs configuration matching Skool reference
+const mobileTabs: { key: SettingsTabKey; label: string; icon: React.ElementType }[] = [
+  { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+  { key: "invite", label: "Invite", icon: UserPlus },
+  { key: "general", label: "General", icon: Settings },
+  { key: "pricing", label: "Pricing", icon: DollarSign },
+  { key: "categories", label: "Categories", icon: ListTree },
+  { key: "rules", label: "Rules", icon: ClipboardList },
+];
 
 export default function NewSpaceSettingsModal() {
   const { 
@@ -39,7 +51,30 @@ export default function NewSpaceSettingsModal() {
   } = useSpaceSettingsStore();
   
   const { user } = useOptimizedAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("dashboard");
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Prevent body scroll when mobile modal is open
+  useEffect(() => {
+    if (isOpen && isMobile) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isOpen, isMobile]);
 
   // Expose validation functions in development
   useEffect(() => {
@@ -119,6 +154,109 @@ export default function NewSpaceSettingsModal() {
     return null;
   }
 
+  // Mobile full-view layout (Skool style)
+  if (isMobile) {
+    return (
+      <>
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 z-[9998] bg-black/50"
+          onClick={closeModal}
+        />
+        
+        {/* Modal Content */}
+        <div className="fixed inset-0 z-[9999] h-screen w-screen flex flex-col bg-white overflow-hidden">
+          {/* Mobile Header - Skool style */}
+          <div className="flex items-center justify-between px-4 py-2 border-b bg-white shrink-0">
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={closeModal} 
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </Button>
+              {space?.icon_image ? (
+                <img 
+                  src={space.icon_image} 
+                  alt={space.name} 
+                  className="w-8 h-8 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                  {space?.name?.charAt(0)?.toUpperCase() || 'S'}
+                </div>
+              )}
+              <span className="font-semibold text-gray-900 text-base">Settings</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={closeModal} 
+              className="p-2 hover:bg-gray-100 rounded-full"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </Button>
+          </div>
+
+          {/* Mobile Tab Navigation - Horizontal scrollable */}
+          <div className="px-4 py-4 border-b bg-white shrink-0">
+            <div className="flex space-x-6 overflow-x-auto scrollbar-hide">
+              {mobileTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex-shrink-0 text-sm font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? 'text-gray-900 border-b-4 border-gray-900 pb-2'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mobile Content - Full screen */}
+          <div className={`flex-grow overflow-y-auto bg-white ${isDirty ? 'pb-40' : 'pb-32'}`}>
+            {renderTabContent()}
+          </div>
+
+          {/* Mobile Footer - Only show if there are unsaved changes */}
+          {isDirty && (
+            <div className="px-4 py-3 border-t bg-gray-50 shrink-0">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">
+                  {isSubmitting ? "Saving..." : "You have unsaved changes."}
+                </span>
+                <div className="flex space-x-2">
+                  <Button variant="outline" onClick={closeModal} size="sm">
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveChanges} 
+                    disabled={isSubmitting}
+                    size="sm"
+                    className="bg-teal-600 hover:bg-teal-700 text-white"
+                  >
+                    {isSubmitting ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  // Desktop layout (existing implementation)
   return (
     <Dialog open={isOpen} onOpenChange={(openStatus) => {
       if (!openStatus) {

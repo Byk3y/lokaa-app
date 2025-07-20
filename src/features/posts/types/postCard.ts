@@ -47,6 +47,7 @@ export interface PostCardProps {
   onLikeToggled?: (postId: string, newLikeCount: number) => void;
   onPinToggled?: (postId: string, isPinned: boolean, category?: string | null) => void;
   onCommentAdded?: (postId: string, newCommentCount: number) => void; // 🔥 NEW: Real-time comment updates
+  searchQuery?: string; // 🔍 NEW: Search query for highlighting
 }
 
 /**

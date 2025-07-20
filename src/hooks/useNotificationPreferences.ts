@@ -14,6 +14,7 @@ export interface NotificationPreferences {
   likes: boolean;
   mentions: boolean;
   space_joins: boolean;
+  affiliate_updates: boolean;
   quiet_hours_enabled: boolean;
   quiet_hours_start?: string;
   quiet_hours_end?: string;
@@ -98,6 +99,7 @@ export function useNotificationPreferences(): UseNotificationPreferencesReturn {
         likes: true,
         mentions: true,
         space_joins: true,
+        affiliate_updates: true,
         quiet_hours_enabled: false,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
       };

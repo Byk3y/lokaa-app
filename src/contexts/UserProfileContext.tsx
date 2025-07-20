@@ -279,7 +279,8 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
           .eq('user_id', data.id);
         
         if (contribError) {
-          log.error('Context', 'Error fetching contributions count:', contribError);
+          log.warn('Context', 'Could not fetch contributions count (this is optional):', contribError);
+          // Don't fail the entire profile load for this optional data
         }
 
         // Check if this is the current user - PROTECTED with IndexedDB bridge
@@ -331,13 +332,16 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         .limit(10);
         
       if (error) {
-        log.error('Context', 'Error fetching user activity:', error);
+        log.warn('Context', 'Could not fetch user activity (this is optional):', error);
+        // Don't fail the entire profile load for this optional data
+        setRecentActivity([]);
         return;
       }
       
       setRecentActivity(data || []);
     } catch (error) {
-      log.error('Context', 'Error fetching user activity:', error);
+      log.warn('Context', 'Error fetching user activity (this is optional):', error);
+      setRecentActivity([]);
     } finally {
       setActivityLoading(false);
     }

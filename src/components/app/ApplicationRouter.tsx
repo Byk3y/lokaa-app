@@ -214,12 +214,7 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
           </Suspense>
         } />
         
-        {/* Add our Supabase example page - public access */}
-        <Route path="/supabase-example" element={
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <LazyRoutes.SupabaseExample />
-          </Suspense>
-        } />
+
         
         {/* Debug page - public access for development */}
         <Route path="/debug" element={
@@ -353,6 +348,9 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
               <Route path="classroom" element={<SpaceTabContent />} />
               <Route path="calendar" element={<SpaceTabContent />} />
               <Route path="leaderboard" element={<SpaceTabContent />} />
+              
+              {/* Search route - Skool-style URL pattern */}
+              <Route path="search" element={<SpaceTabContent />} />
               
               {/* Course routes - nested under classroom */}
               <Route path="classroom/:courseSlug" element={

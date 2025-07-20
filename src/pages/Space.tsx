@@ -160,7 +160,6 @@ export default function Space({ initialTab }: SpaceProps) {
   
   const [activeTab, setActiveTab] = useState(initialTab || "community");
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [notificationShown, setNotificationShown] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   
@@ -569,8 +568,8 @@ export default function Space({ initialTab }: SpaceProps) {
       header={(
         <SpaceHeader 
           subdomain={subdomain}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
+          searchQuery=""
+          onSearchQueryChange={() => {}}
         />
                 )}
       nav={(

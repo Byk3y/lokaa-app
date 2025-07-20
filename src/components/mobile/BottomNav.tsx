@@ -12,6 +12,33 @@ import { extractTabFromPathname } from '@/utils/tabUtils';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 import { navigateToProfileWithContext } from '@/utils/spaceContextUtils';
+import { useUnreadNotificationCount } from '@/hooks/useNotifications';
+
+// Simple notification count badge component to avoid positioning issues
+function NotificationCountBadge() {
+  const { count } = useUnreadNotificationCount();
+
+  if (count <= 0) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0, opacity: 0 }}
+        transition={{ 
+          type: 'spring', 
+          stiffness: 500, 
+          damping: 30,
+          duration: 0.2 
+        }}
+        className="absolute -top-2 -right-2 bg-red-500 text-white text-[11px] font-semibold rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center border-2 border-[#171E2E]"
+      >
+        {count > 99 ? '99+' : count}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 export default function BottomNav() {
   const location = useLocation();
@@ -201,16 +228,24 @@ export default function BottomNav() {
             const active = isActive(item.path);
             const Icon = item.icon;
             
-            // Special handling for notification badge to avoid button nesting
+            // Special handling for notification badge to match other nav items
             if (item.isNotificationBadge) {
               return (
-                <div key={item.label} className="relative flex-1 h-full min-w-14 min-h-14 flex items-center justify-center">
-                  <NotificationBadge 
-                    variant="mobile" 
-                    size="md" 
-                    className="flex items-center justify-center"
-                  />
-                </div>
+                <button
+                  key={item.label}
+                  className="relative flex-1 h-full min-w-14 min-h-14 flex items-center justify-center transition-colors duration-200"
+                  onClick={() => handleNavigation('/notifs')}
+                >
+                  <div className="relative">
+                    <Bell
+                      className={`w-[26px] h-[26px] transition-colors ${
+                        active ? 'text-white' : 'text-gray-400'
+                      }`}
+                    />
+                    {/* Simple notification count badge - no extra wrapper component */}
+                    <NotificationCountBadge />
+                  </div>
+                </button>
               );
             }
             

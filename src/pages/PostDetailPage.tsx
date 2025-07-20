@@ -28,7 +28,6 @@ export default function PostDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [post, setPost] = useState<PostCardProps | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   // URL Validation - Check for malformed URLs that could cause issues
   useEffect(() => {
@@ -127,7 +126,7 @@ export default function PostDetailPage() {
             edited_at,
             poll_data,
             slug,
-            space:spaces!space_id (
+            space:spaces (
               id,
               subdomain
             )
@@ -162,7 +161,7 @@ export default function PostDetailPage() {
                 edited_at,
                 poll_data,
                 slug,
-                space:spaces!space_id (
+                space:spaces (
                   id,
                   subdomain
                 )
@@ -336,9 +335,17 @@ export default function PostDetailPage() {
     }
   };
 
-  // Handle closing the modal (navigate back to space)
+  // Handle closing the modal (navigate back to previous page)
   const handleCloseModal = () => {
-    navigate(`/${subdomain}/space`, { replace: true });
+    // Use browser back navigation to respect the user's navigation history
+    // This ensures that if they came from notifications, they go back to notifications
+    // If they came from the feed, they go back to the feed
+    if (window.history.length > 1) {
+      navigate(-1); // Go back one step in history
+    } else {
+      // Fallback to space feed if no history
+      navigate(`/${subdomain}/space`, { replace: true });
+    }
   };
 
   // Create meta title for the page
@@ -400,7 +407,7 @@ export default function PostDetailPage() {
       </Helmet>
 
       <SpaceLayout
-        header={<SpaceHeader subdomain={subdomain} searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />}
+        header={<SpaceHeader subdomain={subdomain} searchQuery="" onSearchQueryChange={() => {}} />}
         nav={<div />}
       >
         <div className="min-h-screen flex items-center justify-center py-12">

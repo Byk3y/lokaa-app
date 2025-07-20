@@ -53,10 +53,30 @@ const createDynamicChunks = (id: string) => {
     return 'chat-module';
   }
   
-  // Space features  
+  // Space features - split into smaller chunks
   if (id.includes('src/features/spaces') || 
       id.includes('src/pages/Space') ||
       id.includes('src/components/space')) {
+    // Split space components by type
+    if (id.includes('FeedTab') || id.includes('PostCard') || id.includes('CreatePostModal')) {
+      return 'space-feed';
+    }
+    if (id.includes('ClassroomTab') || id.includes('classroom')) {
+      return 'space-classroom';
+    }
+    if (id.includes('CalendarTab') || id.includes('calendar')) {
+      return 'space-calendar';
+    }
+    if (id.includes('LeaderboardsTab') || id.includes('leaderboard')) {
+      return 'space-leaderboards';
+    }
+    if (id.includes('MembersTab') || id.includes('members')) {
+      return 'space-members';
+    }
+    if (id.includes('AboutTab') || id.includes('about')) {
+      return 'space-about';
+    }
+    // Default space chunk
     return 'space-module';
   }
   
@@ -322,20 +342,58 @@ export default defineConfig(({ mode }) => {
       target: 'es2020',
       minify: 'esbuild',
       cssCodeSplit: true,
-      chunkSizeWarningLimit: 1000, // Increase warning limit temporarily
+      chunkSizeWarningLimit: 800, // Reduced from 1000 to catch more issues
       rollupOptions: {
         output: {
           manualChunks: (id) => {
+            // Vendor chunks - separate large dependencies
             if (id.includes('node_modules')) {
+              // React core
               if (id.includes('react') || id.includes('react-dom')) {
                 return 'react-vendor';
               }
+              // UI libraries
               if (id.includes('@radix-ui') || id.includes('lucide-react')) {
                 return 'ui-vendor';
               }
+              // Supabase
+              if (id.includes('@supabase')) {
+                return 'supabase-vendor';
+              }
+              // Other large dependencies
+              if (id.includes('date-fns') || id.includes('clsx') || id.includes('tailwind-merge')) {
+                return 'utils-vendor';
+              }
+              // Animation libraries
+              if (id.includes('framer-motion') || id.includes('@motionone')) {
+                return 'animation-vendor';
+              }
+              // Form libraries
+              if (id.includes('react-hook-form') || id.includes('@hookform')) {
+                return 'form-vendor';
+              }
+              // Query libraries
+              if (id.includes('@tanstack') || id.includes('react-query')) {
+                return 'query-vendor';
+              }
+              // Router libraries
+              if (id.includes('react-router') || id.includes('history')) {
+                return 'router-vendor';
+              }
+              // State management
+              if (id.includes('zustand') || id.includes('immer')) {
+                return 'state-vendor';
+              }
+              // Validation libraries
+              if (id.includes('zod') || id.includes('yup') || id.includes('joi')) {
+                return 'validation-vendor';
+              }
+              // Default vendor chunk
               return 'vendor';
             }
-            return null;
+            
+            // Application chunks - use the dynamic chunking logic
+            return createDynamicChunks(id);
           }
         }
       }

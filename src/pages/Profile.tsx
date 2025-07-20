@@ -19,7 +19,7 @@ import ChatButton from '@/components/chat/ChatButton';
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
 import SpaceContextBanner from '@/components/profile/SpaceContextBanner';
-import MobileProfileEditModal from '@/components/profile/MobileProfileEditModal';
+
 import MobileProfileModal from '@/components/profile/MobileProfileModal';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { Space } from "@/types/space";
@@ -283,7 +283,7 @@ export default function Profile() {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [spaceDrawerOpen, setSpaceDrawerOpen] = useState(false);
-  const [showMobileProfileEdit, setShowMobileProfileEdit] = useState(false);
+
   const [showMobileProfileModal, setShowMobileProfileModal] = useState(false);
   
   // Detect mobile vs desktop for different layouts - use same detection as BottomNav
@@ -546,11 +546,7 @@ export default function Profile() {
                   variant="outline" 
                   className="w-full max-w-sm mx-auto mb-4"
                   onClick={() => {
-                    if (isMobile) {
-                      setShowMobileProfileEdit(true);
-                    } else {
-                      navigate('/settings/profile');
-                    }
+                    navigate('/settings');
                   }}
                 >
                   Edit Profile
@@ -632,12 +628,7 @@ export default function Profile() {
           userId={profile.id} 
         />
         
-        {/* Mobile Profile Edit Modal */}
-        <MobileProfileEditModal
-          isOpen={showMobileProfileEdit}
-          onClose={() => setShowMobileProfileEdit(false)}
-          user={user}
-        />
+
         
         {/* Mobile Profile Modal */}
         <MobileProfileModal

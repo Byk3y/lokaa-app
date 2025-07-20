@@ -20,6 +20,7 @@ import { LikeButton, CommentButton } from "@/components/ui/post-icons";
 import { devLogger } from '../../utils/developmentLogger';
 import { getSimpleCommentInfo } from '@/utils/commentUtils';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
+import { createHighlightedContent } from '@/utils/searchUtils';
 
 // Optimized media detection helper function
 const getFirstMedia = (mediaUrls?: Array<{ url: string; type?: string; fileType?: string; videoPlatform?: string; videoId?: string | null; thumbnailUrl?: string | null; directUrl?: string }> | null): { url: string; type: 'video' | 'gif' | 'image'; thumbnailUrl?: string } | null => {
@@ -206,6 +207,7 @@ const PostCard = memo(function PostCard({
   onLikeToggled,
   onPinToggled,
   onCommentAdded, // 🔥 NEW: Add comment callback prop
+  searchQuery, // 🔍 NEW: Search query for highlighting
 }: PostCardProps) {
   const { user: loggedInUser } = useOptimizedAuth();
   const userIdForActions = currentUserId || loggedInUser?.id;
@@ -393,12 +395,20 @@ const PostCard = memo(function PostCard({
       )}>
         {title && (
           <h3 className="post-title mb-2 line-clamp-1 text-[17px] md:text-[22px] font-sans font-extrabold tracking-tight capitalize">
-            {title}
+            {searchQuery ? (
+              <span dangerouslySetInnerHTML={createHighlightedContent(title, searchQuery)} />
+            ) : (
+              title
+            )}
           </h3>
         )}
         {content && (
           <p className="post-content line-clamp-3 md:line-clamp-2 text-[1.05rem] md:text-base">
-            {content}
+            {searchQuery ? (
+              <span dangerouslySetInnerHTML={createHighlightedContent(content, searchQuery)} />
+            ) : (
+              content
+            )}
           </p>
         )}
       </div>

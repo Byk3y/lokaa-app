@@ -1,4 +1,5 @@
 import { log } from '@/utils/logger';
+import { devLogger } from '@/utils/developmentLogger';
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { 
@@ -19,6 +20,8 @@ import { Input } from "@/components/ui/input";
 import { useSpace } from "@/contexts/SpaceContext";
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useSearch } from '@/contexts/SearchContext';
+import { MobileSearchOverlay } from "@/features/search";
 import { 
   NotificationIcon, 
   NavBookmarkIcon, 
@@ -42,10 +45,26 @@ export default function TopNav() {
   const location = useLocation();
   const { spaceData } = useSpace();
   const { user } = useOptimizedAuth();
+  const { globalSearchQuery, setGlobalSearch, setSpaceSearch } = useSearch();
   const [userSpaces, setUserSpaces] = useState<UserSpace[]>([]);
   const [isLoadingSpaces, setIsLoadingSpaces] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const currentSpaceName = spaceData?.name || "Lokaa";
+  const supabase = getSupabaseClient();
+
+  const handleSearchChange = (query: string) => {
+    devLogger.log('TopNav', 'Search input changed:', { query, spaceId: spaceData?.id });
+    if (spaceData?.id) {
+      // If we're in a space, set space search
+      devLogger.log('TopNav', 'Setting space search');
+      setSpaceSearch(spaceData.id, query);
+    } else {
+      // Otherwise set global search
+      devLogger.log('TopNav', 'Setting global search');
+      setGlobalSearch(query);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -86,6 +105,8 @@ export default function TopNav() {
                 <Input 
                   type="search" 
                   placeholder="Search..." 
+                  value={globalSearchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="w-full h-9 pl-10 pr-4 rounded-md border-gray-300 focus:ring-1 focus:ring-lokaa-500 text-sm"
                 />
               </div>
@@ -120,7 +141,13 @@ export default function TopNav() {
                 <div className="p-2">
                   <div className="relative">
                     <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input type="search" placeholder="Search your spaces..." className="pl-9 h-9 text-sm" />
+                    <Input 
+                      type="search" 
+                      placeholder="Search your spaces..." 
+                      value={globalSearchQuery}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      className="pl-9 h-9 text-sm" 
+                    />
                   </div>
                 </div>
                 <DropdownMenuSeparator />
@@ -163,13 +190,24 @@ export default function TopNav() {
 
           {/* Right: Mobile Controls */}
           <div className="flex">
-            <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => navigate('/search-page')}>
+            <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setIsMobileSearchOpen(true)}>
               <SearchIcon className="text-gray-700" />
             </Button>
             <ProfileDropdown variant="default" size="md" />
           </div>
         </div>
       </div>
+
+      {/* Mobile Search Overlay */}
+      <MobileSearchOverlay
+        isOpen={isMobileSearchOpen}
+        onClose={() => setIsMobileSearchOpen(false)}
+        spaceId={spaceData?.id}
+        onPostClick={(postId) => {
+          setIsMobileSearchOpen(false);
+          navigate(`/${spaceData?.subdomain}/space/post/${postId}`);
+        }}
+      />
     </header>
   );
 } 

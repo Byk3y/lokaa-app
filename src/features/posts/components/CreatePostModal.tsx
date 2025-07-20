@@ -32,8 +32,7 @@ import { POST_TEMPLATES } from '../types';
 import type { PostCardProps } from '@/features/posts/types/postCard';
 import type { CreatePostModalProps } from '../types';
 
-// Import test utilities (development only)
-import { logImplementationStatus } from '../utils/uploadTestUtils';
+// Import test utilities (development only) - REMOVED: logImplementationStatus not used
 
 // Import file utils for formatFileSize
 import { formatFileSize } from '../utils/fileUtils';

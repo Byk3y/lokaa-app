@@ -74,7 +74,7 @@ export default function PostLegacyRedirect() {
           .select(`
             id,
             slug,
-            space:spaces!space_id (
+            space:spaces (
               id,
               subdomain
             )

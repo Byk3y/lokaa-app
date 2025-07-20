@@ -59,7 +59,7 @@ export default function ProfileHeader({ profileData, isCurrentUser }: ProfileHea
   };
 
   const handleEditProfile = () => {
-    navigate("/settings/profile");
+    navigate("/settings");
   };
 
   // Format dates

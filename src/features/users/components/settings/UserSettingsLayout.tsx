@@ -11,13 +11,18 @@ import { useSettingsNavigation } from '../../hooks/useSettingsNavigation';
 import SpaceSwitcher from '@/components/spaces/SpaceSwitcher';
 import NewSpaceSettingsModal from '@/components/modals/NewSpaceSettingsModal';
 
-// Mobile tab configuration matching Skool reference
+// Mobile tab configuration - all available tabs
 const mobileTabs = [
-  { id: "spaces", label: "Communities" },
+  { id: "spaces", label: "Spaces" },
   { id: "profile", label: "Profile" },
+  { id: "notifications", label: "Notifications" },
+  { id: "chat", label: "Chat" },
+  { id: "theme", label: "Theme" },
+  { id: "account", label: "Account" },
+  { id: "payment-methods", label: "Payment Methods" },
+  { id: "payment-history", label: "Payment History" },
   { id: "affiliates", label: "Affiliates" },
-  { id: "payouts", label: "Payouts" },
-  { id: "account", label: "Account" }
+  { id: "payouts", label: "Payouts" }
 ];
 
 export default function UserSettingsLayout() {
@@ -102,6 +107,9 @@ export default function UserSettingsLayout() {
             user={user}
           />
         </div>
+        
+        {/* Space Settings Modal - available from user settings context */}
+        <NewSpaceSettingsModal />
       </div>
     );
   }

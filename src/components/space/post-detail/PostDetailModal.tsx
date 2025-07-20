@@ -334,13 +334,12 @@ export default function PostDetailModal({
             p-0 flex flex-col
           "
           hideCloseButton={true}
-          aria-describedby="post-content-description"
         >
           {/* Hidden accessibility elements - positioned absolutely to not take layout space */}
           <DialogTitle className="sr-only absolute">
             {post.title || `Post by ${post.author?.name || 'Unknown'}`}
           </DialogTitle>
-          <DialogDescription id="post-content-description" className="sr-only absolute">
+          <DialogDescription className="sr-only absolute">
             {post.title ? `Post by ${post.author?.name || 'Unknown'}: ${post.content?.substring(0, 100)}${post.content && post.content.length > 100 ? '...' : ''}` : `Post content: ${post.content?.substring(0, 100)}${post.content && post.content.length > 100 ? '...' : ''}`}
           </DialogDescription>
 

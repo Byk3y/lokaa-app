@@ -515,6 +515,23 @@ export function useFeedLogic({
 
   const handlePostCardClick = useCallback((post: PostCardProps) => {
     log.debug('Hook', '[FeedLogic] Post card clicked:', post.title || post.id);
+    
+    // Check if we're in search mode (URL contains /search)
+    const isInSearchMode = location.pathname.includes('/search');
+    
+    if (isInSearchMode && post.slug) {
+      // In search mode, navigate to the actual post URL instead of adding search params
+      const currentPath = location.pathname;
+      const pathSegments = currentPath.split('/');
+      const subdomain = pathSegments[1]; // Extract subdomain from current path
+      
+      const postUrl = `/${subdomain}/space/${post.slug}`;
+      log.debug('Hook', '[FeedLogic] In search mode, navigating to post URL:', postUrl);
+      navigate(postUrl, { replace: false });
+      return;
+    }
+    
+    // Normal feed mode - open modal and add search params
     setSelectedPostForModal(post);
     setIsPostModalOpen(true);
     
@@ -526,7 +543,7 @@ export function useFeedLogic({
       log.debug('Hook', '[FeedLogic] Updating URL with post param:', post.slug);
       navigate({ search: searchParams.toString() }, { replace: false });
     }
-  }, [navigate, location.search]);
+  }, [navigate, location.search, location.pathname]);
 
   const handleClosePostModal = useCallback(() => {
     log.debug('Hook', '[FeedLogic] Closing post modal');

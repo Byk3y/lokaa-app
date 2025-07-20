@@ -10,12 +10,16 @@ interface NotificationBadgeProps {
   className?: string;
   variant?: 'desktop' | 'mobile';
   size?: 'sm' | 'md' | 'lg';
+  isActive?: boolean;
+  hideIcon?: boolean;
 }
 
 export default function NotificationBadge({ 
   className = '', 
   variant = 'desktop',
-  size = 'md' 
+  size = 'md',
+  isActive = false,
+  hideIcon = false
 }: NotificationBadgeProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { count, isLoading } = useUnreadNotificationCount();
@@ -66,20 +70,54 @@ export default function NotificationBadge({
 
   const config = sizeConfig[size];
 
+  // If hideIcon is true, only show the badge
+  if (hideIcon) {
+    return (
+      <div className={`relative ${className}`}>
+        {/* Unread Count Badge Only */}
+        <AnimatePresence>
+          {count > 0 && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ 
+                type: 'spring', 
+                stiffness: 500, 
+                damping: 30,
+                duration: 0.2 
+              }}
+              className="bg-red-500 text-white text-[11px] font-semibold rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center border-2 border-[#171E2E]"
+            >
+              {count > 99 ? '99+' : count}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="h-[18px] min-w-[18px] bg-gray-400 rounded-full animate-pulse" />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={`relative ${className}`}>
       {/* Notification Bell Button */}
       <button
         ref={bellButtonRef}
         onClick={handleClick}
-        className={`relative ${config.container} rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200 ${
-          isOpen ? 'bg-gray-100 dark:bg-gray-800' : ''
+        className={`relative ${config.container} rounded-full transition-colors duration-200 ${
+          variant === 'mobile' 
+            ? (isActive ? 'bg-white/20' : 'hover:bg-gray-100/10') 
+            : (isOpen ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800')
         }`}
         aria-label={`Notifications ${count > 0 ? `(${count} unread)` : ''}`}
       >
         <Bell className={`${config.icon} ${
           variant === 'mobile' 
-            ? (isOpen ? 'text-white' : 'text-gray-400') 
+            ? 'text-gray-400' 
             : 'text-gray-600 dark:text-gray-400'
         }`} />
         

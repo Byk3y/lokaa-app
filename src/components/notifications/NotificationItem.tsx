@@ -1,297 +1,198 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
-import { notificationService } from '@/services/NotificationService';
-import { notificationBatchManager } from '@/services/NotificationBatchManager';
+import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { log } from '@/utils/logger';
 import type { NotificationWithActor } from '@/types/notification';
 
+// ✅ COMPACT TIME FORMATTING: Like Skool's style (1h, 2h, 1d, etc.)
+const formatCompactTime = (date: Date): string => {
+  const now = new Date();
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+  
+  if (diffInMinutes < 1) return 'now';
+  if (diffInMinutes < 60) return `${diffInMinutes}m`;
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h`;
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) return `${diffInDays}d`;
+  
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  if (diffInWeeks < 4) return `${diffInWeeks}w`;
+  
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) return `${diffInMonths}mo`;
+  
+  const diffInYears = Math.floor(diffInDays / 365);
+  return `${diffInYears}y`;
+};
+
+// ✅ TITLE CASE FORMATTING: Capitalize first letter of each word
+const toTitleCase = (str: string): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 interface NotificationItemProps {
   notification: NotificationWithActor;
-  onMarkAsRead?: (notificationIds: string[]) => void;
+  onMarkAsRead: (notificationId: string) => void;
+  onNavigate: (notification: NotificationWithActor) => void;
+  className?: string;
 }
 
-export default function NotificationItem({ notification, onMarkAsRead }: NotificationItemProps) {
-  const navigate = useNavigate();
-
-  // Format timestamp (3h, 2d, 25d format like Skool)
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 24) {
-      return `${diffInHours}h`;
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24);
-      return `${diffInDays}d`;
-    }
-  };
-
-  // Get action text based on notification type (now supports batching)
-  const getActionText = () => {
-    const actionText = notificationBatchManager.getBatchedActionText(notification);
-    
-    // Fix the action text to match Skool's shorter format
-    switch (notification.type) {
-      case 'new_post':
-        return 'new post';
+// ✅ SIMPLIFIED: Simple notification display logic
+const getSimpleDisplayText = (notification: NotificationWithActor): string => {
+  const { actor_count = 1, actor_names = [], type, title } = notification;
+  
+  // Get actor name
+  const actorName = notification.actor?.full_name || 'Someone';
+  
+  // Get action text
+  const getActionText = (type: string) => {
+    switch (type) {
       case 'post_like':
-        return 'liked your post';
+        return 'just liked your post';
       case 'comment_reply':
-        return 'replied to your comment';
-      case 'mention':
-        return 'mentioned you';
+        return 'just replied to your comment';
       case 'space_join':
-        return 'joined the space';
-      default:
-        return actionText;
-    }
-  };
-
-  // Get role display text
-  const getRoleText = () => {
-    if (notification.actor_relationship === 'admin') {
-      return '(admin)';
-    } else if (notification.actor_relationship === 'following') {
-      return '(following)';
-    }
-    return '';
-  };
-
-  // Handle notification click
-  const handleClick = async () => {
-    try {
-      // Mark as clicked and read
-      await notificationService.markAsClicked(notification.id);
-      
-      // Update local state - this will trigger removal from the list
-      if (onMarkAsRead) {
-        onMarkAsRead([notification.id]);
-      }
-
-      // Navigate based on notification type
-      await handleNavigation();
-    } catch (error) {
-      log.error('NotificationItem', 'Error handling notification click:', error);
-    }
-  };
-
-  // Handle navigation to the appropriate page
-  const handleNavigation = async () => {
-    if (!notification.space?.subdomain) {
-      log.warn('NotificationItem', 'No space subdomain for navigation');
-      return;
-    }
-
-    const baseUrl = `/${notification.space.subdomain}/space`;
-
-    switch (notification.type) {
+        return 'just joined';
+      case 'mention':
+        return 'just mentioned you in';
       case 'new_post':
-      case 'post_like':
-      case 'mention':
-        // Navigate to space and highlight the specific post
-        if (notification.target_id) {
-          navigate(`${baseUrl}?highlight=${notification.target_id}`);
-          log.debug('NotificationItem', `Navigating to post: ${notification.target_id}`);
-        } else {
-          navigate(baseUrl);
-          log.debug('NotificationItem', `Navigating to space: ${notification.space.subdomain}`);
-        }
-        break;
-      
-      case 'comment_reply':
-        // Navigate to space and highlight the specific comment
-        if (notification.target_id) {
-          navigate(`${baseUrl}?highlight_comment=${notification.target_id}`);
-          log.debug('NotificationItem', `Navigating to comment: ${notification.target_id}`);
-        } else {
-          navigate(baseUrl);
-          log.debug('NotificationItem', `Navigating to space: ${notification.space.subdomain}`);
-        }
-        break;
-      
-      case 'space_join':
-        // Navigate to space members tab
-        navigate(`${baseUrl}?tab=members`);
-        log.debug('NotificationItem', `Navigating to space members: ${notification.space.subdomain}`);
-        break;
-      
+        return 'just posted';
       default:
-        // Default to space home
-        navigate(baseUrl);
-        log.debug('NotificationItem', `Navigating to space home: ${notification.space.subdomain}`);
-        break;
+        return 'just interacted with your';
     }
   };
+  
+  const actionText = getActionText(type);
+  
+  // Simple format: "Francis Chukwuma just liked your post How to activate manus ai"
+  if (actor_count <= 1) {
+    return `${actorName} ${actionText} ${title}`;
+  }
+  
+  // For batched notifications, show primary actor + count
+  const primaryName = actor_names[0] || actorName;
+  const othersCount = actor_count - 1;
+  
+  if (actor_count === 2) {
+    const secondName = actor_names[1] || 'Someone';
+    return `${primaryName} and ${secondName} ${actionText} ${title}`;
+  } else {
+    return `${primaryName} and ${othersCount} others ${actionText} ${title}`;
+  }
+};
 
-  // Get user's display name (now supports batching)
-  const getDisplayName = () => {
-    // Check if this is a batched notification (multiple actors)
-    if (notification.actor_count && notification.actor_count > 1) {
-      const batchInfo = notificationBatchManager.getBatchDisplayInfo(notification);
-      return batchInfo.displayText;
+export default function NotificationItem({ 
+  notification, 
+  onMarkAsRead, 
+  onNavigate,
+  className = '' 
+}: NotificationItemProps) {
+  const { 
+    id, 
+    type, 
+    title, 
+    content_preview, 
+    created_at, 
+    read, 
+    actor,
+    space 
+  } = notification;
+
+  const displayText = getSimpleDisplayText(notification);
+
+  const handleClick = () => {
+    if (!read) {
+      onMarkAsRead(id);
     }
-    
-    // Single actor notification - improved fallback logic
-    if (notification.actor?.full_name) {
-      return notification.actor.full_name;
-    }
-    
-    // Try to construct name from first/last name
-    if (notification.actor?.first_name || notification.actor?.last_name) {
-      const firstName = notification.actor.first_name || '';
-      const lastName = notification.actor.last_name || '';
-      return `${firstName} ${lastName}`.trim() || 'User';
-    }
-    
-    // Last resort - use actor ID or generic name
-    if (notification.actor?.id) {
-      return 'User';
-    }
-    
-    // If no actor data at all, this is a system notification
-    return 'System';
-  };
-
-  // Get user's avatar URL
-  const getAvatarUrl = () => {
-    return notification.actor?.avatar_url || 
-           notification.actor?.user_metadata?.avatar_url;
-  };
-
-  // Get space icon URL
-  const getSpaceIconUrl = () => {
-    return notification.space?.icon_image;
-  };
-
-  // Get space name for fallback initial
-  const getSpaceName = () => {
-    return notification.space?.name || '';
-  };
-
-  // Check if user has verified badge (diamond emoji)
-  const hasVerifiedBadge = () => {
-    // This would be based on some user verification status
-    // For now, we'll assume admins get the diamond badge
-    return notification.actor_relationship === 'admin';
-  };
-
-  // Get batch indicator for UI (show count badge for batched notifications)
-  const getBatchIndicator = () => {
-    if (notification.actor_count && notification.actor_count > 1) {
-      return (
-        <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-500 rounded-full ml-1">
-          {notification.actor_count}
-        </span>
-      );
-    }
-    return null;
+    onNavigate(notification);
   };
 
   return (
-    <div 
-      className="flex items-start px-4 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className={`relative p-3 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${className} ${
+        !read ? 'bg-blue-50/30' : ''
+      }`}
       onClick={handleClick}
     >
-      {/* Avatar section */}
-      <div className="flex-shrink-0 mr-3">
-        <div className="relative">
-          {getAvatarUrl() ? (
-            <img 
-              src={getAvatarUrl()} 
-              alt={getDisplayName()}
-              className="w-12 h-12 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center">
-              <span className="text-white text-sm font-bold">
-                {getDisplayName().charAt(0).toUpperCase()}
-              </span>
-            </div>
-          )}
+      {/* Unread indicator - moved to far right */}
+      {!read && (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full" />
+      )}
+      
+      <div className="flex items-center space-x-3">
+        {/* Actor Avatar - Centered */}
+        <div className="flex-shrink-0 flex items-center justify-center relative">
+          <OptimizedAvatar
+            user={actor}
+            size="md"
+            className="w-10 h-10"
+          />
           
-          {/* Space icon - positioned at bottom-right (Skool-style rounded square) */}
-          {notification.space_id && (
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-md border-2 border-white shadow-lg">
-              {getSpaceIconUrl() ? (
+          {/* Space icon - positioned at bottom-right */}
+          {space && (
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-md shadow-lg">
+              {space.icon_image ? (
                 <img 
-                  src={getSpaceIconUrl()} 
-                  alt={getSpaceName()}
+                  src={space.icon_image} 
+                  alt={space.name}
                   className="w-full h-full rounded-md object-cover"
                 />
               ) : (
                 <div className="w-full h-full rounded-md bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center">
                   <span className="text-white text-xs font-bold">
-                    {getSpaceName().charAt(0).toUpperCase()}
+                    {space.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
               )}
             </div>
           )}
+        </div>
+        
+        {/* Notification content */}
+        <div className="flex-1 min-w-0">
+          {/* Line 1: Actor + Action + Timestamp */}
+          <div className="flex items-start justify-between">
+            <div className="flex-1 text-sm font-medium text-gray-900 leading-tight">
+              <span className="font-semibold capitalize">
+                {notification.actor?.full_name || 'Someone'}
+              </span>
+              {' '}
+              <span className="text-gray-600 font-normal">
+                liked your post
+              </span>
+            </div>
+            
+            {/* Timestamp - positioned on the right */}
+            <div className="text-xs text-gray-400 flex-shrink-0 ml-2">
+              {formatCompactTime(new Date(created_at))}
+            </div>
+          </div>
           
-          {/* Admin badge - only show when no space icon (positioned at bottom-right) */}
-          {notification.actor_relationship === 'admin' && !notification.space_id && (
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-              <span className="text-white text-xs font-bold">A</span>
+          {/* Line 2: Post Title */}
+          <div className="text-sm text-gray-900 font-normal mt-1 leading-tight">
+            {toTitleCase(notification.title) || 'Untitled Post'}
+          </div>
+          
+          {/* Line 3: Space name */}
+          {notification.space && (
+            <div className="text-xs text-gray-500 mt-1">
+              in {notification.space.name}
             </div>
           )}
         </div>
       </div>
-
-      {/* Content section - properly aligned with avatar */}
-      <div className="flex-1 min-w-0 flex flex-col justify-center">
-        {/* First line - Name, badge, role, and action text */}
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-1 min-w-0 flex-1">
-            <span className="font-bold text-gray-900 text-sm truncate">
-              {getDisplayName()}
-            </span>
-            
-            {getBatchIndicator()}
-            
-            {hasVerifiedBadge() && (
-              <span className="text-blue-500 text-sm flex-shrink-0">💎</span>
-            )}
-            
-            <span className="text-gray-500 text-sm flex-shrink-0">
-              {getRoleText()}
-            </span>
-            
-            <span className="text-gray-500 text-sm flex-shrink-0">
-              {getActionText()}
-            </span>
-          </div>
-          
-          {/* Timestamp positioned at top-right */}
-          <span className="text-gray-400 text-sm flex-shrink-0 ml-2">
-            {formatTimestamp(notification.created_at)}
-          </span>
-        </div>
-
-        {/* Second line - Post title with proper truncation */}
-        <div className="text-sm text-gray-600 leading-relaxed mb-1">
-          <span className="line-clamp-2 block">
-            {notification.title}
-          </span>
-        </div>
-
-        {/* Third line - Content preview (if exists) with proper truncation */}
-        {notification.content_preview && (
-          <div className="text-xs text-gray-500">
-            <span className="line-clamp-1 block">
-              {notification.content_preview}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Unread indicator */}
-      {!notification.read && (
-        <div className="flex-shrink-0 ml-3">
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 }

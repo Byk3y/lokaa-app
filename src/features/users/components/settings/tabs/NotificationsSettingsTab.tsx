@@ -84,108 +84,107 @@ export default function NotificationsSettingsTab({ user }: SettingsTabProps) {
     );
   }
 
-  // Mobile layout matching Skool's design
+  // Mobile layout matching Skool's design exactly
   if (isMobile) {
     return (
       <div className="bg-white min-h-screen">
-        {/* Mobile Tab Navigation - Skool style */}
-        <div className="border-b border-gray-200">
-          <div className="flex">
-            <button 
-              onClick={() => navigate('/settings/spaces')}
-              className="flex-1 px-4 py-4 text-center text-sm font-medium text-gray-500 hover:text-gray-700"
-            >
-              Membership
-            </button>
-            <button 
-              className="flex-1 px-4 py-4 text-center text-sm font-medium text-black border-b-2 border-black"
-            >
-              Notifications
-            </button>
-            <button 
-              onClick={() => navigate('/settings/chat')}
-              className="flex-1 px-4 py-4 text-center text-sm font-medium text-gray-500 hover:text-gray-700"
-            >
-              Chat
-            </button>
-            <button 
-              className="flex-1 px-4 py-4 text-center text-sm font-medium text-gray-500 hover:text-gray-700"
-            >
-              Invite
-            </button>
-          </div>
-        </div>
-
         {/* Mobile Content - Skool style */}
         <div className="px-6 py-6 space-y-6">
-          {/* Digest email */}
+          {/* General Notifications Section */}
           <div>
-            <div className="text-lg font-medium text-black mb-1">Digest email</div>
-            <div className="text-sm text-gray-500 mb-4">summary of popular posts</div>
-            <select 
-              value={globalPrefs?.email_enabled ? 'weekly' : 'never'}
-              onChange={(e) => handleGlobalToggle('email_enabled', e.target.value !== 'never')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
-            >
-              <option value="weekly">Weekly (default)</option>
-              <option value="daily">Daily</option>
-              <option value="never">Never</option>
-            </select>
+            <h2 className="text-lg font-bold text-black mb-4">Notifications</h2>
+            
+            {/* New follower email notification */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-base text-black">New follower email notification</div>
+              <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-green-500 transition-colors">
+                <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-6" />
+              </button>
+            </div>
+
+            {/* New affiliate referral email notification */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-base text-black">New affiliate referral email notification</div>
+              <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-green-500 transition-colors">
+                <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-6" />
+              </button>
           </div>
 
-          {/* Notifications email */}
-          <div>
-            <div className="text-lg font-medium text-black mb-1">Notifications email</div>
-            <div className="text-sm text-gray-500 mb-4">summary of unread notifications</div>
-            <select 
-              value={globalPrefs?.push_enabled ? 'hourly' : 'never'}
-              onChange={(e) => handleGlobalToggle('push_enabled', e.target.value !== 'never')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
-            >
-              <option value="hourly">Hourly (default)</option>
-              <option value="daily">Daily</option>
-              <option value="never">Never</option>
-            </select>
+            {/* New customer ka-ching sound */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="text-base text-black">New customer ka-ching sound</div>
+              <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-green-500 transition-colors">
+                <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-6" />
+              </button>
+            </div>
           </div>
 
-          {/* Likes */}
+          {/* Spaces/Communities Section */}
           <div>
-            <div className="text-lg font-medium text-black mb-1">Likes</div>
-            <div className="text-sm text-gray-500 mb-4">when somebody likes my posts or comments</div>
-            <select 
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
-            >
-              <option value="notify">Notify me (default)</option>
-              <option value="never">Never</option>
-            </select>
-          </div>
+            <h2 className="text-lg font-bold text-black mb-4">Spaces</h2>
+            
+                        {/* Space items */}
+            {spacesWithPreferences?.map((space) => (
+              <div key={space.id} className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center flex-1">
+                  {/* Space icon/avatar */}
+                  <div className="w-10 h-10 rounded-lg mr-3 flex items-center justify-center overflow-hidden">
+                    {space.icon_image ? (
+                      <img 
+                        src={space.icon_image} 
+                        alt={space.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                        <span className="text-sm font-bold text-white">
+                          {space.name?.charAt(0)?.toUpperCase() || 'S'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Space info */}
+                  <div className="flex-1">
+                    <div className="text-base font-bold text-black">{space.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {space.effective_preferences.digest_email_frequency.charAt(0).toUpperCase() + 
+                       space.effective_preferences.digest_email_frequency.slice(1)} digest • {' '}
+                      {space.effective_preferences.notifications_email_frequency.charAt(0).toUpperCase() + 
+                       space.effective_preferences.notifications_email_frequency.slice(1)} bundle
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Change button */}
+                <button 
+                  onClick={() => handleSpaceSettingsClick(space.id, space.name, space.user_role)}
+                  className="bg-gray-200 text-gray-600 font-bold rounded px-3 py-1 text-sm"
+                >
+                  CHANGE
+                </button>
+              </div>
+            ))}
 
-          {/* Admin announcements */}
-          <div>
-            <div className="text-lg font-medium text-black mb-1">Admin announcements</div>
-            <div className="text-sm text-gray-500 mb-4">get email broadcasts sent by admins</div>
-            <select 
-              value={globalPrefs?.affiliate_updates ? 'yes' : 'no'}
-              onChange={(e) => handleGlobalToggle('affiliate_updates', e.target.value === 'yes')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
-            >
-              <option value="yes">Yes (default)</option>
-              <option value="no">No</option>
-            </select>
-          </div>
-
-          {/* Event reminders */}
-          <div>
-            <div className="text-lg font-medium text-black mb-1">Event reminders</div>
-            <div className="text-sm text-gray-500 mb-4">notify me of calendar events the day before they happen</div>
-            <select 
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base"
-            >
-              <option value="yes">Yes (default)</option>
-              <option value="no">No</option>
-            </select>
+            {/* Show message if no spaces */}
+            {(!spacesWithPreferences || spacesWithPreferences.length === 0) && (
+              <div className="text-center py-8 text-gray-500">
+                <p>No spaces found</p>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Space settings modal */}
+        {selectedSpaceModal && (
+          <SpaceNotificationSettingsModal
+            isOpen={!!selectedSpaceModal}
+            onClose={() => setSelectedSpaceModal(null)}
+            spaceId={selectedSpaceModal.spaceId}
+            spaceName={selectedSpaceModal.spaceName}
+            userRole={selectedSpaceModal.userRole}
+          />
+        )}
       </div>
     );
   }
@@ -210,7 +209,7 @@ export default function NotificationsSettingsTab({ user }: SettingsTabProps) {
         <div className="flex items-center justify-between py-2">
           <div className="text-[16px] font-medium text-gray-900">New affiliate referral email notification</div>
           <Switch
-            checked={globalPrefs?.affiliate_updates || false}
+            checked={globalPrefs?.affiliate_updates ?? false}
             onCheckedChange={(checked) => handleGlobalToggle('affiliate_updates', checked)}
             className="data-[state=checked]:bg-[#00A389]"
           />

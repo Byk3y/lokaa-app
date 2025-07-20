@@ -18,6 +18,42 @@ const notificationCache = new Map<string, {
   timestamp: number;
 }>();
 
+// ✅ NEW: Global notification count store for persistence across navigation
+const globalNotificationCountStore = {
+  count: 0,
+  isLoading: false,
+  lastUpdated: 0,
+  subscribers: new Set<() => void>(),
+  
+  getCount() {
+    return this.count;
+  },
+  
+  setCount(newCount: number) {
+    if (this.count !== newCount) {
+      this.count = newCount;
+      this.lastUpdated = Date.now();
+      this.notifySubscribers();
+    }
+  },
+  
+  setLoading(loading: boolean) {
+    this.isLoading = loading;
+    this.notifySubscribers();
+  },
+  
+  subscribe(callback: () => void) {
+    this.subscribers.add(callback);
+    return () => {
+      this.subscribers.delete(callback);
+    };
+  },
+  
+  notifySubscribers() {
+    this.subscribers.forEach(callback => callback());
+  }
+};
+
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export function useNotifications(type?: NotificationType): UseNotificationsReturn {
@@ -82,6 +118,7 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
 
     try {
       // Only show loading skeleton if we don't have any notifications yet AND no cache
+      // AND this is not an append operation
       if (notifications.length === 0 && !append && !isInitialized) {
         setIsLoading(true);
       }
@@ -116,7 +153,12 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
         saveToCache(filteredNotifications, filteredUnreadCount);
       }
 
-      log.debug('useNotifications', `Fetched ${response.notifications.length} notifications, filtered to ${filteredNotifications.length}, page ${page}`);
+      log.debug('useNotifications', `Fetched ${response.notifications.length} notifications, filtered to ${filteredNotifications.length}, page ${page}`, {
+        originalCount: response.notifications.length,
+        filteredCount: filteredNotifications.length,
+        unreadCount: filteredUnreadCount,
+        currentPage: page
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch notifications';
       setError(errorMessage);
@@ -133,16 +175,20 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
     await fetchNotifications(currentPage + 1, true);
   }, [hasMore, isLoading, currentPage, fetchNotifications, user?.id]);
 
-  // Mark notifications as read and remove from list
+  // Mark notifications as read but keep them visible
   const markAsRead = useCallback(async (notificationIds: string[]) => {
     if (!user?.id || notificationIds.length === 0) return;
 
     try {
       await notificationService.markAsRead(notificationIds);
 
-      // Remove read notifications from the list immediately (better UX)
+      // Mark notifications as read but keep them in the list
       setNotifications(prev => 
-        prev.filter(notification => !notificationIds.includes(notification.id))
+        prev.map(notification => 
+          notificationIds.includes(notification.id)
+            ? { ...notification, read: true }
+            : notification
+        )
       );
 
       // Update unread count
@@ -151,12 +197,20 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
       ).length;
       setUnreadCount(prev => Math.max(0, prev - readCount));
 
-      log.debug('useNotifications', `Marked ${notificationIds.length} notifications as read and removed from list`);
+      // Update cache with modified notifications
+      const updatedNotifications = notifications.map(notification => 
+        notificationIds.includes(notification.id)
+          ? { ...notification, read: true }
+          : notification
+      );
+      saveToCache(updatedNotifications, Math.max(0, unreadCount - readCount));
+
+      log.debug('useNotifications', `Marked ${notificationIds.length} notifications as read and kept in list`);
     } catch (err) {
       log.error('useNotifications', 'Error marking notifications as read:', err);
       setError('Failed to mark notifications as read');
     }
-  }, [user?.id, notifications]);
+  }, [user?.id, notifications, unreadCount, saveToCache]);
 
   // Mark all notifications as read and clear the list
   const markAllAsRead = useCallback(async () => {
@@ -176,6 +230,45 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
     }
   }, [user?.id]);
 
+  // Mark all visible unread notifications as read (for when user views notifications page)
+  const markVisibleAsRead = useCallback(async () => {
+    if (!user?.id) return;
+
+    const unreadNotificationIds = notifications
+      .filter(notification => !notification.read)
+      .map(notification => notification.id);
+
+    if (unreadNotificationIds.length === 0) return;
+
+    try {
+      await notificationService.markAsRead(unreadNotificationIds);
+
+      // Mark all unread notifications as read but keep them in the list
+      setNotifications(prev => 
+        prev.map(notification => 
+          !notification.read
+            ? { ...notification, read: true }
+            : notification
+        )
+      );
+
+      // Update unread count to 0
+      setUnreadCount(0);
+
+      // Update cache with modified notifications
+      const updatedNotifications = notifications.map(notification => 
+        !notification.read
+          ? { ...notification, read: true }
+          : notification
+      );
+      saveToCache(updatedNotifications, 0);
+
+      log.debug('useNotifications', `Marked ${unreadNotificationIds.length} visible notifications as read`);
+    } catch (err) {
+      log.error('useNotifications', 'Error marking visible notifications as read:', err);
+    }
+  }, [user?.id, notifications, saveToCache]);
+
   // Refresh notifications
   const refresh = useCallback(() => {
     if (!user?.id) return;
@@ -183,11 +276,12 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
   }, [fetchNotifications, user?.id]);
 
   // Handle real-time notification updates
-  const handleRealtimeUpdate = useCallback((payload: NotificationRealtimeEvent) => {
-    log.debug('useNotifications', 'Real-time notification event:', payload);
+  const handleRealtimeUpdate = useCallback((payload: any) => {
+    const event = payload as unknown as NotificationRealtimeEvent;
+    log.debug('useNotifications', 'Real-time notification event:', event);
 
-    if (payload.eventType === 'INSERT' && payload.new) {
-      const newNotification = payload.new as NotificationWithActor;
+    if (event.eventType === 'INSERT' && event.new) {
+      const newNotification = event.new as NotificationWithActor;
       
       // Apply smart filtering to new notifications
       const shouldFilter = NotificationFiltering.shouldFilterNotification(newNotification);
@@ -204,28 +298,28 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
       } else {
         log.debug('useNotifications', 'Filtered real-time notification from current space:', newNotification.id);
       }
-    } else if (payload.eventType === 'UPDATE' && payload.new) {
+    } else if (event.eventType === 'UPDATE' && event.new) {
       // Update existing notification
       setNotifications(prev => {
         const updated = prev.map(notification => 
-          notification.id === payload.new!.id 
-            ? { ...notification, ...payload.new }
+          notification.id === event.new!.id 
+            ? { ...notification, ...event.new }
             : notification
         );
         // Update cache with modified notifications
         saveToCache(updated, unreadCount);
         return updated;
       });
-    } else if (payload.eventType === 'DELETE' && payload.old) {
+    } else if (event.eventType === 'DELETE' && event.old) {
       // Remove deleted notification
       setNotifications(prev => {
-        const updated = prev.filter(notification => notification.id !== payload.old!.id);
-        const newUnreadCount = Math.max(0, unreadCount - (payload.old.read ? 0 : 1));
+        const updated = prev.filter(notification => notification.id !== event.old!.id);
+        const newUnreadCount = Math.max(0, unreadCount - (event.old.read ? 0 : 1));
         // Update cache with filtered notifications
         saveToCache(updated, newUnreadCount);
         return updated;
       });
-      if (!payload.old.read) {
+      if (!event.old.read) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     }
@@ -252,7 +346,7 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          handleRealtimeUpdate(payload as NotificationRealtimeEvent);
+          handleRealtimeUpdate(payload);
         }
       )
       .subscribe();
@@ -279,14 +373,26 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
     }
 
     if (!isInitialized) {
-      // Try to initialize from cache first
+      // Always try to initialize from cache first, regardless of page
       const cachedInitialized = initializeFromCache();
       
       if (!cachedInitialized) {
         // No valid cache, fetch from server
+        log.debug('useNotifications', 'No valid cache - fetching fresh data');
         fetchNotifications(1, false).finally(() => {
           setIsInitialized(true);
         });
+      } else {
+        // We have valid cache, mark as initialized
+        setIsInitialized(true);
+        
+        // If we're on notifications page, fetch fresh data in background
+        const isOnNotificationsPage = window.location.pathname === '/notifs' || window.location.pathname.startsWith('/notifications');
+        if (isOnNotificationsPage) {
+          log.debug('useNotifications', 'On notifications page - using cache and fetching fresh data in background');
+          // Fetch fresh data without showing loading state
+          fetchNotifications(1, false);
+        }
       }
     }
   }, [user?.id, fetchNotifications, isInitialized]);
@@ -309,6 +415,7 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
     loadMore,
     markAsRead,
     markAllAsRead,
+    markVisibleAsRead,
     refresh
   };
 }
@@ -373,16 +480,26 @@ export function useNotificationPreferences() {
 // Hook for unread count only (lightweight)
 export function useUnreadNotificationCount() {
   const { user } = useOptimizedAuth();
-  const [count, setCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [count, setCount] = useState(globalNotificationCountStore.getCount());
+  const [isLoading, setIsLoading] = useState(globalNotificationCountStore.isLoading);
   const realtimeSubscriptionRef = useRef<any>(null);
   const supabase = getSupabaseClient();
+
+  // Subscribe to global store updates
+  useEffect(() => {
+    const unsubscribe = globalNotificationCountStore.subscribe(() => {
+      setCount(globalNotificationCountStore.getCount());
+      setIsLoading(globalNotificationCountStore.isLoading);
+    });
+    
+    return unsubscribe;
+  }, []);
 
   const fetchCount = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      setIsLoading(true);
+      globalNotificationCountStore.setLoading(true);
       
       // We need to get the full notifications to apply filtering
       // This is a bit more expensive but ensures accurate count
@@ -391,32 +508,34 @@ export function useUnreadNotificationCount() {
       
       // Apply smart filtering to get accurate unread count
       const filteredUnreadCount = NotificationFiltering.getFilteredUnreadCount(unreadNotifications);
-      setCount(filteredUnreadCount);
+      globalNotificationCountStore.setCount(filteredUnreadCount);
     } catch (err) {
       log.error('useUnreadNotificationCount', 'Error fetching unread count:', err);
     } finally {
-      setIsLoading(false);
+      globalNotificationCountStore.setLoading(false);
     }
   }, [user?.id]);
 
   // Handle real-time updates for count only
-  const handleRealtimeCountUpdate = useCallback((payload: NotificationRealtimeEvent) => {
-    if (payload.eventType === 'INSERT' && payload.new) {
-      const newNotification = payload.new as NotificationWithActor;
+  const handleRealtimeCountUpdate = useCallback((payload: any) => {
+    const event = payload as unknown as NotificationRealtimeEvent;
+    
+    if (event.eventType === 'INSERT' && event.new) {
+      const newNotification = event.new as NotificationWithActor;
       
       // Apply smart filtering to new notifications for count
       const shouldFilter = NotificationFiltering.shouldFilterNotification(newNotification);
       
       if (!shouldFilter) {
-        setCount(prev => prev + 1);
+        globalNotificationCountStore.setCount(globalNotificationCountStore.getCount() + 1);
       }
-    } else if (payload.eventType === 'UPDATE' && payload.new && payload.old) {
+    } else if (event.eventType === 'UPDATE' && event.new && event.old) {
       // If notification was marked as read
-      if (payload.old.read === false && payload.new.read === true) {
-        setCount(prev => Math.max(0, prev - 1));
+      if (event.old.read === false && event.new.read === true) {
+        globalNotificationCountStore.setCount(Math.max(0, globalNotificationCountStore.getCount() - 1));
       }
-    } else if (payload.eventType === 'DELETE' && payload.old && !payload.old.read) {
-      setCount(prev => Math.max(0, prev - 1));
+    } else if (event.eventType === 'DELETE' && event.old && !event.old.read) {
+      globalNotificationCountStore.setCount(Math.max(0, globalNotificationCountStore.getCount() - 1));
     }
   }, []);
 
@@ -428,7 +547,7 @@ export function useUnreadNotificationCount() {
 
     // Set up real-time subscription
     const subscription = supabase
-      .channel('notification_count')
+      .channel('notification_realtime')
       .on(
         'postgres_changes',
         {
@@ -438,7 +557,7 @@ export function useUnreadNotificationCount() {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          handleRealtimeCountUpdate(payload as NotificationRealtimeEvent);
+          handleRealtimeCountUpdate(payload);
         }
       )
       .subscribe();

@@ -276,12 +276,12 @@ export class NotificationBatchManager {
         .from('notifications')
         .select(`
           *,
-          actor:users!actor_id(
+          actor:users(
             id,
             full_name,
             avatar_url
           ),
-          space:spaces!space_id(
+          space:spaces(
             id,
             name,
             subdomain,

@@ -1,4 +1,5 @@
 import { log } from '@/utils/logger';
+import { devLogger } from '@/utils/developmentLogger';
 // HMR TEST COMMENT A: Test completed - HMR optimizations active
 import React, { lazy, Suspense, useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { motion } from "framer-motion";
@@ -32,6 +33,13 @@ import PostDetailModal from "@/components/space/post-detail/PostDetailModal";
 const SimpleSpaceSetup = lazy(() => import("./SimpleSpaceSetup"));
 const CreatePostModal = lazy(() => import("@/features/posts/components/CreatePostModal").then(module => ({ default: module.CreatePostModal })));
 const CreateCategoryModal = lazy(() => import("@/components/space/CreateCategoryModal"));
+
+// Search functionality imports
+import { useSearch } from "@/contexts/SearchContext";
+import { SearchResultCard } from '@/features/search/components/SearchResultCard';
+import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
+import { createHighlightedContent } from '@/utils/searchUtils';
+import { formatDistanceToNow } from 'date-fns';
 
 // Preserved space data is now handled by individual components
 
@@ -126,6 +134,29 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     postInputRef,
     hasInstantAccess
   });
+
+  // ============================================================================
+  // SEARCH INTEGRATION
+  // ============================================================================
+  
+  const { searchIntegration, isSearchActive, setSpaceSearch } = useSearch();
+  
+  // Update search context when space changes
+  useEffect(() => {
+    if (currentSpaceData?.id) {
+      // Get current search query from URL to preserve it
+      const urlParams = new URLSearchParams(window.location.search);
+      const currentQuery = urlParams.get('q') || '';
+      
+      // Inform search context about current space and preserve any existing query
+      setSpaceSearch(currentSpaceData.id, currentQuery);
+      
+      if (searchIntegration) {
+        // Search integration is ready
+        devLogger.log('FeedTab', 'Search integration ready for space:', currentSpaceData.id);
+      }
+    }
+  }, [currentSpaceData?.id, searchIntegration, setSpaceSearch]);
 
   // ============================================================================
   // FALLBACK SPACE DATA FOR SIDEBAR
@@ -447,15 +478,20 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
 
       {/* Main Feed Content */}
       <div className="flex-grow">
-        {/* Render FeedHeader once, it will handle its own responsiveness */}
+        {/* Render FeedHeader once, it will handle its own responsiveness - Hide when searching */}
+        {!isSearchActive && (
         <FeedHeader
           currentUser={currentUser}
           onOpenCreatePostModal={openCreatePostModal}
         />
+        )}
 
-        {/* Category Tabs - Standalone Pills (sticky only on desktop) */}
-        <div className="mt-6">
-          <div className="flex items-center space-x-2 overflow-x-auto pb-1 px-4 sm:px-0" role="tablist">
+
+
+        {/* Category Tabs - Standalone Pills (sticky only on desktop) - Hide when searching */}
+        {!isSearchActive && (
+          <div className="mt-6">
+            <div className="flex items-center space-x-2 overflow-x-auto pb-1 px-4 sm:px-0" role="tablist">
             <button 
               role="tab"
               aria-selected={selectedTab === "all"}
@@ -499,9 +535,237 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
             )}
           </div>
         </div>
+        )}
 
-        {/* Render SimpleSpaceSetup here - only for admins/owners */}
-        {currentSpaceData && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
+        {/* Search Results - Display as regular PostCards integrated into feed flow */}
+        {isSearchActive && searchIntegration && currentSpaceData?.id && (
+          <div className="mt-6">
+            {(() => {
+              devLogger.log('FeedTab', 'Rendering search results as PostCards:', {
+              isSearchActive,
+              hasIntegration: !!searchIntegration,
+              spaceId: currentSpaceData?.id,
+              resultsCount: searchIntegration.results?.length,
+                                query: searchIntegration.query,
+              isLoading: searchIntegration.isLoading,
+              error: searchIntegration.error
+              });
+              return null;
+            })()}
+            
+            {/* Search Loading State */}
+            {searchIntegration.isLoading && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground text-center">Searching posts...</p>
+              </div>
+            )}
+            
+            {/* Search Error State */}
+            {searchIntegration.error && (
+              <div className="p-6 text-center mt-6 bg-red-50 border border-red-200 rounded-lg mx-4 sm:mx-0">
+                <div className="text-red-600 mb-3">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+                  <p className="font-medium">Search failed</p>
+                  <p className="text-sm text-red-500 mt-1">{searchIntegration.error}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Search Results as PostCards */}
+            {!searchIntegration.isLoading && !searchIntegration.error && searchIntegration.results && (
+              <div className="space-y-4">
+                {searchIntegration.results.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    No posts found matching "{searchIntegration.query}"
+                  </div>
+                ) : (
+                  (() => {
+                    // Group search results by post ID
+                    const groupedResults = searchIntegration.results.reduce((groups, result) => {
+                      const postId = result.id;
+                      if (!groups[postId]) {
+                        groups[postId] = { post: null, comments: [] };
+                      }
+                      
+                      if (result.result_type === 'post') {
+                        groups[postId].post = result;
+                      } else if (result.result_type === 'comment') {
+                        groups[postId].comments.push(result);
+                      }
+                      
+                      return groups;
+                    }, {} as Record<string, { post: any, comments: any[] }>);
+
+                    // Render grouped results with comments nested within post cards
+                    return Object.entries(groupedResults).map(([postId, group]) => {
+                      if (group.post) {
+                        // Convert search result to PostCard format
+                        const postCardData = {
+                          id: group.post.id,
+                          spaceId: group.post.space_id || '',
+                          currentUserId: null,
+                          author: {
+                            id: group.post.user_id || '',
+                            name: group.post.user_full_name || 'Unknown User',
+                            avatar: group.post.user_avatar_url || null
+                          },
+                          title: group.post.title || null,
+                          content: group.post.content || '',
+                          createdAt: group.post.created_at,
+                          editedAt: group.post.updated_at || null,
+                          category: group.post.category_id ? {
+                            id: group.post.category_id,
+                            name: group.post.category_name || 'Category',
+                            icon: group.post.category_icon || null
+                          } : null,
+                          likes: group.post.like_count || 0,
+                          comments: group.post.comment_count || 0,
+                          isPinned: group.post.is_pinned || false,
+                          isAdmin: effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner,
+                          media_urls: null,
+                          className: '',
+                          slug: group.post.slug || group.post.id
+                        };
+
+                        return (
+                          <div key={postId}>
+                            {/* Main Post - no extra container */}
+                            <PostCard
+                              {...postCardData}
+                              onPostClick={handlePostCardClick}
+                              onLikeToggled={handleLikeToggledInCard}
+                              isAdmin={effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner}
+                              // Add search highlighting
+                              searchQuery={searchIntegration.query}
+                            />
+                            
+                            {/* Comments attached directly under the post */}
+                            {group.comments.map((comment) => (
+                              <div key={`comment-${comment.comment_id}`} className="border-t border-gray-100 bg-gray-50 relative w-full md:w-[768px]">
+                                {/* Blue vertical line on the left - matches Skool reference */}
+                                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-400"></div>
+                                
+                                <div className="flex items-start space-x-3 px-4 py-3 pl-4">
+                                  {/* Comment Avatar - matches PostDetailModal styling */}
+                                  <OptimizedAvatar
+                                    user={{
+                                      id: comment.comment_user_id || 'unknown',
+                                      full_name: comment.comment_user_name || 'Unknown User',
+                                      avatar_url: comment.comment_user_avatar || null
+                                    }}
+                                    size="lg"
+                                    enableLazyLoading={false}
+                                    enableCaching={true}
+                                    placeholderType="initials"
+                                    loadingTransition="fade"
+                                    className="h-9 w-9 flex-shrink-0"
+                                  />
+                                  
+                                                                    {/* Comment Content - matches PostDetailModal styling */}
+                                  <div className="flex-grow min-w-0">
+                                    <div className="bg-gray-100 rounded-xl p-3">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                                          {comment.comment_user_name || 'Unknown User'}
+                                        </span>
+                                        <span className="text-sm text-gray-500 flex-shrink-0">
+                                          {formatDistanceToNow(new Date(comment.comment_created_at), { addSuffix: true })
+                                            .replace('about ', '')
+                                            .replace(' ago', '')
+                                            .replace('less than a minute', 'now')}
+                                        </span>
+          </div>
+                                      <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed max-w-full overflow-hidden">
+                                        {searchIntegration.query ? (
+                                          <span dangerouslySetInnerHTML={createHighlightedContent(comment.comment_content, searchIntegration.query)} />
+                                        ) : (
+                                          comment.comment_content
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      } else if (group.comments.length > 0) {
+                        // If only comments exist (no parent post), render them as standalone
+                        return (
+                          <div key={postId} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:-translate-y-0.5 overflow-hidden w-full md:w-[768px]">
+                            {group.comments.map((comment) => (
+                              <div key={`comment-${comment.comment_id}`} className="p-4 border-b border-gray-100 last:border-b-0">
+                                <div className="flex items-start space-x-3">
+                                  {/* Comment Avatar - matches PostDetailModal styling */}
+                                  <OptimizedAvatar
+                                    user={{
+                                      id: comment.comment_user_id || 'unknown',
+                                      full_name: comment.comment_user_name || 'Unknown User',
+                                      avatar_url: comment.comment_user_avatar || null
+                                    }}
+                                    size="lg"
+                                    enableLazyLoading={false}
+                                    enableCaching={true}
+                                    placeholderType="initials"
+                                    loadingTransition="fade"
+                                    className="h-9 w-9 flex-shrink-0"
+                                  />
+                                  
+                                  {/* Comment Content - matches PostDetailModal styling */}
+                                  <div className="flex-grow min-w-0">
+                                    <div className="bg-gray-100 rounded-xl p-3">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                                          {comment.comment_user_name || 'Unknown User'}
+                                        </span>
+                                        <span className="text-sm text-gray-500 flex-shrink-0">
+                                          {formatDistanceToNow(new Date(comment.comment_created_at), { addSuffix: true })
+                                            .replace('about ', '')
+                                            .replace(' ago', '')
+                                            .replace('less than a minute', 'now')}
+                                        </span>
+                                      </div>
+                                      <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed max-w-full overflow-hidden">
+                                        {searchIntegration.query ? (
+                                          <span dangerouslySetInnerHTML={createHighlightedContent(comment.comment_content, searchIntegration.query)} />
+                                        ) : (
+                                          comment.comment_content
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+                      return null;
+                    });
+                  })()
+                )}
+                
+                {/* Load More for Search Results */}
+                {searchIntegration.hasMore && (
+                  <div className="flex justify-center mt-6">
+                    <Button
+                      onClick={searchIntegration.loadMore}
+                      variant="outline"
+                      size="sm"
+                      className="px-6"
+                    >
+                      Load More Results
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Render SimpleSpaceSetup here - only for admins/owners - Hide when searching */}
+        {!isSearchActive && currentSpaceData && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
           <div className="mt-6 sm:px-0">
             <Suspense fallback={<div className="p-4 text-center text-gray-500">Loading setup guide...</div>}>
               <SimpleSpaceSetup 
@@ -523,8 +787,11 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
           </div>
         )}
 
-        {/* Posts Content - Show skeletons during pagination loading, loading screen only when no data */}
-        {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
+        {/* Regular Posts Content - Hide when searching */}
+        {!isSearchActive && (
+          <>
+            {/* Posts Content - Show skeletons during pagination loading, loading screen only when no data */}
+            {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
             <p className="text-muted-foreground text-center">Loading posts...</p>
@@ -676,6 +943,8 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <span className="ml-2 text-sm text-gray-600">Loading more posts...</span>
           </div>
+        )}
+          </>
         )}
       </div>
 

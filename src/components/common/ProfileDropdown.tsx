@@ -6,7 +6,7 @@ import { Settings, LogOut, User as UserIcon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { safelyNavigateToProfile } from '@/utils/profileRedirect';
-import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { navigateToProfileWithContext, getCurrentSpaceContext } from '@/utils/spaceContextUtils';
 import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 import { getInitials } from '@/shared/utils/avatar-utils';

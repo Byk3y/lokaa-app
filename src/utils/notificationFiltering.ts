@@ -14,30 +14,59 @@ export class NotificationFiltering {
    */
   static getCurrentSpaceSubdomain(): string | null {
     try {
+      const pathname = window.location.pathname;
+      
+      // Debug current page context
+      log.debug('NotificationFiltering', 'Getting current space context:', {
+        pathname,
+        isOnNotificationsPage: this.isOnNotificationsPage(),
+        isActivelyInSpace: this.isActivelyInSpace()
+      });
+      
       // First try URL-based detection (most reliable)
       const spaceContext = getCurrentSpaceContext();
       if (spaceContext?.subdomain) {
+        log.debug('NotificationFiltering', 'Found space from context:', spaceContext.subdomain);
         return spaceContext.subdomain;
       }
       
       // Fallback to event coordinator
       const currentSpace = spaceEventCoordinator.getCurrentSpace();
       if (currentSpace) {
+        log.debug('NotificationFiltering', 'Found space from event coordinator:', currentSpace);
         return currentSpace;
       }
       
       // Last resort: try to extract from current URL
-      const pathname = window.location.pathname;
       const match = pathname.match(/\/([^\/]+)\/space/);
       if (match?.[1]) {
+        log.debug('NotificationFiltering', 'Found space from URL pattern:', match[1]);
         return match[1];
       }
       
+      log.debug('NotificationFiltering', 'No current space detected');
       return null;
     } catch (error) {
       log.warn('NotificationFiltering', 'Error getting current space:', error);
       return null;
     }
+  }
+
+  /**
+   * Check if user is currently on the notifications page
+   */
+  static isOnNotificationsPage(): boolean {
+    const pathname = window.location.pathname;
+    return pathname === '/notifs' || pathname.startsWith('/notifications');
+  }
+
+  /**
+   * Check if user is actively browsing within a specific space
+   */
+  static isActivelyInSpace(): boolean {
+    const pathname = window.location.pathname;
+    // Only filter when actively browsing space content (not on notifications page)
+    return pathname.includes('/space') && !this.isOnNotificationsPage();
   }
 
   /**
@@ -51,6 +80,18 @@ export class NotificationFiltering {
     currentSpaceSubdomain?: string | null
   ): boolean {
     try {
+      // IMPORTANT: Never filter notifications on the notifications page
+      // Users should see ALL their notifications when explicitly viewing notifications
+      if (this.isOnNotificationsPage()) {
+        log.debug('NotificationFiltering', 'On notifications page - showing all notifications');
+        return false;
+      }
+
+      // Only filter when actively browsing within a space
+      if (!this.isActivelyInSpace()) {
+        return false;
+      }
+
       const currentSpace = currentSpaceSubdomain ?? this.getCurrentSpaceSubdomain();
       
       // If we can't determine current space, don't filter
@@ -78,7 +119,7 @@ export class NotificationFiltering {
         return false;
       }
       
-      // Filter out other notifications from current space
+      // Filter out other notifications from current space only when actively browsing that space
       if (isFromCurrentSpace) {
         log.debug('NotificationFiltering', `Filtering notification from current space: ${currentSpace}`, {
           notificationType: notification.type,

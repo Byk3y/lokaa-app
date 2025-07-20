@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Bug, Zap, Activity, TestTube } from 'lucide-react';
 // import ErrorAnalyticsDashboard from '@/components/debug/ErrorAnalyticsDashboard';
 import { GlobalErrorBoundary, SpaceErrorBoundary, ComponentErrorBoundary } from '@/components/error/ErrorBoundary';
-import { Phase3TestingDashboard } from '@/components/debug/Phase3TestingDashboard';
 
 const DebugPage: React.FC = () => {
   // Test functions for demonstrating error tracking
@@ -180,14 +179,7 @@ const DebugPage: React.FC = () => {
           <BuggyComponent />
         </ComponentErrorBoundary>
 
-        {/* Phase 3 Testing Dashboard */}
-        <div className="mt-12">
-          <div className="flex items-center mb-6">
-            <TestTube className="h-6 w-6 mr-2" />
-            <h2 className="text-2xl font-bold">Phase 3 Performance Testing</h2>
-          </div>
-          <Phase3TestingDashboard />
-        </div>
+
 
         {/* Console Commands Reference */}
         <Card>

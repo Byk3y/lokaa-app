@@ -14,6 +14,7 @@ import type {
   CommentReplyNotificationData,
   SpaceJoinNotificationData,
   MentionNotificationData,
+  NewCustomerNotificationData,
   BatchedNotificationParams,
   EffectiveNotificationPreferences
 } from '@/types/notification';
@@ -303,6 +304,8 @@ export class NotificationService {
           return effectivePrefs.mentions;
         case 'space_join':
           return effectivePrefs.space_joins;
+        case 'new_customer':
+          return effectivePrefs.new_customers;
         default:
           return true; // Allow unknown types
       }
@@ -535,8 +538,8 @@ export class NotificationService {
         .from('notifications')
         .select(`
           *,
-          actor:users!actor_id(id, full_name, avatar_url),
-          space:spaces!space_id(id, name, subdomain, icon_image)
+          actor:users(id, full_name, avatar_url),
+          space:spaces(id, name, subdomain, icon_image)
         `)
         .eq('id', notificationId)
         .single();
@@ -623,6 +626,43 @@ export class NotificationService {
       });
     } catch (error) {
       log.error('NotificationService', 'Error creating mention notification:', error);
+      throw error;
+    }
+  }
+
+  async createNewCustomerNotification(data: NewCustomerNotificationData): Promise<void> {
+    log.debug('NotificationService', '🚀 [createNewCustomerNotification] Called with data:', data);
+    
+    try {
+      const relationship = await this.getActorRelationship(
+        data.actorId, 
+        data.recipientId, 
+        data.spaceId
+      );
+
+      // Create payment notification title with ka-ching feel
+      let title = `joined ${data.spaceName}`;
+      if (data.amount && data.currency) {
+        title = `subscribed to ${data.spaceName} for ${data.currency}${data.amount}`;
+      } else if (data.planName) {
+        title = `subscribed to ${data.spaceName} (${data.planName})`;
+      }
+
+      // New customer notifications should not be batched - they're revenue events
+      await this.createNotification({
+        user_id: data.recipientId,
+        actor_id: data.actorId,
+        type: 'new_customer',
+        title,
+        content_preview: data.customerEmail,
+        actor_relationship: relationship,
+        space_id: data.spaceId,
+        target_id: data.spaceId
+      });
+
+      log.debug('NotificationService', '✅ [createNewCustomerNotification] Ka-ching notification created successfully');
+    } catch (error) {
+      log.error('NotificationService', '❌ [createNewCustomerNotification] Error creating new customer notification:', error);
       throw error;
     }
   }
