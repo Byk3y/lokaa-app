@@ -22,7 +22,7 @@ Run the following commands to push the migration to your Supabase project:
 
 ```bash
 # Navigate to your project directory
-cd lokaa-connect-spaces-71c15a33
+cd lokaa-app
 
 # Push the migration to your Supabase project
 supabase db push

@@ -1,6 +1,6 @@
-# Lokaa Connect Spaces
+# Lokaa.app
 
-[![Security-Validation CI](https://github.com/lokaa/lokaa-connect-spaces/actions/workflows/validate.yml/badge.svg)](https://github.com/lokaa/lokaa-connect-spaces/actions/workflows/validate.yml)
+[![Security-Validation CI](https://github.com/lokaa/lokaa-app/actions/workflows/validate.yml/badge.svg)](https://github.com/lokaa/lokaa-app/actions/workflows/validate.yml)
 
 A platform for creating and managing collaborative spaces.
 
