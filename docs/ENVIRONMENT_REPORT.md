@@ -116,9 +116,9 @@ Based on the findings, the most critical focus should be implementing core secur
 ## 1. Current Security State
 
 ### Deployment & Infrastructure
-- **Platform**: Netlify (based on netlify.toml)
+- **Platform**: Vercel (based on vercel.json)
 - **Runtime**: Static site with Supabase Edge Functions
-- **Basic Security Headers** (via netlify.toml):
+- **Basic Security Headers** (via vercel.json):
   - X-Frame-Options: DENY
   - X-XSS-Protection: 1; mode=block
   - X-Content-Type-Options: nosniff

@@ -3,9 +3,9 @@
 ## 1. Current Security State
 
 ### Deployment & Infrastructure
-- **Platform**: Netlify (based on netlify.toml)
+- **Platform**: Vercel (based on vercel.json)
 - **Runtime**: Static site with Supabase Edge Functions
-- **Security Headers** (via netlify.toml):
+- **Security Headers** (via vercel.json):
   - Content-Security-Policy: Implemented ✅
   - Content-Security-Policy-Report-Only: Implemented ✅
   - X-Frame-Options: DENY
