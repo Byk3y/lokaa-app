@@ -2,84 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Search, MoreHorizontal, FileText, Copy, Edit, FolderPlus, FilePlus, Trash2 } from 'lucide-react';
 import { formatAsTitle } from '@/utils/textUtils';
 import BottomNav from '@/components/mobile/BottomNav';
-
-interface CourseLesson {
-  id: string;
-  title: string;
-  content_type: string;
-  content_url: string | null;
-  content_text: string | null;
-  lesson_order: number;
-  module_id?: string;
-  content_id?: string | null;
-  is_published: boolean;
-  page_type?: string;
-  estimated_duration?: number | null;
-  difficulty_level?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  completed?: boolean;
-  educational_content?: {
-    id: string;
-    title: string;
-    content_type: string;
-    text_content: string | null;
-    media_url: string | null;
-    embed_data: any;
-    estimated_duration: number | null;
-    difficulty_level: string | null;
-  } | null;
-}
-
-interface CourseModule {
-  id: string;
-  title: string;
-  description: string | null;
-  module_order: number;
-  module_type: 'folder' | 'module' | string;
-  course_id?: string;
-  space_id?: string;
-  lessons: CourseLesson[];
-}
-
-interface CourseDetailData {
-  id: string;
-  title: string;
-  description: string | null;
-  is_published: boolean;
-  estimated_duration: number | null;
-  difficulty_level: string | null;
-  course_order: number;
-  short_id: string | null;
-  space_id: string;
-  created_at: string;
-  updated_at: string;
-  modules: CourseModule[];
-  progress?: number;
-}
+import type { 
+  CourseLesson, 
+  CourseModule, 
+  CourseDetailData, 
+  MobileCourseOverviewProps 
+} from '@/types/classroom';
 
 interface Space {
   id: string;
   name: string;
   subdomain: string;
   avatar_url?: string | null;
-}
-
-interface MobileCourseOverviewProps {
-  course: CourseDetailData;
-  space?: Space | null;
-  onBack: () => void;
-  onLessonSelect: (lesson: CourseLesson) => void;
-  isOwner?: boolean;
-  onEditCourse?: () => void;
-  onAddFolder?: () => void;
-  onAddPage?: () => void;
-  onDeleteCourse?: () => void;
-  // Lesson-specific handlers
-  onEditLesson?: (lessonId: string, title: string) => void;
-  onDeleteLesson?: (lessonId: string, title: string) => void;
-  onRevertToDraft?: (lessonId: string, title: string, isPublished: boolean) => void;
-  onChangeFolder?: (lessonId: string, title: string, currentFolderId?: string) => void;
 }
 
 const MobileCourseOverview: React.FC<MobileCourseOverviewProps> = ({

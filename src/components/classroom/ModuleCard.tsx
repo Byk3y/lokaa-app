@@ -3,35 +3,7 @@ import { Button } from "@/components/ui/button";
 import { formatAsTitle } from '@/utils/textUtils';
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Pencil, Trash2, Plus } from "lucide-react";
-// Define the types locally to match CourseDetailView
-interface CourseModule {
-  id: string;
-  title: string;
-  description: string | null;
-  module_order: number;
-  module_type: 'folder' | 'module' | string;
-  course_id: string;
-  space_id: string;
-  lessons: CourseLesson[];
-}
-
-interface CourseLesson {
-  id: string;
-  title: string;
-  content_type: string;
-  content_url: string | null;
-  content_text: string | null;
-  lesson_order: number;
-  module_id?: string;
-  content_id?: string | null;
-  is_published: boolean;
-  page_type?: string;
-  estimated_duration?: number | null;
-  difficulty_level?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  completed?: boolean;
-}
+import type { CourseModule, CourseLesson } from '@/types/classroom';
 
 interface ModuleCardProps {
   module: CourseModule;

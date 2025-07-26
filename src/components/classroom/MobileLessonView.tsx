@@ -4,50 +4,11 @@ import { formatAsTitle } from '@/utils/textUtils';
 import BottomNav from '@/components/mobile/BottomNav';
 import { VideoContentExtractor } from '@/utils/videoContentExtractor';
 import MobileLessonEditor from './MobileLessonEditor';
-
-interface CourseLesson {
-  id: string;
-  title: string;
-  content_type: string;
-  content_url: string | null;
-  content_text: string | null;
-  lesson_order: number;
-  module_id?: string;
-  content_id?: string | null;
-  is_published: boolean;
-  page_type?: string;
-  estimated_duration?: number | null;
-  difficulty_level?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  completed?: boolean;
-  educational_content?: {
-    id: string;
-    title: string;
-    content_type: string;
-    text_content: string | null;
-    media_url: string | null;
-    embed_data: any;
-    estimated_duration: number | null;
-    difficulty_level: string | null;
-  } | null;
-}
-
-interface CourseDetailData {
-  id: string;
-  title: string;
-  description: string | null;
-  is_published: boolean;
-  estimated_duration: number | null;
-  difficulty_level: string | null;
-  course_order: number;
-  short_id: string | null;
-  space_id: string;
-  created_at: string;
-  updated_at: string;
-  modules: any[];
-  progress?: number;
-}
+import type { 
+  CourseLesson, 
+  CourseDetailData, 
+  MobileLessonViewProps 
+} from '@/types/classroom';
 
 interface Space {
   id: string;
@@ -55,18 +16,6 @@ interface Space {
   subdomain: string;
   avatar_url?: string | null;
   icon_image?: string | null;
-}
-
-interface MobileLessonViewProps {
-  lesson: CourseLesson;
-  course: CourseDetailData;
-  space?: Space | null;
-  onBackToMenu: () => void;
-  onNextLesson: () => void;
-  onMarkAsDone?: () => void;
-  isOwner?: boolean;
-  hasNextLesson?: boolean;
-  onEditLesson?: (lessonData: Partial<CourseLesson>) => Promise<void>;
 }
 
 const MobileLessonView: React.FC<MobileLessonViewProps> = ({

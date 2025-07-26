@@ -6,42 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { useToast } from '@/hooks/use-toast';
-
-interface CourseLesson {
-  id: string;
-  title: string;
-  content_type: string;
-  content_url: string | null;
-  content_text: string | null;
-  lesson_order: number;
-  content_id?: string | null;
-  is_published: boolean;
-  educational_content?: {
-    id: string;
-    title: string;
-    content_type: string;
-    text_content: string | null;
-    media_url: string | null;
-    embed_data: any;
-    estimated_duration: number | null;
-    difficulty_level: string | null;
-  } | null;
-  posts?: {
-    id: string;
-    title: string;
-    content: string;
-  } | null;
-}
-
-interface LessonContentProps {
-  lesson: CourseLesson | null;
-  courseName: string;
-  isOwner?: boolean;
-  completed?: boolean; // Track completion status
-  onUpdateLesson?: (lessonId: string, updates: { title?: string; content_text?: string }) => Promise<void>;
-  onCreateNewPage?: () => void;
-  onMarkAsDone?: () => void;
-}
+import type { CourseLesson, LessonContentProps } from '@/types/classroom';
 
 const LessonContent: React.FC<LessonContentProps> = ({ 
   lesson, 

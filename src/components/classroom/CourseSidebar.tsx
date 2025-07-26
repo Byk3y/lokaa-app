@@ -12,82 +12,12 @@ import {
 import { useRootFolders } from '@/hooks/useRootFolders';
 import { log } from '@/utils/logger';
 import { getLessonUrl } from '@/utils/slugUtils';
-
-interface CourseLesson {
-  id: string;
-  title: string;
-  content_type: string;
-  content_url: string | null;
-  content_text: string | null;
-  lesson_order: number;
-  module_id?: string;
-  content_id?: string | null;
-  is_published: boolean;
-  page_type?: string;
-  estimated_duration?: number | null;
-  difficulty_level?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  completed?: boolean; // Track completion status
-  educational_content?: {
-    id: string;
-    title: string;
-    content_type: string;
-    text_content: string | null;
-    media_url: string | null;
-    embed_data: any;
-    estimated_duration: number | null;
-    difficulty_level: string | null;
-  } | null;
-}
-
-interface CourseModule {
-  id: string;
-  title: string;
-  description: string | null;
-  module_order: number;
-  module_type: 'folder' | 'module' | string;
-  course_id?: string;
-  space_id?: string;
-  lessons: CourseLesson[];
-}
-
-interface CourseDetailData {
-  id: string;
-  title: string;
-  description: string | null;
-  is_published: boolean;
-  estimated_duration: number | null;
-  difficulty_level: string | null;
-  course_order: number;
-  short_id: string | null;
-  space_id: string;
-  created_at: string;
-  updated_at: string;
-  modules: CourseModule[];
-  progress?: number;
-}
-
-interface CourseSidebarProps {
-  course: CourseDetailData;
-  selectedLesson: CourseLesson | null;
-  onLessonSelect: (lesson: CourseLesson) => void;
-  isOwner?: boolean;
-  ownershipLoading?: boolean;
-  isCreatingPage?: boolean;
-  onAddLesson?: (moduleId?: string) => void;
-  onEditLesson?: (lesson: CourseLesson) => void;
-  onAddModule?: () => void;
-  onEditCourse?: () => void;
-  onDeleteCourse?: () => void;
-  onAddFolder?: () => void;
-  spaceId?: string;
-  // Add new handlers
-  onDeletePage?: (pageId: string, title: string) => void;
-  onRevertToDraft?: (pageId: string, title: string, isPublished: boolean) => void;
-  onDuplicatePage?: (pageId: string) => void;
-  onChangeFolder?: (pageId: string, title: string, moduleId: string | null) => void;
-}
+import type { 
+  CourseLesson, 
+  CourseModule, 
+  CourseDetailData, 
+  CourseSidebarProps 
+} from '@/types/classroom';
 
 export default function CourseSidebar({
   course,
