@@ -63,16 +63,25 @@
 
 ## 🪝 Phase 2: Extract Custom Hooks 🚀 READY TO START
 
-### 2.1 Create Course Data Hook
-- [ ] Create `src/hooks/classroom/useCourseDetail.ts`
-- [ ] Extract `fetchCourseDetails` function (lines 128-504, ~376 lines)
-- [ ] Extract cache management logic (lines 96-124)
-- [ ] Extract loading and error states
-- [ ] Extract course data transformation logic
-- [ ] Add proper error handling and retry logic
-- [ ] Add comprehensive logging for debugging
-- [ ] Add mobile-specific considerations for data fetching
-- [ ] Add offline support and caching strategies
+### 2.1 Create Course Data Hook ✅ COMPLETE
+- [x] Create `src/hooks/classroom/useCourseDetail.ts`
+- [x] Extract `fetchCourseDetails` function (lines 128-504, ~376 lines)
+- [x] Extract cache management logic (lines 96-124)
+- [x] Extract loading and error states
+- [x] Extract course data transformation logic
+- [x] Add proper error handling and retry logic
+- [x] Add comprehensive logging for debugging
+- [x] Add mobile-specific considerations for data fetching
+- [x] Add offline support and caching strategies
+
+**Phase 2.1 Results:**
+- **Lines Extracted**: ~376 lines from CourseDetailView
+- **Files Created**: 1 new hook file (577 lines)
+- **Files Updated**: 2 files (CourseDetailView + index)
+- **Mobile Features**: Network detection, offline support, retry logic
+- **Security**: ✅ Semgrep scan passed
+- **TypeScript**: ✅ Compilation successful
+- **Performance**: Mobile-optimized queries and caching
 
 ### 2.2 Create Progress Management Hook
 - [ ] Create `src/hooks/classroom/useCourseProgress.ts`
@@ -761,22 +770,23 @@
 - **Mobile**: ✅ All mobile patterns preserved
 
 ### 🚀 Current Phase
-**Phase 2: Extract Custom Hooks** - Ready to Start
+**Phase 2: Extract Custom Hooks** - In Progress (Phase 2.1 Complete)
 - **Estimated Duration**: 1-2 weeks
 - **Target Lines to Extract**: ~1,000+ lines
 - **Hooks to Create**: 6 custom hooks
 - **Focus**: Mobile-specific considerations, offline support, performance
+- **Progress**: 1 of 6 hooks complete (16.7%)
 
 ### 📈 Progress Metrics
-- **Overall Progress**: 10% (Phase 1 of 10 phases)
-- **Lines Reduced**: 191 lines (10% of target)
-- **Files Refactored**: 10 files
-- **Security Scans**: 1 passed
-- **Build Tests**: 1 passed
+- **Overall Progress**: 20% (Phase 1 + Phase 2.1 of 10 phases)
+- **Lines Reduced**: 567 lines (191 + 376 lines)
+- **Files Refactored**: 12 files (10 + 2 files)
+- **Security Scans**: 2 passed
+- **Build Tests**: 2 passed
 
 ### 🎯 Next Milestones
-1. **Phase 2.1**: Extract Course Data Hook (~376 lines)
-2. **Phase 2.2**: Extract Progress Management Hook (~121 lines)
+1. **Phase 2.1**: Extract Course Data Hook (~376 lines) ✅ COMPLETE
+2. **Phase 2.2**: Extract Progress Management Hook (~121 lines) 🚀 NEXT
 3. **Phase 2.3**: Extract Ownership Hook (~153 lines)
 4. **Phase 2.4**: Extract Navigation Hook (~36 lines)
 5. **Phase 2.5**: Extract Dialog Management Hook (~20 lines)
