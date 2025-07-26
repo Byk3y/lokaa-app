@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
 import React, { memo, useCallback, useState } from 'react';
+import { formatAsTitle } from '@/utils/textUtils';
 import { motion } from 'framer-motion';
 import { Book, Users, Loader2, MoreHorizontal, Edit3, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -149,7 +150,7 @@ export const CourseCard = memo<CourseCardProps>(function CourseCard({
       {/* Course Content - White background */}
       <div className="p-4">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          {course.title || "Untitled Course"}
+          {formatAsTitle(course.title) || "Untitled Course"}
         </h3>
         
         <p className="text-sm text-gray-600 mb-4 line-clamp-2">

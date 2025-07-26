@@ -3,30 +3,36 @@ import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
 // Temporarily removing immer to fix white screen issue
 // import { immer } from 'zustand/middleware/immer';
+import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 import type { 
-  CourseDisplayData, 
-  ClassroomState, 
   CourseDialogState, 
   ModuleDialogState, 
   LessonDialogState,
-  UseClassroomAuthReturn,
-  ClassroomPermissions 
+  FolderDialogState
 } from '@/types/classroom';
 
 // Core classroom state interface
-interface ClassroomStoreState extends ClassroomState {
+interface ClassroomStoreState {
+  // Core state
+  courses: CourseDisplayData[];
+  selectedCourse: CourseDisplayData | null;
+  modules: any[];
+  
   // Auth state
-  auth: UseClassroomAuthReturn | null;
-  permissions: ClassroomPermissions | null;
+  auth: any | null;
+  permissions: any | null;
   
   // Dialog states
   courseDialog: CourseDialogState;
   moduleDialog: ModuleDialogState;
   lessonDialog: LessonDialogState;
+  folderDialog: FolderDialogState;
   
   // UI state
   searchTerm: string;
   activeTab: 'all-courses' | 'my-courses';
+  loading: boolean;
+  error: string | null;
   isRefreshing: boolean;
   lastRefreshTime: number | null;
   
@@ -38,9 +44,9 @@ interface ClassroomStoreState extends ClassroomState {
 // Store actions interface
 interface ClassroomStoreActions {
   // Auth actions
-  setAuth: (auth: UseClassroomAuthReturn) => void;
+  setAuth: (auth: any) => void;
   clearAuth: () => void;
-  updatePermissions: (permissions: ClassroomPermissions) => void;
+  updatePermissions: (permissions: any) => void;
   
   // Course actions
   setCourses: (courses: CourseDisplayData[]) => void;
@@ -61,6 +67,8 @@ interface ClassroomStoreActions {
   closeModuleDialog: () => void;
   openLessonDialog: (mode: 'create' | 'edit' | 'view', lesson?: any, moduleId?: string) => void;
   closeLessonDialog: () => void;
+  openFolderDialog: (mode: 'create' | 'edit' | 'delete', folder?: any) => void;
+  closeFolderDialog: () => void;
   
   // UI actions
   setSearchTerm: (term: string) => void;
@@ -107,6 +115,10 @@ const initialState: ClassroomStoreState = {
     mode: 'create',
   },
   lessonDialog: {
+    isOpen: false,
+    mode: 'create',
+  },
+  folderDialog: {
     isOpen: false,
     mode: 'create',
   },
@@ -270,6 +282,24 @@ export const useClassroomStore = create<ClassroomStore>()(
           },
         })),
 
+        openFolderDialog: (mode, folder) => set((state) => ({
+          ...state,
+          folderDialog: {
+            isOpen: true,
+            mode,
+            folder,
+          },
+        })),
+
+        closeFolderDialog: () => set((state) => ({
+          ...state,
+          folderDialog: {
+            isOpen: false,
+            mode: 'create',
+            folder: undefined,
+          },
+        })),
+
         // UI actions
         setSearchTerm: (term) => set((state) => ({
           ...state,
@@ -370,34 +400,43 @@ export const useClassroomDialogs = () => {
   const courseDialog = useClassroomStore(state => state.courseDialog);
   const moduleDialog = useClassroomStore(state => state.moduleDialog);
   const lessonDialog = useClassroomStore(state => state.lessonDialog);
+  const folderDialog = useClassroomStore(state => state.folderDialog);
   const openCourseDialog = useClassroomStore(state => state.openCourseDialog);
   const closeCourseDialog = useClassroomStore(state => state.closeCourseDialog);
   const openModuleDialog = useClassroomStore(state => state.openModuleDialog);
   const closeModuleDialog = useClassroomStore(state => state.closeModuleDialog);
   const openLessonDialog = useClassroomStore(state => state.openLessonDialog);
   const closeLessonDialog = useClassroomStore(state => state.closeLessonDialog);
+  const openFolderDialog = useClassroomStore(state => state.openFolderDialog);
+  const closeFolderDialog = useClassroomStore(state => state.closeFolderDialog);
   
   // Use React.useMemo to ensure stable object reference
   return React.useMemo(() => ({
     courseDialog,
     moduleDialog,
     lessonDialog,
+    folderDialog,
     openCourseDialog,
     closeCourseDialog,
     openModuleDialog,
     closeModuleDialog,
     openLessonDialog,
     closeLessonDialog,
+    openFolderDialog,
+    closeFolderDialog,
   }), [
     courseDialog,
     moduleDialog, 
     lessonDialog,
+    folderDialog,
     openCourseDialog,
     closeCourseDialog,
     openModuleDialog,
     closeModuleDialog,
     openLessonDialog,
     closeLessonDialog,
+    openFolderDialog,
+    closeFolderDialog,
   ]);
 };
 

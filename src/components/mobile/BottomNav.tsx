@@ -13,6 +13,8 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 import { navigateToProfileWithContext } from '@/utils/spaceContextUtils';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
+import { setPendingChatNavigation } from '@/utils/scrollPositionManager';
+import { persistentTabManager } from '@/services/PersistentTabManager';
 
 // Simple notification count badge component to avoid positioning issues
 function NotificationCountBadge() {
@@ -142,9 +144,25 @@ export default function BottomNav() {
       
       trackRouteChange(fromRoute, targetRoute);
       
-      // **SOLUTION**: Use simple React Router navigation
-      // Global Tab Component Manager prevents tab component recreation
-      navigate(targetRoute);
+      // 🚀 REVOLUTIONARY FIX: Use persistent tab manager for space navigation
+      // This prevents component unmounting when navigating from chat to space
+      if (fromRoute === '/app/chat') {
+        console.log('🔧 [BottomNav] Using persistent tab manager for chat->space navigation');
+        
+        // Initialize the persistent tab manager with the space subdomain if not already done
+        if (persistentTabManager.getSubdomain() !== space.subdomain) {
+          persistentTabManager.initialize(space.subdomain, 'feed');
+        }
+        
+        // Use React Router only to get to the space route, then let persistent manager handle tabs
+        navigate(targetRoute);
+        
+        // Switch to feed tab using persistent manager (prevents component remounting)
+        persistentTabManager.switchTab('feed', 'user');
+      } else {
+        // For other routes, use standard React Router navigation
+        navigate(targetRoute);
+      }
     } else {
       // 🚨 FIX: Don't navigate to '/' if space is loading - this causes page refresh!
       // Instead, try to get space from localStorage or wait
@@ -182,6 +200,11 @@ export default function BottomNav() {
   const handleChatClick = () => {
     const fromRoute = location.pathname;
     log.debug('Component', '🔄 [BottomNav] Navigating to chat page from:', fromRoute);
+    
+    // ✅ CRITICAL FIX: Set pending chat navigation to prevent scroll resets
+    setPendingChatNavigation(true);
+    console.log('🔍 [BottomNav] Set pending chat navigation - chat tab clicked');
+    
     trackRouteChange(fromRoute, '/app/chat');
     navigate('/app/chat');
   };

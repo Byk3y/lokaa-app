@@ -1,10 +1,11 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { formatAsTitle } from '@/utils/textUtils';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Book, Users, Clock, PlayCircle, CheckCircle2, Lock } from "lucide-react";
-import type { CourseDisplayData } from '@/types/classroom';
+import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 
 interface CourseViewDialogProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ export default function CourseViewDialog({
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <DialogTitle className="text-2xl font-bold text-gray-900 mb-2">
-                {course.title}
+                {formatAsTitle(course.title)}
               </DialogTitle>
               <p className="text-gray-600 text-sm mb-3">
                 {course.description || "No description available"}

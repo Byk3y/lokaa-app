@@ -148,9 +148,9 @@ class ErrorHandlingSystem {
     
     let type = ErrorType.UNKNOWN;
     let severity = ErrorSeverity.MEDIUM;
-    let message = 'An unexpected error occurred';
+    const message = 'An unexpected error occurred';
     let userMessage = 'Something went wrong. Please try again.';
-    let recoverable = true;
+    const recoverable = true;
     let retryable = true;
 
     // Classify by error message and properties

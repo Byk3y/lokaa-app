@@ -149,7 +149,7 @@ export function useCommentsCache(postId: string, currentUserId?: string) {
         }
 
         // Get user like status for comments and their initial replies
-        let likedCommentIds = new Set<string>();
+        const likedCommentIds = new Set<string>();
         if (currentUserId) {
           // Get all comment IDs (parent comments + their initial replies)
           const allCommentIds = [...commentIds];

@@ -1,15 +1,34 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { formatAsTitle } from '@/utils/textUtils';
 import { Video, Edit } from "lucide-react";
-import type { CourseLessonData } from '@/types/classroom';
 import { sanitizeLessonContent } from '@/utils/htmlSanitizer';
+
+// Define the lesson interface locally to match the actual structure used in the codebase
+interface CourseLesson {
+  id: string;
+  title: string;
+  content_type: string;
+  content_url: string | null;
+  content_text: string | null;
+  lesson_order: number;
+  module_id?: string;
+  content_id?: string | null;
+  is_published: boolean;
+  page_type?: string;
+  estimated_duration?: number | null;
+  difficulty_level?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  completed?: boolean;
+}
 
 interface LessonContentDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  lesson: CourseLessonData | null;
+  lesson: CourseLesson | null;
   getEmbedUrl: (url: string | null | undefined) => string | null; 
-  onEditLesson?: (lesson: CourseLessonData) => void;
+  onEditLesson?: (lesson: CourseLesson) => void;
   canEdit?: boolean;
 }
 
@@ -39,7 +58,7 @@ export default function LessonContentDialog({
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pt-6 pb-4 px-6">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-semibold pr-4">{lesson.title}</DialogTitle>
+            <DialogTitle className="text-xl font-semibold pr-4">{formatAsTitle(lesson.title)}</DialogTitle>
             {canEdit && onEditLesson && (
               <Button 
                 variant="outline" 
@@ -123,7 +142,7 @@ export default function LessonContentDialog({
         
         <DialogFooter className="px-6 pb-6 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          {/* TODO: Add Next/Prev lesson buttons if needed */}
+          {/* Next/Prev lesson buttons can be added here if needed */}
         </DialogFooter>
       </DialogContent>
     </Dialog>

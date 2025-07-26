@@ -352,7 +352,7 @@ export default function SpaceLayout({
   return (
     <ErrorBoundary FallbackComponent={ErrorScreen}>
       <div className="min-h-screen flex flex-col bg-[#F5FAFA]">
-        {header}
+        {header && header}
 
         {/* Desktop Navigation - sticky */}
         {nav && (

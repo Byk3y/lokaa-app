@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
+import { formatAsTitle } from '@/utils/textUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,19 +63,34 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({
   }, [title, content, published, initialTitle, initialContent, isPublished]);
 
   const handleSave = async () => {
-    if (!title.trim()) {
-      toast({
-        title: "Title Required",
-        description: "Please enter a title for this lesson.",
-        variant: "destructive"
-      });
-      return;
+    // Extract title from content if not provided
+    let finalTitle = title.trim();
+    
+    if (!finalTitle) {
+      // Try to extract title from the first heading in the content
+      const headingMatch = content.match(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/i);
+      if (headingMatch) {
+        finalTitle = headingMatch[1].replace(/<[^>]*>/g, '').trim();
+      } else {
+        // Try to extract from the first paragraph
+        const paragraphMatch = content.match(/<p[^>]*>(.*?)<\/p>/i);
+        if (paragraphMatch) {
+          const text = paragraphMatch[1].replace(/<[^>]*>/g, '').trim();
+          if (text && text.length <= 100) {
+            finalTitle = text;
+          } else {
+            finalTitle = "Untitled Lesson";
+          }
+        } else {
+          finalTitle = "Untitled Lesson";
+        }
+      }
     }
 
     setIsSaving(true);
     try {
       await onSave({
-        title: title.trim(),
+        title: finalTitle,
         content,
         isPublished: published,
       });
@@ -82,7 +98,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({
       setHasUnsavedChanges(false);
       toast({
         title: "Lesson Saved",
-        description: `"${title}" has been saved successfully.`,
+        description: `"${finalTitle}" has been saved successfully.`,
         variant: "default"
       });
     } catch (error: any) {
@@ -156,23 +172,20 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({
           <div className="px-6 py-4 border-b bg-gray-50 flex-shrink-0">
             <div className="space-y-2">
               <Label htmlFor="lesson-title" className="text-sm font-medium">
-                Lesson Title {!title.trim() && <span className="text-red-500">*</span>}
+                Lesson Title (optional - will be extracted from content)
               </Label>
               <Input
                 id="lesson-title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter lesson title..."
-                className={`text-lg font-medium ${!title.trim() ? 'border-red-300' : ''}`}
+                onChange={(e) => setTitle(formatAsTitle(e.target.value))}
+                placeholder="Enter lesson title or let it be extracted from content..."
+                className="text-lg font-medium"
                 maxLength={100}
               />
               <div className="flex justify-between items-center">
                 <p className="text-xs text-gray-500">
                   {title.length} / 100 characters
                 </p>
-                {!title.trim() && (
-                  <p className="text-xs text-red-500">Title is required</p>
-                )}
               </div>
             </div>
           </div>
@@ -238,7 +251,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({
             </Button>
             <Button 
               onClick={handleSave}
-              disabled={isSaving || isLoading || !title.trim()}
+              disabled={isSaving || isLoading}
               className="flex items-center gap-2"
             >
               {isSaving ? (

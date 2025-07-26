@@ -47,6 +47,7 @@ export interface FeedTabProps {
   isAdmin: boolean;
   postInputRef?: React.RefObject<HTMLTextAreaElement | HTMLInputElement>;
   hasInstantAccess?: boolean;
+  disableVisibilityTracking?: boolean; // Option to disable page visibility tracking for persistent tabs
 }
 
 // Owner details interface

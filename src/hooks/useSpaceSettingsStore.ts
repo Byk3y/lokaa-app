@@ -648,8 +648,8 @@ function getChangedFields(
   const booleanFieldKeys: (keyof SpaceSettingsData)[] = ['is_private', 'feature_classroom_enabled', 'feature_calendar_enabled', 'feature_map_enabled', 'feature_7_day_trial_enabled'];
 
   (Object.keys(current) as Array<keyof SpaceSettingsData>).forEach(key => {
-    let originalValue = original[key];
-    let currentValue = current[key];
+    const originalValue = original[key];
+    const currentValue = current[key];
 
     if (booleanFieldKeys.includes(key)) {
       const currentBoolValue = currentValue === undefined || currentValue === null ? false : !!currentValue;

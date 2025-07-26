@@ -686,7 +686,7 @@ class PredictiveCacheEngine {
         const dayOfWeek = new Date(fromEvent.context.timestamp).getDay();
 
         // Find existing pattern or create new one
-        let pattern = userPattern.patterns.spaceNavigation.find(
+        const pattern = userPattern.patterns.spaceNavigation.find(
           p => p.fromSpace === fromSpace && p.toSpace === toSpace
         );
 
@@ -722,7 +722,7 @@ class PredictiveCacheEngine {
       const contentType = event.context.contentType;
       const hour = new Date(event.context.timestamp).getHours();
 
-      let pattern = userPattern.patterns.contentAccess.find(
+      const pattern = userPattern.patterns.contentAccess.find(
         p => p.spaceId === spaceId && p.contentType === contentType
       );
 
@@ -765,7 +765,7 @@ class PredictiveCacheEngine {
       const [hour, dayOfWeek] = key.split('_').map(Number);
       const actions = groupEvents.map(e => e.action);
       
-      let pattern = userPattern.patterns.timeBasedPatterns.find(
+      const pattern = userPattern.patterns.timeBasedPatterns.find(
         p => p.hour === hour && p.dayOfWeek === dayOfWeek
       );
 
@@ -796,7 +796,7 @@ class PredictiveCacheEngine {
       const nextAction = events[i + 1].action;
       const duration = events[i + 1].context.timestamp - events[i].context.timestamp;
 
-      let sequence = userPattern.patterns.interactionSequences.find(
+      const sequence = userPattern.patterns.interactionSequences.find(
         s => s.sequence.includes(currentAction)
       );
 
@@ -805,7 +805,7 @@ class PredictiveCacheEngine {
         sequence.avgDuration = (sequence.avgDuration + duration) / 2;
         
         // Update next probable actions
-        let nextProb = sequence.nextProbableActions.find(a => a.action === nextAction);
+        const nextProb = sequence.nextProbableActions.find(a => a.action === nextAction);
         if (nextProb) {
           nextProb.probability = Math.min(nextProb.probability + 0.1, 1.0);
         } else {

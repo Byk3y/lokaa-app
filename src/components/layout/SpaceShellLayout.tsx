@@ -16,6 +16,8 @@ import { useAutoPresenceUpdater } from "@/hooks/useAutoPresenceUpdater"; // 🎯
 import { getSupabaseClient } from "@/integrations/supabase/client"; // Add for category verification
 import { devLogger } from "@/utils/developmentLogger";
 import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
+import SpaceTabContentTrulyPersistent from "@/components/space/SpaceTabContentTrulyPersistent";
+import { usePersistentTabs } from "@/hooks/usePersistentTabs";
 /**
  * SpaceShellLayout - A shell layout for space pages
  * 
@@ -45,21 +47,23 @@ export default function SpaceShellLayout() {
   // State needed for the shell
   const [searchQuery, setSearchQuery] = useState("");
   
-  // 🚀 FIXED: Use robust pathname-based tab detection instead of unreliable useParams
-  const [activeTab, setActiveTab] = useState<SpaceTab>(() => {
-    // Extract tab directly from pathname for immediate, accurate detection
-    const extractedTab = extractTabFromPathname(location.pathname);
-    
+  // 🚀 REVOLUTIONARY: Use URL-independent tab management
+  const { currentTab: activeTab, switchTab } = usePersistentTabs(subdomain);
+  
+  // Debug logging for tab state (only when there's a mismatch)
+  useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      log.debug('Component', '🚀 [SpaceShellLayout] Initial tab detection:', {
+      const extractedTab = extractTabFromPathname(location.pathname);
+      if (activeTab !== extractedTab) {
+        console.log('🔍 [SpaceShellLayout] Tab state mismatch detected:', {
+          activeTab,
         pathname: location.pathname,
         extractedTab,
-        urlTab: tab
+          subdomain
       });
+      }
     }
-    
-    return extractedTab;
-  });
+  }, [activeTab, location.pathname, subdomain]);
   
   // Load the space from the store
   const { loadActiveSpace, space: storeSpace } = useSpaceSettingsStore();
@@ -110,7 +114,7 @@ export default function SpaceShellLayout() {
         });
         
         // Set the active tab to feed
-        setActiveTab('feed');
+        switchTab('feed');
         
         // Reset scroll position for initial feed navigation
         resetScrollForFeedNavigation();
@@ -216,7 +220,7 @@ export default function SpaceShellLayout() {
           if (process.env.NODE_ENV === 'development') {
             log.debug('Component', `🔄 [SpaceShellLayout] Syncing activeTab after navigation: ${activeTab} -> ${currentExtractedTab}`);
           }
-          setActiveTab(currentExtractedTab);
+          switchTab(currentExtractedTab);
           
           // Reset scroll position when feed tab becomes active
           if (currentExtractedTab === 'feed') {
@@ -244,36 +248,19 @@ export default function SpaceShellLayout() {
     }
   }, [location.pathname, subdomain, navigate]);
 
-  // 🚀 FIXED: Improved tab change handler with better URL building
+  // 🚀 REVOLUTIONARY: URL-independent tab switching
   const handleTabChange = (tabKey: string) => {
-    const newTab = tabKey as SpaceTab;
-    
-    // Update local state immediately for responsive UI
-    setActiveTab(newTab);
-    
-    // Store in session storage for persistence
-    try {
-      sessionStorage.setItem(`active_tab_${subdomain}`, newTab);
-    } catch (err) {
-      log.warn('Component', 'Failed to store active tab:', err);
-    }
+    // Use persistent tab manager - no React Router navigation!
+    switchTab(tabKey as any);
     
     // Reset scroll position for feed navigation
-    if (newTab === 'feed') {
+    if (tabKey === 'feed') {
       resetScrollForFeedNavigation();
     }
     
-    // Build the appropriate URL using our utility
-    const url = buildSpaceUrl(subdomain || '', newTab);
-    
     if (process.env.NODE_ENV === 'development') {
-      log.debug('Component', `🔄 [SpaceShellLayout] Navigating to tab: ${newTab} -> ${url}`);
+      log.debug('Component', `🔄 [SpaceShellLayout] Tab switched via persistent manager: ${tabKey}`);
     }
-    
-    navigate(url, {
-      replace: true,
-      state: { preserveSpace: true, activeTab: newTab } as LocationState,
-    });
   };
 
   // **FIX**: Listen for custom tab change events from bottom nav
@@ -286,7 +273,7 @@ export default function SpaceShellLayout() {
         log.debug('Component', `🔄 [SpaceShellLayout] Handling custom tab change from ${source}: ${tabKey}`);
         
         // Use the same tab change logic but skip the navigation since bottom nav handles URL
-        setActiveTab(tabKey as SpaceTab);
+        switchTab(tabKey as any);
         
         // Reset scroll position for feed navigation
         if (tabKey === 'feed') {
@@ -313,11 +300,11 @@ export default function SpaceShellLayout() {
   return (
     <SpaceLayout
       header={(
-        <SpaceHeader 
-          subdomain={subdomain}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-        />
+          <SpaceHeader 
+            subdomain={subdomain}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+          />
       )}
       nav={(
         <div className="hidden lg:block">
@@ -331,16 +318,16 @@ export default function SpaceShellLayout() {
     >
       {/* On mobile, SpaceNav is part of the scrollable body */}
       <div className="block lg:hidden">
-        <SpaceNav 
-          subdomain={subdomain}
-          activeTab={activeTab}
-          onTabChange={handleTabChange} 
-        />
+          <SpaceNav 
+            subdomain={subdomain}
+            activeTab={activeTab}
+            onTabChange={handleTabChange} 
+          />
       </div>
       
-      {/* The Outlet will render the appropriate tab component without re-rendering the shell */}
+      {/* REVOLUTIONARY: Truly persistent component with URL-independent tab management */}
       <div className="px-0 sm:px-4 pt-4 sm:pt-6 pb-16 sm:pb-6">
-        <Outlet context={{ activeTab, subdomain }} />
+        <SpaceTabContentTrulyPersistent />
       </div>
       
       {/* Common modals that should persist across tab changes */}

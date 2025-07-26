@@ -454,6 +454,7 @@ export const cacheQueries = {
             pinned_at, pin_position, pin_category, edited_at, poll_data, slug
           `)
           .eq('space_id', spaceId)
+          .neq('post_type', 'course_page') // ✅ Exclude course lesson posts from main feed
           .order('created_at', { ascending: false })
           .range(offset, offset + limit - 1);
           

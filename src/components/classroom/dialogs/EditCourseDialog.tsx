@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
+import { formatAsTitle } from '@/utils/textUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload, X } from "lucide-react";
 import { toast } from '@/hooks/use-toast';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import type { CourseDisplayData } from '@/types/classroom';
+import { uploadCourseImage, validateCourseImage } from "@/utils/courseImageUpload";
+import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 
 interface EditCourseDialogProps {
   isOpen: boolean;
@@ -37,6 +39,10 @@ export function EditCourseDialog({
   const [coursePrice, setCoursePrice] = useState('');
   const [courseCurrency, setCourseCurrency] = useState('NGN');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Populate form when course or dialog opens
   useEffect(() => {
@@ -47,8 +53,44 @@ export function EditCourseDialog({
       setIsPublished(course.is_published !== false);
       setCoursePrice(course.price ? String(course.price) : '');
       setCourseCurrency(course.currency || 'NGN');
+      setCoverImageUrl(course.image_url || '');
     }
   }, [isOpen, course]);
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !course?.space_id) return;
+
+    // Validate the file first
+    const validation = validateCourseImage(file);
+    if (!validation.isValid) {
+      log.error('Component', "Invalid file:", new Error(validation.error || 'Unknown validation error'));
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const uploadedUrl = await uploadCourseImage(file, course.space_id);
+      if (uploadedUrl) {
+        setCoverImageUrl(uploadedUrl);
+      }
+    } catch (error) {
+      log.error('Component', "Upload failed:", error);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const triggerImageUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const removeCoverImage = () => {
+    setCoverImageUrl("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleUpdateCourse = async () => {
     if (!course) return;
@@ -125,6 +167,7 @@ export function EditCourseDialog({
           price: priceValue,
           is_published: isPublished,
           currency: courseCurrency,
+          image_url: coverImageUrl || null,
         })
         .eq('id', course.id)
         .select()
@@ -149,6 +192,7 @@ export function EditCourseDialog({
           price: updatedCourseData.price,
           is_published: updatedCourseData.is_published,
           currency: courseCurrency,
+          image_url: coverImageUrl || null,
         };
 
         // Notify parent component
@@ -179,113 +223,205 @@ export function EditCourseDialog({
           <DialogDescription>Update the course details.</DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              {/* Course Title */}
-              <div className="grid gap-1.5">
-                <Label htmlFor="edit-course-title" className="text-sm font-medium">Course Title</Label>
-                <Input
-                  id="edit-course-title"
-                  value={courseTitle}
-                  onChange={(e) => setCourseTitle(e.target.value)}
-                  placeholder="e.g., Introduction to React"
-                  className="text-base py-2.5 px-3"
-                />
-                <div className="text-xs text-gray-500 text-right">
-                  {courseTitle.length} / 50
-                </div>
-              </div>
-
-              {/* Course Description */}
-              <div className="grid gap-1.5">
-                <Label htmlFor="edit-course-description" className="text-sm font-medium">Course Description</Label>
-                <Textarea
-                  id="edit-course-description"
-                  value={courseDescription}
-                  onChange={(e) => setCourseDescription(e.target.value)}
-                  placeholder="Describe what students will learn..."
-                  rows={4}
-                  className="text-base py-2.5 px-3"
-                />
-                <div className="text-xs text-gray-500 text-right">
-                  {courseDescription.length} / 5000
-                </div>
+        <div className="px-6 pb-4">
+          <div className="space-y-4">
+            {/* Course Title - Full Width */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-course-title">Course Title</Label>
+              <Input
+                id="edit-course-title"
+                value={courseTitle}
+                onChange={(e) => setCourseTitle(formatAsTitle(e.target.value))}
+                placeholder="e.g., Introduction to React"
+                className="text-base py-2.5 px-3 border-gray-300 focus:border-primary focus:ring-primary rounded-md shadow-sm"
+              />
+              <div className="text-xs text-gray-500 self-end text-right pr-1">
+                {courseTitle.length} / 50
               </div>
             </div>
 
-            <div className="space-y-4">
-              {/* Access Type */}
-              <div className="grid gap-3">
-                <Label className="text-sm font-medium">Course Access</Label>
-                <RadioGroup 
-                  value={accessType} 
-                  onValueChange={(value: 'open' | 'paid') => setAccessType(value)}
-                  className="gap-3"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="open" id="edit-access-open" />
-                    <Label htmlFor="edit-access-open" className="text-sm cursor-pointer">
-                      Open (Free Access)
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="paid" id="edit-access-paid" />
-                    <Label htmlFor="edit-access-paid" className="text-sm cursor-pointer">
-                      Paid Course
-                    </Label>
-                  </div>
-                </RadioGroup>
+            {/* Course Description - Full Width */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-course-description">Course Description</Label>
+              <Textarea
+                id="edit-course-description"
+                value={courseDescription}
+                onChange={(e) => setCourseDescription(e.target.value)}
+                placeholder="Describe what students will learn..."
+                className="min-h-[80px] text-base py-2.5 px-3 border-gray-300 focus:border-primary focus:ring-primary rounded-md shadow-sm"
+                rows={3}
+              />
+              <div className="text-xs text-gray-500 self-end text-right pr-1">
+                {courseDescription.length} / 5000
               </div>
+            </div>
 
-              {/* Price (only show if paid) */}
-              {accessType === 'paid' && (
-                <div className="grid gap-1.5">
-                  <Label htmlFor="edit-course-price" className="text-sm font-medium">Course Price</Label>
-                  <div className="flex gap-2">
-                    <select 
-                      value={courseCurrency}
-                      onChange={(e) => setCourseCurrency(e.target.value)}
-                      className="px-3 py-2.5 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-white w-20"
-                    >
-                      <option value="NGN">₦</option>
-                      <option value="USD">$</option>
-                      <option value="EUR">€</option>
-                      <option value="GBP">£</option>
-                    </select>
+            {/* Access Type Section - Full Width */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Access Type</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div 
+                  onClick={() => setAccessType("open")}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ease-in-out 
+                              ${accessType === "open" 
+                                ? 'border-primary ring-2 ring-primary shadow-md bg-primary/5' 
+                                : 'border-gray-300 hover:border-gray-400 bg-white'}`}
+                  style={{borderColor: accessType === "open" ? primaryColor : undefined}}
+                >
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="edit-access-open" 
+                      name="edit-access-type" 
+                      value="open"
+                      checked={accessType === "open"}
+                      onChange={() => setAccessType("open")} 
+                      className="h-4 w-4 text-primary border-gray-300 focus:ring-primary mr-3 shrink-0"
+                      style={{color: primaryColor, borderColor: primaryColor}}
+                    />
+                    <div>
+                      <label htmlFor="edit-access-open" className="font-semibold text-gray-800 block text-sm cursor-pointer">Open</label>
+                      <span className="text-xs text-gray-500 block">All members can access.</span>
+                    </div>
+                  </div>
+                </div>
+                <div 
+                  onClick={() => setAccessType("paid")}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ease-in-out 
+                              ${accessType === "paid" 
+                                ? 'border-primary ring-2 ring-primary shadow-md bg-primary/5' 
+                                : 'border-gray-300 hover:border-gray-400 bg-white'}`}
+                  style={{borderColor: accessType === "paid" ? primaryColor : undefined}}
+                >
+                  <div className="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="edit-access-paid" 
+                      name="edit-access-type" 
+                      value="paid"
+                      checked={accessType === "paid"}
+                      onChange={() => setAccessType("paid")} 
+                      className="h-4 w-4 text-primary border-gray-300 focus:ring-primary mr-3 shrink-0"
+                      style={{color: primaryColor, borderColor: primaryColor}}
+                    />
+                    <div>
+                      <label htmlFor="edit-access-paid" className="font-semibold text-gray-800 block text-sm cursor-pointer">Buy now</label>
+                      <span className="text-xs text-gray-500 block">Members pay a 1-time price.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {accessType === "paid" && (
+                <div className="mt-3">
+                  <Label htmlFor="edit-course-price" className="text-sm font-medium">One-time purchase price</Label>
+                  <div className="relative mt-1.5">
+                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+                      $
+                    </div>
                     <Input 
                       id="edit-course-price"
                       type="number"
-                      placeholder="0.00"
+                      placeholder="49.99" 
                       value={coursePrice}
                       onChange={(e) => setCoursePrice(e.target.value)}
-                      className="text-base py-2.5 px-3 flex-1"
+                      className="text-base py-2.5 pl-8 pr-4 border-gray-300 focus:border-primary focus:ring-primary rounded-md shadow-sm"
                       min="0"
-                      step="0.01"
                     />
                   </div>
                 </div>
               )}
+            </div>
 
-              {/* Publish Status */}
-              <div className="flex items-center justify-between py-2">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-medium">Publish Course</Label>
-                  <p className="text-xs text-gray-500">
-                    {isPublished ? "Course is visible to students" : "Course is hidden from students"}
-                  </p>
+            {/* Cover Image Section - Full Width */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Cover Image</Label>
+              <div className="flex items-start gap-4">
+                {/* Upload Area */}
+                <div>
+                  {coverImageUrl ? (
+                    <div className="relative max-w-[365px] w-full">
+                      <img
+                        src={coverImageUrl}
+                        alt="Course cover"
+                        className="w-full h-[188px] object-cover rounded-lg border-2 border-gray-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeCoverImage}
+                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-10"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={triggerImageUpload}
+                      disabled={isUploadingImage}
+                      className="w-[365px] h-[188px] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-gray-50"
+                    >
+                      {isUploadingImage ? (
+                        <>
+                          <Loader2 className="h-8 w-8 text-gray-400 mb-2 animate-spin" />
+                          <span className="text-sm text-gray-500">Uploading...</span>
+                        </>
+                      ) : (
+                        <span className="text-lg font-medium text-blue-500">Upload</span>
+                      )}
+                    </button>
+                  )}
                 </div>
-                <Switch 
-                  checked={isPublished}
-                  onCheckedChange={setIsPublished}
-                />
+                
+                {/* Details and Controls - Right next to image */}
+                <div className="flex flex-col justify-center space-y-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">Cover</h3>
+                    <p className="text-sm text-gray-500">1460 x 752 px</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={triggerImageUpload}
+                    disabled={isUploadingImage}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {isUploadingImage ? "UPLOADING..." : "CHANGE"}
+                  </button>
+                </div>
               </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                className="hidden"
+                accept="image/*"
+              />
             </div>
           </div>
         </div>
 
-        <DialogFooter className="flex sm:justify-between items-center">
-          <div></div>
+        <DialogFooter className="px-6 pb-2 pt-0 flex sm:justify-between items-center">
+          {/* Published Toggle - Simple version */}
+          <div 
+            role="switch"
+            aria-checked={isPublished}
+            onClick={() => setIsPublished(prev => !prev)}
+            className="flex items-center cursor-pointer"
+          >
+            <div 
+              className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ease-in-out 
+                          ${isPublished ? 'bg-green-500' : 'bg-gray-300'}`}
+            >
+              <div 
+                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out 
+                            ${isPublished ? 'translate-x-5' : 'translate-x-0'}`}
+              ></div>
+            </div>
+            <span className={`ml-3 font-medium text-sm ${isPublished ? 'text-green-700' : 'text-gray-700'}`}>
+              {isPublished ? 'Published' : 'Draft'}
+            </span>
+          </div>
+          
           <div className="flex gap-4">
             <Button 
               variant="outline" 
@@ -297,13 +433,11 @@ export function EditCourseDialog({
             </Button>
             <Button 
               onClick={handleUpdateCourse}
-              className="px-6"
-              style={{ backgroundColor: primaryColor, color: 'white' }}
+              className="text-white px-6"
+              style={{ backgroundColor: primaryColor }}
               disabled={isUpdating}
             >
-              {isUpdating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
+              {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isUpdating ? "SAVING..." : "SAVE CHANGES"}
             </Button>
           </div>

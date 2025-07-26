@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
 import React, { useState } from 'react';
+import { formatAsTitle } from '@/utils/textUtils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -81,7 +82,7 @@ export default function PostEdit({ post, onCancel, onSave }: PostEditProps) {
       {/* Post Title Input */}
       <Input
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => setTitle(formatAsTitle(e.target.value))}
         placeholder="Post Title (optional)"
         className="text-xl font-bold text-gray-900 mb-4 focus:ring-2 focus:ring-blue-500"
       />

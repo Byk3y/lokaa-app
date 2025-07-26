@@ -4,6 +4,7 @@ import { useConversations, ChatListUnified } from '@/features/chat';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import ChatView from '@/components/chat/ChatView';
 import StartNewChatView from '@/components/chat/StartNewChatView';
+import { setPendingChatNavigation } from '@/utils/scrollPositionManager';
 import { type LegacyConversation } from '@/features/chat/types';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import MobileSpaceDrawer from '@/components/mobile/MobileSpaceDrawer';
@@ -30,7 +31,7 @@ export default function ChatContainer({
   isExpanded 
 }: ChatContainerProps) {
   const { user } = useOptimizedAuth();
-  const { spaceData } = useSpace();
+  const { space } = useSpace();
   
   // ✅ CRITICAL FIX: Use new conversation system entirely
   const { 
@@ -61,6 +62,17 @@ export default function ChatContainer({
     conversationsLength: legacyConversations?.length || 0,
     userId: user?.id
   });
+
+  // ✅ MODERN 2025: Prevent background scroll when chat is open
+  useEffect(() => {
+    if (isModal && view === 'chat') {
+      // Add class to body to prevent background scroll
+      document.body.classList.add('chat-page-open');
+      return () => {
+        document.body.classList.remove('chat-page-open');
+      };
+    }
+  }, [isModal, view]);
 
   // Handle initial conversation ID and URL changes
   useEffect(() => {
@@ -157,6 +169,32 @@ export default function ChatContainer({
     };
   }, [legacyConversations?.length, isModal, isMobileForUrls, activeConversationId]); // ✅ INFINITE LOOP FIX: Added activeConversationId for state guard
 
+  // ✅ CRITICAL FIX: Set pending chat navigation when modal opens
+  useEffect(() => {
+    if (isModal) {
+      setPendingChatNavigation(true);
+      console.log('🔍 [ChatContainer] Set pending chat navigation - modal opened');
+      
+      return () => {
+        setPendingChatNavigation(false);
+        console.log('🔍 [ChatContainer] Cleared pending chat navigation - modal closed');
+      };
+    }
+  }, [isModal]);
+
+  // ✅ CRITICAL FIX: Clear pending flag when chat view is mounted
+  useEffect(() => {
+    if (view === 'chat' && activeConversationId) {
+      // Clear the pending flag after a short delay to ensure chat is fully mounted
+      const timeoutId = setTimeout(() => {
+        setPendingChatNavigation(false);
+        console.log('🔍 [ChatContainer] Cleared pending chat navigation - chat mounted');
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [view, activeConversationId]);
+
   const handleSelectConversation = (conversation: LegacyConversation) => {
     // This is called by ChatListItem for state consistency
     selectConversation(conversation.conversation_id);
@@ -164,7 +202,11 @@ export default function ChatContainer({
   };
   
   const handleBack = () => {
-    if (isMobileForUrls && !isModal) {
+    if (isModal) {
+      // Modal: Close the modal when back is pressed
+      log.debug('Component', '🗨️ [ChatContainer] Modal back button pressed - closing modal');
+      onClose?.();
+    } else if (isMobileForUrls) {
       // Mobile: Use URL navigation for browser history
       const success = navigateToConversationList();
       if (success) {
@@ -172,7 +214,7 @@ export default function ChatContainer({
       }
       // The actual view change will happen via URL change listener
     } else {
-      // Desktop or modal: Direct state management
+      // Desktop: Direct state management
       setView('list');
       selectConversation(null);
     }
@@ -223,7 +265,7 @@ export default function ChatContainer({
             <MobileSpaceDrawer
               isOpen={drawerOpen}
               onClose={() => setDrawerOpen(false)}
-              currentSpaceSubdomain={spaceData?.subdomain || ''}
+              currentSpaceSubdomain={space?.subdomain || ''}
               userId={user?.id || ''}
             />
           )}

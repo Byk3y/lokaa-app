@@ -25,3 +25,132 @@ html {
   transform-origin: top center;
   will-change: transform, opacity;
 } 
+
+/* Skool-style YouTube branding removal */
+.skool-style-video-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.video-wrapper iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 12px;
+  display: block;
+}
+
+/* Main branding overlay - covers YouTube logo and controls */
+.skool-branding-overlay {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 150px;
+  height: 50px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  z-index: 10000;
+  pointer-events: none;
+  border-radius: 8px 0 12px 0;
+  opacity: 0.98;
+}
+
+/* Secondary overlay for better coverage */
+.skool-corner-overlay {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 120px;
+  height: 40px;
+  background: #ffffff;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 6px 0 12px 0;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .skool-branding-overlay {
+    width: 110px;
+    height: 40px;
+  }
+  
+  .skool-corner-overlay {
+    width: 90px;
+    height: 30px;
+  }
+}
+
+/* Legacy YouTube branding classes removed - using skool-style approach instead */
+
+/* Lesson content spacing for embedded videos */
+.prose iframe,
+.prose .skool-style-video-container {
+  margin-bottom: 2rem !important;
+  margin-top: 1rem !important;
+}
+
+/* Ensure proper spacing for video embeds in lesson content */
+.prose div[data-youtube-video],
+.prose .video-embed,
+.prose .youtube-embed {
+  margin-bottom: 2rem !important;
+  margin-top: 1rem !important;
+}
+
+/* Additional spacing for content after videos */
+.prose iframe + *,
+.prose .skool-style-video-container + *,
+.prose div[data-youtube-video] + *,
+.prose .video-embed + *,
+.prose .youtube-embed + * {
+  margin-top: 1.5rem !important;
+}
+
+/* Target the specific lesson content classes */
+.lesson-content iframe,
+.lesson-content-inner iframe {
+  margin-bottom: 2rem !important;
+  margin-top: 1rem !important;
+}
+
+.lesson-content iframe + *,
+.lesson-content-inner iframe + * {
+  margin-top: 1.5rem !important;
+}
+
+/* AGGRESSIVE: Target ANY iframe in the lesson content area */
+.bg-white.border.border-gray-200.rounded-lg.p-6 div iframe,
+.bg-white.border.border-gray-200.rounded-lg.p-6 iframe,
+.text-gray-700 iframe,
+.lesson-content iframe,
+.lesson-content-inner iframe,
+.prose iframe,
+[class*="lesson"] iframe,
+[class*="course"] iframe {
+  margin-bottom: 3rem !important;
+  margin-top: 1rem !important;
+  display: block !important;
+}
+
+/* AGGRESSIVE: Add spacing after ANY iframe */
+.bg-white.border.border-gray-200.rounded-lg.p-6 div iframe + *,
+.bg-white.border.border-gray-200.rounded-lg.p-6 iframe + *,
+.text-gray-700 iframe + *,
+.lesson-content iframe + *,
+.lesson-content-inner iframe + *,
+.prose iframe + *,
+[class*="lesson"] iframe + *,
+[class*="course"] iframe + * {
+  margin-top: 2rem !important;
+} 

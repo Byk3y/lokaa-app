@@ -97,8 +97,8 @@ export class PushNotificationIntegrationService {
 
     let title = '';
     let body = '';
-    let icon = '/icons/icon-192x192.png';
-    let badge = '/icons/icon-96x96.png';
+    const icon = '/icons/icon-192x192.png';
+    const badge = '/icons/icon-96x96.png';
 
     switch (notification.type) {
       case 'post_like':

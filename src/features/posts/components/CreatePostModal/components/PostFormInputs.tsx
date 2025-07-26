@@ -1,6 +1,7 @@
 import React from 'react';
 import { PostTemplateSelector } from '../../PostTemplateSelector';
 import type { PostFormInputsProps } from '../types';
+import { formatAsTitle } from '@/utils/textUtils';
 
 /**
  * Form inputs component for title and content
@@ -22,7 +23,7 @@ export const PostFormInputs: React.FC<PostFormInputsProps> = ({
         <input
           id="post-title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => setTitle(formatAsTitle(e.target.value))}
           placeholder="Give your post a title"
           className="block w-full rounded-md py-2 sm:py-3 px-3 text-base font-semibold font-sans tracking-tight capitalize placeholder-gray-400 focus:outline-none focus:ring-0 border-b-2 border-gray-200 focus:border-teal-500 transition-colors dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:focus:border-teal-400"
         />

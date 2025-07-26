@@ -1,6 +1,6 @@
 import { log } from '@/utils/logger';
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatCommentTime } from '@/utils/formatters';
 import { toast } from '@/hooks/use-toast';
 import { useRealtimeCommentLikes } from '@/hooks/useRealtimeCommentLikes';
 
@@ -184,7 +184,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     onLikeRemoved: handleRealtimeCommentLikeRemoved
   });
 
-  const timeAgo = formatDistanceToNow(new Date(created_at), { addSuffix: true });
+  const timeAgo = formatCommentTime(created_at);
 
   const handleLikeToggle = async () => {
     if (!userIdForActions || isLiking) return;

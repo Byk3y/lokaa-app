@@ -26,6 +26,91 @@ export interface TabDependencies {
   postInputRef?: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>;
 }
 
+// Global admin status cache to prevent race conditions across component instances
+const globalAdminStatusCache = new Map<string, {
+  isComprehensiveAdmin: boolean;
+  timestamp: number;
+  expires: number;
+}>();
+
+const ADMIN_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Determine and cache comprehensive admin status to prevent race conditions
+ */
+async function getComprehensiveAdminStatus(user: any, spaceData: any): Promise<boolean> {
+  if (!user?.id || !spaceData?.id) {
+    return false;
+  }
+
+  const cacheKey = `${user.id}_${spaceData.id}`;
+  const now = Date.now();
+  
+  // Check cache first
+  const cached = globalAdminStatusCache.get(cacheKey);
+  if (cached && now < cached.expires) {
+    if (process.env.NODE_ENV === 'development') {
+      devLogger.log('TabManager', `🔐 [Admin Cache] Using cached admin status for ${user.id}: ${cached.isComprehensiveAdmin}`);
+    }
+    return cached.isComprehensiveAdmin;
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    devLogger.log('TabManager', `🔐 [Admin Check] Determining admin status for user ${user.id} in space ${spaceData.id}`);
+  }
+
+  try {
+    const { getSupabaseClient } = await import('@/integrations/supabase/client');
+    const supabase = getSupabaseClient();
+    
+    // Check if user is a general admin
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    
+    const isGeneralAdmin = userProfile?.role === 'admin';
+    
+    // Check if user is a space admin
+    let isSpaceAdmin = false;
+    const { data: spaceMembership, error: membershipError } = await supabase
+      .from('space_members')
+      .select('role, status')
+      .eq('space_id', spaceData.id)
+      .eq('user_id', user.id)
+      .single();
+    
+    if (membershipError && membershipError.code !== 'PGRST116') {
+      console.error('Error checking space membership:', membershipError);
+    }
+    
+    isSpaceAdmin = spaceMembership?.role === 'admin' && spaceMembership?.status === 'active';
+    
+    // Check if user is the space owner
+    const isSpaceOwner = spaceData?.owner_id === user.id;
+    
+    // User is comprehensive admin if they're general admin OR space admin OR space owner
+    const isComprehensiveAdmin = isGeneralAdmin || isSpaceAdmin || isSpaceOwner;
+    
+    // Cache the result
+    globalAdminStatusCache.set(cacheKey, {
+      isComprehensiveAdmin,
+      timestamp: now,
+      expires: now + ADMIN_CACHE_DURATION
+    });
+    
+    if (process.env.NODE_ENV === 'development') {
+      devLogger.log('TabManager', `🔐 [Admin Check] Determined admin status: ${isComprehensiveAdmin} (general: ${isGeneralAdmin}, space: ${isSpaceAdmin}, owner: ${isSpaceOwner})`);
+    }
+    
+    return isComprehensiveAdmin;
+  } catch (error) {
+    console.error('Error checking comprehensive admin status:', error);
+    return false;
+  }
+}
+
 // Tab creation result
 export interface TabCreationResult {
   component: JSX.Element | null;
@@ -43,10 +128,10 @@ export class TabManagerService {
   /**
    * Create a tab component with proper dependencies
    */
-  static createTabComponent(
+  static async createTabComponent(
     tabKey: SpaceTab,
     dependencies: TabDependencies
-  ): TabCreationResult {
+  ): Promise<TabCreationResult> {
     const { user, permissions, spaceData, subdomain, hasInstantAccess, postInputRef } = dependencies;
 
     if (!user?.id) {
@@ -72,14 +157,12 @@ export class TabManagerService {
     // Re-enabled: Component caching is now safe since Phase 1 moved state to Zustand stores.
     // Components get fresh data from stores rather than stale JSX state.
     // CRITICAL FIX: Try multiple cache lookups to handle subdomain timing issues
+    
     let existingComponent = globalTabComponentManager.getTabComponent(effectiveSubdomain, tabKey, user.id);
     
     // If cache miss with effectiveSubdomain, try original subdomain as fallback
     if (!existingComponent && subdomain && subdomain !== effectiveSubdomain) {
       existingComponent = globalTabComponentManager.getTabComponent(subdomain, tabKey, user.id);
-      if (existingComponent && process.env.NODE_ENV === 'development') {
-        devLogger.log('TabManager', `Cache hit with original subdomain: ${subdomain} (effective: ${effectiveSubdomain})`);
-      }
     }
     
     // If still no cache hit, try checking by partial key match for robustness
@@ -89,25 +172,16 @@ export class TabManagerService {
       const currentSubdomain = currentPathSegments[0];
       if (currentSubdomain && currentSubdomain !== effectiveSubdomain && currentSubdomain !== subdomain) {
         existingComponent = globalTabComponentManager.getTabComponent(currentSubdomain, tabKey, user.id);
-        if (existingComponent && process.env.NODE_ENV === 'development') {
-          devLogger.log('TabManager', `Cache hit with window location subdomain: ${currentSubdomain}`);
-        }
       }
     }
     
     if (existingComponent) {
-      if (process.env.NODE_ENV === 'development') {
-        devLogger.log('TabManager', `Using CACHED ${tabKey} component for ${effectiveSubdomain}`);
-      }
       return { component: existingComponent, cached: true, created: false };
     }
 
     // Create new component if it doesn't exist
     const effectiveSpaceData = spaceData || getSpaceFallbackData(effectiveSubdomain);
     
-    if (process.env.NODE_ENV === 'development') {
-      devLogger.log('TabManager', `Creating NEW ${tabKey} component for ${effectiveSubdomain}`);
-    }
 
     let component: JSX.Element | null = null;
 
@@ -141,14 +215,25 @@ export class TabManagerService {
         break;
         
       case 'classroom':
+        
         if (effectiveSpaceData?.id) {
+          // CRITICAL FIX: Determine admin status before creating component to prevent race condition
+          const isComprehensiveAdmin = await getComprehensiveAdminStatus(user, effectiveSpaceData);
+          
+          
           component = React.createElement(ClassroomTab, {
             space: {
               id: effectiveSpaceData.id,
               name: effectiveSpaceData.name,
               owner_id: effectiveSpaceData.owner_id,
+            },
+            // Pass precomputed admin status to prevent race condition
+            precomputedAdminStatus: {
+              isComprehensiveAdmin,
+              adminCheckCompleted: true
             }
           });
+          
         } else {
           component = React.createElement('div', {
             className: "p-4 text-center"
@@ -195,10 +280,6 @@ export class TabManagerService {
         effectiveSpaceData.id, 
         component
       );
-      
-      if (process.env.NODE_ENV === 'development') {
-        devLogger.log('TabManager', `Stored ${tabKey} component globally for ${effectiveSubdomain}`);
-      }
     }
 
     return { component, cached: false, created: true };

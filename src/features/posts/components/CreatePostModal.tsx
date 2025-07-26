@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Paperclip, Link as LinkIcon, Video as VideoIcon, ImageIcon, Gift, Smile, BarChart, FileText, File } from 'lucide-react';
+import { formatAsTitle } from '@/utils/textUtils';
 import * as Dialog from '@radix-ui/react-dialog';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { generateUUID } from '@/utils/uuid';
@@ -398,7 +399,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         <input
                           id="post-title"
                           value={title}
-                          onChange={(e) => setTitle(e.target.value)}
+                          onChange={(e) => setTitle(formatAsTitle(e.target.value))}
                           placeholder="Title"
                           className="block w-full text-xl font-bold text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 bg-transparent border-none focus:outline-none focus:ring-0 p-0 mb-2"
                           style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
@@ -629,7 +630,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   
                   {/* Form Inputs */}
                   <div>
-                    <input id="post-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Give your post a title" className="block w-full rounded-md py-2 sm:py-3 px-3 text-base font-semibold font-sans tracking-tight capitalize placeholder-gray-400 focus:outline-none focus:ring-0 border-b-2 border-gray-200 focus:border-teal-500 transition-colors dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:focus:border-teal-400" />
+                    <input id="post-title" value={title} onChange={(e) => setTitle(formatAsTitle(e.target.value))} placeholder="Give your post a title" className="block w-full rounded-md py-2 sm:py-3 px-3 text-base font-semibold font-sans tracking-tight capitalize placeholder-gray-400 focus:outline-none focus:ring-0 border-b-2 border-gray-200 focus:border-teal-500 transition-colors dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:focus:border-teal-400" />
                   </div>
 
                   <div>

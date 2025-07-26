@@ -10,8 +10,8 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { Database } from '@/types/database.types';
 
-const SUPABASE_URL = "https://nmddvthcsyppyjncqfsk.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tZGR2dGhjc3lwcHlqbmNxZnNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ0ODg4MTYsImV4cCI6MjA2MDA2NDgxNn0.NMzMDvaOD2vHfBfjRbuit05EIdi7QK9pC_ChzX3klG0";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 interface HealthCheckResult {
   isHealthy: boolean;

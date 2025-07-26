@@ -200,7 +200,7 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
       
       // Use cached member_count first, only fetch real-time if explicitly needed
       let memberCount = data?.member_count || 0;
-      let onlineCount = 0;
+      const onlineCount = 0;
       let adminCount = 0;
       
       // OPTIMIZATION: Skip additional queries by default to reduce resource usage

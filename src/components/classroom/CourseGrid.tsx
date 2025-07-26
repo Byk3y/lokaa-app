@@ -58,6 +58,10 @@ export const CourseGrid = function CourseGrid({
   isProcessingEnrollment,
   primaryColor,
 }) {
+  // Debug logging (only on significant changes)
+  if (process.env.NODE_ENV === 'development' && courses?.length > 0) {
+    console.log('🎓 [CourseGrid] Courses loaded:', courses.length);
+  }
   // Component rendered
   // Memoize search filtering for better performance
   const searchedCourses = useMemo(() => {

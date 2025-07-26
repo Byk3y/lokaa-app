@@ -64,6 +64,7 @@ export function usePostsData({ spaceId, currentUserId, isAdmin }: UsePostsDataPr
         .from('posts')
         .select('id, created_at, content, title, like_count, comment_count, user_id, space_id, media_urls, category:space_categories!left (id, name, icon), is_pinned, pinned_at, pin_position, pin_category, edited_at, poll_data')
         .eq('space_id', spaceIdToFetch)
+        .neq('post_type', 'course_page') // ✅ Exclude course lesson posts from main feed
         .order('created_at', { ascending: false });
         
       if (postsFetchError) throw postsFetchError;

@@ -1,0 +1,360 @@
+# Cursor Rules for Lokaa App
+
+## Project Overview
+Lokaa is a React-based social learning platform built with TypeScript, Vite, Tailwind CSS, and Supabase. The app features spaces, classrooms, real-time collaboration, and mobile-first design.
+
+## Core Technologies
+- **Frontend**: React 18, TypeScript, Vite
+- **Styling**: Tailwind CSS, CSS Modules
+- **State Management**: Zustand, React Context
+- **Backend**: Supabase (PostgreSQL, Auth, Realtime, Storage)
+- **Testing**: Vitest, Jest
+- **Build Tools**: Vite, SWC
+- **Package Manager**: npm/bun
+- **Database Access**: Supabase MCP (available for direct database queries and management)
+- **Security**: Semgrep for vulnerability scanning
+
+## Architecture Principles
+
+### 1. Feature-First Organization
+- Organize code by features rather than technical concerns
+- Each feature should be self-contained with its own components, hooks, and utilities
+- Example structure: `src/features/auth/`, `src/features/classroom/`
+
+### 2. Component Architecture
+- **Container Components**: Handle data fetching, state management, and business logic
+- **UI Components**: Pure presentation components with minimal logic
+- **Layout Components**: Handle page structure and navigation
+- **Mobile-First**: Prioritize mobile experience with responsive design
+
+### 3. State Management
+- Use Zustand for global state management
+- Use React Context sparingly for theme/auth context
+- Keep component state local when possible
+- Implement optimistic updates for better UX
+
+## Coding Standards
+
+### TypeScript
+- Use strict TypeScript configuration
+- Define interfaces for all data structures
+- Use type guards for runtime type checking
+- Prefer `interface` over `type` for object shapes
+- Use generic types for reusable components
+
+### React Patterns
+- Use functional components with hooks
+- Implement proper error boundaries
+- Use React.memo for performance optimization
+- Follow the single responsibility principle
+- Keep components under 200 lines when possible
+
+### File Size Monitoring and Refactoring
+- **ALWAYS notify the user when a file exceeds 300 lines and needs refactoring**
+- **CRITICAL**: Files over 500 lines should be flagged for immediate refactoring
+- **URGENT**: Files over 1000 lines require immediate attention and should be split
+- Monitor file sizes during development and suggest refactoring when:
+  - Components have too many responsibilities
+  - Hooks contain multiple concerns
+  - Stores manage unrelated state
+  - Utilities become monolithic
+- Provide specific refactoring suggestions when files are too large
+- Suggest breaking down large files into smaller, focused components
+- Recommend splitting large hooks into multiple specialized hooks
+- Advise separating concerns in large stores
+
+### File Naming
+- Use PascalCase for components: `MobileLessonView.tsx`
+- Use camelCase for utilities: `videoContentExtractor.ts`
+- Use kebab-case for CSS files: `mobile-styles.css`
+- Use descriptive names that indicate purpose
+
+### Import Organization
+```typescript
+// 1. React and external libraries
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+// 2. Internal utilities and types
+import { formatCommentTime } from '@/utils/formatters';
+import type { Lesson, Space } from '@/types';
+
+// 3. Components
+import { MobileLessonView } from '@/components/classroom';
+import { Button } from '@/components/ui';
+
+// 4. Hooks and stores
+import { useAuthStore } from '@/stores';
+import { useClassroomIntegration } from '@/hooks/classroom';
+```
+
+## Security Guidelines
+
+### Authentication & Authorization
+- Always validate user permissions on both client and server
+- Use Supabase RLS (Row Level Security) policies
+- Implement proper CSRF protection
+- Sanitize user inputs before database operations
+- Use environment variables for sensitive data
+
+### Data Validation
+- Validate all user inputs with Zod schemas
+- Implement proper error handling for API calls
+- Use TypeScript for compile-time type safety
+- Sanitize HTML content to prevent XSS
+
+### Security Scanning
+- **ALWAYS scan code generated using Semgrep for security vulnerabilities**
+- Run security checks before committing any code changes
+- Address all security findings before deployment
+- Use Semgrep for both custom rules and standard security patterns
+
+## Performance Guidelines
+
+### Code Splitting
+- Use React.lazy for route-based code splitting
+- Implement dynamic imports for heavy components
+- Split vendor bundles appropriately
+
+### Optimization
+- Use React.memo for expensive components
+- Implement proper key props for lists
+- Optimize images with proper formats and sizes
+- Use virtual scrolling for large lists
+- Implement proper caching strategies
+
+### Mobile Performance
+- Optimize bundle size for mobile networks
+- Use service workers for offline functionality
+- Implement progressive loading
+- Minimize re-renders on mobile devices
+
+## Testing Standards
+
+### Unit Tests
+- Test all utility functions
+- Test component logic with React Testing Library
+- Mock external dependencies
+- Maintain >80% code coverage
+
+### Integration Tests
+- Test user workflows end-to-end
+- Test API integrations
+- Test mobile responsiveness
+
+### Security Tests
+- Test authentication flows
+- Test authorization boundaries
+- Test input validation
+- Test for common vulnerabilities
+
+## Database Guidelines
+
+### Supabase Best Practices
+- Use RLS policies for all tables
+- Implement proper indexes for performance
+- Use stored procedures for complex operations
+- Implement proper error handling for database operations
+- Use migrations for schema changes
+- **Use Supabase MCP for direct database queries when needed for debugging or data analysis**
+
+### Data Modeling
+- Normalize data appropriately
+- Use UUIDs for primary keys
+- Implement soft deletes where appropriate
+- Use proper foreign key constraints
+
+### Database Access
+- **Supabase MCP is available for direct database queries**
+- Use for debugging data structure issues
+- Query tables directly when investigating data problems
+- Access project information and manage database operations
+
+## Mobile Development
+
+### Responsive Design
+- Mobile-first approach
+- Use Tailwind's responsive utilities
+- Test on real devices, not just emulators
+- Implement proper touch targets (44px minimum)
+- Handle keyboard and viewport changes
+
+### Mobile-Specific Features
+- Implement proper PWA features
+- Handle offline scenarios
+- Optimize for slow networks
+- Implement proper mobile navigation patterns
+
+## Error Handling
+
+### Client-Side Errors
+- Use error boundaries for component errors
+- Implement proper error logging
+- Show user-friendly error messages
+- Provide recovery options when possible
+
+### API Errors
+- Handle network errors gracefully
+- Implement retry logic for transient failures
+- Show appropriate loading states
+- Validate API responses
+
+## Code Quality
+
+### Linting and Formatting
+- Use ESLint with TypeScript rules
+- Use Prettier for consistent formatting
+- Run linting in CI/CD pipeline
+- Fix all linting errors before merging
+
+### Code Review
+- Review for security vulnerabilities
+- Check for performance issues
+- Ensure proper error handling
+- Verify mobile responsiveness
+- Check accessibility compliance
+
+### Security Review
+- **ALWAYS run Semgrep security scan on generated code**
+- Review all security findings before merging
+- Address critical and high-severity vulnerabilities immediately
+- Use Semgrep for both automated and manual security reviews
+
+## Accessibility
+
+### WCAG Compliance
+- Implement proper ARIA labels
+- Ensure keyboard navigation
+- Provide alt text for images
+- Use semantic HTML elements
+- Test with screen readers
+
+### Color and Contrast
+- Maintain proper color contrast ratios
+- Don't rely solely on color for information
+- Support dark mode preferences
+
+## Documentation
+
+### Code Documentation
+- Document complex business logic
+- Use JSDoc for function documentation
+- Keep README files updated
+- Document API endpoints and data structures
+
+### Architecture Documentation
+- Maintain ADR (Architecture Decision Records)
+- Document component relationships
+- Keep deployment guides updated
+- Document security considerations
+
+## Deployment and DevOps
+
+### Environment Management
+- Use environment variables for configuration
+- Implement proper staging environments
+- Use feature flags for gradual rollouts
+- Monitor application performance
+
+### Security in Production
+- Use HTTPS everywhere
+- Implement proper CORS policies
+- Use security headers
+- Monitor for security vulnerabilities
+- Regular security audits
+
+## Specific Project Guidelines
+
+### Classroom Feature
+- Keep lesson content secure and properly validated
+- Implement proper video embedding
+- Handle large content efficiently
+- Ensure proper access controls
+
+### Real-time Features
+- Handle connection failures gracefully
+- Implement proper presence indicators
+- Optimize for mobile networks
+- Handle offline scenarios
+
+### Space Management
+- Implement proper space isolation
+- Handle subdomain routing correctly
+- Ensure proper user permissions
+- Optimize for multiple spaces
+
+## Common Patterns
+
+### API Calls
+```typescript
+// Use custom hooks for API calls
+const useLessonData = (lessonId: string) => {
+  const [data, setData] = useState<Lesson | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    // Implementation
+  }, [lessonId]);
+
+  return { data, loading, error };
+};
+```
+
+### Component Structure
+```typescript
+// Container component
+export const LessonContainer = ({ lessonId }: Props) => {
+  const { data, loading, error } = useLessonData(lessonId);
+  
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+  
+  return <LessonView lesson={data} />;
+};
+
+// UI component
+export const LessonView = ({ lesson }: { lesson: Lesson }) => {
+  return (
+    <div className="lesson-container">
+      {/* Implementation */}
+    </div>
+  );
+};
+```
+
+### State Management
+```typescript
+// Zustand store pattern
+interface LessonStore {
+  lessons: Lesson[];
+  currentLesson: Lesson | null;
+  loading: boolean;
+  fetchLesson: (id: string) => Promise<void>;
+}
+
+export const useLessonStore = create<LessonStore>((set, get) => ({
+  lessons: [],
+  currentLesson: null,
+  loading: false,
+  fetchLesson: async (id: string) => {
+    set({ loading: true });
+    try {
+      const lesson = await api.getLesson(id);
+      set({ currentLesson: lesson, loading: false });
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
+  },
+}));
+```
+
+## Final Notes
+
+- Always prioritize user experience and security
+- Test thoroughly on mobile devices
+- Keep performance in mind for all changes
+- Document architectural decisions
+- Follow the established patterns in the codebase
+- When in doubt, ask for review or clarification 

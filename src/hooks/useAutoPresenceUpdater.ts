@@ -48,8 +48,8 @@ export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
         // Fallback to direct Supabase call
         const { createClient } = await import('@supabase/supabase-js');
         const supabase = createClient(
-          'https://nmddvthcsyppyjncqfsk.supabase.co',
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tZGR2dGhjc3lwcHlqbmNxZnNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzMwMDgzNTksImV4cCI6MjA0ODU4NDM1OX0.rjR8EJ_Ue0WjUGUIwktd1-KHRq4BKSJ3WNAzN7EJGdQ'
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY
         );
         
         // Update current space to online, all others to offline

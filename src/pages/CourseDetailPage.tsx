@@ -21,12 +21,15 @@ const CourseDetailPage: React.FC = () => {
   const { user, loading: authLoading } = useOptimizedAuth();
   const { space, loading: spaceLoading } = useSpace();
   
-  // Extract module ID from query params (Skool-style ?md=moduleId)
-  const moduleId = searchParams.get('md');
+  // Extract lesson ID from query params (Skool-style ?md=lessonId)
+  const lessonId = searchParams.get('md');
+  // Extract module ID from query params (legacy support)
+  const moduleId = searchParams.get('moduleId');
   
   // Handle back navigation to classroom
   const handleBackToClassroom = () => {
     if (subdomain) {
+      // Navigate back to classroom tab within the persistent shell
       navigate(`/${subdomain}/space/classroom`);
     } else {
       navigate('/');
@@ -46,6 +49,7 @@ const CourseDetailPage: React.FC = () => {
   
   log.debug('Page', '🎓 [CourseDetailPage] Rendering with params:', {
     courseSlug,
+    lessonId,
     subdomain,
     moduleId,
     userId: user.id,
@@ -57,6 +61,7 @@ const CourseDetailPage: React.FC = () => {
       courseId={courseSlug} // For now, use courseSlug as courseId (will be resolved by slug lookup)
       onBack={handleBackToClassroom}
       moduleId={moduleId || undefined} // Pass module ID for direct module navigation
+      lessonId={lessonId || undefined} // Pass lesson ID for direct lesson navigation (Skool-style)
     />
   );
 };

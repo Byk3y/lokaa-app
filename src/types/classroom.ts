@@ -300,6 +300,35 @@ export interface ClassroomAnalytics {
 }
 
 /**
+ * Dialog state types for classroom management
+ */
+export interface CourseDialogState {
+  isOpen: boolean;
+  mode: 'create' | 'edit' | 'view';
+  course?: any;
+}
+
+export interface ModuleDialogState {
+  isOpen: boolean;
+  mode: 'create' | 'edit' | 'delete';
+  module?: any;
+}
+
+export interface LessonDialogState {
+  isOpen: boolean;
+  mode: 'create' | 'edit' | 'view';
+  lesson?: any;
+  moduleId?: string;
+  module?: any;
+}
+
+export interface FolderDialogState {
+  isOpen: boolean;
+  mode: 'create' | 'edit' | 'delete';
+  folder?: any;
+}
+
+/**
  * Classroom event types
  */
 export interface ClassroomEventData {

@@ -72,22 +72,6 @@ const SpaceTabContent = () => {
     addTab,
   } = useTabManager(tabDependencies);
   
-  // DEBUGGING: Log tab determination logic
-  if (process.env.NODE_ENV === 'development') {
-    log.debug('Component', '🔍 [SpaceTabContent] Tab determination:', {
-      activeTab,
-      extractedTab,
-      currentTab,
-      pathname: window.location.pathname,
-      windowPathname: window.location.pathname,
-      subdomain,
-      usingExtractedTab: true,
-      visitedTabsArray: Array.from(visitedTabs),
-      availableComponents: Object.keys(persistentTabComponents),
-      currentTabHasComponent: !!persistentTabComponents[currentTab],
-      willAddTab: currentTab && !visitedTabs.has(currentTab as SpaceTab)
-    });
-  }
   
   // Mark tab as visited when it becomes active
   useEffect(() => {

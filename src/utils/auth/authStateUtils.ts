@@ -9,7 +9,7 @@ interface AppError {
 }
 
 // FIXED: Add focus event debouncing to prevent redundant auth state changes
-let lastFocusEventTime = 0;
+const lastFocusEventTime = 0;
 let lastAuthEventData: { event: string; userId?: string; tokenSnippet?: string } | null = null;
 const FOCUS_DEBOUNCE_DELAY = 2000; // 2 seconds
 const AUTH_EVENT_DEDUPE_DELAY = 1000; // 1 second

@@ -58,6 +58,48 @@ export default function ChatView({
   const previousMessagesLength = useRef<number>(0);
   const connectionContextLoaded = useRef<boolean>(false);
   
+  // ✅ DEBUG: Track container mounting and DOM changes
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      console.log('🔍 [ChatView] Container mounted:', {
+        className: container.className,
+        dataset: container.dataset,
+        scrollTop: container.scrollTop,
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight
+      });
+      
+      // ✅ DEBUG: Monitor DOM changes that might cause scroll repositioning
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList' || mutation.type === 'attributes') {
+            console.log('🔍 [ChatView] DOM mutation detected:', {
+              type: mutation.type,
+              target: mutation.target,
+              addedNodes: mutation.addedNodes.length,
+              removedNodes: mutation.removedNodes.length,
+              attributeName: mutation.attributeName,
+              containerScrollTop: container.scrollTop,
+              containerScrollHeight: container.scrollHeight
+            });
+          }
+        });
+      });
+      
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style']
+      });
+      
+      return () => observer.disconnect();
+    }
+  }, []);
+
+
+  
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
   
@@ -130,90 +172,66 @@ export default function ChatView({
     }
   }, [currentConversation?.conversation_id, user?.id]); // ✅ INFINITE LOOP FIX: Removed refreshMessages from dependencies
 
-  // ✅ SCROLL PRESERVATION: Enhanced scroll management - No visible scrolling on initial load
+  // ✅ MODERN 2025 CHAT LAYOUT: Prevent any scroll repositioning
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
+
+    // ✅ CRITICAL: Immediately scroll to bottom on mount with no animation
+    const scrollToBottomImmediately = () => {
+      if (container && messagesEndRef.current) {
+        // Use 'auto' behavior for immediate positioning without animation
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: 'auto', 
+          block: 'end',
+          inline: 'nearest'
+        });
+        
+        console.log('🔍 [ChatView] Initial scroll to bottom completed:', {
+          scrollTop: container.scrollTop,
+          scrollHeight: container.scrollHeight,
+          clientHeight: container.clientHeight
+        });
+      }
+    };
+
+    // ✅ IMMEDIATE: No delay, scroll right away
+    scrollToBottomImmediately();
     
+    // ✅ FALLBACK: Also scroll after a micro-delay to ensure DOM is stable
+    const timeoutId = setTimeout(scrollToBottomImmediately, 10);
+    
+    return () => clearTimeout(timeoutId);
+  }, []); // Only run on mount
+
+  // ✅ MODERN APPROACH: Handle message changes without aggressive scrolling
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || !messages.length) return;
+
     const currentScrollHeight = container.scrollHeight;
     const currentScrollTop = container.scrollTop;
-    const currentMessagesLength = messages.length;
+    const currentClientHeight = container.clientHeight;
     
-    // ✅ CRITICAL FIX: Handle initial load vs new messages vs layout changes differently
-    if (isInitialLoad.current) {
-      // Initial load: Position at bottom instantly without animation
-      if (messages.length > 0) {
-        // Use multiple timing approaches to ensure positioning works
-        const scrollToBottom = () => {
-          if (container && messagesEndRef.current) {
-            // Method 1: Direct scroll to very bottom
-            container.scrollTop = container.scrollHeight - container.clientHeight;
-            
-            // Method 2: Also use scrollIntoView without animation as backup
-            messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
-            
-            log.debug('Component', '🗨️ [ChatView] Initial load: Positioned at bottom', {
-              scrollTop: container.scrollTop,
-              scrollHeight: container.scrollHeight,
-              clientHeight: container.clientHeight
-            });
-          }
-        };
-        
-        // Try immediately
-        scrollToBottom();
-        
-        // Also try after a brief delay to ensure DOM is fully rendered
-        setTimeout(scrollToBottom, 10);
-        
-        // Final attempt after ConnectionContext might load
-        setTimeout(scrollToBottom, 50);
-      }
-    } else {
-      // ✅ CRITICAL FIX: Distinguish between new messages vs ConnectionContext loading
-      const hasNewMessages = currentMessagesLength > previousMessagesLength.current;
-      const isConnectionContextChange = otherParticipant && !connectionContextLoaded.current;
-      
-      if (isConnectionContextChange) {
-        // ConnectionContext loaded - this is a layout change, not a new message
-        connectionContextLoaded.current = true;
-        log.debug('Component', '🗨️ [ChatView] ConnectionContext loaded: Re-positioning to bottom');
-        
-        // ✅ CRITICAL FIX: When ConnectionContext loads, scroll to bottom to show last message
-        const scrollToBottomAfterContext = () => {
-          if (container && messagesEndRef.current) {
-            // Scroll to very bottom to ensure last message is visible
-            container.scrollTop = container.scrollHeight - container.clientHeight;
-            messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
-            log.debug('Component', '🗨️ [ChatView] ConnectionContext: Repositioned to bottom', {
-              scrollTop: container.scrollTop,
-              scrollHeight: container.scrollHeight,
-              clientHeight: container.clientHeight
-            });
-          }
-        };
-        
-        // Try immediately and with delays to ensure it works
-        scrollToBottomAfterContext();
-        setTimeout(scrollToBottomAfterContext, 10);
-        setTimeout(scrollToBottomAfterContext, 50);
-      } else if (hasNewMessages && currentScrollHeight > previousScrollHeight.current) {
-        // Genuine new messages: Only smooth scroll when user was near bottom
-        const wasNearBottom = (previousScrollHeight.current - currentScrollTop - container.clientHeight) < 100;
-        
-        if (wasNearBottom) {
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            log.debug('Component', '🗨️ [ChatView] New message: Smooth scroll to bottom');
-          }, 10);
+    // ✅ CALCULATE: Are we near the bottom?
+    const isNearBottom = (currentScrollHeight - currentScrollTop - currentClientHeight) < 100;
+    
+    // ✅ ONLY SCROLL: If user was already near the bottom (they want to see new messages)
+    if (isNearBottom) {
+      const scrollToBottom = () => {
+        if (container && messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'end',
+            inline: 'nearest'
+          });
         }
-        
-        previousMessagesLength.current = currentMessagesLength;
-      }
+      };
+      
+      // ✅ MINIMAL DELAY: Just enough for DOM to settle
+      setTimeout(scrollToBottom, 50);
     }
-    
-    previousScrollHeight.current = currentScrollHeight;
-  }, [messages, shouldShowConnectionContext, otherParticipant]);
+  }, [messages.length]); // Only depend on message count, not content
   
   const handleSendMessage = async (content: string) => {
     if (!user || !currentConversation?.conversation_id) return;
@@ -258,7 +276,8 @@ export default function ChatView({
         className={`flex-1 overflow-y-auto p-4 space-y-4 chat-messages-container ${
           isMobile ? 'mobile-chat-messages-simplified' : ''
         }`}
-        style={isMobile ? { paddingBottom: '8rem' } : {}}
+        style={isMobile ? { paddingBottom: '10rem' } : {}}
+        data-chat-container="true"
       >
         {/* ✅ LAYOUT SHIFT FIX: Stable ConnectionContext rendering with reserved space */}
         {shouldShowConnectionContext ? (

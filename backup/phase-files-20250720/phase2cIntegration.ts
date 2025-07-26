@@ -239,7 +239,7 @@ class Phase2CIntegration {
     const metrics = this.getIntegrationMetrics();
     const issues: string[] = [];
     const recommendations: string[] = [];
-    let score = 100;
+    const score = 100;
 
     // Simplified health check
     const report: Phase2CHealthReport = {

@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
+import { formatAsTitle } from '@/utils/textUtils';
 import { X, PaperclipIcon, BarChart3 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -145,7 +146,7 @@ export default function SpaceComposeModal() {
             type="text"
             placeholder="Title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => setTitle(formatAsTitle(e.target.value))}
             className="w-full mb-4 text-[16px] font-medium text-[#111827] placeholder-[#6B7280] border-none focus:outline-none focus:ring-0"
           />
           

@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { formatDistanceToNow } from 'date-fns';
+import { formatAsTitle } from '@/utils/textUtils';
+import { formatCommentTime } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { CategoryTag } from '@/components/ui/category-tag';
@@ -24,18 +25,15 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
   isAdmin = false,
 }) => {
   const isComment = result.result_type === 'comment';
-  const displayUser = isComment ? result.comment_user_name : result.user_name;
-  const displayAvatar = isComment ? result.comment_user_avatar : result.user_avatar;
+  const displayUser = isComment ? result.comment_user_name : result.user_full_name;
+  const displayAvatar = isComment ? result.comment_user_avatar : result.user_avatar_url;
   const displayContent = isComment ? result.comment_content : result.content;
   const displayCreatedAt = isComment ? result.comment_created_at : result.created_at;
 
   const timeAgo = React.useMemo(() => {
     if (!displayCreatedAt) return 'Unknown';
     try {
-      return formatDistanceToNow(new Date(displayCreatedAt), { addSuffix: true })
-        .replace('about ', '')
-        .replace(' ago', '')
-        .replace('less than a minute', 'now');
+      return formatCommentTime(displayCreatedAt);
     } catch {
       return 'Unknown';
     }
@@ -49,8 +47,8 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
       currentUserId: null, // Will be set by the handler
       author: {
         id: result.user_id || '',
-        name: result.user_name || 'Unknown User',
-        avatar: result.user_avatar || null
+        name: result.user_full_name || 'Unknown User',
+        avatar: result.user_avatar_url || null
       },
       title: result.title || null,
       content: result.content || '',
@@ -131,8 +129,8 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
           <OptimizedAvatar
             user={{
               id: result.user_id || 'unknown',
-              full_name: result.user_name || 'Unknown User',
-              avatar_url: result.user_avatar || null
+              full_name: result.user_full_name || 'Unknown User',
+              avatar_url: result.user_avatar_url || null
             }}
             size="lg"
             enableLazyLoading={true}
@@ -144,7 +142,7 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
           
           <div className="flex-1 min-w-0">
             <div className="post-author font-bold text-base truncate">
-              {result.user_name || 'Unknown User'}
+              {result.user_full_name || 'Unknown User'}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="post-time text-sm text-gray-500">{timeAgo}</span>
@@ -160,9 +158,9 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
       {!isComment && result.title && (
         <h3 className="post-title mb-2 line-clamp-1 text-lg font-bold">
           {searchQuery ? (
-            <span dangerouslySetInnerHTML={createHighlightedContent(result.title, searchQuery)} />
+            <span dangerouslySetInnerHTML={createHighlightedContent(formatAsTitle(result.title), searchQuery)} />
           ) : (
-            result.title
+            formatAsTitle(result.title)
           )}
         </h3>
       )}

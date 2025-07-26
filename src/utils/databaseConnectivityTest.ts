@@ -285,9 +285,9 @@ class DatabaseConnectivityTest {
     log.debug('Utils', '\n📊 [DB Test] Database Connectivity Test Results:');
     log.debug('Utils', '================================================');
     
-    let totalTests = this.results.length;
-    let passedTests = this.results.filter(r => r.success).length;
-    let failedTests = totalTests - passedTests;
+    const totalTests = this.results.length;
+    const passedTests = this.results.filter(r => r.success).length;
+    const failedTests = totalTests - passedTests;
     
     this.results.forEach(result => {
       const status = result.success ? '✅' : '❌';

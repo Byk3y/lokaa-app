@@ -44,6 +44,7 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
   const hasInstantAccess = dependencies.hasInstantAccess;
   const postInputRef = dependencies.postInputRef;
   
+  
   // Memoize permissions to prevent recreation when object reference changes
   const permissions = useMemo(() => ({
     isOwner: dependencies.permissions.isOwner,
@@ -98,15 +99,16 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
 
   // Add tab to visited set
   const addTab = useCallback((tabKey: SpaceTab): boolean => {
-    // Always allow adding tabs - validation will happen during component creation
-    setVisitedTabs(prev => {
-      if (prev.has(tabKey)) {
-        return prev; // Already added, return same set to prevent unnecessary updates
-      }
-      return new Set([...prev, tabKey]);
-    });
+    // Check if tab is already visited
+    if (visitedTabs.has(tabKey)) {
+      return true;
+    }
+    
+    // Add to visited tabs
+    setVisitedTabs(prev => new Set([...prev, tabKey]));
+    
     return true;
-  }, []); // No dependencies to keep function stable
+  }, [visitedTabs]);
 
   // Remove tab from visited set and clear component
   const removeTab = useCallback((tabKey: SpaceTab) => {
@@ -196,18 +198,18 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     }
 
     // Only create new component if not found in local ref OR global cache
-    if (process.env.NODE_ENV === 'development') {
-      log.debug('Hook', `🔧 [useTabManager] Creating NEW component for ${tabKey} (not in cache)`);
-    }
-    const result = TabManagerService.createTabComponent(tabKey, stableDependencies);
-    updateStats(tabKey, result);
-
-    if (result.component) {
-      // Store in local ref and update state for rendering
-      updateTabComponent(tabKey, result.component);
-      return result.component;
-    }
-
+    // Handle async component creation
+    TabManagerService.createTabComponent(tabKey, stableDependencies).then(result => {
+      updateStats(tabKey, result);
+      if (result.component) {
+        // Store in local ref and update state for rendering
+        updateTabComponent(tabKey, result.component);
+      }
+    }).catch(error => {
+      console.error(`Failed to create ${tabKey} component:`, error);
+    });
+    
+    // Return null immediately, component will be updated asynchronously
     return null;
   }, [stableDependencies, updateStats, userId, subdomain, updateTabComponent]); // Add userId and subdomain for cache checks
 
@@ -269,42 +271,15 @@ export function useTabManager(dependencies: TabDependencies): TabManagerResult {
     // Mark this tab manager instance as active
     activeTabManagerInstances.set(managerKey, true);
 
-    const debugInfo = {
-      visitedTabsCount: visitedTabs.size,
-      existingComponentsCount: Object.keys(tabComponentsRef.current).length,
-      visitedTabs: Array.from(visitedTabs),
-      existingComponents: Object.keys(tabComponentsRef.current),
-      needsUpdate: visitedTabs.size > Object.keys(tabComponentsRef.current).length
-    };
-
-    if (!globalConsoleFlags?.QUIET_MODE) {
-      log.debug('Hook', '🔧 [useTabManager] Tab creation effect:', debugInfo);
-    }
-    
     visitedTabs.forEach(tabKey => {
       // Skip if component already exists in local ref
       if (tabComponentsRef.current[tabKey]) {
-        if (!globalConsoleFlags?.QUIET_MODE) {
-          log.debug('Hook', `🔧 [useTabManager] Skipping ${tabKey} - already exists locally`);
-        }
         return;
       }
       
       // Get or create component
-      const component = getTabComponent(tabKey);
-      if (component) {
-        if (!globalConsoleFlags?.QUIET_MODE) {
-          log.debug('Hook', `✅ [useTabManager] Successfully created/retrieved ${tabKey} component`);
-        }
-      }
+      getTabComponent(tabKey);
     });
-    
-    if (!globalConsoleFlags?.QUIET_MODE) {
-      log.debug('Hook', '🔧 [useTabManager] Tab creation effect completed:', {
-        totalComponents: Object.keys(tabComponentsRef.current).length,
-        componentKeys: Object.keys(tabComponentsRef.current)
-      });
-    }
   }, [visitedTabs, userId, subdomain, getTabComponent]); // 🚀 FIXED: Use individual stable properties
 
   // Feed tab is always available (initialized in useState above)

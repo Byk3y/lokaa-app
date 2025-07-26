@@ -210,7 +210,7 @@ export class IndexedDBManager implements IIndexedDBManager {
    */
   async checkHealth(): Promise<ServiceHealthStatus> {
     const errors: string[] = [];
-    let details: Record<string, any> = {};
+    const details: Record<string, any> = {};
 
     try {
       // Check if database is available

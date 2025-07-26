@@ -96,7 +96,10 @@ function useTabSwitchingBehavior(spaceId: string | undefined) {
  * Optimized cached posts hook using global cache coordinator
  * Enhanced with intelligent tab switching refresh for mobile
  */
-export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimizedCachedPostsReturn {
+export function useOptimizedCachedPosts(
+  spaceId: string | undefined, 
+  options?: { disableVisibilityTracking?: boolean }
+): UseOptimizedCachedPostsReturn {
   const [posts, setPosts] = useState<CachedPostType[]>([]);
   const [pinnedPosts, setPinnedPosts] = useState<CachedPostType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,7 +121,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
   
   // Enhanced page visibility tracking for mobile
   useEffect(() => {
-    if (!isMobile) return;
+    if (!isMobile || options?.disableVisibilityTracking) return;
     
     const handleVisibilityChange = () => {
       const now = Date.now();
@@ -217,7 +220,8 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
             .from('posts')
             .select('*', { count: 'exact', head: true })
             .eq('space_id', spaceId)
-            .eq('is_pinned', false); // Only count regular posts for pagination
+            .eq('is_pinned', false) // Only count regular posts for pagination
+            .neq('post_type', 'course_page'); // ✅ Exclude course lesson posts
             
           if (error) {
             devLogger.warn('CacheDebug', `Failed to get count`, { error });
@@ -252,6 +256,7 @@ export function useOptimizedCachedPosts(spaceId: string | undefined): UseOptimiz
             `)
             .eq('space_id', spaceId)
             .eq('is_pinned', true)
+            .neq('post_type', 'course_page') // ✅ Exclude course lesson posts
             .order('pin_position', { ascending: true });
             
           if (error) throw error;

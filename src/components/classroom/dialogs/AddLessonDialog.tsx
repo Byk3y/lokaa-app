@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
 import React, { useState, useEffect } from "react";
+import { formatAsTitle } from '@/utils/textUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,13 +65,27 @@ export default function AddLessonDialog({
       log.error('Component', "Module ID is missing in AddLessonDialog");
       return;
     }
-    if (!title.trim()) {
-      toast({
-        title: "Title Required",
-        description: "Lesson title cannot be empty.",
-        variant: "destructive"
-      });
-      return;
+    // Extract title from content if not provided
+    let finalTitle = title.trim();
+    
+    if (!finalTitle) {
+      if (contentType === 'text' && contentText.trim()) {
+        // Try to extract title from the first heading in the content
+        const headingMatch = contentText.match(/^#+\\s+(.+)$/m);
+        if (headingMatch) {
+          finalTitle = headingMatch[1].trim();
+        } else {
+          // Try to extract from the first line of content
+          const firstLine = contentText.split('\\n')[0].trim();
+          if (firstLine && firstLine.length > 0 && firstLine.length <= 100) {
+            finalTitle = firstLine;
+          } else {
+            finalTitle = "Untitled Lesson";
+          }
+        }
+      } else {
+        finalTitle = "Untitled Lesson";
+      }
     }
 
     let contentIsValid = true;
@@ -104,7 +119,7 @@ export default function AddLessonDialog({
 
     const lessonDataToCreate = {
       module_id: moduleId,
-      title: title.trim(),
+      title: finalTitle,
       content_type: contentType,
       lesson_order: newLessonOrder,
       content_text: contentType === 'text' ? contentText.trim() : null,
@@ -116,7 +131,7 @@ export default function AddLessonDialog({
       onOpenChange(false);
       toast({
         title: "Lesson Created",
-        description: `"${title}" has been added successfully.`,
+        description: `"${finalTitle}" has been added successfully.`,
         variant: "default"
       });
     } catch (error: any) {
@@ -144,12 +159,12 @@ export default function AddLessonDialog({
         <div className="flex-1 overflow-hidden">
           <div className="grid gap-4 py-4 h-full">
             <div className="grid gap-1.5">
-              <Label htmlFor="lesson-title-add">Lesson Title</Label>
+              <Label htmlFor="lesson-title-add">Lesson Title (optional - will be extracted from content)</Label>
               <Input 
                 id="lesson-title-add" 
                 value={title} 
-                onChange={(e) => setTitle(e.target.value)} 
-                placeholder="e.g., Understanding Core Concepts"
+                onChange={(e) => setTitle(formatAsTitle(e.target.value))} 
+                placeholder="e.g., Understanding Core Concepts (or leave empty to extract from content)"
                 className="text-base py-2.5 px-3"
               />
             </div>
@@ -212,6 +227,7 @@ export default function AddLessonDialog({
                       className="h-[400px]"
                       onSave={(title, content) => {
                         setContentText(content);
+                        setTitle(title);
                       }}
                       onCancel={() => {
                         // Handle cancel if needed

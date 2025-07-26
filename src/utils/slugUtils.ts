@@ -291,3 +291,29 @@ export function getCanonicalCourseUrl(spaceSlug: string, courseSlug: string, mod
   const baseUrl = `${window.location.origin}/${spaceSlug}/space/classroom/${courseSlug}`;
   return moduleId ? `${baseUrl}?md=${moduleId}` : baseUrl;
 }
+
+/**
+ * Generate a lesson URL with lesson ID (Skool-style)
+ * 
+ * @param spaceSlug The slug of the space
+ * @param courseShortId The short ID of the course (8 characters)
+ * @param lessonId The UUID of the lesson
+ * @returns The URL for the specific lesson
+ */
+export function getLessonUrl(spaceSlug: string, courseShortId: string, lessonId: string): string {
+  return `/${spaceSlug}/space/classroom/${courseShortId}?md=${lessonId}`;
+}
+
+/**
+ * Generate a canonical lesson URL for SEO purposes (Skool-style)
+ * 
+ * @param spaceSlug The slug of the space
+ * @param courseShortId The short ID of the course (8 characters)
+ * @param lessonId The UUID of the lesson
+ * @returns The canonical URL including domain
+ */
+export function getCanonicalLessonUrl(spaceSlug: string, courseShortId: string, lessonId: string): string {
+  return `${window.location.origin}/${spaceSlug}/space/classroom/${courseShortId}?md=${lessonId}`;
+}
+
+

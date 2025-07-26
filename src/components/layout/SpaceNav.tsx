@@ -83,33 +83,20 @@ export default function SpaceNav({ subdomain, activeTab, onTabChange }: SpaceNav
 
   // 🚀 FIXED: More accurate active tab detection
   const getIsActive = useCallback((tabKey: SpaceTab) => {
-    // Primary check: match against activeTab prop
-    if (activeTab === tabKey) {
-      return true;
-    }
-    
-    // Secondary check: extract from current pathname for accuracy
-    const extractedTab = extractTabFromPathname(location.pathname);
-    if (extractedTab === tabKey) {
-      return true;
-    }
-    
-    // Special case for feed tab with root space paths
-    if (tabKey === 'feed' && (location.pathname.endsWith('/space') || extractedTab === 'feed')) {
-      return true;
-    }
-    
-    return false;
-  }, [activeTab, location.pathname]);
+    // Use activeTab prop as the single source of truth
+    // This ensures consistency with the persistent tab system
+    return activeTab === tabKey;
+  }, [activeTab]);
 
   // FIXED: Memoized visible tabs to prevent recalculation on every render
   const visibleTabs = useMemo(() => {
-    return TABS_CONFIG.filter(tab => {
+    const filtered = TABS_CONFIG.filter(tab => {
       if (tab.featureFlag && formData && formData[tab.featureFlag] === false) {
         return false;
       }
       return true;
     });
+    return filtered;
   }, [formData]);
 
   // Scroll active tab into view on change (mobile only)
@@ -131,7 +118,7 @@ export default function SpaceNav({ subdomain, activeTab, onTabChange }: SpaceNav
           className="flex flex-nowrap overflow-x-auto whitespace-nowrap scrollbar-none gap-1 sm:gap-2 relative
             h-14 sm:h-auto min-h-[56px] sm:min-h-0
             !mb-0 !pb-0 !pt-0
-            justify-center sm:justify-start
+            justify-start
             pl-4 sm:pl-0
           "
           role="tablist"
@@ -144,7 +131,9 @@ export default function SpaceNav({ subdomain, activeTab, onTabChange }: SpaceNav
             return (
               <Link
                 key={tab.key}
-                ref={el => { tabRefs.current[tab.key] = el; }}
+                ref={el => { 
+                  tabRefs.current[tab.key] = el; 
+                }}
                 to={url}
                 state={{ preserveSpace: true, activeTab: tab.key } as LocationState}
                 onClick={(e) => {

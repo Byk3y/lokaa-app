@@ -1,29 +1,61 @@
 import React, { memo, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
+import { formatAsTitle } from '@/utils/textUtils';
 import { Plus } from "lucide-react";
 import { ModuleListSkeleton } from '../space/ModuleListSkeleton';
 import { ModuleCard } from './ModuleCard';
-import type { CourseDisplayData, CourseModuleWithLessons, CourseLessonData } from '@/types/classroom';
+import type { CourseDisplayData } from '@/hooks/useClassroomCache';
+
+// Define the types locally to match CourseDetailView
+interface CourseModule {
+  id: string;
+  title: string;
+  description: string | null;
+  module_order: number;
+  module_type: 'folder' | 'module' | string;
+  course_id: string;
+  space_id: string;
+  lessons: CourseLesson[];
+  release_delay_days?: number;
+}
+
+interface CourseLesson {
+  id: string;
+  title: string;
+  content_type: string;
+  content_url: string | null;
+  content_text: string | null;
+  lesson_order: number;
+  module_id?: string;
+  content_id?: string | null;
+  is_published: boolean;
+  page_type?: string;
+  estimated_duration?: number | null;
+  difficulty_level?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  completed?: boolean;
+}
 
 interface CourseContentProps {
   course: CourseDisplayData;
-  modules: CourseModuleWithLessons[];
+  modules: CourseModule[];
   isLoading: boolean;
   isOwner: boolean;
   enrollmentDate: string | null;
   primaryColor: string;
   onBackToCourses: () => void;
   onAddModule: () => void;
-  onEditModule: (module: CourseModuleWithLessons) => void;
-  onDeleteModule: (module: CourseModuleWithLessons) => void;
+  onEditModule: (module: CourseModule) => void;
+  onDeleteModule: (module: CourseModule) => void;
   onAddLesson: (moduleId: string) => void;
-  onEditLesson: (lesson: CourseLessonData) => void;
-  onViewLesson: (lesson: CourseLessonData) => void;
+  onEditLesson: (lesson: CourseLesson) => void;
+  onViewLesson: (lesson: CourseLesson) => void;
 }
 
 // Helper function to check if module is accessible
 const isModuleAccessible = (
-  module: CourseModuleWithLessons,
+  module: CourseModule,
   enrollmentDate: string | null,
   isCourseOwner: boolean
 ): boolean => {
@@ -41,7 +73,7 @@ const isModuleAccessible = (
 
 // Helper function to format release date
 const formatReleaseDate = (
-  module: CourseModuleWithLessons,
+  module: CourseModule,
   enrollmentDate: string | null
 ): string | undefined => {
   if (!enrollmentDate || typeof module.release_delay_days !== 'number' || module.release_delay_days <= 0) {
@@ -140,7 +172,7 @@ export const CourseContent = memo<CourseContentProps>(({
       </Button>
       
       <h2 className="text-2xl font-semibold text-[#37474F] mb-2">
-        {course.title}
+        {formatAsTitle(course.title)}
       </h2>
       
       <p className="text-gray-600 mb-6 line-clamp-3">

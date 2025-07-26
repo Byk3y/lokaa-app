@@ -28,13 +28,14 @@ import { LeadershipDisplay } from './members/LeadershipDisplay';
 import { MemberProfileModal } from './members/MemberProfileModal';
 import { useConversations } from '@/features/chat';
 import ChatModal from '@/components/chat/ChatModal';
+import { setPendingChatNavigation } from '@/utils/scrollPositionManager';
 
 // Use CachedMemberType from the hook as our DisplayMember type
 export type DisplayMember = CachedMemberType;
 
 export default function MembersTab() {
   const { user } = useOptimizedAuth();
-  const { spaceData } = useSpace();
+  const { space: spaceData } = useSpace();
   const { 
     space: storeSpace, 
     permissions: storePermissions 
@@ -144,6 +145,10 @@ export default function MembersTab() {
 
   const handleMemberChatClick = useCallback(async (member: DisplayMember) => {
     if (!member.user_id || isStartingChat) return;
+    
+    // ✅ CRITICAL FIX: Set pending chat navigation to prevent scroll resets
+    setPendingChatNavigation(true);
+    console.log('🔍 [MembersTab] Set pending chat navigation - member chat clicked');
     
     setIsStartingChat(true);
     try {

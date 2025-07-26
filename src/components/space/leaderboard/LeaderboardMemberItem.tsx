@@ -14,7 +14,7 @@ const LeaderboardMemberItem: React.FC<LeaderboardMemberItemProps> = ({ user, isC
     const rank = user.rank;
     let rankIcon = null;
     let rankCellStyle = '';
-    let rowStyle = isCurrentUser ? 'bg-primary/10 border-l-4 border-primary shadow-md' : 'hover:bg-muted/50';
+    const rowStyle = isCurrentUser ? 'bg-primary/10 border-l-4 border-primary shadow-md' : 'hover:bg-muted/50';
     let avatarBorderStyle = isCurrentUser ? 'border-primary/60' : 'border-transparent';
     
     // CRITICAL FIX: Add null safety check for points data

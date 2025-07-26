@@ -39,13 +39,14 @@ import { useSearch } from "@/contexts/SearchContext";
 import { SearchResultCard } from '@/features/search/components/SearchResultCard';
 import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { createHighlightedContent } from '@/utils/searchUtils';
-import { formatDistanceToNow } from 'date-fns';
+import { formatCommentTime } from '@/utils/formatters';
 
 // Preserved space data is now handled by individual components
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
+  
   
   // 🧪 HMR TEST COMMENT: Testing HMR optimization effectiveness (Test 3A)
   // ============================================================================
@@ -665,17 +666,14 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
                                                                     {/* Comment Content - matches PostDetailModal styling */}
                                   <div className="flex-grow min-w-0">
                                     <div className="bg-gray-100 rounded-xl p-3">
-                                      <div className="flex items-center space-x-2">
+                                                                            <div className="flex items-center space-x-2">
                                         <span className="text-sm sm:text-base font-semibold text-gray-900 truncate">
                                           {comment.comment_user_name || 'Unknown User'}
                                         </span>
                                         <span className="text-sm text-gray-500 flex-shrink-0">
-                                          {formatDistanceToNow(new Date(comment.comment_created_at), { addSuffix: true })
-                                            .replace('about ', '')
-                                            .replace(' ago', '')
-                                            .replace('less than a minute', 'now')}
+                                          {formatCommentTime(comment.comment_created_at)}
                                         </span>
-          </div>
+                                      </div>
                                       <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed max-w-full overflow-hidden">
                                         {searchIntegration.query ? (
                                           <span dangerouslySetInnerHTML={createHighlightedContent(comment.comment_content, searchIntegration.query)} />
@@ -720,10 +718,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
                                           {comment.comment_user_name || 'Unknown User'}
                                         </span>
                                         <span className="text-sm text-gray-500 flex-shrink-0">
-                                          {formatDistanceToNow(new Date(comment.comment_created_at), { addSuffix: true })
-                                            .replace('about ', '')
-                                            .replace(' ago', '')
-                                            .replace('less than a minute', 'now')}
+                                          {formatCommentTime(comment.comment_created_at)}
                                         </span>
                                       </div>
                                       <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed max-w-full overflow-hidden">

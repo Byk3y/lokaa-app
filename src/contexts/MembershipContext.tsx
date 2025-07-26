@@ -504,7 +504,7 @@ export function MembershipProvider({ children }: { children: ReactNode }) {
       });
       
       // Apply search filtering and pagination on client side
-      let filteredMembers = searchQuery
+      const filteredMembers = searchQuery
         ? transformedMembers.filter(member => 
             member.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             member.username?.toLowerCase().includes(searchQuery.toLowerCase())

@@ -1,9 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { formatAsTitle } from '@/utils/textUtils';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
+import YoutubeExtension from '@tiptap/extension-youtube';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { 
@@ -21,7 +23,14 @@ import {
   List,
   ListOrdered,
   Quote,
-  Youtube
+  Youtube,
+  FileText,
+  Pin,
+  Play,
+  AlignLeft,
+  Loader2,
+  Menu,
+  Video
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -30,15 +39,26 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import clsx from 'clsx';
+import { toast } from '@/hooks/use-toast';
+import VideoUploadModal from './VideoUploadModal';
+import { processVideoForEditor } from '@/utils/videoUploadService';
+
 
 interface RichTextEditorProps {
   content: string;
   onChange: (richText: string) => void;
   placeholder?: string;
   defaultTitle?: string;
-  onSave: (title: string, content: string) => void;
+  onSave: (title: string, content: string, published?: boolean) => void;
   onCancel: () => void;
   className?: string;
+  hideTitle?: boolean; // New prop to hide title input
+  isSaving?: boolean; // New prop to show saving state
+  spaceId?: string; // For image uploads
+  lessonId?: string; // For image uploads
+  courseId?: string; // For image uploads
+  isPublished?: boolean; // Current published state
+  onPublishedChange?: (published: boolean) => void; // Callback when published state changes
 }
 
 interface ToolbarButtonProps {
@@ -65,29 +85,29 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     aria-pressed={ariaPressed ?? isActive}
     className={clsx(
       'flex items-center justify-center',
-      'h-8 px-2 rounded-md border-none cursor-pointer transition-all duration-200 ease-in-out',
-      'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+      'h-9 px-3 rounded border-none cursor-pointer transition-all duration-150 ease-in-out',
+      'text-gray-600 hover:text-gray-800 hover:bg-gray-50',
       {
-        'bg-gray-200 text-gray-900': isActive,
+        'bg-gray-100 text-gray-900': isActive,
         'bg-transparent': !isActive
       }
     )}
   >
     {icon ? (
       <div className={clsx(
-        'w-5 h-5 flex items-center justify-center',
-        'transition-colors duration-200'
+        'w-4 h-4 flex items-center justify-center',
+        'transition-colors duration-150'
       )}>
         {React.cloneElement(icon as React.ReactElement, {
-          size: 18,
-          strokeWidth: 1.5,
+          size: 16,
+          strokeWidth: 2.5,
           className: 'stroke-current'
         })}
       </div>
     ) : (
       <span className={clsx(
-        'text-sm font-medium leading-none px-1',
-        'transition-colors duration-200'
+        'text-sm font-bold leading-none px-0.5',
+        'transition-colors duration-150'
       )}>
         {children}
       </span>
@@ -110,20 +130,74 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   onSave,
   onCancel,
   className,
+  hideTitle = false,
+  isSaving = false,
+  spaceId,
+  lessonId,
+  courseId,
+  isPublished = false,
+  onPublishedChange,
 }) => {
   const [title, setTitle] = useState(defaultTitle);
-  const [published, setPublished] = useState(true);
+  const [published, setPublished] = useState(isPublished);
   const [showTitleError, setShowTitleError] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Update title when defaultTitle prop changes
+  React.useEffect(() => {
+    if (defaultTitle && defaultTitle !== title) {
+      setTitle(defaultTitle);
+    }
+  }, [defaultTitle, title]);
+
+  // Update published state when prop changes
+  React.useEffect(() => {
+    setPublished(isPublished);
+  }, [isPublished]);
+
+  // Notify parent when published state changes
+  const handlePublishedChange = (newPublished: boolean) => {
+    setPublished(newPublished);
+    if (onPublishedChange) {
+      onPublishedChange(newPublished);
+    }
+  };
 
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Image,
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+        HTMLAttributes: {
+          style: 'max-width: 65%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: block; margin: 16px auto;',
+        },
+      }),
+      YoutubeExtension.configure({
+        inline: false,
+        width: 640,
+        height: 360,
+        controls: false,
+        nocookie: false,
+        HTMLAttributes: {
+          style: 'width: 100%; height: 360px; border: 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 0; padding: 0; display: block;',
+        },
+      }),
       Link.configure({
         openOnClick: false,
+        HTMLAttributes: {
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
       }),
       Placeholder.configure({
-        placeholder,
+        placeholder: placeholder,
+        showOnlyWhenEditable: true,
+        showOnlyCurrent: false,
+        includeChildren: false,
+        emptyEditorClass: 'is-empty',
+        emptyNodeClass: 'is-empty',
       }),
     ],
     content,
@@ -132,86 +206,272 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: 'prose max-w-none focus:outline-none text-gray-700 leading-relaxed',
+        class: 'max-w-none focus:outline-none text-gray-700 leading-relaxed [&>*:first-child]:mt-0 [&>h1:first-child]:mt-0 [&>h1:first-child]:pt-0',
       },
     },
   });
 
-  const addImage = useCallback(() => {
-    const url = window.prompt('Image URL');
-    if (url && editor) {
-      editor.chain().focus().setImage({ src: url }).run();
+  // Ensure content is properly set in the editor and placeholder is hidden
+  React.useEffect(() => {
+    if (editor && content !== undefined) {
+      const currentContent = editor.getHTML();
+      // Only update if content is actually different to prevent unnecessary re-renders
+      if (currentContent !== content) {
+        editor.commands.setContent(content);
+      }
     }
-  }, [editor]);
-
-  const setLink = useCallback(() => {
-    const previousUrl = editor?.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
-
-    if (url === null) return;
-    if (url === '') {
-      editor?.chain().focus().extendMarkRange('link').unsetLink().run();
-      return;
-    }
-
-    editor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-  }, [editor]);
-
-  const addVideo = useCallback(() => {
-    alert("Video embedding coming soon!");
-  }, []);
-
-  if (!editor) {
-    return null;
-  }
+  }, [editor, content]);
 
   const handleSave = () => {
-    if (!title.trim()) {
-      setShowTitleError(true);
-      return;
-    }
-    setShowTitleError(false);
-    onSave(title, editor.getHTML());
+    // Use the title from the title field, or default if empty
+    const finalTitle = title.trim() || 'Untitled Page';
+    onSave(finalTitle, editor?.getHTML() || '', published);
   };
 
-  // Keyboard shortcuts
+  // Add keyboard shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey)) {
-        switch (e.key) {
-          case 'b':
-            e.preventDefault();
-            editor.chain().focus().toggleBold().run();
-            break;
-          case 'i':
-            e.preventDefault();
-            editor.chain().focus().toggleItalic().run();
-            break;
-          case 'k':
-            e.preventDefault();
-            setLink();
-            break;
-        }
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [editor, setLink]);
+  }, [title, editor]);
+
+  const addImage = () => {
+    imageInputRef.current?.click();
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !editor) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file (PNG, JPG, GIF, etc.)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      let imageUrl: string;
+      
+      if (spaceId) {
+        // Use the real upload service if spaceId is provided
+        const { uploadEducationalContentImage } = await import('@/utils/imageUploadService');
+        const result = await uploadEducationalContentImage(file, {
+          spaceId,
+          lessonId,
+          courseId,
+        });
+        imageUrl = result.url;
+      } else {
+        // Fallback to local object URL for demo/testing
+        imageUrl = URL.createObjectURL(file);
+      }
+
+      // Insert image with filename as alt text
+      const altText = file.name.replace(/\.[^/.]+$/, "");
+      editor.chain().focus().setImage({ 
+        src: imageUrl, 
+        alt: altText,
+        title: altText
+      }).run();
+
+      toast({
+        title: "Image uploaded",
+        description: "Image has been inserted into your content",
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload image. Please try again.",
+        variant: "destructive"
+      });
+    }
+
+    // Reset the input
+    event.target.value = '';
+  };
+
+  const addVideo = () => {
+    setShowVideoModal(true);
+  };
+
+  const handleVideoInsert = async (videoData: { url: string; type: 'embed' | 'upload'; file?: File }) => {
+    if (!editor) return;
+    
+    // For uploads, we need spaceId
+    if (videoData.type === 'upload' && !spaceId) {
+      toast({
+        title: "Upload not available",
+        description: "Video upload requires space context",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      if (videoData.type === 'embed') {
+        // For YouTube URLs, use the TipTap YouTube extension
+        const { extractVideoInfo } = await import('@/utils/videoUploadService');
+        const videoInfo = extractVideoInfo(videoData.url);
+        
+        if (videoInfo.provider === 'youtube' && videoInfo.videoId) {
+          // Use TipTap's YouTube extension
+          editor.chain().focus().setYoutubeVideo({
+            src: videoData.url,
+            width: 720,
+            height: 405,
+          }).run();
+
+          toast({
+            title: "Video embedded",
+            description: "YouTube video has been inserted into your content",
+            variant: "default"
+          });
+          return;
+        } else {
+          // For other video platforms, use iframe
+          const result = await processVideoForEditor(videoData, {
+            spaceId,
+            lessonId,
+            courseId,
+          });
+          editor.chain().focus().insertContent(result.embedHtml).run();
+        }
+      } else if (videoData.type === 'upload' && videoData.file) {
+        // For uploaded videos, use our upload service
+        const result = await processVideoForEditor(videoData, {
+          spaceId,
+          lessonId,
+          courseId,
+        });
+        editor.chain().focus().insertContent(result.embedHtml).run();
+      }
+
+      toast({
+        title: "Video added",
+        description: `Video has been ${videoData.type === 'upload' ? 'uploaded and ' : ''}inserted into your content`,
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error('Video insert error:', error);
+      toast({
+        title: "Video insertion failed",
+        description: error instanceof Error ? error.message : "Failed to add video. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const setLink = () => {
+    const url = window.prompt('Enter URL:');
+    if (url && editor) {
+      editor.chain().focus().setLink({ href: url }).run();
+    }
+  };
+
+  // Quick YouTube test function for debugging
+  const addYouTubeVideo = () => {
+    const url = window.prompt('Enter YouTube URL:');
+    if (url && editor) {
+      // Try to use the YouTube extension directly
+      try {
+        editor.chain().focus().setYoutubeVideo({
+          src: url,
+          width: 720,
+          height: 405,
+        }).run();
+        
+        toast({
+          title: "YouTube video added",
+          description: "Video has been embedded",
+          variant: "default"
+        });
+      } catch (error) {
+        console.error('YouTube embed error:', error);
+        toast({
+          title: "Failed to embed YouTube video",
+          description: "Please check the URL and try again",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  // New functions for Skool-style ADD dropdown
+  const handleAddResourceLink = () => {
+    const url = window.prompt('Enter resource link URL:');
+    if (url && editor) {
+      const linkHtml = `<p><a href="${url}" target="_blank" rel="noopener noreferrer">🔗 Resource Link</a></p>`;
+      editor.chain().focus().insertContent(linkHtml).run();
+    }
+  };
+
+  const handleAddResourceFile = () => {
+    // In a real implementation, this would open a file picker
+    const fileName = window.prompt('Enter file name:');
+    if (fileName && editor) {
+      const fileHtml = `<p><a href="#" class="resource-file">📎 ${fileName}</a></p>`;
+      editor.chain().focus().insertContent(fileHtml).run();
+    }
+  };
+
+  const handleAddTranscript = () => {
+    const transcriptText = window.prompt('Enter transcript text:');
+    if (transcriptText && editor) {
+      const transcriptHtml = `<blockquote><p><strong>Transcript:</strong><br />${transcriptText}</p></blockquote>`;
+      editor.chain().focus().insertContent(transcriptHtml).run();
+    }
+  };
+
+  const handlePinCommunityPost = () => {
+    // This would typically open a modal to select a community post
+    const postTitle = window.prompt('Enter community post title to pin:');
+    if (postTitle && editor) {
+      const pinHtml = `<div class="pinned-post"><p><strong>📌 Pinned Community Post:</strong> ${postTitle}</p></div>`;
+      editor.chain().focus().insertContent(pinHtml).run();
+    }
+  };
+
+  if (!editor) {
+    return null;
+  }
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${className}`}>
-      {/* Toolbar */}
-      <div className="flex items-center gap-1 px-4 py-3 bg-gray-50 border-b border-gray-200 overflow-x-auto">
-        {/* Headings Group */}
-        <div className="flex items-center gap-1 pr-3 border-r border-gray-300">
+    <div className={clsx("bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col", className)}>
+      {/* Toolbar - Two Row Layout with Skool's Natural Spacing */}
+      <div className="border-b border-gray-200 bg-white flex-shrink-0">
+        {/* First Row: Even distribution like Skool */}
+        <div className="flex items-center justify-evenly px-3 py-2.5 border-b border-gray-100">
           <ToolbarButton 
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} 
             isActive={editor.isActive('heading', { level: 1 })} 
             title="Heading 1"
             aria-pressed={editor.isActive('heading', { level: 1 })}
           >
-            H1
+            H₁
           </ToolbarButton>
           <ToolbarButton 
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
@@ -219,7 +479,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             title="Heading 2"
             aria-pressed={editor.isActive('heading', { level: 2 })}
           >
-            H2
+            H₂
           </ToolbarButton>
           <ToolbarButton 
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} 
@@ -227,7 +487,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             title="Heading 3"
             aria-pressed={editor.isActive('heading', { level: 3 })}
           >
-            H3
+            H₃
           </ToolbarButton>
           <ToolbarButton 
             onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()} 
@@ -235,12 +495,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             title="Heading 4"
             aria-pressed={editor.isActive('heading', { level: 4 })}
           >
-            H4
+            H₄
           </ToolbarButton>
-        </div>
-
-        {/* Text Formatting Group */}
-        <div className="flex items-center gap-1 px-3 border-r border-gray-300">
           <ToolbarButton 
             onClick={() => editor.chain().focus().toggleBold().run()} 
             isActive={editor.isActive('bold')} 
@@ -266,13 +522,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             onClick={() => editor.chain().focus().toggleCode().run()} 
             isActive={editor.isActive('code')} 
             title="Code"
-            icon={<Code />}
+            icon={<Code2 />}
             aria-pressed={editor.isActive('code')}
+          />
+          <ToolbarButton 
+            onClick={() => {}} 
+            title="More options"
+            icon={<Menu />}
           />
         </div>
 
-        {/* Lists Group */}
-        <div className="flex items-center gap-1 px-3 border-r border-gray-300">
+        {/* Second Row: Even distribution like Skool */}
+        <div className="flex items-center justify-evenly px-3 py-2.5">
           <ToolbarButton 
             onClick={() => editor.chain().focus().toggleBulletList().run()} 
             isActive={editor.isActive('bulletList')} 
@@ -294,15 +555,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             icon={<Quote />}
             aria-pressed={editor.isActive('blockquote')}
           />
-        </div>
-
-        {/* Media Group */}
-        <div className="flex items-center gap-1 px-3 border-r border-gray-300">
-          <ToolbarButton 
-            onClick={addVideo} 
-            title="YouTube Video"
-            icon={<Youtube />}
-          />
           <ToolbarButton 
             onClick={addImage} 
             title="Image"
@@ -313,100 +565,127 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             title="Link"
             icon={<LinkIcon />}
           />
-        </div>
-
-        {/* Divider */}
-        <div className="flex items-center px-3">
           <ToolbarButton 
             onClick={() => editor.chain().focus().setHorizontalRule().run()} 
             title="Divider"
             icon={<Minus />}
           />
+          <ToolbarButton 
+            onClick={addVideo} 
+            title="Video"
+            icon={<Video />}
+          />
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="p-6 space-y-4">
-        {/* Title */}
-        <div className="relative">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              if (e.target.value.trim()) {
-                setShowTitleError(false);
-              }
-            }}
-            placeholder="Title"
-            aria-invalid={showTitleError}
-            className={`w-full text-xl font-bold border-0 bg-transparent outline-none focus:ring-0 p-0 placeholder-gray-400
-              ${showTitleError ? 'text-red-500' : 'text-gray-900'}`}
-          />
-        </div>
+      {/* Content Area - Flexible scroll area */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Title - Only show if not hidden */}
+        {!hideTitle && (
+          <div className="relative mb-4 px-6 pt-6">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => {
+                setTitle(formatAsTitle(e.target.value));
+                if (e.target.value.trim()) {
+                  setShowTitleError(false);
+                }
+              }}
+              placeholder="Title"
+              aria-invalid={showTitleError}
+              className={`w-full text-xl font-bold border-0 bg-transparent outline-none focus:ring-0 p-0 placeholder-gray-400
+                ${showTitleError ? 'text-red-500' : 'text-gray-900'}`}
+            />
+          </div>
+        )}
 
         {/* Editor Content */}
-        <div className="min-h-[200px] editor-content">
+        <div className="min-h-[200px] editor-content [&_h1]:text-2xl px-6 pb-6">
           <EditorContent editor={editor} />
         </div>
       </div>
 
-      {/* Controls Row */}
-      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="text-sm font-medium text-gray-600">
-              ADD <ChevronDown className="ml-1 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem><FileUp className="mr-2 h-4 w-4" /> File</DropdownMenuItem>
-            <DropdownMenuItem><Code2 className="mr-2 h-4 w-4" /> Embed</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {/* Controls Section - Skool Layout - Fixed at bottom */}
+      <div className="border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        {/* First Row: ADD dropdown + Published toggle */}
+        <div className="flex items-center justify-between px-6 py-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="text-sm font-medium text-gray-600">
+                ADD <ChevronDown className="ml-1 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleAddResourceLink}>
+                <LinkIcon className="mr-2 h-4 w-4" />
+                Add resource link
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleAddResourceFile}>
+                <FileUp className="mr-2 h-4 w-4" />
+                Add resource file
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleAddTranscript}>
+                <FileText className="mr-2 h-4 w-4" />
+                Add transcript
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handlePinCommunityPost}>
+                <Pin className="mr-2 h-4 w-4" />
+                Pin community post
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <div className="flex items-center gap-6">
-          {showTitleError && <p className="text-red-500 text-sm font-medium">Page title is required</p>}
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-green-700">Published</span>
             <Switch 
               checked={published} 
-              onCheckedChange={setPublished}
+              onCheckedChange={handlePublishedChange}
               className="data-[state=checked]:bg-green-600 shadow-sm" 
             />
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={onCancel} 
-              className="text-gray-500 text-sm font-medium hover:underline hover:text-gray-700 transition-colors"
-            >
-              CANCEL
-            </button>
-            <button 
-              onClick={handleSave} 
-              disabled={!title.trim()}
-              className="px-6 py-2 rounded-full text-sm font-medium transition-colors disabled:opacity-50"
-              style={{ 
-                backgroundColor: '#FBE496', 
-                color: '#374151',
-                border: 'none'
-              }}
-              onMouseEnter={(e) => {
-                if (!e.currentTarget.disabled) {
-                  e.currentTarget.style.backgroundColor = '#FBBF24';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!e.currentTarget.disabled) {
-                  e.currentTarget.style.backgroundColor = '#FBE496';
-                }
-              }}
-            >
-              SAVE
-            </button>
-          </div>
+        </div>
+
+        {/* Second Row: SAVE button */}
+        <div className="px-6 pb-3">
+          <button 
+            onClick={handleSave} 
+            disabled={isSaving}
+            className="w-full py-3 rounded-lg text-sm font-medium transition-colors bg-gray-300 text-gray-700 hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isSaving ? 'SAVING...' : 'SAVE'}
+          </button>
+        </div>
+
+        {/* Third Row: CANCEL button */}
+        <div className="px-6 pb-4">
+          <button 
+            onClick={onCancel} 
+            className="w-full py-3 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-colors"
+          >
+            CANCEL
+          </button>
         </div>
       </div>
+
+      {/* Hidden file input for image upload */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        className="hidden"
+      />
+
+      {/* Video Upload Modal */}
+      <VideoUploadModal
+        isOpen={showVideoModal}
+        onClose={() => setShowVideoModal(false)}
+        onVideoInsert={handleVideoInsert}
+        spaceId={spaceId}
+        lessonId={lessonId}
+      />
     </div>
   );
 };

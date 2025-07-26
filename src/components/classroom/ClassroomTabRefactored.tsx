@@ -12,13 +12,14 @@ import { getCourseUrl, generateSlug, getUniqueCourseSlug } from '@/utils/slugUti
 import { useClassroomStore } from '@/stores/classroom/classroomStore';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
+import { usePersistentTabs } from '@/hooks/usePersistentTabs';
 
 export const ClassroomTabRefactored = ({
   courses: propCourses = [],
   loading: propLoading = false,
   auth: propAuth = null,
   space: propSpace = null,
-  permissions: propPermissions = { isOwner: false },
+  permissions: propPermissions = { isOwner: false, isAdmin: false, canCreateContent: false },
   handleCreateCourse = () => {},
   handleViewCourse = () => {},
   handleEditCourse = () => {},
@@ -35,8 +36,9 @@ export const ClassroomTabRefactored = ({
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Check if this component is currently the active tab
-  const isActiveTab = location.pathname.includes('/classroom');
+  // 🚀 REVOLUTIONARY: Use persistent tab system instead of URL checking
+  const { isTabActive } = usePersistentTabs();
+  const isActiveTab = isTabActive('classroom');
   
   // Zustand store state and actions
   const courses = useClassroomStore(state => state.courses);
@@ -69,19 +71,18 @@ export const ClassroomTabRefactored = ({
     isOwner: !!(user?.id && effectiveSpace?.owner_id && user.id === effectiveSpace.owner_id),
     isAdmin: spacePermissions?.isAdmin ?? false,
     canCreateContent: spacePermissions?.canCreateContent ?? false
-  };
+  } as { isOwner: boolean; isAdmin: boolean; canCreateContent: boolean };
   
-  // Debug permission calculation
-  log.debug('Component', '🔐 [ClassroomTab] Permission debug:', {
-    userId: user?.id,
-    spaceOwnerId: effectiveSpace?.owner_id,
-    isOwner: effectivePermissions.isOwner,
-    isAdmin: effectivePermissions.isAdmin,
-    canCreateContent: effectivePermissions.canCreateContent,
-    propIsOwner: propPermissions.isOwner,
-    hasSpace: !!effectiveSpace,
-    spaceName: effectiveSpace?.name
-  });
+  // Debug permission calculation (only when there are issues)
+  if (process.env.NODE_ENV === 'development' && !effectivePermissions.isOwner && !effectivePermissions.isAdmin) {
+    log.debug('Component', '🔐 [ClassroomTab] Permission issue detected:', {
+      userId: user?.id,
+      spaceOwnerId: effectiveSpace?.owner_id,
+      isOwner: effectivePermissions.isOwner,
+      isAdmin: effectivePermissions.isAdmin,
+      canCreateContent: effectivePermissions.canCreateContent
+    });
+  }
   
 
   // Calculate hasSpaceOwnerInfo for loading states
@@ -95,7 +96,9 @@ export const ClassroomTabRefactored = ({
   
   // Simple component mount/unmount effect
   useEffect(() => {
-    log.debug('Component', '🔄 [ClassroomTab] Component mounted/updated, courses length:', courses?.length || 0);
+    if (process.env.NODE_ENV === 'development') {
+      log.debug('Component', '🔄 [ClassroomTab] Component mounted/updated, courses length:', courses?.length || 0);
+    }
   }, []);
   
   // Effect to handle when cached component becomes active
@@ -190,11 +193,12 @@ export const ClassroomTabRefactored = ({
       
       // Set loading state if we need to fetch
       if (!loading) {
-        log.debug('Component', '🔍 [ClassroomTab] Setting loading state for course fetch');
         setLoading(true);
       }
       
-      log.debug('Component', '🔍 [ClassroomTab] Fetching courses for space:', effectiveSpace.id);
+      if (process.env.NODE_ENV === 'development') {
+        log.debug('Component', '🔍 [ClassroomTab] Fetching courses for space:', effectiveSpace.id);
+      }
       try {
         const supabase = getSupabaseClient();
         // Build query - owners can see all courses, members only see published ones
@@ -241,7 +245,9 @@ export const ClassroomTabRefactored = ({
         })) || [];
         
         setCourses(transformedCourses);
-        log.debug('Component', `🎓 [ClassroomTab] Loaded ${transformedCourses.length} courses`);
+        if (process.env.NODE_ENV === 'development') {
+          log.debug('Component', `🎓 [ClassroomTab] Loaded ${transformedCourses.length} courses`);
+        }
       } catch (error) {
         log.error('Component', 'Failed to fetch courses:', error);
         setLoading(false);
@@ -256,9 +262,9 @@ export const ClassroomTabRefactored = ({
 
   // Handle course selection (view course)
   const handleCourseView = (course: CourseDisplayData) => {
-    log.debug('Component', `🎓 [ClassroomTab] Opening course detail view for course: ${course.id}`, course);
-    log.debug('Component', `🎓 [ClassroomTab] Space subdomain:`, effectiveSpace?.subdomain);
-    log.debug('Component', `🎓 [ClassroomTab] Current location:`, window.location.pathname);
+    if (process.env.NODE_ENV === 'development') {
+      log.debug('Component', `🎓 [ClassroomTab] Opening course detail view for course: ${course.id}`);
+    }
     
     // Get subdomain from current URL path as fallback
     const currentPath = window.location.pathname;
@@ -266,19 +272,14 @@ export const ClassroomTabRefactored = ({
     const subdomainFromPath = pathSegments[0]; // First segment should be subdomain
     
     const subdomain = effectiveSpace?.subdomain || subdomainFromPath;
-    log.debug('Component', `🎓 [ClassroomTab] Using subdomain:`, subdomain);
     
     // Navigate to course URL using slug or ID
     const courseIdentifier = course.slug || course.id;
-    const courseUrl = `/${subdomain}/space/classroom/${courseIdentifier}`;
-    
-    log.debug('Component', `🎓 [ClassroomTab] Generated course URL:`, courseUrl);
-    log.debug('Component', `🎓 [ClassroomTab] Navigating to:`, courseUrl);
+    const courseUrl = `/${subdomain}/course/${courseIdentifier}`;
     
     // Try navigation with replace: false to ensure proper history handling
     try {
       navigate(courseUrl, { replace: false });
-      log.debug('Component', `🎓 [ClassroomTab] Navigation attempted successfully`);
     } catch (error) {
       log.error('Component', `🎓 [ClassroomTab] Navigation error:`, error);
       // Fallback to window.location

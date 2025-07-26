@@ -8,7 +8,8 @@ export interface CourseDisplayData {
   title: string;
   description?: string | null;
   image_url?: string | null;
-  slug?: string | null; // URL-friendly slug for course routing
+  slug?: string | null; // URL-friendly slug for course routing (legacy)
+  short_id?: string | null; // Short ID for cleaner URLs (Skool-style)
   access_type: 'open' | 'paid';
   price?: number | null;
   is_published: boolean;

@@ -473,6 +473,10 @@
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
       scroll-behavior: smooth;
+      padding-bottom: 10rem !important; /* Ensure sufficient space for input + nav */
+      /* ✅ CRITICAL: Prevent any unwanted scroll behavior */
+      scroll-snap-type: y proximity;
+      scroll-snap-align: end;
     }
     
     /* ✅ OVERLAY INPUT: Fixed positioning above bottom nav */
@@ -486,6 +490,10 @@
       z-index: 100; /* Above bottom nav (z-50) */
       padding-bottom: env(safe-area-inset-bottom, 0px);
       box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+      min-height: 60px; /* Ensure consistent height */
+      /* ✅ CRITICAL: Prevent any layout shifts */
+      transform: translateZ(0);
+      will-change: transform;
     }
     
     /* Prevent input zoom on iOS */
@@ -500,6 +508,16 @@
     /* Mobile chat page simplified */
     .mobile-chat-page {
       height: 100dvh;
+      overflow: hidden;
+    }
+    
+    /* Enhanced mobile chat layout with better safe area handling */
+    .mobile-chat-view-simplified {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      /* ✅ CRITICAL: Use modern viewport units */
+      height: 100dvh;
+      min-height: 100dvh;
+      /* ✅ CRITICAL: Prevent any scroll on the main container */
       overflow: hidden;
     }
   }
@@ -832,4 +850,103 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 6;
+}
+
+/* Override image sizes in lesson content */
+.lesson-content-images img {
+  max-width: 65% !important;
+  height: auto !important;
+  display: block !important;
+  margin: 16px auto !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+
+/* Video container styling for rich text content */
+.lesson-content-images .video-container,
+.lesson-content-images iframe,
+.lesson-content-images video {
+  max-width: 100% !important;
+  margin: 16px auto !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+
+.lesson-content-images .video-container {
+  display: block !important;
+}
+
+/* ✅ MODERN 2025 MOBILE CHAT LAYOUT - No Scroll Issues */
+
+/* Messages container with bottom padding for overlay input */
+.mobile-chat-messages-simplified {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  padding-bottom: 10rem !important; /* Ensure sufficient space for input + nav */
+  /* ✅ CRITICAL: Prevent any unwanted scroll behavior */
+  scroll-snap-type: y proximity;
+  scroll-snap-align: end;
+}
+
+/* ✅ OVERLAY INPUT: Fixed positioning above bottom nav */
+.mobile-chat-input-overlay {
+  position: fixed !important;
+  bottom: 4rem; /* Above 64px bottom nav */
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  z-index: 100; /* Above bottom nav (z-50) */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  min-height: 60px; /* Ensure consistent height */
+  /* ✅ CRITICAL: Prevent any layout shifts */
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Enhanced mobile chat layout with better safe area handling */
+.mobile-chat-view-simplified {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* ✅ CRITICAL: Use modern viewport units */
+  height: 100dvh;
+  min-height: 100dvh;
+  /* ✅ CRITICAL: Prevent any scroll on the main container */
+  overflow: hidden;
+}
+
+/* ✅ MODERN 2025: Chat container that prevents any scroll issues */
+.chat-messages-container {
+  /* ✅ CRITICAL: Use modern scroll behavior */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  /* ✅ CRITICAL: Prevent any unwanted scroll resets */
+  scroll-snap-type: y proximity;
+  /* ✅ CRITICAL: Ensure stable layout */
+  contain: layout style paint;
+}
+
+/* ✅ MODERN 2025: Prevent any scroll on chat pages */
+body.chat-page-open {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ✅ MODERN 2025: Chat modal that prevents background scroll */
+.chat-modal {
+  /* ✅ CRITICAL: Prevent any scroll issues */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9999 !important;
+  background: white !important;
+  /* ✅ CRITICAL: Prevent any layout shifts */
+  transform: translateZ(0);
+  will-change: transform;
 }

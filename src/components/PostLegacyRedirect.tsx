@@ -35,7 +35,7 @@ export default function PostLegacyRedirect() {
 
       try {
         let spaceSubdomain: string | null = null;
-        let finalPostId = postId;
+        const finalPostId = postId;
         let finalSpaceId = spaceId;
         
         // For the spaceId pattern, we need to get the space subdomain first

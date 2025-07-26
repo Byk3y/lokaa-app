@@ -16,9 +16,9 @@ export interface CachedSpaceInfo {
 }
 
 // ENHANCED: Global cache operation tracking with immediate deduplication
-let recentCacheOperations = new Set<string>();
-let lastCacheWarmTime = new Map<string, number>();
-let pendingCacheOperations = new Map<string, Promise<void>>();
+const recentCacheOperations = new Set<string>();
+const lastCacheWarmTime = new Map<string, number>();
+const pendingCacheOperations = new Map<string, Promise<void>>();
 
 /**
  * Warm cache with space information for instant future redirects

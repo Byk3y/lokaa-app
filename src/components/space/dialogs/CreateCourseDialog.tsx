@@ -1,4 +1,5 @@
 import { log } from '@/utils/logger';
+import { formatAsTitle } from '@/utils/textUtils';
 // This file was created to resolve a build error due to its absence.
 // Please populate it with the necessary code for the Create Course Dialog. 
 
@@ -8,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, ImageIcon } from "lucide-react";
+import { Loader2, Upload, X, ImageIcon, ArrowLeft } from "lucide-react";
 import { uploadCourseImage, validateCourseImage } from "@/utils/courseImageUpload";
 import { useSpace } from "@/hooks/useSpace";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 interface CreateCourseDialogProps {
   isOpen: boolean;
@@ -48,6 +50,7 @@ export default function CreateCourseDialog({
   
   const { space } = useSpace();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -56,7 +59,7 @@ export default function CreateCourseDialog({
     // Validate the file first
     const validation = validateCourseImage(file);
     if (!validation.isValid) {
-      log.error('Component', "Invalid file:", validation.error);
+      log.error('Component', "Invalid file:", new Error(validation.error));
       return;
     }
 
@@ -67,7 +70,7 @@ export default function CreateCourseDialog({
         setCoverImageUrl(uploadedUrl);
       }
     } catch (error) {
-      log.error('Component', "Upload failed:", error);
+      log.error('Component', "Upload failed:", error as Error);
     } finally {
       setIsUploadingImage(false);
     }
@@ -145,58 +148,76 @@ export default function CreateCourseDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[95vh] overflow-y-auto !fixed !inset-0 !translate-x-0 !translate-y-0 m-auto">
-        <DialogHeader className="pt-4 pb-2 px-6">
-          <DialogTitle className="text-xl font-semibold">Add Course</DialogTitle>
-          <DialogDescription className="sr-only">
-            Fill in the details below to create a new course for your space.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className={`${isMobile ? 'fixed inset-0 w-full h-full max-w-none max-h-none m-0 rounded-none' : 'sm:max-w-3xl max-h-[95vh]'} overflow-y-auto !fixed !inset-0 !translate-x-0 !translate-y-0 m-auto bg-white`}>
+        {/* Mobile Header */}
+        {isMobile && (
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+            <button
+              onClick={() => onOpenChange(false)}
+              className="p-2 -ml-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-lg font-semibold text-gray-900">Add course</h2>
+            <div className="w-10"></div> {/* Spacer for centering */}
+          </div>
+        )}
+
+        {/* Desktop Header */}
+        {!isMobile && (
+          <DialogHeader className="pt-4 pb-2 px-6">
+            <DialogTitle className="text-xl font-semibold">Add Course</DialogTitle>
+            <DialogDescription className="sr-only">
+              Fill in the details below to create a new course for your space.
+            </DialogDescription>
+          </DialogHeader>
+        )}
         
-        <div className="px-6 pb-4">
-          <div className="space-y-4">
+        <div className={`${isMobile ? 'p-4' : 'px-6 pb-4'}`}>
+          <div className="space-y-6">
             {/* Course Title - Full Width */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="new-course-title-dialog">Course Title</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="new-course-title-dialog" className="text-sm font-medium text-gray-700">Course name</Label>
               <Input 
                 id="new-course-title-dialog" 
-                placeholder="e.g., Mastering Digital Art" 
+                placeholder="Course name" 
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="text-base py-2.5 px-3 border-gray-300 focus:border-primary focus:ring-primary rounded-md shadow-sm"
+                onChange={(e) => setTitle(formatAsTitle(e.target.value))}
+                className="text-base py-3 px-4 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-lg shadow-sm"
+                maxLength={50}
               />
               <div className="text-xs text-gray-500 self-end text-right pr-1">
-                {title.length} / 50
+                {title.length}/50
               </div>
             </div>
             
             {/* Course Description - Full Width */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="new-course-description-dialog">Course Description</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="new-course-description-dialog" className="text-sm font-medium text-gray-700">Course description</Label>
               <Textarea 
                 id="new-course-description-dialog" 
-                placeholder="Provide a compelling description of your new course..."
+                placeholder="Course description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[80px] text-base py-2.5 px-3 border-gray-300 focus:border-primary focus:ring-primary rounded-md shadow-sm"
-                rows={3}
+                className="min-h-[100px] text-base py-3 px-4 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-lg shadow-sm"
+                rows={4}
+                maxLength={500}
               />
               <div className="text-xs text-gray-500 self-end text-right pr-1">
-                {description.length} / 5000
+                {description.length}/500
               </div>
             </div>
 
             {/* Access Type Section - Full Width */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Access Type</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-gray-700">Course access</Label>
+              <div className="space-y-3">
                 <div 
                   onClick={() => setAccessType("open")}
                   className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ease-in-out 
                               ${accessType === "open" 
-                                ? 'border-primary ring-2 ring-primary shadow-md bg-primary/5' 
+                                ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-sm bg-blue-50' 
                                 : 'border-gray-300 hover:border-gray-400 bg-white'}`}
-                  style={{borderColor: accessType === "open" ? primaryColor : undefined}}
                 >
                   <div className="flex items-center">
                     <input 
@@ -206,11 +227,10 @@ export default function CreateCourseDialog({
                       value="open"
                       checked={accessType === "open"}
                       onChange={() => setAccessType("open")} 
-                      className="h-4 w-4 text-primary border-gray-300 focus:ring-primary mr-3 shrink-0"
-                      style={{color: primaryColor, borderColor: primaryColor}}
+                      className="h-4 w-4 text-blue-500 border-gray-300 focus:ring-blue-500 mr-3 shrink-0"
                     />
                     <div>
-                      <label htmlFor="new-access-open-dialog" className="font-semibold text-gray-800 block text-sm cursor-pointer">Open</label>
+                      <label htmlFor="new-access-open-dialog" className="font-medium text-gray-800 block text-sm cursor-pointer">Open</label>
                       <span className="text-xs text-gray-500 block">All members can access.</span>
                     </div>
                   </div>
@@ -219,9 +239,8 @@ export default function CreateCourseDialog({
                   onClick={() => setAccessType("paid")}
                   className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ease-in-out 
                               ${accessType === "paid" 
-                                ? 'border-primary ring-2 ring-primary shadow-md bg-primary/5' 
+                                ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-sm bg-blue-50' 
                                 : 'border-gray-300 hover:border-gray-400 bg-white'}`}
-                  style={{borderColor: accessType === "paid" ? primaryColor : undefined}}
                 >
                   <div className="flex items-center">
                     <input 
@@ -231,21 +250,20 @@ export default function CreateCourseDialog({
                       value="paid"
                       checked={accessType === "paid"}
                       onChange={() => setAccessType("paid")} 
-                      className="h-4 w-4 text-primary border-gray-300 focus:ring-primary mr-3 shrink-0"
-                      style={{color: primaryColor, borderColor: primaryColor}}
+                      className="h-4 w-4 text-blue-500 border-gray-300 focus:ring-blue-500 mr-3 shrink-0"
                     />
                     <div>
-                      <label htmlFor="new-access-paid-dialog" className="font-semibold text-gray-800 block text-sm cursor-pointer">Buy now</label>
-                      <span className="text-xs text-gray-500 block">Members pay a 1-time price.</span>
+                      <label htmlFor="new-access-paid-dialog" className="font-medium text-gray-800 block text-sm cursor-pointer">Buy now</label>
+                      <span className="text-xs text-gray-500 block">Members pay a 1-time price to unlock.</span>
                     </div>
                   </div>
                 </div>
               </div>
               
               {accessType === "paid" && (
-                <div className="mt-3">
-                  <Label htmlFor="new-course-price-dialog" className="text-sm font-medium">One-time purchase price</Label>
-                  <div className="relative mt-1.5">
+                <div className="mt-4">
+                  <Label htmlFor="new-course-price-dialog" className="text-sm font-medium text-gray-700">One-time purchase price</Label>
+                  <div className="relative mt-2">
                     <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
                       $
                     </div>
@@ -255,7 +273,7 @@ export default function CreateCourseDialog({
                       placeholder="49.99" 
                       value={price} 
                       onChange={(e) => setPrice(e.target.value)} 
-                      className="text-base py-2.5 pl-8 pr-4 border-gray-300 focus:border-primary focus:ring-primary rounded-md shadow-sm"
+                      className="text-base py-3 pl-8 pr-4 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-lg shadow-sm"
                       min="0"
                     />
                   </div>
@@ -264,17 +282,20 @@ export default function CreateCourseDialog({
             </div>
 
             {/* Cover Image Section - Full Width */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Cover Image</Label>
-              <div className="flex items-start gap-4">
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Cover</Label>
+                <p className="text-xs text-gray-500 mt-1">1460 x 752 px</p>
+              </div>
+              <div className={`${isMobile ? 'flex flex-col space-y-4' : 'flex items-start gap-4'}`}>
                 {/* Upload Area */}
-                <div>
+                <div className={`${isMobile ? 'w-full' : ''}`}>
                   {coverImageUrl ? (
-                    <div className="relative max-w-[365px] w-full">
+                    <div className={`relative ${isMobile ? 'w-full' : 'max-w-[365px]'}`}>
                       <img
                         src={coverImageUrl}
                         alt="Course cover"
-                        className="w-full h-[188px] object-cover rounded-lg border-2 border-gray-300"
+                        className={`${isMobile ? 'w-full h-48' : 'w-full h-[188px]'} object-cover rounded-lg border-2 border-gray-300`}
                       />
                       <button
                         type="button"
@@ -289,7 +310,7 @@ export default function CreateCourseDialog({
                       type="button"
                       onClick={triggerImageUpload}
                       disabled={isUploadingImage}
-                      className="w-[365px] h-[188px] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-gray-50"
+                      className={`${isMobile ? 'w-full h-48' : 'w-[365px] h-[188px]'} border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-gray-50`}
                     >
                       {isUploadingImage ? (
                         <>
@@ -303,21 +324,19 @@ export default function CreateCourseDialog({
                   )}
                 </div>
                 
-                {/* Details and Controls - Right next to image */}
-                <div className="flex flex-col justify-center space-y-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Cover</h3>
-                    <p className="text-sm text-gray-500">1460 x 752 px</p>
+                {/* Details and Controls - Right next to image on desktop, below on mobile */}
+                {!isMobile && (
+                  <div className="flex flex-col justify-center space-y-3">
+                    <button
+                      type="button"
+                      onClick={triggerImageUpload}
+                      disabled={isUploadingImage}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      {isUploadingImage ? "UPLOADING..." : "CHANGE"}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={triggerImageUpload}
-                    disabled={isUploadingImage}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    {isUploadingImage ? "UPLOADING..." : "CHANGE"}
-                  </button>
-                </div>
+                )}
               </div>
               <input
                 type="file"
@@ -327,51 +346,78 @@ export default function CreateCourseDialog({
                 accept="image/*"
               />
             </div>
+
+            {/* Published Toggle */}
+            <div className="flex items-center justify-between py-4">
+              <div 
+                role="switch"
+                aria-checked={isPublished}
+                onClick={() => setIsPublished(prev => !prev)}
+                className="flex items-center cursor-pointer"
+              >
+                <div 
+                  className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ease-in-out 
+                              ${isPublished ? 'bg-green-500' : 'bg-gray-300'}`}
+                >
+                  <div 
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out 
+                                ${isPublished ? 'translate-x-5' : 'translate-x-0'}`}
+                  ></div>
+                </div>
+                <span className={`ml-3 font-medium text-sm ${isPublished ? 'text-green-700' : 'text-gray-700'}`}>
+                  {isPublished ? 'Published' : 'Draft'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="px-6 pb-2 pt-0 flex sm:justify-between items-center">
-          {/* Published Toggle - Simple version */}
-          <div 
-            role="switch"
-            aria-checked={isPublished}
-            onClick={() => setIsPublished(prev => !prev)}
-            className="flex items-center cursor-pointer"
-          >
-            <div 
-              className={`w-10 h-5 flex items-center rounded-full p-0.5 transition-colors duration-200 ease-in-out 
-                          ${isPublished ? 'bg-green-500' : 'bg-gray-300'}`}
-            >
-              <div 
-                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out 
-                            ${isPublished ? 'translate-x-5' : 'translate-x-0'}`}
-              ></div>
-            </div>
-            <span className={`ml-3 font-medium text-sm ${isPublished ? 'text-green-700' : 'text-gray-700'}`}>
-              {isPublished ? 'Published' : 'Draft'}
-            </span>
-          </div>
-          
-          <div className="flex gap-4">
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              className="px-6"
-              disabled={isCreating}
-            >
-              CANCEL
-            </Button>
+        {/* Mobile Footer - Fixed at bottom */}
+        {isMobile && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 space-y-3">
             <Button 
               onClick={handleSubmit}
-              className="text-white px-6"
-              style={{ backgroundColor: primaryColor }}
+              className="w-full text-white py-3 bg-blue-500 hover:bg-blue-600"
               disabled={isCreating}
             >
               {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isCreating ? "ADDING..." : "ADD"}
             </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              className="w-full py-3"
+              disabled={isCreating}
+            >
+              CANCEL
+            </Button>
           </div>
-        </DialogFooter>
+        )}
+
+        {/* Desktop Footer */}
+        {!isMobile && (
+          <DialogFooter className="px-6 pb-2 pt-0 flex sm:justify-between items-center">
+            <div className="flex gap-4">
+              <Button 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+                className="px-6"
+                disabled={isCreating}
+              >
+                CANCEL
+              </Button>
+              <Button 
+                onClick={handleSubmit}
+                className="text-white px-6"
+                style={{ backgroundColor: primaryColor }}
+                disabled={isCreating}
+              >
+                {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isCreating ? "ADDING..." : "ADD"}
+              </Button>
+            </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

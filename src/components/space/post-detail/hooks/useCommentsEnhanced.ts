@@ -197,7 +197,7 @@ export function useCommentsEnhanced(
       if (error) throw error;
 
       const replyIds = data ? data.map(reply => reply.id) : [];
-      let likedReplyIds = new Set<string>();
+      const likedReplyIds = new Set<string>();
 
       if (currentUserId && replyIds.length > 0) {
         const { data: likeStatusData, error: likeStatusError } = await getSupabaseClient()

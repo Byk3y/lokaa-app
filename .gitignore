@@ -24,6 +24,12 @@ dev-dist
 *.sln
 *.sw?
 
+# MCP Configuration (contains tokens)
+.mcp.json
+
+# Debug files
+debug-*.js
+
 # Environment variables
 .env
 .env.local

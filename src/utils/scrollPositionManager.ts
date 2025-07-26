@@ -13,80 +13,74 @@ interface ScrollPositionOptions {
   force?: boolean;
 }
 
+/**
+ * Global flag to prevent scroll resets when chat navigation is pending
+ * This prevents unwanted scroll resets when the user is about to open chat
+ */
+declare global {
+  interface Window {
+    __pendingChatNavigation?: boolean;
+  }
+}
+
 class ScrollPositionManager {
   private isResetting = false;
   private lastResetTime = 0;
   private readonly RESET_COOLDOWN = 1000; // 1 second cooldown between resets
 
   /**
-   * Reset scroll position to top of page
+   * Reset scroll position to top for all scrollable elements
+   * EXCLUDES chat containers to prevent unwanted scroll resets
    */
-  resetToTop(options: ScrollPositionOptions = {}): void {
-    const { behavior = 'auto', delay = 0, force = false } = options;
-    
-    // Prevent rapid successive resets
-    const now = Date.now();
-    if (!force && this.isResetting && (now - this.lastResetTime) < this.RESET_COOLDOWN) {
-      log.debug('ScrollManager', 'Skipping scroll reset - too soon after last reset');
+  resetToTop(): void {
+    // ✅ CRITICAL FIX: Skip all scroll resets if chat navigation is pending
+    if (isChatNavigationPending()) {
       return;
     }
 
-    this.isResetting = true;
-    this.lastResetTime = now;
-
-    const performReset = () => {
-      try {
-        // Method 1: Scroll to top of document
-        window.scrollTo({
-          top: 0,
-          left: 0,
-          behavior
-        });
-
-        // Method 2: Also reset any scrollable containers
-        const scrollableElements = document.querySelectorAll(
-          '.overflow-y-auto, .overflow-auto, [data-scrollable="true"]'
-        );
-
-        scrollableElements.forEach((element) => {
-          if (element instanceof HTMLElement) {
-            element.scrollTop = 0;
-            element.scrollLeft = 0;
-          }
-        });
-
-        log.debug('ScrollManager', 'Scroll position reset to top', {
-          behavior,
-          scrollableElementsCount: scrollableElements.length
-        });
-      } catch (error) {
-        log.warn('ScrollManager', 'Error resetting scroll position:', error);
-      } finally {
-        this.isResetting = false;
-      }
-    };
-
-    if (delay > 0) {
-      setTimeout(performReset, delay);
-    } else {
-      performReset();
+    // ✅ CRITICAL FIX: Completely disable scroll resets when on chat pages
+    if (this.isOnChatPage()) {
+      return;
     }
+    
+    // Method 1: Reset body scroll
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+
+    // Method 2: Also reset any scrollable containers - EXCLUDE CHAT CONTAINERS
+    const scrollableElements = document.querySelectorAll(
+      '.overflow-y-auto, .overflow-auto, [data-scrollable="true"]'
+    );
+
+    scrollableElements.forEach((element) => {
+      if (element instanceof HTMLElement) {
+        // ✅ FIX: Use a more robust chat container detection
+        if (this.isChatContainer(element)) {
+          return; // Skip this element entirely
+        }
+
+        element.scrollTop = 0;
+        element.scrollLeft = 0;
+      }
+    });
   }
 
   /**
    * Reset scroll position with mobile-specific handling
    */
   resetForMobile(options: ScrollPositionOptions = {}): void {
-    const { behavior = 'auto', delay = 0 } = options;
-    
     // On mobile, use a slightly longer delay to ensure viewport is stable
-    const mobileDelay = delay > 0 ? delay : 50;
+    const mobileDelay = options.delay > 0 ? options.delay : 50;
     
-    this.resetToTop({
-      behavior,
-      delay: mobileDelay,
-      force: true
-    });
+    // Use setTimeout to add delay if needed
+    if (mobileDelay > 0) {
+      setTimeout(() => {
+        this.resetToTop();
+      }, mobileDelay);
+    } else {
+      this.resetToTop();
+    }
   }
 
   /**
@@ -95,13 +89,127 @@ class ScrollPositionManager {
   resetForLogin(options: ScrollPositionOptions = {}): void {
     log.debug('ScrollManager', 'Resetting scroll position for login');
     
-    // For login, use smooth behavior and ensure we wait for DOM to be ready
-    this.resetToTop({
-      behavior: 'smooth',
-      delay: 100,
-      force: true,
-      ...options
-    });
+    // ✅ FIX: Check if we're in a modal context before resetting
+    const isInModalContext = this.isInModalContext();
+    
+    if (isInModalContext) {
+      log.debug('ScrollManager', 'Skipping scroll reset - in modal context');
+      return;
+    }
+    
+    // For login, use delay to ensure DOM is ready
+    const delay = options.delay || 100;
+    
+    if (delay > 0) {
+      setTimeout(() => {
+        this.resetToTop();
+      }, delay);
+    } else {
+      this.resetToTop();
+    }
+  }
+
+  /**
+   * Check if we're currently in a modal or overlay context
+   */
+  private isInModalContext(): boolean {
+    // ✅ FIX: Enhanced modal context detection
+    const modalSelectors = [
+      '[data-radix-popper-content-wrapper]',
+      '.chat-modal',
+      '.mobile-chat-input-overlay',
+      '[role="dialog"]',
+      '.modal',
+      '.overlay',
+      '[data-chat-container="true"]',
+      '.chat-messages-container',
+      '.mobile-chat-messages-simplified'
+    ];
+    
+    // Check for modal elements
+    const hasModalElement = modalSelectors.some(selector => 
+      document.querySelector(selector) !== null
+    );
+    
+    // Check for chat-related URLs
+    const isChatUrl = window.location.pathname.includes('/chat') || 
+                     window.location.pathname.includes('/app/chat');
+    
+    // Check for active chat containers
+    const hasActiveChat = document.querySelector('[data-chat-container="true"]') !== null;
+    
+    return hasModalElement || isChatUrl || hasActiveChat;
+  }
+
+  /**
+   * Check if we're currently on a chat page or about to navigate to chat
+   */
+  private isOnChatPage(): boolean {
+    const isOnChatPage = window.location.pathname.includes('/chat') || 
+                        window.location.pathname.includes('/app/chat');
+    
+    // ✅ CRITICAL: Also check if we're on a space page that might navigate to chat
+    const isOnSpacePageThatMightNavigateToChat = window.location.pathname.includes('/space') && 
+                                                (window.location.search.includes('chat') || 
+                                                 window.location.hash.includes('chat') ||
+                                                 window.location.pathname.includes('/members'));
+    
+    return isOnChatPage || isOnSpacePageThatMightNavigateToChat;
+  }
+
+  /**
+   * Enhanced chat container detection
+   */
+  private isChatContainer(element: HTMLElement): boolean {
+    // Check if element itself is a chat container
+    const isDirectChatContainer = 
+      element.classList.contains('chat-messages-container') ||
+      element.classList.contains('mobile-chat-messages-simplified') ||
+      element.hasAttribute('data-chat-container') ||
+      element.dataset.chatContainer === 'true';
+
+    // Check if element is inside a chat container
+    const isInsideChatContainer = 
+      element.closest('.chat-messages-container') !== null ||
+      element.closest('.mobile-chat-messages-simplified') !== null ||
+      element.closest('[data-chat-container="true"]') !== null ||
+      element.closest('.chat-modal') !== null ||
+      element.closest('.mobile-chat-input-overlay') !== null;
+
+    // Check if element is part of chat-related UI
+    const isChatUI = 
+      element.classList.contains('chat-container') ||
+      element.classList.contains('chat-view') ||
+      element.classList.contains('chat-messages') ||
+      element.classList.contains('chat-input') ||
+      element.closest('.chat-container') !== null ||
+      element.closest('.chat-view') !== null;
+
+    // ✅ FIX: Check if element CONTAINS chat content (parent containers)
+    const containsChatContent = 
+      element.querySelector('.chat-messages-container') !== null ||
+      element.querySelector('.mobile-chat-messages-simplified') !== null ||
+      element.querySelector('[data-chat-container="true"]') !== null ||
+      element.querySelector('.chat-modal') !== null ||
+      element.querySelector('.mobile-chat-input-overlay') !== null ||
+      element.querySelector('.chat-container') !== null ||
+      element.querySelector('.chat-view') !== null;
+
+    // ✅ FIX: Check if we're on a chat page/route
+    const isOnChatPage = 
+      window.location.pathname.includes('/chat') || 
+      window.location.pathname.includes('/app/chat');
+
+    // ✅ FIX: Check if element is part of the main app layout that contains chat
+    const isMainAppContainer = 
+      element.classList.contains('app-container') ||
+      element.classList.contains('main-container') ||
+      element.classList.contains('layout-container') ||
+      element.closest('.app-container') !== null ||
+      element.closest('.main-container') !== null ||
+      element.closest('.layout-container') !== null;
+
+    return isDirectChatContainer || isInsideChatContainer || isChatUI || containsChatContent || (isOnChatPage && isMainAppContainer);
   }
 
   /**
@@ -110,13 +218,22 @@ class ScrollPositionManager {
   resetForFeedNavigation(options: ScrollPositionOptions = {}): void {
     log.debug('ScrollManager', 'Resetting scroll position for feed navigation');
     
-    // For feed navigation, use auto behavior for immediate effect
-    this.resetToTop({
-      behavior: 'auto',
-      delay: 0,
-      force: true,
-      ...options
-    });
+    // ✅ CRITICAL FIX: Skip if chat navigation is pending
+    if (isChatNavigationPending()) {
+      console.log('🔍 [ScrollManager] SKIPPING feed navigation scroll reset - chat navigation pending');
+      return;
+    }
+    
+    // For feed navigation, use immediate effect
+    const delay = options.delay || 0;
+    
+    if (delay > 0) {
+      setTimeout(() => {
+        this.resetToTop();
+      }, delay);
+    } else {
+      this.resetToTop();
+    }
   }
 
   /**
@@ -176,9 +293,38 @@ class ScrollPositionManager {
 // Export singleton instance
 export const scrollPositionManager = new ScrollPositionManager();
 
+/**
+ * Set the global pending chat navigation flag
+ * Call this when chat navigation is initiated (tab, button, modal, etc.)
+ */
+export const setPendingChatNavigation = (pending: boolean = true): void => {
+  if (typeof window !== 'undefined') {
+    window.__pendingChatNavigation = pending;
+    console.log('🔍 [ScrollManager] Set pending chat navigation:', pending);
+  }
+};
+
+/**
+ * Check if chat navigation is pending
+ */
+const isChatNavigationPending = (): boolean => {
+  return typeof window !== 'undefined' && window.__pendingChatNavigation === true;
+};
+
+/**
+ * Clear connection cache when needed (e.g., when user logs out)
+ */
+export const clearConnectionCache = (): void => {
+  // This will be called by ConnectionContext when needed
+  if (typeof window !== 'undefined' && (window as any).__connectionCache) {
+    (window as any).__connectionCache.clear();
+    console.log('🔍 [ScrollManager] Connection cache cleared');
+  }
+};
+
 // Export individual functions for convenience
-export const resetScrollToTop = (options?: ScrollPositionOptions) => 
-  scrollPositionManager.resetToTop(options);
+export const resetScrollToTop = () => 
+  scrollPositionManager.resetToTop();
 
 export const resetScrollForMobile = (options?: ScrollPositionOptions) => 
   scrollPositionManager.resetForMobile(options);

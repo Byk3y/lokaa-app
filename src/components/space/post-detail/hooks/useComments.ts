@@ -268,7 +268,7 @@ export function useComments(
         }
 
         // Fetch like status for comments AND their initial replies
-        let likedCommentIds = new Set<string>();
+        const likedCommentIds = new Set<string>();
         if (currentUserId) {
           // Get all comment IDs (parent comments + their initial replies)
           const allCommentIds = [...commentIds];
@@ -491,7 +491,7 @@ export function useComments(
       if (error) throw error;
 
       const replyIds = data ? data.map(reply => reply.id) : [];
-      let likedReplyIds = new Set<string>();
+      const likedReplyIds = new Set<string>();
 
       if (currentUserId && replyIds.length > 0) {
         const { data: likeStatusData, error: likeStatusError } = await getSupabaseClient()

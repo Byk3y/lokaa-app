@@ -358,6 +358,8 @@ export type Database = {
           id: string
           lesson_order: number
           module_id: string
+          page_type: string | null
+          post_id: string | null
           title: string
           updated_at: string | null
         }
@@ -369,6 +371,8 @@ export type Database = {
           id?: string
           lesson_order?: number
           module_id: string
+          page_type?: string | null
+          post_id?: string | null
           title: string
           updated_at?: string | null
         }
@@ -380,6 +384,8 @@ export type Database = {
           id?: string
           lesson_order?: number
           module_id?: string
+          page_type?: string | null
+          post_id?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -445,6 +451,7 @@ export type Database = {
           image_url: string | null
           is_published: boolean
           price: number | null
+          short_id: string | null
           space_id: string
           title: string
           updated_at: string | null
@@ -459,6 +466,7 @@ export type Database = {
           image_url?: string | null
           is_published?: boolean
           price?: number | null
+          short_id?: string | null
           space_id: string
           title: string
           updated_at?: string | null
@@ -473,6 +481,7 @@ export type Database = {
           image_url?: string | null
           is_published?: boolean
           price?: number | null
+          short_id?: string | null
           space_id?: string
           title?: string
           updated_at?: string | null
@@ -775,6 +784,7 @@ export type Database = {
           category_id: string | null
           comment_count: number | null
           content: string
+          course_id: string | null
           created_at: string | null
           edited_at: string | null
           id: string
@@ -786,6 +796,7 @@ export type Database = {
           pinned_at: string | null
           pinned_by: string | null
           poll_data: Json | null
+          post_type: string | null
           slug: string | null
           space_id: string
           title: string | null
@@ -796,6 +807,7 @@ export type Database = {
           category_id?: string | null
           comment_count?: number | null
           content: string
+          course_id?: string | null
           created_at?: string | null
           edited_at?: string | null
           id?: string
@@ -807,6 +819,7 @@ export type Database = {
           pinned_at?: string | null
           pinned_by?: string | null
           poll_data?: Json | null
+          post_type?: string | null
           slug?: string | null
           space_id: string
           title?: string | null
@@ -817,6 +830,7 @@ export type Database = {
           category_id?: string | null
           comment_count?: number | null
           content?: string
+          course_id?: string | null
           created_at?: string | null
           edited_at?: string | null
           id?: string
@@ -828,6 +842,7 @@ export type Database = {
           pinned_at?: string | null
           pinned_by?: string | null
           poll_data?: Json | null
+          post_type?: string | null
           slug?: string | null
           space_id?: string
           title?: string | null
@@ -840,6 +855,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "space_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
           {

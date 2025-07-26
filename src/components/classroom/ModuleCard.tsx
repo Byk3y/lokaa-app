@@ -1,20 +1,49 @@
 import React, { memo } from 'react';
 import { Button } from "@/components/ui/button";
+import { formatAsTitle } from '@/utils/textUtils';
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Pencil, Trash2, Plus } from "lucide-react";
-import type { CourseModuleWithLessons, CourseLessonData } from '@/types/classroom';
+// Define the types locally to match CourseDetailView
+interface CourseModule {
+  id: string;
+  title: string;
+  description: string | null;
+  module_order: number;
+  module_type: 'folder' | 'module' | string;
+  course_id: string;
+  space_id: string;
+  lessons: CourseLesson[];
+}
+
+interface CourseLesson {
+  id: string;
+  title: string;
+  content_type: string;
+  content_url: string | null;
+  content_text: string | null;
+  lesson_order: number;
+  module_id?: string;
+  content_id?: string | null;
+  is_published: boolean;
+  page_type?: string;
+  estimated_duration?: number | null;
+  difficulty_level?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  completed?: boolean;
+}
 
 interface ModuleCardProps {
-  module: CourseModuleWithLessons;
+  module: CourseModule;
   isOwner: boolean;
   isAccessible: boolean;
   releaseDateString?: string;
   primaryColor: string;
-  onEditModule: (module: CourseModuleWithLessons) => void;
-  onDeleteModule: (module: CourseModuleWithLessons) => void;
+  onEditModule: (module: CourseModule) => void;
+  onDeleteModule: (module: CourseModule) => void;
   onAddLesson: (moduleId: string) => void;
-  onEditLesson: (lesson: CourseLessonData) => void;
-  onViewLesson: (lesson: CourseLessonData) => void;
+  onEditLesson: (lesson: CourseLesson) => void;
+  onViewLesson: (lesson: CourseLesson) => void;
 }
 
 export const ModuleCard = memo<ModuleCardProps>(({
@@ -38,7 +67,7 @@ export const ModuleCard = memo<ModuleCardProps>(({
       <div className="flex justify-between items-start">
         <div>
           <h4 className={`font-semibold text-lg text-gray-700 mb-1 pr-10 ${!isAccessible ? 'text-gray-500' : ''}`}>
-            {module.title}
+            {formatAsTitle(module.title)}
           </h4>
           
           {module.description && (
@@ -99,7 +128,7 @@ export const ModuleCard = memo<ModuleCardProps>(({
             >
               <div className="flex-grow">
                 <h5 className={`font-medium text-sm ${isAccessible ? 'text-gray-700' : 'text-gray-500'}`}>
-                  {lesson.title}
+                  {formatAsTitle(lesson.title)}
                 </h5>
                 <p className={`text-xs ${isAccessible ? 'text-gray-500' : 'text-gray-400'} mt-0.5`}>
                   {lesson.content_type === 'text' ? '📄 Text Content' : 

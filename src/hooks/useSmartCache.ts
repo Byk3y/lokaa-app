@@ -69,7 +69,7 @@ export function useSmartCache<T>(options: CacheOptions) {
   const maybeCompress = useCallback((data: T): { data: T; compressed: boolean; size: number } => {
     const size = estimateSize(data);
     let compressed = false;
-    let finalData = data;
+    const finalData = data;
     
     // Simple compression strategy - could be enhanced with actual compression libraries
     if (options.compression && size > 10000) {

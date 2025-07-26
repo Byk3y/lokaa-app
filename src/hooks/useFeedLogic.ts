@@ -129,7 +129,8 @@ export function useFeedLogic({
   isOwner: isOwnerProp, 
   isAdmin: isAdminProp, 
   postInputRef,
-  hasInstantAccess
+  hasInstantAccess,
+  disableVisibilityTracking
 }: FeedTabProps): UseFeedLogicReturn {
   
   // ============================================================================
@@ -287,7 +288,7 @@ export function useFeedLogic({
     handlePinToggled: handleCachedPinToggled,
     mapPostToCardProps: mapCachedPostToCardProps,
     refreshOnTabSwitch: refreshOnTabSwitchInternal,
-  } = useOptimizedCachedPosts(readyToFetchSpaceId);
+  } = useOptimizedCachedPosts(readyToFetchSpaceId, { disableVisibilityTracking });
   
   const { 
     categories: spaceCategories, 
@@ -373,6 +374,7 @@ export function useFeedLogic({
           `)
           .in('id', postIds)
           .eq('space_id', stableSpaceId)
+          .neq('post_type', 'course_page') // ✅ Exclude course lesson posts from main feed
           .order('created_at', { ascending: false });
 
         if (error) {

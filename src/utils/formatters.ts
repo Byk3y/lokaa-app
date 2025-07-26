@@ -37,6 +37,47 @@ export const formatRelativeTimeShort = (dateInput: string | Date): string => {
   }
 };
 
+// Comment-specific date formatter (e.g., "23d ago", "2h ago", "5m ago", "now")
+export const formatCommentTime = (dateInput: string | Date): string => {
+  try {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    // Validate the date is valid before using getTime
+    if (isNaN(date.getTime())) {
+      log.warn('Utils', "Invalid date in formatCommentTime:", dateInput);
+      return "now";
+    }
+    
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    const diffWeek = Math.floor(diffDay / 7);
+    const diffMonth = Math.floor(diffDay / 30);
+    const diffYear = Math.floor(diffDay / 365);
+
+    if (diffSec < 60) {
+      return "now";
+    } else if (diffMin < 60) {
+      return `${diffMin}m ago`;
+    } else if (diffHour < 24) {
+      return `${diffHour}h ago`;
+    } else if (diffDay < 7) {
+      return `${diffDay}d ago`;
+    } else if (diffWeek < 4) {
+      return `${diffWeek}w ago`;
+    } else if (diffMonth < 12) {
+      return `${diffMonth}mo ago`;
+    } else {
+      return `${diffYear}y ago`;
+    }
+  } catch (error) {
+    log.error('Utils', "Error in formatCommentTime:", error);
+    return "now";
+  }
+};
+
 // Detailed version (for chat messages, etc.)
 export function formatRelativeTime(date: Date): string {
   try {

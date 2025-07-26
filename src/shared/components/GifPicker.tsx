@@ -46,7 +46,7 @@ export const GifPicker: React.FC<GifPickerProps> = ({ open, onClose, onSelect, a
       const offset = 8; // space between button and popover
       let left = buttonRect.left - (parentRect?.left || 0) + buttonRect.width / 2 - popoverWidth / 2;
       left = Math.max(0, left);
-      let top = buttonRect.bottom - (parentRect?.top || 0) + offset;
+      const top = buttonRect.bottom - (parentRect?.top || 0) + offset;
       setPopoverStyle({
         position: 'absolute',
         left,
