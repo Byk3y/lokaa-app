@@ -1106,7 +1106,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
           updatedCourse.modules
             .flatMap(module => module.lessons)
             .filter(lesson => lesson.completed)
-            .map(lesson => lesson.id)
+            .map(lesson => lesson.id as string)
         );
         setCachedProgress(completedLessonIds, updatedCourse.progress);
         

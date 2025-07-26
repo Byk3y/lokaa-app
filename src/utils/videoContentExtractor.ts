@@ -1,25 +1,11 @@
+import type { CourseLesson } from '@/types/classroom';
+
 interface VideoInfo {
   videoId: string;
   platform: 'youtube' | 'vimeo' | 'other';
   embedUrl: string;
   thumbnailUrl?: string;
   title?: string;
-}
-
-interface CourseLesson {
-  id: string;
-  title: string;
-  content_type: string;
-  content_url: string | null;
-  content_text: string | null;
-  educational_content?: {
-    id: string;
-    title: string;
-    content_type: string;
-    text_content: string | null;
-    media_url: string | null;
-    embed_data: Record<string, unknown>;
-  } | null;
 }
 
 export class VideoContentExtractor {

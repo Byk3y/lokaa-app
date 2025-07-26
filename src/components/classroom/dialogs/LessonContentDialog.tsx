@@ -3,25 +3,7 @@ import { Button } from "@/components/ui/button";
 import { formatAsTitle } from '@/utils/textUtils';
 import { Video, Edit } from "lucide-react";
 import { sanitizeLessonContent } from '@/utils/htmlSanitizer';
-
-// Define the lesson interface locally to match the actual structure used in the codebase
-interface CourseLesson {
-  id: string;
-  title: string;
-  content_type: string;
-  content_url: string | null;
-  content_text: string | null;
-  lesson_order: number;
-  module_id?: string;
-  content_id?: string | null;
-  is_published: boolean;
-  page_type?: string;
-  estimated_duration?: number | null;
-  difficulty_level?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  completed?: boolean;
-}
+import type { CourseLesson } from '@/types/classroom';
 
 interface LessonContentDialogProps {
   isOpen: boolean;

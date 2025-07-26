@@ -4,34 +4,7 @@ import { formatAsTitle } from '@/utils/textUtils';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-
-interface CourseLesson {
-  id: string;
-  title: string;
-  content_type: string;
-  content_url: string | null;
-  content_text: string | null;
-  lesson_order: number;
-  module_id?: string;
-  content_id?: string | null;
-  is_published: boolean;
-  page_type?: string;
-  estimated_duration?: number | null;
-  difficulty_level?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  completed?: boolean;
-  educational_content?: {
-    id: string;
-    title: string;
-    content_type: string;
-    text_content: string | null;
-    media_url: string | null;
-    embed_data: any;
-    estimated_duration: number | null;
-    difficulty_level: string | null;
-  } | null;
-}
+import type { CourseLesson } from '@/types/classroom';
 
 interface Space {
   id: string;
