@@ -23,13 +23,7 @@ import { DeleteCourseDialog } from './dialogs/DeleteCourseDialog';
 import DeletePageDialog from './dialogs/DeletePageDialog';
 import RevertToDraftDialog from './dialogs/RevertToDraftDialog';
 import ChangeFolderDialog from './dialogs/ChangeFolderDialog';
-import { 
-  getCachedCourseDetail, 
-  setCachedCourseDetail, 
-  getCachedCourseProgress, 
-  setCachedCourseProgress, 
-  invalidateCourseCache as invalidateCourseCacheUtil 
-} from '@/utils/courseCacheUtils';
+import { useCourseDetail } from '@/hooks/classroom';
 import type { 
   CourseModule, 
   CourseLesson, 
@@ -67,9 +61,21 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
   // Listen to store changes to update local course state
   const storeCourses = useClassroomCourses();
   
-  const [course, setCourse] = useState<CourseDetailData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Use the new course detail hook
+  const {
+    course,
+    loading,
+    error,
+    fetchCourseDetails,
+    refetch,
+    invalidateCache,
+    retryCount,
+    isOffline
+  } = useCourseDetail({
+    enableMobileOptimizations: true,
+    enableOfflineSupport: true,
+    retryOnError: true
+  });
   const [selectedLesson, setSelectedLesson] = useState<CourseLesson | null>(null);
   const [isOwner, setIsOwner] = useState<boolean>(false);
   const [ownershipLoading, setOwnershipLoading] = useState<boolean>(true);
@@ -92,381 +98,14 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
 
   log.debug('Component', '🎓 [CourseDetailView] Component rendered with courseId:', courseId);
 
-  // Cache utility functions using shared utilities
-  const getCachedCourse = (): CourseDetailData | null => {
-    return getCachedCourseDetail<CourseDetailData>(courseId);
-  };
 
-  const setCachedCourse = (courseData: CourseDetailData) => {
-    setCachedCourseDetail<CourseDetailData>(courseId, courseData);
-  };
-
-  const getCachedProgress = (): { completedLessonIds: Set<string>; progressPercentage: number } | null => {
-    if (!user?.id) return null;
-    const cached = getCachedCourseProgress(courseId, user.id);
-    if (cached) {
-      return {
-        completedLessonIds: new Set(cached.completedLessonIds),
-        progressPercentage: cached.progressPercentage
-      };
-    }
-    return null;
-  };
-
-  const setCachedProgress = (completedLessonIds: Set<string>, progressPercentage: number) => {
-    if (!user?.id) return;
-    setCachedCourseProgress(courseId, user.id, {
-      completedLessonIds: Array.from(completedLessonIds),
-      progressPercentage
-    });
-  };
-
-  const invalidateCourseCache = () => {
-    invalidateCourseCacheUtil(courseId, user?.id);
-  };
-
-  const fetchCourseDetails = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const supabase = getSupabaseClient();
-      
-      log.debug('Component', '🎓 [CourseDetailView] Fetching course details for ID/slug:', courseId);
-      
-      // Check cache first
-      const cachedCourse = getCachedCourse();
-      if (cachedCourse) {
-        setCourse(cachedCourse);
-        setLoading(false);
-        
-        // If moduleId is provided, find and select the first lesson of that module
-        if (moduleId && cachedCourse.modules.length > 0) {
-          log.debug('Component', '🎓 [CourseDetailView] Looking for module with ID:', moduleId);
-          const targetModule = cachedCourse.modules.find(m => m.id === moduleId);
-          if (targetModule && targetModule.lessons.length > 0) {
-            log.debug('Component', '🎓 [CourseDetailView] Found target module, selecting first lesson:', targetModule.lessons[0]);
-            setSelectedLesson(targetModule.lessons[0]);
-          }
-        }
-        return cachedCourse;
-      }
-      
-      // Fetch course data - try by slug first, then by ID
-      let courseQuery = supabase
-        .from('courses')
-        .select('*');
-      
-      // Try to determine if courseId is a UUID or a slug
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
-      
-      if (isUUID) {
-        // It's a UUID, query by ID
-        courseQuery = courseQuery.eq('id', courseId);
-      } else {
-        // It's likely a slug, query by slug
-        courseQuery = courseQuery.eq('slug', courseId);
-      }
-      
-      let { data: courseData, error: courseError } = await courseQuery.single();
-
-      if (courseError) {
-        // If slug lookup failed, try ID lookup as fallback
-        if (!isUUID) {
-          log.debug('Component', '🎓 [CourseDetailView] Slug lookup failed, trying ID lookup');
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('courses')
-            .select('*')
-            .eq('id', courseId)
-            .single();
-          
-          if (fallbackError) throw fallbackError;
-          courseData = fallbackData;
-        } else {
-          throw courseError;
-        }
-      }
-
-      if (!courseData) {
-        throw new Error('Course not found');
-      }
-
-      log.debug('Component', '🎓 [CourseDetailView] Course data fetched:', {
-        id: courseData.id,
-        title: courseData.title,
-        short_id: courseData.short_id,
-        hasShortId: !!courseData.short_id
-      });
-
-      // Check if user is owner or admin
-      const { data: { user } } = await supabase.auth.getUser();
-      const isCreator = user?.id === courseData.creator_id;
-      
-      // Check if user is a general admin
-      const { data: userProfile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user?.id)
-        .single();
-      
-      const isGeneralAdmin = userProfile?.role === 'admin';
-      
-      // Check if user is a space admin
-      let isSpaceAdmin = false;
-      if (courseData.space_id && user?.id) {
-        const { data: spaceMembership } = await supabase
-          .from('space_members')
-          .select('role, status')
-          .eq('space_id', courseData.space_id)
-          .eq('user_id', user.id)
-          .single();
-        
-        isSpaceAdmin = spaceMembership?.role === 'admin' && spaceMembership?.status === 'active';
-      }
-
-      const canViewDrafts = isCreator || isGeneralAdmin || isSpaceAdmin;
-
-      // Fetch modules and lessons using the actual course ID from courseData
-      let modulesData, modulesError;
-      
-      try {
-        const result = await supabase
-          .from('course_modules')
-          .select(`
-            id,
-            title,
-            description,
-            module_order,
-            module_type,
-            course_id,
-            space_id,
-            course_lessons (
-              id,
-              title,
-              content_type,
-              content_text,
-              lesson_order,
-              module_id,
-              content_id,
-              slug,
-              page_type,
-              is_published,
-              estimated_duration,
-              difficulty_level,
-              created_at,
-              updated_at,
-              educational_content (
-                id,
-                title,
-                content_type,
-                text_content,
-                media_url,
-                embed_data,
-                estimated_duration,
-                difficulty_level
-              ),
-              posts!course_lessons_post_id_fkey (
-                id,
-                title,
-                content
-              )
-            )
-          `)
-          .eq('course_id', courseData.id) // Use the actual course ID, not the slug
-          .order('module_order');
-        
-        modulesData = result.data;
-        modulesError = result.error;
-
-        log.debug('Component', '🎓 [CourseDetailView] Modules data fetched:', {
-          moduleCount: modulesData?.length || 0,
-          modules: modulesData?.map(m => ({
-            id: m.id,
-            title: m.title,
-            type: m.module_type,
-            lessonCount: m.course_lessons?.length || 0,
-            lessons: m.course_lessons?.map(l => ({
-              id: l.id,
-              title: l.title,
-              slug: l.slug,
-              hasSlug: !!l.slug
-            }))
-          }))
-        });
-
-      } catch (timeoutError) {
-        log.debug('Component', '🎓 [CourseDetailView] Complex query timed out, trying simpler query...');
-        
-        // Fallback to simpler query without educational_content
-        const fallbackResult = await supabase
-          .from('course_modules')
-          .select(`
-            id,
-            title,
-            description,
-            module_order,
-            module_type,
-            course_id,
-            space_id,
-            course_lessons (
-              id,
-              title,
-              content_type,
-              content_text,
-              lesson_order,
-              module_id,
-              content_id,
-              slug,
-              page_type,
-              is_published,
-              estimated_duration,
-              difficulty_level,
-              created_at,
-              updated_at
-            )
-          `)
-          .eq('course_id', courseData.id)
-          .order('module_order');
-        
-        modulesData = fallbackResult.data;
-        modulesError = fallbackResult.error;
-      }
-
-      if (modulesError) throw modulesError;
-
-      log.debug('Component', '🎓 [CourseDetailView] Modules data fetched:', modulesData);
-
-      // Transform data and filter out unpublished lessons for non-owners
-      const transformedCourse: CourseDetailData = {
-        ...courseData,
-        modules: (modulesData || []).map(module => ({
-          ...module,
-          lessons: (module.course_lessons || [])
-            .filter(lesson => canViewDrafts || lesson.is_published) // Only show published lessons to non-owners
-            .sort((a, b) => a.lesson_order - b.lesson_order)
-            .map(lesson => ({
-              ...lesson,
-              completed: false // Will be updated with actual completion status
-            }))
-        }))
-      };
-
-      log.debug('Component', '🎓 [CourseDetailView] Transformed course data:', {
-        courseId: transformedCourse.id,
-        moduleCount: transformedCourse.modules.length,
-        modules: transformedCourse.modules.map(m => ({
-          id: m.id,
-          title: m.title,
-          type: m.module_type,
-          lessonCount: m.lessons.length
-        }))
-      });
-
-      // Calculate user progress if user is authenticated
-      if (user?.id) {
-        try {
-          // Check cache first for progress data
-          const cachedProgress = getCachedProgress();
-          
-          if (cachedProgress) {
-            // Use cached progress data
-            transformedCourse.progress = cachedProgress.progressPercentage;
-            
-            // Update completion status for each lesson
-            transformedCourse.modules = transformedCourse.modules.map(module => ({
-              ...module,
-              lessons: module.lessons.map(lesson => ({
-                ...lesson,
-                completed: cachedProgress.completedLessonIds.has(lesson.id)
-              }))
-            }));
-
-            log.debug('Component', '🎓 [CourseDetailView] Using cached progress:', {
-              progressPercentage: cachedProgress.progressPercentage,
-              completedCount: cachedProgress.completedLessonIds.size
-            });
-          } else {
-            // Get all lesson IDs from the course
-            const allLessonIds = transformedCourse.modules
-              .flatMap(module => module.lessons)
-              .map(lesson => lesson.id);
-
-            if (allLessonIds.length > 0) {
-              // Fetch user's completed lessons
-              const { data: completedLessons, error: progressError } = await supabase
-                .from('lesson_completions')
-                .select('lesson_id')
-                .eq('user_id', user.id)
-                .eq('course_id', transformedCourse.id)
-                .in('lesson_id', allLessonIds);
-
-              if (progressError) {
-                log.warn('Component', '🎓 [CourseDetailView] Error fetching progress:', progressError);
-              } else {
-                // Calculate progress percentage and update lesson completion status
-                const completedCount = completedLessons?.length || 0;
-                const totalLessons = allLessonIds.length;
-                const progressPercentage = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
-                const completedLessonIds = new Set(completedLessons?.map(l => l.lesson_id) || []);
-
-                transformedCourse.progress = progressPercentage;
-
-                // Update completion status for each lesson
-                transformedCourse.modules = transformedCourse.modules.map(module => ({
-                  ...module,
-                  lessons: module.lessons.map(lesson => ({
-                    ...lesson,
-                    completed: completedLessonIds.has(lesson.id)
-                  }))
-                }));
-
-                // Cache the progress data
-                setCachedProgress(completedLessonIds, progressPercentage);
-
-                log.debug('Component', '🎓 [CourseDetailView] Progress calculated and cached:', {
-                  completedCount,
-                  totalLessons,
-                  progressPercentage,
-                  completedLessonIds: Array.from(completedLessonIds)
-                });
-              }
-            }
-          }
-        } catch (progressError) {
-          log.warn('Component', '🎓 [CourseDetailView] Error calculating progress:', progressError);
-        }
-      }
-
-      // Cache the course data
-      setCachedCourse(transformedCourse);
-      setCourse(transformedCourse);
-      
-      // If moduleId is provided, find and select the first lesson of that module
-      if (moduleId && transformedCourse.modules.length > 0) {
-        log.debug('Component', '🎓 [CourseDetailView] Looking for module with ID:', moduleId);
-        const targetModule = transformedCourse.modules.find(m => m.id === moduleId);
-        if (targetModule && targetModule.lessons.length > 0) {
-          log.debug('Component', '🎓 [CourseDetailView] Found target module, selecting first lesson:', targetModule.lessons[0]);
-          setSelectedLesson(targetModule.lessons[0]);
-        }
-      }
-      
-      return transformedCourse;
-    } catch (error: any) {
-      log.error('Component', 'Error fetching course details:', error);
-      setError(error.message);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Fetch course data when courseId changes
   useEffect(() => {
     if (courseId) {
-      fetchCourseDetails();
+      fetchCourseDetails(courseId, moduleId);
     }
-  }, [courseId]); // Only refetch when courseId changes, not lessonId
+  }, [courseId, moduleId, fetchCourseDetails]); // Refetch when courseId or moduleId changes
 
   // Handle lesson selection separately to avoid refetching course data
   useEffect(() => {
@@ -491,11 +130,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
       const updatedCourse = storeCourses.find(c => c.id === course.id);
       if (updatedCourse && (updatedCourse.title !== course.title || updatedCourse.description !== course.description)) {
         log.debug('Component', '🎓 [CourseDetailView] Updating local course state from store:', updatedCourse);
-        setCourse({
-          ...course,
-          title: updatedCourse.title,
-          description: updatedCourse.description,
-        });
+        // Note: Course state is now managed by the hook, so we don't need to update it here
       }
     }
   }, [storeCourses, course]);
@@ -826,14 +461,17 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
       log.debug('Component', '🎓 [CourseDetailView] About to refresh course data...');
 
       // Invalidate cache since new lesson was created
-      invalidateCourseCache();
+      invalidateCache();
       
-      // Refresh course data and get the updated course
-      let updatedCourse = await fetchCourseDetails();
+      // Refresh course data
+      await refetch();
       
       log.debug('Component', '🎓 [CourseDetailView] Course data refreshed, looking for new lesson...');
       
-      // If fetchCourseDetails failed, try a simple fallback
+      // Use the current course from the hook
+      const updatedCourse = course;
+      
+      // If course is not available, try a simple fallback
       if (!updatedCourse) {
         log.debug('Component', '🎓 [CourseDetailView] fetchCourseDetails failed, trying fallback...');
         try {
@@ -1312,7 +950,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
             await handleUpdateLesson(selectedLesson.id, updates);
             
             // Refresh course data
-            invalidateCourseCache();
+            invalidateCache();
             await fetchCourseDetails();
           } catch (error) {
             console.error('Error updating lesson:', error);

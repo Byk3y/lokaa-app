@@ -7,6 +7,7 @@ export {
 
 // Course management
 export { useCourseManagement } from './useCourseManagement';
+export { useCourseDetail } from './useCourseDetail';
 
 // Search and filtering
 export { 
