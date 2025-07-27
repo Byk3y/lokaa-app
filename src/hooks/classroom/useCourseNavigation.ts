@@ -135,10 +135,14 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
       const isOnCourseRoute = currentUrl.match(/^\/[^\/]+\/course\/[^\/]+/) || 
                               currentUrl.match(/^\/[^\/]+\/space\/classroom\/[^\/]+/);
       
+      // SAFETY CHECK: Never auto-select if we're on classroom overview route (without course slug)
+      const isOnClassroomOverview = currentUrl.match(/^\/[^\/]+\/space\/classroom$/);
+      
       if (process.env.NODE_ENV === 'development') {
         console.log('🔍 [useCourseNavigation] Auto-selection check:', {
           currentUrl,
           isOnCourseRoute: !!isOnCourseRoute,
+          isOnClassroomOverview: !!isOnClassroomOverview,
           hasSelectedLesson: !!selectedLesson,
           hasCourse: !!course,
           hasModules: !!(course?.modules?.length),
@@ -146,8 +150,8 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
         });
       }
       
-      if (!isOnCourseRoute) {
-        log.debug('Hook', '🎓 [useCourseNavigation] Skipping auto-selection - not on course route:', currentUrl);
+      if (!isOnCourseRoute || isOnClassroomOverview) {
+        log.debug('Hook', '🎓 [useCourseNavigation] Skipping auto-selection - not on course route or on classroom overview:', currentUrl);
         return;
       }
 

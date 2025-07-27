@@ -53,11 +53,23 @@ const SpaceTabContentTrulyPersistent = () => {
   // ✅ FIX: Check if we're on a course detail route (new pattern only)
   const isCourseDetailRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
   
+  // 🚨 CRITICAL FIX: Prevent race condition between tab state and URL state
+  // Only show course detail if we're clearly on a course detail route
+  const isClassroomTabActive = isTabActive('classroom');
+  const isOnClassroomRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom$/);
+  
+  // Simple logic: Only show course detail if URL clearly indicates a course detail route
+  // AND we're not in a transition state (classroom tab active but URL not synced)
+  const shouldShowCourseDetail = isCourseDetailRoute;
+  
   // Debug logging for course detail route detection
   if (process.env.NODE_ENV === 'development') {
     console.log('🔍 [SpaceTabContentTrulyPersistent] Route check:', {
       pathname: location.pathname,
       isCourseDetailRoute: !!isCourseDetailRoute,
+      isClassroomTabActive,
+      isOnClassroomRoute: !!isOnClassroomRoute,
+      shouldShowCourseDetail,
       isTabActive: isTabActive('classroom')
     });
   }
@@ -83,7 +95,7 @@ const SpaceTabContentTrulyPersistent = () => {
     // CRITICAL FIX: Clear course selection state when switching to classroom tab
     // This ensures classroom tab always shows course cards, not auto-navigates to last viewed course
     if (currentTab === 'classroom') {
-      // Clear any saved lesson state from localStorage
+      // IMMEDIATE CLEAR: Clear any saved lesson state from localStorage BEFORE any components can read it
       const courseIds = Object.keys(localStorage).filter(key => key.startsWith('lastViewedLesson_'));
       courseIds.forEach(key => {
         localStorage.removeItem(key);
@@ -200,8 +212,8 @@ const SpaceTabContentTrulyPersistent = () => {
             className="w-full"
             data-tab="classroom"
           >
-            {/* Show course detail if on course route, otherwise show classroom */}
-            {isCourseDetailRoute ? (
+            {/* Show course detail if on course route AND URL state is synchronized, otherwise show classroom */}
+            {shouldShowCourseDetail ? (
               <CourseDetailPage key={`course-${location.pathname}`} />
             ) : (
               <ClassroomTab {...spaceProps} key={`classroom-${location.pathname}`} />

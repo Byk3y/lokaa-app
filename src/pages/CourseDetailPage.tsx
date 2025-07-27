@@ -55,19 +55,25 @@ const CourseDetailPage: React.FC = () => {
   // This check must come BEFORE loading state to prevent unnecessary renders
   const isOnCourseDetailRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
   
+  // 🚨 ADDITIONAL GUARD: Prevent rendering with invalid course data during tab transitions
+  const hasValidCourseSlug = !!(paramCourseSlug || extractCourseSlugFromPath());
+  const shouldRender = isOnCourseDetailRoute && hasValidCourseSlug;
+  
   if (process.env.NODE_ENV === 'development') {
     console.log('🔍 [CourseDetailPage] Route guard check:', {
       pathname: location.pathname,
       isOnCourseDetailRoute: !!isOnCourseDetailRoute,
+      hasValidCourseSlug,
+      shouldRender,
       courseSlug: paramCourseSlug || extractCourseSlugFromPath(),
       matchResult: location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/)
     });
   }
   
-  if (!isOnCourseDetailRoute) {
+  if (!shouldRender) {
     // Don't navigate back - just return null to let the parent handle rendering
     if (process.env.NODE_ENV === 'development') {
-      console.log('🚫 [CourseDetailPage] Returning null - not on course detail route');
+      console.log('🚫 [CourseDetailPage] Returning null - invalid route or course data');
     }
     return null;
   }
