@@ -18,18 +18,24 @@ import { useSpace } from '@/contexts/SpaceContext';
 import { EducationalContentService } from '@/services/EducationalContentService';
 import { useClassroomStore, useClassroomCourses } from '@/stores/classroom/classroomStore';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
+import { useCachedClassroom } from '@/hooks/useCachedClassroom';
 import { ClassroomDialogManager } from './ClassroomDialogManager';
 import { DeleteCourseDialog } from './dialogs/DeleteCourseDialog';
 import DeletePageDialog from './dialogs/DeletePageDialog';
 import RevertToDraftDialog from './dialogs/RevertToDraftDialog';
 import ChangeFolderDialog from './dialogs/ChangeFolderDialog';
 import { useCourseDetail } from '@/hooks/classroom';
+import { useCourseProgress } from '@/hooks/classroom/useCourseProgress';
+import { useCourseOwnership } from '@/hooks/classroom/useCourseOwnership';
+import { useCourseNavigation } from '@/hooks/classroom/useCourseNavigation';
+import { useCourseDialogs } from '@/hooks/classroom/useCourseDialogs';
+import { useLessonManagement } from '@/hooks/classroom/useLessonManagement';
 import type { 
   CourseModule, 
   CourseLesson, 
   CourseDetailData, 
   CourseDetailViewProps 
-} from '@/types/classroom';
+} from '@/types/classroom/courseDetail';
 
 const CourseDetailView: React.FC<CourseDetailViewProps> = ({
   courseId,
@@ -41,13 +47,8 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
   const { subdomain } = useParams<{ subdomain: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  // Mobile detection and view state
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  // Mobile detection and view state - now handled by useCourseNavigation hook
   const mdParam = searchParams.get('md');
-  
-  // Mobile view states
-  const showCourseOverview = isMobile && (!mdParam || mdParam === 'menu');
-  const showLessonView = isMobile && mdParam && mdParam !== 'menu';
   
   const { user } = useAuth();
   const { space } = useSpace();
@@ -61,13 +62,18 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
   // Listen to store changes to update local course state
   const storeCourses = useClassroomCourses();
   
+  // Get classroom cache for progress updates
+  const { updateCourseProgress } = useCachedClassroom(space?.id, user?.id, space?.owner_id);
+  
   // Use the new course detail hook
   const {
     course,
     loading,
+    loadingPhase,
     error,
     fetchCourseDetails,
     refetch,
+    silentRefetch,
     invalidateCache,
     retryCount,
     isOffline
@@ -76,27 +82,137 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     enableOfflineSupport: true,
     retryOnError: true
   });
-  const [selectedLesson, setSelectedLesson] = useState<CourseLesson | null>(null);
-  const [isOwner, setIsOwner] = useState<boolean>(false);
-  const [ownershipLoading, setOwnershipLoading] = useState<boolean>(true);
+  
+  // Local optimistic course state for mobile components
+  const [optimisticCourse, setOptimisticCourse] = useState<CourseDetailData | null>(null);
 
-  // Inline creation states (Skool-style)
-  const [isCreatingPage, setIsCreatingPage] = useState(false);
-  const [creatingModuleId, setCreatingModuleId] = useState<string | null>(null);
-  const [newPageTitle, setNewPageTitle] = useState('');
-  const [newPageContent, setNewPageContent] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [isMigrating, setIsMigrating] = useState(false);
+  // Use the new progress management hook
+  const { markLessonAsDone, isUpdating: isProgressUpdating, error: progressError } = useCourseProgress({
+    onOptimisticUpdate: (updatedCourse) => {
+      setOptimisticCourse(updatedCourse);
+      console.log('🎓 [CourseDetailView] Optimistic update received from hook:', {
+        progress: updatedCourse.progress,
+        lessonCount: updatedCourse.modules?.flatMap(m => m.lessons)?.length
+      });
+    }
+  });
 
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [pageToDelete, setPageToDelete] = useState<{ id: string; title: string } | null>(null);
-  const [pageToRevert, setPageToRevert] = useState<{ id: string; title: string; isPublished: boolean } | null>(null);
-  const [pageToChangeFolder, setPageToChangeFolder] = useState<{ id: string; title: string; currentFolderId: string | null } | null>(null);
-  const [isReverting, setIsReverting] = useState(false);
-  const [isChangingFolder, setIsChangingFolder] = useState(false);
+  // Use the new ownership management hook
+  const { isOwner, ownershipLoading, error: ownershipError, ownershipDetails } = useCourseOwnership({
+    course,
+    onOwnershipChange: (isOwner) => {
+      console.log('🎓 [CourseDetailView] Ownership changed:', isOwner);
+    }
+  });
+
+  // Extract admin status from ownership details
+  const isAdmin = ownershipDetails?.isGeneralAdmin || ownershipDetails?.isSpaceAdmin || false;
+
+  // Use the new navigation management hook
+  const {
+    selectedLesson,
+    isMobile,
+    showCourseOverview,
+    showLessonView,
+    handleMobileLessonSelect,
+    handleNextLesson,
+    handleBackToMenu,
+    setSelectedLesson
+  } = useCourseNavigation({
+    course,
+    onLessonChange: (lesson) => {
+      console.log('🎓 [CourseDetailView] Lesson changed:', lesson?.title);
+    },
+    onNavigationStateChange: (state) => {
+      console.log('🎓 [CourseDetailView] Navigation state changed:', state);
+    }
+  });
+
+  // Use the new dialog management hook
+  const {
+    isDeleteDialogOpen,
+    isDeleting,
+    pageToDelete,
+    pageToRevert,
+    pageToChangeFolder,
+    isReverting,
+    isChangingFolder,
+    openDeleteCourseDialog,
+    closeDeleteCourseDialog,
+    openDeletePageDialog,
+    closeDeletePageDialog,
+    openRevertToDraftDialog,
+    closeRevertToDraftDialog,
+    openChangeFolderDialog,
+    closeChangeFolderDialog,
+    handleConfirmDeleteCourse,
+    handleConfirmDeletePage,
+    handleConfirmRevertToDraft,
+    handleConfirmChangeFolder
+  } = useCourseDialogs({
+    course,
+    onCourseDeleted: onBack,
+    onPageDeleted: (pageId) => {
+      console.log('🎓 [CourseDetailView] Page deleted:', pageId);
+    },
+    onPageUpdated: (pageId) => {
+      console.log('🎓 [CourseDetailView] Page updated:', pageId);
+    },
+    onPageMoved: (pageId, newFolderId) => {
+      console.log('🎓 [CourseDetailView] Page moved:', pageId, 'to folder:', newFolderId);
+    },
+    onRefetch: refetch,
+    onSelectedLessonChange: setSelectedLesson,
+    selectedLesson
+  });
+
+  // Use the new lesson management hook
+  const {
+    isCreatingPage,
+    creatingModuleId,
+    newPageTitle,
+    newPageContent,
+    isSaving,
+    isMigrating,
+    handleCreateNewPage,
+    handleCancelCreate,
+    handleSaveNewPage,
+    handleUpdateLesson,
+    setNewPageTitle,
+    setNewPageContent
+  } = useLessonManagement({
+    course,
+    courseId,
+    userId: user?.id || null,
+    selectedLesson,
+    onLessonCreated: (lesson) => {
+      console.log('🎓 [CourseDetailView] Lesson created:', lesson.title);
+    },
+    onLessonUpdated: (lessonId, updates) => {
+      console.log('🎓 [CourseDetailView] Lesson updated:', lessonId, updates);
+    },
+    onRefetch: refetch,
+    onInvalidateCache: invalidateCache,
+    onSelectedLessonChange: setSelectedLesson
+  });
+
+
+
+
 
   log.debug('Component', '🎓 [CourseDetailView] Component rendered with courseId:', courseId);
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 [CourseDetailView] Component render:', {
+      courseId,
+      hasCourse: !!course,
+      hasSelectedLesson: !!selectedLesson,
+      isMobile,
+      showCourseOverview,
+      showLessonView,
+      pathname: window.location.pathname
+    });
+  }
 
 
 
@@ -105,24 +221,16 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     if (courseId) {
       fetchCourseDetails(courseId, moduleId);
     }
-  }, [courseId, moduleId, fetchCourseDetails]); // Refetch when courseId or moduleId changes
+  }, [courseId, moduleId]); // Refetch when courseId or moduleId changes
 
-  // Handle lesson selection separately to avoid refetching course data
+  // Update optimistic course state when hook course data changes
   useEffect(() => {
-    if (lessonId && course) {
-      // Find and select the lesson by ID without refetching course data
-      const targetLesson = course.modules
-        .flatMap(m => m.lessons)
-        .find(lesson => lesson.id === lessonId);
-      
-      if (targetLesson) {
-        log.debug('Component', '🎓 [CourseDetailView] Found target lesson by ID:', targetLesson);
-        setSelectedLesson(targetLesson);
-      } else {
-        log.warn('Component', '🎓 [CourseDetailView] Lesson not found with ID:', lessonId);
-      }
+    if (course) {
+      setOptimisticCourse(course);
     }
-  }, [lessonId, course]);
+  }, [course]);
+
+
 
   // Listen to store changes and update local course state
   useEffect(() => {
@@ -135,630 +243,48 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     }
   }, [storeCourses, course]);
 
-  // Check ownership
+  // Signal to parent about mobile state for tab visibility
   useEffect(() => {
-    const checkOwnership = async () => {
-      try {
-        const supabase = getSupabaseClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user || !course) {
-          setIsOwner(false);
-          return;
-        }
-
-        // Check if user is the course creator
-        const isCourseCreator = user.id === course.creator_id;
-        
-        // Check if user is a general admin
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        
-        const isGeneralAdmin = userProfile?.role === 'admin';
-        
-        // Check if user is a space admin (for the space this course belongs to)
-        // Use the space_id from the course data directly
-        let isSpaceAdmin = false;
-        if (course.space_id) {
-          const { data: spaceMembership, error: membershipError } = await supabase
-            .from('space_members')
-            .select('role, status')
-            .eq('space_id', course.space_id)
-            .eq('user_id', user.id)
-            .single();
-          
-          if (membershipError && membershipError.code !== 'PGRST116') {
-            log.error('Component', 'Error checking space membership:', membershipError);
-          }
-          
-          isSpaceAdmin = spaceMembership?.role === 'admin' && spaceMembership?.status === 'active';
-          
-          // Space membership debug info removed for production
-        }
-
-        // Check if user is the space owner
-        const isSpaceOwner = space?.owner_id === user.id;
-        
-        // User can edit if they're the creator OR a general admin OR a space admin OR the space owner
-        const canEdit = isCourseCreator || isGeneralAdmin || isSpaceAdmin || isSpaceOwner;
-
-        log.debug('Component', '�� [CourseDetailView] Ownership check:', {
-          hasUser: !!user,
-          hasCourse: !!course,
-          userId: user.id,
-          courseCreatorId: course.creator_id,
-          isCourseCreator,
-          userRole: userProfile?.role,
-          isGeneralAdmin,
-          spaceId: course.space_id,
-          spaceOwnerId: space?.owner_id,
-          isSpaceAdmin,
-          isSpaceOwner,
-          canEdit,
-          courseTitle: course.title
-        });
-
-        // Ownership debug info removed for production
-
-        // Set ownership based on creator OR admin status
-        setIsOwner(canEdit);
-      } catch (error) {
-        log.error('Component', 'Error checking ownership:', error);
-        setIsOwner(false);
-      } finally {
-        setOwnershipLoading(false);
-      }
+    if (showCourseOverview || showLessonView) {
+      // Mobile mode - hide tabs
+      window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
+        detail: { isMobile: true, showTabs: false }
+      }));
+    } else {
+      // Desktop mode - show tabs
+      window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
+        detail: { isMobile: false, showTabs: true }
+      }));
+    }
+    
+    return () => {
+      // Clean up when component unmounts - restore tabs
+      window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
+        detail: { isMobile: false, showTabs: true }
+      }));
     };
+  }, [showCourseOverview, showLessonView]);
 
-    if (course) {
-      checkOwnership();
-    }
-  }, [course]);
 
-  // Auto-select first lesson if none selected (Desktop only)
-  useEffect(() => {
-    // Skip auto-selection on mobile - let mobile views handle their own logic
-    if (isMobile) return;
 
-    if (!selectedLesson && course && course.modules && course.modules.length > 0) {
-      // Check for last viewed lesson in localStorage
-      const lastViewedLessonId = localStorage.getItem(`lastViewedLesson_${course.id}`);
-      
-      if (lastViewedLessonId) {
-        // Try to find the last viewed lesson
-        const lastViewedLesson = course.modules
-          .flatMap(module => module.lessons)
-          .find(lesson => lesson.id === lastViewedLessonId);
-        
-        if (lastViewedLesson) {
-          log.debug('Component', '🎓 [CourseDetailView] Found last viewed lesson:', lastViewedLesson.title);
-          setSelectedLesson(lastViewedLesson);
-          
-          // Update URL to reflect the last viewed lesson
-          if (subdomain && course.slug) {
-            const lessonUrl = `/${subdomain}/course/${course.slug}?md=${lastViewedLesson.id}`;
-            navigate(lessonUrl, { replace: true });
-          }
-          return;
-        }
-      }
-      
-      // Fallback to first lesson if no last viewed lesson found
-      const firstModule = course.modules[0];
-      if (firstModule.lessons && firstModule.lessons.length > 0) {
-        const firstLesson = firstModule.lessons[0];
-        setSelectedLesson(firstLesson);
-        
-        // Update URL to reflect the selected lesson
-        if (subdomain && course.slug) {
-          const lessonUrl = `/${subdomain}/course/${course.slug}?md=${firstLesson.id}`;
-          navigate(lessonUrl, { replace: true });
-        }
-      }
-    }
-  }, [course, selectedLesson, navigate, subdomain, isMobile]);
 
-  // Mobile entry point handling - redirect to menu view if no md parameter
-  useEffect(() => {
-    if (isMobile && course && subdomain && course.slug && !mdParam) {
-      const menuUrl = `/${subdomain}/course/${course.slug}?md=menu`;
-      navigate(menuUrl, { replace: true });
-    }
-  }, [isMobile, course, subdomain, mdParam, navigate]);
 
-  // Save last viewed lesson to localStorage when lesson changes
-  useEffect(() => {
-    if (selectedLesson && course?.id) {
-      localStorage.setItem(`lastViewedLesson_${course.id}`, selectedLesson.id);
-      log.debug('Component', '🎓 [CourseDetailView] Saved last viewed lesson:', selectedLesson.title);
-    }
-  }, [selectedLesson, course?.id]);
 
-  // Update URL when selectedLesson changes (for manual lesson selection)
-  useEffect(() => {
-    if (selectedLesson && subdomain && course?.slug) {
-      const lessonUrl = `/${subdomain}/course/${course.slug}?md=${selectedLesson.id}`;
-      const currentUrl = window.location.pathname + window.location.search;
-      
-      // Only update if URL is different to avoid unnecessary navigation
-      if (currentUrl !== lessonUrl) {
-        navigate(lessonUrl, { replace: true });
-      }
-    }
-  }, [selectedLesson, subdomain, course?.slug, navigate]);
-
-  // Skool-style inline page creation handlers
-  const handleCreateNewPage = (moduleId?: string) => {
-    setIsCreatingPage(true);
-    setCreatingModuleId(moduleId || null);
-    setNewPageTitle('');
-    setNewPageContent('');
-  };
-
-  const handleCancelCreate = () => {
-    setIsCreatingPage(false);
-    setCreatingModuleId(null);
-    setNewPageTitle('');
-    setNewPageContent('');
-  };
-
-  const handleSaveNewPage = async (extractedTitle?: string) => {
-    if (!courseId || !user?.id) {
-      // Missing courseId or user error removed for production
-      return;
-    }
-
-    // Ensure user is authenticated
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session) {
-      // Authentication error removed for production
-      toast({
-        title: "Authentication Error",
-        description: "Please log in again to save your page",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // User authenticated for save - debug removed for production
-
-    setIsSaving(true);
-    try {
-      // ✅ Use title from the title input field, with simple fallback
-      let finalTitle = extractedTitle?.trim() || newPageTitle.trim() || 'Untitled Page';
-
-      // Creating educational content - debug removed for production
-
-      // ✅ NEW: Create educational content instead of post
-      const { data: contentData, error: contentError } = await supabase
-        .from('educational_content')
-        .insert({
-          title: finalTitle,
-          content_type: 'rich_text',
-          text_content: newPageContent,
-          estimated_duration: Math.max(1, Math.ceil(newPageContent.length / 1000)), // Rough estimate: 1 min per 1000 chars
-          difficulty_level: 'beginner'
-        })
-        .select()
-        .single();
-
-      if (contentError) {
-        console.error('❌ Error creating educational content:', contentError);
-        // Content error details removed for production
-        toast({
-          title: "Error",
-          description: `Failed to create content: ${contentError.message}`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Educational content created successfully - debug removed for production
-
-      // If no module is specified, create a default "Pages" module
-      let targetModuleId = creatingModuleId;
-      // Target module ID - debug removed for production
-      if (!targetModuleId) {
-        // Checking for existing "Pages" module - debug removed for production
-        // Check if a "Pages" module already exists
-        const { data: existingModules, error: existingModuleError } = await supabase
-          .from('course_modules')
-          .select('id')
-          .eq('course_id', course.id)
-          .eq('title', 'Pages');
-        
-        if (existingModuleError) {
-          // Error checking for existing module - debug removed for production
-        }
-
-        const existingModule = existingModules?.[0];
-
-        if (existingModule) {
-          targetModuleId = existingModule.id;
-        } else {
-          // Create a new "Pages" module
-          const { data: newModule, error: moduleError } = await supabase
-            .from('course_modules')
-            .insert({
-              title: 'Pages',
-              description: 'Standalone pages for this course',
-              course_id: course.id,
-              module_order: 999, // Put it at the end
-              module_type: 'folder'
-            })
-            .select()
-            .single();
-
-          if (moduleError) {
-            console.error('❌ Error creating module:', moduleError);
-            // Module error details removed for production
-            toast({
-              title: "Error",
-              description: `Failed to create module: ${moduleError.message}`,
-              variant: "destructive"
-            });
-            return;
-          }
-
-          targetModuleId = newModule.id;
-        }
-      }
-
-      // Get the next lesson order
-      const { data: maxOrderData, error: orderError } = await supabase
-          .from('course_lessons')
-          .select('lesson_order')
-        .eq('module_id', targetModuleId)
-          .order('lesson_order', { ascending: false })
-          .limit(1);
-
-      if (orderError) {
-        // Error getting lesson order - debug removed for production
-      }
-
-      const nextOrder = (maxOrderData?.[0]?.lesson_order || 0) + 1;
-
-      // ✅ NEW: Create the lesson record linked to educational content (NOT post)
-      const { data: lessonData, error: lessonError } = await supabase
-          .from('course_lessons')
-          .insert({
-          title: finalTitle,
-          content_type: 'rich_text',
-          content_text: newPageContent, // Keep for backward compatibility
-          module_id: targetModuleId,
-            lesson_order: nextOrder,
-          content_id: contentData.id, // ✅ Link to educational content instead of post
-          page_type: 'page',
-          is_published: true,
-          estimated_duration: contentData.estimated_duration,
-          difficulty_level: contentData.difficulty_level
-        })
-        .select()
-        .single();
-
-      if (lessonError) {
-        console.error('❌ Error creating lesson:', lessonError);
-        // Lesson error details removed for production
-        // Full lesson error object removed for production
-        toast({
-          title: "Error",
-          description: `Failed to create lesson: ${lessonError.message}`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Lesson created successfully - debug removed for production
-
-      // Reset form
-      setNewPageTitle('');
-      setNewPageContent('');
-      setIsCreatingPage(false);
-
-      log.debug('Component', '🎓 [CourseDetailView] About to refresh course data...');
-
-      // Invalidate cache since new lesson was created
-      invalidateCache();
-      
-      // Refresh course data
-      await refetch();
-      
-      log.debug('Component', '🎓 [CourseDetailView] Course data refreshed, looking for new lesson...');
-      
-      // Use the current course from the hook
-      const updatedCourse = course;
-      
-      // If course is not available, try a simple fallback
-      if (!updatedCourse) {
-        log.debug('Component', '🎓 [CourseDetailView] fetchCourseDetails failed, trying fallback...');
-        try {
-          const supabase = getSupabaseClient();
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('course_lessons')
-            .select('*')
-            .eq('content_id', contentData.id)
-            .single();
-          
-          if (fallbackData && !fallbackError) {
-            log.debug('Component', '🎓 [CourseDetailView] Found lesson via fallback:', fallbackData);
-            setSelectedLesson(fallbackData);
-          }
-        } catch (fallbackErr) {
-          log.debug('Component', '🎓 [CourseDetailView] Fallback also failed:', fallbackErr);
-        }
-      } else {
-        // Find and select the newly created lesson
-        log.debug('Component', '🎓 [CourseDetailView] Updated course has modules:', updatedCourse.modules.length);
-        const allLessons = updatedCourse.modules.flatMap(module => module.lessons);
-        log.debug('Component', '🎓 [CourseDetailView] Total lessons found:', allLessons.length);
-        
-        const newLesson = allLessons.find(lesson => lesson.content_id === contentData.id);
-        
-        if (newLesson) {
-          setSelectedLesson(newLesson);
-          log.debug('Component', '🎓 [CourseDetailView] Selected newly created lesson:', newLesson);
-        } else {
-          log.debug('Component', '🎓 [CourseDetailView] Could not find lesson with content_id:', contentData.id);
-        }
-      }
-
-      toast({
-        title: "Success",
-        description: `"${finalTitle}" has been created successfully!`,
-        variant: "default"
-      });
-    } catch (error) {
-      console.error('Error creating page:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create page",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleUpdateLesson = async (lessonId: string, updates: { title?: string; content_text?: string; is_published?: boolean }) => {
-    try {
-      const supabase = getSupabaseClient();
-      
-      log.debug('Component', '🎓 [CourseDetailView] Updating lesson:', lessonId, updates);
-      
-      // First, get the lesson to find its content_id
-      const { data: lessonData, error: lessonError } = await supabase
-        .from('course_lessons')
-        .select('content_id, title')
-        .eq('id', lessonId)
-        .single();
-
-      if (lessonError) {
-        throw lessonError;
-      }
-
-      // Update the lesson title if provided
-      if (updates.title) {
-        const { error: titleError } = await supabase
-          .from('course_lessons')
-          .update({ title: updates.title })
-          .eq('id', lessonId);
-
-        if (titleError) {
-          throw titleError;
-        }
-      }
-
-      // Update the educational content if content_text is provided and lesson has content_id
-      if (updates.content_text && lessonData.content_id) {
-        const { error: contentError } = await supabase
-          .from('educational_content')
-          .update({ text_content: updates.content_text })
-          .eq('id', lessonData.content_id);
-
-        if (contentError) {
-          throw contentError;
-        }
-      } else if (updates.content_text && !lessonData.content_id) {
-        // If no content_id exists, update the legacy content_text field
-        const { error: legacyError } = await supabase
-          .from('course_lessons')
-          .update({ content_text: updates.content_text })
-          .eq('id', lessonId);
-
-        if (legacyError) {
-          throw legacyError;
-        }
-      }
-
-      // Update the is_published field if provided
-      if (updates.is_published !== undefined) {
-        const { error: publishedError } = await supabase
-          .from('course_lessons')
-          .update({ is_published: updates.is_published })
-          .eq('id', lessonId);
-
-        if (publishedError) {
-          throw publishedError;
-        }
-      }
-
-      // Invalidate cache since lesson data changed
-      invalidateCourseCache();
-      
-      // Refetch course data to update the UI
-      const updatedCourse = await fetchCourseDetails();
-      
-      // Update the selectedLesson with the updated data
-      if (updatedCourse) {
-        const updatedLesson = updatedCourse.modules
-          .flatMap(module => module.lessons)
-          .find(lesson => lesson.id === lessonId);
-        
-        if (updatedLesson) {
-          setSelectedLesson(updatedLesson);
-          log.debug('Component', '🎓 [CourseDetailView] Updated selectedLesson with new data:', updatedLesson);
-        }
-      }
-      
-      log.debug('Component', '🎓 [CourseDetailView] Lesson updated successfully');
-    } catch (error) {
-      log.error('Component', 'Error updating lesson:', error);
-      throw error;
-    }
-  };
-
-  // Mobile navigation handlers
-  const handleBackToMenu = () => {
-    if (subdomain && course?.slug) {
-      const menuUrl = `/${subdomain}/course/${course.slug}?md=menu`;
-      navigate(menuUrl, { replace: true });
-    }
-  };
-
-  const handleMobileLessonSelect = (lesson: CourseLesson) => {
-    if (subdomain && course?.slug) {
-      const lessonUrl = `/${subdomain}/course/${course.slug}?md=${lesson.id}`;
-      navigate(lessonUrl, { replace: true });
-    }
-    // Also update local state for immediate UI feedback
-    setSelectedLesson(lesson);
-  };
-
-  const handleNextLesson = () => {
-    if (!selectedLesson || !course) return;
-    
-    // Find next lesson in sequence
-    const allLessons = course.modules.flatMap(m => m.lessons);
-    const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
-    const nextLesson = allLessons[currentIndex + 1];
-    
-    if (nextLesson) {
-      handleMobileLessonSelect(nextLesson);
-    }
-  };
 
   const handleMarkAsDone = async () => {
-    if (!selectedLesson || !user?.id) {
+    if (!selectedLesson || !course) {
       toast({
         title: "Error",
-        description: "No lesson selected or user not authenticated.",
+        description: "No lesson selected or course data not available.",
         variant: "destructive"
       });
       return;
     }
 
-    try {
-      // Check if lesson is already completed
-      const { data: existingCompletion, error: checkError } = await supabase
-        .from('lesson_completions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('lesson_id', selectedLesson.id)
-        .eq('course_id', course.id)
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-        throw checkError;
-      }
-
-      if (existingCompletion) {
-        // Lesson is already completed, toggle to incomplete
-        const { error: deleteError } = await supabase
-          .from('lesson_completions')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('lesson_id', selectedLesson.id)
-          .eq('course_id', course.id);
-
-        if (deleteError) throw deleteError;
-
-        toast({
-          title: "Lesson Unmarked",
-          description: "Lesson marked as incomplete.",
-          variant: "default"
-        });
-      } else {
-        // Mark lesson as completed
-        const { error: insertError } = await supabase
-          .from('lesson_completions')
-          .insert({
-            user_id: user.id,
-            lesson_id: selectedLesson.id,
-            course_id: course.id,
-            module_id: selectedLesson.module_id || course.modules[0]?.id,
-            completed_at: new Date().toISOString()
-          });
-
-        if (insertError) throw insertError;
-
-        toast({
-          title: "Lesson Completed!",
-          description: "Great job! This lesson has been marked as complete.",
-          variant: "default"
-        });
-      }
-
-      // Optimistically update the local state instead of full refresh
-      if (course) {
-        const updatedCourse = { ...course };
-        
-        if (existingCompletion) {
-          // Remove completion
-          updatedCourse.modules = updatedCourse.modules.map(module => ({
-            ...module,
-            lessons: module.lessons.map(lesson => ({
-              ...lesson,
-              completed: lesson.id === selectedLesson.id ? false : lesson.completed
-            }))
-          }));
-          log.debug('Component', '🎓 [CourseDetailView] Removed completion for lesson:', selectedLesson.title);
-        } else {
-          // Add completion
-          updatedCourse.modules = updatedCourse.modules.map(module => ({
-            ...module,
-            lessons: module.lessons.map(lesson => ({
-              ...lesson,
-              completed: lesson.id === selectedLesson.id ? true : lesson.completed
-            }))
-          }));
-          log.debug('Component', '🎓 [CourseDetailView] Added completion for lesson:', selectedLesson.title);
-        }
-        
-        // Recalculate progress
-        const allLessons = updatedCourse.modules.flatMap(module => module.lessons);
-        const completedCount = allLessons.filter(lesson => lesson.completed).length;
-        const totalLessons = allLessons.length;
-        updatedCourse.progress = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
-        
-        log.debug('Component', '🎓 [CourseDetailView] Updated progress:', {
-          completedCount,
-          totalLessons,
-          progressPercentage: updatedCourse.progress
-        });
-        
-        // Update cache with new progress data
-        const completedLessonIds = new Set(
-          updatedCourse.modules
-            .flatMap(module => module.lessons)
-            .filter(lesson => lesson.completed)
-            .map(lesson => lesson.id as string)
-        );
-        setCachedProgress(completedLessonIds, updatedCourse.progress);
-        
-        setCourse(updatedCourse);
-      }
-      
-    } catch (error) {
-      console.error('Error marking lesson as done:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update lesson completion status.",
-        variant: "destructive"
-      });
-    }
+    console.log('🎓 [CourseDetailView] handleMarkAsDone called for lesson:', selectedLesson.id);
+    
+    // Use the new progress management hook
+    await markLessonAsDone(selectedLesson, course);
   };
 
   // Course management handlers
@@ -805,68 +331,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
   };
 
   const handleDeleteCourse = () => {
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!course?.id) return;
-
-    setIsDeleting(true);
-    try {
-      const supabase = getSupabaseClient();
-
-      // Delete course lessons
-      const { error: lessonsError } = await supabase
-        .from('course_lessons')
-        .delete()
-        .in('module_id', course.modules.map(m => m.id));
-
-      if (lessonsError) throw lessonsError;
-
-      // Delete course modules
-      const { error: modulesError } = await supabase
-        .from('course_modules')
-        .delete()
-        .eq('course_id', course.id);
-
-      if (modulesError) throw modulesError;
-
-      // Delete the course itself
-      const { error: courseError } = await supabase
-        .from('courses')
-        .delete()
-        .eq('id', course.id);
-
-      if (courseError) throw courseError;
-
-      // Invalidate course cache since course was deleted
-      invalidateCourseCache();
-      
-      // Update the store
-      const store = useClassroomStore.getState();
-      store.removeCourse(course.id);
-      store.invalidateCache(); // This will trigger a refresh of the courses list
-
-      // Show success message and redirect
-      toast({
-        title: "Course Deleted",
-        description: "The course has been permanently deleted.",
-        variant: "default"
-      });
-
-      // Close dialog and redirect
-      setIsDeleteDialogOpen(false);
-      onBack();
-    } catch (error) {
-      console.error('Error deleting course:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete course. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsDeleting(false);
-    }
+    openDeleteCourseDialog();
   };
 
   if (loading) {
@@ -892,13 +357,22 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
 
   // Mobile course overview view (first screen)
   if (showCourseOverview) {
+    const courseData = optimisticCourse || course;
+    console.log('🎓 [CourseDetailView] Rendering MobileCourseOverview with:', {
+      usingOptimistic: !!optimisticCourse,
+      courseProgress: courseData?.progress,
+      lessonCount: courseData?.modules?.flatMap(m => m.lessons)?.length,
+      completedLessons: courseData?.modules?.flatMap(m => m.lessons)?.filter(l => l.completed)?.length
+    });
+    
     return (
       <MobileCourseOverview
-        course={course}
+        course={courseData}
         space={space}
         onBack={onBack}
         onLessonSelect={handleMobileLessonSelect}
         isOwner={isOwner}
+        isAdmin={isAdmin}
         onEditCourse={handleEditCourse}
         onAddFolder={handleAddFolder}
         onAddPage={() => handleCreateNewPage()}
@@ -907,28 +381,38 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
           // TODO: Implement edit lesson for mobile
           console.log('Edit lesson:', lessonId, title);
         }}
-        onDeleteLesson={(lessonId, title) => setPageToDelete({ id: lessonId, title })}
-        onRevertToDraft={(lessonId, title, isPublished) => setPageToRevert({ id: lessonId, title, isPublished })}
-        onChangeFolder={(lessonId, title, currentFolderId) => setPageToChangeFolder({ id: lessonId, title, currentFolderId })}
+        onDeleteLesson={(lessonId, title) => openDeletePageDialog(lessonId, title)}
+        onRevertToDraft={(lessonId, title, isPublished) => openRevertToDraftDialog(lessonId, title, isPublished)}
+        onChangeFolder={(lessonId, title, currentFolderId) => openChangeFolderDialog(lessonId, title, currentFolderId)}
       />
     );
   }
 
   // Mobile lesson view (second screen)
   if (showLessonView && selectedLesson) {
-    const allLessons = course.modules.flatMap(m => m.lessons);
+    const courseData = optimisticCourse || course;
+    const allLessons = courseData.modules.flatMap(m => m.lessons);
     const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
     const hasNextLesson = currentIndex < allLessons.length - 1;
+    
+    const currentLesson = allLessons.find(l => l.id === selectedLesson.id);
+    console.log('🎓 [CourseDetailView] Rendering MobileLessonView with:', {
+      usingOptimistic: !!optimisticCourse,
+      lessonId: selectedLesson.id,
+      lessonCompleted: currentLesson?.completed,
+      courseProgress: courseData?.progress
+    });
 
     return (
       <MobileLessonView
         lesson={selectedLesson}
-        course={course}
+        course={courseData}
         space={space}
         onBackToMenu={handleBackToMenu}
         onNextLesson={handleNextLesson}
         onMarkAsDone={handleMarkAsDone}
         isOwner={isOwner}
+        isAdmin={isAdmin}
         hasNextLesson={hasNextLesson}
         onEditLesson={async (updatedData) => {
           try {
@@ -951,7 +435,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
             
             // Refresh course data
             invalidateCache();
-            await fetchCourseDetails();
+            await refetch();
           } catch (error) {
             console.error('Error updating lesson:', error);
             throw error;
@@ -961,15 +445,73 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     );
   }
 
+  // Handle loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading course...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">
+            <X className="h-12 w-12 mx-auto" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Not Found</h3>
+          <p className="text-gray-600 mb-4">
+            {error.includes('No rows returned') || error.includes('not found') 
+              ? 'The course you\'re looking for doesn\'t exist or has been removed.'
+              : error}
+          </p>
+          <Button onClick={onBack} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Classroom
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle case where course is null
+  if (!course) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-gray-500 mb-4">
+            <X className="h-12 w-12 mx-auto" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Not Found</h3>
+          <p className="text-gray-600 mb-4">
+            The course you're looking for doesn't exist or has been removed.
+          </p>
+          <Button onClick={onBack} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Classroom
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // Regular course view with Skool-style "New page" button (Desktop)
+  
   return (
     <>
-      <div className="flex bg-white">
+      <div className="flex">
           <CourseSidebar
             course={course}
             selectedLesson={selectedLesson}
             onLessonSelect={setSelectedLesson}
             isOwner={isOwner}
+            isAdmin={isAdmin}
             ownershipLoading={ownershipLoading}
             isCreatingPage={isCreatingPage}
             onAddLesson={(moduleId) => handleCreateNewPage(moduleId)}
@@ -979,9 +521,9 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
             onDeleteCourse={handleDeleteCourse}
             onAddFolder={handleAddFolder}
             spaceId={course.space_id}
-            onDeletePage={(pageId, title) => setPageToDelete({ id: pageId, title })}
-            onRevertToDraft={(pageId, title, isPublished) => setPageToRevert({ id: pageId, title, isPublished })}
-            onChangeFolder={(pageId, title, currentFolderId) => setPageToChangeFolder({ id: pageId, title, currentFolderId })}
+            onDeletePage={(pageId, title) => openDeletePageDialog(pageId, title)}
+            onRevertToDraft={(pageId, title, isPublished) => openRevertToDraftDialog(pageId, title, isPublished)}
+            onChangeFolder={(pageId, title, currentFolderId) => openChangeFolderDialog(pageId, title, currentFolderId)}
             onDuplicatePage={(pageId) => {
               // Handle duplicate page
             }}
@@ -990,7 +532,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
         <div className="flex-1">
           {/* Show inline page creation in right panel - Direct to editor without title field */}
           {isCreatingPage ? (
-            <div className="flex-1 p-6 pl-12 overflow-hidden bg-gray-50">
+            <div className="flex-1 pt-1 pb-6 pl-12 pr-6 overflow-hidden bg-gray-50">
               <RichTextEditor
                 content={newPageContent}
                 onChange={setNewPageContent}
@@ -1016,6 +558,7 @@ You can use headings, bold text, links, and other formatting to structure your c
             lesson={selectedLesson}
             courseName={course.title}
             isOwner={isOwner}
+            isAdmin={isAdmin}
             completed={selectedLesson?.completed || false}
             onUpdateLesson={handleUpdateLesson}
             onCreateNewPage={() => handleCreateNewPage()}
@@ -1065,15 +608,14 @@ You can use headings, bold text, links, and other formatting to structure your c
             if (deleteError) throw deleteError;
 
             // Refresh course data
-            await fetchCourseDetails();
+            await refetch();
 
             // If the deleted lesson was selected, clear the selection
             if (selectedLesson?.id === pageId) {
               setSelectedLesson(null);
             }
 
-            // Clear the pageToDelete state
-            setPageToDelete(null);
+
 
           } catch (error) {
             console.error('Error deleting page:', error);
@@ -1089,7 +631,7 @@ You can use headings, bold text, links, and other formatting to structure your c
               .eq('id', pageId);
 
             if (error) throw error;
-            await fetchCourseDetails();
+            await refetch();
           } catch (error) {
             console.error('Error reverting page to draft:', error);
             throw error;
@@ -1143,7 +685,7 @@ You can use headings, bold text, links, and other formatting to structure your c
               });
 
             if (duplicateError) throw duplicateError;
-            await fetchCourseDetails();
+            await refetch();
           } catch (error) {
             console.error('Error duplicating page:', error);
             throw error;
@@ -1158,7 +700,7 @@ You can use headings, bold text, links, and other formatting to structure your c
               .eq('id', pageId);
 
             if (error) throw error;
-            await fetchCourseDetails();
+            await refetch();
           } catch (error) {
             console.error('Error changing folder:', error);
             throw error;
@@ -1169,8 +711,8 @@ You can use headings, bold text, links, and other formatting to structure your c
       {/* Delete Course Dialog */}
       <DeleteCourseDialog
         isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={handleConfirmDelete}
+        onClose={closeDeleteCourseDialog}
+        onConfirm={handleConfirmDeleteCourse}
         courseName={course.title}
         isDeleting={isDeleting}
       />
@@ -1179,67 +721,8 @@ You can use headings, bold text, links, and other formatting to structure your c
       {pageToDelete && (
         <DeletePageDialog
           isOpen={!!pageToDelete}
-          onOpenChange={(isOpen) => !isOpen && setPageToDelete(null)}
-          onConfirmDelete={async () => {
-            if (!pageToDelete) return;
-            setIsDeleting(true);
-            try {
-              const supabase = getSupabaseClient();
-              
-              // Get the lesson to find its content_id
-              const { data: lesson, error: lessonError } = await supabase
-                .from('course_lessons')
-                .select('content_id')
-                .eq('id', pageToDelete.id)
-                .single();
-
-              if (lessonError) throw lessonError;
-
-              // Delete the educational content if it exists
-              if (lesson.content_id) {
-                const { error: contentError } = await supabase
-                  .from('educational_content')
-                  .delete()
-                  .eq('id', lesson.content_id);
-
-                if (contentError) throw contentError;
-              }
-
-              // Delete the lesson
-              const { error: deleteError } = await supabase
-                .from('course_lessons')
-                .delete()
-                .eq('id', pageToDelete.id);
-
-              if (deleteError) throw deleteError;
-
-              // Refresh course data
-              await fetchCourseDetails();
-
-              // If the deleted lesson was selected, clear the selection
-              if (selectedLesson?.id === pageToDelete.id) {
-                setSelectedLesson(null);
-              }
-
-              // Clear the pageToDelete state
-              setPageToDelete(null);
-
-              toast({
-                title: "Success",
-                description: `Page "${pageToDelete.title}" has been deleted.`,
-                variant: "default"
-              });
-            } catch (error) {
-              console.error('Error deleting page:', error);
-              toast({
-                title: "Error",
-                description: error instanceof Error ? error.message : "Failed to delete page",
-                variant: "destructive"
-              });
-            } finally {
-              setIsDeleting(false);
-            }
-          }}
+          onOpenChange={(isOpen) => !isOpen && closeDeletePageDialog()}
+          onConfirmDelete={handleConfirmDeletePage}
           isDeleting={isDeleting}
           pageTitle={pageToDelete.title}
         />
@@ -1249,44 +732,8 @@ You can use headings, bold text, links, and other formatting to structure your c
       {pageToRevert && (
         <RevertToDraftDialog
           isOpen={!!pageToRevert}
-          onOpenChange={(isOpen) => !isOpen && setPageToRevert(null)}
-          onConfirmRevert={async () => {
-            if (!pageToRevert) return;
-            setIsReverting(true);
-            try {
-              const supabase = getSupabaseClient();
-
-              // Toggle the publish status
-              const newStatus = !pageToRevert.isPublished;
-              const { error: updateError } = await supabase
-                .from('course_lessons')
-                .update({ is_published: newStatus })
-                .eq('id', pageToRevert.id);
-
-              if (updateError) throw updateError;
-              
-              // Refresh course data
-              await fetchCourseDetails();
-
-              // Clear the pageToRevert state
-              setPageToRevert(null);
-
-              toast({
-                title: "Success",
-                description: `"${pageToRevert.title}" has been ${newStatus ? 'published' : 'reverted to draft'}.`,
-                variant: "default"
-              });
-            } catch (error) {
-              console.error('Error updating page status:', error);
-              toast({
-                title: "Error",
-                description: error instanceof Error ? error.message : "Failed to update page status",
-                variant: "destructive"
-              });
-            } finally {
-              setIsReverting(false);
-            }
-          }}
+          onOpenChange={(isOpen) => !isOpen && closeRevertToDraftDialog()}
+          onConfirmRevert={handleConfirmRevertToDraft}
           isReverting={isReverting}
           pageTitle={pageToRevert.title}
           isPublished={pageToRevert.isPublished}
@@ -1297,41 +744,8 @@ You can use headings, bold text, links, and other formatting to structure your c
       {pageToChangeFolder && (
         <ChangeFolderDialog
           isOpen={!!pageToChangeFolder}
-          onOpenChange={(isOpen) => !isOpen && setPageToChangeFolder(null)}
-          onConfirmChange={async (folderId: string | null) => {
-            if (!pageToChangeFolder) return;
-            setIsChangingFolder(true);
-            try {
-              const supabase = getSupabaseClient();
-              const { error } = await supabase
-                .from('course_lessons')
-                .update({ module_id: folderId })
-                .eq('id', pageToChangeFolder.id);
-
-              if (error) throw error;
-              
-              // Refresh course data
-              await fetchCourseDetails();
-
-              // Clear the pageToChangeFolder state
-              setPageToChangeFolder(null);
-
-              toast({
-                title: "Success",
-                description: `"${pageToChangeFolder.title}" has been moved to ${folderId ? 'the selected folder' : 'root level'}.`,
-                variant: "default"
-              });
-            } catch (error) {
-              console.error('Error changing folder:', error);
-              toast({
-                title: "Error",
-                description: error instanceof Error ? error.message : "Failed to change folder",
-                variant: "destructive"
-              });
-            } finally {
-              setIsChangingFolder(false);
-            }
-          }}
+          onOpenChange={(isOpen) => !isOpen && closeChangeFolderDialog()}
+          onConfirmChange={handleConfirmChangeFolder}
           isChanging={isChangingFolder}
           pageTitle={pageToChangeFolder.title}
           courseId={course.id}

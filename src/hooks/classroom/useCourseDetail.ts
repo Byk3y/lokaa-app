@@ -15,14 +15,16 @@ import type {
   CourseDetailData, 
   CourseModule, 
   CourseLesson 
-} from '@/types/classroom';
+} from '@/types/classroom/courseDetail';
 
 interface UseCourseDetailReturn {
   course: CourseDetailData | null;
   loading: boolean;
+  loadingPhase: 'initial' | 'content' | 'complete';
   error: string | null;
   fetchCourseDetails: (courseId: string, moduleId?: string) => Promise<CourseDetailData | null>;
   refetch: () => Promise<void>;
+  silentRefetch: () => Promise<void>;
   invalidateCache: () => void;
   retryCount: number;
   isOffline: boolean;
@@ -56,6 +58,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   const { user } = useAuth();
   const [course, setCourse] = useState<CourseDetailData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<'initial' | 'content' | 'complete'>('initial');
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isOffline, setIsOffline] = useState(false);
@@ -161,6 +164,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   ): Promise<CourseDetailData | null> => {
     try {
       setLoading(true);
+      setLoadingPhase('initial');
       setError(null);
       setCurrentCourseId(courseId);
       
@@ -208,30 +212,57 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
           // Fetch course data - try by slug first, then by ID
           let courseQuery = supabase.from('courses').select('*');
           
-          // Try to determine if courseId is a UUID or a slug
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
-          
-          if (isUUID) {
-            courseQuery = courseQuery.eq('id', courseId);
-          } else {
-            courseQuery = courseQuery.eq('slug', courseId);
-          }
+                  // Try to determine if courseId is a UUID, short_id, or slug
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
+        const isShortId = /^[a-zA-Z0-9]{8}$/.test(courseId); // 8 character alphanumeric
+
+        if (isUUID) {
+          courseQuery = courseQuery.eq('id', courseId);
+        } else if (isShortId) {
+          courseQuery = courseQuery.eq('short_id', courseId);
+        } else {
+          courseQuery = courseQuery.eq('slug', courseId);
+        }
           
           let { data, error } = await courseQuery.single();
 
           if (error) {
-            // If slug lookup failed, try ID lookup as fallback
-            if (!isUUID) {
-              log.debug('Hook', `🎓 [useCourseDetail] Slug lookup failed, trying ID lookup (attempt ${attempts})`);
+            // If UUID lookup failed, try short_id and slug lookup as fallback
+            if (isUUID) {
+              log.debug('Hook', `🎓 [useCourseDetail] UUID lookup failed, trying short_id lookup (attempt ${attempts})`);
               const { data: fallbackData, error: fallbackError } = await supabase
                 .from('courses')
                 .select('*')
-                .eq('id', courseId)
+                .eq('short_id', courseId)
+                .single();
+              
+              if (fallbackError) {
+                log.debug('Hook', `🎓 [useCourseDetail] Short ID lookup failed, trying slug lookup (attempt ${attempts})`);
+                const { data: slugFallbackData, error: slugFallbackError } = await supabase
+                  .from('courses')
+                  .select('*')
+                  .eq('slug', courseId)
+                  .single();
+                
+                if (slugFallbackError) throw slugFallbackError;
+                data = slugFallbackData;
+              } else {
+                data = fallbackData;
+              }
+            } else if (isShortId) {
+              // If short_id lookup failed, try slug lookup as fallback
+              log.debug('Hook', `🎓 [useCourseDetail] Short ID lookup failed, trying slug lookup (attempt ${attempts})`);
+              const { data: fallbackData, error: fallbackError } = await supabase
+                .from('courses')
+                .select('*')
+                .eq('slug', courseId)
                 .single();
               
               if (fallbackError) throw fallbackError;
               data = fallbackData;
             } else {
+              // If slug lookup failed and courseId is not a UUID or short_id, just throw the error
+              // Don't try ID lookup with invalid UUID format
               throw error;
             }
           }
@@ -294,100 +325,107 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
 
       const canViewDrafts = isCreator || isGeneralAdmin || isSpaceAdmin;
 
-      // Fetch modules and lessons with mobile-optimized query
+      // Fetch modules and lessons with optimized query strategy
       let modulesData, modulesError;
       
       try {
-        // Use simpler query on mobile for better performance
-        const query = isMobile ? `
-          id,
-          title,
-          description,
-          module_order,
-          module_type,
-          course_id,
-          space_id,
-          course_lessons (
+        // Phase 1: Fetch modules with basic lesson metadata (fast)
+        const modulesResult = await supabase
+          .from('course_modules')
+          .select(`
             id,
             title,
-            content_type,
-            content_text,
-            lesson_order,
-            module_id,
-            content_id,
-            slug,
-            page_type,
-            is_published,
-            estimated_duration,
-            difficulty_level,
-            created_at,
-            updated_at
-          )
-        ` : `
-          id,
-          title,
-          description,
-          module_order,
-          module_type,
-          course_id,
-          space_id,
-          course_lessons (
-            id,
-            title,
-            content_type,
-            content_text,
-            lesson_order,
-            module_id,
-            content_id,
-            slug,
-            page_type,
-            is_published,
-            estimated_duration,
-            difficulty_level,
-            created_at,
-            updated_at,
-            educational_content (
+            description,
+            module_order,
+            module_type,
+            course_id,
+            space_id,
+            course_lessons!inner (
               id,
               title,
               content_type,
-              text_content,
-              media_url,
-              embed_data,
+              lesson_order,
+              module_id,
+              content_id,
+              slug,
+              page_type,
+              is_published,
               estimated_duration,
-              difficulty_level
-            ),
-            posts!course_lessons_post_id_fkey (
-              id,
-              title,
-              content
+              difficulty_level,
+              created_at,
+              updated_at
             )
-          )
-        `;
-
-        const result = await supabase
-          .from('course_modules')
-          .select(query)
+          `)
           .eq('course_id', courseData.id)
           .order('module_order');
         
-        modulesData = result.data;
-        modulesError = result.error;
+        modulesData = modulesResult.data;
+        modulesError = modulesResult.error;
 
-        log.debug('Hook', '🎓 [useCourseDetail] Modules data fetched:', {
+        log.debug('Hook', '🎓 [useCourseDetail] Phase 1 - Modules with basic lesson data fetched:', {
           moduleCount: modulesData?.length || 0,
-          isMobileQuery: isMobile,
-          modules: modulesData?.map(m => ({
-            id: m.id,
-            title: m.title,
-            type: m.module_type,
-            lessonCount: m.course_lessons?.length || 0
-          }))
+          totalLessons: modulesData?.reduce((sum, m) => sum + (m.course_lessons?.length || 0), 0) || 0
         });
 
-      } catch (timeoutError) {
-        log.debug('Hook', '🎓 [useCourseDetail] Complex query timed out, trying simpler query...');
+        // Set loading phase to content for better UX
+        setLoadingPhase('content');
+
+        // Phase 2: Fetch detailed content for lessons that need it (lazy loading)
+        if (modulesData && modulesData.length > 0) {
+          const lessonsNeedingContent = modulesData
+            .flatMap(module => module.course_lessons || [])
+            .filter(lesson => lesson.content_id || lesson.content_type === 'rich_text');
+
+          if (lessonsNeedingContent.length > 0) {
+            log.debug('Hook', '🎓 [useCourseDetail] Phase 2 - Fetching detailed content for lessons:', lessonsNeedingContent.length);
+            
+            // Fetch educational content in batches for better performance
+            const contentIds = lessonsNeedingContent
+              .map(lesson => lesson.content_id)
+              .filter(Boolean) as string[];
+
+            if (contentIds.length > 0) {
+              const { data: educationalContent, error: contentError } = await supabase
+                .from('educational_content')
+                .select(`
+                  id,
+                  title,
+                  content_type,
+                  text_content,
+                  media_url,
+                  embed_data,
+                  estimated_duration,
+                  difficulty_level
+                `)
+                .in('id', contentIds);
+
+              if (contentError) {
+                log.warn('Hook', '🎓 [useCourseDetail] Error fetching educational content:', contentError);
+              } else {
+                // Create a map for quick lookup
+                const contentMap = new Map(
+                  educationalContent?.map(content => [content.id, content]) || []
+                );
+
+                // Merge content into lessons
+                modulesData = modulesData.map(module => ({
+                  ...module,
+                  course_lessons: (module.course_lessons || []).map(lesson => ({
+                    ...lesson,
+                    educational_content: lesson.content_id ? contentMap.get(lesson.content_id) : null
+                  }))
+                }));
+
+                log.debug('Hook', '🎓 [useCourseDetail] Phase 2 - Educational content merged successfully');
+              }
+            }
+          }
+        }
+
+      } catch (error) {
+        log.error('Hook', '🎓 [useCourseDetail] Error in optimized query strategy:', error);
         
-        // Fallback to simpler query without educational_content
+        // Fallback to simple query if optimized strategy fails
         const fallbackResult = await supabase
           .from('course_modules')
           .select(`
@@ -420,6 +458,8 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
         
         modulesData = fallbackResult.data;
         modulesError = fallbackResult.error;
+        
+        log.debug('Hook', '🎓 [useCourseDetail] Fallback query executed');
       }
 
       if (modulesError) throw modulesError;
@@ -476,16 +516,21 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
 
             if (allLessonIds.length > 0) {
               // Fetch user's completed lessons
-              const { data: completedLessons, error: progressError } = await supabase
+              // ✅ FIXED: Remove course_id filter to comply with RLS policy
+              // RLS policy only allows filtering by user_id, so we filter in JavaScript
+              const { data: allCompletions, error: progressError } = await supabase
                 .from('lesson_completions')
-                .select('lesson_id')
-                .eq('user_id', user.id)
-                .eq('course_id', transformedCourse.id)
-                .in('lesson_id', allLessonIds);
-
+                .select('lesson_id, course_id');
+              
               if (progressError) {
                 log.warn('Hook', '🎓 [useCourseDetail] Error fetching progress:', progressError);
               } else {
+                // Filter for lessons in this course in JavaScript
+                const completedLessons = allCompletions?.filter(completion => 
+                  completion.course_id === transformedCourse.id &&
+                  allLessonIds.includes(completion.lesson_id)
+                ) || [];
+
                 // Calculate progress percentage and update lesson completion status
                 const completedCount = completedLessons?.length || 0;
                 const totalLessons = allLessonIds.length;
@@ -524,6 +569,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
       setCachedCourse(courseId, transformedCourse);
       setCourse(transformedCourse);
       setRetryCount(0); // Reset retry count on success
+      setLoadingPhase('complete');
       
       return transformedCourse;
       
@@ -548,12 +594,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     isMobile, 
     isOffline, 
     enableOfflineSupport, 
-    retryOnError, 
-    retryCount,
-    getCachedCourse, 
-    setCachedCourse, 
-    getCachedProgress, 
-    setCachedProgress
+    retryOnError
   ]);
 
   // Refetch function
@@ -564,12 +605,35 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     }
   }, [currentCourseId, fetchCourseDetails]);
 
+  // Silent refetch function (doesn't trigger loading state)
+  const silentRefetch = useCallback(async () => {
+    if (currentCourseId) {
+      log.debug('Hook', `🎓 [useCourseDetail] Silent refetching course: ${currentCourseId}`);
+      try {
+        // Temporarily disable loading state
+        const wasLoading = loading;
+        setLoading(false);
+        
+        await fetchCourseDetails(currentCourseId);
+        
+        // Restore loading state if it was loading before
+        if (wasLoading) {
+          setLoading(true);
+        }
+      } catch (error) {
+        log.warn('Hook', `🎓 [useCourseDetail] Silent refetch failed:`, error);
+      }
+    }
+  }, [currentCourseId, fetchCourseDetails, loading]);
+
   return {
     course,
     loading,
+    loadingPhase,
     error,
     fetchCourseDetails,
     refetch,
+    silentRefetch,
     invalidateCache,
     retryCount,
     isOffline

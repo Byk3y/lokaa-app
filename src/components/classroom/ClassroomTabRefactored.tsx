@@ -9,10 +9,10 @@ import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import { toast } from '@/hooks/use-toast';
 import { getCourseUrl, generateSlug, getUniqueCourseSlug } from '@/utils/slugUtils';
-import { useClassroomStore } from '@/stores/classroom/classroomStore';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 import { usePersistentTabs } from '@/hooks/usePersistentTabs';
+import { useCachedClassroom } from '@/hooks/useCachedClassroom';
 
 export const ClassroomTabRefactored = ({
   courses: propCourses = [],
@@ -40,16 +40,18 @@ export const ClassroomTabRefactored = ({
   const { isTabActive } = usePersistentTabs();
   const isActiveTab = isTabActive('classroom');
   
-  // Zustand store state and actions
-  const courses = useClassroomStore(state => state.courses);
-  const loading = useClassroomStore(state => state.loading);
-  const setCourses = useClassroomStore(state => state.setCourses);
-  const setLoading = useClassroomStore(state => state.setLoading);
-  const addCourse = useClassroomStore(state => state.addCourse);
-  const removeCourse = useClassroomStore(state => state.removeCourse);
-  const lastRefreshTime = useClassroomStore(state => state.lastRefreshTime);
-  const hasValidCache = useClassroomStore(state => state.hasValidCache);
-  const cacheExpiry = useClassroomStore(state => state.cacheExpiry);
+  // Use classroom cache system instead of Zustand store for proper progress synchronization
+  const {
+    courses,
+    loading,
+    error,
+    refetch,
+    updateCourse,
+    removeCourse,
+    addCourse,
+    handleEnrollment,
+    updateCourseProgress
+  } = useCachedClassroom(currentSpace?.id, user?.id, currentSpace?.owner_id);
   
   // Local state for view management only
   const [searchTerm, setSearchTermLocal] = useState(propSearchTerm);
@@ -65,64 +67,26 @@ export const ClassroomTabRefactored = ({
   const effectiveSpace = propSpace || currentSpace;
   const effectiveAuth = propAuth || { user, isAuthenticated: !!user, authLoading };
   
+  // Fix permissions logic: prioritize spacePermissions when propPermissions has default incorrect values
+  const hasValidPropPermissions = propPermissions && 
+    (propPermissions.isOwner !== false || propPermissions.isAdmin !== false || propPermissions.canCreateContent !== false);
+  const effectivePermissions = hasValidPropPermissions ? propPermissions : spacePermissions;
   
-  // Fix permission calculation - only use prop permissions if explicitly set
-  const effectivePermissions = propPermissions.isOwner === true ? propPermissions : { 
-    isOwner: !!(user?.id && effectiveSpace?.owner_id && user.id === effectiveSpace.owner_id),
-    isAdmin: spacePermissions?.isAdmin ?? false,
-    canCreateContent: spacePermissions?.canCreateContent ?? false
-  } as { isOwner: boolean; isAdmin: boolean; canCreateContent: boolean };
-  
-  // Debug permission calculation (only when there are issues)
-  if (process.env.NODE_ENV === 'development' && !effectivePermissions.isOwner && !effectivePermissions.isAdmin) {
-    log.debug('Component', '🔐 [ClassroomTab] Permission issue detected:', {
-      userId: user?.id,
-      spaceOwnerId: effectiveSpace?.owner_id,
-      isOwner: effectivePermissions.isOwner,
-      isAdmin: effectivePermissions.isAdmin,
-      canCreateContent: effectivePermissions.canCreateContent
-    });
-  }
-  
-
-  // Calculate hasSpaceOwnerInfo for loading states
-  // If we have space data and user data, we have enough info to proceed
-  const hasSpaceOwnerInfo = !!(effectiveSpace && effectiveSpace.id && user);
-
-
-
-  // Track when component becomes active (for cached components)
+  // Track previous active tab state for cache management
   const prevActiveTab = useRef(isActiveTab);
   
-  // Simple component mount/unmount effect
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      log.debug('Component', '🔄 [ClassroomTab] Component mounted/updated, courses length:', courses?.length || 0);
-    }
-  }, []);
-  
-  // Effect to handle when cached component becomes active
+  // Effect to handle tab activation and cache management
   useEffect(() => {
     const wasInactive = !prevActiveTab.current;
     const isNowActive = isActiveTab;
     
     if (wasInactive && isNowActive) {
-      log.debug('Component', '🔄 [ClassroomTab] Component activated from cache, checking course data');
-      // Check if cache is expired
-      const now = Date.now();
-      const cacheAge = lastRefreshTime ? now - lastRefreshTime : Infinity;
-      const isCacheExpired = cacheAge > cacheExpiry;
-      
-      if (isCacheExpired || !hasValidCache) {
-        log.debug('Component', '🔄 [ClassroomTab] Cache expired or invalid, refreshing course data');
-        setLoading(true);
-      } else {
-        log.debug('Component', '🔄 [ClassroomTab] Using valid cached course data');
-      }
+      log.debug('Component', '🔄 [ClassroomTab] Component activated, checking course data');
+      // The classroom cache system will automatically handle data fetching
     }
     
     prevActiveTab.current = isActiveTab;
-  }, [isActiveTab, effectiveSpace?.id, loading, lastRefreshTime, hasValidCache, cacheExpiry]);
+  }, [isActiveTab, effectiveSpace?.id]);
 
   // Effect to handle returning from course detail view to classroom
   useEffect(() => {
@@ -137,27 +101,22 @@ export const ClassroomTabRefactored = ({
     const hasSpaceInfo = !!effectiveSpace?.id;
     const hasNoCourses = courses.length === 0;
     const isNotLoading = !loading;
-    const hasCacheExpired = lastRefreshTime ? (Date.now() - lastRefreshTime) > cacheExpiry : true;
     
     log.debug('Component', '🔄 [ClassroomTab] Return check:', {
       isOnClassroomPage,
       hasSpaceInfo,
       hasNoCourses,
       isNotLoading,
-      hasCacheExpired,
       pathname: location.pathname,
-      isActiveTab,
-      lastRefreshTime: lastRefreshTime ? new Date(lastRefreshTime).toISOString() : 'never'
+      isActiveTab
     });
     
-    // Only trigger fetch if we're on classroom page, have space info, no courses, not loading, and cache has expired
-    if (isOnClassroomPage && hasSpaceInfo && hasNoCourses && isNotLoading && hasCacheExpired) {
-      log.debug('Component', '🔄 [ClassroomTab] Detected return to classroom without courses and expired cache, forcing fetch');
-      setLoading(true);
+    // If we're on classroom page with no courses and not loading, trigger a refetch
+    if (isOnClassroomPage && hasSpaceInfo && hasNoCourses && isNotLoading) {
+      log.debug('Component', '🔄 [ClassroomTab] Detected return to classroom without courses, triggering refetch');
+      refetch();
     }
-  }, [location.pathname, effectiveSpace?.id, courses.length, loading, isActiveTab, lastRefreshTime, cacheExpiry]);
-  
-  // Removed safety net effect that was causing loading loops
+  }, [location.pathname, effectiveSpace?.id, courses.length, loading, isActiveTab, refetch]);
   
   // Track courses updates
   useEffect(() => {
@@ -165,100 +124,6 @@ export const ClassroomTabRefactored = ({
       log.debug('Component', '🔄 [ClassroomTab] Courses loaded:', courses.length);
     }
   }, [courses]);
-
-  // Fetch courses from database
-  useEffect(() => {
-    // Only fetch courses if this tab is currently active
-    if (!isActiveTab) {
-      log.debug('Component', '🔍 [ClassroomTab] Skipping course fetch - not active tab');
-      return;
-    }
-    
-    const fetchCourses = async () => {
-      if (!effectiveSpace?.id) {
-        log.debug('Component', '🔍 [ClassroomTab] No space ID, skipping fetch');
-        setLoading(false); // Ensure loading is false if we skip
-        return;
-      }
-      
-      // Only skip if we're not loading AND cache is valid (regardless of course count)
-      const now = Date.now();
-      const cacheAge = lastRefreshTime ? now - lastRefreshTime : Infinity;
-      const isCacheValid = hasValidCache && cacheAge < cacheExpiry;
-      
-      if (!loading && isCacheValid) {
-        log.debug('Component', '🔍 [ClassroomTab] Not in loading state and have valid cache, skipping fetch');
-        return;
-      }
-      
-      // Set loading state if we need to fetch
-      if (!loading) {
-        setLoading(true);
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        log.debug('Component', '🔍 [ClassroomTab] Fetching courses for space:', effectiveSpace.id);
-      }
-      try {
-        const supabase = getSupabaseClient();
-        // Build query - owners can see all courses, members only see published ones
-        let query = supabase
-          .from('courses')
-          .select(`
-            id,
-            title,
-            description,
-            slug,
-            access_type,
-            price,
-            currency,
-            is_published,
-            created_at,
-            updated_at,
-            space_id,
-            creator_id,
-            cover_image_url
-          `)
-          .eq('space_id', effectiveSpace.id);
-          
-        // Non-owners should only see published courses
-        if (!effectivePermissions.isOwner) {
-          query = query.eq('is_published', true);
-        }
-        
-        const { data, error } = await query.order('created_at', { ascending: false });
-          
-        if (error) {
-          log.error('Component', 'Error fetching courses:', error);
-          setLoading(false);
-          return;
-        }
-        
-        // Transform data to match CourseDisplayData interface
-        const transformedCourses = data?.map(course => ({
-          ...course,
-          image_url: course.cover_image_url,
-          slug: course.slug,
-          students: 0,
-          enrolled: false,
-          progress: 0
-        })) || [];
-        
-        setCourses(transformedCourses);
-        if (process.env.NODE_ENV === 'development') {
-          log.debug('Component', `🎓 [ClassroomTab] Loaded ${transformedCourses.length} courses`);
-        }
-      } catch (error) {
-        log.error('Component', 'Failed to fetch courses:', error);
-        setLoading(false);
-      }
-    };
-
-    // Only fetch if loading is true or cache is invalid
-    if (loading || !hasValidCache || (lastRefreshTime && (Date.now() - lastRefreshTime) > cacheExpiry)) {
-      fetchCourses();
-    }
-  }, [effectiveSpace?.id, effectivePermissions?.isOwner, user?.id, loading, isActiveTab, hasValidCache, lastRefreshTime, cacheExpiry]);
 
   // Handle course selection (view course)
   const handleCourseView = (course: CourseDisplayData) => {
@@ -273,9 +138,9 @@ export const ClassroomTabRefactored = ({
     
     const subdomain = effectiveSpace?.subdomain || subdomainFromPath;
     
-    // Navigate to course URL using slug or ID
-    const courseIdentifier = course.slug || course.id;
-    const courseUrl = `/${subdomain}/course/${courseIdentifier}`;
+    // ✅ FIX: Use new URL pattern consistently - use short_id for cleaner URLs (Skool-style)
+    const courseIdentifier = course.short_id || course.slug || course.id;
+    const courseUrl = `/${subdomain}/space/classroom/${courseIdentifier}`;
     
     // Try navigation with replace: false to ensure proper history handling
     try {
@@ -304,7 +169,7 @@ export const ClassroomTabRefactored = ({
   const handleCourseCreate = async (courseData: {
     title: string;
     description: string;
-    accessType: "open" | "paid";
+    accessType: 'open' | 'paid';
     price: number | null;
     currency: string;
     isPublished: boolean;
@@ -350,14 +215,14 @@ export const ClassroomTabRefactored = ({
 
       if (error) throw error;
 
-      // Transform and add to courses list
+      // Transform and add to courses list using classroom cache
       const newCourse = {
         ...data,
         image_url: data.cover_image_url, // Map cover_image_url to image_url for CourseCard compatibility
         slug: data.slug, // Include slug for URL routing
         students: 0,
         enrolled: false,
-        progress: 0
+        progress: undefined // Let the cache system calculate progress
       } as CourseDisplayData;
       
       addCourse(newCourse);
@@ -369,11 +234,11 @@ export const ClassroomTabRefactored = ({
       });
       
       setIsCreateCourseDialogOpen(false);
-    } catch (error: any) {
-      log.error('Component', 'Error creating course:', error);
+    } catch (error) {
+      log.error('Component', 'Failed to create course:', error);
       toast({
-        title: "Error Creating Course",
-        description: error.message || "An unexpected error occurred",
+        title: "Error",
+        description: "Failed to create course. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -415,8 +280,26 @@ export const ClassroomTabRefactored = ({
     }
   };
 
-  // Render course detail view
-  if (viewMode === 'detail' && selectedCourseId) {
+
+
+  // ✅ FIX: Only render course detail view if we're actually on a course detail route
+  // This prevents conflicts with SpaceTabContentTrulyPersistent routing logic
+  const isOnCourseDetailRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 [ClassroomTabRefactored] View mode check:', {
+      viewMode,
+      selectedCourseId,
+      isOnCourseDetailRoute: !!isOnCourseDetailRoute,
+      pathname: location.pathname
+    });
+  }
+  
+  // Render course detail view only if we're on a course detail route
+  if (viewMode === 'detail' && selectedCourseId && isOnCourseDetailRoute) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ [ClassroomTabRefactored] Rendering CourseDetailView');
+    }
     return (
       <>
         <CourseDetailView
@@ -426,6 +309,15 @@ export const ClassroomTabRefactored = ({
       </>
     );
   }
+  
+  // Reset view mode if we're not on a course detail route
+  if (viewMode === 'detail' && !isOnCourseDetailRoute) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 [ClassroomTabRefactored] Resetting view mode to grid - not on course detail route');
+    }
+    setViewMode('grid');
+    setSelectedCourseId(null);
+  }
 
   return (
     <>
@@ -434,7 +326,7 @@ export const ClassroomTabRefactored = ({
         courses={courses}
         isLoading={loading}
         authLoading={effectiveAuth?.authLoading ?? false}
-        hasSpaceOwnerInfo={hasSpaceOwnerInfo}
+        hasSpaceOwnerInfo={!!(effectiveSpace && effectiveSpace.id && user)}
         hasValidAuth={effectiveAuth?.isAuthenticated ?? true}
         isOwner={effectivePermissions?.isOwner ?? false}
         isAdmin={effectivePermissions?.isAdmin ?? false}

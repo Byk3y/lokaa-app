@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { useToast } from '@/hooks/use-toast';
-import type { CourseLesson, LessonContentProps } from '@/types/classroom';
+import type { CourseLesson, LessonContentProps } from '@/types/classroom/courseDetail';
 
 const LessonContent: React.FC<LessonContentProps> = ({ 
   lesson, 
   courseName, 
   isOwner = false,
+  isAdmin = false,
   completed = false,
   onUpdateLesson,
   onCreateNewPage,
@@ -303,7 +304,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
     return (
       <div className="h-full bg-gray-50 p-6">
         <div className="w-full">
-          {isOwner && onCreateNewPage ? (
+          {(isOwner || isAdmin) && onCreateNewPage ? (
             <>
               {!isInlineCreating ? (
                 <div className="bg-white rounded-lg border border-gray-200 p-8 flex items-center w-full">
@@ -393,7 +394,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
   // --- Skool-style: title left, actions right inside content card ---
   return (
     <div className="flex flex-col h-full bg-white">
-      <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
+      <div className="flex-1 pt-1 pb-6 px-6 overflow-y-auto bg-gray-50">
         <div className="w-full">
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -401,7 +402,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
                 <h1 className="course-title text-2xl font-semibold text-gray-900 mb-0">
                   {formatAsTitle(lesson.title)}
                 </h1>
-                {!lesson.is_published && isOwner && (
+                {!lesson.is_published && (isOwner || isAdmin) && (
                   <span className="inline-block mt-1 text-sm font-medium text-yellow-600">Draft</span>
                 )}
               </div>
@@ -419,7 +420,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
                   </Button>
                 )}
                 {/* Edit button for owners */}
-                {isOwner && (lesson.content_type === 'text' || lesson.content_type === 'rich_text') && (
+                {(isOwner || isAdmin) && (lesson.content_type === 'text' || lesson.content_type === 'rich_text') && (
                   <Button
                     variant="ghost"
                     size="sm"

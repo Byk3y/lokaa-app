@@ -170,6 +170,12 @@ class PersistentTabManager {
    * Extract tab from pathname
    */
   private extractTabFromPath(pathname: string): PersistentTab | null {
+    // Check if we're on a course detail route first
+    const isCourseDetailRoute = pathname.match(/^\/[^\/]+\/course\/[^\/]+$/);
+    if (isCourseDetailRoute) {
+      return 'classroom'; // Course detail routes should keep classroom tab active
+    }
+    
     const match = pathname.match(/^\/[^\/]+\/space(?:\/([^\/]+))?/);
     if (!match) return null;
     

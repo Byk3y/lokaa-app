@@ -7,12 +7,7 @@ interface CreateCourseCardProps {
 }
 
 export function CreateCourseCard({ onCreateCourse, hasExistingCourses }: CreateCourseCardProps) {
-  // Debug logging (only when state changes)
-  React.useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🎓 [CreateCourseCard] State changed - hasExistingCourses:', hasExistingCourses);
-    }
-  }, [hasExistingCourses]);
+  // Component implementation
   return (
     <div
       className="bg-white rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 transition-all duration-200 ease-in-out cursor-pointer group"

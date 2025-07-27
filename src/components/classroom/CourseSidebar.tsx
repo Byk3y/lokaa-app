@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Plus, ChevronDown, ChevronRight, MoreHorizontal, FileText, CheckCircle } from "lucide-react";
@@ -17,13 +17,14 @@ import type {
   CourseModule, 
   CourseDetailData, 
   CourseSidebarProps 
-} from '@/types/classroom';
+} from '@/types/classroom/courseDetail';
 
 export default function CourseSidebar({
   course,
   selectedLesson,
   onLessonSelect,
   isOwner = false,
+  isAdmin = false,
   ownershipLoading = false,
   isCreatingPage = false,
   onAddLesson,
@@ -38,6 +39,8 @@ export default function CourseSidebar({
   onDuplicatePage,
   onChangeFolder,
 }: CourseSidebarProps) {
+  
+
   const navigate = useNavigate();
   const { subdomain } = useParams<{ subdomain: string }>();
   
@@ -170,7 +173,7 @@ export default function CourseSidebar({
   }
 
   return (
-    <div className="w-80 border-r border-gray-100 bg-white flex flex-col">
+    <div className="w-80 border-r border-gray-100 bg-white flex flex-col mt-1 ml-4 rounded-lg shadow-lg h-fit">
       {/* Header */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center justify-between mb-2">
@@ -191,7 +194,7 @@ export default function CourseSidebar({
               </div>
             </div>
           </div>
-          {isOwner && !ownershipLoading && (
+          {(isOwner || isAdmin) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
@@ -217,7 +220,7 @@ export default function CourseSidebar({
         </div>
         
         {/* Add New Page Button */}
-        {isOwner && !ownershipLoading && (
+        {(isOwner || isAdmin) && (
           <Button
             onClick={() => onAddLesson?.()}
             disabled={isCreatingPage}
@@ -258,7 +261,7 @@ export default function CourseSidebar({
                           ${isLessonSelected(lesson) ? 'text-blue-900' : 'text-gray-900'}
                         `}>
                           <span className="truncate">{formatAsTitle(lesson.title)}</span>
-                          {!lesson.is_published && isOwner && (
+                          {!lesson.is_published && (isOwner || isAdmin) && (
                             <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                               Draft
                             </span>
@@ -271,13 +274,13 @@ export default function CourseSidebar({
                       {lesson.completed && (
                         <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" strokeWidth={2.5} />
                       )}
-                      {isOwner && !ownershipLoading && (
+                      {(isOwner || isAdmin) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-gray-200"
+                              className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-100 hover:bg-gray-200"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <MoreHorizontal className="h-4 w-4" strokeWidth={2.5} />
@@ -343,13 +346,13 @@ export default function CourseSidebar({
                   </div>
                   
                   <div className="flex items-center gap-1">
-                    {isOwner && !ownershipLoading && (
+                    {(isOwner || isAdmin) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="sm"
-                            className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-gray-200"
+                            className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-100 hover:bg-gray-200"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreHorizontal className="h-4 w-4" strokeWidth={2.5} />
@@ -408,7 +411,7 @@ export default function CourseSidebar({
                               ${isLessonSelected(lesson) ? 'text-blue-900' : 'text-gray-900'}
                             `}>
                               <span className="truncate">{formatAsTitle(lesson.title)}</span>
-                              {!lesson.is_published && isOwner && (
+                              {!lesson.is_published && (isOwner || isAdmin) && (
                                 <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                                   Draft
                                 </span>
@@ -421,13 +424,13 @@ export default function CourseSidebar({
                           {lesson.completed && (
                             <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" strokeWidth={2.5} />
                           )}
-                          {isOwner && !ownershipLoading && (
+                          {(isOwner || isAdmin) && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
-                                  className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-gray-200"
+                                  className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-100 hover:bg-gray-200"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <MoreHorizontal className="h-4 w-4" strokeWidth={2.5} />

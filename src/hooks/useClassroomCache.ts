@@ -45,6 +45,7 @@ interface ClassroomCacheState {
   removeCourseFromCache: (spaceId: string, courseId: string) => void;
   addCourseToCache: (spaceId: string, course: CourseDisplayData) => void;
   invalidateCache: (spaceId?: string) => void;
+  updateCourseProgress: (spaceId: string, courseId: string, progress: number) => void;
 }
 
 // POSTS PATTERN: Persistent cache utilities
@@ -180,7 +181,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       let coursesQuery = (getSupabaseClient() as any)
         .from('courses')
         .select(
-          'id, title, description, image_url, cover_image_url, access_type, price, is_published, creator_id, space_id, currency'
+          'id, title, description, image_url, cover_image_url, access_type, price, is_published, creator_id, space_id, currency, slug, short_id'
         )
         .eq('space_id', spaceId);
       
@@ -217,57 +218,124 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
 
       const courseIds = coursesData.map(c => c.id);
 
-      // Fetch enrollments with timeout protection
-      const enrollmentsQuery = (getSupabaseClient() as any)
-        .from('course_enrollments')
-        .select('course_id, user_id')
-        .in('course_id', courseIds);
+      // Calculate progress for courses the user has access to
+      // New model: Users have access if they are space members, not if they are enrolled
+      const courseProgressMap = new Map<string, number>();
 
-      let allEnrollmentsData = null;
-      try {
-        const enrollmentsResult = await Promise.race([
-          enrollmentsQuery,
-          createTimeoutPromise(TIMEOUT_MS, 'Enrollments query')
-        ]);
-        allEnrollmentsData = enrollmentsResult.data;
-      } catch (enrollmentError) {
-        log.warn('Hook', "Enrollments query timeout, continuing with course data:", enrollmentError);
-      }
-      
-      // Create student counts and enrollment maps
-      const studentCounts = new Map<string, number>();
-      const currentUserEnrollmentSet = new Set<string>();
-      
-      if (allEnrollmentsData) {
-        allEnrollmentsData.forEach(enrollment => {
-          if (enrollment.user_id !== ownerId) { 
-            studentCounts.set(enrollment.course_id, (studentCounts.get(enrollment.course_id) || 0) + 1);
+      // Check if user is a space member (has access to all courses)
+      const { data: spaceMemberData, error: memberError } = await (getSupabaseClient() as any)
+        .from('space_members')
+        .select('id')
+        .eq('space_id', spaceId)
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const isSpaceMember = !!spaceMemberData;
+
+      // Calculate progress if user has access (is owner or space member)
+      if (isOwner || isSpaceMember) {
+        try {
+          // Get all lesson IDs for all courses in this space
+          // Note: course_lessons doesn't have course_id directly, need to join through course_modules
+          const { data: courseLessons, error: lessonsError } = await (getSupabaseClient() as any)
+            .from('course_lessons')
+            .select(`
+              id,
+              course_modules!inner (
+                course_id
+              )
+            `)
+            .in('course_modules.course_id', courseIds);
+
+          if (lessonsError) {
+            log.warn('Hook', '❌ Error fetching course lessons for progress calculation:', lessonsError);
+          } else if (courseLessons && courseLessons.length > 0) {
+            // Group lessons by course
+            const lessonsByCourse = new Map<string, string[]>();
+            courseLessons.forEach(lesson => {
+              const courseId = lesson.course_modules?.course_id;
+              if (courseId && !lessonsByCourse.has(courseId)) {
+                lessonsByCourse.set(courseId, []);
+              }
+              if (courseId) {
+                lessonsByCourse.get(courseId)!.push(lesson.id);
+              }
+            });
+
+            // Get all lesson IDs for all courses
+            const allLessonIds = courseLessons.map(lesson => lesson.id);
+
+            if (allLessonIds.length > 0) {
+              // Fetch user's completed lessons
+              const { data: completedLessons, error: progressError } = await (getSupabaseClient() as any)
+                .from('lesson_completions')
+                .select('lesson_id, course_id')
+                .eq('user_id', userId)
+                .in('lesson_id', allLessonIds);
+
+              if (progressError) {
+                log.warn('Hook', '❌ Error fetching lesson completions for progress calculation:', progressError);
+              } else if (completedLessons) {
+                // Group completions by course
+                const completionsByCourse = new Map<string, string[]>();
+                completedLessons.forEach(completion => {
+                  const courseId = completion.course_id;
+                  if (!completionsByCourse.has(courseId)) {
+                    completionsByCourse.set(courseId, []);
+                  }
+                  completionsByCourse.get(courseId)!.push(completion.lesson_id);
+                });
+
+                // Calculate progress for each course
+                courseIds.forEach(courseId => {
+                  const totalLessons = lessonsByCourse.get(courseId)?.length || 0;
+                  const completedLessonsCount = completionsByCourse.get(courseId)?.length || 0;
+                  
+                  if (totalLessons > 0) {
+                    const progressPercentage = Math.round((completedLessonsCount / totalLessons) * 100);
+                    courseProgressMap.set(courseId, progressPercentage);
+                  } else {
+                    courseProgressMap.set(courseId, 0);
+                  }
+                });
+
+                log.debug('Hook', '✅ [ClassroomCache] Progress calculated for courses:', {
+                  totalCourses: courseIds.length,
+                  totalLessons: allLessonIds.length,
+                  completedLessons: completedLessons.length,
+                  progressMap: Object.fromEntries(courseProgressMap),
+                  isOwner,
+                  isSpaceMember
+                });
+              }
+            }
           }
-          if (enrollment.user_id === userId) {
-            currentUserEnrollmentSet.add(enrollment.course_id);
-          }
-        });
+        } catch (progressError) {
+          log.warn('Hook', '❌ Error calculating course progress:', progressError);
+        }
       }
-      
+
       const displayData: CourseDisplayData[] = coursesData.map((course: any) => ({
         id: course.id,
         title: course.title,
         description: course.description,
         image_url: course.cover_image_url || course.image_url, // Use cover_image_url first, fallback to image_url
+        slug: course.slug, // Include slug for URL routing (legacy)
+        short_id: course.short_id, // ✅ FIX: Include short_id for new URL pattern (Skool-style)
         access_type: course.access_type as 'open' | 'paid',
         price: course.price,
         is_published: course.is_published,
         currency: course.currency || 'NGN',
         creator_id: course.creator_id,
         space_id: course.space_id,
-        enrolled: currentUserEnrollmentSet.has(course.id),
-        students: studentCounts.get(course.id) || 0,
+        enrolled: false, // No longer based on enrollment
+        students: 0, // No longer based on enrollment
         weeks: 0,
-        progress: currentUserEnrollmentSet.has(course.id) ? 0 : undefined,
+        progress: isOwner || isSpaceMember ? (courseProgressMap.get(course.id) || 0) : undefined,
       }));
 
       // Filter courses based on user permissions
-      const isOwner = userId === ownerId;
       const filteredCourses = isOwner 
         ? displayData 
         : displayData.filter(course => course.is_published);
@@ -323,6 +391,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
             students: 1,
             weeks: 8,
             progress: 0,
+            short_id: 'bizmast', // ✅ FIX: Add short_id for new URL pattern
           },
           {
             id: 'fallback-course-2', 
@@ -337,6 +406,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
             students: 1,
             weeks: 12,
             progress: 0,
+            short_id: 'ultguid', // ✅ FIX: Add short_id for new URL pattern
           }
         ];
         
@@ -448,6 +518,31 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       } catch (error) {
         log.warn('Hook', 'Failed to clear all classroom fallback caches:', error);
       }
+    }
+  },
+
+  updateCourseProgress: (spaceId, courseId, progress) => {
+    const { spaceCache } = get();
+    const cache = spaceCache.get(spaceId);
+    
+    if (cache) {
+      const updatedCourses = cache.courses.map(course => 
+        course.id === courseId 
+          ? { ...course, progress }
+          : course
+      );
+      
+      const newCache = new Map(spaceCache);
+      newCache.set(spaceId, {
+        ...cache,
+        courses: updatedCourses,
+      });
+      set({ spaceCache: newCache });
+      
+      // Update fallback cache as well
+      saveFallbackCache(spaceId, updatedCourses);
+      
+      log.debug('Hook', `✅ [ClassroomCache] Updated progress for course ${courseId}: ${progress}%`);
     }
   },
 }));

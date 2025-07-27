@@ -22,6 +22,7 @@ const VALID_TABS: SpaceTab[] = ['feed', 'about', 'members', 'classroom', 'calend
  * - /subdomain/space/classroom -> 'classroom'
  * - /subdomain/space/feed -> 'feed' 
  * - /subdomain/space/invalid -> 'feed' (fallback)
+ * - /subdomain/space/classroom/courseSlug -> 'classroom' (course detail routes)
  */
 export function extractTabFromPathname(pathname: string): SpaceTab {
   if (!pathname || typeof pathname !== 'string') {
@@ -30,6 +31,12 @@ export function extractTabFromPathname(pathname: string): SpaceTab {
 
   // Remove trailing slashes for consistent parsing
   const cleanPath = pathname.replace(/\/+$/, '');
+  
+  // ✅ FIX: Check if we're on a course detail route (new pattern only)
+  const isCourseDetailRoute = cleanPath.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  if (isCourseDetailRoute) {
+    return 'classroom'; // Course detail routes should keep classroom tab active
+  }
   
   // Split path into segments
   const segments = cleanPath.split('/').filter(Boolean);

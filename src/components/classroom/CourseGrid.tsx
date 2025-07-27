@@ -62,6 +62,7 @@ export const CourseGrid = function CourseGrid({
   if (process.env.NODE_ENV === 'development' && courses?.length > 0) {
     console.log('🎓 [CourseGrid] Courses loaded:', courses.length);
   }
+  
   // Component rendered
   // Memoize search filtering for better performance
   const searchedCourses = useMemo(() => {
@@ -111,14 +112,6 @@ export const CourseGrid = function CourseGrid({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {/* Create Course Card - visible for space owner */}
-      {shouldShowCreateCard && (
-        <CreateCourseCard
-          onCreateCourse={onCreateCourse}
-          hasExistingCourses={searchedCourses.length > 0}
-        />
-      )}
-
       {/* Course Cards */}
       {searchedCourses.map((course) => (
         <CourseCard
@@ -135,6 +128,14 @@ export const CourseGrid = function CourseGrid({
           primaryColor={primaryColor}
         />
       ))}
+
+      {/* Create Course Card - visible for space owner and admins (moved to bottom) */}
+      {shouldShowCreateCard && (
+        <CreateCourseCard
+          onCreateCourse={onCreateCourse}
+          hasExistingCourses={searchedCourses.length > 0}
+        />
+      )}
       
       {/* Empty State */}
       {shouldShowEmptyState && (

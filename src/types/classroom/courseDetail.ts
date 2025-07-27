@@ -108,6 +108,7 @@ export interface CourseSidebarProps {
   selectedLesson: CourseLesson | null;
   onLessonSelect: (lesson: CourseLesson) => void;
   isOwner?: boolean;
+  isAdmin?: boolean;
   ownershipLoading?: boolean;
   isCreatingPage?: boolean;
   onAddLesson?: (moduleId?: string) => void;
@@ -132,6 +133,7 @@ export interface MobileCourseOverviewProps {
   onBack: () => void;
   onLessonSelect: (lesson: CourseLesson) => void;
   isOwner?: boolean;
+  isAdmin?: boolean;
   onEditCourse?: () => void;
   onAddFolder?: () => void;
   onAddPage?: () => void;
@@ -153,6 +155,7 @@ export interface MobileLessonViewProps {
   onNextLesson: () => void;
   onMarkAsDone: () => void;
   isOwner: boolean;
+  isAdmin?: boolean;
   hasNextLesson: boolean;
   onEditLesson: (updatedData: Partial<CourseLesson>) => Promise<void>;
 }
@@ -164,6 +167,7 @@ export interface LessonContentProps {
   lesson: CourseLesson | null;
   courseName: string;
   isOwner: boolean;
+  isAdmin?: boolean;
   completed: boolean;
   onUpdateLesson: (lessonId: string, updates: { title?: string; content_text?: string; is_published?: boolean }) => Promise<void>;
   onCreateNewPage: () => void;

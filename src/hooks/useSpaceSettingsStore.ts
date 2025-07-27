@@ -399,6 +399,19 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         canCreateContent: userIsOwner || userIsAdmin || userIsMember,
         canAccessSettings: userIsOwner || userIsAdmin, // CORRECTED: Both owners and admins can access settings
       };
+
+      // Add debugging for admin status detection
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔐 [useSpaceSettingsStore] Admin status detection:', {
+          userId,
+          spaceId,
+          userIsOwner,
+          userIsAdmin,
+          userIsMember,
+          calculatedPermissions,
+          userEmail: 'Check auth context for email'
+        });
+      }
       set({ permissions: calculatedPermissions, loadingPermissions: false });
     } catch (error: any) {
       log.error('Hook', "[SpaceSettingsStore] Error fetching permissions:", error);

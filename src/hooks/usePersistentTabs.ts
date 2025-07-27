@@ -68,6 +68,12 @@ export function usePersistentTabs(subdomain?: string): UsePersistentTabsReturn {
  * Helper function to extract tab from location pathname
  */
 function extractTabFromLocation(pathname: string): PersistentTab {
+  // Check if we're on a course detail route first
+  const isCourseDetailRoute = pathname.match(/^\/[^\/]+\/course\/[^\/]+$/);
+  if (isCourseDetailRoute) {
+    return 'classroom'; // Course detail routes should keep classroom tab active
+  }
+  
   const match = pathname.match(/^\/[^\/]+\/space(?:\/([^\/]+))?/);
   if (!match) return 'feed';
   

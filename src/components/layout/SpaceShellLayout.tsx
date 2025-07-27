@@ -37,7 +37,11 @@ import { usePersistentTabs } from "@/hooks/usePersistentTabs";
  * 3. Pass context data to child routes via Outlet context
  * 4. Robust tab detection that works during React Router initialization
  */
-export default function SpaceShellLayout() {
+interface SpaceShellLayoutProps {
+  showTabs?: boolean;
+}
+
+export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutProps) {
   const { subdomain, tab } = useParams<{ subdomain: string; tab?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -248,10 +252,30 @@ export default function SpaceShellLayout() {
     }
   }, [location.pathname, subdomain, navigate]);
 
-  // 🚀 REVOLUTIONARY: URL-independent tab switching
+  // 🚀 REVOLUTIONARY: URL-independent tab switching with URL sync
   const handleTabChange = (tabKey: string) => {
+    console.log('🔧 [SpaceShellLayout] handleTabChange called with:', { tabKey, subdomain, currentPath: location.pathname });
+    
     // Use persistent tab manager - no React Router navigation!
     switchTab(tabKey as any);
+    
+    // CRITICAL FIX: Update URL to match the tab state
+    if (subdomain) {
+      const newUrl = tabKey === 'feed' 
+        ? `/${subdomain}/space`
+        : `/${subdomain}/space/${tabKey}`;
+      
+      console.log('🔧 [SpaceShellLayout] About to update URL:', { from: location.pathname, to: newUrl });
+      
+      // Update URL without triggering navigation
+      window.history.replaceState(null, '', newUrl);
+      
+      console.log('🔧 [SpaceShellLayout] URL updated via replaceState');
+      
+      if (process.env.NODE_ENV === 'development') {
+        log.debug('Component', `🔄 [SpaceShellLayout] Tab switched and URL updated: ${tabKey} -> ${newUrl}`);
+      }
+    }
     
     // Reset scroll position for feed navigation
     if (tabKey === 'feed') {
@@ -307,23 +331,27 @@ export default function SpaceShellLayout() {
           />
       )}
       nav={(
-        <div className="hidden lg:block">
-          <SpaceNav 
-            subdomain={subdomain}
-            activeTab={activeTab}
-            onTabChange={handleTabChange} 
-          />
-        </div>
+        showTabs && (
+          <div className="hidden lg:block">
+            <SpaceNav 
+              subdomain={subdomain}
+              activeTab={activeTab}
+              onTabChange={handleTabChange} 
+            />
+          </div>
+        )
       )}
     >
       {/* On mobile, SpaceNav is part of the scrollable body */}
-      <div className="block lg:hidden">
-          <SpaceNav 
-            subdomain={subdomain}
-            activeTab={activeTab}
-            onTabChange={handleTabChange} 
-          />
-      </div>
+      {showTabs && (
+        <div className="block lg:hidden">
+            <SpaceNav 
+              subdomain={subdomain}
+              activeTab={activeTab}
+              onTabChange={handleTabChange} 
+            />
+        </div>
+      )}
       
       {/* REVOLUTIONARY: Truly persistent component with URL-independent tab management */}
       <div className="px-0 sm:px-4 pt-4 sm:pt-6 pb-16 sm:pb-6">

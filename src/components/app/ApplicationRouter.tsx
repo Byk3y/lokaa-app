@@ -278,9 +278,13 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
             <Route path="/:subdomain/space/about" element={<div />} />
             <Route path="/:subdomain/space/members" element={<div />} />
             <Route path="/:subdomain/space/classroom" element={<div />} />
+            <Route path="/:subdomain/space/classroom/:courseSlug" element={<div />} />
             <Route path="/:subdomain/space/calendar" element={<div />} />
             <Route path="/:subdomain/space/leaderboard" element={<div />} />
             <Route path="/:subdomain/space/search" element={<div />} />
+            
+            {/* Course detail pages - moved inside persistent shell to prevent unmounting */}
+            <Route path="/:subdomain/course/:courseSlug" element={<div />} />
           </Route>
           
           {/* Special routes outside persistent shell that need React Router */}
@@ -289,12 +293,6 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
             <Route path="/:subdomain/post/:postSlug" element={
               <Suspense fallback={<SpaceLoadingFallback />}>
                 <LazyRoutes.PostDetailPage />
-              </Suspense>
-            } />
-            {/* Course detail pages - standalone pages outside persistent shell */}
-            <Route path="/:subdomain/course/:courseSlug" element={
-              <Suspense fallback={<SpaceLoadingFallback />}>
-                <LazyRoutes.CourseDetailPage />
               </Suspense>
             } />
             {/* Debug pages - use different route pattern to avoid conflict */}

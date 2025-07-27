@@ -55,6 +55,7 @@ export const TrulyPersistentAppShell: React.FC = () => {
 
   // Track which components should be visible
   const [currentRoute, setCurrentRoute] = useState<'chat' | 'notifications' | 'space' | 'other'>('other');
+  const [showTabs, setShowTabs] = useState(true); // Control tab visibility for mobile course views
 
   // Debug logging to track persistent shell lifecycle (only in development)
   useEffect(() => {
@@ -64,6 +65,24 @@ export const TrulyPersistentAppShell: React.FC = () => {
         console.log('❌ [TrulyPersistentAppShell] Component unmounted - THIS SHOULD NEVER HAPPEN!');
       };
     }
+  }, []);
+
+  // Listen for mobile course view state changes
+  useEffect(() => {
+    const handleMobileStateChange = (event: CustomEvent) => {
+      const { showTabs: shouldShowTabs } = event.detail;
+      setShowTabs(shouldShowTabs);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📱 [TrulyPersistentAppShell] Mobile state changed:', { showTabs: shouldShowTabs });
+      }
+    };
+
+    window.addEventListener('courseDetailMobileState', handleMobileStateChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('courseDetailMobileState', handleMobileStateChange as EventListener);
+    };
   }, []);
 
   // Determine current route type and update state
@@ -76,9 +95,9 @@ export const TrulyPersistentAppShell: React.FC = () => {
       routeType = 'notifications';
     } else if (location.pathname.startsWith('/profile/')) {
       routeType = 'other'; // Profile routes use React Router
-    } else if (location.pathname.match(/^\/[^\/]+\/space/)) {
-      // ALL space routes should be handled by the persistent shell
-      // Only post detail pages and course detail pages need special handling
+    } else if (location.pathname.match(/^\/[^\/]+\/space/) || location.pathname.match(/^\/[^\/]+\/course/)) {
+      // ALL space routes AND course detail routes should be handled by the persistent shell
+      // Only post detail pages need special handling
       const isPostDetail = location.pathname.match(/^\/[^\/]+\/space\/[^\/]+$/) && 
                           !location.pathname.endsWith('/classroom') &&
                           !location.pathname.endsWith('/calendar') &&
@@ -87,15 +106,12 @@ export const TrulyPersistentAppShell: React.FC = () => {
                           !location.pathname.endsWith('/about') &&
                           !location.pathname.endsWith('/search');
       
-      const isCourseDetail = location.pathname.includes('/classroom/') && 
-                           location.pathname.split('/').length > 4; // Has course slug
-      
       const isDebugPage = location.pathname.includes('/debug');
       
-      if (isPostDetail || isCourseDetail || isDebugPage) {
+      if (isPostDetail || isDebugPage) {
         routeType = 'other'; // Let React Router handle these normally
       } else {
-        routeType = 'space'; // All standard space tabs including classroom, calendar, etc.
+        routeType = 'space'; // All standard space tabs AND course detail pages
       }
     }
     
@@ -141,7 +157,7 @@ export const TrulyPersistentAppShell: React.FC = () => {
         style={{ display: isRouteVisible('space') ? 'block' : 'none' }}
         className="route-container"
       >
-        <SpaceShellLayout />
+        <SpaceShellLayout showTabs={showTabs} />
       </div>
 
       {/* Other routes - React Router handles these normally */}

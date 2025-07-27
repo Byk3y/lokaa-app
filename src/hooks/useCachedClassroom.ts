@@ -14,6 +14,9 @@ interface UseCachedClassroomReturn {
   
   // Enrollment actions with optimistic updates
   handleEnrollment: (courseId: string, enrolled: boolean) => void;
+  
+  // Progress management
+  updateCourseProgress: (courseId: string, progress: number) => void;
 }
 
 export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: string): UseCachedClassroomReturn {
@@ -25,6 +28,7 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
     updateCourseInCache,
     removeCourseFromCache,
     addCourseToCache,
+    updateCourseProgress: updateCourseProgressInCache,
   } = useClassroomCache();
 
   // Auto-fetch when dependencies change
@@ -81,6 +85,11 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
     }
   };
 
+  const updateCourseProgress = (courseId: string, progress: number) => {
+    if (!spaceId) return;
+    updateCourseProgressInCache(spaceId, courseId, progress);
+  };
+
   return {
     courses,
     loading,
@@ -90,5 +99,6 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
     removeCourse,
     addCourse,
     handleEnrollment,
+    updateCourseProgress,
   };
 } 
