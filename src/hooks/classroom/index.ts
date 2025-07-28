@@ -9,6 +9,13 @@ export {
 export { useCourseManagement } from './useCourseManagement';
 export { useCourseDetail } from './useCourseDetail';
 
+// NEW: Refactored hooks from useCourseDetail.ts
+export { useCourseCaching } from './useCourseCaching';
+export { useNetworkStatus } from './useNetworkStatus';
+export { useCoursePermissions } from './useCoursePermissions';
+export { useCourseProgress } from './useCourseProgress';
+export { useCourseFetching } from './useCourseFetching';
+
 // Search and filtering
 export { 
   useClassroomSearch,

@@ -96,14 +96,10 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
   const [optimisticCourse, setOptimisticCourse] = React.useState<CourseDetailData | null>(null);
 
   // Use the progress management hook
-  const { markLessonAsDone, isUpdating: isProgressUpdating, error: progressError } = useCourseProgress({
-    onOptimisticUpdate: (updatedCourse) => {
-      setOptimisticCourse(updatedCourse);
-      log.debug('Mobile', '🎓 [CourseDetailMobile] Optimistic update received:', {
-        progress: updatedCourse.progress,
-        lessonCount: updatedCourse.modules?.flatMap(m => m.lessons)?.length
-      });
-    }
+  const { markLessonAsDone, progressLoading, progressError } = useCourseProgress({
+    enableLogging: true,
+    enableCaching: true,
+    userId: user?.id || null
   });
 
   // CRITICAL FIX: Move all useCallback hooks here to prevent hooks violation
@@ -326,22 +322,16 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     });
   }
 
-  // Loading state
+  // Loading state - removed duplicate spinner since there's already one at the top of the screen
   if (loading) {
     return (
       <div 
         ref={containerRef}
-        className="flex items-center justify-center h-full min-h-screen"
+        className="h-full min-h-screen"
         role="main"
         aria-label="Loading course"
       >
-        <div className="text-center">
-          <div className="w-8 h-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading course...</p>
-          {loadingPhase && (
-            <p className="text-sm text-gray-500 mt-2">{loadingPhase}</p>
-          )}
-        </div>
+        {/* Empty container while loading - the main loading spinner at the top handles the loading state */}
       </div>
     );
   }
