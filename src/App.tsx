@@ -86,7 +86,7 @@ export default function App() {
 
   useEffect(() => {
     // CRITICAL: Initialize Supabase error protection
-    supabaseLoadFailedBlocker; // Trigger singleton initialization
+    void supabaseLoadFailedBlocker; // Trigger singleton initialization
     log.debug('App', '🛡️ [App] Supabase Load Failed Blocker loaded and active');
     
     // Session management functions for Mobile Event Coordinator integration

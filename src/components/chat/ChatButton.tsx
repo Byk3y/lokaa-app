@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { createManagedInterval } from '@/utils/pageVisibilityManager';
 import { TopNavChatIcon } from '@/components/ui/nav-icons';
+import type { ConversationData } from '@/types/chat';
 
 interface ChatButtonProps {
   variant?: 'icon' | 'textButton';
@@ -100,7 +101,7 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
     };
   }, [selectConversation]);
   
-  const handlePopoverConversationSelect = (conversation: any) => {
+  const handlePopoverConversationSelect = (conversation: ConversationData) => {
     log.debug('Component', `[ChatButton] Selected conversation: ${conversation.conversation_id}`);
     
     // ✅ MODAL FIX: Safety check to ensure we have a valid conversation ID
@@ -135,9 +136,10 @@ export default function ChatButton({ variant = 'icon', className, targetUserId }
       } else {
         toast({ title: "Error starting chat", description: "Could not find or create a conversation.", variant: "destructive" });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       log.error('Component', 'Error in handleDirectChat:', error);
-      toast({ title: "Error", description: error.message || "Failed to start chat.", variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to start chat.";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoadingDirectChat(false);
     }
