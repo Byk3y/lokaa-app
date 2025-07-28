@@ -171,7 +171,15 @@ export async function processVideoForEditor(
   };
 }> {
   let finalUrl = videoData.url;
-  let metadata: any = {
+  const metadata: {
+    type: string;
+    url: string;
+    platform?: string;
+    videoId?: string | null;
+    thumbnailUrl?: string | null;
+    size?: number;
+    duration?: number;
+  } = {
     type: videoData.type,
     url: videoData.url
   };

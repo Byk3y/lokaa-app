@@ -409,5 +409,5 @@ export function isUsingNewContentSystem(lesson: EnhancedCourseLesson): boolean {
 
 // Helper to check if lesson needs migration
 export function needsMigration(lesson: EnhancedCourseLesson): boolean {
-  return Boolean(lesson.post_id) && !Boolean(lesson.content_id);
+  return Boolean(lesson.post_id) && !lesson.content_id;
 } 

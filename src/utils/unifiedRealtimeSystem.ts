@@ -21,7 +21,7 @@ interface RealtimeSubscription {
   table: string;
   event: 'INSERT' | 'UPDATE' | 'DELETE' | '*';
   filter?: string;
-  callback: (payload: any) => void;
+  callback: (payload: Record<string, unknown>) => void;
   priority: 'high' | 'normal' | 'low';
   isActive: boolean;
   lastActivity: number;

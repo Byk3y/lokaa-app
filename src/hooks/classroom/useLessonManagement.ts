@@ -106,7 +106,7 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
     
     try {
       // Use title from the title input field, with simple fallback
-      let finalTitle = extractedTitle?.trim() || newPageTitle.trim() || 'Untitled Page';
+      const finalTitle = extractedTitle?.trim() || newPageTitle.trim() || 'Untitled Page';
 
       log.debug('Hook', '🎓 [useLessonManagement] Creating educational content with title:', finalTitle);
 
