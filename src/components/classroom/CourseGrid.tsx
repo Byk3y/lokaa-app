@@ -104,8 +104,23 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
     return searchedCourses.length === 0 && !shouldShowCreateCard;
   }, [searchedCourses.length, shouldShowCreateCard]);
 
-  // Show loading state
+  // MOBILE OPTIMIZATION: Show skeleton loading immediately for better perceived performance
   if (isLoadingState) {
+    // Check if mobile for optimized loading experience
+    const isMobile = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Mobile: Show fewer skeletons and add mobile-specific styling
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {[...Array(4)].map((_, index) => (
+            <CourseCardSkeleton key={index} />
+          ))}
+        </div>
+      );
+    }
+    
+    // Desktop: Show more skeletons
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[...Array(6)].map((_, index) => (

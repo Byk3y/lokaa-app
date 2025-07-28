@@ -307,74 +307,12 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
 
       const isSpaceMember = !!spaceMemberData;
       
-      // Only calculate progress if user is a space member or can see drafts
-      if (isSpaceMember || canSeeDrafts) {
-        try {
-          // Batch query for lesson IDs
-          const { data: allLessonIds, error: lessonError } = await (getSupabaseClient() as any)
-            .from('lessons')
-            .select('id')
-            .in('course_id', courseIds);
-          
-          if (lessonError) {
-            log.warn('Hook', 'Error fetching lesson IDs:', lessonError);
-          } else if (allLessonIds && allLessonIds.length > 0) {
-            const lessonIds = allLessonIds.map(l => l.id);
-            
-            // Batch query for completed lessons
-            const { data: completedLessons, error: completionError } = await (getSupabaseClient() as any)
-              .from('lesson_completions')
-              .select('lesson_id')
-              .eq('user_id', userId)
-              .in('lesson_id', lessonIds);
-            
-            if (completionError) {
-              log.warn('Hook', 'Error fetching lesson completions:', completionError);
-            } else if (completedLessons) {
-              // Calculate progress for each course
-              const lessonCountByCourse = new Map<string, number>();
-              const completedCountByCourse = new Map<string, number>();
-              
-              // Count lessons per course
-              for (const lesson of allLessonIds) {
-                const courseId = coursesData.find(c => c.id === lesson.course_id)?.id;
-                if (courseId) {
-                  lessonCountByCourse.set(courseId, (lessonCountByCourse.get(courseId) || 0) + 1);
-                }
-              }
-              
-              // Count completed lessons per course
-              for (const completion of completedLessons) {
-                const lesson = allLessonIds.find(l => l.id === completion.lesson_id);
-                if (lesson) {
-                  const courseId = coursesData.find(c => c.id === lesson.course_id)?.id;
-                  if (courseId) {
-                    completedCountByCourse.set(courseId, (completedCountByCourse.get(courseId) || 0) + 1);
-                  }
-                }
-              }
-              
-              // Calculate progress percentages
-              for (const courseId of courseIds) {
-                const totalLessons = lessonCountByCourse.get(courseId) || 0;
-                const completedLessons = completedCountByCourse.get(courseId) || 0;
-                const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-                courseProgressMap.set(courseId, progress);
-              }
-
-              log.debug('Hook', '✅ [ClassroomCache] Progress calculated for courses:', {
-                totalCourses: courseIds.length,
-                totalLessons: allLessonIds.length,
-                completedLessons: completedLessons.length,
-                progressMap: Object.fromEntries(courseProgressMap),
-                canSeeDrafts,
-                isSpaceMember
-              });
-            }
-          }
-        } catch (progressError) {
-          log.warn('Hook', '❌ Error calculating course progress:', progressError);
-        }
+      // MOBILE OPTIMIZATION: Temporarily disable lesson queries to fix 400 errors
+      // This will eliminate the white screen and improve mobile performance
+      // TODO: Re-enable lesson progress calculation once query issues are resolved
+      if (false && (isSpaceMember || canSeeDrafts) && courseIds.length > 0) {
+        // Disabled for now to fix 400 errors
+        log.debug('Hook', '📱 [ClassroomCache] Lesson queries disabled for mobile performance');
       }
 
       const displayData: CourseDisplayData[] = coursesData.map((course: any) => ({

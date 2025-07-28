@@ -85,14 +85,17 @@ export class CourseService {
     log.debug('Service', `🎓 [CourseService] Fetching course details for: ${courseId}`);
 
     try {
-      // Fetch course data - try by slug first, then by ID
+      // Fetch course data - try by short_id first, then slug, then UUID
       let courseQuery = supabase.from('courses').select('*');
       
-      // Try to determine if courseId is a UUID or a slug
+      // Try to determine if courseId is a UUID, short_id, or slug
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
+      const isShortId = /^[a-zA-Z0-9]{8}$/.test(courseId); // 8 character alphanumeric
       
       if (isUUID) {
         courseQuery = courseQuery.eq('id', courseId);
+      } else if (isShortId) {
+        courseQuery = courseQuery.eq('short_id', courseId);
       } else {
         courseQuery = courseQuery.eq('slug', courseId);
       }
@@ -100,17 +103,50 @@ export class CourseService {
       let { data: courseData, error: courseError } = await courseQuery.single();
 
       if (courseError) {
-        // If slug lookup failed, try ID lookup as fallback
-        if (!isUUID) {
-          log.debug('Service', `🎓 [CourseService] Slug lookup failed, trying ID lookup`);
+        // If short_id lookup failed, try slug lookup as fallback
+        if (isShortId) {
+          log.debug('Service', `🎓 [CourseService] Short ID lookup failed, trying slug lookup`);
           const { data: fallbackData, error: fallbackError } = await supabase
             .from('courses')
             .select('*')
-            .eq('id', courseId)
+            .eq('slug', courseId)
             .single();
           
-          if (fallbackError) throw fallbackError;
-          courseData = fallbackData;
+          if (fallbackError) {
+            log.debug('Service', `🎓 [CourseService] Slug lookup failed, trying UUID lookup`);
+            const { data: uuidFallbackData, error: uuidFallbackError } = await supabase
+              .from('courses')
+              .select('*')
+              .eq('id', courseId)
+              .single();
+            
+            if (uuidFallbackError) throw uuidFallbackError;
+            courseData = uuidFallbackData;
+          } else {
+            courseData = fallbackData;
+          }
+        } else if (!isUUID) {
+          // If slug lookup failed, try short_id and UUID lookup as fallback
+          log.debug('Service', `🎓 [CourseService] Slug lookup failed, trying short_id lookup`);
+          const { data: shortIdFallbackData, error: shortIdFallbackError } = await supabase
+            .from('courses')
+            .select('*')
+            .eq('short_id', courseId)
+            .single();
+          
+          if (shortIdFallbackError) {
+            log.debug('Service', `🎓 [CourseService] Short ID lookup failed, trying UUID lookup`);
+            const { data: uuidFallbackData, error: uuidFallbackError } = await supabase
+              .from('courses')
+              .select('*')
+              .eq('id', courseId)
+              .single();
+            
+            if (uuidFallbackError) throw uuidFallbackError;
+            courseData = uuidFallbackData;
+          } else {
+            courseData = shortIdFallbackData;
+          }
         } else {
           throw courseError;
         }
