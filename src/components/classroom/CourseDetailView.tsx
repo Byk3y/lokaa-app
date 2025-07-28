@@ -488,7 +488,15 @@ You can use headings, bold text, links, and other formatting to structure your c
             courseName={course.title}
             isOwner={isOwner}
             isAdmin={isAdmin}
-            completed={selectedLesson?.completed || false}
+            completed={(() => {
+              if (!selectedLesson || !course) return false;
+              // Find the lesson in the current course state to get the most up-to-date completion status
+              const moduleWithLesson = course.modules.find(m => 
+                m.lessons.some(l => l.id === selectedLesson.id)
+              );
+              const currentLesson = moduleWithLesson?.lessons.find(l => l.id === selectedLesson.id);
+              return currentLesson?.completed || false;
+            })()}
             onUpdateLesson={handleUpdateLesson}
             onCreateNewPage={() => handleCreateNewPage()}
             onMarkAsDone={handleMarkAsDone}

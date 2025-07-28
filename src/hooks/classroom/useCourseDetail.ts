@@ -123,7 +123,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     enableOfflineSupport
   });
 
-  // Main fetch function that orchestrates all hooks
+  // PROGRESSIVE LOADING: Main fetch function that loads data in phases
   const fetchCourseDetails = useCallback(async (
     courseId: string, 
     moduleId?: string
@@ -131,7 +131,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     try {
       setCurrentCourseId(courseId);
       
-      log.debug('Hook', `🎓 [useCourseDetail] Starting fetch for course: ${courseId}`);
+      log.debug('Hook', `🎓 [useCourseDetail] Starting progressive fetch for course: ${courseId}`);
       
       // Check cache first
       const cachedCourse = getCachedCourse(courseId);
@@ -148,59 +148,90 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
         return null;
       }
 
-      // Fetch course data using the fetching hook
-      const fetchedCourse = await fetchCourseData({
+      // PHASE 1: Load course metadata only (fast - under 500ms)
+      log.debug('Hook', `🎓 [useCourseDetail] Phase 1: Loading course metadata for: ${courseId}`);
+      const courseMetadata = await fetchCourseData({
         courseId,
         moduleId,
-        enableMobileOptimizations,
+        enableMobileOptimizations: true, // Force mobile optimizations
         retryOnError,
-        enableOfflineSupport
+        enableOfflineSupport,
+        loadMetadataOnly: true // New flag to load only metadata
       });
 
-      if (!fetchedCourse) {
-        log.error('Hook', `🎓 [useCourseDetail] Failed to fetch course: ${courseId}`);
+      if (!courseMetadata) {
+        log.error('Hook', `🎓 [useCourseDetail] Failed to fetch course metadata: ${courseId}`);
         return null;
       }
 
-      // Check permissions for the fetched course
-      const permissions = await checkPermissions(courseId);
-      log.debug('Hook', `🎓 [useCourseDetail] Permissions checked for course: ${courseId}`, {
-        canViewDrafts: permissions.canViewDrafts,
-        isCreator: permissions.isCreator,
-        isGeneralAdmin: permissions.isGeneralAdmin,
-        isSpaceAdmin: permissions.isSpaceAdmin
+      // PHASE 2: Show course overview immediately with metadata
+      log.debug('Hook', `🎓 [useCourseDetail] Phase 2: Setting course metadata for immediate display: ${courseId}`);
+      setCourse(courseMetadata);
+      
+      // PHASE 3: Load lesson list in background (non-blocking)
+      log.debug('Hook', `🎓 [useCourseDetail] Phase 3: Loading lesson list in background for: ${courseId}`);
+      const lessonListPromise = fetchCourseData({
+        courseId,
+        moduleId,
+        enableMobileOptimizations: true,
+        retryOnError,
+        enableOfflineSupport,
+        loadLessonListOnly: true // New flag to load only lesson list
       });
 
-      // Calculate progress if user is authenticated
+      // PHASE 4: Load progress data in background (non-blocking)
+      let progressPromise: Promise<any> | null = null;
       if (user?.id) {
-        try {
-          const progress = await calculateProgressFromCourse(fetchedCourse);
-          log.debug('Hook', `🎓 [useCourseDetail] Progress calculated for course: ${courseId}`, {
-            progressPercentage: progress.progressPercentage,
-            completedCount: progress.completedCount,
-            totalLessons: progress.totalLessons
-          });
-
-          // Update course with progress data
-          fetchedCourse.progress = progress.progressPercentage;
-          fetchedCourse.modules = fetchedCourse.modules.map(module => ({
-            ...module,
-            lessons: module.lessons.map(lesson => ({
-              ...lesson,
-              completed: progress.completedLessonIds.has(lesson.id)
-            }))
-          }));
-        } catch (progressError) {
-          log.warn('Hook', `🎓 [useCourseDetail] Error calculating progress for course ${courseId}:`, progressError);
-        }
+        log.debug('Hook', `🎓 [useCourseDetail] Phase 4: Loading progress data in background for: ${courseId}`);
+        progressPromise = calculateProgressFromCourse(courseMetadata).catch(error => {
+          log.warn('Hook', `🎓 [useCourseDetail] Background progress calculation failed for course ${courseId}:`, error);
+          return null;
+        });
       }
 
-      // Cache the final course data
-      setCachedCourse(courseId, fetchedCourse);
-      setCourse(fetchedCourse);
+      // PHASE 5: Wait for lesson list and update course data
+      try {
+        const lessonListData = await lessonListPromise;
+        if (lessonListData) {
+          log.debug('Hook', `🎓 [useCourseDetail] Phase 5: Updating course with lesson list for: ${courseId}`);
+          const updatedCourse = { ...courseMetadata, ...lessonListData };
+          setCourse(updatedCourse);
+          
+          // PHASE 6: Update with progress data when it arrives
+          if (progressPromise) {
+            progressPromise.then(progress => {
+              if (progress) {
+                log.debug('Hook', `🎓 [useCourseDetail] Phase 6: Updating course with progress data for: ${courseId}`);
+                const finalCourse = {
+                  ...updatedCourse,
+                  progress: progress.progressPercentage,
+                  modules: updatedCourse.modules?.map(module => ({
+                    ...module,
+                    lessons: module.lessons?.map(lesson => ({
+                      ...lesson,
+                      completed: progress.completedLessonIds.has(lesson.id)
+                    })) || []
+                  })) || []
+                };
+                setCourse(finalCourse);
+                setCachedCourse(courseId, finalCourse);
+              }
+            });
+          } else {
+            setCachedCourse(courseId, updatedCourse);
+          }
+          
+          return updatedCourse;
+        }
+      } catch (lessonError) {
+        log.warn('Hook', `🎓 [useCourseDetail] Background lesson list loading failed for course ${courseId}:`, lessonError);
+        // Return course metadata even if lesson list fails
+        setCachedCourse(courseId, courseMetadata);
+        return courseMetadata;
+      }
       
-      log.debug('Hook', `🎓 [useCourseDetail] Course fetch completed successfully: ${courseId}`);
-      return fetchedCourse;
+      log.debug('Hook', `🎓 [useCourseDetail] Progressive fetch completed for: ${courseId}`);
+      return courseMetadata;
       
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to fetch course details';

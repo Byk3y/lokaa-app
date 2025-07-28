@@ -72,7 +72,7 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
   const openFolderDialog = useClassroomStore(state => state.openFolderDialog);
   
   // Get classroom cache for progress updates
-  const { updateCourseProgress } = useCachedClassroom(space?.id, user?.id, space?.owner_id);
+  const { updateCourseProgress: updateCachedProgress } = useCachedClassroom(space?.id, user?.id, space?.owner_id);
   
   // Use the course detail hook with mobile optimizations
   const {
@@ -95,11 +95,28 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
   // Local optimistic course state for mobile components
   const [optimisticCourse, setOptimisticCourse] = React.useState<CourseDetailData | null>(null);
 
-  // Use the progress management hook
+  // Use the progress management hook with optimistic updates
   const { markLessonAsDone, progressLoading, progressError } = useCourseProgress({
     enableLogging: true,
     enableCaching: true,
-    userId: user?.id || null
+    userId: user?.id || null,
+    onOptimisticUpdate: (updatedCourse) => {
+      console.log('🎓 [CourseDetailMobile] Optimistic update received:', {
+        progress: updatedCourse.progress,
+        lessonCount: updatedCourse.modules?.flatMap(m => m.lessons)?.length
+      });
+      
+      // Update mobile optimistic course state immediately for instant UI feedback
+      setOptimisticCourse(updatedCourse);
+      
+      // Also update the cached progress
+      updateCachedProgress?.(updatedCourse.id, updatedCourse.progress || 0);
+    },
+    onProgressUpdate: () => {
+      console.log('🎓 [CourseDetailMobile] Progress update callback triggered, refreshing course data');
+      // Refresh course data after database update is complete
+      refetch();
+    }
   });
 
   // CRITICAL FIX: Move all useCallback hooks here to prevent hooks violation
@@ -262,7 +279,7 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
       return;
     }
 
-    log.debug('Mobile', '🎓 [CourseDetailMobile] handleMarkAsDone called for lesson:', selectedLesson.id);
+    console.log('🎓 [CourseDetailMobile] handleMarkAsDone called for lesson:', selectedLesson.id);
     await markLessonAsDone(selectedLesson, course);
   }, [selectedLesson, course, markLessonAsDone]);
 
@@ -279,20 +296,24 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     }
   }, [course]);
 
-  // Mobile state signaling - ensure we always send correct mobile state
-  useEffect(() => {
-    // Always send mobile state when this component is active
+  // Mobile state signaling - memoized for performance
+  const signalMobileState = useCallback(() => {
     const mobileState = { isMobile: true, showTabs: false };
     console.log('🎓 [CourseDetailMobile] Sending mobile state:', mobileState);
     onMobileStateChange?.(mobileState);
-    
-    // Clean up when component unmounts - restore tabs
-    return () => {
-      const cleanupState = { isMobile: false, showTabs: true };
-      console.log('🎓 [CourseDetailMobile] Cleaning up mobile state:', cleanupState);
-      onMobileStateChange?.(cleanupState);
-    };
-  }, [onMobileStateChange]); // FIXED: Add proper dependency
+  }, [onMobileStateChange]);
+
+  const cleanupMobileState = useCallback(() => {
+    const cleanupState = { isMobile: false, showTabs: true };
+    console.log('🎓 [CourseDetailMobile] Cleaning up mobile state:', cleanupState);
+    onMobileStateChange?.(cleanupState);
+  }, [onMobileStateChange]);
+
+  // Mobile state signaling - ensure we always send correct mobile state
+  useEffect(() => {
+    signalMobileState();
+    return cleanupMobileState;
+  }, [signalMobileState, cleanupMobileState]);
 
   // Mobile event listeners are now handled by MobileNavigationManager
   // All navigation, gesture, and keyboard logic has been extracted
@@ -322,16 +343,52 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     });
   }
 
-  // Loading state - removed duplicate spinner since there's already one at the top of the screen
+  // MOBILE OPTIMIZATION: Show skeleton content immediately for better perceived performance
+  // This eliminates white screen and provides instant visual feedback
   if (loading) {
     return (
       <div 
         ref={containerRef}
-        className="h-full min-h-screen"
+        className="h-full min-h-screen bg-white"
         role="main"
         aria-label="Loading course"
       >
-        {/* Empty container while loading - the main loading spinner at the top handles the loading state */}
+        {/* Show skeleton content immediately instead of empty container */}
+        <div className="flex flex-col h-full">
+          {/* Header skeleton */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+              <div className="flex-1">
+                <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3"></div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Content skeleton */}
+          <div className="flex-1 p-4">
+            <div className="space-y-4">
+              <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+            </div>
+            
+            {/* Lesson list skeleton */}
+            <div className="mt-6 space-y-3">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
+                  <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse mb-1"></div>
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-1/3"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -596,7 +653,15 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
           enablePerformanceOptimization={true}
         />
         <LessonViewMobile
-          lesson={selectedLesson}
+          lesson={(() => {
+            if (!selectedLesson || !courseData) return selectedLesson;
+            // Find the lesson in the current course state to get the most up-to-date completion status
+            const moduleWithLesson = courseData.modules.find(m => 
+              m.lessons.some(l => l.id === selectedLesson.id)
+            );
+            const currentLesson = moduleWithLesson?.lessons.find(l => l.id === selectedLesson.id);
+            return currentLesson || selectedLesson;
+          })()}
           course={courseData}
           space={space}
           onBackToMenu={handleBackToMenu}

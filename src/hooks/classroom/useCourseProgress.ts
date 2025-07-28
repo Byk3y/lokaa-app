@@ -361,7 +361,7 @@ export function useCourseProgress(options: UseCourseProgressOptions = {}): UseCo
       setProgressError(errorMessage);
       throw error;
     }
-  }, [currentUserId, enableLogging, calculateProgressFromCourse, onProgressUpdate]);
+  }, [currentUserId, enableLogging, calculateProgressFromCourse, onProgressUpdate, onOptimisticUpdate]);
 
   return {
     calculateProgress,
