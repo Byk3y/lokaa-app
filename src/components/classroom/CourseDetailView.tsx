@@ -1,25 +1,17 @@
 import { log } from '@/utils/logger';
-import { getLessonUrl } from '@/utils/slugUtils';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { toast } from '@/hooks/use-toast';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
 import CourseSidebar from './CourseSidebar';
 import LessonContent from './LessonContent';
-import MobileCourseOverview from './MobileCourseOverview';
-import MobileLessonView from './MobileLessonView';
 import CourseDetailMobile from './mobile/CourseDetailMobile';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
-import { EducationalContentService } from '@/services/EducationalContentService';
-import { useClassroomStore, useClassroomCourses } from '@/stores/classroom/classroomStore';
+import { useClassroomStore } from '@/stores/classroom/classroomStore';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
-import { useCachedClassroom } from '@/hooks/useCachedClassroom';
 import { ClassroomDialogManager } from './ClassroomDialogManager';
 import { DeleteCourseDialog } from './dialogs/DeleteCourseDialog';
 import DeletePageDialog from './dialogs/DeletePageDialog';
@@ -31,92 +23,64 @@ import { useCourseOwnership } from '@/hooks/classroom/useCourseOwnership';
 import { useCourseNavigation } from '@/hooks/classroom/useCourseNavigation';
 import { useCourseDialogs } from '@/hooks/classroom/useCourseDialogs';
 import { useLessonManagement } from '@/hooks/classroom/useLessonManagement';
+import { CourseRouteManager } from './routing/CourseRouteManager';
 import type { 
-  CourseModule, 
-  CourseLesson, 
   CourseDetailData, 
   CourseDetailViewProps 
 } from '@/types/classroom/courseDetail';
 
-const CourseDetailView: React.FC<CourseDetailViewProps> = ({
+// Internal component that uses the route manager
+const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   courseId,
   onBack,
   moduleId,
   lessonId,
 }) => {
-  const navigate = useNavigate();
-  const { subdomain } = useParams<{ subdomain: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
-  
-  // Mobile detection and view state - now handled by useCourseNavigation hook
-  const mdParam = searchParams.get('md');
-  
   const { user } = useAuth();
   const { space } = useSpace();
-  const supabase = getSupabaseClient();
   
   // Get classroom store for dialog management
   const openCourseDialog = useClassroomStore(state => state.openCourseDialog);
-  const closeCourseDialog = useClassroomStore(state => state.closeCourseDialog);
   const openFolderDialog = useClassroomStore(state => state.openFolderDialog);
-  
-  // Listen to store changes to update local course state
-  const storeCourses = useClassroomCourses();
-  
-  // Get classroom cache for progress updates
-  const { updateCourseProgress: updateCachedProgress } = useCachedClassroom(space?.id, user?.id, space?.owner_id);
   
   // Use the new course detail hook
   const {
     course,
     loading,
-    loadingPhase,
     error,
     fetchCourseDetails,
     refetch,
-    silentRefetch,
     invalidateCache,
-    updateCourseProgress,
-    retryCount,
-    isOffline
   } = useCourseDetail({
     enableMobileOptimizations: true,
     enableOfflineSupport: true,
     retryOnError: true
   });
   
-  // Local optimistic course state for mobile components (kept for mobile fallback)
+  // Local optimistic course state for mobile components
   const [optimisticCourse, setOptimisticCourse] = useState<CourseDetailData | null>(null);
 
   // Use the new progress management hook
-  const { markLessonAsDone, isUpdating: isProgressUpdating, error: progressError } = useCourseProgress({
-    onOptimisticUpdate: (updatedCourse) => {
-      console.log('🎓 [CourseDetailView] Optimistic update received from progress hook:', {
-        progress: updatedCourse.progress,
-        lessonCount: updatedCourse.modules?.flatMap(m => m.lessons)?.length
-      });
-      
-      // Update the course detail hook immediately for instant UI feedback
-      updateCourseProgress(updatedCourse);
-      
-      // Also update the cached progress
-      updateCachedProgress?.(updatedCourse);
-      
-      // Set optimistic course for mobile components
-      setOptimisticCourse(updatedCourse);
-    },
+  const { markLessonAsDone } = useCourseProgress({
+    enableLogging: true,
+    enableCaching: true,
+    userId: user?.id || null,
     onProgressUpdate: () => {
-      console.log('🎓 [CourseDetailView] Progress update callback triggered, refreshing course data');
-      // Refresh course data after database update is complete
+      // Refresh course data to update UI with new completion status
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Progress updated, refreshing course data');
+      }
       refetch();
     }
   });
 
   // Use the new ownership management hook
-  const { isOwner, ownershipLoading, error: ownershipError, ownershipDetails } = useCourseOwnership({
+  const { isOwner, ownershipDetails } = useCourseOwnership({
     course,
     onOwnershipChange: (isOwner) => {
-      console.log('🎓 [CourseDetailView] Ownership changed:', isOwner);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Ownership changed:', isOwner);
+      }
     }
   });
 
@@ -129,24 +93,31 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     isMobile,
     showCourseOverview,
     showLessonView,
-    handleMobileLessonSelect,
-    handleNextLesson,
-    handleBackToMenu,
     setSelectedLesson
   } = useCourseNavigation({
     course,
     onLessonChange: (lesson) => {
-      console.log('🎓 [CourseDetailView] Lesson changed:', lesson?.title);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Lesson changed:', lesson?.title);
+      }
     },
     onNavigationStateChange: (state) => {
-      console.log('🎓 [CourseDetailView] Navigation state changed:', state);
-      // COMPLETELY DISABLE mobile state signaling from CourseDetailView
-      // Let CourseDetailMobile handle all mobile state management
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Navigation state changed:', state);
+      }
     }
   });
 
-  // REMOVED: Desktop state dispatch that was causing tab switching issues
-  // Instead of complex state management, we'll use a simple back button for desktop navigation
+  // FIXED: Move useCallback to top level to prevent Rules of Hooks violation
+  const handleMobileStateChange = useCallback((state: { isMobile: boolean; showTabs: boolean }) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎓 [CourseDetailView] Mobile state change from container:', state);
+    }
+    // Signal to parent about mobile state for tab visibility
+    window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
+      detail: state
+    }));
+  }, []);
 
   // Use the new dialog management hook
   const {
@@ -173,13 +144,19 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     course,
     onCourseDeleted: onBack,
     onPageDeleted: (pageId) => {
-      console.log('🎓 [CourseDetailView] Page deleted:', pageId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Page deleted:', pageId);
+      }
     },
     onPageUpdated: (pageId) => {
-      console.log('🎓 [CourseDetailView] Page updated:', pageId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Page updated:', pageId);
+      }
     },
     onPageMoved: (pageId, newFolderId) => {
-      console.log('🎓 [CourseDetailView] Page moved:', pageId, 'to folder:', newFolderId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Page moved:', pageId, 'to folder:', newFolderId);
+      }
     },
     onRefetch: refetch,
     onSelectedLessonChange: setSelectedLesson,
@@ -189,11 +166,8 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
   // Use the new lesson management hook
   const {
     isCreatingPage,
-    creatingModuleId,
     newPageTitle,
     newPageContent,
-    isSaving,
-    isMigrating,
     handleCreateNewPage,
     handleCancelCreate,
     handleSaveNewPage,
@@ -206,24 +180,19 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     userId: user?.id || null,
     selectedLesson,
     onLessonCreated: (lesson) => {
-      console.log('🎓 [CourseDetailView] Lesson created:', lesson.title);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Lesson created:', lesson.title);
+      }
     },
     onLessonUpdated: (lessonId, updates) => {
-      console.log('🎓 [CourseDetailView] Lesson updated:', lessonId, updates);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Lesson updated:', lessonId, updates);
+      }
     },
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,
     onSelectedLessonChange: setSelectedLesson
   });
-
-  // FIXED: Move useCallback to top level to prevent Rules of Hooks violation
-  const handleMobileStateChange = useCallback((state: { isMobile: boolean; showTabs: boolean }) => {
-    console.log('🎓 [CourseDetailView] Mobile state change from container:', state);
-    // Signal to parent about mobile state for tab visibility
-    window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
-      detail: state
-    }));
-  }, []);
 
   log.debug('Component', '🎓 [CourseDetailView] Component rendered with courseId:', courseId);
   
@@ -239,42 +208,19 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     });
   }
 
-
-
   // Fetch course data when courseId changes
   useEffect(() => {
     if (courseId) {
       fetchCourseDetails(courseId, moduleId);
     }
-  }, [courseId, moduleId]); // Refetch when courseId or moduleId changes
+  }, [courseId, moduleId, fetchCourseDetails]);
 
-  // Update optimistic course state when hook course data changes (for mobile fallback)
+  // Update optimistic course state when hook course data changes
   useEffect(() => {
     if (course) {
       setOptimisticCourse(course);
     }
   }, [course]);
-
-
-
-  // Listen to store changes and update local course state
-  useEffect(() => {
-    if (course && storeCourses && storeCourses.length > 0) {
-      const updatedCourse = storeCourses.find(c => c.id === course.id);
-      if (updatedCourse && (updatedCourse.title !== course.title || updatedCourse.description !== course.description)) {
-        log.debug('Component', '🎓 [CourseDetailView] Updating local course state from store:', updatedCourse);
-        // Note: Course state is now managed by the hook, so we don't need to update it here
-      }
-    }
-  }, [storeCourses, course]);
-
-
-
-
-
-
-
-
 
   const handleMarkAsDone = async () => {
     if (!selectedLesson || !course) {
@@ -286,10 +232,22 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
       return;
     }
 
-    console.log('🎓 [CourseDetailView] handleMarkAsDone called for lesson:', selectedLesson.id);
-    
-    // Use the new progress management hook
-    await markLessonAsDone(selectedLesson, course);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎓 [CourseDetailView] handleMarkAsDone called for lesson:', selectedLesson.id);
+    }
+
+    try {
+      console.log('🎓 [CourseDetailView] About to call markLessonAsDone...');
+      await markLessonAsDone(selectedLesson, course);
+      console.log('🎓 [CourseDetailView] markLessonAsDone completed successfully');
+    } catch (error) {
+      console.error('🎓 [CourseDetailView] Error in handleMarkAsDone:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update lesson completion status.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Course management handlers
@@ -312,23 +270,20 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
       description: course.description || '',
       creator_id: course.creator_id,
       space_id: course.space_id,
-      access_type: 'open', // Default to open, will be fetched from database
+      access_type: 'open',
       price: null,
       currency: 'USD',
-      is_published: true, // Default to published, will be fetched from database
+      is_published: true,
       image_url: null,
-      slug: courseId, // Use the current courseId as slug
+      slug: courseId,
       students: 0,
       enrolled: false,
       progress: 0,
       weeks: 0
     };
 
-    // Open the edit course dialog using the store
     openCourseDialog('edit', courseDisplayData);
   };
-
-
 
   const handleAddFolder = () => {
     log.debug('Component', '📁 [CourseDetailView] Add folder clicked');
@@ -339,30 +294,12 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     openDeleteCourseDialog();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (error || !course) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Course</h3>
-        <p className="text-gray-600 mb-4">{error || 'Course not found'}</p>
-        <Button onClick={onBack} variant="outline">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Courses
-        </Button>
-      </div>
-    );
-  }
-
-  // Mobile view - use the new mobile container component
+  // MOBILE OPTIMIZATION: Prioritize mobile view over loading states
+  // This eliminates white screen and long spinner on mobile
   if (showCourseOverview || showLessonView) {
-    console.log('🎓 [CourseDetailView] Rendering mobile container:', { showCourseOverview, showLessonView });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎓 [CourseDetailView] Rendering mobile container:', { showCourseOverview, showLessonView });
+    }
     return (
       <CourseDetailMobile
         courseId={courseId}
@@ -374,89 +311,96 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     );
   }
 
-  // Handle loading state
+  // FIXED: Add mobile loading state to prevent "back to courses" flash
+  // Show mobile skeleton while mobile state is being determined
+  if (isMobile && loading) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-white z-50">
+        {/* Mobile Header Skeleton */}
+        <div className="flex items-center justify-between px-4 py-1.5 bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
+              <div className="w-24 h-4 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Mobile Content Skeleton */}
+        <div className="flex-1 p-4">
+          <div className="space-y-4">
+            <div className="w-3/4 h-6 bg-gray-200 rounded animate-pulse"></div>
+            <div className="w-1/2 h-4 bg-gray-200 rounded animate-pulse"></div>
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
+                  <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="w-2/3 h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="w-1/2 h-3 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop loading state - only show spinner for desktop view
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading course...</p>
-        </div>
+      <div className="flex items-center justify-center h-full">
+        <div className="w-8 h-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
       </div>
     );
   }
 
-  // Handle error state
-  if (error) {
+  // Desktop error state - only show error for desktop view
+  if (error || !course) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="text-red-500 mb-4">
-            <X className="h-12 w-12 mx-auto" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Not Found</h3>
-          <p className="text-gray-600 mb-4">
-            {error.includes('No rows returned') || error.includes('not found') 
-              ? 'The course you\'re looking for doesn\'t exist or has been removed.'
-              : error}
-          </p>
-          <Button onClick={onBack} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Classroom
-          </Button>
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="text-red-500 mb-4">
+          <X className="h-12 w-12 mx-auto" />
         </div>
-      </div>
-    );
-  }
-
-  // Handle case where course is null
-  if (!course) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="text-gray-500 mb-4">
-            <X className="h-12 w-12 mx-auto" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Not Found</h3>
-          <p className="text-gray-600 mb-4">
-            The course you're looking for doesn't exist or has been removed.
-          </p>
-          <Button onClick={onBack} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Classroom
-          </Button>
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Not Found</h3>
+        <p className="text-gray-600 mb-4">
+          {error?.includes('No rows returned') || error?.includes('not found') 
+            ? 'The course you\'re looking for doesn\'t exist or has been removed.'
+            : error || 'Course not found'}
+        </p>
+        <Button onClick={onBack} variant="outline">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Classroom
+        </Button>
       </div>
     );
   }
 
   // Regular course view with Skool-style "New page" button (Desktop)
-  
   return (
     <>
       <div className="flex">
-          <CourseSidebar
-            course={course}
-            selectedLesson={selectedLesson}
-            onLessonSelect={setSelectedLesson}
-            isOwner={isOwner}
-            isAdmin={isAdmin}
-            ownershipLoading={ownershipLoading}
-            isCreatingPage={isCreatingPage}
-            onAddLesson={(moduleId) => handleCreateNewPage(moduleId)}
-            onEditLesson={() => {}} // Handled by LessonContent now
-            onAddModule={() => handleCreateNewPage()}
-            onEditCourse={handleEditCourse}
-            onDeleteCourse={handleDeleteCourse}
-            onAddFolder={handleAddFolder}
-            spaceId={course.space_id}
-            onDeletePage={(pageId, title) => openDeletePageDialog(pageId, title)}
-            onRevertToDraft={(pageId, title, isPublished) => openRevertToDraftDialog(pageId, title, isPublished)}
-            onChangeFolder={(pageId, title, currentFolderId) => openChangeFolderDialog(pageId, title, currentFolderId)}
-            onDuplicatePage={(pageId) => {
-              // Handle duplicate page
-            }}
-          />
+        <CourseSidebar
+          course={course}
+          selectedLesson={selectedLesson}
+          onLessonSelect={setSelectedLesson}
+          isOwner={isOwner}
+          isAdmin={isAdmin}
+          ownershipLoading={false}
+          isCreatingPage={isCreatingPage}
+          onAddLesson={(moduleId) => handleCreateNewPage(moduleId)}
+          onAddModule={() => handleCreateNewPage()}
+          onEditCourse={handleEditCourse}
+          onDeleteCourse={handleDeleteCourse}
+          onAddFolder={handleAddFolder}
+          spaceId={course.space_id}
+          onDeletePage={(pageId, title) => openDeletePageDialog(pageId, title)}
+          onRevertToDraft={(pageId, title, isPublished) => openRevertToDraftDialog(pageId, title, isPublished)}
+          onChangeFolder={(pageId, title, currentFolderId) => openChangeFolderDialog(pageId, title, currentFolderId)}
+        />
 
         <div className="flex-1">
           {/* Show inline page creation in right panel - Direct to editor without title field */}
@@ -476,31 +420,23 @@ You can use headings, bold text, links, and other formatting to structure your c
                 }}
                 onCancel={handleCancelCreate}
                 hideTitle={false}
-                isSaving={isSaving}
+                isSaving={false}
                 spaceId={course?.space_id}
                 courseId={course?.id}
                 lessonId={undefined}
               />
             </div>
           ) : (
-          <LessonContent
-            lesson={selectedLesson}
-            courseName={course.title}
-            isOwner={isOwner}
-            isAdmin={isAdmin}
-            completed={(() => {
-              if (!selectedLesson || !course) return false;
-              // Find the lesson in the current course state to get the most up-to-date completion status
-              const moduleWithLesson = course.modules.find(m => 
-                m.lessons.some(l => l.id === selectedLesson.id)
-              );
-              const currentLesson = moduleWithLesson?.lessons.find(l => l.id === selectedLesson.id);
-              return currentLesson?.completed || false;
-            })()}
-            onUpdateLesson={handleUpdateLesson}
-            onCreateNewPage={() => handleCreateNewPage()}
-            onMarkAsDone={handleMarkAsDone}
-          />
+            <LessonContent
+              lesson={selectedLesson}
+              courseName={course.title}
+              isOwner={isOwner}
+              isAdmin={isAdmin}
+              completed={selectedLesson?.completed || false}
+              onUpdateLesson={handleUpdateLesson}
+              onCreateNewPage={() => handleCreateNewPage()}
+              onMarkAsDone={handleMarkAsDone}
+            />
           )}
         </div>
       </div>
@@ -510,8 +446,8 @@ You can use headings, bold text, links, and other formatting to structure your c
         space={{
           id: course.space_id,
           owner_id: course.creator_id,
-          primary_color: '#26A69A', // Default color
-          pricing_type: 'free' // Default to free
+          primary_color: '#26A69A',
+          pricing_type: 'free'
         }}
         onDeletePage={async (pageId: string) => {
           try {
@@ -551,9 +487,6 @@ You can use headings, bold text, links, and other formatting to structure your c
             if (selectedLesson?.id === pageId) {
               setSelectedLesson(null);
             }
-
-
-
           } catch (error) {
             console.error('Error deleting page:', error);
             throw error;
@@ -691,6 +624,6 @@ You can use headings, bold text, links, and other formatting to structure your c
       )}
     </>
   );
-};
+});
 
-export default CourseDetailView; 
+export default CourseDetailViewInternal;
