@@ -1,1 +1,0 @@
-window.devLogger.onlyAllow('Error', 'Warning', 'Critical', 'Auth', 'Chat', 'Navigation', 'RealtimeService', 'AppInit', 'NavigationRealtime', 'SpaceManagement', 'PostService', 'CacheManager', 'TabManager', 'IndexedDB', 'NotificationFiltering', 'useNotifications')
