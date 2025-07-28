@@ -13,7 +13,7 @@ const FeedHeader = memo(function FeedHeader({
   onOpenCreatePostModal,
 }: FeedHeaderProps) {
   return (
-    <div className="space-y-4 px-4 sm:px-0">
+    <div className="space-y-4 px-4 sm:px-0 mt-4 sm:mt-0">
       {/* Composer Area - Responsive width instead of fixed */}
       <div
         className="bg-white dark:bg-gray-800 shadow-lg border border-gray-200 rounded-lg p-2 sm:p-4 w-full max-w-full md:w-[768px] md:max-w-[768px] md:min-w-[768px] md:flex-shrink-0 md:flex-grow-0 cursor-pointer transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/30"
