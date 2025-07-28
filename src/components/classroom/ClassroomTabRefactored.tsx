@@ -125,6 +125,36 @@ export const ClassroomTabRefactored = ({
     }
   }, [courses]);
 
+  // ✅ FIX: Only render course detail view if we're actually on a course detail route
+  // This prevents conflicts with SpaceTabContentTrulyPersistent routing logic
+  // FIXED: Remove dependency on location.pathname which can be stale during state transitions
+  const isOnCourseDetailRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+
+  // ✅ OPTIMIZED: Reduced debug logging frequency
+  // Only log view mode changes when they actually change
+  const prevViewMode = useRef(viewMode);
+  const prevSelectedCourseId = useRef(selectedCourseId);
+  const prevPathname = useRef(location.pathname);
+  
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && (
+      viewMode !== prevViewMode.current ||
+      selectedCourseId !== prevSelectedCourseId.current ||
+      location.pathname !== prevPathname.current
+    )) {
+      console.log('🔍 [ClassroomTabRefactored] View mode check:', {
+        viewMode,
+        selectedCourseId,
+        isOnCourseDetailRoute: !!isOnCourseDetailRoute,
+        pathname: location.pathname
+      });
+      
+      prevViewMode.current = viewMode;
+      prevSelectedCourseId.current = selectedCourseId;
+      prevPathname.current = location.pathname;
+    }
+  }, [viewMode, selectedCourseId, location.pathname, isOnCourseDetailRoute]);
+
   // Handle course selection (view course)
   const handleCourseView = (course: CourseDisplayData) => {
     if (process.env.NODE_ENV === 'development') {
@@ -282,21 +312,12 @@ export const ClassroomTabRefactored = ({
 
 
 
-  // ✅ FIX: Only render course detail view if we're actually on a course detail route
-  // This prevents conflicts with SpaceTabContentTrulyPersistent routing logic
-  const isOnCourseDetailRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  // FIXED: Use persistent tab state instead of URL parsing to avoid race conditions
+  // Render course detail view only if we're on a course detail route AND classroom tab is active
+  const { isTabActive: isPersistentTabActive } = usePersistentTabs();
+  const isClassroomTabActive = isPersistentTabActive('classroom');
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [ClassroomTabRefactored] View mode check:', {
-      viewMode,
-      selectedCourseId,
-      isOnCourseDetailRoute: !!isOnCourseDetailRoute,
-      pathname: location.pathname
-    });
-  }
-  
-  // Render course detail view only if we're on a course detail route
-  if (viewMode === 'detail' && selectedCourseId && isOnCourseDetailRoute) {
+  if (viewMode === 'detail' && selectedCourseId && isOnCourseDetailRoute && isClassroomTabActive) {
     if (process.env.NODE_ENV === 'development') {
       console.log('✅ [ClassroomTabRefactored] Rendering CourseDetailView');
     }
@@ -310,10 +331,10 @@ export const ClassroomTabRefactored = ({
     );
   }
   
-  // Reset view mode if we're not on a course detail route
-  if (viewMode === 'detail' && !isOnCourseDetailRoute) {
+  // FIXED: Reset view mode if we're not on a course detail route OR classroom tab is not active
+  if (viewMode === 'detail' && (!isOnCourseDetailRoute || !isClassroomTabActive)) {
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔄 [ClassroomTabRefactored] Resetting view mode to grid - not on course detail route');
+      console.log('🔄 [ClassroomTabRefactored] Resetting view mode to grid - not on course detail route or classroom tab not active');
     }
     setViewMode('grid');
     setSelectedCourseId(null);

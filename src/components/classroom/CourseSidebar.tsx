@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, FileText, CheckCircle } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, MoreHorizontal, FileText, CheckCircle, ArrowLeft } from "lucide-react";
 import { formatAsTitle } from '@/utils/textUtils';
 import {
   DropdownMenu,
@@ -172,10 +172,30 @@ export default function CourseSidebar({
     );
   }
 
+  // Handle back to courses navigation
+  const handleBackToCourses = () => {
+    if (subdomain) {
+      navigate(`/${subdomain}/space/classroom`);
+    }
+  };
+
   return (
     <div className="w-80 border-r border-gray-100 bg-white flex flex-col mt-1 ml-4 rounded-lg shadow-lg h-fit">
       {/* Header */}
       <div className="p-4 border-b border-gray-100">
+        {/* Back to Courses Button */}
+        <div className="mb-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBackToCourses}
+            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 p-2 h-auto -ml-2"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Courses
+          </Button>
+        </div>
+        
         <div className="flex items-center justify-between mb-2">
           <div className="flex-1 min-w-0">
             <h2 className="text-xl font-semibold text-gray-900 truncate">

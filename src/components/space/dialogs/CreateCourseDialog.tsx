@@ -148,13 +148,20 @@ export default function CreateCourseDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className={`${isMobile ? 'fixed inset-0 w-full h-full max-w-none max-h-none m-0 rounded-none' : 'sm:max-w-3xl max-h-[95vh]'} overflow-y-auto !fixed !inset-0 !translate-x-0 !translate-y-0 m-auto bg-white`}>
+      <DialogContent className={`${isMobile ? 'fixed inset-0 w-full h-full max-w-none max-h-none m-0 rounded-none flex flex-col' : 'sm:max-w-3xl max-h-[95vh]'} overflow-y-auto !fixed !inset-0 !translate-x-0 !translate-y-0 m-auto bg-white`}>
+        {/* Hidden DialogTitle for accessibility - required by DialogContent */}
+        <DialogTitle className="sr-only">Add Course</DialogTitle>
+        <DialogDescription className="sr-only">
+          Fill in the details below to create a new course for your space.
+        </DialogDescription>
+        
         {/* Mobile Header */}
         {isMobile && (
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white flex-shrink-0">
             <button
               onClick={() => onOpenChange(false)}
               className="p-2 -ml-2 text-gray-600 hover:text-gray-800 transition-colors"
+              aria-label="Close dialog"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -173,7 +180,8 @@ export default function CreateCourseDialog({
           </DialogHeader>
         )}
         
-        <div className={`${isMobile ? 'p-4' : 'px-6 pb-4'}`}>
+        {/* Scrollable Content Area */}
+        <div className={`${isMobile ? 'flex-1 overflow-y-auto p-4 pb-20' : 'px-6 pb-4'}`}>
           <div className="space-y-6">
             {/* Course Title - Full Width */}
             <div className="grid gap-2">
@@ -369,30 +377,30 @@ export default function CreateCourseDialog({
                 </span>
               </div>
             </div>
+
+            {/* Mobile Action Buttons - Inside scrollable content */}
+            {isMobile && (
+              <div className="space-y-3 pt-4">
+                <Button 
+                  onClick={handleSubmit}
+                  className="w-full text-white py-3 bg-blue-500 hover:bg-blue-600"
+                  disabled={isCreating}
+                >
+                  {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {isCreating ? "ADDING..." : "ADD"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => onOpenChange(false)}
+                  className="w-full py-3"
+                  disabled={isCreating}
+                >
+                  CANCEL
+                </Button>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Mobile Footer - Fixed at bottom */}
-        {isMobile && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 space-y-3">
-            <Button 
-              onClick={handleSubmit}
-              className="w-full text-white py-3 bg-blue-500 hover:bg-blue-600"
-              disabled={isCreating}
-            >
-              {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isCreating ? "ADDING..." : "ADD"}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              className="w-full py-3"
-              disabled={isCreating}
-            >
-              CANCEL
-            </Button>
-          </div>
-        )}
 
         {/* Desktop Footer */}
         {!isMobile && (

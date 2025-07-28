@@ -44,33 +44,52 @@ class GlobalCacheCoordinator {
       maxAge: 5 * 60 * 1000, // EGRESS FIX: Increased from 2 to 5 minutes
       backgroundRefresh: true,
       priority: 'high',
-      timeout: 15000
+      timeout: 30000 // Increased from 15000 to 30000 for slow networks
     },
     categories: {
       maxAge: 10 * 60 * 1000, // 10 minutes
       backgroundRefresh: true,
       priority: 'normal',
-      timeout: 10000
+      timeout: 25000 // Increased from 10000 to 25000 for slow networks
     },
     memberCounts: {
       maxAge: 5 * 60 * 1000, // EGRESS FIX: Increased from 30 seconds to 5 minutes
       backgroundRefresh: false, // Disable background refresh to reduce load
       priority: 'normal',
-      timeout: 8000
+      timeout: 20000 // Increased from 8000 to 20000 for slow networks
     },
     spaces: {
       maxAge: 5 * 60 * 1000, // 5 minutes
       backgroundRefresh: true,
       priority: 'high',
-      timeout: 12000
+      timeout: 25000 // Increased from 12000 to 25000 for slow networks
     },
     users: {
       maxAge: 3 * 60 * 1000, // 3 minutes
       backgroundRefresh: false,
       priority: 'normal',
-      timeout: 8000
+      timeout: 20000 // Increased from 8000 to 20000 for slow networks
     }
   };
+
+  // Network quality detection for adaptive timeouts
+  private getNetworkQualityTimeout(baseTimeout: number): number {
+    // Simple network quality detection based on online status
+    const isOnline = navigator.onLine;
+    
+    if (!isOnline) {
+      return baseTimeout * 2; // Double timeout when offline
+    }
+
+    // Check if we're on a mobile device (likely slower connection)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      return Math.floor(baseTimeout * 1.3); // 1.3x timeout for mobile devices
+    }
+
+    return baseTimeout;
+  }
 
   // Cache Debug Logging (reduced frequency)
   private debugCacheOperation(operation: string, key: string, config: any): void {
@@ -141,7 +160,14 @@ class GlobalCacheCoordinator {
     subscriberId: string,
     config: QueryConfig
   ): Promise<T> {
-    devLogger.log('CacheDebug', `Starting query for ${key}`, { subscriberId, config });
+    // Use adaptive timeout based on network quality
+    const adaptiveTimeout = this.getNetworkQualityTimeout(config.timeout || 10000);
+    
+    // Check if query is already in progress
+    if (this.activeQueries.has(key)) {
+      devLogger.log('CacheDebug', `Query already in progress for ${key}`, { subscriberId });
+      return this.activeQueries.get(key)!;
+    }
 
     // Create cache entry if it doesn't exist
     if (!this.cache.has(key)) {
@@ -150,18 +176,18 @@ class GlobalCacheCoordinator {
         timestamp: 0,
         loading: true,
         error: null,
-        subscribers: new Set([subscriberId]),
+        subscribers: new Set(),
         lastAccessed: Date.now()
       });
     }
 
     const entry = this.cache.get(key)!;
+    entry.subscribers.add(subscriberId);
     entry.loading = true;
     entry.error = null;
-    entry.subscribers.add(subscriberId);
 
-    // Create query promise with timeout
-    const queryPromise = this.createTimeoutQuery(fetchFunction, config.timeout!);
+    // Create the query promise with adaptive timeout
+    const queryPromise = this.createTimeoutQuery(fetchFunction, adaptiveTimeout);
     this.activeQueries.set(key, queryPromise);
 
     try {
@@ -175,7 +201,7 @@ class GlobalCacheCoordinator {
       
       // Only log in development for debugging
       if (process.env.NODE_ENV === 'development') {
-        devLogger.log('CacheDebug', `✅ ${key}`, { subscriberId });
+        devLogger.log('CacheDebug', `✅ ${key} (timeout: ${adaptiveTimeout}ms)`, { subscriberId });
       }
       
       return result;
@@ -184,7 +210,7 @@ class GlobalCacheCoordinator {
       entry.loading = false;
       entry.error = error instanceof Error ? error.message : 'Unknown error';
       
-      // Try to use fallback data
+      // Enhanced fallback mechanism
       if (config.fallbackData && !entry.data) {
         devLogger.log('CacheDebug', `Using fallback data for ${key}`, { subscriberId });
         entry.data = config.fallbackData;
@@ -193,13 +219,13 @@ class GlobalCacheCoordinator {
         return config.fallbackData;
       }
 
-      // Use stale cache data if available
+      // Use stale cache data if available (even if expired)
       if (entry.data) {
-        devLogger.log('CacheDebug', `Using stale cache data for ${key}`, { subscriberId });
+        devLogger.log('CacheDebug', `Using stale cache data for ${key} (timeout: ${adaptiveTimeout}ms)`, { subscriberId });
         return entry.data;
       }
 
-      devLogger.warn('CacheDebug', `Query FAILED for ${key}`, { error: entry.error, subscriberId });
+      devLogger.warn('CacheDebug', `Query FAILED for ${key} (timeout: ${adaptiveTimeout}ms)`, { error: entry.error, subscriberId });
       throw error;
 
     } finally {
@@ -237,7 +263,9 @@ class GlobalCacheCoordinator {
 
     devLogger.log('CacheDebug', `Background refresh for ${key}`);
     
-    const queryPromise = this.createTimeoutQuery(fetchFunction, config.timeout!);
+    // Use adaptive timeout for background refresh
+    const adaptiveTimeout = this.getNetworkQualityTimeout(config.timeout || 10000);
+    const queryPromise = this.createTimeoutQuery(fetchFunction, adaptiveTimeout);
     this.activeQueries.set(key, queryPromise);
 
     queryPromise
@@ -247,11 +275,11 @@ class GlobalCacheCoordinator {
           entry.data = result;
           entry.timestamp = Date.now();
           entry.error = null;
-          devLogger.log('CacheDebug', `Background refresh SUCCESS for ${key}`);
+          devLogger.log('CacheDebug', `Background refresh SUCCESS for ${key} (timeout: ${adaptiveTimeout}ms)`);
         }
       })
       .catch(error => {
-        devLogger.warn('CacheDebug', `Background refresh FAILED for ${key}`, { error });
+        devLogger.warn('CacheDebug', `Background refresh FAILED for ${key} (timeout: ${adaptiveTimeout}ms)`, { error });
       })
       .finally(() => {
         this.activeQueries.delete(key);

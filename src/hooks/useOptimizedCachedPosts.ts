@@ -1,8 +1,10 @@
-import { log } from '@/utils/logger';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { globalCache, cacheQueries } from '@/utils/globalCacheCoordinator';
-import { devLogger } from '@/utils/developmentLogger';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { globalCache } from '@/utils/globalCacheCoordinator';
+import { devLogger } from '@/utils/developmentLogger';
+import { useAuth } from '@/contexts/AuthContext';
+import { log } from '@/utils/logger';
+import { cacheQueries } from '@/utils/globalCacheCoordinator';
 import type { CachedPostType } from '@/features/posts/types/cachedPost'; // 🚀 MIGRATED: Now uses shared type definition
 import type { PostCardProps } from '@/features/posts/types/postCard';
 
@@ -49,22 +51,67 @@ function useTabSwitchingBehavior(spaceId: string | undefined) {
   const tabVisibilityRef = useRef<Map<string, TabVisibilityState>>(new Map());
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
+  // **FIX**: Initialize tab visibility from persistent storage
+  useEffect(() => {
+    if (!spaceId) return;
+    
+    try {
+      const storageKey = `tab_visibility_${spaceId}`;
+      const stored = sessionStorage.getItem(storageKey);
+      
+      if (stored) {
+        const parsedState = JSON.parse(stored);
+        tabVisibilityRef.current.set(spaceId, {
+          lastTabVisit: parsedState.lastTabVisit,
+          isFirstVisit: false, // Not first visit if we have stored data
+          refreshThreshold: parsedState.refreshThreshold || 60000
+        });
+        
+        devLogger.log('TabSwitch', `Restored tab visibility state for space ${spaceId}`, {
+          lastTabVisit: parsedState.lastTabVisit,
+          timeSinceLastVisit: Date.now() - parsedState.lastTabVisit
+        });
+      }
+    } catch (error) {
+      devLogger.warn('TabSwitch', `Failed to restore tab visibility state for space ${spaceId}`, error);
+    }
+  }, [spaceId]);
+  
   // Track when user visits the feed tab
   const trackTabVisit = useCallback((spaceId: string) => {
     const now = Date.now();
     const currentState = tabVisibilityRef.current.get(spaceId);
     
-    tabVisibilityRef.current.set(spaceId, {
+    const newState = {
       lastTabVisit: now,
       isFirstVisit: !currentState,
       refreshThreshold: 60000 // **FIX**: Increased to 60 seconds - refresh if last visit was longer ago
-    });
+    };
     
-    devLogger.log('TabSwitch', `Feed tab visited for space ${spaceId}`, {
-      isFirstVisit: !currentState,
-      lastVisit: currentState?.lastTabVisit,
-      timeSinceLastVisit: currentState ? now - currentState.lastTabVisit : 0
-    });
+    tabVisibilityRef.current.set(spaceId, newState);
+    
+    // **FIX**: Persist tab visibility state to sessionStorage
+    try {
+      const storageKey = `tab_visibility_${spaceId}`;
+      sessionStorage.setItem(storageKey, JSON.stringify(newState));
+    } catch (error) {
+      devLogger.warn('TabSwitch', `Failed to persist tab visibility state for space ${spaceId}`, error);
+    }
+    
+    // **FIX**: Show immediate loading feedback for tab switching
+    if (currentState) {
+      devLogger.log('TabSwitch', `Feed tab visited for space ${spaceId} - showing immediate feedback`, {
+        isFirstVisit: !currentState,
+        lastVisit: currentState?.lastTabVisit,
+        timeSinceLastVisit: currentState ? now - currentState.lastTabVisit : 0
+      });
+    } else {
+      devLogger.log('TabSwitch', `Feed tab visited for space ${spaceId}`, {
+        isFirstVisit: !currentState,
+        lastVisit: currentState?.lastTabVisit,
+        timeSinceLastVisit: currentState ? now - currentState.lastTabVisit : 0
+      });
+    }
   }, []);
   
   // Check if we should refresh data when switching to feed tab
@@ -72,7 +119,13 @@ function useTabSwitchingBehavior(spaceId: string | undefined) {
     if (!isMobile) return false; // Only for mobile
     
     const state = tabVisibilityRef.current.get(spaceId);
-    if (!state) return true; // First visit always refreshes
+    
+    // **FIX**: Don't automatically refresh on "first visit" after hard refresh
+    // Instead, let the cache system decide if data is stale
+    if (!state) {
+      devLogger.log('TabSwitch', `No tab state found for space ${spaceId} - letting cache system decide`);
+      return false; // Don't force refresh, let cache system handle it
+    }
     
     const timeSinceLastVisit = Date.now() - state.lastTabVisit;
     // **FIX**: Increased threshold to 60 seconds and be more conservative
@@ -100,6 +153,7 @@ export function useOptimizedCachedPosts(
   spaceId: string | undefined, 
   options?: { disableVisibilityTracking?: boolean }
 ): UseOptimizedCachedPostsReturn {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<CachedPostType[]>([]);
   const [pinnedPosts, setPinnedPosts] = useState<CachedPostType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -107,8 +161,14 @@ export function useOptimizedCachedPosts(
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   
+  // **FIX**: Add immediate loading state for tab switching
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
+  
+  // Auto-fetch posts when spaceId changes - enhanced with tab switching awareness
+  const hasAutoFetched = useRef<Set<string>>(new Set());
+  
   // Generate unique subscriber ID for this hook instance
-  const subscriberId = useRef(`posts-${Math.random().toString(36).substr(2, 9)}`).current;
+  const subscriberId = useRef(`posts-${spaceId}-${user?.id || 'anonymous'}-${Date.now()}`);
   
   // Enhanced tab switching behavior
   const { trackTabVisit, shouldRefreshOnTabSwitch, isMobile } = useTabSwitchingBehavior(spaceId);
@@ -180,157 +240,271 @@ export function useOptimizedCachedPosts(
   useEffect(() => {
     return () => {
       if (spaceId) {
-        globalCache.unsubscribe(`posts:${spaceId}:1:25`, subscriberId);
-        globalCache.unsubscribe(`posts:${spaceId}:pinned`, subscriberId);
+        globalCache.unsubscribe(`posts:${spaceId}:1:25`, subscriberId.current);
+        globalCache.unsubscribe(`posts:${spaceId}:pinned`, subscriberId.current);
       }
     };
-  }, [spaceId, subscriberId]);
+  }, [spaceId, subscriberId.current]);
 
-  // Fetch posts using global cache coordinator
-  const fetchPosts = useCallback(async (page = 1, forceRefresh = false) => {
-    if (!spaceId) {
-      setPosts([]);
-      setPinnedPosts([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+  const fetchPosts = useCallback(async (page: number = 1, forceRefresh: boolean = false) => {
+    if (!spaceId) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      devLogger.log('CacheDebug', `Fetching posts for space ${spaceId}, page ${page}`, { 
-        subscriberId, 
-        forceRefresh,
-        trigger: forceRefresh ? 'tab-switch-refresh' : 'normal'
-      });
+      // Enhanced retry logic with exponential backoff
+      let retryCount = 0;
+      const maxRetries = 3;
+      let lastError: any = null;
 
-      // If force refresh, invalidate cache first
-      if (forceRefresh) {
-        globalCache.invalidatePattern(`posts:${spaceId}`);
-      }
-
-      // Get the actual total count from database even when using cache (with caching)
-      const countKey = `posts_count:${spaceId}`;
-      const totalCount = await globalCache.get(
-        countKey,
-        async () => {
-          const { count, error } = await getSupabaseClient()
-            .from('posts')
-            .select('*', { count: 'exact', head: true })
-            .eq('space_id', spaceId)
-            .eq('is_pinned', false) // Only count regular posts for pagination
-            .neq('post_type', 'course_page'); // ✅ Exclude course lesson posts
-            
-          if (error) {
-            devLogger.warn('CacheDebug', `Failed to get count`, { error });
-            return 0;
+      const attemptFetch = async (): Promise<any> => {
+        try {
+          // Check network status before attempting fetch
+          if (!navigator.onLine) {
+            throw new Error('OFFLINE');
           }
-          return count || 0;
-        },
-        subscriberId,
-        { maxAge: 60000 } // Cache count for 1 minute
-      );
 
-      // Fetch regular posts
-      const postsData = await cacheQueries.posts(spaceId, subscriberId, page, 25);
-      
-      // Fetch pinned posts separately (they don't paginate)
-      const pinnedKey = `posts:${spaceId}:pinned`;
-      
-      // If force refresh, invalidate pinned cache too
-      if (forceRefresh) {
-        globalCache.invalidate(pinnedKey);
-      }
-      
-      const pinnedData = await globalCache.get(
-        pinnedKey,
-        async () => {
-          const { data, error } = await getSupabaseClient()
-            .from('posts')
-            .select(`
-              id, created_at, content, title, like_count, comment_count, 
-              user_id, space_id, media_urls, category_id, is_pinned, 
-              pinned_at, pin_position, pin_category, edited_at, poll_data, slug
-            `)
-            .eq('space_id', spaceId)
-            .eq('is_pinned', true)
-            .neq('post_type', 'course_page') // ✅ Exclude course lesson posts
-            .order('pin_position', { ascending: true });
+          // Use adaptive timeout based on network quality
+          const baseTimeout = 30000; // 30 seconds base timeout
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          const adaptiveTimeout = isMobile ? baseTimeout * 1.3 : baseTimeout;
+
+          devLogger.log('CacheDebug', `Fetching posts for space ${spaceId}, page ${page}`, { 
+            subscriberId: subscriberId.current, 
+            forceRefresh, 
+            timeout: adaptiveTimeout,
+            retryCount 
+          });
+
+          // If force refresh, invalidate cache first
+          if (forceRefresh) {
+            globalCache.invalidatePattern(`posts:${spaceId}`);
+          }
+
+          // Use the original working cacheQueries.posts function
+          const posts = await cacheQueries.posts(spaceId, subscriberId.current, page, 25);
+          
+          // Fetch pinned posts separately (they don't paginate)
+          const pinnedKey = `posts:${spaceId}:pinned`;
+          
+          // If force refresh, invalidate pinned cache too
+          if (forceRefresh) {
+            globalCache.invalidate(pinnedKey);
+          }
+          
+          const pinnedPosts = await globalCache.get(
+            pinnedKey,
+            async () => {
+              const { data, error } = await getSupabaseClient()
+                .from('posts')
+                .select(`
+                  id, created_at, content, title, like_count, comment_count, 
+                  user_id, space_id, media_urls, category_id, is_pinned, 
+                  pinned_at, pin_position, pin_category, edited_at, poll_data, slug
+                `)
+                .eq('space_id', spaceId)
+                .eq('is_pinned', true)
+                .neq('post_type', 'course_page') // ✅ Exclude course lesson posts from main feed
+                .order('pin_position', { ascending: true });
+                
+              if (error) throw error;
+              return data || [];
+            },
+            subscriberId.current
+          );
+
+          return { posts, pinnedPosts };
+        } catch (error) {
+          lastError = error;
+          throw error;
+        }
+      };
+
+      // Retry loop with exponential backoff
+      while (retryCount < maxRetries) {
+        try {
+          const { posts, pinnedPosts } = await attemptFetch();
+          
+          // Enrich posts with metadata
+          const enrichedPosts = await enrichPostsWithMetadata(posts, spaceId, subscriberId.current);
+          const enrichedPinnedPosts = await enrichPostsWithMetadata(pinnedPosts, spaceId, subscriberId.current);
+
+          setPosts(enrichedPosts);
+          setPinnedPosts(enrichedPinnedPosts);
+          setCurrentPage(page);
+          setLoading(false);
+
+          devLogger.log('CacheDebug', `Posts loaded successfully`, {
+            regular: enrichedPosts.length,
+            pinned: enrichedPinnedPosts.length,
+            subscriberId: subscriberId.current,
+            fromRefresh: forceRefresh,
+            retryCount
+          });
+
+          return; // Success, exit retry loop
+        } catch (error) {
+          retryCount++;
+          lastError = error;
+
+          // Handle specific error types
+          if (error instanceof Error) {
+            if (error.message === 'OFFLINE') {
+              devLogger.warn('CacheDebug', `Posts fetch failed - offline`, { subscriberId: subscriberId.current });
+              break; // Don't retry if offline
+            }
             
-          if (error) throw error;
-          return data || [];
-        },
-        subscriberId
-      );
+            if (error.message.includes('timeout')) {
+              devLogger.warn('CacheDebug', `Posts fetch timeout (attempt ${retryCount}/${maxRetries})`, { 
+                subscriberId: subscriberId.current, 
+                error: error.message 
+              });
+            } else {
+              devLogger.warn('CacheDebug', `Posts fetch error (attempt ${retryCount}/${maxRetries})`, { 
+                subscriberId: subscriberId.current, 
+                error: error.message 
+              });
+            }
+          }
 
-      // Process and enrich posts with author and category data
-      const enrichedPosts = await enrichPostsWithMetadata(postsData, spaceId, subscriberId);
-      const enrichedPinnedPosts = await enrichPostsWithMetadata(pinnedData, spaceId, subscriberId);
+          // If this is the last retry, break and use fallback
+          if (retryCount >= maxRetries) {
+            break;
+          }
 
-      setPosts(enrichedPosts.filter(p => !p.is_pinned));
-      setPinnedPosts(enrichedPinnedPosts.filter(p => p.is_pinned));
-      setCurrentPage(page);
-      setTotalCount(totalCount);
-      setLoading(false);
+          // Exponential backoff: wait before retrying
+          const backoffDelay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
+          devLogger.log('CacheDebug', `Retrying posts fetch in ${backoffDelay}ms`, { 
+            subscriberId: subscriberId.current, 
+            retryCount 
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
+      }
 
-      devLogger.log('CacheDebug', `Posts loaded successfully`, { 
-        regular: enrichedPosts.length, 
-        pinned: enrichedPinnedPosts.length,
-        subscriberId,
-        fromRefresh: forceRefresh
+      // All retries failed - use fallback strategy
+      devLogger.warn('CacheDebug', `All retries failed, using fallback strategy`, { 
+        subscriberId: subscriberId.current, 
+        retryCount,
+        error: lastError 
       });
+
+      // Enhanced fallback strategy
+      await handleFetchFailure(page, lastError);
 
     } catch (err) {
-      // Check if we're offline and provide a more specific error
-      if (!navigator.onLine) {
-        const offlineError = { code: 'OFFLINE', message: 'You are currently offline' };
-        setError('offline');
-        setLoading(false);
-        devLogger.warn('CacheDebug', `Posts fetch failed - offline`, { error: offlineError, subscriberId });
-        
-        // Try to return cached data if available
-        const regularKey = `posts:${spaceId}:${page}:25`;
-        const pinnedKey = `posts:${spaceId}:pinned`;
-        const cachedRegular = globalCache.getCachedData<any[]>(regularKey);
-        const cachedPinned = globalCache.getCachedData<any[]>(pinnedKey);
-        
-        if (cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned)) {
-          devLogger.log('CacheDebug', `Using cached posts while offline for space ${spaceId}`, { subscriberId });
-          const enrichedPosts = await enrichPostsWithMetadata(cachedRegular, spaceId, subscriberId).catch(() => cachedRegular as CachedPostType[]);
-          const enrichedPinnedPosts = await enrichPostsWithMetadata(cachedPinned, spaceId, subscriberId).catch(() => cachedPinned as CachedPostType[]);
-          
-          setPosts(enrichedPosts.filter(p => !p.is_pinned));
-          setPinnedPosts(enrichedPinnedPosts.filter(p => p.is_pinned));
-          setCurrentPage(page);
-        }
-        return;
-      }
-      
+      // Final error handling
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch posts';
       setError(errorMessage);
       setLoading(false);
       
-      devLogger.warn('CacheDebug', `Posts fetch failed`, { error: errorMessage, subscriberId });
+      devLogger.warn('CacheDebug', `Posts fetch completely failed`, { 
+        error: errorMessage, 
+        subscriberId: subscriberId.current 
+      });
     }
-  }, [spaceId, subscriberId]);
+  }, [spaceId, subscriberId.current]);
 
-  // Auto-fetch posts when spaceId changes - enhanced with tab switching awareness
-  const hasAutoFetched = useRef<Set<string>>(new Set());
+  // Enhanced fallback strategy for failed fetches
+  const handleFetchFailure = async (page: number, error: any) => {
+    devLogger.log('CacheDebug', `Attempting fallback strategy for failed posts fetch`, { 
+      subscriberId: subscriberId.current, 
+      error: error?.message 
+    });
+
+    // Strategy 1: Try to use stale cache data
+    const regularKey = `posts:${spaceId}:${page}:25`;
+    const pinnedKey = `posts:${spaceId}:pinned`;
+    const cachedRegular = globalCache.getCachedData<any[]>(regularKey);
+    const cachedPinned = globalCache.getCachedData<any[]>(pinnedKey);
+
+    if (cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned)) {
+      devLogger.log('CacheDebug', `Using stale cache data as fallback`, { subscriberId: subscriberId.current });
+      
+      try {
+        const enrichedPosts = await enrichPostsWithMetadata(cachedRegular, spaceId, subscriberId.current);
+        const enrichedPinnedPosts = await enrichPostsWithMetadata(cachedPinned, spaceId, subscriberId.current);
+        
+        setPosts(enrichedPosts);
+        setPinnedPosts(enrichedPinnedPosts);
+        setCurrentPage(page);
+        setLoading(false);
+        
+        // Show warning to user about using cached data
+        setError('Using cached data - network issues detected');
+        
+        return;
+      } catch (enrichError) {
+        devLogger.warn('CacheDebug', `Failed to enrich cached posts`, { 
+          subscriberId: subscriberId.current, 
+          error: enrichError 
+        });
+      }
+    }
+
+    // Strategy 2: Try to fetch with reduced data (no metadata enrichment)
+    try {
+      devLogger.log('CacheDebug', `Attempting minimal fetch without metadata enrichment`, { subscriberId: subscriberId.current });
+      
+      const { data: minimalPosts, error: minimalError } = await getSupabaseClient()
+        .from('posts')
+        .select('*')
+        .eq('space_id', spaceId)
+        .eq('is_pinned', false)
+        .order('created_at', { ascending: false })
+        .range((page - 1) * 25, page * 25 - 1);
+
+      if (!minimalError && minimalPosts) {
+        const { data: minimalPinned, error: pinnedError } = await getSupabaseClient()
+          .from('posts')
+          .select('*')
+          .eq('space_id', spaceId)
+          .eq('is_pinned', true)
+          .order('pin_position', { ascending: true })
+          .order('created_at', { ascending: false });
+
+        if (!pinnedError && minimalPinned) {
+          setPosts(minimalPosts as CachedPostType[]);
+          setPinnedPosts(minimalPinned as CachedPostType[]);
+          setCurrentPage(page);
+          setLoading(false);
+          setError('Loaded with limited data - some features may be unavailable');
+          return;
+        }
+      }
+    } catch (minimalError) {
+      devLogger.warn('CacheDebug', `Minimal fetch also failed`, { 
+        subscriberId: subscriberId.current, 
+        error: minimalError 
+      });
+    }
+
+    // Strategy 3: Show empty state with retry option
+    setPosts([]);
+    setPinnedPosts([]);
+    setCurrentPage(page);
+    setLoading(false);
+    setError('Unable to load posts. Please check your connection and try again.');
+  };
+
+  // Main effect to handle data fetching and caching
   useEffect(() => {
-    if (!spaceId) {
-      setPosts([]);
-      setPinnedPosts([]);
-      setLoading(false);
-      setError(null);
-      return;
+    if (!spaceId || !user?.id) return;
+
+    const subscriberId = `posts-${spaceId}-${user.id}`;
+    
+    // **FIX**: Show immediate loading feedback when switching tabs
+    const shouldRefresh = shouldRefreshOnTabSwitch(spaceId);
+    if (shouldRefresh) {
+      setIsTabSwitching(true);
+      devLogger.log('TabSwitch', `Tab switching detected for space ${spaceId} - showing immediate feedback`);
     }
-
-    // Track this tab visit for future refresh decisions
+    
+    // Track this tab visit
     trackTabVisit(spaceId);
-
-    // Check if we have cached data first
+    
     const checkCacheAndFetch = async () => {
       try {
         // Check for cached regular posts
@@ -343,8 +517,22 @@ export function useOptimizedCachedPosts(
         // Enhanced cache logic: check if we should refresh due to tab switching
         const shouldRefreshForTabSwitch = shouldRefreshOnTabSwitch(spaceId);
         
-        // If we have valid cached data and don't need to refresh, use it immediately
-        if (cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned) && !shouldRefreshForTabSwitch) {
+        // **FIX**: Prioritize valid cached data over tab switching refresh logic
+        const hasValidCache = cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned);
+        
+        devLogger.log('CacheDebug', `Cache check for space ${spaceId}`, {
+          hasValidCache,
+          shouldRefreshForTabSwitch,
+          cachedRegularLength: cachedRegular?.length || 0,
+          cachedPinnedLength: cachedPinned?.length || 0,
+          subscriberId,
+          isMobile,
+          hasAutoFetched: hasAutoFetched.current.has(spaceId)
+        });
+        
+        // **FIX**: Implement stale-while-revalidate pattern
+        // If we have valid cached data, use it immediately and refresh in background
+        if (hasValidCache) {
           devLogger.log('CacheDebug', `Using cached posts for space ${spaceId}`, { subscriberId });
           
           // Get the actual total count from database even when using cache (with caching)
@@ -377,32 +565,54 @@ export function useOptimizedCachedPosts(
           setCurrentPage(1);
           setTotalCount(totalCount); // Use actual total count from database
           setLoading(false);
+          setIsTabSwitching(false); // **FIX**: Clear tab switching state
           setError(null);
           
           // Still mark as auto-fetched to prevent duplicate fetches
           hasAutoFetched.current.add(spaceId);
+          
+          // **FIX**: Always do background refresh to ensure data is fresh
+          devLogger.log('CacheDebug', `Background refresh triggered for space ${spaceId}`, { subscriberId });
+          setTimeout(() => {
+            fetchPosts(1, true);
+          }, 1000);
+          
           return;
         }
         
-        // Either no valid cache OR we need to refresh due to tab switching
-        if (!hasAutoFetched.current.has(spaceId) || shouldRefreshForTabSwitch) {
+        // **FIX**: If no valid cache exists, fetch immediately but show loading state briefly
+        if (!hasAutoFetched.current.has(spaceId)) {
           hasAutoFetched.current.add(spaceId);
-          const reason = shouldRefreshForTabSwitch ? 'tab-switch-refresh' : 'no-cache';
+          const reason = 'no-cache';
           devLogger.log('CacheDebug', `Fetching posts for space ${spaceId} (${reason})`, { subscriberId });
-          await fetchPosts(1, shouldRefreshForTabSwitch);
+          
+          // Show loading state briefly to indicate data is being fetched
+          setLoading(true);
+          await fetchPosts(1, false);
+        } else if (shouldRefreshForTabSwitch) {
+          // Only refresh if tab switching suggests it's needed AND we have no valid cache
+          devLogger.log('CacheDebug', `Tab switch refresh triggered for space ${spaceId}`, { subscriberId });
+          setLoading(true);
+          await fetchPosts(1, true);
         }
       } catch (error) {
-        devLogger.warn('CacheDebug', `Cache check failed for space ${spaceId}`, { error, subscriberId });
+        devLogger.warn('CacheDebug', `Cache check failed for space ${spaceId}`, { 
+          error, 
+          subscriberId,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          errorStack: error instanceof Error ? error.stack : undefined
+        });
         // Fallback to normal fetch
         if (!hasAutoFetched.current.has(spaceId)) {
           hasAutoFetched.current.add(spaceId);
+          setLoading(true);
           await fetchPosts(1, false);
         }
       }
     };
-
+    
     checkCacheAndFetch();
-  }, [spaceId, fetchPosts, subscriberId, trackTabVisit, shouldRefreshOnTabSwitch]);
+  }, [spaceId, user?.id, trackTabVisit, shouldRefreshOnTabSwitch]);
 
   // Enhanced refetch function
   const refetch = useCallback(async (forceRefresh = false) => {
@@ -438,8 +648,8 @@ export function useOptimizedCachedPosts(
       globalCache.invalidate(`posts_count:${spaceId}`); // Invalidate count cache
     }
     
-    devLogger.log('CacheDebug', `Post created`, { postId: post.id, subscriberId });
-  }, [spaceId, subscriberId]);
+    devLogger.log('CacheDebug', `Post created`, { postId: post.id, subscriberId: subscriberId.current });
+  }, [spaceId, subscriberId.current]);
 
   const handlePostUpdated = useCallback((postId: string, updates: Partial<CachedPostType>) => {
     const updatePostInArray = (posts: CachedPostType[]) => 
@@ -454,8 +664,8 @@ export function useOptimizedCachedPosts(
       // Note: Updates don't change count, so no need to invalidate count cache
     }
     
-    devLogger.log('CacheDebug', `Post updated`, { postId, updates, subscriberId });
-  }, [spaceId, subscriberId]);
+    devLogger.log('CacheDebug', `Post updated`, { postId, updates, subscriberId: subscriberId.current });
+  }, [spaceId, subscriberId.current]);
 
   const handlePostDeleted = useCallback((postId: string) => {
     const wasRegularPost = posts.some(post => post.id === postId);
@@ -474,8 +684,8 @@ export function useOptimizedCachedPosts(
       globalCache.invalidate(`posts_count:${spaceId}`); // Invalidate count cache
     }
     
-    devLogger.log('CacheDebug', `Post deleted`, { postId, subscriberId });
-  }, [spaceId, subscriberId, posts]);
+    devLogger.log('CacheDebug', `Post deleted`, { postId, subscriberId: subscriberId.current });
+  }, [spaceId, subscriberId.current, posts]);
 
   const handleLikeToggled = useCallback((postId: string, newLikeCount: number) => {
     handlePostUpdated(postId, { like_count: newLikeCount });
@@ -538,8 +748,8 @@ export function useOptimizedCachedPosts(
       globalCache.invalidate(`posts_count:${spaceId}`); // Invalidate count cache
     }
     
-    devLogger.log('CacheDebug', `Post pin toggled`, { postId, isPinned, subscriberId });
-  }, [posts, pinnedPosts, spaceId, subscriberId]);
+    devLogger.log('CacheDebug', `Post pin toggled`, { postId, isPinned, subscriberId: subscriberId.current });
+  }, [posts, pinnedPosts, spaceId, subscriberId.current]);
 
   // Map post to card props with proper media_urls transformation
   const mapPostToCardProps = useCallback((post: CachedPostType): PostCardProps => {

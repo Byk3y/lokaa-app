@@ -130,11 +130,41 @@ class PersistentTabManager {
   }
 
   /**
+   * Extract tab from pathname
+   */
+  private extractTabFromPath(pathname: string): PersistentTab | null {
+    // Check if we're on a course detail route first (actual route pattern)
+    const isCourseDetailRoute = pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+    if (isCourseDetailRoute) {
+      return 'classroom'; // Course detail routes should keep classroom tab active
+    }
+    
+    const match = pathname.match(/^\/[^\/]+\/space(?:\/([^\/]+))?/);
+    if (!match) return null;
+    
+    const tabSegment = match[1];
+    if (!tabSegment) return 'feed';
+    
+    const validTabs: PersistentTab[] = ['feed', 'classroom', 'calendar', 'members', 'leaderboard', 'about'];
+    return validTabs.includes(tabSegment as PersistentTab) ? tabSegment as PersistentTab : 'feed';
+  }
+
+  /**
+   * Extract subdomain from pathname
+   */
+  private extractSubdomainFromPath(pathname: string): string | null {
+    const match = pathname.match(/^\/([^\/]+)\/space/);
+    return match ? match[1] : null;
+  }
+
+  /**
    * Sync with URL changes (for browser back/forward)
    */
   syncWithURL(pathname: string) {
-    const tab = this.extractTabFromPath(pathname);
-    const subdomain = this.extractSubdomainFromPath(pathname);
+    // ✅ FIX: Use window.location.pathname directly to avoid stale pathname data
+    const currentPathname = window.location.pathname;
+    const tab = this.extractTabFromPath(currentPathname);
+    const subdomain = this.extractSubdomainFromPath(currentPathname);
     
     if (subdomain && subdomain !== this.state.subdomain) {
       this.state.subdomain = subdomain;
@@ -161,37 +191,9 @@ class PersistentTabManager {
       log.debug('Component', '🔄 [PersistentTabManager] Tab synced from URL', {
         from: previousTab,
         to: tab,
-        pathname
+        pathname: currentPathname
       });
     }
-  }
-
-  /**
-   * Extract tab from pathname
-   */
-  private extractTabFromPath(pathname: string): PersistentTab | null {
-    // Check if we're on a course detail route first
-    const isCourseDetailRoute = pathname.match(/^\/[^\/]+\/course\/[^\/]+$/);
-    if (isCourseDetailRoute) {
-      return 'classroom'; // Course detail routes should keep classroom tab active
-    }
-    
-    const match = pathname.match(/^\/[^\/]+\/space(?:\/([^\/]+))?/);
-    if (!match) return null;
-    
-    const tabSegment = match[1];
-    if (!tabSegment) return 'feed';
-    
-    const validTabs: PersistentTab[] = ['feed', 'classroom', 'calendar', 'members', 'leaderboard', 'about'];
-    return validTabs.includes(tabSegment as PersistentTab) ? tabSegment as PersistentTab : 'feed';
-  }
-
-  /**
-   * Extract subdomain from pathname
-   */
-  private extractSubdomainFromPath(pathname: string): string | null {
-    const match = pathname.match(/^\/([^\/]+)\/space/);
-    return match ? match[1] : null;
   }
 
   /**

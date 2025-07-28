@@ -110,7 +110,10 @@ export class UserProfileService {
           };
           
           await userProfilesCacheService.set(cacheKey, networkResult.data, cacheOptions);
-          devLogger.log('IndexedDB', '[UserProfileService] Cached fresh user profile data');
+          // Only log cache operations in development and not too frequently
+          if (process.env.NODE_ENV === 'development' && this.metrics.totalRequests % 5 === 0) {
+            devLogger.log('IndexedDB', '[UserProfileService] Cached fresh user profile data');
+          }
         }
 
         this.metrics.cacheMisses++;

@@ -12,6 +12,7 @@ import CourseSidebar from './CourseSidebar';
 import LessonContent from './LessonContent';
 import MobileCourseOverview from './MobileCourseOverview';
 import MobileLessonView from './MobileLessonView';
+import CourseDetailMobile from './mobile/CourseDetailMobile';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
@@ -125,8 +126,13 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     },
     onNavigationStateChange: (state) => {
       console.log('🎓 [CourseDetailView] Navigation state changed:', state);
+      // COMPLETELY DISABLE mobile state signaling from CourseDetailView
+      // Let CourseDetailMobile handle all mobile state management
     }
   });
+
+  // REMOVED: Desktop state dispatch that was causing tab switching issues
+  // Instead of complex state management, we'll use a simple back button for desktop navigation
 
   // Use the new dialog management hook
   const {
@@ -196,9 +202,14 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     onSelectedLessonChange: setSelectedLesson
   });
 
-
-
-
+  // FIXED: Move useCallback to top level to prevent Rules of Hooks violation
+  const handleMobileStateChange = useCallback((state: { isMobile: boolean; showTabs: boolean }) => {
+    console.log('🎓 [CourseDetailView] Mobile state change from container:', state);
+    // Signal to parent about mobile state for tab visibility
+    window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
+      detail: state
+    }));
+  }, []);
 
   log.debug('Component', '🎓 [CourseDetailView] Component rendered with courseId:', courseId);
   
@@ -243,27 +254,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     }
   }, [storeCourses, course]);
 
-  // Signal to parent about mobile state for tab visibility
-  useEffect(() => {
-    if (showCourseOverview || showLessonView) {
-      // Mobile mode - hide tabs
-      window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
-        detail: { isMobile: true, showTabs: false }
-      }));
-    } else {
-      // Desktop mode - show tabs
-      window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
-        detail: { isMobile: false, showTabs: true }
-      }));
-    }
-    
-    return () => {
-      // Clean up when component unmounts - restore tabs
-      window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
-        detail: { isMobile: false, showTabs: true }
-      }));
-    };
-  }, [showCourseOverview, showLessonView]);
+
 
 
 
@@ -355,92 +346,16 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     );
   }
 
-  // Mobile course overview view (first screen)
-  if (showCourseOverview) {
-    const courseData = optimisticCourse || course;
-    console.log('🎓 [CourseDetailView] Rendering MobileCourseOverview with:', {
-      usingOptimistic: !!optimisticCourse,
-      courseProgress: courseData?.progress,
-      lessonCount: courseData?.modules?.flatMap(m => m.lessons)?.length,
-      completedLessons: courseData?.modules?.flatMap(m => m.lessons)?.filter(l => l.completed)?.length
-    });
-    
+  // Mobile view - use the new mobile container component
+  if (showCourseOverview || showLessonView) {
+    console.log('🎓 [CourseDetailView] Rendering mobile container:', { showCourseOverview, showLessonView });
     return (
-      <MobileCourseOverview
-        course={courseData}
-        space={space}
+      <CourseDetailMobile
+        courseId={courseId}
         onBack={onBack}
-        onLessonSelect={handleMobileLessonSelect}
-        isOwner={isOwner}
-        isAdmin={isAdmin}
-        onEditCourse={handleEditCourse}
-        onAddFolder={handleAddFolder}
-        onAddPage={() => handleCreateNewPage()}
-        onDeleteCourse={handleDeleteCourse}
-        onEditLesson={(lessonId, title) => {
-          // TODO: Implement edit lesson for mobile
-          console.log('Edit lesson:', lessonId, title);
-        }}
-        onDeleteLesson={(lessonId, title) => openDeletePageDialog(lessonId, title)}
-        onRevertToDraft={(lessonId, title, isPublished) => openRevertToDraftDialog(lessonId, title, isPublished)}
-        onChangeFolder={(lessonId, title, currentFolderId) => openChangeFolderDialog(lessonId, title, currentFolderId)}
-      />
-    );
-  }
-
-  // Mobile lesson view (second screen)
-  if (showLessonView && selectedLesson) {
-    const courseData = optimisticCourse || course;
-    const allLessons = courseData.modules.flatMap(m => m.lessons);
-    const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
-    const hasNextLesson = currentIndex < allLessons.length - 1;
-    
-    const currentLesson = allLessons.find(l => l.id === selectedLesson.id);
-    console.log('🎓 [CourseDetailView] Rendering MobileLessonView with:', {
-      usingOptimistic: !!optimisticCourse,
-      lessonId: selectedLesson.id,
-      lessonCompleted: currentLesson?.completed,
-      courseProgress: courseData?.progress
-    });
-
-    return (
-      <MobileLessonView
-        lesson={selectedLesson}
-        course={courseData}
-        space={space}
-        onBackToMenu={handleBackToMenu}
-        onNextLesson={handleNextLesson}
-        onMarkAsDone={handleMarkAsDone}
-        isOwner={isOwner}
-        isAdmin={isAdmin}
-        hasNextLesson={hasNextLesson}
-        onEditLesson={async (updatedData) => {
-          try {
-            const updates: { title?: string; content_text?: string; is_published?: boolean } = {};
-            
-            if (updatedData.title) {
-              updates.title = updatedData.title;
-            }
-            
-            if (updatedData.content_text || updatedData.educational_content?.text_content) {
-              const newContent = updatedData.educational_content?.text_content || updatedData.content_text;
-              updates.content_text = newContent;
-            }
-            
-            if (updatedData.is_published !== undefined) {
-              updates.is_published = updatedData.is_published;
-            }
-            
-            await handleUpdateLesson(selectedLesson.id, updates);
-            
-            // Refresh course data
-            invalidateCache();
-            await refetch();
-          } catch (error) {
-            console.error('Error updating lesson:', error);
-            throw error;
-          }
-        }}
+        moduleId={moduleId}
+        lessonId={lessonId}
+        onMobileStateChange={handleMobileStateChange}
       />
     );
   }

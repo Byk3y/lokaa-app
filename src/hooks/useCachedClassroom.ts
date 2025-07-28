@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import useClassroomCache, { type CourseDisplayData } from './useClassroomCache';
+import { useAuth } from '@/contexts/AuthContext';
+import { log } from '@/utils/logger';
 
 interface UseCachedClassroomReturn {
   courses: CourseDisplayData[];
@@ -29,7 +31,10 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
     removeCourseFromCache,
     addCourseToCache,
     updateCourseProgress: updateCourseProgressInCache,
+    forceRefreshCache,
   } = useClassroomCache();
+
+  const { user } = useAuth();
 
   // Auto-fetch when dependencies change
   useEffect(() => {
@@ -38,10 +43,31 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
     const cachedCourses = getCourses(spaceId);
     const loading = isLoading(spaceId);
     
+    // ✅ OPTIMIZED: Only fetch if no cache exists and not already loading
     if (cachedCourses === null && !loading) {
       fetchCourses(spaceId, userId, ownerId);
     }
   }, [spaceId, userId, ownerId, getCourses, isLoading, fetchCourses]);
+
+  // ✅ OPTIMIZED: Reduced frequency of ownership checks
+  // Only check ownership when user ID changes, not on every render
+  useEffect(() => {
+    if (!spaceId || !userId || !user?.id) return;
+
+    // Check if we have cached data that might be stale
+    const cachedCourses = getCourses(spaceId);
+    if (cachedCourses && cachedCourses.length > 0) {
+      // Check if any draft courses are missing (indicating stale ownership data)
+      const hasDraftCourses = cachedCourses.some(course => !course.is_published);
+      
+      // ✅ OPTIMIZED: Only force refresh if user is owner/admin and missing drafts
+      // This prevents unnecessary refreshes for regular users
+      if (!hasDraftCourses && (ownerId === userId || user?.role === 'admin')) {
+        log.debug('Hook', '🔄 [useCachedClassroom] Force refreshing cache for fresh ownership data');
+        forceRefreshCache(spaceId, userId, ownerId);
+      }
+    }
+  }, [user?.id, spaceId, userId, ownerId, getCourses, forceRefreshCache]);
 
   const courses = spaceId ? getCourses(spaceId) || [] : [];
   const loading = spaceId ? isLoading(spaceId) : false;

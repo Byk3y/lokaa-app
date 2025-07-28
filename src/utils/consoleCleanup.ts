@@ -65,7 +65,8 @@ class ConsoleOptimizer {
       maxRepeatedLogs: 3,
       throttleDuration: 5000,
       categories: {
-        CacheDebug: { enabled: false, maxRepeat: 1, throttle: 30000 },
+        CacheDebug: { enabled: true, maxRepeat: 5, throttle: 5000 }, // **FIX**: Enable for debugging
+        TabSwitch: { enabled: true, maxRepeat: 3, throttle: 3000 }, // **FIX**: Enable for debugging
         UnifiedPresence: { enabled: false, maxRepeat: 1, throttle: 60000 },
         ServiceWorker: { enabled: false, maxRepeat: 1, throttle: 60000 },
         PredictiveCache: { enabled: false, maxRepeat: 1, throttle: 30000 },

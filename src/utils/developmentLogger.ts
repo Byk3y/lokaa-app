@@ -245,7 +245,7 @@ if (process.env.NODE_ENV === 'development') {
   );
 
   // 🎯 PHASE 1 FIX: Only allow essential categories for better development experience
-  devLogger.onlyAllow('Error', 'Warning', 'Critical', 'Auth', 'Chat', 'Navigation', 'RealtimeService', 'AppInit', 'NavigationRealtime', 'SpaceManagement', 'PostService', 'CacheManager', 'TabManager', 'IndexedDB', 'NotificationFiltering', 'useNotifications');
+  devLogger.onlyAllow('Error', 'Warning', 'Critical', 'Auth', 'Chat', 'Navigation', 'RealtimeService', 'AppInit', 'NavigationRealtime', 'SpaceManagement', 'PostService', 'CacheManager', 'TabManager', 'IndexedDB', 'NotificationFiltering', 'useNotifications', 'CacheDebug', 'TabSwitch');
 
   console.log('🔧 [DevLogger] Development logger initialized');
   console.log('🔧 Available commands:');

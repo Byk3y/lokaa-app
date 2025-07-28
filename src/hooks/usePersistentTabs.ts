@@ -45,7 +45,9 @@ export function usePersistentTabs(subdomain?: string): UsePersistentTabsReturn {
 
   // Sync with URL changes (for browser back/forward)
   useEffect(() => {
-    persistentTabManager.syncWithURL(location.pathname);
+    // ✅ FIX: Use window.location.pathname directly to avoid stale React Router location
+    const currentPathname = window.location.pathname;
+    persistentTabManager.syncWithURL(currentPathname);
   }, [location.pathname]);
 
   const switchTab = useCallback((tab: PersistentTab) => {
@@ -68,8 +70,8 @@ export function usePersistentTabs(subdomain?: string): UsePersistentTabsReturn {
  * Helper function to extract tab from location pathname
  */
 function extractTabFromLocation(pathname: string): PersistentTab {
-  // Check if we're on a course detail route first
-  const isCourseDetailRoute = pathname.match(/^\/[^\/]+\/course\/[^\/]+$/);
+  // Check if we're on a course detail route first (actual route pattern)
+  const isCourseDetailRoute = pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
   if (isCourseDetailRoute) {
     return 'classroom'; // Course detail routes should keep classroom tab active
   }

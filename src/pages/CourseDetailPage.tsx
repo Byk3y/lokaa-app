@@ -5,6 +5,7 @@ import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import CourseDetailView from '@/components/classroom/CourseDetailView';
 import { SpaceLoadingFallback } from '@/routes/LazyRoutes';
+import { usePersistentTabs } from '@/hooks/usePersistentTabs';
 
 /**
  * CourseDetailPage - Router-aware wrapper for CourseDetailView
@@ -23,10 +24,15 @@ const CourseDetailPage: React.FC = () => {
   const { user, loading: authLoading } = useOptimizedAuth();
   const { space, loading: spaceLoading } = useSpace();
   
+  // Use persistent tabs to check if we should actually be showing course detail
+  const { currentTab, isTabActive } = usePersistentTabs(subdomain);
+  
   // Extract course slug from URL pathname (new pattern only)
   const extractCourseSlugFromPath = () => {
+    // ✅ FIX: Use window.location.pathname directly to avoid stale React Router location
+    const currentPathname = window.location.pathname;
     // ✅ FIX: Only support new pattern: /:subdomain/space/classroom/:courseSlug
-    const newMatch = location.pathname.match(/^\/[^\/]+\/space\/classroom\/([^\/]+)$/);
+    const newMatch = currentPathname.match(/^\/[^\/]+\/space\/classroom\/([^\/]+)$/);
     if (newMatch) {
       return newMatch[1];
     }
@@ -51,35 +57,32 @@ const CourseDetailPage: React.FC = () => {
     }
   };
   
-  // ✅ FIX: Guard against being rendered when not on a course detail route (new pattern only)
+  // ✅ ENHANCED FIX: Guard against being rendered when not on a course detail route
   // This check must come BEFORE loading state to prevent unnecessary renders
-  const isOnCourseDetailRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  // FIXED: Use window.location.pathname directly to avoid stale React Router location
+  const currentPathname = window.location.pathname;
+  const isOnCourseDetailRoute = currentPathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  const isOnClassroomOverviewRoute = currentPathname.match(/^\/[^\/]+\/space\/classroom$/);
   
-  // 🚨 ADDITIONAL GUARD: Prevent rendering with invalid course data during tab transitions
-  const hasValidCourseSlug = !!(paramCourseSlug || extractCourseSlugFromPath());
-  const shouldRender = isOnCourseDetailRoute && hasValidCourseSlug;
+  // 🚨 CRITICAL FIX: Use persistent tab state as single source of truth
+  // Only render if we're actually supposed to show a course detail AND classroom tab is active
+  const isClassroomTabActive = isTabActive('classroom');
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [CourseDetailPage] Route guard check:', {
-      pathname: location.pathname,
-      isOnCourseDetailRoute: !!isOnCourseDetailRoute,
-      hasValidCourseSlug,
-      shouldRender,
-      courseSlug: paramCourseSlug || extractCourseSlugFromPath(),
-      matchResult: location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/)
-    });
-  }
+  // FIXED: Only extract course slug if we're on classroom tab to prevent stale pathname issues
+  const hasValidCourseSlug = isClassroomTabActive && !!(paramCourseSlug || extractCourseSlugFromPath());
+  
+  // FIXED: Use persistent tab state as primary source of truth, not URL parsing
+  // This prevents race conditions where URL is stale during navigation transitions
+  const shouldRender = !!(
+    hasValidCourseSlug && 
+    isClassroomTabActive &&
+    currentTab === 'classroom'
+    // Removed URL-based checks to prevent stale pathname issues during navigation
+  );
   
   if (!shouldRender) {
     // Don't navigate back - just return null to let the parent handle rendering
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🚫 [CourseDetailPage] Returning null - invalid route or course data');
-    }
     return null;
-  }
-  
-  if (process.env.NODE_ENV === 'development') {
-    console.log('✅ [CourseDetailPage] Route guard passed - rendering CourseDetailPage');
   }
   
   // Loading state

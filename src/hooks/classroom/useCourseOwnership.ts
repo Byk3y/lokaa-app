@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
@@ -42,6 +42,10 @@ export const useCourseOwnership = (props: UseCourseOwnershipProps): UseCourseOwn
 
   const { user } = useAuth();
   const { space } = useSpace();
+  
+  // Use ref to store the callback to prevent infinite re-renders
+  const onOwnershipChangeRef = useRef(props.onOwnershipChange);
+  onOwnershipChangeRef.current = props.onOwnershipChange;
 
   const checkOwnership = useCallback(async () => {
     try {
@@ -118,13 +122,17 @@ export const useCourseOwnership = (props: UseCourseOwnershipProps): UseCourseOwn
 
 
 
-      setIsOwner(canEdit);
-      setOwnershipDetails(details);
-
-      // Call optional callback for ownership changes
-      if (props.onOwnershipChange) {
-        props.onOwnershipChange(canEdit);
+      // Only update state and call callback if ownership status actually changed
+      if (isOwner !== canEdit) {
+        setIsOwner(canEdit);
+        
+        // Call optional callback for ownership changes
+        if (onOwnershipChangeRef.current) {
+          onOwnershipChangeRef.current(canEdit);
+        }
       }
+      
+      setOwnershipDetails(details);
 
     } catch (error) {
       log.error('Component', 'Error checking ownership:', error);
@@ -134,18 +142,18 @@ export const useCourseOwnership = (props: UseCourseOwnershipProps): UseCourseOwn
     } finally {
       setOwnershipLoading(false);
     }
-  }, [props.course, space?.owner_id, props.onOwnershipChange]);
+  }, [props.course, space?.owner_id]);
 
-  // Auto-check ownership when course changes
+  // Auto-check ownership when course changes - optimized to prevent unnecessary checks
   useEffect(() => {
-    if (props.course) {
+    if (props.course?.id) {
       checkOwnership();
     } else {
       setIsOwner(false);
       setOwnershipLoading(false);
       setOwnershipDetails(null);
     }
-  }, [props.course, checkOwnership]);
+  }, [props.course?.id, checkOwnership]);
 
   return {
     isOwner,

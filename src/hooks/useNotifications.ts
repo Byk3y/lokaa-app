@@ -329,9 +329,21 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
   useEffect(() => {
     if (!user?.id || !isInitialized) return;
 
+    // **FIX**: Prevent multiple subscriptions for the same user
+    const subscriptionKey = `notifications_${user.id}`;
+    const existingSubscription = realtimeSubscriptionRef.current;
+    
+    // If we already have a subscription for this user, don't create another one
+    if (existingSubscription) {
+      log.debug('useNotifications', 'Subscription already exists for user:', user.id);
+      return;
+    }
+
     // Clean up existing subscription
-    if (realtimeSubscriptionRef.current) {
-      realtimeSubscriptionRef.current.unsubscribe();
+    if (existingSubscription) {
+      log.debug('useNotifications', 'Cleaning up existing subscription for user:', user.id);
+      existingSubscription.unsubscribe();
+      realtimeSubscriptionRef.current = null;
     }
 
     // Create new subscription
@@ -357,11 +369,12 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
 
     return () => {
       if (realtimeSubscriptionRef.current) {
+        log.debug('useNotifications', 'Cleaning up subscription for user:', user.id);
         realtimeSubscriptionRef.current.unsubscribe();
         realtimeSubscriptionRef.current = null;
       }
     };
-  }, [user?.id, isInitialized, handleRealtimeUpdate, supabase]);
+  }, [user?.id, isInitialized]); // **FIX**: Removed handleRealtimeUpdate and supabase from dependencies
 
   // Initial fetch
   useEffect(() => {

@@ -46,6 +46,7 @@ interface ClassroomCacheState {
   addCourseToCache: (spaceId: string, course: CourseDisplayData) => void;
   invalidateCache: (spaceId?: string) => void;
   updateCourseProgress: (spaceId: string, courseId: string, progress: number) => void;
+  forceRefreshCache: (spaceId: string, userId: string, ownerId?: string) => Promise<void>;
 }
 
 // POSTS PATTERN: Persistent cache utilities
@@ -110,14 +111,30 @@ const createTimeoutPromise = (timeoutMs: number, operation: string) => {
 
 const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
   spaceCache: new Map(),
-  CACHE_DURATION: 3 * 60 * 1000, // 3 minutes
+  CACHE_DURATION: 10 * 60 * 1000, // ✅ OPTIMIZED: Increased from 3 to 10 minutes
 
   getCourses: (spaceId) => {
-    const cache = get().spaceCache.get(spaceId);
-    if (!cache) return null;
+    const { spaceCache, CACHE_DURATION } = get();
+    const cache = spaceCache.get(spaceId);
     
-    const isExpired = Date.now() - cache.lastFetched > get().CACHE_DURATION;
-    if (isExpired) return null;
+    // ✅ OPTIMIZED: Removed forced cache invalidation for specific spaces
+    // This was causing unnecessary API calls and re-renders
+    
+    if (!cache) {
+      // Try fallback cache
+      const fallbackCourses = loadFallbackCache(spaceId);
+      if (fallbackCourses) {
+        log.debug('Hook', `✅ [ClassroomCache] Using fallback cache for space ${spaceId}`);
+        return fallbackCourses;
+      }
+      return null;
+    }
+    
+    const cacheAge = Date.now() - cache.lastFetched;
+    if (cacheAge > CACHE_DURATION) {
+      log.debug('Hook', `⏰ [ClassroomCache] Cache expired for space ${spaceId}, age: ${cacheAge}ms`);
+      return null;
+    }
     
     return cache.courses;
   },
@@ -133,7 +150,16 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
   },
 
   fetchCourses: async (spaceId, userId, ownerId) => {
+    log.debug('Hook', '🚀 [ClassroomCache] fetchCourses called:', { spaceId, userId, ownerId });
+    
     const { spaceCache } = get();
+    
+    // ✅ OPTIMIZED: Check if already loading to prevent duplicate requests
+    const currentCache = spaceCache.get(spaceId);
+    if (currentCache?.loading) {
+      log.debug('Hook', '⏳ [ClassroomCache] Already loading courses for space:', spaceId);
+      return;
+    }
     
     // POSTS PATTERN: Check localStorage cache FIRST before setting loading state
     try {
@@ -160,23 +186,71 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
     }
     
     // Set loading state only if we need to fetch from database
-    const currentCache = spaceCache.get(spaceId) || {
-      courses: [],
-      lastFetched: 0,
-      loading: false,
-      error: null,
-    };
-    
     const newCache = new Map(spaceCache);
-    newCache.set(spaceId, { ...currentCache, loading: true, error: null });
+    newCache.set(spaceId, { 
+      courses: currentCache?.courses || [],
+      lastFetched: currentCache?.lastFetched || 0,
+      loading: true, 
+      error: null 
+    });
     set({ spaceCache: newCache });
 
     try {
       // POSTS PATTERN: Increased timeout to match working queries
       const TIMEOUT_MS = 15000; // Increased from 4000 to match working queries
       
-      // Check if user is owner to determine query filter
-      const isOwner = userId === ownerId;
+      // Comprehensive ownership check instead of simple comparison
+      let isOwner = false;
+      let isSpaceAdmin = false;
+      
+      if (userId && ownerId) {
+        // Check if user is the space owner
+        isOwner = userId === ownerId;
+        
+        // Check if user is a space admin
+        if (!isOwner) {
+          try {
+            const { data: spaceMembership } = await (getSupabaseClient() as any)
+              .from('space_members')
+              .select('role, status')
+              .eq('space_id', spaceId)
+              .eq('user_id', userId)
+              .single();
+            
+            isSpaceAdmin = spaceMembership?.role === 'admin' && spaceMembership?.status === 'active';
+          } catch (error) {
+            // Ignore errors for membership check - user might not be a member
+            log.debug('Hook', 'User not a space member or error checking membership');
+          }
+        }
+        
+        // Check if user is a general admin
+        if (!isOwner && !isSpaceAdmin) {
+          try {
+            const { data: userProfile } = await (getSupabaseClient() as any)
+              .from('users')
+              .select('role')
+              .eq('id', userId)
+              .single();
+            
+            isOwner = userProfile?.role === 'admin';
+          } catch (error) {
+            log.debug('Hook', 'Error checking user role');
+          }
+        }
+      }
+      
+      // User can see draft courses if they're owner, space admin, or general admin
+      const canSeeDrafts = isOwner || isSpaceAdmin;
+      
+      log.debug('Hook', '🔍 [ClassroomCache] Ownership check:', {
+        userId,
+        ownerId,
+        isOwner,
+        isSpaceAdmin,
+        canSeeDrafts,
+        spaceId
+      });
       
       let coursesQuery = (getSupabaseClient() as any)
         .from('courses')
@@ -185,8 +259,8 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         )
         .eq('space_id', spaceId);
       
-      // Only filter by is_published if user is not the owner
-      if (!isOwner) {
+      // Only filter by is_published if user cannot see drafts
+      if (!canSeeDrafts) {
         coursesQuery = coursesQuery.eq('is_published', true);
       }
       
@@ -221,7 +295,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       // Calculate progress for courses the user has access to
       // New model: Users have access if they are space members, not if they are enrolled
       const courseProgressMap = new Map<string, number>();
-
+      
       // Check if user is a space member (has access to all courses)
       const { data: spaceMemberData, error: memberError } = await (getSupabaseClient() as any)
         .from('space_members')
@@ -232,83 +306,70 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         .maybeSingle();
 
       const isSpaceMember = !!spaceMemberData;
-
-      // Calculate progress if user has access (is owner or space member)
-      if (isOwner || isSpaceMember) {
+      
+      // Only calculate progress if user is a space member or can see drafts
+      if (isSpaceMember || canSeeDrafts) {
         try {
-          // Get all lesson IDs for all courses in this space
-          // Note: course_lessons doesn't have course_id directly, need to join through course_modules
-          const { data: courseLessons, error: lessonsError } = await (getSupabaseClient() as any)
-            .from('course_lessons')
-            .select(`
-              id,
-              course_modules!inner (
-                course_id
-              )
-            `)
-            .in('course_modules.course_id', courseIds);
-
-          if (lessonsError) {
-            log.warn('Hook', '❌ Error fetching course lessons for progress calculation:', lessonsError);
-          } else if (courseLessons && courseLessons.length > 0) {
-            // Group lessons by course
-            const lessonsByCourse = new Map<string, string[]>();
-            courseLessons.forEach(lesson => {
-              const courseId = lesson.course_modules?.course_id;
-              if (courseId && !lessonsByCourse.has(courseId)) {
-                lessonsByCourse.set(courseId, []);
+          // Batch query for lesson IDs
+          const { data: allLessonIds, error: lessonError } = await (getSupabaseClient() as any)
+            .from('lessons')
+            .select('id')
+            .in('course_id', courseIds);
+          
+          if (lessonError) {
+            log.warn('Hook', 'Error fetching lesson IDs:', lessonError);
+          } else if (allLessonIds && allLessonIds.length > 0) {
+            const lessonIds = allLessonIds.map(l => l.id);
+            
+            // Batch query for completed lessons
+            const { data: completedLessons, error: completionError } = await (getSupabaseClient() as any)
+              .from('lesson_completions')
+              .select('lesson_id')
+              .eq('user_id', userId)
+              .in('lesson_id', lessonIds);
+            
+            if (completionError) {
+              log.warn('Hook', 'Error fetching lesson completions:', completionError);
+            } else if (completedLessons) {
+              // Calculate progress for each course
+              const lessonCountByCourse = new Map<string, number>();
+              const completedCountByCourse = new Map<string, number>();
+              
+              // Count lessons per course
+              for (const lesson of allLessonIds) {
+                const courseId = coursesData.find(c => c.id === lesson.course_id)?.id;
+                if (courseId) {
+                  lessonCountByCourse.set(courseId, (lessonCountByCourse.get(courseId) || 0) + 1);
+                }
               }
-              if (courseId) {
-                lessonsByCourse.get(courseId)!.push(lesson.id);
-              }
-            });
-
-            // Get all lesson IDs for all courses
-            const allLessonIds = courseLessons.map(lesson => lesson.id);
-
-            if (allLessonIds.length > 0) {
-              // Fetch user's completed lessons
-              const { data: completedLessons, error: progressError } = await (getSupabaseClient() as any)
-                .from('lesson_completions')
-                .select('lesson_id, course_id')
-                .eq('user_id', userId)
-                .in('lesson_id', allLessonIds);
-
-              if (progressError) {
-                log.warn('Hook', '❌ Error fetching lesson completions for progress calculation:', progressError);
-              } else if (completedLessons) {
-                // Group completions by course
-                const completionsByCourse = new Map<string, string[]>();
-                completedLessons.forEach(completion => {
-                  const courseId = completion.course_id;
-                  if (!completionsByCourse.has(courseId)) {
-                    completionsByCourse.set(courseId, []);
+              
+              // Count completed lessons per course
+              for (const completion of completedLessons) {
+                const lesson = allLessonIds.find(l => l.id === completion.lesson_id);
+                if (lesson) {
+                  const courseId = coursesData.find(c => c.id === lesson.course_id)?.id;
+                  if (courseId) {
+                    completedCountByCourse.set(courseId, (completedCountByCourse.get(courseId) || 0) + 1);
                   }
-                  completionsByCourse.get(courseId)!.push(completion.lesson_id);
-                });
-
-                // Calculate progress for each course
-                courseIds.forEach(courseId => {
-                  const totalLessons = lessonsByCourse.get(courseId)?.length || 0;
-                  const completedLessonsCount = completionsByCourse.get(courseId)?.length || 0;
-                  
-                  if (totalLessons > 0) {
-                    const progressPercentage = Math.round((completedLessonsCount / totalLessons) * 100);
-                    courseProgressMap.set(courseId, progressPercentage);
-                  } else {
-                    courseProgressMap.set(courseId, 0);
-                  }
-                });
-
-                log.debug('Hook', '✅ [ClassroomCache] Progress calculated for courses:', {
-                  totalCourses: courseIds.length,
-                  totalLessons: allLessonIds.length,
-                  completedLessons: completedLessons.length,
-                  progressMap: Object.fromEntries(courseProgressMap),
-                  isOwner,
-                  isSpaceMember
-                });
+                }
               }
+              
+              // Calculate progress percentages
+              for (const courseId of courseIds) {
+                const totalLessons = lessonCountByCourse.get(courseId) || 0;
+                const completedLessons = completedCountByCourse.get(courseId) || 0;
+                const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+                courseProgressMap.set(courseId, progress);
+              }
+
+              log.debug('Hook', '✅ [ClassroomCache] Progress calculated for courses:', {
+                totalCourses: courseIds.length,
+                totalLessons: allLessonIds.length,
+                completedLessons: completedLessons.length,
+                progressMap: Object.fromEntries(courseProgressMap),
+                canSeeDrafts,
+                isSpaceMember
+              });
             }
           }
         } catch (progressError) {
@@ -332,13 +393,22 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         enrolled: false, // No longer based on enrollment
         students: 0, // No longer based on enrollment
         weeks: 0,
-        progress: isOwner || isSpaceMember ? (courseProgressMap.get(course.id) || 0) : undefined,
+        progress: canSeeDrafts || isSpaceMember ? (courseProgressMap.get(course.id) || 0) : undefined,
       }));
 
-      // Filter courses based on user permissions
-      const filteredCourses = isOwner 
+      // Filter courses based on user permissions using comprehensive ownership check
+      const filteredCourses = canSeeDrafts 
         ? displayData 
         : displayData.filter(course => course.is_published);
+      
+      // Log filtering results for debugging
+      log.debug('Hook', '🔍 [ClassroomCache] Course filtering:', {
+        totalCourses: displayData.length,
+        filteredCourses: filteredCourses.length,
+        canSeeDrafts,
+        draftCourses: displayData.filter(c => !c.is_published).map(c => ({ id: c.id, title: c.title })),
+        visibleDraftCourses: filteredCourses.filter(c => !c.is_published).map(c => ({ id: c.id, title: c.title }))
+      });
 
       // Update cache with successful data
       const successCache = new Map(get().spaceCache);
@@ -373,57 +443,6 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         return;
       }
 
-      // POSTS PATTERN: Hardcoded fallback for known space
-      if (spaceId === '235e68d1-89df-4d2d-8945-e7756d60de20') {
-        log.debug('Hook', `✅ [ClassroomCache] Using hardcoded fallback for nocode-architects`);
-        
-        const hardcodedCourses: CourseDisplayData[] = [
-          {
-            id: 'fallback-course-1',
-            title: 'Business Masterclass',
-            description: 'Comprehensive business training course',
-            access_type: 'open',
-            is_published: true,
-            currency: 'NGN',
-            creator_id: ownerId || '',
-            space_id: spaceId,
-            enrolled: true,
-            students: 1,
-            weeks: 8,
-            progress: 0,
-            short_id: 'bizmast', // ✅ FIX: Add short_id for new URL pattern
-          },
-          {
-            id: 'fallback-course-2', 
-            title: 'The Ultimate Guide',
-            description: 'Complete guide to success',
-            access_type: 'open',
-            is_published: true,
-            currency: 'NGN',
-            creator_id: ownerId || '',
-            space_id: spaceId,
-            enrolled: true,
-            students: 1,
-            weeks: 12,
-            progress: 0,
-            short_id: 'ultguid', // ✅ FIX: Add short_id for new URL pattern
-          }
-        ];
-        
-        const hardcodedCache = new Map(get().spaceCache);
-        hardcodedCache.set(spaceId, {
-          courses: hardcodedCourses,
-          lastFetched: Date.now(),
-          loading: false,
-          error: null,
-        });
-        set({ spaceCache: hardcodedCache });
-        
-        // Save hardcoded data to fallback cache
-        saveFallbackCache(spaceId, hardcodedCourses);
-        return;
-      }
-      
       // Final fallback: empty state with error
       const errorMessage = error instanceof Error ? error.message : "Failed to fetch courses";
       
@@ -544,6 +563,19 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       
       log.debug('Hook', `✅ [ClassroomCache] Updated progress for course ${courseId}: ${progress}%`);
     }
+  },
+
+  forceRefreshCache: async (spaceId, userId, ownerId) => {
+    log.debug('Hook', `🔄 [ClassroomCache] Force refreshing cache for space ${spaceId}`);
+    
+    // Clear the cache first
+    const { invalidateCache, fetchCourses } = get();
+    invalidateCache(spaceId);
+    
+    // Fetch fresh data with new ownership context
+    await fetchCourses(spaceId, userId, ownerId);
+    
+    log.debug('Hook', `✅ [ClassroomCache] Force refresh completed for space ${spaceId}`);
   },
 }));
 

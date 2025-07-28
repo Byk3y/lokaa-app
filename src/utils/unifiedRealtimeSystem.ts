@@ -14,6 +14,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { advancedQueryEngine } from './advancedQueryEngine';
 import { pageVisibilityManager } from './pageVisibilityManager';
 import { devLogger } from './developmentLogger';
+import { globalCache } from './globalCacheCoordinator';
 
 interface RealtimeSubscription {
   id: string;
@@ -296,11 +297,11 @@ class UnifiedRealtimeSystem {
       }
 
     } catch (error) {
-      devLogger.error('RealtimeSystem', `Error in callback for ${subscription.id}:`, error);
+              devLogger.warn('RealtimeSystem', `Error in callback for ${subscription.id}:`, error);
       subscription.retryCount++;
       
       if (subscription.retryCount > 3) {
-        devLogger.error('RealtimeSystem', `Disabling subscription ${subscription.id} due to repeated errors`);
+        devLogger.warn('RealtimeSystem', `Disabling subscription ${subscription.id} due to repeated errors`);
         subscription.isActive = false;
       }
     }
@@ -400,7 +401,7 @@ class UnifiedRealtimeSystem {
     const currentAttempts = this.reconnectAttempts.get(channelKey) || 0;
     
     if (currentAttempts >= this.config.maxReconnectAttempts) {
-      devLogger.error('RealtimeSystem', `❌ Max reconnection attempts reached for ${channelKey}`);
+      devLogger.warn('RealtimeSystem', `❌ Max reconnection attempts reached for ${channelKey}`);
       this.connectionStatus.set(channelKey, 'error');
       
       // Update connection quality
@@ -409,6 +410,9 @@ class UnifiedRealtimeSystem {
         metrics.quality = 'poor';
         metrics.packetsLost++;
       }
+
+      // CRITICAL FIX: Invalidate related caches when realtime fails
+      this.invalidateRelatedCaches(channelKey);
       return;
     }
 
@@ -434,6 +438,54 @@ class UnifiedRealtimeSystem {
     setTimeout(() => {
       this.attemptReconnection(channelKey);
     }, delay);
+  }
+
+  /**
+   * Invalidate related caches when realtime connection fails
+   */
+  private invalidateRelatedCaches(channelKey: string): void {
+    const [spaceId, table] = channelKey.split('_');
+    
+    devLogger.log('RealtimeSystem', `🗑️ Invalidating caches for failed realtime: ${channelKey}`);
+    
+    // Invalidate caches based on table type
+    switch (table) {
+      case 'posts':
+        globalCache.invalidatePattern(`posts:${spaceId}:*`);
+        globalCache.invalidatePattern(`posts_count:${spaceId}`);
+        devLogger.log('RealtimeSystem', `🗑️ Invalidated posts cache for space ${spaceId}`);
+        break;
+        
+      case 'notifications':
+        globalCache.invalidatePattern(`notifications:*`);
+        devLogger.log('RealtimeSystem', `🗑️ Invalidated notifications cache`);
+        break;
+        
+      case 'chat_messages':
+        globalCache.invalidatePattern(`chat:*`);
+        globalCache.invalidatePattern(`conversations:*`);
+        devLogger.log('RealtimeSystem', `🗑️ Invalidated chat cache`);
+        break;
+        
+      case 'space_members':
+        globalCache.invalidatePattern(`members:${spaceId}:*`);
+        globalCache.invalidatePattern(`memberCounts:${spaceId}`);
+        devLogger.log('RealtimeSystem', `🗑️ Invalidated members cache for space ${spaceId}`);
+        break;
+        
+      case 'course_lessons':
+      case 'courses':
+        globalCache.invalidatePattern(`classroom:${spaceId}:*`);
+        globalCache.invalidatePattern(`course:*`);
+        devLogger.log('RealtimeSystem', `🗑️ Invalidated classroom cache for space ${spaceId}`);
+        break;
+        
+      default:
+        // Invalidate all space-related caches as fallback
+        globalCache.invalidatePattern(`${spaceId}:*`);
+        devLogger.log('RealtimeSystem', `🗑️ Invalidated all caches for space ${spaceId}`);
+        break;
+    }
   }
 
   /**
@@ -484,29 +536,147 @@ class UnifiedRealtimeSystem {
    * Setup global handlers for system events
    */
   private setupGlobalHandlers(): void {
-    // Handle page visibility changes
+    // Handle page visibility changes with enhanced logic
     if (typeof document !== 'undefined') {
+      let wasHidden = false;
+      let hideStartTime = 0;
+      
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
+        const isHidden = document.hidden;
+        
+        if (isHidden && !wasHidden) {
+          // Page just became hidden (minimized, tab switch, etc.)
+          wasHidden = true;
+          hideStartTime = Date.now();
+          devLogger.log('RealtimeSystem', '👁️ Page hidden - pausing connections for optimization');
           this.pauseConnections();
-        } else {
-          this.resumeConnections();
+        } else if (!isHidden && wasHidden) {
+          // Page just became visible (restored, tab switch back, etc.)
+          const hiddenDuration = Date.now() - hideStartTime;
+          wasHidden = false;
+          
+          devLogger.log('RealtimeSystem', `👁️ Page visible after ${hiddenDuration}ms - resuming connections`);
+          
+          // Enhanced resume logic for browser restore
+          this.resumeConnectionsWithRetry();
         }
       });
-    }
 
-    // Handle network changes
-    if (typeof window !== 'undefined') {
+      // Handle online/offline events
       window.addEventListener('online', () => {
-        devLogger.log('RealtimeSystem', '🌐 Network back online, resuming connections');
-        this.resumeConnections();
+        devLogger.log('RealtimeSystem', '📶 Network online, resuming connections');
+        this.resumeConnectionsWithRetry();
       });
 
       window.addEventListener('offline', () => {
         devLogger.log('RealtimeSystem', '📴 Network offline, pausing connections');
         this.pauseConnections();
       });
+
+      // Handle focus/blur events for additional context
+      window.addEventListener('blur', () => {
+        devLogger.log('RealtimeSystem', '🔍 Window lost focus - optimizing connections');
+        this.optimizeForBackground();
+      });
+
+      window.addEventListener('focus', () => {
+        devLogger.log('RealtimeSystem', '🔍 Window gained focus - restoring full connectivity');
+        this.restoreFullConnectivity();
+      });
     }
+  }
+
+  /**
+   * Resume connections with retry logic for browser restore
+   */
+  private resumeConnectionsWithRetry(): void {
+    if (!this.backgroundOptimizationActive) return;
+    
+    this.backgroundOptimizationActive = false;
+    devLogger.log('RealtimeSystem', '▶️ Resuming real-time connections with retry logic');
+    
+    // Restore batch frequency
+    this.config.batchDelay /= 2;
+    
+    // Resume heartbeats
+    this.connectionMetrics.forEach((_, channelKey) => {
+      if (this.config.enableHeartbeat) {
+        this.setupHeartbeat(channelKey);
+      }
+    });
+    
+    // Enhanced reconnection logic for browser restore
+    let reconnectionAttempts = 0;
+    const maxReconnectionAttempts = 3;
+    
+    const attemptReconnections = () => {
+      const failedConnections = Array.from(this.connectionStatus.entries())
+        .filter(([_, status]) => status === 'error' || status === 'disconnected');
+      
+      if (failedConnections.length === 0) {
+        devLogger.log('RealtimeSystem', '✅ All connections restored successfully');
+        return;
+      }
+      
+      if (reconnectionAttempts >= maxReconnectionAttempts) {
+        devLogger.warn('RealtimeSystem', `❌ Failed to restore ${failedConnections.length} connections after ${maxReconnectionAttempts} attempts`);
+        // Invalidate caches for failed connections
+        failedConnections.forEach(([channelKey, _]) => {
+          this.invalidateRelatedCaches(channelKey);
+        });
+        return;
+      }
+      
+      reconnectionAttempts++;
+      devLogger.log('RealtimeSystem', `🔄 Attempting to restore ${failedConnections.length} connections (attempt ${reconnectionAttempts}/${maxReconnectionAttempts})`);
+      
+      failedConnections.forEach(([channelKey, _]) => {
+        this.attemptReconnection(channelKey);
+      });
+      
+      // Retry after a delay
+      setTimeout(attemptReconnections, 2000 * reconnectionAttempts);
+    };
+    
+    // Start reconnection attempts
+    setTimeout(attemptReconnections, 1000);
+  }
+
+  /**
+   * Optimize connections for background operation
+   */
+  private optimizeForBackground(): void {
+    devLogger.log('RealtimeSystem', '🔧 Optimizing connections for background operation');
+    
+    // Reduce heartbeat frequency
+    this.heartbeatTimers.forEach(timer => clearInterval(timer));
+    this.heartbeatTimers.clear();
+    
+    // Switch to battery mode
+    this.switchToPerformanceMode('battery');
+    
+    // Increase batch delays
+    this.config.batchDelay *= 1.5;
+  }
+
+  /**
+   * Restore full connectivity when window gains focus
+   */
+  private restoreFullConnectivity(): void {
+    devLogger.log('RealtimeSystem', '🔧 Restoring full connectivity');
+    
+    // Restore heartbeat frequency
+    this.connectionMetrics.forEach((_, channelKey) => {
+      if (this.config.enableHeartbeat) {
+        this.setupHeartbeat(channelKey);
+      }
+    });
+    
+    // Switch back to standard mode
+    this.switchToPerformanceMode('standard');
+    
+    // Restore batch delays
+    this.config.batchDelay /= 1.5;
   }
 
   /**
@@ -520,7 +690,7 @@ class UnifiedRealtimeSystem {
         const usedMemory = memory.usedJSHeapSize;
         
         if (usedMemory > this.config.performanceThresholds.memoryError) {
-          devLogger.error('RealtimeSystem', `🚨 Critical memory usage: ${(usedMemory / 1024 / 1024).toFixed(2)}MB`);
+          devLogger.warn('RealtimeSystem', `🚨 Critical memory usage: ${(usedMemory / 1024 / 1024).toFixed(2)}MB`);
           this.switchToPerformanceMode('battery');
         } else if (usedMemory > this.config.performanceThresholds.memoryWarning) {
           devLogger.warn('RealtimeSystem', `⚠️ High memory usage: ${(usedMemory / 1024 / 1024).toFixed(2)}MB`);
@@ -541,7 +711,7 @@ class UnifiedRealtimeSystem {
     // Register with page visibility manager
     pageVisibilityManager.addVisibilityListener((isVisible) => {
       if (isVisible) {
-        this.resumeConnections();
+        this.resumeConnectionsWithRetry();
       } else {
         this.pauseConnections();
       }
@@ -569,32 +739,7 @@ class UnifiedRealtimeSystem {
     }
   }
 
-  /**
-   * Resume connections from background optimization
-   */
-  private resumeConnections(): void {
-    if (!this.backgroundOptimizationActive) return;
-    
-    this.backgroundOptimizationActive = false;
-    devLogger.log('RealtimeSystem', '▶️ Resuming real-time connections from background');
-    
-    // Restore batch frequency
-    this.config.batchDelay /= 2;
-    
-    // Resume heartbeats
-    this.connectionMetrics.forEach((_, channelKey) => {
-      if (this.config.enableHeartbeat) {
-        this.setupHeartbeat(channelKey);
-      }
-    });
-    
-    // Check and reconnect any failed connections
-    this.connectionStatus.forEach((status, channelKey) => {
-      if (status === 'error' || status === 'disconnected') {
-        this.attemptReconnection(channelKey);
-      }
-    });
-  }
+
 
   /**
    * Calculate connection quality based on metrics

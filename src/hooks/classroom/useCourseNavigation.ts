@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { log } from '@/utils/logger';
@@ -48,9 +48,15 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
   const isMobile = useIsMobile();
   const mdParam = searchParams.get('md');
   
-  // Mobile view states
-  const showCourseOverview = isMobile && (!mdParam || mdParam === 'menu');
-  const showLessonView = isMobile && mdParam && mdParam !== 'menu';
+  // Mobile view states - memoized to prevent unnecessary re-renders
+  const showCourseOverview = useMemo(() => 
+    isMobile && (!mdParam || mdParam === 'menu'), 
+    [isMobile, mdParam]
+  );
+  const showLessonView = useMemo(() => 
+    isMobile && mdParam && mdParam !== 'menu', 
+    [isMobile, mdParam]
+  );
   
   // Local state
   const [selectedLesson, setSelectedLessonState] = useState<CourseLesson | null>(null);
@@ -124,8 +130,12 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
     onLessonChange?.(lesson);
   }, [onLessonChange]);
   
-  // Auto-select first lesson if none selected (Desktop only)
+  // DISABLED: Auto-select first lesson if none selected (Desktop only)
+  // This was causing automatic navigation to course details from classroom overview
   useEffect(() => {
+    // DISABLED: Completely disable auto-selection to prevent unwanted navigation
+    if (true) return; // Early exit to disable entire auto-selection logic
+    
     // Skip auto-selection on mobile - let mobile views handle their own logic
     if (isMobile) return;
 
@@ -186,9 +196,11 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
     }
   }, [course, selectedLesson, isMobile, setSelectedLesson]);
 
-  // Mobile entry point handling - redirect to menu view if no md parameter
+  // DISABLED: Mobile entry point handling - redirect to menu view if no md parameter
+  // This was causing unwanted automatic navigation from classroom overview
   useEffect(() => {
-    if (isMobile && course && subdomain && course.slug && !mdParam) {
+    // DISABLED: Commenting out automatic mobile redirect to prevent unwanted navigation
+    if (false && isMobile && course && subdomain && course.slug && !mdParam) {
       log.debug('Hook', '🎓 [useCourseNavigation] Mobile entry point - redirecting to menu');
       syncUrlWithMenu();
     }

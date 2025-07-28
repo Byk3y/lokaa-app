@@ -239,7 +239,7 @@ const MobileLessonView: React.FC<MobileLessonViewProps> = ({
       </div>
 
       {/* Scrollable Content - starts after fixed header */}
-      <div className="pt-12 pb-20">
+      <div className="pt-0 pb-20">
         {/* Lesson Title */}
         <div className="px-4 pt-2 pb-2">
           <div className="flex items-center gap-3 flex-wrap">
@@ -256,13 +256,13 @@ const MobileLessonView: React.FC<MobileLessonViewProps> = ({
 
         {/* Video Content */}
         {VideoContentExtractor.hasVideo(lesson) && (
-          <div className="px-4 mb-3">
+          <div className="px-4 mb-1">
             {renderVideoContent()}
           </div>
         )}
 
         {/* Navigation Buttons - Below Video */}
-        <div className="flex justify-between items-center px-4 mb-6">
+        <div className="flex justify-between items-center px-4 mb-2">
           <button 
             onClick={onBackToMenu}
             className="text-blue-600 font-medium hover:text-blue-700 transition-colors"

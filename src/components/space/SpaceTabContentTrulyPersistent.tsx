@@ -50,30 +50,26 @@ const SpaceTabContentTrulyPersistent = () => {
   // Revolutionary URL-independent tab management
   const { currentTab, isTabActive } = usePersistentTabs(subdomain);
   
-  // ✅ FIX: Check if we're on a course detail route (new pattern only)
-  const isCourseDetailRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  // ✅ ENHANCED FIX: More restrictive course detail route detection
+  // FIXED: Use window.location.pathname directly to avoid stale React Router location
+  const currentPathname = window.location.pathname;
+  const isCourseDetailRoute = currentPathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  const isOnClassroomOverviewRoute = currentPathname.match(/^\/[^\/]+\/space\/classroom$/);
   
-  // 🚨 CRITICAL FIX: Prevent race condition between tab state and URL state
-  // Only show course detail if we're clearly on a course detail route
+  // 🚨 CRITICAL FIX: Use persistent tab state as single source of truth
+  // Only show course detail if we're clearly on a course detail route AND not on overview
   const isClassroomTabActive = isTabActive('classroom');
-  const isOnClassroomRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom$/);
   
-  // Simple logic: Only show course detail if URL clearly indicates a course detail route
-  // AND we're not in a transition state (classroom tab active but URL not synced)
-  const shouldShowCourseDetail = isCourseDetailRoute;
+  // FIXED: Use persistent tab state instead of URL parsing to avoid race conditions
+  // Only show course detail if classroom tab is active and we have a course slug in the URL
+  const hasCourseSlugInUrl = currentPathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  const shouldShowCourseDetail = !!(
+    hasCourseSlugInUrl &&
+    isClassroomTabActive &&
+    currentTab === 'classroom'
+    // Removed URL-based checks to prevent stale pathname issues during navigation
+  );
   
-  // Debug logging for course detail route detection
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [SpaceTabContentTrulyPersistent] Route check:', {
-      pathname: location.pathname,
-      isCourseDetailRoute: !!isCourseDetailRoute,
-      isClassroomTabActive,
-      isOnClassroomRoute: !!isOnClassroomRoute,
-      shouldShowCourseDetail,
-      isTabActive: isTabActive('classroom')
-    });
-  }
-
   // Basic access check - SpaceProtectedRoute has already verified access
   const shouldShowContent = subdomain && user;
 
@@ -88,40 +84,14 @@ const SpaceTabContentTrulyPersistent = () => {
   
   // Track tab changes and clear course state when switching to classroom tab
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔄 [SpaceTabContentTrulyPersistent] Tab changed to:', currentTab);
-    }
-    
-    // CRITICAL FIX: Clear course selection state when switching to classroom tab
-    // This ensures classroom tab always shows course cards, not auto-navigates to last viewed course
-    if (currentTab === 'classroom') {
-      // IMMEDIATE CLEAR: Clear any saved lesson state from localStorage BEFORE any components can read it
+    if (currentTab === 'classroom' && !shouldShowCourseDetail) {
+      // Clear any saved lesson state from localStorage
       const courseIds = Object.keys(localStorage).filter(key => key.startsWith('lastViewedLesson_'));
       courseIds.forEach(key => {
         localStorage.removeItem(key);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🧹 [SpaceTabContentTrulyPersistent] Cleared saved lesson state:', key);
-        }
       });
-      
-      // Ensure we're on the classroom overview route, not a course detail route
-      const currentPath = window.location.pathname;
-      const isOnClassroomOverview = currentPath.match(/^\/[^\/]+\/space\/classroom$/);
-      const isOnCourseDetail = currentPath.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/) || 
-                               currentPath.match(/^\/[^\/]+\/course\/[^\/]+$/);
-      
-      if (!isOnClassroomOverview && isOnCourseDetail) {
-        // Navigate to classroom overview if we're on a course detail route
-        const subdomain = window.location.pathname.split('/')[1];
-        const newUrl = `/${subdomain}/space/classroom`;
-        window.history.replaceState(null, '', newUrl);
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔄 [SpaceTabContentTrulyPersistent] Redirected to classroom overview:', newUrl);
-        }
-      }
     }
-  }, [currentTab]);
+  }, [currentTab, location.pathname, isClassroomTabActive, shouldShowCourseDetail]);
   
   // Common props for all tabs
   const tabProps = {

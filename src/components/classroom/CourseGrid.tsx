@@ -38,7 +38,7 @@ interface CourseGridProps {
   primaryColor: string;
 }
 
-export const CourseGrid = function CourseGrid({
+export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
   courses,
   searchTerm,
   isLoading,
@@ -58,10 +58,15 @@ export const CourseGrid = function CourseGrid({
   isProcessingEnrollment,
   primaryColor,
 }) {
-  // Debug logging (only on significant changes)
-  if (process.env.NODE_ENV === 'development' && courses?.length > 0) {
-    console.log('🎓 [CourseGrid] Courses loaded:', courses.length);
-  }
+  // ✅ OPTIMIZED: Reduced debug logging frequency
+  // Only log when courses actually change, not on every render
+  const prevCoursesLength = React.useRef(courses?.length || 0);
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && courses?.length !== prevCoursesLength.current) {
+      console.log('🎓 [CourseGrid] Courses loaded:', courses.length);
+      prevCoursesLength.current = courses?.length || 0;
+    }
+  }, [courses?.length]);
   
   // Component rendered
   // Memoize search filtering for better performance
@@ -146,4 +151,4 @@ export const CourseGrid = function CourseGrid({
       )}
     </div>
   );
-}; 
+}); 

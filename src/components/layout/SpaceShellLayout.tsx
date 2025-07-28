@@ -42,11 +42,14 @@ interface SpaceShellLayoutProps {
 }
 
 export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutProps) {
-  const { subdomain, tab } = useParams<{ subdomain: string; tab?: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useOptimizedAuth();
+  const { subdomain } = useParams<{ subdomain: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
   const isInitialMount = useRef(true);
+  
+  // **FIX**: Track which spaces have had categories verified to prevent multiple verifications
+  const verifiedSpacesRef = useRef<Set<string>>(new Set());
   
   // State needed for the shell
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,12 +62,16 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
     if (process.env.NODE_ENV === 'development') {
       const extractedTab = extractTabFromPathname(location.pathname);
       if (activeTab !== extractedTab) {
-        console.log('🔍 [SpaceShellLayout] Tab state mismatch detected:', {
-          activeTab,
-        pathname: location.pathname,
-        extractedTab,
-          subdomain
-      });
+        // **FIX**: Only log mismatch if it's not a temporary state during navigation
+        const isDuringNavigation = location.pathname.includes('/space/classroom') && activeTab === 'feed';
+        if (!isDuringNavigation) {
+          console.log('🔍 [SpaceShellLayout] Tab state mismatch detected:', {
+            activeTab,
+            pathname: location.pathname,
+            extractedTab,
+            subdomain
+          });
+        }
       }
     }
   }, [activeTab, location.pathname, subdomain]);
@@ -154,8 +161,17 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
       
       // 🛡️ SAFEGUARD: Verify and create missing General Discussion category
       const verifySpaceCategories = async () => {
+        // **FIX**: Only verify if we haven't already verified this space
+        if (verifiedSpacesRef.current.has(storeSpace.id)) {
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Categories already verified for space ${storeSpace.id}`);
+          return;
+        }
+        
         try {
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Verifying categories for space ${storeSpace.id}`);
+          
+          // Mark this space as verified to prevent duplicate verifications
+          verifiedSpacesRef.current.add(storeSpace.id);
           
           // Simple cache invalidation to ensure fresh data
           if ((window as any).useCategoriesCache) {
@@ -211,7 +227,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
     
     // Debug logging for development
     if (process.env.NODE_ENV === 'development') {
-      debugTabExtraction(location.pathname, tab, activeTab);
+      debugTabExtraction(location.pathname, undefined, activeTab);
     }
     
     // Only update if there's a significant mismatch AND we're not in a navigation transition
@@ -354,7 +370,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
       )}
       
       {/* REVOLUTIONARY: Truly persistent component with URL-independent tab management */}
-      <div className="px-0 sm:px-4 pt-4 sm:pt-6 pb-16 sm:pb-6">
+      <div className="px-0 sm:px-4 pt-0 sm:pt-6 pb-16 sm:pb-6">
         <SpaceTabContentTrulyPersistent />
       </div>
       

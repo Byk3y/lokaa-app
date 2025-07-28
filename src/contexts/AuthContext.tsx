@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [routingInProgress, setRoutingInProgress] = useState(false);
   const preloadSpaces = useUserSpacesStore(state => state.preloadSpaces);
 
-  // Initialize auth state
+  // Initialize auth state - memoized to prevent unnecessary re-creation
   const initializeAuth = useCallback(async (maxRetries = 3) => {
     let retryCount = 0;
     
