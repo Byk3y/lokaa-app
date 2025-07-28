@@ -8,9 +8,8 @@ import type { CourseDetailData, CourseLesson } from '@/types/classroom/courseDet
 // Mock hooks
 vi.mock('@/hooks/classroom/useCourseNavigation');
 vi.mock('@/hooks/classroom/useCourseDetail');
-vi.mock('@/hooks/useMediaQuery', () => ({
-  useMediaQuery: vi.fn(() => true), // Default to mobile
-}));
+vi.mock('@/hooks/useMediaQuery');
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 // Mock localStorage
 const localStorageMock = {
@@ -132,7 +131,6 @@ describe('Mobile Navigation Tests', () => {
         value: 375,
       });
 
-      const { useMediaQuery } = require('@/hooks/useMediaQuery');
       vi.mocked(useMediaQuery).mockReturnValue(true);
 
       expect(useMediaQuery('(max-width: 768px)')).toBe(true);
@@ -145,7 +143,6 @@ describe('Mobile Navigation Tests', () => {
         value: 1024,
       });
 
-      const { useMediaQuery } = require('@/hooks/useMediaQuery');
       vi.mocked(useMediaQuery).mockReturnValue(false);
 
       expect(useMediaQuery('(max-width: 768px)')).toBe(false);
