@@ -64,7 +64,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
   const storeCourses = useClassroomCourses();
   
   // Get classroom cache for progress updates
-  const { updateCourseProgress } = useCachedClassroom(space?.id, user?.id, space?.owner_id);
+  const { updateCourseProgress: updateCachedProgress } = useCachedClassroom(space?.id, user?.id, space?.owner_id);
   
   // Use the new course detail hook
   const {
@@ -76,6 +76,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     refetch,
     silentRefetch,
     invalidateCache,
+    updateCourseProgress,
     retryCount,
     isOffline
   } = useCourseDetail({
@@ -84,17 +85,30 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     retryOnError: true
   });
   
-  // Local optimistic course state for mobile components
+  // Local optimistic course state for mobile components (kept for mobile fallback)
   const [optimisticCourse, setOptimisticCourse] = useState<CourseDetailData | null>(null);
 
   // Use the new progress management hook
   const { markLessonAsDone, isUpdating: isProgressUpdating, error: progressError } = useCourseProgress({
     onOptimisticUpdate: (updatedCourse) => {
-      setOptimisticCourse(updatedCourse);
-      console.log('🎓 [CourseDetailView] Optimistic update received from hook:', {
+      console.log('🎓 [CourseDetailView] Optimistic update received from progress hook:', {
         progress: updatedCourse.progress,
         lessonCount: updatedCourse.modules?.flatMap(m => m.lessons)?.length
       });
+      
+      // Update the course detail hook immediately for instant UI feedback
+      updateCourseProgress(updatedCourse);
+      
+      // Also update the cached progress
+      updateCachedProgress?.(updatedCourse);
+      
+      // Set optimistic course for mobile components
+      setOptimisticCourse(updatedCourse);
+    },
+    onProgressUpdate: () => {
+      console.log('🎓 [CourseDetailView] Progress update callback triggered, refreshing course data');
+      // Refresh course data after database update is complete
+      refetch();
     }
   });
 
@@ -234,7 +248,7 @@ const CourseDetailView: React.FC<CourseDetailViewProps> = ({
     }
   }, [courseId, moduleId]); // Refetch when courseId or moduleId changes
 
-  // Update optimistic course state when hook course data changes
+  // Update optimistic course state when hook course data changes (for mobile fallback)
   useEffect(() => {
     if (course) {
       setOptimisticCourse(course);
