@@ -313,20 +313,34 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
             
             {/* Space branding */}
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
-                <span className="text-sm font-medium text-gray-600">S</span>
-              </div>
+              {space?.icon_url ? (
+                <img 
+                  src={space.icon_url} 
+                  alt={space.name}
+                  className="w-8 h-8 bg-gray-200 rounded-lg object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-sm font-medium text-gray-600">
+                    {space?.name?.charAt(0).toUpperCase() || 'S'}
+                  </span>
+                </div>
+              )}
               <span className="font-bold text-gray-900 truncate max-w-[120px]">
-                Loading...
+                {space?.name || 'Space'}
               </span>
             </div>
           </div>
         </div>
         
-        {/* Mobile Loading Spinner */}
-        <div className="flex-1 flex items-center justify-center">
+        {/* Mobile Loading Spinner at Top */}
+        <div className="flex justify-center py-8 border-b border-gray-100">
           <div className="w-8 h-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
         </div>
+        
+        {/* Empty content area */}
+        <div className="flex-1"></div>
       </div>
     );
   }
