@@ -227,10 +227,31 @@ const LessonContent: React.FC<LessonContentProps> = ({
     }
 
     try {
-      // Update the lesson with the edited content and title
+      const finalContent = content || editingContent;
+      
+      // Extract video URL from HTML content if present
+      let videoUrl: string | null = null;
+      if (finalContent) {
+        // Look for YouTube embed URLs in iframe src attributes
+        const iframeMatch = finalContent.match(/src=["']([^"']*youtube\.com\/embed\/[^"']*)["']/) ||
+                            finalContent.match(/src=([^\s>]*youtube\.com\/embed\/[^\s>]*)/);
+        
+        if (iframeMatch && iframeMatch[1]) {
+          videoUrl = iframeMatch[1];
+        } else {
+          // Look for direct YouTube URLs in the content
+          const youtubeMatch = finalContent.match(/(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[^\s"']+)/);
+          if (youtubeMatch) {
+            videoUrl = youtubeMatch[1];
+          }
+        }
+      }
+
+      // Update the lesson with the edited content, title, and video URL
       await onUpdateLesson(lesson.id, { 
         title: title || lesson.title,
-        content_text: content || editingContent 
+        content_text: finalContent,
+        content_url: videoUrl || null // Save video URL to content_url field
       });
       
       setIsEditing(false);

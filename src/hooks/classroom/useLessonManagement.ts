@@ -7,6 +7,7 @@ import type { CourseDetailData, CourseLesson } from '@/types/classroom/courseDet
 interface LessonUpdates {
   title?: string;
   content_text?: string;
+  content_url?: string | null;
   is_published?: boolean;
 }
 
@@ -256,6 +257,15 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
             .eq('id', lessonId);
           if (error) throw error;
         }
+      }
+
+      // Update content_url if provided
+      if (updates.content_url !== undefined) {
+        const { error } = await supabase
+          .from('course_lessons')
+          .update({ content_url: updates.content_url })
+          .eq('id', lessonId);
+        if (error) throw error;
       }
 
       // Update publish status if provided
