@@ -358,3 +358,4 @@ export const useLessonStore = create<LessonStore>((set, get) => ({
 - Document architectural decisions
 - Follow the established patterns in the codebase
 - When in doubt, ask for review or clarification 
+- the fewer lines of code, the better

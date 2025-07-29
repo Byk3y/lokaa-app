@@ -190,7 +190,6 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     newPageTitle,
     newPageContent,
     isSaving,
-    isMigrating,
     handleCreateNewPage,
     handleCancelCreate,
     handleSaveNewPage,

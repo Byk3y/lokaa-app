@@ -88,20 +88,14 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   const {
     fetchCourseDetails: fetchCourseData,
     refetch: refetchCourse,
-    silentRefetch: silentRefetchCourse,
     fetchingLoading,
-    loadingPhase,
     fetchingError,
-    retryCount,
     lastFetchedCourse
   } = useCourseFetching({
-    enableLogging: true,
-    enableMobileOptimizations,
-    retryOnError,
-    enableOfflineSupport
+    enableLogging: true
   });
 
-  // PROGRESSIVE LOADING: Main fetch function that loads data in phases
+  // Simplified fetch function 
   const fetchCourseDetails = useCallback(async (
     courseId: string, 
     moduleId?: string
@@ -109,7 +103,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     try {
       setCurrentCourseId(courseId);
       
-      log.debug('Hook', `🎓 [useCourseDetail] Starting progressive fetch for course: ${courseId}`);
+      log.debug('Hook', `🎓 [useCourseDetail] Fetching course: ${courseId}`);
       
       // Check cache first
       const cachedCourse = getCachedCourse(courseId);
@@ -119,100 +113,25 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
         return cachedCourse;
       }
 
-      // If offline and no cache, show appropriate error
+      // If offline and no cache, return null
       if (isOffline && enableOfflineSupport) {
-        const offlineError = 'No cached data available offline. Please check your connection.';
         log.warn('Hook', `🎓 [useCourseDetail] Offline mode - no cached data for course: ${courseId}`);
         return null;
       }
 
-      // PHASE 1: Load course metadata only (fast - under 500ms)
-      log.debug('Hook', `🎓 [useCourseDetail] Phase 1: Loading course metadata for: ${courseId}`);
-      const courseMetadata = await fetchCourseData({
-        courseId,
-        moduleId,
-        enableMobileOptimizations: true, // Force mobile optimizations
-        retryOnError,
-        enableOfflineSupport,
-        loadMetadataOnly: true // New flag to load only metadata
-      });
-
-      if (!courseMetadata) {
-        log.error('Hook', `🎓 [useCourseDetail] Failed to fetch course metadata: ${courseId}`);
+      // Fetch course data
+      const courseData = await fetchCourseData({ courseId, moduleId });
+      if (!courseData) {
+        log.error('Hook', `🎓 [useCourseDetail] Failed to fetch course: ${courseId}`);
         return null;
       }
 
-      // PHASE 2: Show course overview immediately with metadata
-      log.debug('Hook', `🎓 [useCourseDetail] Phase 2: Setting course metadata for immediate display: ${courseId}`);
-      setCourse(courseMetadata);
+      setCourse(courseData);
+      setCachedCourse(courseId, courseData);
       
-      // PHASE 3: Load lesson list in background (non-blocking)
-      log.debug('Hook', `🎓 [useCourseDetail] Phase 3: Loading lesson list in background for: ${courseId}`);
-      const lessonListPromise = fetchCourseData({
-        courseId,
-        moduleId,
-        enableMobileOptimizations: true,
-        retryOnError,
-        enableOfflineSupport,
-        loadLessonListOnly: true // New flag to load only lesson list
-      });
-
-      // PHASE 4: Load progress data in background (non-blocking)
-      let progressPromise: Promise<any> | null = null;
-      if (user?.id) {
-        log.debug('Hook', `🎓 [useCourseDetail] Phase 4: Loading progress data in background for: ${courseId}`);
-        progressPromise = calculateProgressFromCourse(courseMetadata).catch(error => {
-          log.warn('Hook', `🎓 [useCourseDetail] Background progress calculation failed for course ${courseId}:`, error);
-          return null;
-        });
-      }
-
-      // PHASE 5: Wait for lesson list and update course data
-      try {
-        const lessonListData = await lessonListPromise;
-        if (lessonListData) {
-          log.debug('Hook', `🎓 [useCourseDetail] Phase 5: Updating course with lesson list for: ${courseId}`);
-          const updatedCourse = { ...courseMetadata, ...lessonListData };
-          setCourse(updatedCourse);
-          
-          // PHASE 6: Update with progress data when it arrives
-          if (progressPromise) {
-            progressPromise.then(progress => {
-              if (progress) {
-                log.debug('Hook', `🎓 [useCourseDetail] Phase 6: Updating course with progress data for: ${courseId}`);
-                const finalCourse = {
-                  ...updatedCourse,
-                  progress: progress.progressPercentage,
-                  modules: updatedCourse.modules?.map(module => ({
-                    ...module,
-                    lessons: module.lessons?.map(lesson => ({
-                      ...lesson,
-                      completed: progress.completedLessonIds.has(lesson.id)
-                    })) || []
-                  })) || []
-                };
-                setCourse(finalCourse);
-                setCachedCourse(courseId, finalCourse);
-              }
-            });
-          } else {
-            setCachedCourse(courseId, updatedCourse);
-          }
-          
-          return updatedCourse;
-        }
-      } catch (lessonError) {
-        log.warn('Hook', `🎓 [useCourseDetail] Background lesson list loading failed for course ${courseId}:`, lessonError);
-        // Return course metadata even if lesson list fails
-        setCachedCourse(courseId, courseMetadata);
-        return courseMetadata;
-      }
-      
-      log.debug('Hook', `🎓 [useCourseDetail] Progressive fetch completed for: ${courseId}`);
-      return courseMetadata;
+      return courseData;
       
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to fetch course details';
       log.error('Hook', `🎓 [useCourseDetail] Error in fetchCourseDetails for course ${courseId}:`, error);
       return null;
     }
@@ -222,7 +141,6 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     enableOfflineSupport,
     getCachedCourse,
     setCachedCourse,
-    calculateProgressFromCourse,
     fetchCourseData
   ]);
 
@@ -234,7 +152,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     }
   }, [currentCourseId, fetchCourseDetails]);
 
-  // Silent refetch function (doesn't trigger loading state)
+  // Silent refetch function 
   const silentRefetch = useCallback(async () => {
     if (currentCourseId) {
       log.debug('Hook', `🎓 [useCourseDetail] Silent refetching course: ${currentCourseId}`);
@@ -267,14 +185,14 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   return {
     course,
     loading: fetchingLoading,
-    loadingPhase,
+    loadingPhase: 'complete', // Simplified - no phases
     error: fetchingError,
     fetchCourseDetails,
     refetch,
     silentRefetch,
     invalidateCache: invalidateCourseCache,
     updateCourseProgress,
-    retryCount,
+    retryCount: 0, // Simplified - no retry counting
     isOffline
   };
 } 
