@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { useToast } from '@/hooks/use-toast';
+import { VideoContentExtractor } from '@/utils/videoContentExtractor';
 import type { CourseLesson, LessonContentProps } from '@/types/classroom/courseDetail';
 
 const LessonContent: React.FC<LessonContentProps> = ({ 
@@ -251,24 +252,21 @@ const LessonContent: React.FC<LessonContentProps> = ({
   };
 
   const renderVideoContent = () => {
-    if (!lesson.content_url) return null;
-
-    // Extract YouTube video ID from URL
-    const getYouTubeVideoId = (url: string) => {
-      const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/;
-      const match = url.match(regex);
-      return match ? match[1] : null;
-    };
-
-    const videoId = getYouTubeVideoId(lesson.content_url);
+    // Use VideoContentExtractor to detect videos in both content_url and embedded HTML
+    const videoInfo = VideoContentExtractor.extractVideoInfo(lesson);
     
-    if (videoId) {
+    if (!videoInfo) return null;
+
+    // Generate embed URL with proper parameters
+    const embedUrl = VideoContentExtractor.generateEmbedUrl(videoInfo, window.location.origin);
+    
+    if (videoInfo.platform === 'youtube') {
       return (
         <div className="skool-style-video-container">
           <div className="video-wrapper">
             <iframe
               className="course-detail-content"
-              src={`https://www.youtube.com/embed/${videoId}?rel=0&fs=1&cc_load_policy=0&iv_load_policy=3&showinfo=0&controls=1&disablekb=0&playsinline=1&color=white&origin=${encodeURIComponent(window.location.origin)}`}
+              src={embedUrl}
               title={lesson.title}
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -288,7 +286,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
         <div className="w-12 h-12 text-gray-400 mx-auto mb-4" />
         <p className="text-gray-600 mb-4">External video content</p>
         <a
-          href={lesson.content_url}
+          href={videoInfo.embedUrl || lesson.content_url}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -434,7 +432,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
               </div>
             </div>
             {/* Video content with proper spacing */}
-            {lesson.content_url && (
+            {VideoContentExtractor.hasVideo(lesson) && (
               <div className="mb-8">
                 {renderVideoContent()}
               </div>
