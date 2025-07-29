@@ -6,7 +6,11 @@ import { useLocation } from 'react-router-dom'
 import { fetchSpaceWithFallback, type SpaceFallbackData } from '@/utils/spaceDataFallback'
 import { Database } from '@/types/database.types'
 
-export type Space = Database['public']['Tables']['spaces']['Row']
+export type Space = Database['public']['Tables']['spaces']['Row'] & {
+  // Add the correct field names that actually exist in the database
+  icon_image?: string | null;
+  cover_image?: string | null;
+}
 
 /**
  * Space data interface 

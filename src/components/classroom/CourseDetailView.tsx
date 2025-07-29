@@ -303,7 +303,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
         loading, 
         spaceLoading, 
         hasSpace: !!space, 
-        spaceIconUrl: space?.icon_url,
+        spaceIconImage: space?.icon_image,
         spaceName: space?.name 
       });
     }
@@ -323,9 +323,9 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
             
             {/* Space branding */}
             <div className="flex items-center space-x-2">
-              {space?.icon_url ? (
+              {space?.icon_image ? (
                 <img 
-                  src={space.icon_url} 
+                  src={space.icon_image} 
                   alt={space.name}
                   className="w-8 h-8 bg-gray-200 rounded-lg object-cover"
                   loading="lazy"
@@ -344,7 +344,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
               {/* Always show fallback, but hide if icon loads successfully */}
               <div 
                 className={`w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center space-icon-fallback ${
-                  space?.icon_url ? 'hidden' : ''
+                  space?.icon_image ? 'hidden' : ''
                 }`}
               >
                 <span className="text-sm font-medium text-gray-600">
