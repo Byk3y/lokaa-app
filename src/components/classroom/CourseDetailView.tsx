@@ -37,7 +37,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   lessonId,
 }) => {
   const { user } = useAuth();
-  const { space } = useSpace();
+  const { space, loading: spaceLoading } = useSpace();
   
   // Get classroom store for dialog management
   const openCourseDialog = useClassroomStore(state => state.openCourseDialog);
@@ -297,7 +297,17 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   // FIXED: Add mobile loading state to prevent "back to courses" flash
   // Show mobile spinner while mobile state is being determined
   // IMPORTANT: This must come BEFORE the mobile container check
-  if (isMobile && loading) {
+  if (isMobile && (loading || spaceLoading)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎓 [CourseDetailView] Mobile loading state:', { 
+        loading, 
+        spaceLoading, 
+        hasSpace: !!space, 
+        spaceIconUrl: space?.icon_url,
+        spaceName: space?.name 
+      });
+    }
+    
     return (
       <div className="fixed inset-0 flex flex-col bg-white z-50">
         {/* Mobile Header */}
@@ -319,14 +329,28 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
                   alt={space.name}
                   className="w-8 h-8 bg-gray-200 rounded-lg object-cover"
                   loading="lazy"
+                  onError={(e) => {
+                    // Fallback to initials if image fails to load
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      const fallback = parent.querySelector('.space-icon-fallback') as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }
+                  }}
                 />
-              ) : (
-                <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <span className="text-sm font-medium text-gray-600">
-                    {space?.name?.charAt(0).toUpperCase() || 'S'}
-                  </span>
-                </div>
-              )}
+              ) : null}
+              {/* Always show fallback, but hide if icon loads successfully */}
+              <div 
+                className={`w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center space-icon-fallback ${
+                  space?.icon_url ? 'hidden' : ''
+                }`}
+              >
+                <span className="text-sm font-medium text-gray-600">
+                  {space?.name?.charAt(0).toUpperCase() || 'S'}
+                </span>
+              </div>
               <span className="font-bold text-gray-900 truncate max-w-[120px]">
                 {space?.name || 'Space'}
               </span>
