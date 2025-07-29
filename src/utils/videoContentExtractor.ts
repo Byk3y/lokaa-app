@@ -1,4 +1,4 @@
-import type { CourseLesson } from '@/types/classroom';
+import type { CourseLesson } from '@/types/classroom/courseDetail';
 
 interface VideoInfo {
   videoId: string;
@@ -13,6 +13,15 @@ export class VideoContentExtractor {
    * Extract video information from a lesson
    */
   static extractVideoInfo(lesson: CourseLesson): VideoInfo | null {
+    console.log('🎥 [VideoExtractor] Analyzing lesson for video content:', {
+      lessonId: lesson.id,
+      lessonTitle: lesson.title,
+      contentUrl: lesson.content_url,
+      hasEducationalContent: !!lesson.educational_content,
+      educationalContentMediaUrl: lesson.educational_content?.media_url,
+      contentText: lesson.content_text?.substring(0, 200) + '...',
+      educationalContentText: lesson.educational_content?.text_content?.substring(0, 200) + '...'
+    });
     // Method 1: Check direct video URL fields
     const directVideoUrl = lesson.content_url || lesson.educational_content?.media_url;
     if (directVideoUrl) {
@@ -108,4 +117,4 @@ export class VideoContentExtractor {
   }
 }
 
-export type { VideoInfo, CourseLesson };
+export type { VideoInfo };
