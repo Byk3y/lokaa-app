@@ -3,8 +3,6 @@ import { log } from '@/utils/logger';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   useCourseCaching,
-  useNetworkStatus,
-  useCoursePermissions,
   useCourseProgress,
   useCourseFetching
 } from './index';
@@ -37,16 +35,15 @@ interface UseCourseDetailOptions {
  * Features:
  * - Mobile-optimized caching and retry logic
  * - Offline support with cached data
- * - Network-aware error handling
+ * - Simple network checking with navigator.onLine
  * - Performance optimizations for mobile devices
  * - Comprehensive logging for debugging
  * 
- * This hook now uses modular sub-hooks for better maintainability:
+ * This hook now uses simplified sub-hooks for better maintainability:
  * - useCourseCaching: Cache management
- * - useNetworkStatus: Network connectivity
- * - useCoursePermissions: Permission checking
  * - useCourseProgress: Progress calculation
  * - useCourseFetching: Data fetching
+ * - Simple alternatives for network/permissions (RLS handles permissions)
  */
 export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourseDetailReturn {
   const {
@@ -73,28 +70,9 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     userId: user?.id || null
   });
 
-  const {
-    isOnline,
-    isOffline,
-    networkStatus
-  } = useNetworkStatus({
-    enableLogging: true,
-    checkInterval: null
-  });
-
-  const {
-    checkPermissions,
-    canViewDrafts,
-    isCreator,
-    isGeneralAdmin,
-    isSpaceAdmin,
-    currentPermissions,
-    permissionsLoading,
-    permissionsError
-  } = useCoursePermissions({
-    enableLogging: true,
-    autoCheckOnMount: false
-  });
+  // Simple network status - RLS handles permissions, navigator.onLine handles network
+  const isOnline = navigator.onLine;
+  const isOffline = !isOnline;
 
   const {
     calculateProgressFromCourse,
@@ -244,7 +222,6 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     enableOfflineSupport,
     getCachedCourse,
     setCachedCourse,
-    checkPermissions,
     calculateProgressFromCourse,
     fetchCourseData
   ]);

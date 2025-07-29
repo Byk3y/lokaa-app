@@ -8,7 +8,7 @@ import SpaceLayout from "@/components/layout/SpaceLayout";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
 import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
 import { LocationState } from "@/pages/Space"; // Import the existing LocationState type
-import { warmSpaceCache } from "@/utils/cacheUtils"; // Import cache warming
+// Cache warming removed - using simplified cache system
 import { extractTabFromPathname, buildSpaceUrl, type SpaceTab, debugTabExtraction } from "@/utils/tabUtils";
 // Removed setCurrentSpaceForPresence - new simple system doesn't need manual space tracking
 import { AvatarCacheService } from "@/services/AvatarCacheService"; // 🚀 NEW: Avatar cache service
@@ -136,12 +136,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
   // PHASE 2.6: CACHE WARMING + AVATAR PRELOADING - Warm cache when space data loads
   useEffect(() => {
     if (storeSpace && storeSpace.subdomain && subdomain && user?.id) {
-      // Warm cache for instant future redirects with user ID
-      warmSpaceCache({
-        id: storeSpace.id,
-        name: storeSpace.name || '',
-        subdomain: storeSpace.subdomain
-      }, user.id);
+      // Cache warming removed - using simplified cache system
       
       // New simple presence system automatically handles space-specific presence
       log.debug('Component', `🌐 [SpaceShellLayout] Space loaded for simplified presence: ${storeSpace.id}`);

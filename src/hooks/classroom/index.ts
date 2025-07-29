@@ -11,10 +11,13 @@ export { useCourseDetail } from './useCourseDetail';
 
 // NEW: Refactored hooks from useCourseDetail.ts
 export { useCourseCaching } from './useCourseCaching';
-export { useNetworkStatus } from './useNetworkStatus';
-export { useCoursePermissions } from './useCoursePermissions';
 export { useCourseProgress } from './useCourseProgress';
 export { useCourseFetching } from './useCourseFetching';
+
+// Mobile navigation hooks (replaces MobileNavigationManager component)
+export { useMobileGestures } from './useMobileGestures';
+export { useMobileKeyboard } from './useMobileKeyboard';
+export { useMobileNavigation } from './useMobileNavigation';
 
 // Search and filtering
 export { 

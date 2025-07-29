@@ -22,8 +22,7 @@ import { SupabaseProvider } from '../contexts/SupabaseContext';
 import { TabVisibilityProvider } from '../contexts/TabVisibilityContext';
 import { SearchProvider } from '../contexts/SearchContext';
 
-// 🚀 PHASE 3: Import comment cache system
-import { commentCache } from '../utils/commentCache';
+// Comment cache system removed - using simplified course cache
 
 // FIXED: Create optimized query client with reduced overhead
 const queryClient = new QueryClient({
@@ -37,8 +36,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// 🚀 PHASE 3: Initialize comment cache system
-commentCache.init(queryClient);
+// Comment cache initialization removed - using simplified cache system
 
 interface OptimizedProviderProps {
   children: React.ReactNode;

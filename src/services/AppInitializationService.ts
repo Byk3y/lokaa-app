@@ -6,9 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { performanceMonitor } from '@/utils/performanceMonitor';
 // DISABLED: PageVisibilityManager causes reload conflicts with comprehensive fix
 // import { pageVisibilityManager } from '@/utils/pageVisibilityManager';
-import { persistentCache } from '@/utils/persistentCache';
+// persistentCache removed - using simplified course cache
 import { supabaseHealthMonitor } from '@/utils/supabaseHealthCheck';
-import { initializeCacheWarming } from '@/utils/cacheWarming';
+// Cache warming removed - using simpler cache system
 // DISABLED: import { phase1Recovery } from '@/utils/phase1MobileRecovery';
 import { spaceMembersService } from '@/utils/indexeddb/services/SpaceMembersService';
 import { devLogger } from '@/utils/developmentLogger';
@@ -144,12 +144,9 @@ export class AppInitializationService {
     try {
       devLogger.log('AppInit', 'Initializing cache systems...');
       
-      persistentCache.init().catch(err => {
-        devLogger.warn('AppInit', 'Persistent cache failed:', err);
-        result.warnings.push('Persistent cache initialization failed');
-      });
+      // persistentCache.init() removed - using simplified courseCache.ts
       
-      initializeCacheWarming();
+      // Cache warming removed - using simplified courseCache.ts
       
     } catch (error) {
       const message = 'Cache systems initialization failed';
@@ -336,7 +333,7 @@ export class AppInitializationService {
   cleanup(): void {
     try {
       devLogger.log('AppInit', 'Cleaning up...');
-      persistentCache.cleanup();
+      // persistentCache.cleanup() removed - using simplified cache system
       this.debugInterfaces = {};
     } catch (error) {
       devLogger.warn('AppInit', 'Cleanup error:', error);

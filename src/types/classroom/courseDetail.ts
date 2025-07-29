@@ -227,30 +227,11 @@ export interface LessonViewMobileProps {
 }
 
 /**
- * Enhanced props interface for the new MobileNavigationManager component
- * Includes mobile navigation features, gesture support, and performance optimizations
+ * MobileNavigationManagerProps removed - component replaced by 3 focused hooks:
+ * - useMobileGestures: Touch gesture handling
+ * - useMobileKeyboard: Keyboard event handling  
+ * - useMobileNavigation: Core navigation logic
  */
-export interface MobileNavigationManagerProps {
-  course: CourseDetailData | null;
-  selectedLesson: CourseLesson | null;
-  isMobile: boolean;
-  showCourseOverview: boolean;
-  showLessonView: boolean;
-  onBackToMenu: () => void;
-  onNextLesson: () => void;
-  onLessonSelect: (lesson: CourseLesson) => void;
-  onBack?: () => void;
-  
-  // Mobile navigation features
-  enableHapticFeedback?: boolean;
-  enableAnimations?: boolean;
-  enableGestureSupport?: boolean;
-  enableKeyboardSupport?: boolean;
-  enableDeepLinking?: boolean;
-  enableNavigationHistory?: boolean;
-  enableAccessibility?: boolean;
-  enablePerformanceOptimization?: boolean;
-}
 
 /**
  * Enhanced props interface for the new MobileRouteHandler component
@@ -277,83 +258,7 @@ export interface MobileRouteHandlerProps {
   enablePerformanceOptimization?: boolean;
 }
 
-export interface MobileViewManagerProps {
-  course: CourseDetailData | null;
-  selectedLesson: CourseLesson | null;
-  isMobile: boolean;
-  showCourseOverview: boolean;
-  showLessonView: boolean;
-  onViewChange?: (view: string, params: Record<string, any>) => void;
-  onViewError?: (error: string, view: string) => void;
-  onViewValidation?: (isValid: boolean, view: string) => void;
-  
-  // View management features
-  enableViewTransitions?: boolean;
-  enableViewCaching?: boolean;
-  enableViewValidation?: boolean;
-  enableViewAnalytics?: boolean;
-  enableViewFallbacks?: boolean;
-  enableViewPermissions?: boolean;
-  enableAccessibility?: boolean;
-  enablePerformanceOptimization?: boolean;
-}
 
-export interface MobileStateSynchronizerProps {
-  course: CourseDetailData | null;
-  selectedLesson: CourseLesson | null;
-  isMobile: boolean;
-  showCourseOverview: boolean;
-  showLessonView: boolean;
-  onStateChange?: (state: string, data: any) => void;
-  onStateError?: (error: string, state: string) => void;
-  onStateValidation?: (isValid: boolean, state: string) => void;
-  onStateConflict?: (conflict: StateConflict) => void;
-  onStateRecovery?: (recoveredState: any) => void;
-  
-  // State synchronization features
-  enableStatePersistence?: boolean;
-  enableStateConflicts?: boolean;
-  enableStateRecovery?: boolean;
-  enableStateValidation?: boolean;
-  enableStateAnalytics?: boolean;
-  enableStateFallbacks?: boolean;
-  enableStatePermissions?: boolean;
-  enableOfflineSupport?: boolean;
-  enableRealTimeSync?: boolean;
-  enablePerformanceOptimization?: boolean;
-}
-
-export interface StateConflict {
-  id: string;
-  type: 'lesson_selection' | 'view_state' | 'progress' | 'navigation' | 'data';
-  localState: any;
-  remoteState: any;
-  timestamp: number;
-  resolution: 'local' | 'remote' | 'manual' | 'pending';
-}
-
-export interface SynchronizedState {
-  // Core state
-  currentView: string;
-  selectedLessonId: string | null;
-  courseProgress: Record<string, boolean>;
-  navigationHistory: string[];
-  
-  // UI state
-  scrollPosition: Record<string, number>;
-  expandedModules: string[];
-  collapsedModules: string[];
-  
-  // User preferences
-  readingMode: boolean;
-  fontSize: 'small' | 'medium' | 'large';
-  theme: 'light' | 'dark' | 'auto';
-  
-  // Performance state
-  cachedData: Map<string, any>;
-  lastSyncTimestamp: number;
-  isOnline: boolean;
-}
 
 /**
  * Props interface for LessonContent component

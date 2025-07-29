@@ -11,16 +11,15 @@ import { useCourseDetail } from '@/hooks/classroom';
 import { useCourseProgress } from '@/hooks/classroom/useCourseProgress';
 import { useCourseOwnership } from '@/hooks/classroom/useCourseOwnership';
 import { useCourseNavigation } from '@/hooks/classroom/useCourseNavigation';
+import { useMobileGestures } from '@/hooks/classroom/useMobileGestures';
+import { useMobileKeyboard } from '@/hooks/classroom/useMobileKeyboard';
+import { useMobileNavigation } from '@/hooks/classroom/useMobileNavigation';
 import { useCourseDialogs } from '@/hooks/classroom/useCourseDialogs';
 import { useLessonManagement } from '@/hooks/classroom/useLessonManagement';
-import MobileCourseOverview from '../MobileCourseOverview';
-import MobileLessonView from '../MobileLessonView';
 import CourseOverviewMobile from './CourseOverviewMobile';
 import LessonViewMobile from './LessonViewMobile';
-import MobileNavigationManager from './MobileNavigationManager';
-import MobileRouteHandler from './MobileRouteHandler';
-import MobileViewManager from './MobileViewManager';
-import MobileStateSynchronizer from './MobileStateSynchronizer';
+import MobileLoadingSkeleton from './MobileLoadingSkeleton';
+import MobileErrorState from './MobileErrorState';
 import type { 
   CourseModule, 
   CourseLesson, 
@@ -58,14 +57,9 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
   
   // Refs for mobile interactions
   const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const lastTapRef = useRef<number>(0);
-  const orientationRef = useRef<string>('portrait');
   
   // Mobile detection
   const isMobileDevice = useMediaQuery('(max-width: 768px)');
-  const isTablet = useMediaQuery('(min-width: 769px) and (max-width: 1024px)');
-  const isLandscape = useMediaQuery('(orientation: landscape)');
   
   // Get classroom store for dialog management
   const openCourseDialog = useClassroomStore(state => state.openCourseDialog);
@@ -118,8 +112,6 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
       refetch();
     }
   });
-
-  // CRITICAL FIX: Move all useCallback hooks here to prevent hooks violation
 
 
   // Use the ownership management hook
@@ -221,8 +213,34 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     onSelectedLessonChange: setSelectedLesson
   });
 
-  // Mobile navigation is now handled by MobileNavigationManager component
-  // All gesture, keyboard, and navigation logic has been extracted
+  // Mobile navigation handlers using focused hooks
+  const mobileNavigation = useMobileNavigation({
+    course: optimisticCourse || course,
+    selectedLesson,
+    showLessonView,
+    onBackToMenu: handleBackToMenu,
+    onNextLesson: handleNextLesson,
+    onLessonSelect: handleMobileLessonSelect,
+    onBack
+  });
+
+  // Mobile gesture handlers
+  const { handleTouchStart, handleTouchEnd } = useMobileGestures({
+    enableHapticFeedback: true,
+    showLessonView,
+    onBack: mobileNavigation.handleBack,
+    onNextLesson: mobileNavigation.handleNextLesson
+  });
+
+  // Mobile keyboard handlers
+  useMobileKeyboard({
+    enableKeyboardSupport: true,
+    isMobile,
+    showLessonView,
+    onBack: mobileNavigation.handleBack,
+    onNextLesson: mobileNavigation.handleNextLesson,
+    onPreviousLesson: mobileNavigation.handlePreviousLesson
+  });
 
   // Course management handlers
   const handleEditCourse = useCallback(() => {
@@ -315,119 +333,24 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     return cleanupMobileState;
   }, [signalMobileState, cleanupMobileState]);
 
-  // Mobile event listeners are now handled by MobileNavigationManager
-  // All navigation, gesture, and keyboard logic has been extracted
+  // Mobile navigation handled by focused hooks
 
-  // Mobile accessibility setup
-  useEffect(() => {
-    // Set up mobile accessibility features
-    if (containerRef.current) {
-      containerRef.current.setAttribute('role', 'main');
-      containerRef.current.setAttribute('aria-label', 'Course Detail Mobile View');
-    }
-  }, []);
 
-  // Development logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [CourseDetailMobile] Component render:', {
-      courseId,
-      hasCourse: !!course,
-      hasSelectedLesson: !!selectedLesson,
-      isMobile,
-      showCourseOverview,
-      showLessonView,
-      isMobileDevice,
-      isTablet,
-      isLandscape,
-      orientation: orientationRef.current
-    });
-  }
 
-  // MOBILE OPTIMIZATION: Show skeleton content immediately for better perceived performance
-  // This eliminates white screen and provides instant visual feedback
+  // Show loading skeleton
   if (loading) {
-    return (
-      <div 
-        ref={containerRef}
-        className="h-full min-h-screen bg-white"
-        role="main"
-        aria-label="Loading course"
-      >
-        {/* Show skeleton content immediately instead of empty container */}
-        <div className="flex flex-col h-full">
-          {/* Header skeleton */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
-              <div className="flex-1">
-                <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3"></div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Content skeleton */}
-          <div className="flex-1 p-4">
-            <div className="space-y-4">
-              <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
-            </div>
-            
-            {/* Lesson list skeleton */}
-            <div className="mt-6 space-y-3">
-              {[...Array(4)].map((_, index) => (
-                <div key={index} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
-                  <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
-                  <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded animate-pulse mb-1"></div>
-                    <div className="h-3 bg-gray-200 rounded animate-pulse w-1/3"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <MobileLoadingSkeleton />;
   }
 
-  // Error state
+  // Show error state
   if (error || !course) {
-    return (
-      <div 
-        ref={containerRef}
-        className="flex flex-col items-center justify-center h-full min-h-screen p-4"
-        role="main"
-        aria-label="Course error"
-      >
-        <div className="text-center max-w-md">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Course</h3>
-          <p className="text-gray-600 mb-4">{error || 'Course not found'}</p>
-          <button 
-            onClick={onBack}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            aria-label="Go back to courses"
-          >
-            ← Back to Courses
-          </button>
-        </div>
-      </div>
-    );
+    return <MobileErrorState error={error} onBack={onBack} />;
   }
 
-    // Single MobileNavigationManager and MobileRouteHandler at top level to prevent conflicts
   const courseData = optimisticCourse || course;
 
   // Mobile course overview view (first screen)
   if (showCourseOverview) {
-    log.debug('Mobile', '🎓 [CourseDetailMobile] Rendering CourseOverviewMobile with:', {
-      usingOptimistic: !!optimisticCourse,
-      courseProgress: courseData?.progress,
-      lessonCount: courseData?.modules?.flatMap(m => m.lessons)?.length,
-      completedLessons: courseData?.modules?.flatMap(m => m.lessons)?.filter(l => l.completed)?.length
-    });
 
     return (
       <div
@@ -435,89 +358,9 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
         className="h-full min-h-screen"
         role="main"
         aria-label="Course overview"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Single MobileNavigationManager at top level */}
-        <MobileNavigationManager
-          course={courseData}
-          selectedLesson={selectedLesson}
-          isMobile={isMobile}
-          showCourseOverview={showCourseOverview}
-          showLessonView={showLessonView}
-          onBackToMenu={handleBackToMenu}
-          onNextLesson={handleNextLesson}
-          onLessonSelect={handleMobileLessonSelect}
-          onBack={onBack}
-          enableHapticFeedback={true}
-          enableAnimations={true}
-          enableGestureSupport={true}
-          enableKeyboardSupport={true}
-          enableDeepLinking={true}
-          enableNavigationHistory={true}
-          enableAccessibility={true}
-          enablePerformanceOptimization={true}
-        />
-        
-        {/* Single MobileRouteHandler at top level */}
-        <MobileRouteHandler
-          course={courseData}
-          selectedLesson={selectedLesson}
-          isMobile={isMobile}
-          showCourseOverview={showCourseOverview}
-          showLessonView={showLessonView}
-          onRouteChange={(route, params) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] Route change:', route, params);
-          }}
-          onRouteError={(error, route) => {
-            log.error('Mobile', '🎓 [CourseDetailMobile] Route error:', new Error(error), route);
-            toast({
-              title: "Navigation Error",
-              description: error,
-              variant: "destructive"
-            });
-          }}
-          onRouteValidation={(isValid, route) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] Route validation:', isValid, route);
-          }}
-          enableRouteTransitions={true}
-          enableRouteCaching={true}
-          enableRouteValidation={true}
-          enableRouteAnalytics={true}
-          enableRouteFallbacks={true}
-          enableRoutePermissions={true}
-          enableDeepLinking={true}
-          enablePerformanceOptimization={true}
-        />
-        
-        {/* Single MobileViewManager at top level */}
-        <MobileViewManager
-          course={courseData}
-          selectedLesson={selectedLesson}
-          isMobile={isMobile}
-          showCourseOverview={showCourseOverview}
-          showLessonView={showLessonView}
-          onViewChange={(view, params) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] View change:', view, params);
-          }}
-          onViewError={(error, view) => {
-            log.error('Mobile', '🎓 [CourseDetailMobile] View error:', new Error(error), view);
-            toast({
-              title: "View Error",
-              description: error,
-              variant: "destructive"
-            });
-          }}
-          onViewValidation={(isValid, view) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] View validation:', isValid, view);
-          }}
-          enableViewTransitions={true}
-          enableViewCaching={true}
-          enableViewValidation={true}
-          enableViewAnalytics={true}
-          enableViewFallbacks={true}
-          enableViewPermissions={true}
-          enableAccessibility={true}
-          enablePerformanceOptimization={true}
-        />
         <CourseOverviewMobile
           course={courseData}
           space={space}
@@ -556,12 +399,6 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     const hasNextLesson = currentIndex < allLessons.length - 1;
     
     const currentLesson = allLessons.find(l => l.id === selectedLesson.id);
-    log.debug('Mobile', '🎓 [CourseDetailMobile] Rendering MobileLessonView with:', {
-      usingOptimistic: !!optimisticCourse,
-      lessonId: selectedLesson.id,
-      lessonCompleted: currentLesson?.completed,
-      courseProgress: courseData?.progress
-    });
 
     return (
       <div 
@@ -569,89 +406,9 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
         className="h-full min-h-screen"
         role="main"
         aria-label="Lesson view"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Single MobileNavigationManager at top level */}
-        <MobileNavigationManager
-          course={courseData}
-          selectedLesson={selectedLesson}
-          isMobile={isMobile}
-          showCourseOverview={showCourseOverview}
-          showLessonView={showLessonView}
-          onBackToMenu={handleBackToMenu}
-          onNextLesson={handleNextLesson}
-          onLessonSelect={handleMobileLessonSelect}
-          onBack={onBack}
-          enableHapticFeedback={true}
-          enableAnimations={true}
-          enableGestureSupport={true}
-          enableKeyboardSupport={true}
-          enableDeepLinking={true}
-          enableNavigationHistory={true}
-          enableAccessibility={true}
-          enablePerformanceOptimization={true}
-        />
-        
-        {/* Single MobileRouteHandler at top level */}
-        <MobileRouteHandler
-          course={courseData}
-          selectedLesson={selectedLesson}
-          isMobile={isMobile}
-          showCourseOverview={showCourseOverview}
-          showLessonView={showLessonView}
-          onRouteChange={(route, params) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] Route change:', route, params);
-          }}
-          onRouteError={(error, route) => {
-            log.error('Mobile', '🎓 [CourseDetailMobile] Route error:', new Error(error), route);
-            toast({
-              title: "Navigation Error",
-              description: error,
-              variant: "destructive"
-            });
-          }}
-          onRouteValidation={(isValid, route) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] Route validation:', isValid, route);
-          }}
-          enableRouteTransitions={true}
-          enableRouteCaching={true}
-          enableRouteValidation={true}
-          enableRouteAnalytics={true}
-          enableRouteFallbacks={true}
-          enableRoutePermissions={true}
-          enableDeepLinking={true}
-          enablePerformanceOptimization={true}
-        />
-        
-        {/* Single MobileViewManager at top level */}
-        <MobileViewManager
-          course={courseData}
-          selectedLesson={selectedLesson}
-          isMobile={isMobile}
-          showCourseOverview={showCourseOverview}
-          showLessonView={showLessonView}
-          onViewChange={(view, params) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] View change:', view, params);
-          }}
-          onViewError={(error, view) => {
-            log.error('Mobile', '🎓 [CourseDetailMobile] View error:', new Error(error), view);
-            toast({
-              title: "View Error",
-              description: error,
-              variant: "destructive"
-            });
-          }}
-          onViewValidation={(isValid, view) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] View validation:', isValid, view);
-          }}
-          enableViewTransitions={true}
-          enableViewCaching={true}
-          enableViewValidation={true}
-          enableViewAnalytics={true}
-          enableViewFallbacks={true}
-          enableViewPermissions={true}
-          enableAccessibility={true}
-          enablePerformanceOptimization={true}
-        />
         <LessonViewMobile
           lesson={(() => {
             if (!selectedLesson || !courseData) return selectedLesson;
@@ -697,62 +454,6 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
               throw error;
             }
           }}
-          enableHapticFeedback={true}
-          enableAnimations={true}
-          enableOfflineSupport={true}
-          enableAccessibility={true}
-          enableReadingMode={true}
-          enableVideoOptimization={true}
-          enableGestureSupport={true}
-        />
-        
-        {/* Single MobileStateSynchronizer at top level */}
-        <MobileStateSynchronizer
-          course={courseData}
-          selectedLesson={selectedLesson}
-          isMobile={isMobile}
-          showCourseOverview={showCourseOverview}
-          showLessonView={showLessonView}
-          onStateChange={(state, data) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] State change:', state, data);
-          }}
-          onStateError={(error, state) => {
-            log.error('Mobile', '🎓 [CourseDetailMobile] State error:', new Error(error), state);
-            toast({
-              title: "State Error",
-              description: error,
-              variant: "destructive"
-            });
-          }}
-          onStateValidation={(isValid, state) => {
-            log.debug('Mobile', '🎓 [CourseDetailMobile] State validation:', isValid, state);
-          }}
-          onStateConflict={(conflict) => {
-            log.warn('Mobile', '🎓 [CourseDetailMobile] State conflict detected:', conflict);
-            toast({
-              title: "State Conflict",
-              description: `Conflict detected in ${conflict.type}. Resolving automatically.`,
-              variant: "default"
-            });
-          }}
-          onStateRecovery={(recoveredState) => {
-            log.info('Mobile', '🎓 [CourseDetailMobile] State recovered:', recoveredState);
-            toast({
-              title: "State Recovered",
-              description: "Your state has been recovered from backup.",
-              variant: "default"
-            });
-          }}
-          enableStatePersistence={true}
-          enableStateConflicts={true}
-          enableStateRecovery={true}
-          enableStateValidation={true}
-          enableStateAnalytics={true}
-          enableStateFallbacks={true}
-          enableStatePermissions={true}
-          enableOfflineSupport={true}
-          enableRealTimeSync={true}
-          enablePerformanceOptimization={true}
         />
       </div>
     );

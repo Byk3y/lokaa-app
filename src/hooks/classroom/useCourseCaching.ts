@@ -6,7 +6,7 @@ import {
   getCachedCourseProgress, 
   setCachedCourseProgress, 
   invalidateCourseCache as invalidateCourseCacheUtil 
-} from '@/utils/courseCacheUtils';
+} from '@/utils/courseCache';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import type { CourseDetailData } from '@/types/classroom/courseDetail';
 
