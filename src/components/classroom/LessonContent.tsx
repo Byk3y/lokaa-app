@@ -221,13 +221,17 @@ const LessonContent: React.FC<LessonContentProps> = ({
   };
 
   const handleSave = async (title?: string, content?: string) => {
+    console.log('🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length });
+    
     if (!lesson || !onUpdateLesson) {
+      console.log('🎓 [LessonContent] Missing lesson or onUpdateLesson:', { hasLesson: !!lesson, hasOnUpdateLesson: !!onUpdateLesson });
       setIsEditing(false);
       return;
     }
 
     try {
       const finalContent = content || editingContent;
+      console.log('🎓 [LessonContent] Final content length:', finalContent?.length);
       
       // Extract video URL from HTML content if present
       let videoUrl: string | null = null;
@@ -238,14 +242,23 @@ const LessonContent: React.FC<LessonContentProps> = ({
         
         if (iframeMatch && iframeMatch[1]) {
           videoUrl = iframeMatch[1];
+          console.log('🎓 [LessonContent] Found YouTube video URL from iframe:', videoUrl);
         } else {
           // Look for direct YouTube URLs in the content
           const youtubeMatch = finalContent.match(/(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[^\s"']+)/);
           if (youtubeMatch) {
             videoUrl = youtubeMatch[1];
+            console.log('🎓 [LessonContent] Found YouTube video URL from direct link:', videoUrl);
           }
         }
       }
+
+      console.log('🎓 [LessonContent] About to call onUpdateLesson with:', {
+        lessonId: lesson.id,
+        title: title || lesson.title,
+        contentLength: finalContent?.length,
+        videoUrl
+      });
 
       // Update the lesson with the edited content, title, and video URL
       await onUpdateLesson(lesson.id, { 
@@ -254,15 +267,19 @@ const LessonContent: React.FC<LessonContentProps> = ({
         content_url: videoUrl || null // Save video URL to content_url field
       });
       
+      console.log('🎓 [LessonContent] onUpdateLesson completed successfully');
+      
       setIsEditing(false);
       setEditingContent('');
       
+      console.log('🎓 [LessonContent] Showing success toast');
       toast({
         title: "Lesson Updated",
         description: "Your changes have been saved successfully.",
         variant: "default"
       });
     } catch (error) {
+      console.error('🎓 [LessonContent] Error in handleSave:', error);
       log.error('Component', 'Error saving lesson:', error);
       toast({
         title: "Error",
