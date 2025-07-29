@@ -257,7 +257,7 @@
 /* YouTube embed styles - Responsive aspect ratio */
 .ProseMirror div[data-youtube-video] {
   position: relative;
-  margin: -40px auto 8px auto !important; /* Even more aggressive negative top margin */
+  margin: 1rem auto 2rem auto !important; /* Proper spacing - no negative margin */
   width: 100% !important; /* Use normal width */
   max-width: 720px !important; /* Increased from 640px to 720px */
   border-radius: 8px;
