@@ -294,6 +294,43 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     openDeleteCourseDialog();
   };
 
+  // FIXED: Add mobile loading state to prevent "back to courses" flash
+  // Show mobile spinner while mobile state is being determined
+  // IMPORTANT: This must come BEFORE the mobile container check
+  if (isMobile && loading) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-white z-50">
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between px-4 py-1.5 bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={onBack}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors active:bg-gray-200"
+              aria-label="Go back to courses"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-700" />
+            </button>
+            
+            {/* Space branding */}
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
+                <span className="text-sm font-medium text-gray-600">S</span>
+              </div>
+              <span className="font-bold text-gray-900 truncate max-w-[120px]">
+                Loading...
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Mobile Loading Spinner */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-8 h-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   // MOBILE OPTIMIZATION: Prioritize mobile view over loading states
   // This eliminates white screen and long spinner on mobile
   if (showCourseOverview || showLessonView) {
@@ -308,44 +345,6 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
         lessonId={lessonId}
         onMobileStateChange={handleMobileStateChange}
       />
-    );
-  }
-
-  // FIXED: Add mobile loading state to prevent "back to courses" flash
-  // Show mobile skeleton while mobile state is being determined
-  if (isMobile && loading) {
-    return (
-      <div className="fixed inset-0 flex flex-col bg-white z-50">
-        {/* Mobile Header Skeleton */}
-        <div className="flex items-center justify-between px-4 py-1.5 bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
-              <div className="w-24 h-4 bg-gray-200 rounded animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Mobile Content Skeleton */}
-        <div className="flex-1 p-4">
-          <div className="space-y-4">
-            <div className="w-3/4 h-6 bg-gray-200 rounded animate-pulse"></div>
-            <div className="w-1/2 h-4 bg-gray-200 rounded animate-pulse"></div>
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
-                  <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="w-2/3 h-4 bg-gray-200 rounded animate-pulse"></div>
-                    <div className="w-1/2 h-3 bg-gray-200 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
     );
   }
 
