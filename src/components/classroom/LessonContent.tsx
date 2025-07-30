@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { formatAsTitle } from '@/utils/textUtils';
 import { CheckCircle2, Edit, FileText, Save, X, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,10 @@ const LessonContent: React.FC<LessonContentProps> = ({
   const [editingContent, setEditingContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  
+  // Debouncing refs
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSaveDataRef = useRef<{title?: string, content?: string} | null>(null);
 
   const getContentSource = () => {
     if (lesson?.educational_content?.text_content) {
@@ -220,14 +224,22 @@ const LessonContent: React.FC<LessonContentProps> = ({
     setEditingContent('');
   };
 
-  const handleSave = async (title?: string, content?: string) => {
-    console.log('🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length });
+  const debouncedSave = useCallback(async (title?: string, content?: string) => {
+    console.log('🎓 [LessonContent] debouncedSave called with:', { title, contentLength: content?.length });
     
     if (!lesson || !onUpdateLesson) {
       console.log('🎓 [LessonContent] Missing lesson or onUpdateLesson:', { hasLesson: !!lesson, hasOnUpdateLesson: !!onUpdateLesson });
       setIsEditing(false);
       return;
     }
+
+    // Prevent concurrent saves
+    if (isSaving) {
+      console.log('🎓 [LessonContent] Save already in progress, skipping');
+      return;
+    }
+
+    setIsSaving(true);
 
     try {
       const finalContent = content || editingContent;
@@ -279,15 +291,42 @@ const LessonContent: React.FC<LessonContentProps> = ({
         variant: "default"
       });
     } catch (error) {
-      console.error('🎓 [LessonContent] Error in handleSave:', error);
+      console.error('🎓 [LessonContent] Error in debouncedSave:', error);
       log.error('Component', 'Error saving lesson:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save your changes. Please try again.",
-        variant: "destructive"
-      });
+      // Note: Error toast is now handled by the handleUpdateLesson function
+      // to avoid duplicate error messages
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }, [lesson, onUpdateLesson, editingContent, isSaving, toast]);
+
+  const handleSave = useCallback((title?: string, content?: string) => {
+    console.log('🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length });
+    
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // Store the save data for comparison
+    const currentSaveData = { title, content };
+    
+    // Check if this is the same data as the last save attempt
+    if (lastSaveDataRef.current && 
+        lastSaveDataRef.current.title === title && 
+        lastSaveDataRef.current.content === content) {
+      console.log('🎓 [LessonContent] Duplicate save detected, ignoring');
+      return;
+    }
+    
+    lastSaveDataRef.current = currentSaveData;
+    
+    // Debounce the save operation
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('🎓 [LessonContent] Executing debounced save');
+      debouncedSave(title, content);
+    }, 500); // 500ms debounce
+  }, [debouncedSave]);
 
   const renderVideoContent = () => {
     // Use VideoContentExtractor to detect videos in both content_url and embedded HTML

@@ -219,9 +219,12 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
   ]);
   
   const handleUpdateLesson = useCallback(async (lessonId: string, updates: LessonUpdates) => {
+    console.log('🎓 [useLessonManagement] handleUpdateLesson called with:', { lessonId, updates });
+    
     try {
       const supabase = getSupabaseClient();
       
+      console.log('🎓 [useLessonManagement] Getting lesson content_id for:', lessonId);
       // Get lesson's content_id
       const { data: lessonData, error: lessonError } = await supabase
         .from('course_lessons')
@@ -229,57 +232,101 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
         .eq('id', lessonId)
         .single();
 
-      if (lessonError) throw lessonError;
+      if (lessonError) {
+        console.error('🎓 [useLessonManagement] Error getting lesson data:', lessonError);
+        throw lessonError;
+      }
+      
+      console.log('🎓 [useLessonManagement] Lesson data retrieved:', lessonData);
 
       // Update lesson title if provided
       if (updates.title) {
+        console.log('🎓 [useLessonManagement] Updating lesson title to:', updates.title);
         const { error } = await supabase
           .from('course_lessons')
           .update({ title: updates.title })
           .eq('id', lessonId);
-        if (error) throw error;
+        if (error) {
+          console.error('🎓 [useLessonManagement] Error updating lesson title:', error);
+          throw error;
+        }
+        console.log('🎓 [useLessonManagement] Lesson title updated successfully');
       }
 
       // Update content
       if (updates.content_text) {
+        console.log('🎓 [useLessonManagement] Updating content, has content_id:', !!lessonData.content_id);
         if (lessonData.content_id) {
-          // Update educational content
-          const { error } = await supabase
-            .from('educational_content')
-            .update({ text_content: updates.content_text })
-            .eq('id', lessonData.content_id);
-          if (error) throw error;
+          console.log('🎓 [useLessonManagement] Updating educational_content table');
+          // Update educational content with timeout handling
+          try {
+            const { error } = await supabase
+              .from('educational_content')
+              .update({ text_content: updates.content_text })
+              .eq('id', lessonData.content_id);
+            
+            if (error) {
+              console.error('🎓 [useLessonManagement] Error updating educational content:', error);
+              throw error;
+            }
+            console.log('🎓 [useLessonManagement] Educational content updated successfully');
+          } catch (error: any) {
+            console.error('🎓 [useLessonManagement] Error updating educational content:', error);
+            if (error.message?.includes('timeout') || error.message?.includes('504') || error.message?.includes('upstream request timeout')) {
+              throw new Error('Database update timed out. The server is taking too long to respond. Please try again in a moment.');
+            }
+            throw error;
+          }
         } else {
+          console.log('🎓 [useLessonManagement] Updating legacy content_text field');
           // Update legacy content_text field
           const { error } = await supabase
             .from('course_lessons')
             .update({ content_text: updates.content_text })
             .eq('id', lessonId);
-          if (error) throw error;
+          if (error) {
+            console.error('🎓 [useLessonManagement] Error updating legacy content:', error);
+            throw error;
+          }
+          console.log('🎓 [useLessonManagement] Legacy content updated successfully');
         }
       }
 
       // Update content_url if provided
       if (updates.content_url !== undefined) {
+        console.log('🎓 [useLessonManagement] Updating content_url to:', updates.content_url);
         const { error } = await supabase
           .from('course_lessons')
           .update({ content_url: updates.content_url })
           .eq('id', lessonId);
-        if (error) throw error;
+        if (error) {
+          console.error('🎓 [useLessonManagement] Error updating content_url:', error);
+          throw error;
+        }
+        console.log('🎓 [useLessonManagement] Content URL updated successfully');
       }
 
       // Update publish status if provided
       if (updates.is_published !== undefined) {
+        console.log('🎓 [useLessonManagement] Updating publish status to:', updates.is_published);
         const { error } = await supabase
           .from('course_lessons')
           .update({ is_published: updates.is_published })
           .eq('id', lessonId);
-        if (error) throw error;
+        if (error) {
+          console.error('🎓 [useLessonManagement] Error updating publish status:', error);
+          throw error;
+        }
+        console.log('🎓 [useLessonManagement] Publish status updated successfully');
       }
 
+      console.log('🎓 [useLessonManagement] All database updates completed, refreshing data...');
+      
       // Refresh data
       onInvalidateCache?.();
       await onRefetch?.();
+      
+      console.log('🎓 [useLessonManagement] Data refreshed, updating selected lesson...');
       
       // Update selected lesson
       if (course) {
@@ -288,13 +335,45 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
           .find(lesson => lesson.id === lessonId);
         
         if (updatedLesson) {
+          console.log('🎓 [useLessonManagement] Updating selected lesson and calling callbacks');
           onSelectedLessonChange?.(updatedLesson);
           onLessonUpdated?.(lessonId, updates);
+        } else {
+          console.warn('🎓 [useLessonManagement] Could not find updated lesson in course data');
+        }
+      } else {
+        console.warn('🎓 [useLessonManagement] No course data available for lesson update');
+      }
+      
+      console.log('🎓 [useLessonManagement] handleUpdateLesson completed successfully');
+      
+    } catch (error: any) {
+      console.error('🎓 [useLessonManagement] Error in handleUpdateLesson:', error);
+      log.error('Hook', '🎓 [useLessonManagement] Error updating lesson:', error);
+      
+      // Provide specific error feedback to the user
+      let errorMessage = 'Failed to save your changes. Please try again.';
+      
+      if (error?.message) {
+        if (error.message.includes('educational_content')) {
+          errorMessage = 'Failed to update lesson content. Please check your permissions and try again.';
+        } else if (error.message.includes('course_lessons')) {
+          errorMessage = 'Failed to update lesson information. Please check your permissions and try again.';
+        } else if (error.message.includes('Network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message.includes('permission')) {
+          errorMessage = 'You do not have permission to edit this lesson.';
+        } else {
+          errorMessage = `Error: ${error.message}`;
         }
       }
       
-    } catch (error) {
-      log.error('Hook', '🎓 [useLessonManagement] Error updating lesson:', error);
+      toast({
+        title: "Save Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+      
       throw error;
     }
   }, [course, onInvalidateCache, onRefetch, onSelectedLessonChange, onLessonUpdated]);
