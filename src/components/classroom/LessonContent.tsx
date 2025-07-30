@@ -454,6 +454,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
               placeholder="Start writing your content..."
               defaultTitle={lesson.title}
               className="h-full"
+              isSaving={isSaving}
               onSave={(title, content) => {
                 setEditingContent(content);
                 handleSave(title, content);
