@@ -11,6 +11,7 @@ interface VideoInfo {
 export class VideoContentExtractor {
   /**
    * Extract video information from a lesson
+   * Single source of truth: course_lessons.content_url
    */
   static extractVideoInfo(lesson: CourseLesson): VideoInfo | null {
     console.log('🎥 [VideoExtractor] Analyzing lesson for video content:', {
@@ -22,10 +23,10 @@ export class VideoContentExtractor {
       contentText: lesson.content_text?.substring(0, 200) + '...',
       educationalContentText: lesson.educational_content?.text_content?.substring(0, 200) + '...'
     });
-    // Method 1: Check direct video URL fields
-    const directVideoUrl = lesson.content_url || lesson.educational_content?.media_url;
-    if (directVideoUrl) {
-      const videoId = this.getYouTubeVideoId(directVideoUrl);
+    
+    // Single source of truth: course_lessons.content_url
+    if (lesson.content_url) {
+      const videoId = this.getYouTubeVideoId(lesson.content_url);
       if (videoId) {
         return {
           videoId,
@@ -35,7 +36,19 @@ export class VideoContentExtractor {
       }
     }
 
-    // Method 2: Parse iframe from HTML content (improved regex)
+    // Fallback: Check educational_content.media_url (legacy support)
+    if (lesson.educational_content?.media_url) {
+      const videoId = this.getYouTubeVideoId(lesson.educational_content.media_url);
+      if (videoId) {
+        return {
+          videoId,
+          platform: 'youtube',
+          embedUrl: `https://www.youtube.com/embed/${videoId}?rel=0&fs=1&cc_load_policy=0&iv_load_policy=3&showinfo=0&controls=1&disablekb=0&playsinline=1&color=white`
+        };
+      }
+    }
+
+    // Fallback: Parse iframe from HTML content (for backward compatibility)
     const htmlContent = lesson.educational_content?.text_content || lesson.content_text || '';
     
     // Look for YouTube embed URLs in iframe src attributes
@@ -51,16 +64,6 @@ export class VideoContentExtractor {
           embedUrl: `https://www.youtube.com/embed/${videoId}?rel=0&fs=1&cc_load_policy=0&iv_load_policy=3&showinfo=0&controls=1&disablekb=0&playsinline=1&color=white`
         };
       }
-    }
-
-    // Method 3: Look for YouTube video IDs directly in the content
-    const videoIdMatch = htmlContent.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
-    if (videoIdMatch && videoIdMatch[1]) {
-      return {
-        videoId: videoIdMatch[1],
-        platform: 'youtube',
-        embedUrl: `https://www.youtube.com/embed/${videoIdMatch[1]}?rel=0&fs=1&cc_load_policy=0&iv_load_policy=3&showinfo=0&controls=1&disablekb=0&playsinline=1&color=white`
-      };
     }
 
     return null;
@@ -91,9 +94,31 @@ export class VideoContentExtractor {
    * Extract YouTube video ID from various URL formats
    */
   private static getYouTubeVideoId(url: string): string | null {
-    const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
+    console.log('🎥 [VideoExtractor] getYouTubeVideoId called with URL:', url);
+    
+    // Handle direct embed URLs with parameters
+    const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+    if (embedMatch) {
+      console.log('🎥 [VideoExtractor] Found embed match:', embedMatch[1]);
+      return embedMatch[1];
+    }
+    
+    // Handle watch URLs
+    const watchMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/);
+    if (watchMatch) {
+      console.log('🎥 [VideoExtractor] Found watch match:', watchMatch[1]);
+      return watchMatch[1];
+    }
+    
+    // Handle youtu.be URLs
+    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+    if (shortMatch) {
+      console.log('🎥 [VideoExtractor] Found short match:', shortMatch[1]);
+      return shortMatch[1];
+    }
+    
+    console.log('🎥 [VideoExtractor] No video ID found in URL:', url);
+    return null;
   }
 
   /**
@@ -113,7 +138,15 @@ export class VideoContentExtractor {
    * Check if lesson has video content
    */
   static hasVideo(lesson: CourseLesson): boolean {
-    return this.extractVideoInfo(lesson) !== null;
+    const videoInfo = this.extractVideoInfo(lesson);
+    console.log('🎥 [VideoExtractor] hasVideo check:', {
+      lessonId: lesson.id,
+      lessonTitle: lesson.title,
+      contentUrl: lesson.content_url,
+      hasVideo: videoInfo !== null,
+      videoInfo
+    });
+    return videoInfo !== null;
   }
 }
 

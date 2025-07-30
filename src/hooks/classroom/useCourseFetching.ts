@@ -143,7 +143,7 @@ export function useCourseFetching(options: UseCourseFetchingOptions = {}): UseCo
         .select(`
           id, title, description, module_order, module_type, course_id, space_id,
           course_lessons (
-            id, title, content_type, content_text, lesson_order, module_id,
+            id, title, content_type, content_text, content_url, lesson_order, module_id,
             content_id, slug, page_type, is_published, estimated_duration,
             difficulty_level, created_at, updated_at
           )

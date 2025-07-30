@@ -19,6 +19,17 @@ const LessonContent: React.FC<LessonContentProps> = ({
   onCreateNewPage,
   onMarkAsDone
 }) => {
+  // Debug logging to see lesson data structure
+  console.log('🎓 [LessonContent] Lesson data received:', {
+    lessonId: lesson?.id,
+    lessonTitle: lesson?.title,
+    contentUrl: lesson?.content_url,
+    hasContentText: !!lesson?.content_text,
+    contentTextLength: lesson?.content_text?.length,
+    hasEducationalContent: !!lesson?.educational_content,
+    educationalContentMediaUrl: lesson?.educational_content?.media_url,
+    lessonObject: lesson
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [isInlineCreating, setIsInlineCreating] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState('');
@@ -224,8 +235,8 @@ const LessonContent: React.FC<LessonContentProps> = ({
     setEditingContent('');
   };
 
-  const debouncedSave = useCallback(async (title?: string, content?: string) => {
-    console.log('🎓 [LessonContent] debouncedSave called with:', { title, contentLength: content?.length });
+  const debouncedSave = useCallback(async (title?: string, content?: string, videoUrl?: string) => {
+    console.log('🎓 [LessonContent] debouncedSave called with:', { title, contentLength: content?.length, videoUrl });
     
     if (!lesson || !onUpdateLesson) {
       console.log('🎓 [LessonContent] Missing lesson or onUpdateLesson:', { hasLesson: !!lesson, hasOnUpdateLesson: !!onUpdateLesson });
@@ -245,38 +256,50 @@ const LessonContent: React.FC<LessonContentProps> = ({
       const finalContent = content || editingContent;
       console.log('🎓 [LessonContent] Final content length:', finalContent?.length);
       
-      // Extract video URL from HTML content if present
-      let videoUrl: string | null = null;
-      if (finalContent) {
-        // Look for YouTube embed URLs in iframe src attributes
+      // Use provided video URL or extract from HTML content as fallback
+      let finalVideoUrl: string | null = null;
+      let cleanedContent = finalContent;
+      
+      // Use the directly provided video URL if available
+      if (videoUrl !== undefined) {
+        finalVideoUrl = videoUrl.trim() || null;
+        console.log('🎓 [LessonContent] Using provided video URL:', finalVideoUrl);
+      } else if (finalContent) {
+        // Fallback: Extract video URL from HTML content
         const iframeMatch = finalContent.match(/src=["']([^"']*youtube\.com\/embed\/[^"']*)["']/) ||
                             finalContent.match(/src=([^\s>]*youtube\.com\/embed\/[^\s>]*)/);
         
         if (iframeMatch && iframeMatch[1]) {
-          videoUrl = iframeMatch[1];
-          console.log('🎓 [LessonContent] Found YouTube video URL from iframe:', videoUrl);
+          finalVideoUrl = iframeMatch[1];
+          console.log('🎓 [LessonContent] Found YouTube video URL from iframe:', finalVideoUrl);
         } else {
           // Look for direct YouTube URLs in the content
           const youtubeMatch = finalContent.match(/(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[^\s"']+)/);
           if (youtubeMatch) {
-            videoUrl = youtubeMatch[1];
-            console.log('🎓 [LessonContent] Found YouTube video URL from direct link:', videoUrl);
+            finalVideoUrl = youtubeMatch[1];
+            console.log('🎓 [LessonContent] Found YouTube video URL from direct link:', finalVideoUrl);
           }
         }
+      }
+
+      // Clean the content by removing embedded video iframes (since we store video URL separately)
+      if (finalContent && finalVideoUrl) {
+        cleanedContent = VideoContentExtractor.cleanHTMLContent(finalContent);
+        console.log('🎓 [LessonContent] Cleaned content length:', cleanedContent?.length);
       }
 
       console.log('🎓 [LessonContent] About to call onUpdateLesson with:', {
         lessonId: lesson.id,
         title: title || lesson.title,
         contentLength: finalContent?.length,
-        videoUrl
+        finalVideoUrl
       });
 
-      // Update the lesson with the edited content, title, and video URL
+      // Update the lesson with the cleaned content, title, and video URL
       await onUpdateLesson(lesson.id, { 
         title: title || lesson.title,
-        content_text: finalContent,
-        content_url: videoUrl || null // Save video URL to content_url field
+        content_text: cleanedContent,
+        content_url: finalVideoUrl // Use the final video URL (could be null to clear video)
       });
       
       console.log('🎓 [LessonContent] onUpdateLesson completed successfully');
@@ -300,8 +323,8 @@ const LessonContent: React.FC<LessonContentProps> = ({
     }
   }, [lesson, onUpdateLesson, editingContent, isSaving, toast]);
 
-  const handleSave = useCallback((title?: string, content?: string) => {
-    console.log('🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length });
+  const handleSave = useCallback((title?: string, content?: string, videoUrl?: string) => {
+    console.log('🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length, videoUrl });
     
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -309,50 +332,55 @@ const LessonContent: React.FC<LessonContentProps> = ({
     }
     
     // Store the save data for comparison
-    const currentSaveData = { title, content };
+    const currentSaveData = { title, content, videoUrl };
     
     // Check if this is the same data as the last save attempt
     if (lastSaveDataRef.current && 
         lastSaveDataRef.current.title === title && 
-        lastSaveDataRef.current.content === content) {
+        lastSaveDataRef.current.content === content &&
+        (lastSaveDataRef.current as any).videoUrl === videoUrl) {
       console.log('🎓 [LessonContent] Duplicate save detected, ignoring');
       return;
     }
     
-    lastSaveDataRef.current = currentSaveData;
+    lastSaveDataRef.current = currentSaveData as any;
     
     // Debounce the save operation
     saveTimeoutRef.current = setTimeout(() => {
       console.log('🎓 [LessonContent] Executing debounced save');
-      debouncedSave(title, content);
+      debouncedSave(title, content, videoUrl);
     }, 500); // 500ms debounce
   }, [debouncedSave]);
 
   const renderVideoContent = () => {
+    console.log('🎥 [LessonContent] renderVideoContent called');
+    
     // Use VideoContentExtractor to detect videos in both content_url and embedded HTML
     const videoInfo = VideoContentExtractor.extractVideoInfo(lesson);
     
-    if (!videoInfo) return null;
+    console.log('🎥 [LessonContent] videoInfo:', videoInfo);
+    
+    if (!videoInfo) {
+      console.log('🎥 [LessonContent] No videoInfo, returning null');
+      return null;
+    }
 
     // Generate embed URL with proper parameters
     const embedUrl = VideoContentExtractor.generateEmbedUrl(videoInfo, window.location.origin);
+    console.log('🎥 [LessonContent] Generated embedUrl:', embedUrl);
     
     if (videoInfo.platform === 'youtube') {
+      console.log('🎥 [LessonContent] Rendering YouTube video with embedUrl:', embedUrl);
       return (
-        <div className="skool-style-video-container">
-          <div className="video-wrapper">
-            <iframe
-              className="course-detail-content"
-              src={embedUrl}
-              title={lesson.title}
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              loading="lazy"
-            />
-            <div className="skool-branding-overlay"></div>
-            <div className="skool-corner-overlay"></div>
-          </div>
+        <div className="tiptap-style-video-container">
+          <iframe
+            src={embedUrl}
+            title={lesson.title}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            loading="lazy"
+          />
         </div>
       );
     }
@@ -453,11 +481,12 @@ const LessonContent: React.FC<LessonContentProps> = ({
               }}
               placeholder="Start writing your content..."
               defaultTitle={lesson.title}
+              defaultVideoUrl={lesson.content_url || ''}
               className="h-full"
               isSaving={isSaving}
-              onSave={(title, content) => {
+              onSave={(title, content, published, videoUrl) => {
                 setEditingContent(content);
-                handleSave(title, content);
+                handleSave(title, content, videoUrl);
               }}
               onCancel={handleCancel}
             />
@@ -509,12 +538,29 @@ const LessonContent: React.FC<LessonContentProps> = ({
                 )}
               </div>
             </div>
-            {/* Video content with proper spacing */}
-            {VideoContentExtractor.hasVideo(lesson) && (
-              <div className="mb-8">
-                {renderVideoContent()}
-              </div>
-            )}
+            {/* Video content with proper spacing - always show dedicated video if content_url exists */}
+            {(() => {
+              const hasVideo = VideoContentExtractor.hasVideo(lesson);
+              console.log('🎥 [LessonContent] Video rendering check:', {
+                lessonId: lesson.id,
+                lessonTitle: lesson.title,
+                hasVideo,
+                contentUrl: lesson.content_url,
+                willShowDedicatedVideo: hasVideo
+              });
+              
+              if (hasVideo) {
+                console.log('🎥 [LessonContent] Rendering video container div');
+                return (
+                  <div className="mb-8">
+                    {renderVideoContent()}
+                  </div>
+                );
+              } else {
+                console.log('🎥 [LessonContent] No video, returning null');
+                return null;
+              }
+            })()}
             
             {/* Text content with proper spacing */}
             <div className="prose max-w-none lesson-content">
@@ -527,7 +573,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
                 
                 return (
                   <div 
-                    className="text-gray-700 leading-relaxed lesson-content-inner"
+                    className="text-gray-700 leading-relaxed lesson-content-inner ProseMirror"
                     dangerouslySetInnerHTML={{ 
                       __html: processedContent
                     }}

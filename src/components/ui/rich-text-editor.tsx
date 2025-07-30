@@ -8,6 +8,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import YoutubeExtension from '@tiptap/extension-youtube';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { 
   ChevronDown, 
   FileUp, 
@@ -23,7 +24,6 @@ import {
   List,
   ListOrdered,
   Quote,
-  Youtube,
   FileText,
   Pin,
   Play,
@@ -49,7 +49,7 @@ interface RichTextEditorProps {
   onChange: (richText: string) => void;
   placeholder?: string;
   defaultTitle?: string;
-  onSave: (title: string, content: string, published?: boolean) => void;
+  onSave: (title: string, content: string, published?: boolean, videoUrl?: string) => void;
   onCancel: () => void;
   className?: string;
   hideTitle?: boolean; // New prop to hide title input
@@ -59,6 +59,8 @@ interface RichTextEditorProps {
   courseId?: string; // For image uploads
   isPublished?: boolean; // Current published state
   onPublishedChange?: (published: boolean) => void; // Callback when published state changes
+  defaultVideoUrl?: string; // Default video URL for lessons
+  onVideoUrlChange?: (videoUrl: string) => void; // Callback when video URL changes
 }
 
 interface ToolbarButtonProps {
@@ -137,9 +139,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   courseId,
   isPublished = false,
   onPublishedChange,
+  defaultVideoUrl = '',
+  onVideoUrlChange,
 }) => {
   const [title, setTitle] = useState(defaultTitle);
   const [published, setPublished] = useState(isPublished);
+  const [videoUrl, setVideoUrl] = useState(defaultVideoUrl);
   const [showTitleError, setShowTitleError] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -156,12 +161,52 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     setPublished(isPublished);
   }, [isPublished]);
 
+  // Update video URL when defaultVideoUrl prop changes
+  React.useEffect(() => {
+    if (defaultVideoUrl !== videoUrl) {
+      setVideoUrl(defaultVideoUrl);
+    }
+  }, [defaultVideoUrl, videoUrl]);
+
+  // Video URL validation
+  const isValidYouTubeUrl = (url: string): boolean => {
+    if (!url.trim()) return true; // Empty URL is valid (no video)
+    const youtubeRegex = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)[a-zA-Z0-9_-]+/;
+    return youtubeRegex.test(url.trim());
+  };
+
   // Notify parent when published state changes
   const handlePublishedChange = (newPublished: boolean) => {
     setPublished(newPublished);
     if (onPublishedChange) {
       onPublishedChange(newPublished);
     }
+  };
+
+  // Handle video URL changes
+  const handleVideoUrlChange = (newVideoUrl: string) => {
+    setVideoUrl(newVideoUrl);
+    if (onVideoUrlChange) {
+      onVideoUrlChange(newVideoUrl);
+    }
+  };
+
+  // Generate video embed URL for preview
+  const getVideoEmbedUrl = (url: string): string | null => {
+    if (!url.trim() || !isValidYouTubeUrl(url)) return null;
+    
+    // Extract video ID from various YouTube URL formats
+    const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+    const watchMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/);
+    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+    
+    const videoId = embedMatch?.[1] || watchMatch?.[1] || shortMatch?.[1];
+    
+    if (videoId) {
+      return `https://www.youtube.com/embed/${videoId}?rel=0&fs=1&cc_load_policy=0&iv_load_policy=3&showinfo=0&controls=1&disablekb=0&playsinline=1&color=white`;
+    }
+    
+    return null;
   };
 
   const editor = useEditor({
@@ -225,7 +270,19 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const handleSave = () => {
     // Use the title from the title field, or default if empty
     const finalTitle = title.trim() || 'Untitled Page';
-    onSave(finalTitle, editor?.getHTML() || '', published);
+    
+    // Validate video URL if provided
+    const trimmedVideoUrl = videoUrl.trim();
+    if (trimmedVideoUrl && !isValidYouTubeUrl(trimmedVideoUrl)) {
+      toast({
+        title: "Invalid Video URL",
+        description: "Please enter a valid YouTube URL",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    onSave(finalTitle, editor?.getHTML() || '', published, trimmedVideoUrl || undefined);
   };
 
   // Add keyboard shortcuts
@@ -600,6 +657,32 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </div>
         )}
 
+        {/* Video Preview Section */}
+        {videoUrl.trim() && isValidYouTubeUrl(videoUrl) && (
+          <div className="px-6 py-4 border-b border-gray-100">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <Video className="w-4 h-4 text-red-600" />
+                Video Preview
+              </div>
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' /* 16:9 aspect ratio */ }}>
+                <iframe
+                  src={getVideoEmbedUrl(videoUrl) || ''}
+                  title="Video Preview"
+                  className="absolute top-0 left-0 w-full h-full rounded-lg border border-gray-200"
+                  style={{ border: 0 }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  loading="lazy"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                This video will appear above your lesson content when saved.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Editor Content */}
         <div className="min-h-[200px] editor-content [&_h1]:text-2xl px-6 pb-6">
           <EditorContent editor={editor} />
@@ -643,6 +726,40 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
               onCheckedChange={handlePublishedChange}
               className="data-[state=checked]:bg-green-600 shadow-sm" 
             />
+          </div>
+        </div>
+
+        {/* Video URL Input Row */}
+        <div className="px-6 py-3 border-t border-gray-100">
+          <div className="space-y-2">
+            <label htmlFor="video-url" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <Video className="w-4 h-4 text-red-600" />
+              YouTube Video URL (optional)
+            </label>
+            <input
+              id="video-url"
+              type="url"
+              value={videoUrl}
+              onChange={(e) => handleVideoUrlChange(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className={`w-full px-3 py-2 text-sm border rounded-md transition-colors
+                ${!isValidYouTubeUrl(videoUrl) && videoUrl.trim() 
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
+                  : 'border-gray-200 focus:border-blue-500 focus:ring-blue-200'
+                } focus:outline-none focus:ring-2`}
+            />
+            {videoUrl.trim() && !isValidYouTubeUrl(videoUrl) && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <span>⚠️</span>
+                Please enter a valid YouTube URL (youtube.com or youtu.be)
+              </p>
+            )}
+            {videoUrl.trim() && isValidYouTubeUrl(videoUrl) && (
+              <p className="text-xs text-green-600 flex items-center gap-1">
+                <span>✅</span>
+                Valid YouTube URL - video will be displayed above the lesson content
+              </p>
+            )}
           </div>
         </div>
 

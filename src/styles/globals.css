@@ -26,7 +26,37 @@ html {
   will-change: transform, opacity;
 } 
 
-/* Skool-style YouTube branding removal */
+/* TipTap-style video container for consistent sizing */
+.tiptap-style-video-container {
+  position: relative;
+  margin: 1rem auto 2rem auto;
+  width: 100%;
+  max-width: 720px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 0;
+  background: transparent;
+  /* 16:9 aspect ratio using padding-bottom technique */
+  padding-bottom: 56.25%;
+  height: 0;
+}
+
+.tiptap-style-video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 8px;
+  display: block;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* Legacy Skool-style YouTube branding removal - keeping for backward compatibility */
 .skool-style-video-container {
   position: relative;
   width: 100%;
@@ -95,7 +125,8 @@ html {
 
 /* Lesson content spacing for embedded videos */
 .prose iframe,
-.prose .skool-style-video-container {
+.prose .skool-style-video-container,
+.prose .tiptap-style-video-container {
   margin-bottom: 2rem !important;
   margin-top: 1rem !important;
 }
@@ -111,6 +142,7 @@ html {
 /* Additional spacing for content after videos */
 .prose iframe + *,
 .prose .skool-style-video-container + *,
+.prose .tiptap-style-video-container + *,
 .prose div[data-youtube-video] + *,
 .prose .video-embed + *,
 .prose .youtube-embed + * {

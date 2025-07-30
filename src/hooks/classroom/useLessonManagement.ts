@@ -322,21 +322,40 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
 
       console.log('🎓 [useLessonManagement] All database updates completed, refreshing data...');
       
-      // Refresh data
+      // Refresh data first
       onInvalidateCache?.();
       await onRefetch?.();
       
       console.log('🎓 [useLessonManagement] Data refreshed, updating selected lesson...');
       
-      // Update selected lesson
+      // Update selected lesson with the new data
       if (course) {
         const updatedLesson = course.modules
           .flatMap(module => module.lessons)
           .find(lesson => lesson.id === lessonId);
         
         if (updatedLesson) {
-          console.log('🎓 [useLessonManagement] Updating selected lesson and calling callbacks');
-          onSelectedLessonChange?.(updatedLesson);
+          // Create a properly updated lesson object with the new data
+          const lessonWithUpdates = {
+            ...updatedLesson,
+            title: updates.title || updatedLesson.title,
+            content_url: updates.content_url !== undefined ? updates.content_url : updatedLesson.content_url,
+            is_published: updates.is_published !== undefined ? updates.is_published : updatedLesson.is_published,
+            // Update educational content if it exists
+            educational_content: updatedLesson.educational_content ? {
+              ...updatedLesson.educational_content,
+              text_content: updates.content_text || updatedLesson.educational_content.text_content
+            } : updatedLesson.educational_content
+          };
+          
+          console.log('🎓 [useLessonManagement] Updating selected lesson with new data:', {
+            lessonId,
+            oldContentUrl: updatedLesson.content_url,
+            newContentUrl: lessonWithUpdates.content_url,
+            updates
+          });
+          
+          onSelectedLessonChange?.(lessonWithUpdates);
           onLessonUpdated?.(lessonId, updates);
         } else {
           console.warn('🎓 [useLessonManagement] Could not find updated lesson in course data');

@@ -269,7 +269,7 @@ export interface LessonContentProps {
   isOwner: boolean;
   isAdmin?: boolean;
   completed: boolean;
-  onUpdateLesson: (lessonId: string, updates: { title?: string; content_text?: string; is_published?: boolean }) => Promise<void>;
+  onUpdateLesson: (lessonId: string, updates: { title?: string; content_text?: string; content_url?: string | null; is_published?: boolean }) => Promise<void>;
   onCreateNewPage: () => void;
   onMarkAsDone: () => void;
 }
