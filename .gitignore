@@ -73,3 +73,9 @@ supabase/temp/
 *.swp
 *.swo
 *~
+
+# Package manager lock files (keep only npm)
+pnpm-lock.yaml
+bun.lockb
+yarn.lock
+.pnpm-store/

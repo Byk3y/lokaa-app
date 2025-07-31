@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
+**Package Manager:** This project uses **npm** exclusively. Other package managers (pnpm, yarn, bun) are not supported to avoid dependency conflicts.
+
 ### Core Commands
 - `npm run dev` - Start development server (preferred)
 - `npm run dev:clean` - Start development server with clean state
