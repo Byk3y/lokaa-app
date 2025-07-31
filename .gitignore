@@ -48,6 +48,12 @@ temp_*
 *.orig
 *.rej
 
+# Version-controlled backup directories (anti-pattern)
+backup/
+backups/
+*-backup/
+*-backups/
+
 # Build artifacts and archives
 *.zip
 *.tar.gz

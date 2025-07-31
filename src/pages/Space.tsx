@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
 import useSpaceSettingsStore, { type SpaceSettingsData } from "@/hooks/useSpaceSettingsStore";
 import { checkSpaceAccessForUser } from '@/utils/debugTools';
-import spaceAccessFix from '@/utils/spaceAccessFix';
+import { spaceAccessDebugger } from '@/shared/services/debug/space-access-debug';
 import { fixSpaceAccessBySubdomain, directSpaceAccessCheck } from '@/utils/fixSpacesAccess';
 import { ErrorRecovery } from '@/components/common/ErrorRecovery';
 import AboutTab from "@/components/space/AboutTab";
@@ -37,8 +37,8 @@ import { useAIUserJourney } from "@/hooks/useAIUserJourney";
 
 const DEFAULT_COVER_IMAGE_URL = '/default-space-cover.jpg'; // Define a default
 
-    // Initialize spaceAccessFix with the Supabase client
-    spaceAccessFix.init(getSupabaseClient());
+    // Initialize spaceAccessDebugger with the Supabase client
+    spaceAccessDebugger.init(getSupabaseClient());
 
 // Debug logging for space loading
 const logSpaceDebug = (message: string, data?: any) => {
