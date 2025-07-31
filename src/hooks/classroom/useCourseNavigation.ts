@@ -133,68 +133,71 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
   // DISABLED: Auto-select first lesson if none selected (Desktop only)
   // This was causing automatic navigation to course details from classroom overview
   useEffect(() => {
-    // DISABLED: Completely disable auto-selection to prevent unwanted navigation
-    if (true) return; // Early exit to disable entire auto-selection logic
+    if (!course || !course.modules || course.modules.length === 0) return;
     
-    // Skip auto-selection on mobile - let mobile views handle their own logic
-    if (isMobile) return;
+    const currentUrl = window.location.pathname + window.location.search;
+    const isOnCourseRoute = currentUrl.match(/^\/[^\/]+\/space\/classroom\/[^\/]+/);
+    const isOnClassroomOverview = currentUrl.match(/^\/[^\/]+\/space\/classroom$/);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 [useCourseNavigation] Lesson selection logic:', {
+        currentUrl,
+        isOnCourseRoute: !!isOnCourseRoute,
+        isOnClassroomOverview: !!isOnClassroomOverview,
+        hasSelectedLesson: !!selectedLesson,
+        mdParam,
+        hasCourse: !!course,
+        hasModules: !!(course?.modules?.length),
+        courseId: course?.id
+      });
+    }
+    
+    // Skip if not on course route or on classroom overview
+    if (!isOnCourseRoute || isOnClassroomOverview) {
+      log.debug('Hook', '🎓 [useCourseNavigation] Skipping lesson selection - not on course route');
+      return;
+    }
 
-    if (!selectedLesson && course && course.modules && course.modules.length > 0) {
-      // CRITICAL FIX: Only auto-select and sync URL if we're actually on a course detail route
-      const currentUrl = window.location.pathname + window.location.search;
-      const isOnCourseRoute = currentUrl.match(/^\/[^\/]+\/course\/[^\/]+/) || 
-                              currentUrl.match(/^\/[^\/]+\/space\/classroom\/[^\/]+/);
+    // 1. If URL has specific lesson ID (md parameter), select that lesson
+    if (mdParam && mdParam !== 'menu') {
+      const targetLesson = course.modules
+        .flatMap(module => module.lessons)
+        .find(lesson => lesson.id === mdParam);
       
-      // SAFETY CHECK: Never auto-select if we're on classroom overview route (without course slug)
-      const isOnClassroomOverview = currentUrl.match(/^\/[^\/]+\/space\/classroom$/);
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 [useCourseNavigation] Auto-selection check:', {
-          currentUrl,
-          isOnCourseRoute: !!isOnCourseRoute,
-          isOnClassroomOverview: !!isOnClassroomOverview,
-          hasSelectedLesson: !!selectedLesson,
-          hasCourse: !!course,
-          hasModules: !!(course?.modules?.length),
-          courseId: course?.id
-        });
-      }
-      
-      if (!isOnCourseRoute || isOnClassroomOverview) {
-        log.debug('Hook', '🎓 [useCourseNavigation] Skipping auto-selection - not on course route or on classroom overview:', currentUrl);
+      if (targetLesson && selectedLesson?.id !== targetLesson.id) {
+        log.debug('Hook', '🎓 [useCourseNavigation] Selecting lesson from URL:', targetLesson.title);
+        setSelectedLesson(targetLesson);
         return;
       }
+    }
 
-      // Check for last viewed lesson in localStorage
+    // 2. If no lesson selected and not mobile overview, auto-select a lesson
+    if (!selectedLesson && !(isMobile && (!mdParam || mdParam === 'menu'))) {
+      
+      // Try to restore last viewed lesson first
       const lastViewedLessonId = localStorage.getItem(`lastViewedLesson_${course.id}`);
       
       if (lastViewedLessonId) {
-        // Try to find the last viewed lesson
         const lastViewedLesson = course.modules
           .flatMap(module => module.lessons)
           .find(lesson => lesson.id === lastViewedLessonId);
         
         if (lastViewedLesson) {
-          log.debug('Hook', '🎓 [useCourseNavigation] Found last viewed lesson:', lastViewedLesson.title);
+          log.debug('Hook', '🎓 [useCourseNavigation] Restoring last viewed lesson:', lastViewedLesson.title);
           setSelectedLesson(lastViewedLesson);
-          
-          // CRITICAL FIX: Don't auto-navigate - let the route handle it
-          // syncUrlWithLesson(lastViewedLesson); // ← REMOVED: This was causing auto-navigation
           return;
         }
       }
       
-      // Fallback to first lesson if no last viewed lesson found
+      // Fallback to first available lesson
       const firstModule = course.modules[0];
       if (firstModule.lessons && firstModule.lessons.length > 0) {
         const firstLesson = firstModule.lessons[0];
+        log.debug('Hook', '🎓 [useCourseNavigation] Auto-selecting first lesson:', firstLesson.title);
         setSelectedLesson(firstLesson);
-        
-        // CRITICAL FIX: Don't auto-navigate - let the route handle it
-        // syncUrlWithLesson(firstLesson); // ← REMOVED: This was causing auto-navigation
       }
     }
-  }, [course, selectedLesson, isMobile, setSelectedLesson]);
+  }, [course, selectedLesson, isMobile, mdParam, setSelectedLesson]);
 
   // DISABLED: Mobile entry point handling - redirect to menu view if no md parameter
   // This was causing unwanted automatic navigation from classroom overview

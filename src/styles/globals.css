@@ -26,7 +26,7 @@ html {
   will-change: transform, opacity;
 } 
 
-/* TipTap-style video container for consistent sizing */
+/* TipTap-style video container for consistent sizing (editor mode) */
 .tiptap-style-video-container {
   position: relative;
   margin: 1rem auto 2rem auto;
@@ -54,6 +54,69 @@ html {
   margin: 0;
   padding: 0;
   background: transparent;
+}
+
+/* Lesson view video container - larger and more prominent - UPDATED 2025-01-08 */
+.lesson-view-video-container {
+  position: relative;
+  margin: 1.5rem auto 2.5rem auto !important; /* Center the video */
+  width: 100% !important;
+  max-width: 1000px !important; /* Much larger for better visibility */
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  padding: 0;
+  /* 16:9 aspect ratio using padding-bottom technique */
+  padding-bottom: 56.25%;
+  height: 0;
+  
+
+}
+
+/* Override any parent container constraints */
+.bg-white.border.border-gray-200.rounded-lg.p-6 .lesson-view-video-container,
+.bg-white.border.border-gray-200.rounded-lg.p-6 div .lesson-view-video-container,
+.w-full .lesson-view-video-container,
+.lesson-content .lesson-view-video-container {
+  max-width: 1000px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.lesson-view-video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+  border-radius: 12px;
+  display: block;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* Responsive video sizing for different screen sizes - UPDATED 2025-01-08 */
+@media (min-width: 768px) {
+  .lesson-view-video-container,
+  .bg-white.border.border-gray-200.rounded-lg.p-6 .lesson-view-video-container,
+  .bg-white.border.border-gray-200.rounded-lg.p-6 div .lesson-view-video-container,
+  .w-full .lesson-view-video-container,
+  .lesson-content .lesson-view-video-container {
+    max-width: 1100px !important; /* Much larger on tablets */
+  }
+}
+
+@media (min-width: 1024px) {
+  .lesson-view-video-container,
+  .bg-white.border.border-gray-200.rounded-lg.p-6 .lesson-view-video-container,
+  .bg-white.border.border-gray-200.rounded-lg.p-6 div .lesson-view-video-container,
+  .w-full .lesson-view-video-container,
+  .lesson-content .lesson-view-video-container {
+    max-width: 1200px !important; /* Even larger on desktop */
+  }
 }
 
 /* Legacy Skool-style YouTube branding removal - keeping for backward compatibility */
@@ -126,7 +189,8 @@ html {
 /* Lesson content spacing for embedded videos */
 .prose iframe,
 .prose .skool-style-video-container,
-.prose .tiptap-style-video-container {
+.prose .tiptap-style-video-container,
+.prose .lesson-view-video-container {
   margin-bottom: 2rem !important;
   margin-top: 1rem !important;
 }
@@ -143,6 +207,7 @@ html {
 .prose iframe + *,
 .prose .skool-style-video-container + *,
 .prose .tiptap-style-video-container + *,
+.prose .lesson-view-video-container + *,
 .prose div[data-youtube-video] + *,
 .prose .video-embed + *,
 .prose .youtube-embed + * {

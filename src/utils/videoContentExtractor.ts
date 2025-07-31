@@ -48,23 +48,38 @@ export class VideoContentExtractor {
       }
     }
 
-    // Fallback: Parse iframe from HTML content (for backward compatibility)
-    const htmlContent = lesson.educational_content?.text_content || lesson.content_text || '';
-    
-    // Look for YouTube embed URLs in iframe src attributes
-    const iframeMatch = htmlContent.match(/src=["']([^"']*youtube\.com\/embed\/[^"']*)["']/) ||
-                        htmlContent.match(/src=([^\s>]*youtube\.com\/embed\/[^\s>]*)/);
-    
-    if (iframeMatch && iframeMatch[1]) {
-      const videoId = this.getYouTubeVideoId(iframeMatch[1]);
-      if (videoId) {
-        return {
-          videoId,
-          platform: 'youtube',
-          embedUrl: `https://www.youtube.com/embed/${videoId}?rel=0&fs=1&cc_load_policy=0&iv_load_policy=3&showinfo=0&controls=1&disablekb=0&playsinline=1&color=white`
-        };
+    // Additional fallback: Check for YouTube videos embedded in HTML content
+    const htmlContent = lesson.content_text || lesson.educational_content?.text_content || '';
+    if (htmlContent) {
+      // Look for YouTube iframe embeds
+      const iframeMatch = htmlContent.match(/src=["']([^"']*youtube\.com\/embed\/[^"']*)["']/);
+      if (iframeMatch && iframeMatch[1]) {
+        const videoId = this.getYouTubeVideoId(iframeMatch[1]);
+        if (videoId) {
+          console.log('🎥 [VideoExtractor] Found YouTube video in HTML content:', iframeMatch[1]);
+          return {
+            videoId,
+            platform: 'youtube',
+            embedUrl: `https://www.youtube.com/embed/${videoId}?rel=0&fs=1&cc_load_policy=0&iv_load_policy=3&showinfo=0&controls=1&disablekb=0&playsinline=1&color=white`
+          };
+        }
+      }
+      
+      // Look for TipTap YouTube extension data attributes
+      const tiptapMatch = htmlContent.match(/data-youtube-video="([^"]+)"/);
+      if (tiptapMatch && tiptapMatch[1]) {
+        const videoId = this.getYouTubeVideoId(tiptapMatch[1]);
+        if (videoId) {
+          console.log('🎥 [VideoExtractor] Found TipTap YouTube video in HTML content:', tiptapMatch[1]);
+          return {
+            videoId,
+            platform: 'youtube',
+            embedUrl: `https://www.youtube.com/embed/${videoId}?rel=0&fs=1&cc_load_policy=0&iv_load_policy=3&showinfo=0&controls=1&disablekb=0&playsinline=1&color=white`
+          };
+        }
       }
     }
+
 
     return null;
   }

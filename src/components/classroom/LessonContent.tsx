@@ -235,8 +235,8 @@ const LessonContent: React.FC<LessonContentProps> = ({
     setEditingContent('');
   };
 
-  const debouncedSave = useCallback(async (title?: string, content?: string, videoUrl?: string) => {
-    console.log('🎓 [LessonContent] debouncedSave called with:', { title, contentLength: content?.length, videoUrl });
+  const debouncedSave = useCallback(async (title?: string, content?: string) => {
+    console.log('🎓 [LessonContent] debouncedSave called with:', { title, contentLength: content?.length });
     
     if (!lesson || !onUpdateLesson) {
       console.log('🎓 [LessonContent] Missing lesson or onUpdateLesson:', { hasLesson: !!lesson, hasOnUpdateLesson: !!onUpdateLesson });
@@ -256,16 +256,12 @@ const LessonContent: React.FC<LessonContentProps> = ({
       const finalContent = content || editingContent;
       console.log('🎓 [LessonContent] Final content length:', finalContent?.length);
       
-      // Use provided video URL or extract from HTML content as fallback
+      // Extract video URL from HTML content if available
       let finalVideoUrl: string | null = null;
       let cleanedContent = finalContent;
       
-      // Use the directly provided video URL if available
-      if (videoUrl !== undefined) {
-        finalVideoUrl = videoUrl.trim() || null;
-        console.log('🎓 [LessonContent] Using provided video URL:', finalVideoUrl);
-      } else if (finalContent) {
-        // Fallback: Extract video URL from HTML content
+      if (finalContent) {
+        // Extract video URL from HTML content
         const iframeMatch = finalContent.match(/src=["']([^"']*youtube\.com\/embed\/[^"']*)["']/) ||
                             finalContent.match(/src=([^\s>]*youtube\.com\/embed\/[^\s>]*)/);
         
@@ -295,12 +291,22 @@ const LessonContent: React.FC<LessonContentProps> = ({
         finalVideoUrl
       });
 
-      // Update the lesson with the cleaned content, title, and video URL
-      await onUpdateLesson(lesson.id, { 
+      // Prepare update object - only include content_url if we found a video
+      const updateData: any = {
         title: title || lesson.title,
-        content_text: cleanedContent,
-        content_url: finalVideoUrl // Use the final video URL (could be null to clear video)
-      });
+        content_text: cleanedContent
+      };
+      
+      // Only update content_url if we found a video URL in the content
+      if (finalVideoUrl) {
+        updateData.content_url = finalVideoUrl;
+        console.log('🎓 [LessonContent] Including video URL in update:', finalVideoUrl);
+      } else {
+        console.log('🎓 [LessonContent] No video URL found, preserving existing video');
+      }
+
+      // Update the lesson
+      await onUpdateLesson(lesson.id, updateData);
       
       console.log('🎓 [LessonContent] onUpdateLesson completed successfully');
       
@@ -323,8 +329,8 @@ const LessonContent: React.FC<LessonContentProps> = ({
     }
   }, [lesson, onUpdateLesson, editingContent, isSaving, toast]);
 
-  const handleSave = useCallback((title?: string, content?: string, videoUrl?: string) => {
-    console.log('🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length, videoUrl });
+  const handleSave = useCallback((title?: string, content?: string) => {
+    console.log('🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length });
     
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -332,23 +338,22 @@ const LessonContent: React.FC<LessonContentProps> = ({
     }
     
     // Store the save data for comparison
-    const currentSaveData = { title, content, videoUrl };
+    const currentSaveData = { title, content };
     
     // Check if this is the same data as the last save attempt
     if (lastSaveDataRef.current && 
         lastSaveDataRef.current.title === title && 
-        lastSaveDataRef.current.content === content &&
-        (lastSaveDataRef.current as any).videoUrl === videoUrl) {
+        lastSaveDataRef.current.content === content) {
       console.log('🎓 [LessonContent] Duplicate save detected, ignoring');
       return;
     }
     
-    lastSaveDataRef.current = currentSaveData as any;
+    lastSaveDataRef.current = currentSaveData;
     
     // Debounce the save operation
     saveTimeoutRef.current = setTimeout(() => {
       console.log('🎓 [LessonContent] Executing debounced save');
-      debouncedSave(title, content, videoUrl);
+      debouncedSave(title, content);
     }, 500); // 500ms debounce
   }, [debouncedSave]);
 
@@ -371,8 +376,25 @@ const LessonContent: React.FC<LessonContentProps> = ({
     
     if (videoInfo.platform === 'youtube') {
       console.log('🎥 [LessonContent] Rendering YouTube video with embedUrl:', embedUrl);
+      console.log('🎥 [LessonContent] DEBUG: About to render video container with lesson-view-video-container class');
       return (
-        <div className="tiptap-style-video-container">
+        <div 
+          className="lesson-view-video-container"
+          style={{
+            /* Video sizing - much larger and properly styled */
+            position: 'relative',
+            margin: '1.5rem auto 2.5rem auto',
+            width: '100%',
+            maxWidth: '1200px', /* Much larger for better visibility */
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            padding: '0',
+            /* 16:9 aspect ratio using padding-bottom technique */
+            paddingBottom: '56.25%',
+            height: '0'
+          }}
+        >
           <iframe
             src={embedUrl}
             title={lesson.title}
@@ -380,6 +402,19 @@ const LessonContent: React.FC<LessonContentProps> = ({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             loading="lazy"
+            style={{
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              width: '100%',
+              height: '100%',
+              border: '0',
+              borderRadius: '12px',
+              display: 'block',
+              margin: '0',
+              padding: '0',
+              background: 'transparent'
+            }}
           />
         </div>
       );
@@ -473,23 +508,50 @@ const LessonContent: React.FC<LessonContentProps> = ({
       <div className="flex flex-col h-full bg-white">
         {/* Full-width rich text editor with proper spacing */}
         <div className="flex-1 p-6 overflow-hidden bg-gray-50">
-          <div className="w-full h-full">
-            <RichTextEditor
-              content={processedContent}
-              onChange={(content) => {
+          <div className="w-full h-full flex flex-col">
+            {/* RichTextEditor at the top */}
+            <div className="flex-1 min-h-0">
+              <RichTextEditor
+                content={processedContent}
+                onChange={(content) => {
+                  setEditingContent(content);
+                }}
+                placeholder="Start writing your content..."
+                defaultTitle={lesson.title}
+                className="h-full"
+                isSaving={isSaving}
+                              onSave={(title, content, published) => {
                 setEditingContent(content);
-              }}
-              placeholder="Start writing your content..."
-              defaultTitle={lesson.title}
-              defaultVideoUrl={lesson.content_url || ''}
-              className="h-full"
-              isSaving={isSaving}
-              onSave={(title, content, published, videoUrl) => {
-                setEditingContent(content);
-                handleSave(title, content, videoUrl);
+                handleSave(title, content);
               }}
               onCancel={handleCancel}
             />
+            </div>
+            
+            {/* Video preview below the editor */}
+            {(() => {
+              const hasVideo = VideoContentExtractor.hasVideo(lesson);
+              console.log('🎥 [LessonContent] Edit mode video check:', {
+                lessonId: lesson.id,
+                lessonTitle: lesson.title,
+                hasVideo,
+                contentUrl: lesson.content_url,
+                willShowVideo: hasVideo
+              });
+              
+              if (hasVideo) {
+                console.log('🎥 [LessonContent] Rendering video in edit mode');
+                return (
+                  <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">Video Preview</h3>
+                    {renderVideoContent()}
+                  </div>
+                );
+              } else {
+                console.log('🎥 [LessonContent] No video to show in edit mode');
+                return null;
+              }
+            })()}
           </div>
         </div>
       </div>
