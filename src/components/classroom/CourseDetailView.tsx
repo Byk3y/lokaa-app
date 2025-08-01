@@ -57,8 +57,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     retryOnError: true
   });
   
-  // Local optimistic course state for mobile components
-  const [optimisticCourse, setOptimisticCourse] = useState<CourseDetailData | null>(null);
+  // Note: Optimistic updates now handled directly in useCourseDetail hook
 
   // Use the new progress management hook
   const { markLessonAsDone } = useCourseProgress({
@@ -187,37 +186,11 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     onLessonUpdated: (lessonId, updates) => {
       if (process.env.NODE_ENV === 'development') {
         console.log('🎓 [CourseDetailView] Lesson updated:', lessonId, updates);
+        console.log('🎓 [CourseDetailView] Optimistic updates now handled in useCourseDetail hook');
       }
       
-      // Update optimistic course state for immediate UI feedback
-      if (course) {
-        const updatedCourse = {
-          ...course,
-          modules: course.modules.map(module => ({
-            ...module,
-            lessons: module.lessons.map(lesson => {
-              if (lesson.id === lessonId) {
-                return {
-                  ...lesson,
-                  title: updates.title || lesson.title,
-                  content_url: updates.content_url || lesson.content_url,
-                  educational_content: lesson.educational_content ? {
-                    ...lesson.educational_content,
-                    text_content: updates.content_text || lesson.educational_content.text_content
-                  } : lesson.educational_content
-                };
-              }
-              return lesson;
-            })
-          }))
-        };
-        
-        setOptimisticCourse(updatedCourse);
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🎓 [CourseDetailView] Updated optimistic course state for lesson:', lessonId);
-        }
-      }
+      // Note: Optimistic updates moved to useCourseDetail hook for better consistency
+      // This callback now mainly serves for logging and future component-level side effects
     },
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,
@@ -245,16 +218,8 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     }
   }, [courseId, moduleId, fetchCourseDetails]);
 
-  // Update optimistic course state when hook course data changes
-  useEffect(() => {
-    if (course) {
-      setOptimisticCourse(course);
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Updated optimistic course state with fresh data from hook');
-      }
-    }
-  }, [course]);
+  // Note: Removed problematic useEffect that was overwriting optimistic updates
+  // Optimistic updates are now handled directly in useCourseDetail hook
 
   const handleMarkAsDone = async () => {
     if (!selectedLesson || !displayCourse) {
@@ -429,8 +394,8 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     );
   }
 
-  // Use optimistic course data when available for immediate UI feedback
-  const displayCourse = optimisticCourse || course;
+  // Use course data directly (optimistic updates handled in useCourseDetail hook)
+  const displayCourse = course;
 
   // Desktop error state - only show error for desktop view
   if (error || !displayCourse) {
