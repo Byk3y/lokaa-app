@@ -692,27 +692,42 @@ export function useOptimizedCachedPosts(
   }, [handlePostUpdated]);
 
   const handleCommentAdded = useCallback((postId: string, newCommentCount: number) => {
-    // CRITICAL FIX: Force immediate UI update for real-time comment count display
+    // 🔧 ENHANCED: Force immediate UI update for real-time comment count display
     log.debug('Hook', `🔔 [CacheDebug] Updating comment count for post ${postId}: ${newCommentCount}`);
     
-    // 1. Update the post in both regular and pinned posts arrays immediately
-    setPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { ...post, comment_count: newCommentCount }
-        : post
-    ));
-    
-    setPinnedPosts(prev => prev.map(post => 
-      post.id === postId 
-        ? { ...post, comment_count: newCommentCount }
-        : post
-    ));
-    
-    // 2. Also call the existing handlePostUpdated for cache consistency
-    handlePostUpdated(postId, { comment_count: newCommentCount });
-    
-    log.debug('Hook', `✅ [CacheDebug] Comment count updated successfully for post ${postId}`);
-  }, [handlePostUpdated]);
+    try {
+      // 1. Update the post in both regular and pinned posts arrays immediately
+      setPosts(prev => prev.map(post => 
+        post.id === postId 
+          ? { ...post, comment_count: newCommentCount }
+          : post
+      ));
+      
+      setPinnedPosts(prev => prev.map(post => 
+        post.id === postId 
+          ? { ...post, comment_count: newCommentCount }
+          : post
+      ));
+      
+      // 2. Also call the existing handlePostUpdated for cache consistency
+      handlePostUpdated(postId, { comment_count: newCommentCount });
+      
+      // 3. Invalidate cache to ensure consistency across components
+      if (spaceId) {
+        globalCache.invalidatePattern(`posts:${spaceId}`);
+      }
+      
+      log.debug('Hook', `✅ [CacheDebug] Comment count updated successfully for post ${postId}`);
+    } catch (error) {
+      log.error('Hook', `❌ [CacheDebug] Error updating comment count for post ${postId}:`, error);
+      // Fallback: try to refresh the data
+      setTimeout(() => {
+        if (spaceId) {
+          globalCache.invalidatePattern(`posts:${spaceId}`);
+        }
+      }, 1000);
+    }
+  }, [handlePostUpdated, spaceId]);
 
   const handlePinToggled = useCallback((postId: string, isPinned: boolean, pinPosition?: number) => {
     const updates: Partial<CachedPostType> = {

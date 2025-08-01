@@ -14,7 +14,7 @@ interface UseCourseDetailReturn {
   loadingPhase: 'initial' | 'content' | 'complete';
   error: string | null;
   fetchCourseDetails: (courseId: string, moduleId?: string) => Promise<CourseDetailData | null>;
-  refetch: () => Promise<void>;
+  refetch: () => Promise<CourseDetailData | null>;
   silentRefetch: () => Promise<void>;
   invalidateCache: () => void;
   updateCourseProgress: (updatedCourse: CourseDetailData) => void;
@@ -111,6 +111,8 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
         setCourse(cachedCourse);
         log.debug('Hook', `🎓 [useCourseDetail] Using cached course data for: ${courseId}`);
         return cachedCourse;
+      } else {
+        log.debug('Hook', `🎓 [useCourseDetail] Cache miss for course: ${courseId}, fetching fresh data`);
       }
 
       // If offline and no cache, return null
@@ -129,6 +131,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
       setCourse(courseData);
       setCachedCourse(courseId, courseData);
       
+      log.debug('Hook', `🎓 [useCourseDetail] Fresh course data fetched and cached for: ${courseId}`);
       return courseData;
       
     } catch (error: any) {
@@ -144,13 +147,32 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     fetchCourseData
   ]);
 
-  // Refetch function
-  const refetch = useCallback(async () => {
+  // Refetch function - now returns fresh course data
+  const refetch = useCallback(async (): Promise<CourseDetailData | null> => {
     if (currentCourseId) {
       log.debug('Hook', `🎓 [useCourseDetail] Refetching course: ${currentCourseId}`);
-      await fetchCourseDetails(currentCourseId);
+      
+      // Force fresh data fetch by bypassing cache
+      try {
+        // Fetch course data directly without checking cache
+        const courseData = await fetchCourseData({ courseId: currentCourseId });
+        if (!courseData) {
+          log.error('Hook', `🎓 [useCourseDetail] Failed to fetch fresh course: ${currentCourseId}`);
+          return null;
+        }
+
+        setCourse(courseData);
+        setCachedCourse(currentCourseId, courseData);
+        
+        log.debug('Hook', `🎓 [useCourseDetail] Fresh course data fetched and cached for: ${currentCourseId}`);
+        return courseData;
+      } catch (error: any) {
+        log.error('Hook', `🎓 [useCourseDetail] Error in refetch for course ${currentCourseId}:`, error);
+        return null;
+      }
     }
-  }, [currentCourseId, fetchCourseDetails]);
+    return null;
+  }, [currentCourseId, fetchCourseData, setCachedCourse]);
 
   // Silent refetch function 
   const silentRefetch = useCallback(async () => {

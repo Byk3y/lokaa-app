@@ -188,6 +188,36 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
       if (process.env.NODE_ENV === 'development') {
         console.log('🎓 [CourseDetailView] Lesson updated:', lessonId, updates);
       }
+      
+      // Update optimistic course state for immediate UI feedback
+      if (course) {
+        const updatedCourse = {
+          ...course,
+          modules: course.modules.map(module => ({
+            ...module,
+            lessons: module.lessons.map(lesson => {
+              if (lesson.id === lessonId) {
+                return {
+                  ...lesson,
+                  title: updates.title || lesson.title,
+                  content_url: updates.content_url || lesson.content_url,
+                  educational_content: lesson.educational_content ? {
+                    ...lesson.educational_content,
+                    text_content: updates.content_text || lesson.educational_content.text_content
+                  } : lesson.educational_content
+                };
+              }
+              return lesson;
+            })
+          }))
+        };
+        
+        setOptimisticCourse(updatedCourse);
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🎓 [CourseDetailView] Updated optimistic course state for lesson:', lessonId);
+        }
+      }
     },
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,
@@ -219,11 +249,15 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   useEffect(() => {
     if (course) {
       setOptimisticCourse(course);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎓 [CourseDetailView] Updated optimistic course state with fresh data from hook');
+      }
     }
   }, [course]);
 
   const handleMarkAsDone = async () => {
-    if (!selectedLesson || !course) {
+    if (!selectedLesson || !displayCourse) {
       toast({
         title: "Error",
         description: "No lesson selected or course data not available.",
@@ -238,7 +272,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
 
     try {
       console.log('🎓 [CourseDetailView] About to call markLessonAsDone...');
-      await markLessonAsDone(selectedLesson, course);
+      await markLessonAsDone(selectedLesson, displayCourse);
       console.log('🎓 [CourseDetailView] markLessonAsDone completed successfully');
     } catch (error) {
       console.error('🎓 [CourseDetailView] Error in handleMarkAsDone:', error);
@@ -254,7 +288,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   const handleEditCourse = () => {
     log.debug('Component', '📝 [CourseDetailView] Edit course clicked');
     
-    if (!course) {
+    if (!displayCourse) {
       toast({
         title: "Error",
         description: "Course data not available for editing.",
@@ -265,11 +299,11 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
 
     // Convert CourseDetailData to CourseDisplayData format
     const courseDisplayData: CourseDisplayData = {
-      id: course.id,
-      title: course.title,
-      description: course.description || '',
-      creator_id: course.creator_id,
-      space_id: course.space_id,
+      id: displayCourse.id,
+      title: displayCourse.title,
+      description: displayCourse.description || '',
+      creator_id: displayCourse.creator_id,
+      space_id: displayCourse.space_id,
       access_type: 'open',
       price: null,
       currency: 'USD',
@@ -395,8 +429,11 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     );
   }
 
+  // Use optimistic course data when available for immediate UI feedback
+  const displayCourse = optimisticCourse || course;
+
   // Desktop error state - only show error for desktop view
-  if (error || !course) {
+  if (error || !displayCourse) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
         <div className="text-red-500 mb-4">
@@ -421,7 +458,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     <>
       <div className="flex">
         <CourseSidebar
-          course={course}
+          course={displayCourse}
           selectedLesson={selectedLesson}
           onLessonSelect={setSelectedLesson}
           isOwner={isOwner}
@@ -433,7 +470,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
           onEditCourse={handleEditCourse}
           onDeleteCourse={handleDeleteCourse}
           onAddFolder={handleAddFolder}
-          spaceId={course.space_id}
+          spaceId={displayCourse.space_id}
           onDeletePage={(pageId, title) => openDeletePageDialog(pageId, title)}
           onRevertToDraft={(pageId, title, isPublished) => openRevertToDraftDialog(pageId, title, isPublished)}
           onChangeFolder={(pageId, title, currentFolderId) => openChangeFolderDialog(pageId, title, currentFolderId)}
@@ -458,15 +495,15 @@ You can use headings, bold text, links, and other formatting to structure your c
                 onCancel={handleCancelCreate}
                 hideTitle={false}
                 isSaving={false}
-                spaceId={course?.space_id}
-                courseId={course?.id}
+                spaceId={displayCourse?.space_id}
+                courseId={displayCourse?.id}
                 lessonId={undefined}
               />
             </div>
           ) : (
             <LessonContent
               lesson={selectedLesson}
-              courseName={course.title}
+              courseName={displayCourse.title}
               isOwner={isOwner}
               isAdmin={isAdmin}
               completed={selectedLesson?.completed || false}

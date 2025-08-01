@@ -39,7 +39,7 @@ interface UseLessonManagementProps {
   selectedLesson: CourseLesson | null;
   onLessonCreated?: (lesson: CourseLesson) => void;
   onLessonUpdated?: (lessonId: string, updates: LessonUpdates) => void;
-  onRefetch?: () => Promise<void>;
+  onRefetch?: () => Promise<CourseDetailData | null>;
   onInvalidateCache?: () => void;
   onSelectedLessonChange?: (lesson: CourseLesson | null) => void;
 }
@@ -174,19 +174,21 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
       setNewPageContent('');
       setIsCreatingPage(false);
 
-      // Refresh data
+      // Refresh data and get fresh course data
       onInvalidateCache?.();
-      await onRefetch?.();
+      const freshCourseData = await onRefetch?.();
       
-      // Find and select new lesson
-      if (course) {
-        const allLessons = course.modules.flatMap(module => module.lessons);
+      // Find and select new lesson using fresh data
+      if (freshCourseData) {
+        const allLessons = freshCourseData.modules.flatMap(module => module.lessons);
         const newLesson = allLessons.find(lesson => lesson.content_id === contentData.id);
         
         if (newLesson) {
           onSelectedLessonChange?.(newLesson);
           onLessonCreated?.(newLesson);
         }
+      } else {
+        console.warn('🎓 [useLessonManagement] No fresh course data available for new lesson selection');
       }
 
       toast({
@@ -211,7 +213,6 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
     newPageTitle,
     newPageContent,
     creatingModuleId,
-    course,
     onLessonCreated,
     onRefetch,
     onInvalidateCache,
@@ -322,15 +323,15 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
 
       console.log('🎓 [useLessonManagement] All database updates completed, refreshing data...');
       
-      // Refresh data first
+      // Refresh data first and get fresh course data
       onInvalidateCache?.();
-      await onRefetch?.();
+      const freshCourseData = await onRefetch?.();
       
       console.log('🎓 [useLessonManagement] Data refreshed, updating selected lesson...');
       
-      // Update selected lesson with the new data
-      if (course) {
-        const updatedLesson = course.modules
+      // Update selected lesson with the fresh data
+      if (freshCourseData) {
+        const updatedLesson = freshCourseData.modules
           .flatMap(module => module.lessons)
           .find(lesson => lesson.id === lessonId);
         
@@ -348,20 +349,21 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
             } : updatedLesson.educational_content
           };
           
-          console.log('🎓 [useLessonManagement] Updating selected lesson with new data:', {
+          console.log('🎓 [useLessonManagement] Updating selected lesson with fresh data:', {
             lessonId,
             oldContentUrl: updatedLesson.content_url,
             newContentUrl: lessonWithUpdates.content_url,
-            updates
+            updates,
+            freshDataReceived: !!freshCourseData
           });
           
           onSelectedLessonChange?.(lessonWithUpdates);
           onLessonUpdated?.(lessonId, updates);
         } else {
-          console.warn('🎓 [useLessonManagement] Could not find updated lesson in course data');
+          console.warn('🎓 [useLessonManagement] Could not find updated lesson in fresh course data');
         }
       } else {
-        console.warn('🎓 [useLessonManagement] No course data available for lesson update');
+        console.warn('🎓 [useLessonManagement] No fresh course data available for lesson update');
       }
       
       console.log('🎓 [useLessonManagement] handleUpdateLesson completed successfully');
@@ -395,7 +397,7 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
       
       throw error;
     }
-  }, [course, onInvalidateCache, onRefetch, onSelectedLessonChange, onLessonUpdated]);
+  }, [onInvalidateCache, onRefetch, onSelectedLessonChange, onLessonUpdated]);
   
   return {
     // Lesson creation state

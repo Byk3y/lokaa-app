@@ -6,6 +6,13 @@ import { useRealtimeCommentsOptimized } from '@/hooks/useRealtimeCommentsOptimiz
 import type { PostCardProps } from '@/features/posts/types/postCard';
 import type { CommentAuthor } from '@/components/space/comments/CommentItem';
 
+// Extend Window interface for comment submission tracking
+declare global {
+  interface Window {
+    lastCommentSubmitTime?: number;
+  }
+}
+
 // Note: Global type declaration for navigationAwareRealtimeService is in usePostComments.ts
 
 // Re-use FetchedComment type
@@ -65,21 +72,27 @@ export function useComments(
     isEnabled: !!post?.id,
     onNewComment: (newCommentData) => {
       log.debug('Component', '🔔 [useComments] Real-time comment received, refreshing comments...');
-      // 🔧 STABILIZED: Add delay to prevent overwriting optimistic updates
-      setTimeout(() => {
-        if (post?.id) {
-          fetchComments(post.id, true, true); // Force refresh for real-time updates (modal context)
-        }
-      }, 1000); // 1-second delay to allow optimistic updates to settle
+      // 🔧 ENHANCED: Better coordination with optimistic updates
+      // Only refresh if we haven't just submitted a comment (to avoid overwriting optimistic updates)
+      const timeSinceLastComment = Date.now() - (window.lastCommentSubmitTime || 0);
+      if (timeSinceLastComment > 2000) { // 2 seconds buffer
+        setTimeout(() => {
+          if (post?.id) {
+            fetchComments(post.id, true, true); // Force refresh for real-time updates (modal context)
+          }
+        }, 1500); // Increased delay to allow optimistic updates to settle
+      } else {
+        log.debug('Component', '🔔 [useComments] Skipping real-time refresh due to recent comment submission');
+      }
     },
     onCommentUpdate: (commentId) => {
       log.debug('Component', '🔔 [useComments] Comment updated, refreshing comments...', commentId);
-      // 🔧 STABILIZED: Add delay for update propagation
+      // 🔧 ENHANCED: Better coordination with optimistic updates
       setTimeout(() => {
         if (post?.id) {
           fetchComments(post.id, true, true); // Force refresh for updates (modal context)
         }
-      }, 500); // 500ms delay for updates
+      }, 800); // Increased delay for updates
     }
   });
 
@@ -434,7 +447,11 @@ export function useComments(
       
       // If it's a new top-level comment, call the specific callback for updating post card count
       if (!isReply && onCommentAddedForTopLevel) {
-        onCommentAddedForTopLevel(post.id, optimisticCommentCount); // optimisticCommentCount should be updated before this
+        // 🔧 ENHANCED: Use the updated count and track submission time
+        const newCount = optimisticCommentCount + 1;
+        window.lastCommentSubmitTime = Date.now(); // Track submission time for real-time coordination
+        onCommentAddedForTopLevel(post.id, newCount);
+        log.debug('Component', '🔔 [useComments] Notified parent of comment addition:', { postId: post.id, newCount });
       }
 
       log.debug('Component', '🔔 [useComments] Comment submission completed successfully');

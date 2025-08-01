@@ -75,6 +75,11 @@ Thumbs.db
 supabase/.temp/
 supabase/temp/
 
+# Loose SQL scripts (should be in migrations/)
+*.sql
+!supabase/migrations/*.sql
+!supabase/functions/**/*.sql
+
 # Editor temporary files
 *.swp
 *.swo

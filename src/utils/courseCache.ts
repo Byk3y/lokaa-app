@@ -113,9 +113,14 @@ class CourseCache {
 
   // Cache invalidation
   invalidateCourse(courseId: string, userId?: string): void {
-    this.remove(this.getCacheKey('course_detail', courseId));
+    const cacheKey = this.getCacheKey('course_detail', courseId);
+    const wasRemoved = this.remove(cacheKey);
+    log.debug('Utils', `[CourseCache] Invalidated course cache for ${courseId}: ${wasRemoved ? 'removed' : 'not found'}`);
+    
     if (userId) {
-      this.remove(this.getCacheKey('course_progress', courseId, userId));
+      const progressKey = this.getCacheKey('course_progress', courseId, userId);
+      const progressRemoved = this.remove(progressKey);
+      log.debug('Utils', `[CourseCache] Invalidated progress cache for ${courseId}: ${progressRemoved ? 'removed' : 'not found'}`);
     }
   }
 

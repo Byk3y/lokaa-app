@@ -7,7 +7,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'package.json'
-      - 'pnpm-lock.yaml'
+      - 'package-lock.json'
   workflow_dispatch:
 
 # Required PAT Scopes for ACTIONS_PAT:
@@ -19,7 +19,6 @@ on:
 env:
   COVERAGE_THRESHOLD: 90
   NODE_VERSION: 18
-  PNPM_VERSION: 8
 
 jobs:
   validate:
@@ -43,32 +42,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
           
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-          
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-            
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
         
       - name: Run tests with coverage
         id: tests
-        run: pnpm run ci:security
+        run: npm run ci:security
         
       - name: Check coverage threshold
         id: coverage

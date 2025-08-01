@@ -268,8 +268,11 @@ export default function PostDetailModal({
   // Handle dialog close (avoid page reloads)
   const handleDialogClose = (open: boolean) => {
     if (!open) {
-      // Simply call onClose - URL navigation is handled by the parent component
-      onClose();
+      // 🔧 ENHANCED: Add delay to ensure comment count updates are processed
+      // This prevents cache invalidation from happening before database triggers complete
+      setTimeout(() => {
+        onClose();
+      }, 100); // Small delay to allow any pending updates to complete
     }
   };
 

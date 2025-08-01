@@ -54,7 +54,7 @@ interface UseCourseDialogsProps {
   onPageDeleted?: (pageId: string) => void;
   onPageUpdated?: (pageId: string) => void;
   onPageMoved?: (pageId: string, newFolderId: string | null) => void;
-  onRefetch?: () => Promise<void>;
+  onRefetch?: () => Promise<CourseDetailData | null>;
   onSelectedLessonChange?: (lesson: CourseLesson | null) => void;
   selectedLesson: CourseLesson | null;
 }
