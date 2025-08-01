@@ -174,38 +174,58 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
     // 2. If no lesson selected and not mobile overview, auto-select a lesson
     if (!selectedLesson && !(isMobile && (!mdParam || mdParam === 'menu'))) {
       
-      // Try to restore last viewed lesson first
+      // PHASE 2.1: Smart lesson selection - prioritize incomplete lessons
+      const allLessons = course.modules.flatMap(module => module.lessons);
+      
+      // Try to restore last viewed lesson first (if still incomplete)
       const lastViewedLessonId = localStorage.getItem(`lastViewedLesson_${course.id}`);
       
       if (lastViewedLessonId) {
-        const lastViewedLesson = course.modules
-          .flatMap(module => module.lessons)
-          .find(lesson => lesson.id === lastViewedLessonId);
+        const lastViewedLesson = allLessons.find(lesson => lesson.id === lastViewedLessonId);
         
-        if (lastViewedLesson) {
-          log.debug('Hook', '🎓 [useCourseNavigation] Restoring last viewed lesson:', lastViewedLesson.title);
+        if (lastViewedLesson && !lastViewedLesson.completed) {
+          log.debug('Hook', '🎓 [useCourseNavigation] Restoring incomplete last viewed lesson:', lastViewedLesson.title);
           setSelectedLesson(lastViewedLesson);
+          // PHASE 2.1: Update URL when auto-selecting lesson
+          syncUrlWithLesson(lastViewedLesson);
           return;
         }
       }
       
-      // Fallback to first available lesson
+      // Find first incomplete lesson
+      const firstIncompleteLesson = allLessons.find(lesson => !lesson.completed);
+      
+      if (firstIncompleteLesson) {
+        log.debug('Hook', '🎓 [useCourseNavigation] Auto-selecting first incomplete lesson:', firstIncompleteLesson.title);
+        setSelectedLesson(firstIncompleteLesson);
+        // PHASE 2.1: Update URL when auto-selecting lesson
+        syncUrlWithLesson(firstIncompleteLesson);
+        return;
+      }
+      
+      // Fallback to first available lesson if all completed
       const firstModule = course.modules[0];
       if (firstModule.lessons && firstModule.lessons.length > 0) {
         const firstLesson = firstModule.lessons[0];
-        log.debug('Hook', '🎓 [useCourseNavigation] Auto-selecting first lesson:', firstLesson.title);
+        log.debug('Hook', '🎓 [useCourseNavigation] Auto-selecting first lesson (all completed):', firstLesson.title);
         setSelectedLesson(firstLesson);
+        // PHASE 2.1: Update URL when auto-selecting lesson
+        syncUrlWithLesson(firstLesson);
       }
     }
-  }, [course, selectedLesson, isMobile, mdParam, setSelectedLesson]);
+  }, [course, selectedLesson, isMobile, mdParam, setSelectedLesson, syncUrlWithLesson]);
 
-  // DISABLED: Mobile entry point handling - redirect to menu view if no md parameter
-  // This was causing unwanted automatic navigation from classroom overview
+  // PHASE 2.2: Mobile entry point handling - ensure ?md=menu for course overview
   useEffect(() => {
-    // DISABLED: Commenting out automatic mobile redirect to prevent unwanted navigation
-    if (false && isMobile && course && subdomain && course.slug && !mdParam) {
-      log.debug('Hook', '🎓 [useCourseNavigation] Mobile entry point - redirecting to menu');
-      syncUrlWithMenu();
+    if (isMobile && course && subdomain && !mdParam) {
+      const currentUrl = window.location.pathname + window.location.search;
+      const isOnCourseRoute = currentUrl.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+      
+      // Only add ?md=menu if we're on a course route without any md parameter
+      if (isOnCourseRoute) {
+        log.debug('Hook', '🎓 [useCourseNavigation] Mobile entry point - adding ?md=menu for course overview');
+        syncUrlWithMenu();
+      }
     }
   }, [isMobile, course, subdomain, mdParam, syncUrlWithMenu]);
 
