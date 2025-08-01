@@ -51,6 +51,10 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     fetchCourseDetails,
     refetch,
     invalidateCache,
+    applyOptimisticUpdate,
+    clearOptimisticUpdate,
+    clearAllOptimisticUpdates,
+    hasOptimisticUpdates
   } = useCourseDetail({
     enableMobileOptimizations: true,
     enableOfflineSupport: true,
@@ -186,15 +190,19 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     onLessonUpdated: (lessonId, updates) => {
       if (process.env.NODE_ENV === 'development') {
         console.log('🎓 [CourseDetailView] Lesson updated:', lessonId, updates);
-        console.log('🎓 [CourseDetailView] Optimistic updates now handled in useCourseDetail hook');
+        console.log('🎓 [CourseDetailView] Optimistic updates handled via useCourseDetail hook');
       }
       
-      // Note: Optimistic updates moved to useCourseDetail hook for better consistency
-      // This callback now mainly serves for logging and future component-level side effects
+      // Note: Optimistic updates now handled in useCourseDetail hook for consistency
+      // This callback serves for logging and future component-level side effects
     },
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,
-    onSelectedLessonChange: setSelectedLesson
+    onSelectedLessonChange: setSelectedLesson,
+    
+    // PHASE 1.2: Pass optimistic update functions to lesson management
+    applyOptimisticUpdate,
+    clearOptimisticUpdate
   });
 
   log.debug('Component', '🎓 [CourseDetailView] Component rendered with courseId:', courseId);
@@ -207,6 +215,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
       isMobile,
       showCourseOverview,
       showLessonView,
+      hasOptimisticUpdates,
       pathname: window.location.pathname
     });
   }

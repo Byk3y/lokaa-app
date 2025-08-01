@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { log } from '@/utils/logger';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -6,7 +6,23 @@ import {
   useCourseProgress,
   useCourseFetching
 } from './index';
-import type { CourseDetailData } from '@/types/classroom/courseDetail';
+import type { CourseDetailData, CourseLesson } from '@/types/classroom/courseDetail';
+
+// Optimistic update types
+interface OptimisticLessonUpdate {
+  lessonId: string;
+  updates: {
+    title?: string;
+    content_text?: string;
+    content_url?: string | null;
+    is_published?: boolean;
+  };
+  timestamp: number;
+}
+
+interface OptimisticUpdatesMap {
+  [lessonId: string]: OptimisticLessonUpdate;
+}
 
 interface UseCourseDetailReturn {
   course: CourseDetailData | null;
@@ -20,6 +36,12 @@ interface UseCourseDetailReturn {
   updateCourseProgress: (updatedCourse: CourseDetailData) => void;
   retryCount: number;
   isOffline: boolean;
+  
+  // Optimistic update functions
+  applyOptimisticUpdate: (lessonId: string, updates: OptimisticLessonUpdate['updates']) => void;
+  clearOptimisticUpdate: (lessonId: string) => void;
+  clearAllOptimisticUpdates: () => void;
+  hasOptimisticUpdates: boolean;
 }
 
 interface UseCourseDetailOptions {
@@ -56,8 +78,17 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   const { user } = useAuth();
   
   // Core state
-  const [course, setCourse] = useState<CourseDetailData | null>(null);
+  const [baseCourse, setBaseCourse] = useState<CourseDetailData | null>(null);
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
+  
+  // Optimistic updates state
+  const [optimisticUpdates, setOptimisticUpdates] = useState<OptimisticUpdatesMap>({});
+  const optimisticUpdatesRef = useRef<OptimisticUpdatesMap>({});
+  
+  // Update ref when state changes for consistent access
+  useEffect(() => {
+    optimisticUpdatesRef.current = optimisticUpdates;
+  }, [optimisticUpdates]);
 
   // Use modular hooks
   const {
@@ -108,7 +139,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
       // Check cache first
       const cachedCourse = getCachedCourse(courseId);
       if (cachedCourse && (enableOfflineSupport || !isOffline)) {
-        setCourse(cachedCourse);
+        setBaseCourse(cachedCourse);
         log.debug('Hook', `🎓 [useCourseDetail] Using cached course data for: ${courseId}`);
         return cachedCourse;
       } else {
@@ -128,7 +159,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
         return null;
       }
 
-      setCourse(courseData);
+      setBaseCourse(courseData);
       setCachedCourse(courseId, courseData);
       
       log.debug('Hook', `🎓 [useCourseDetail] Fresh course data fetched and cached for: ${courseId}`);
@@ -161,7 +192,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
           return null;
         }
 
-        setCourse(courseData);
+        setBaseCourse(courseData);
         setCachedCourse(currentCourseId, courseData);
         
         log.debug('Hook', `🎓 [useCourseDetail] Fresh course data fetched and cached for: ${currentCourseId}`);
@@ -189,14 +220,43 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   // Update course state when lastFetchedCourse changes
   useEffect(() => {
     if (lastFetchedCourse) {
-      setCourse(lastFetchedCourse);
+      setBaseCourse(lastFetchedCourse);
     }
   }, [lastFetchedCourse]);
 
+  // Optimistic update functions
+  const applyOptimisticUpdate = useCallback((lessonId: string, updates: OptimisticLessonUpdate['updates']) => {
+    log.debug('Hook', `🎓 [useCourseDetail] Applying optimistic update for lesson: ${lessonId}`, updates);
+    
+    setOptimisticUpdates(prev => ({
+      ...prev,
+      [lessonId]: {
+        lessonId,
+        updates,
+        timestamp: Date.now()
+      }
+    }));
+  }, []);
+  
+  const clearOptimisticUpdate = useCallback((lessonId: string) => {
+    log.debug('Hook', `🎓 [useCourseDetail] Clearing optimistic update for lesson: ${lessonId}`);
+    
+    setOptimisticUpdates(prev => {
+      const newUpdates = { ...prev };
+      delete newUpdates[lessonId];
+      return newUpdates;
+    });
+  }, []);
+  
+  const clearAllOptimisticUpdates = useCallback(() => {
+    log.debug('Hook', '🎓 [useCourseDetail] Clearing all optimistic updates');
+    setOptimisticUpdates({});
+  }, []);
+  
   // Function to update course progress externally (for optimistic updates)
   const updateCourseProgress = useCallback((updatedCourse: CourseDetailData) => {
     log.debug('Hook', `🎓 [useCourseDetail] External progress update for course: ${updatedCourse.id}`);
-    setCourse(updatedCourse);
+    setBaseCourse(updatedCourse);
     
     // Update cache with the new progress
     if (currentCourseId) {
@@ -204,6 +264,64 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     }
   }, [currentCourseId, setCachedCourse]);
 
+  // Memoized course data with optimistic updates applied
+  const course = useMemo((): CourseDetailData | null => {
+    if (!baseCourse) return null;
+    
+    // If no optimistic updates, return base course
+    if (Object.keys(optimisticUpdates).length === 0) {
+      return baseCourse;
+    }
+    
+    // Apply optimistic updates to course data
+    const updatedCourse = { ...baseCourse };
+    updatedCourse.modules = baseCourse.modules.map(module => ({
+      ...module,
+      lessons: module.lessons.map(lesson => {
+        const optimisticUpdate = optimisticUpdates[lesson.id];
+        if (!optimisticUpdate) return lesson;
+        
+        // Apply optimistic updates to lesson
+        const updatedLesson = { ...lesson };
+        
+        if (optimisticUpdate.updates.title !== undefined) {
+          updatedLesson.title = optimisticUpdate.updates.title;
+        }
+        
+        if (optimisticUpdate.updates.content_url !== undefined) {
+          updatedLesson.content_url = optimisticUpdate.updates.content_url;
+        }
+        
+        if (optimisticUpdate.updates.is_published !== undefined) {
+          updatedLesson.is_published = optimisticUpdate.updates.is_published;
+        }
+        
+        // Apply content_text to educational_content if it exists
+        if (optimisticUpdate.updates.content_text !== undefined && updatedLesson.educational_content) {
+          updatedLesson.educational_content = {
+            ...updatedLesson.educational_content,
+            text_content: optimisticUpdate.updates.content_text
+          };
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🎓 [useCourseDetail] Applied optimistic update to lesson ${lesson.id}:`, {
+            originalTitle: lesson.title,
+            updatedTitle: updatedLesson.title,
+            updates: optimisticUpdate.updates
+          });
+        }
+        
+        return updatedLesson;
+      })
+    }));
+    
+    return updatedCourse;
+  }, [baseCourse, optimisticUpdates]);
+  
+  // Helper to check if there are pending optimistic updates
+  const hasOptimisticUpdates = Object.keys(optimisticUpdates).length > 0;
+  
   return {
     course,
     loading: fetchingLoading,
@@ -215,6 +333,12 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
     invalidateCache: invalidateCourseCache,
     updateCourseProgress,
     retryCount: 0, // Simplified - no retry counting
-    isOffline
+    isOffline,
+    
+    // Optimistic update functions
+    applyOptimisticUpdate,
+    clearOptimisticUpdate,
+    clearAllOptimisticUpdates,
+    hasOptimisticUpdates
   };
 } 

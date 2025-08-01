@@ -42,6 +42,15 @@ interface UseLessonManagementProps {
   onRefetch?: () => Promise<CourseDetailData | null>;
   onInvalidateCache?: () => void;
   onSelectedLessonChange?: (lesson: CourseLesson | null) => void;
+  
+  // Optimistic update functions from useCourseDetail
+  applyOptimisticUpdate?: (lessonId: string, updates: {
+    title?: string;
+    content_text?: string;
+    content_url?: string | null;
+    is_published?: boolean;
+  }) => void;
+  clearOptimisticUpdate?: (lessonId: string) => void;
 }
 
 export const useLessonManagement = (props: UseLessonManagementProps): UseLessonManagementReturn => {
@@ -54,7 +63,9 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
     onLessonUpdated,
     onRefetch,
     onInvalidateCache,
-    onSelectedLessonChange
+    onSelectedLessonChange,
+    applyOptimisticUpdate,
+    clearOptimisticUpdate
   } = props;
   
   // Lesson creation state
@@ -222,6 +233,12 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
   const handleUpdateLesson = useCallback(async (lessonId: string, updates: LessonUpdates) => {
     console.log('🎓 [useLessonManagement] handleUpdateLesson called with:', { lessonId, updates });
     
+    // PHASE 1.2 IMPROVEMENT: Apply optimistic update first for immediate UI feedback
+    if (applyOptimisticUpdate) {
+      console.log('🎓 [useLessonManagement] Applying optimistic update for immediate UI feedback');
+      applyOptimisticUpdate(lessonId, updates);
+    }
+    
     try {
       const supabase = getSupabaseClient();
       
@@ -321,56 +338,33 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
         console.log('🎓 [useLessonManagement] Publish status updated successfully');
       }
 
-      console.log('🎓 [useLessonManagement] All database updates completed, refreshing data...');
+      console.log('🎓 [useLessonManagement] All database updates completed successfully');
       
-      // Refresh data first and get fresh course data
-      onInvalidateCache?.();
-      const freshCourseData = await onRefetch?.();
-      
-      console.log('🎓 [useLessonManagement] Data refreshed, updating selected lesson...');
-      
-      // Update selected lesson with the fresh data
-      if (freshCourseData) {
-        const updatedLesson = freshCourseData.modules
-          .flatMap(module => module.lessons)
-          .find(lesson => lesson.id === lessonId);
-        
-        if (updatedLesson) {
-          // Create a properly updated lesson object with the new data
-          const lessonWithUpdates = {
-            ...updatedLesson,
-            title: updates.title || updatedLesson.title,
-            content_url: updates.content_url !== undefined ? updates.content_url : updatedLesson.content_url,
-            is_published: updates.is_published !== undefined ? updates.is_published : updatedLesson.is_published,
-            // Update educational content if it exists
-            educational_content: updatedLesson.educational_content ? {
-              ...updatedLesson.educational_content,
-              text_content: updates.content_text || updatedLesson.educational_content.text_content
-            } : updatedLesson.educational_content
-          };
-          
-          console.log('🎓 [useLessonManagement] Updating selected lesson with fresh data:', {
-            lessonId,
-            oldContentUrl: updatedLesson.content_url,
-            newContentUrl: lessonWithUpdates.content_url,
-            updates,
-            freshDataReceived: !!freshCourseData
-          });
-          
-          onSelectedLessonChange?.(lessonWithUpdates);
-          onLessonUpdated?.(lessonId, updates);
-        } else {
-          console.warn('🎓 [useLessonManagement] Could not find updated lesson in fresh course data');
-        }
-      } else {
-        console.warn('🎓 [useLessonManagement] No fresh course data available for lesson update');
+      // PHASE 1.2 IMPROVEMENT: Clear optimistic update after successful database update
+      if (clearOptimisticUpdate) {
+        console.log('🎓 [useLessonManagement] Clearing optimistic update after successful database update');
+        clearOptimisticUpdate(lessonId);
       }
+      
+      // Refresh data to ensure consistency (but optimistic updates are already cleared)
+      console.log('🎓 [useLessonManagement] Refreshing course data for consistency');
+      onInvalidateCache?.();
+      await onRefetch?.();
+      
+      // Notify parent of successful update
+      onLessonUpdated?.(lessonId, updates);
       
       console.log('🎓 [useLessonManagement] handleUpdateLesson completed successfully');
       
     } catch (error: any) {
       console.error('🎓 [useLessonManagement] Error in handleUpdateLesson:', error);
       log.error('Hook', '🎓 [useLessonManagement] Error updating lesson:', error);
+      
+      // PHASE 1.2 IMPROVEMENT: Clear optimistic update on error to revert UI
+      if (clearOptimisticUpdate) {
+        console.log('🎓 [useLessonManagement] Clearing optimistic update due to error');
+        clearOptimisticUpdate(lessonId);
+      }
       
       // Provide specific error feedback to the user
       let errorMessage = 'Failed to save your changes. Please try again.';
@@ -397,7 +391,7 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
       
       throw error;
     }
-  }, [onInvalidateCache, onRefetch, onSelectedLessonChange, onLessonUpdated]);
+  }, [onInvalidateCache, onRefetch, onLessonUpdated, applyOptimisticUpdate, clearOptimisticUpdate]);
   
   return {
     // Lesson creation state
