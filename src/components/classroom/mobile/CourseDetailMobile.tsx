@@ -79,15 +79,20 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     silentRefetch,
     invalidateCache,
     retryCount,
-    isOffline
+    isOffline,
+    
+    // PHASE 1.3: Extract optimistic update functions for mobile integration
+    applyOptimisticUpdate,
+    clearOptimisticUpdate,
+    clearAllOptimisticUpdates,
+    hasOptimisticUpdates
   } = useCourseDetail({
     enableMobileOptimizations: true,
     enableOfflineSupport: true,
     retryOnError: true
   });
   
-  // Local optimistic course state for mobile components
-  const [optimisticCourse, setOptimisticCourse] = React.useState<CourseDetailData | null>(null);
+  // PHASE 1.3: Remove dual state anti-pattern - course data now comes from useCourseDetail hook with optimistic updates
 
   // Use the progress management hook with optimistic updates
   const { markLessonAsDone, progressLoading, progressError } = useCourseProgress({
@@ -95,14 +100,12 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     enableCaching: true,
     userId: user?.id || null,
     onOptimisticUpdate: (updatedCourse) => {
-      console.log('🎓 [CourseDetailMobile] Optimistic update received:', {
+      console.log('🎓 [CourseDetailMobile] Progress update optimistic update received:', {
         progress: updatedCourse.progress,
         lessonCount: updatedCourse.modules?.flatMap(m => m.lessons)?.length
       });
       
-      // Update mobile optimistic course state immediately for instant UI feedback
-      setOptimisticCourse(updatedCourse);
-      
+      // PHASE 1.3: No longer using local optimistic state - progress updates go to useCourseDetail hook
       // Also update the cached progress
       updateCachedProgress?.(updatedCourse.id, updatedCourse.progress || 0);
     },
@@ -209,12 +212,16 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     },
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,
-    onSelectedLessonChange: setSelectedLesson
+    onSelectedLessonChange: setSelectedLesson,
+    
+    // PHASE 1.3: Pass optimistic update functions to lesson management
+    applyOptimisticUpdate,
+    clearOptimisticUpdate
   });
 
   // Mobile navigation handlers using focused hooks
   const mobileNavigation = useMobileNavigation({
-    course: optimisticCourse || course,
+    course, // PHASE 1.3: Use course directly from useCourseDetail hook (contains optimistic updates)
     selectedLesson,
     showLessonView,
     onBackToMenu: handleBackToMenu,
@@ -307,11 +314,7 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     }
   }, [courseId, moduleId, fetchCourseDetails]);
 
-  useEffect(() => {
-    if (course) {
-      setOptimisticCourse(course);
-    }
-  }, [course]);
+  // PHASE 1.3: Removed setOptimisticCourse useEffect - no longer needed with unified optimistic updates in useCourseDetail hook
 
   // Mobile state signaling - memoized for performance
   const signalMobileState = useCallback(() => {
@@ -346,7 +349,8 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     return <MobileErrorState error={error} onBack={onBack} />;
   }
 
-  const courseData = optimisticCourse || course;
+  // PHASE 1.3: Use course directly (contains optimistic updates from useCourseDetail hook)
+  const courseData = course;
 
   // Mobile course overview view (first screen)
   if (showCourseOverview) {
