@@ -1,12 +1,10 @@
 {
+  "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
-  "ignore": [
-    "src/pages/api/**/*"
-  ],
   "rewrites": [
     {
       "source": "/((?!api).*)",

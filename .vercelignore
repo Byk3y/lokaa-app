@@ -1,0 +1,8 @@
+archive/
+src/pages/api/
+*.md
+.env
+.env.local
+.env.example
+node_modules/
+.git/
