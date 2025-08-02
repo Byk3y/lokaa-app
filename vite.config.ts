@@ -334,9 +334,68 @@ export default defineConfig(({ mode }) => {
         "@radix-ui/react-icons",
         "@radix-ui/react-dialog",
         "@radix-ui/react-dropdown-menu",
-        "lucide-react"
+        "lucide-react",
+        "@giphy/js-fetch-api",
+        "@giphy/react-components"
       ],
+      esbuildOptions: {
+        define: {
+          global: 'globalThis',
+        },
+      },
       force: true
+    },
+    define: {
+      // Provide complete process.env polyfill for Giphy library and other Node.js modules
+      'process.env': JSON.stringify({
+        NODE_ENV: mode,
+        // Add any other environment variables your app needs
+      }),
+      // Ensure process is available for libraries that need it
+      'process.env.NODE_ENV': JSON.stringify(mode),
+      // Complete process object polyfill
+      'process': JSON.stringify({
+        env: {
+          NODE_ENV: mode,
+        },
+        browser: true,
+        version: '',
+        versions: {},
+        platform: 'browser',
+        arch: 'x64',
+        pid: 0,
+        title: 'browser',
+        argv: [],
+        execArgv: [],
+        execPath: '',
+        cwd: () => '/',
+        chdir: () => {},
+        umask: () => 0,
+        getuid: () => 0,
+        getgid: () => 0,
+        getgroups: () => [],
+        setuid: () => {},
+        setgid: () => {},
+        setgroups: () => {},
+        initgroups: () => {},
+        kill: () => {},
+        exit: () => {},
+        on: () => {},
+        addListener: () => {},
+        once: () => {},
+        removeListener: () => {},
+        removeAllListeners: () => {},
+        listeners: () => [],
+        setMaxListeners: () => {},
+        getMaxListeners: () => 0,
+        emit: () => false,
+        listenerCount: () => 0,
+        prependListener: () => {},
+        prependOnceListener: () => {},
+        eventNames: () => [],
+      }),
+      // Global process object for libraries that expect it
+      'global': 'globalThis',
     },
     build: {
       target: 'es2020',
@@ -387,6 +446,10 @@ export default defineConfig(({ mode }) => {
               // Validation libraries
               if (id.includes('zod') || id.includes('yup') || id.includes('joi')) {
                 return 'validation-vendor';
+              }
+              // Giphy libraries
+              if (id.includes('@giphy')) {
+                return 'giphy-vendor';
               }
               // Default vendor chunk
               return 'vendor';
