@@ -1,8 +1,10 @@
-# Lokaa.app
+# Lokaa Connect Spaces
 
 [![Security-Validation CI](https://github.com/lokaa/lokaa-app/actions/workflows/validate.yml/badge.svg)](https://github.com/lokaa/lokaa-app/actions/workflows/validate.yml)
 
 A platform for creating and managing collaborative spaces.
+
+🚀 **Live App**: https://lokaa-app.vercel.app
 
 ## Project Status
 
