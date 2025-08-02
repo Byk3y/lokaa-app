@@ -3,8 +3,8 @@ export { usePostSearch } from '@/features/search/hooks/usePostSearch';
 export { useSearchIntegration } from '@/features/search/hooks/useSearchIntegration';
 export { useSearchURLSync } from '@/features/search/hooks/useSearchURLSync';
 
-// Search API and utilities
-export { searchAPI } from '@/features/search/api/index';
+// Search API and utilities  
+export { searchAPI } from '@/features/search/api/search-api';
 export { searchPerformanceMonitor } from '@/features/search/utils/searchPerformance';
 
 // Components

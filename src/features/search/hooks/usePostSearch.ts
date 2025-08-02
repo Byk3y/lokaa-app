@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { searchAPI } from '../api/index';
+import { searchAPI } from '@/features/search/api/search-api';
 import { searchPerformanceMonitor } from '../utils/searchPerformance';
 import { devLogger } from '@/utils/developmentLogger';
 import type { SearchResult, SearchFilters } from '../types';
