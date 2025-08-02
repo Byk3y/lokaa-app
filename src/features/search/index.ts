@@ -1,15 +1,12 @@
 // Core search functionality
-export { usePostSearch } from './hooks/usePostSearch';
-export { useSearchIntegration } from './hooks/useSearchIntegration';
-export { useSearchURLSync } from './hooks/useSearchURLSync';
+export { usePostSearch, useSearchIntegration, useSearchURLSync } from './hooks';
 
 // Search API and utilities
-export { searchAPI } from './api/search-api';
-export { searchPerformanceMonitor } from './utils/searchPerformance';
+export { searchAPI } from './api';
+export { searchPerformanceMonitor } from './utils';
 
 // Components
-export { SearchPerformanceDashboard } from './components/SearchPerformanceDashboard';
-export { SearchFilters as SearchFiltersComponent } from './components/SearchFilters';
+export { SearchPerformanceDashboard, SearchFilters as SearchFiltersComponent } from './components';
 
 // Types
 export type {
