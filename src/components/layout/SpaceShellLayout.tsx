@@ -16,7 +16,7 @@ import { useAutoPresenceUpdater } from "@/hooks/useAutoPresenceUpdater"; // 🎯
 import { getSupabaseClient } from "@/integrations/supabase/client"; // Add for category verification
 import { devLogger } from "@/utils/developmentLogger";
 import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
-import SpaceTabContentTrulyPersistent from "@/components/space/SpaceTabContentTrulyPersistent";
+import SpaceTabContentOptimized from "@/components/space/SpaceTabContentOptimized";
 import { usePersistentTabs } from "@/hooks/usePersistentTabs";
 /**
  * SpaceShellLayout - A shell layout for space pages
@@ -366,7 +366,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
       
       {/* REVOLUTIONARY: Truly persistent component with URL-independent tab management */}
       <div className="px-0 sm:px-4 pt-0 sm:pt-6 pb-16 sm:pb-6">
-        <SpaceTabContentTrulyPersistent />
+        <SpaceTabContentOptimized />
       </div>
       
       {/* Common modals that should persist across tab changes */}

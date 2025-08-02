@@ -401,7 +401,7 @@ export default defineConfig(({ mode }) => {
       target: 'es2020',
       minify: 'esbuild',
       cssCodeSplit: true,
-      chunkSizeWarningLimit: 800, // Reduced from 1000 to catch more issues
+      chunkSizeWarningLimit: 500, // Aggressive optimization - target smaller chunks
       rollupOptions: {
         output: {
           manualChunks: (id) => {
@@ -451,7 +451,35 @@ export default defineConfig(({ mode }) => {
               if (id.includes('@giphy')) {
                 return 'giphy-vendor';
               }
-              // Default vendor chunk
+              // Rich text editor dependencies
+              if (id.includes('@tiptap') || id.includes('prosemirror')) {
+                return 'editor-vendor';
+              }
+              // Chart and visualization libraries
+              if (id.includes('recharts') || id.includes('d3')) {
+                return 'chart-vendor';
+              }
+              // Media and image processing
+              if (id.includes('react-easy-crop') || id.includes('canvas') || id.includes('image')) {
+                return 'media-vendor';
+              }
+              // Icon libraries
+              if (id.includes('@heroicons') || id.includes('@phosphor-icons') || id.includes('@tabler')) {
+                return 'icon-vendor';
+              }
+              // Large utility libraries
+              if (id.includes('lodash') || id.includes('uuid') || id.includes('crypto')) {
+                return 'utility-vendor';
+              }
+              // Build and dev tools (should be minimal in production)
+              if (id.includes('vite') || id.includes('rollup') || id.includes('esbuild')) {
+                return 'build-vendor';
+              }
+              // Emoji and content libraries
+              if (id.includes('emoji') || id.includes('@emoji-mart')) {
+                return 'content-vendor';
+              }
+              // Default vendor chunk (should now be much smaller)
               return 'vendor';
             }
             
