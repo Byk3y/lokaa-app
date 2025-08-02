@@ -30,7 +30,7 @@ dev-dist
 # Debug files
 debug-*.js
 
-# Environment variables
+# Environment variables (Vercel sync fix)
 .env
 .env.local
 .env.development.local
