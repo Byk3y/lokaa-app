@@ -1,9 +1,12 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "version": 2,
   "framework": "vite",
+  "buildCommand": "./scripts/vercel-build.sh",
+  "outputDirectory": "dist",
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
+  "functions": {},
+  "regions": ["iad1"],
   "rewrites": [
     {
       "source": "/((?!api).*)",
