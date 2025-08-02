@@ -21,7 +21,7 @@ import { useSpace } from "@/contexts/SpaceContext";
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useSearch } from '@/contexts/SearchContext';
-import { MobileSearchOverlay } from "@/features/search";
+import { MobileSearchOverlay } from "@/features/search/index.ts";
 import { 
   NotificationIcon, 
   NavBookmarkIcon, 
