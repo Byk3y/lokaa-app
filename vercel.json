@@ -6,6 +6,16 @@
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
   "regions": ["iad1"],
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
   "rewrites": [
     {
       "source": "/((?!api).*)",
