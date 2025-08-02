@@ -1,4 +1,4 @@
-// Core search functionality
+// Core search functionality - Vercel deployment fix
 export { usePostSearch, useSearchIntegration, useSearchURLSync } from './hooks';
 
 // Search API and utilities
