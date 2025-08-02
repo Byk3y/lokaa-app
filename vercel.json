@@ -5,7 +5,6 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
-  "functions": {},
   "regions": ["iad1"],
   "rewrites": [
     {
