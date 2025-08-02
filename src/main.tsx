@@ -104,7 +104,33 @@ if (import.meta.env.PROD) {
   }
 })(); */
 
-// Initialize React app
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <App />
-)
+// Initialize React app with error handling
+try {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Root element not found');
+  }
+
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(<App />);
+  
+  log.debug('App', '✅ React app initialized successfully');
+} catch (error) {
+  console.error('❌ Failed to initialize React app:', error);
+  
+  // Fallback: show error message
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    rootElement.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 20px;">
+        <div>
+          <h1 style="color: #ef4444; margin-bottom: 16px;">Application Error</h1>
+          <p style="color: #6b7280; margin-bottom: 20px;">Failed to load the application. Please refresh the page.</p>
+          <button onclick="window.location.reload()" style="background: #3b82f6; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    `;
+  }
+}
