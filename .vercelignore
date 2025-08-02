@@ -1,6 +1,0 @@
-*.md
-.env
-.env.local
-.env.example
-node_modules/
-.git/
