@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, ArrowLeft, Clock, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { searchAPI } from '../api/search-api.ts';
+import { searchAPI } from '../api/search-api';
 
 interface MobileSearchOverlayProps {
   isOpen: boolean;

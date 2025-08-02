@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchIntegration } from '@/features/search/index.ts';
+import { useSearchIntegration } from '@/features/search';
 import { devLogger } from '@/utils/developmentLogger';
 
 interface SearchContextType {
