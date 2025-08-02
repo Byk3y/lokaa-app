@@ -112,11 +112,12 @@ export function encodeHtml(input: string): string {
 }
 
 /**
- * Sanitizes HTML content by removing dangerous elements and attributes
+ * Sanitizes HTML content by removing dangerous elements and attributes (basic implementation)
+ * Note: For comprehensive HTML sanitization, prefer @/utils/htmlSanitizer
  * @param input The HTML string to sanitize
  * @returns The sanitized HTML string
  */
-export function sanitizeHtml(input: string): string {
+export function sanitizeHtmlBasic(input: string): string {
   if (!input) return '';
 
   // Handle javascript: and data: URLs

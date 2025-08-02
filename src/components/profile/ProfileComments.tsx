@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
-import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import LoadingIndicator from "@/components/LoadingIndicator";
 import type { PostgrestError } from "@supabase/supabase-js";
 // import { Database } from "@/types/supabase"; // Commented out as 'comments' table is missing
 
@@ -70,7 +70,7 @@ export default function ProfileComments({ userId }: ProfileCommentsProps) {
   }, [userId]);
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingIndicator />;
   }
 
   if (comments.length === 0) {

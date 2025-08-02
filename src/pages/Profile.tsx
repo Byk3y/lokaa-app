@@ -5,7 +5,7 @@ import { getSupabaseClient } from "@/integrations/supabase/client";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { X, Bell, MessageSquare, Search, Plus, Compass, Menu, MoreHorizontal, Clock, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import LoadingIndicator from "@/components/LoadingIndicator";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import ProfileCard from '@/components/profile/ProfileCard';
 import ActivityBarChart from '@/components/profile/ActivityBarChart';
@@ -365,7 +365,7 @@ export default function Profile() {
   if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
-        <LoadingSpinner />
+        <LoadingIndicator />
       </div>
     );
   }
@@ -385,7 +385,7 @@ export default function Profile() {
   if (!profile) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
-        <LoadingSpinner />
+        <LoadingIndicator />
       </div>
     );
   }

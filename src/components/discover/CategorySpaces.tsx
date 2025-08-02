@@ -2,7 +2,7 @@ import { Music, Code, Gamepad2, GraduationCap, TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceCard } from "@/components/spaces/SpaceCard";
 import EmptyState from "@/components/dashboard/EmptyState";
-import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import LoadingIndicator from "@/components/LoadingIndicator";
 import { Button } from "@/components/ui/button";
 import { Space } from "../../types/space";
 
@@ -51,7 +51,7 @@ export default function CategorySpaces({ categorySpaces, loading, onJoinSpace }:
         {categoryKeys.map((categoryKey) => (
           <TabsContent key={categoryKey} value={categoryKey}>
             {loading ? (
-              <LoadingSpinner />
+              <LoadingIndicator />
             ) : categorySpaces[categoryKey].length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {categorySpaces[categoryKey].map((space) => (

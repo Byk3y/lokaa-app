@@ -9,7 +9,7 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Separator } from "@/components/ui/separator";
 import useSpacesData from "@/hooks/useSpacesData";
 import { getSupabaseClient } from "@/integrations/supabase/client";
-import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import LoadingIndicator from "@/components/LoadingIndicator";
 import { SpaceData } from "@/contexts/SpaceContext";
 import { SpaceAssetsUtils } from "@/shared/utils/space-assets-utils";
 
@@ -72,7 +72,7 @@ export function SpaceSidebar() {
   if (loading || loadingOwned) {
     return (
       <div className="fixed inset-y-0 left-0 w-[72px] bg-white border-r border-gray-200 flex flex-col items-center justify-center z-50">
-        <LoadingSpinner size="sm" />
+        <LoadingIndicator size="small" />
       </div>
     );
   }

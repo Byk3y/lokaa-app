@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SpaceCard } from "@/components/spaces/SpaceCard";
-import LoadingSpinner from "@/components/discover/LoadingSpinner";
+import LoadingIndicator from "@/components/LoadingIndicator";
 
 interface ProfileSpacesProps {
   userId: string;
@@ -68,7 +68,7 @@ export default function ProfileSpaces({ userId, isCreator }: ProfileSpacesProps)
   }, [userId, isCreator]);
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingIndicator />;
   }
 
   const hasSpaces = createdSpaces.length > 0 || joinedSpaces.length > 0;

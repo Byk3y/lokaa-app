@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Profile from '@/pages/Profile';
 import { shouldAllowProfileRedirect, resetProfileRedirectCounter } from '@/shared/services/debug/profile-redirect';
-import LoadingSpinner from '@/components/discover/LoadingSpinner';
+import LoadingIndicator from '@/components/LoadingIndicator';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
 /**
@@ -112,7 +112,7 @@ export default function ProfileRouteHandler() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
         <div className="text-center">
-          <LoadingSpinner />
+          <LoadingIndicator />
           <p className="text-gray-600 mt-4">{isRedirecting ? "Redirecting..." : "Loading profile..."}</p>
         </div>
       </div>

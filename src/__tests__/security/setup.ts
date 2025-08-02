@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi, beforeEach, afterEach } from 'vitest';
 
 // Define types for our mocked implementations
 type MockRequestInit = {
@@ -345,6 +345,66 @@ const mockFetch = vi.fn().mockImplementation((url: string, init?: RequestInit) =
     }
     return Promise.resolve(new Response(
       JSON.stringify({ session: { active: true } }),
+      {
+        status: 200,
+        headers: new Headers()
+      }
+    ));
+  }
+
+  // Security events endpoint
+  if (url === '/api/security/events') {
+    const body = JSON.parse((init?.body as string) || '{}');
+    const eventType = body.event_type;
+    
+    // Store the event in our mock storage
+    const events = securityEvents.get(eventType) || [];
+    events.push(body);
+    securityEvents.set(eventType, events);
+
+    return Promise.resolve(new Response(
+      JSON.stringify({ success: true }),
+      {
+        status: 200,
+        headers: new Headers()
+      }
+    ));
+  }
+
+  // Security events aggregate endpoint
+  if (url === '/api/security/events/aggregate') {
+    const aggregates = Array.from(securityEvents.entries()).map(([eventType, events]) => ({
+      event_type: eventType,
+      count: events.length
+    }));
+
+    return Promise.resolve(new Response(
+      JSON.stringify(aggregates),
+      {
+        status: 200,
+        headers: new Headers()
+      }
+    ));
+  }
+
+  // Security events threshold check endpoint
+  if (url === '/api/security/events/check-thresholds') {
+    // Simulate threshold checking logic
+    const thresholds: Record<string, number> = {
+      'security.csrf_fail': 20,
+      'security.session_anomaly': 30
+    };
+
+    const violations = Array.from(securityEvents.entries())
+      .filter(([eventType, events]) => events.length > (thresholds[eventType] || 100))
+      .map(([eventType, events]) => ({
+        event_type: eventType,
+        count: events.length,
+        threshold: thresholds[eventType]
+      }));
+
+    return Promise.resolve(new Response(
+      JSON.stringify({ violations }),
       {
         status: 200,
         headers: new Headers()
