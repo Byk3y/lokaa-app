@@ -1,10 +1,10 @@
 import { useEffect, useCallback, useMemo } from 'react';
 import { usePostSearch } from './usePostSearch';
 import { useSearchURLSync } from './useSearchURLSync';
-import { searchAPI } from '../api/search-api';
-import { searchPerformanceMonitor } from '../utils/searchPerformance';
+import { searchAPI } from '../api/search-api.ts';
+import { searchPerformanceMonitor } from '../utils/searchPerformance.ts';
 import { devLogger } from '@/utils/developmentLogger';
-import type { SearchResult, SearchFilters } from '../types';
+import type { SearchResult, SearchFilters } from '../types.ts';
 import { useState } from 'react';
 
 interface UseSearchIntegrationOptions {

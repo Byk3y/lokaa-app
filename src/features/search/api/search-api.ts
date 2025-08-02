@@ -1,7 +1,7 @@
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { searchPerformanceMonitor } from '../utils/searchPerformance';
+import { searchPerformanceMonitor } from '../utils/searchPerformance.ts';
 import { devLogger } from '@/utils/developmentLogger';
-import type { SearchResult, SearchFilters } from '../types';
+import type { SearchResult, SearchFilters } from '../types.ts';
 
 export class SearchAPI {
   private supabase = getSupabaseClient();

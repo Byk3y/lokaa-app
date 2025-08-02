@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { searchAPI } from '../api/search-api';
-import { searchPerformanceMonitor } from '../utils/searchPerformance';
+import { searchAPI } from '../api/search-api.ts';
+import { searchPerformanceMonitor } from '../utils/searchPerformance.ts';
 import { devLogger } from '@/utils/developmentLogger';
-import type { SearchResult, SearchFilters } from '../types';
+import type { SearchResult, SearchFilters } from '../types.ts';
 
 interface UsePostSearchOptions {
   spaceId: string | null;
