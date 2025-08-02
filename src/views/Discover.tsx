@@ -24,7 +24,7 @@ import MobileSpaceDrawer from "@/components/mobile/MobileSpaceDrawer";
 import BottomNav from "@/components/mobile/BottomNav";
 import ChatButton from "@/components/chat/ChatButton";
 import HeaderActions from "@/components/common/HeaderActions";
-import "../pages/UserSettingsStyles.css";
+import "./UserSettingsStyles.css";
 import { useBatchMemberCounts } from "@/hooks/useBatchMemberCounts";
 import { aggressiveDiscoverOverride } from '@/utils/smartSpaceRedirect';
 
