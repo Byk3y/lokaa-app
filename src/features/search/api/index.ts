@@ -1,2 +1,2 @@
 // Search API exports
-export { searchAPI } from './search-api'; 
+export { searchAPI } from './search-api.js'; 

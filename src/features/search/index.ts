@@ -4,7 +4,7 @@ export { useSearchIntegration } from '@/features/search/hooks/useSearchIntegrati
 export { useSearchURLSync } from '@/features/search/hooks/useSearchURLSync';
 
 // Search API and utilities
-export { searchAPI } from '@/features/search/api/search-api';
+export { searchAPI } from '@/features/search/api/search-api.js';
 export { searchPerformanceMonitor } from '@/features/search/utils/searchPerformance';
 
 // Components
