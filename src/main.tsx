@@ -4,6 +4,10 @@ import './polyfills'
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+
+// Debug React loading
+console.log('🚀 [Main] React import:', React);
+console.log('🚀 [Main] ReactDOM import:', ReactDOM);
 import App from './App.tsx'
 import './index.css'
 
