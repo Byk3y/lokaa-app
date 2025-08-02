@@ -1,12 +1,15 @@
 // Core search functionality - Vercel deployment fix
-export { usePostSearch, useSearchIntegration, useSearchURLSync } from '@/features/search/hooks';
+export { usePostSearch } from '@/features/search/hooks/usePostSearch';
+export { useSearchIntegration } from '@/features/search/hooks/useSearchIntegration';
+export { useSearchURLSync } from '@/features/search/hooks/useSearchURLSync';
 
 // Search API and utilities
-export { searchAPI } from '@/features/search/api';
-export { searchPerformanceMonitor } from '@/features/search/utils';
+export { searchAPI } from '@/features/search/api/search-api';
+export { searchPerformanceMonitor } from '@/features/search/utils/searchPerformance';
 
 // Components
-export { SearchPerformanceDashboard, SearchFilters as SearchFiltersComponent } from '@/features/search/components';
+export { SearchPerformanceDashboard } from '@/features/search/components/SearchPerformanceDashboard';
+export { SearchFilters as SearchFiltersComponent } from '@/features/search/components/SearchFilters';
 
 // Types
 export type {
