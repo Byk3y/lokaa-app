@@ -7,7 +7,7 @@ import SpaceNav from "@/components/layout/SpaceNav";
 import SpaceLayout from "@/components/layout/SpaceLayout";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
 import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
-import { LocationState } from "@/pages/Space"; // Import the existing LocationState type
+import { LocationState } from "@/views/Space"; // Import the existing LocationState type
 // Cache warming removed - using simplified cache system
 import { extractTabFromPathname, buildSpaceUrl, type SpaceTab, debugTabExtraction } from "@/utils/tabUtils";
 // Removed setCurrentSpaceForPresence - new simple system doesn't need manual space tracking

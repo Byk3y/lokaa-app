@@ -9,41 +9,41 @@ import { useState, useEffect } from 'react';
 
 // Core user-facing pages (loaded frequently)
 // REMOVED: Space component - not used in current architecture (SpaceShellLayout + SpaceTabContent used instead)
-// export const Space = lazy(() => import('@/pages/Space'));
-export const Dashboard = lazy(() => import('@/pages/Dashboard'));
-export const Discover = lazy(() => import('@/pages/Discover'));
-export const Profile = lazy(() => import('@/pages/Profile'));
-export const ChatPage = lazy(() => import('@/pages/ChatPage'));
-export const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
+// export const Space = lazy(() => import('@/views/Space'));
+export const Dashboard = lazy(() => import('@/views/Dashboard'));
+export const Discover = lazy(() => import('@/views/Discover'));
+export const Profile = lazy(() => import('@/views/Profile'));
+export const ChatPage = lazy(() => import('@/views/ChatPage'));
+export const NotificationsPage = lazy(() => import('@/views/NotificationsPage'));
 
 // App layout and navigation
 export const AppLayout = lazy(() => import('@/components/layout/AppLayout'));
 
 // Settings and user pages
-export const Settings = lazy(() => import('@/pages/UserSettings'));
-export const UserSettings = lazy(() => import('@/pages/UserSettings'));
+export const Settings = lazy(() => import('@/views/UserSettings'));
+export const UserSettings = lazy(() => import('@/views/UserSettings'));
 
 // Space-related pages
-export const CreateSpace = lazy(() => import('@/pages/CreateSpace'));
-export const CreateSpaceWrapper = lazy(() => import('@/pages/CreateSpaceWrapper'));
-export const SpaceAboutPage = lazy(() => import('@/pages/SpaceAboutPage'));
-export const SpaceJoinPage = lazy(() => import('@/pages/SpaceJoinPage'));
-export const PostDetailPage = lazy(() => import('@/pages/PostDetailPage'));
-export const CourseDetailPage = lazy(() => import('@/pages/CourseDetailPage'));
+export const CreateSpace = lazy(() => import('@/views/CreateSpace'));
+export const CreateSpaceWrapper = lazy(() => import('@/views/CreateSpaceWrapper'));
+export const SpaceAboutPage = lazy(() => import('@/views/SpaceAboutPage'));
+export const SpaceJoinPage = lazy(() => import('@/views/SpaceJoinPage'));
+export const PostDetailPage = lazy(() => import('@/views/PostDetailPage'));
+export const CourseDetailPage = lazy(() => import('@/views/CourseDetailPage'));
 
 // Landing and marketing pages (can afford loading delay)
-export const SmartLanding = lazy(() => import('@/pages/SmartLanding'));
-export const LandingPageWrapper = lazy(() => import('@/pages/LandingPage').then(module => ({ default: module.LandingPageWrapper })));
+export const SmartLanding = lazy(() => import('@/views/SmartLanding'));
+export const LandingPageWrapper = lazy(() => import('@/views/LandingPage').then(module => ({ default: module.LandingPageWrapper })));
 
 // Admin and debug pages (rarely used - perfect for lazy loading)
-export const StorageDebugger = lazy(() => import('@/pages/StorageDebugger'));
-export const SpaceDebugPage = lazy(() => import('@/pages/SpaceDebugPage'));
-export const DebugPage = lazy(() => import('@/pages/DebugPage'));
+export const StorageDebugger = lazy(() => import('@/views/StorageDebugger'));
+export const SpaceDebugPage = lazy(() => import('@/views/SpaceDebugPage'));
+export const DebugPage = lazy(() => import('@/views/DebugPage'));
 
 // Utility pages
-export const QuickSpaceRedirect = lazy(() => import('@/pages/QuickSpaceRedirect'));
-export const SpaceRedirect = lazy(() => import('@/pages/SpaceRedirect'));
-export const SpaceRedirectWithValidation = lazy(() => import('@/pages/SpaceRedirect').then(module => ({ default: module.SpaceRedirectWithValidation })));
+export const QuickSpaceRedirect = lazy(() => import('@/views/QuickSpaceRedirect'));
+export const SpaceRedirect = lazy(() => import('@/views/SpaceRedirect'));
+export const SpaceRedirectWithValidation = lazy(() => import('@/views/SpaceRedirect').then(module => ({ default: module.SpaceRedirectWithValidation })));
 
 // Placeholder components for missing pages
 export const Start = lazy(() => Promise.resolve({ 

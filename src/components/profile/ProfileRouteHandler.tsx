@@ -1,7 +1,7 @@
 import { log } from '@/utils/logger';
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import Profile from '@/pages/Profile';
+import Profile from '@/views/Profile';
 import { shouldAllowProfileRedirect, resetProfileRedirectCounter } from '@/shared/services/debug/profile-redirect';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { getSupabaseClient } from '@/integrations/supabase/client';

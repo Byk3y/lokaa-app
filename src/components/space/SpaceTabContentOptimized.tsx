@@ -8,7 +8,7 @@ import { useCacheAccess } from '@/hooks/useCacheAccess';
 import { ErrorBoundary } from "react-error-boundary";
 import { Button } from "@/components/ui/button";
 import usePersistentTabs from "@/hooks/usePersistentTabs";
-import CourseDetailPage from "@/pages/CourseDetailPage";
+import CourseDetailPage from "@/views/CourseDetailPage";
 
 // Import lazy components
 import {

@@ -2,7 +2,7 @@ import { log } from '@/utils/logger';
 import { ReactNode, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
-import { LocationState } from '@/pages/Space';
+import { LocationState } from '@/views/Space';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { extractTabFromPathname, buildSpaceUrl, type SpaceTab } from '@/utils/tabUtils';

@@ -1,7 +1,7 @@
 import { log } from '@/utils/logger';
 import React from 'react';
 import { useParams, Navigate } from 'react-router-dom';
-import SpaceRedirect from '@/pages/SpaceRedirect';
+import SpaceRedirect from '@/views/SpaceRedirect';
 
 export default function SubdomainRouteHandler() {
   const { subdomain } = useParams<{ subdomain: string }>();

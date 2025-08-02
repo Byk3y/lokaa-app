@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import React from "react";
-import ComposeLightPostPage from "@/pages/ComposeLightPostPage";
+import ComposeLightPostPage from "@/views/ComposeLightPostPage";
 
 /**
  * ComposeLightRoute is a simplified route guard specifically for the ComposePostPage

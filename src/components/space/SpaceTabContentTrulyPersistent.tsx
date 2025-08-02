@@ -16,7 +16,7 @@ import CalendarTab from "@/components/space/CalendarTab";
 import MembersTab from "@/components/space/MembersTab";
 import LeaderboardsTab from "@/components/space/LeaderboardsTab";
 import { ClassroomTabRefactored as ClassroomTab } from "@/components/classroom/ClassroomTabRefactored";
-import CourseDetailPage from "@/pages/CourseDetailPage";
+import CourseDetailPage from "@/views/CourseDetailPage";
 
 /**
  * SpaceTabContentTrulyPersistent - Revolutionary Persistent Tab Content
