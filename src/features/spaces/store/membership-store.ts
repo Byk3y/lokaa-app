@@ -9,7 +9,7 @@ import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { toast } from '@/hooks/use-toast';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { membershipApi } from '../api/membership-api';
+import { membershipApi } from '@/features/spaces';
 import { 
   MemberRole, 
   MemberStatus, 
