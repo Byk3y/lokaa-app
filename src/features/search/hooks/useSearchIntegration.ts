@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useMemo } from 'react';
 import { usePostSearch } from './usePostSearch';
 import { useSearchURLSync } from './useSearchURLSync';
-import { searchAPI } from '@/features/search/api/search-api';
+import { searchAPI } from '@/features/search/api/search-api.ts';
 import { searchPerformanceMonitor } from '../utils/searchPerformance';
 import { devLogger } from '@/utils/developmentLogger';
 import type { SearchResult, SearchFilters } from '../types';
