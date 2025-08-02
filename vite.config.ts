@@ -224,7 +224,7 @@ export default defineConfig(({ mode }) => {
         strategies: 'generateSW',
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          navigationPreload: true,
+          navigationPreload: false,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/(posts|comments|space_members)/,
@@ -408,8 +408,10 @@ export default defineConfig(({ mode }) => {
           manualChunks: (id) => {
             // Vendor chunks - separate large dependencies
             if (id.includes('node_modules')) {
-              // React core
-              if (id.includes('react') || id.includes('react-dom')) {
+              // React core - more specific matching
+              if (id.includes('react/') || id.includes('react-dom/') || 
+                  id.includes('/react/') || id.includes('/react-dom/') ||
+                  id.includes('react.') || id.includes('react-dom.')) {
                 return 'react-vendor';
               }
               // UI libraries
