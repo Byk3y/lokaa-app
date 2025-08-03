@@ -460,9 +460,9 @@ export default defineConfig(({ mode }) => {
               if (id.includes('zod') || id.includes('yup') || id.includes('joi')) {
                 return 'validation-vendor';
               }
-              // Fix Giphy initialization by keeping it in main vendor chunk
+              // Disable Giphy chunking completely to prevent initialization issues
               if (id.includes('@giphy')) {
-                return 'vendor';
+                return null; // Keep in main bundle
               }
               // Rich text editor dependencies
               if (id.includes('@tiptap') || id.includes('prosemirror')) {
