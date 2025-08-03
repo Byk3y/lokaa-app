@@ -403,105 +403,28 @@ export default defineConfig(({ mode }) => {
           return false; // Bundle everything by default
         },
         output: {
-          // Ensure proper chunk loading order by prioritizing React
-          chunkFileNames: (chunkInfo) => {
-            if (chunkInfo.name === 'react-vendor') {
-              return `assets-${Date.now()}/[name]-[hash].js`;
-            }
-            return `assets-${Date.now()}/[name]-[hash].js`;
-          },
-          manualChunks: (id) => {
-            // CRITICAL: Force ALL React-related modules into main bundle
-            if (id.includes('node_modules/react/') || 
-                id.includes('node_modules/react-dom/') || 
-                id.includes('react/jsx-runtime') ||
-                id.includes('react/jsx-dev-runtime') ||
-                id.includes('/react.') ||
-                id.includes('/react-dom.') ||
-                id === 'react' || 
-                id === 'react-dom' ||
-                id.endsWith('/react') ||
-                id.endsWith('/react-dom')) {
-              return undefined; // Force into main bundle - absolutely critical for Vercel
-            }
-            
-            // CRITICAL: Handle Giphy to prevent any chunking issues
-            if (id.includes('@giphy')) {
-              return undefined; // Force into main bundle - absolutely no chunking
-            }
-            
-            // Vendor chunks - separate large dependencies
-            if (id.includes('node_modules')) {
-              // UI libraries
-              if (id.includes('@radix-ui') || id.includes('lucide-react')) {
-                return 'ui-vendor';
-              }
-              // Supabase
-              if (id.includes('@supabase')) {
-                return 'supabase-vendor';
-              }
-              // Other large dependencies
-              if (id.includes('date-fns') || id.includes('clsx') || id.includes('tailwind-merge')) {
-                return 'utils-vendor';
-              }
-              // Animation libraries
-              if (id.includes('framer-motion') || id.includes('@motionone')) {
-                return 'animation-vendor';
-              }
-              // Form libraries
-              if (id.includes('react-hook-form') || id.includes('@hookform')) {
-                return 'form-vendor';
-              }
-              // Query libraries
-              if (id.includes('@tanstack') || id.includes('react-query')) {
-                return 'query-vendor';
-              }
-              // Router libraries
-              if (id.includes('react-router') || id.includes('history')) {
-                return 'router-vendor';
-              }
-              // State management
-              if (id.includes('zustand') || id.includes('immer')) {
-                return 'state-vendor';
-              }
-              // Validation libraries
-              if (id.includes('zod') || id.includes('yup') || id.includes('joi')) {
-                return 'validation-vendor';
-              }
-              // Rich text editor dependencies
-              if (id.includes('@tiptap') || id.includes('prosemirror')) {
-                return 'editor-vendor';
-              }
-              // Chart and visualization libraries
-              if (id.includes('recharts') || id.includes('d3')) {
-                return 'chart-vendor';
-              }
-              // Media and image processing
-              if (id.includes('react-easy-crop') || id.includes('canvas') || id.includes('image')) {
-                return 'media-vendor';
-              }
-              // Icon libraries
-              if (id.includes('@heroicons') || id.includes('@phosphor-icons') || id.includes('@tabler')) {
-                return 'icon-vendor';
-              }
-              // Large utility libraries
-              if (id.includes('lodash') || id.includes('uuid') || id.includes('crypto')) {
-                return 'utility-vendor';
-              }
-              // Build and dev tools (should be minimal in production)
-              if (id.includes('vite') || id.includes('rollup') || id.includes('esbuild')) {
-                return 'build-vendor';
-              }
-              // Emoji and content libraries
-              if (id.includes('emoji') || id.includes('@emoji-mart')) {
-                return 'content-vendor';
-              }
-              // Default vendor chunk (should now be much smaller)
-              return 'vendor';
-            }
-            
-            // Application chunks - use the dynamic chunking logic
-            return createDynamicChunks(id);
+          manualChunks: {
+            // Explicitly define React in main bundle by NOT including it here
+            // All other major dependencies get their own chunks
+            'vendor': ['lodash', 'uuid', 'date-fns', 'clsx', 'tailwind-merge'],
+            'ui-vendor': [
+              '@radix-ui/react-dialog', 
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-avatar',
+              '@radix-ui/react-tooltip',
+              '@radix-ui/react-tabs',
+              '@radix-ui/react-select',
+              'lucide-react'
+            ],
+            'supabase-vendor': ['@supabase/supabase-js'],
+            'router-vendor': ['react-router-dom'],
+            'form-vendor': ['react-hook-form', '@hookform/resolvers'],
+            'query-vendor': ['@tanstack/react-query'],
+            'state-vendor': ['zustand', 'immer'],
+            'validation-vendor': ['zod'],
+            'animation-vendor': ['framer-motion'],
+            'editor-vendor': ['@tiptap/react', '@tiptap/starter-kit'],
+            'content-vendor': ['@emoji-mart/react', '@emoji-mart/data']
           }
         }
       }
