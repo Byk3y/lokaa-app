@@ -407,6 +407,8 @@ export default defineConfig(({ mode }) => {
       modulePreload: {
         polyfill: false // Disable module preload polyfill to avoid conflicts
       },
+      // Force cache busting
+      assetsDir: `assets-${Date.now()}`,
       rollupOptions: {
         output: {
           manualChunks: (id) => {
@@ -452,16 +454,10 @@ export default defineConfig(({ mode }) => {
               if (id.includes('zod') || id.includes('yup') || id.includes('joi')) {
                 return 'validation-vendor';
               }
-              // Giphy libraries - separate to avoid initialization issues
-              if (id.includes('@giphy/js-fetch-api')) {
-                return 'giphy-api-vendor';
-              }
-              if (id.includes('@giphy/react-components')) {
-                return 'giphy-components-vendor';
-              }
-              if (id.includes('@giphy')) {
-                return 'giphy-vendor';
-              }
+              // Temporarily disable Giphy vendor chunks to fix initialization
+              // if (id.includes('@giphy')) {
+              //   return 'vendor';
+              // }
               // Rich text editor dependencies
               if (id.includes('@tiptap') || id.includes('prosemirror')) {
                 return 'editor-vendor';
