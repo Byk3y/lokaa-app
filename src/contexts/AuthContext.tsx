@@ -34,11 +34,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state - memoized to prevent unnecessary re-creation
   const initializeAuth = useCallback(async (maxRetries = 3) => {
+    const { MobileNetworkHandler } = await import('@/utils/mobileNetworkHandler');
     let retryCount = 0;
     
     while (retryCount < maxRetries) {
       try {
-        const { data, error } = await getSupabaseClient().auth.getSession();
+        const { data, error } = await MobileNetworkHandler.safeFetch(
+          () => getSupabaseClient().auth.getSession(),
+          {
+            maxRetries: 2,
+            baseDelay: 1000,
+            timeout: 10000
+          }
+        );
         
         if (error) {
           log.error('Context', '[AuthProvider] Session retrieval error:', error);
@@ -101,7 +109,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const checkSession = async () => {
       try {
-        const { data, error } = await getSupabaseClient().auth.getSession();
+        const { MobileNetworkHandler } = await import('@/utils/mobileNetworkHandler');
+        
+        const { data, error } = await MobileNetworkHandler.safeFetch(
+          () => getSupabaseClient().auth.getSession(),
+          {
+            maxRetries: 2,
+            baseDelay: 1000,
+            timeout: 15000
+          }
+        );
         
         if (error) throw error;
         
@@ -110,10 +127,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (data.session?.user) {
           preloadSpaces(data.session.user.id);
-          // Mobile manager disabled - handled by comprehensive fix
         }
         
-        // Mobile manager disabled - handled by comprehensive fix
       } catch (error) {
         retryCount++;
         if (retryCount < maxRetries) {
@@ -170,7 +185,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Enhanced session refresh functionality
   const refreshSession = useCallback(async (): Promise<boolean> => {
     try {
-      const { data, error } = await getSupabaseClient().auth.refreshSession();
+      const { MobileNetworkHandler } = await import('@/utils/mobileNetworkHandler');
+      
+      const { data, error } = await MobileNetworkHandler.safeFetch(
+        () => getSupabaseClient().auth.refreshSession(),
+        {
+          maxRetries: 3,
+          baseDelay: 1500,
+          timeout: 15000
+        }
+      );
       
       if (error) {
         log.warn('Context', '[AuthProvider] Session refresh error:', error);

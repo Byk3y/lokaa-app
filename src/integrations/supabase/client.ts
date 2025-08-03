@@ -22,6 +22,21 @@ const getSupabaseClient = () => {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false, // Recommended to be false for security reasons, handle manually if needed
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'lokaa-auth-token',
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+      // Ensure WebSocket uses secure connection
+      transport: 'websocket',
+      timeout: 30000,
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'lokaa-web-app',
+      },
     },
   });
 

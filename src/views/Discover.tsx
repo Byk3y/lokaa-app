@@ -27,6 +27,8 @@ import HeaderActions from "@/components/common/HeaderActions";
 import "./UserSettingsStyles.css";
 import { useBatchMemberCounts } from "@/hooks/useBatchMemberCounts";
 import { aggressiveDiscoverOverride } from '@/utils/smartSpaceRedirect';
+import { supabaseMobileFetch, MobileNetworkHandler } from '@/utils/mobileNetworkHandler';
+import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 
 const categories = [
   { id: 'all', label: 'All', icon: '🌟' },
@@ -97,10 +99,30 @@ const showDirectLoginModal = (e: React.MouseEvent, callback?: () => void) => {
       setError(null);
       try {
         log.debug('Page', '🔥 [MODAL FIX] Login attempt starting...');
-        const { data, error: signInError } = await getSupabaseClient().auth.signInWithPassword({ email, password });
+        
+        // Use mobile-optimized network handling for authentication
+        const { data, error: signInError } = await MobileNetworkHandler.safeFetch(
+          () => getSupabaseClient().auth.signInWithPassword({ email, password }),
+          {
+            maxRetries: 3,
+            baseDelay: 2000,
+            timeout: 20000,
+            exponentialBackoff: true
+          }
+        );
+        
         if (signInError) {
           log.debug('Page', '🔥 [MODAL FIX] Login failed:', signInError.message);
-          setError(signInError.message);
+          
+          // Enhanced error messages for mobile
+          let userFriendlyError = signInError.message;
+          if (signInError.message.includes('fetch')) {
+            userFriendlyError = 'Network error. Please check your connection and try again.';
+          } else if (signInError.message.includes('timeout')) {
+            userFriendlyError = 'Request timed out. Please try again.';
+          }
+          
+          setError(userFriendlyError);
           setLoading(false);
           return;
         }
@@ -110,7 +132,18 @@ const showDirectLoginModal = (e: React.MouseEvent, callback?: () => void) => {
         }
       } catch (err) {
         log.error('Page', '🔥 [MODAL FIX] Login exception:', err);
-        setError('An unexpected error occurred. Please try again.');
+        
+        // Enhanced error handling for mobile
+        let errorMessage = 'An unexpected error occurred. Please try again.';
+        if (err instanceof Error) {
+          if (MobileNetworkHandler.isNetworkError(err)) {
+            errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+          } else if (err.message.includes('timeout')) {
+            errorMessage = 'Login request timed out. Please try again.';
+          }
+        }
+        
+        setError(errorMessage);
         setLoading(false);
       }
     };
@@ -300,15 +333,24 @@ export default function Discover() {
     return "A";
   };
 
-  const createFetch = useCallback(async function createFetch<T>(fetchFunction: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
-    try {
-      return await fetchFunction();
-    } catch (error) {
-      if (retries <= 0) throw error;
-      
-      log.debug('Page', `Fetch attempt failed, retrying in ${delay}ms...`, error);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return createFetch(fetchFunction, retries - 1, delay * 1.5);
+  const createFetch = useCallback(async function createFetch<T>(fetchFunction: () => Promise<T>): Promise<T> {
+    const isMobile = shouldEnableMobileFeatures();
+    
+    if (isMobile) {
+      log.debug('Page', '📱 Using mobile-optimized fetch for better reliability');
+      return await MobileNetworkHandler.safeFetch(fetchFunction, {
+        maxRetries: 4,
+        baseDelay: 2000,
+        timeout: 20000,
+        exponentialBackoff: true
+      });
+    } else {
+      // Desktop - use simpler retry logic
+      return await MobileNetworkHandler.safeFetch(fetchFunction, {
+        maxRetries: 2,
+        baseDelay: 1000,
+        timeout: 10000
+      });
     }
   }, []);
 
