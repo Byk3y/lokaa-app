@@ -1,0 +1,28 @@
+# Ignore Next.js artifacts
+.next/
+out/
+.next/
+pages/
+api/
+
+# Ignore development files
+node_modules/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore build artifacts that might confuse Vercel
+dist/.next/
+dist/pages/
+dist/api/
+
+# Ignore any cached configuration
+.vercel/
+vercel.json.bak
+
+# Ignore documentation and other non-essential files
+docs/
+*.md
+.git/
+.gitignore 

@@ -337,7 +337,13 @@ export default defineConfig(({ mode }) => {
         "@radix-ui/react-dropdown-menu",
         "lucide-react",
         "@giphy/js-fetch-api",
-        "@giphy/react-components"
+        "@giphy/react-components",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime"
+      ],
+      exclude: [
+        "react",
+        "react-dom"
       ],
       esbuildOptions: {
         define: {
@@ -414,9 +420,9 @@ export default defineConfig(({ mode }) => {
           manualChunks: (id) => {
             // Vendor chunks - separate large dependencies
             if (id.includes('node_modules')) {
-              // React core - use standard approach
-              if (id.includes('react')) {
-                return 'react-vendor';
+              // React core - exclude from chunking to avoid issues
+              if (id.includes('react/') || id.includes('react-dom/')) {
+                return null; // Don't chunk React, let it be handled naturally
               }
               // UI libraries
               if (id.includes('@radix-ui') || id.includes('lucide-react')) {
