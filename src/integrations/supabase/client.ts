@@ -29,9 +29,6 @@ const getSupabaseClient = () => {
       params: {
         eventsPerSecond: 10,
       },
-      // Ensure WebSocket uses secure connection
-      transport: 'websocket',
-      timeout: 30000,
     },
     global: {
       headers: {
