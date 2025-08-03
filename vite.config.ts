@@ -146,6 +146,7 @@ const getCSPConfig = (mode: 'development' | 'production') => {
     'connect-src': [
       "'self'",
       'https://nmddvthcsyppyjncqfsk.supabase.co',
+      'wss://nmddvthcsyppyjncqfsk.supabase.co', // Required for Supabase realtime WebSocket
       isDev && 'ws:', // Required for Vite HMR WebSocket
       'https://api.giphy.com',
       'https://fonts.googleapis.com',
