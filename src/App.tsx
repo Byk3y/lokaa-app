@@ -15,7 +15,7 @@ import ApplicationRouter from '@/components/app/ApplicationRouter';
 import { OptimizedProviderTree } from '@/providers/OptimizedProviders';
 
 // PWA and core components
-import PWAInitializer from '@/components/pwa/PWAInitializer';
+// import PWAInitializer from '@/components/pwa/PWAInitializer';
 import { AuthModalRouter } from '@/features/auth/components/modals';
 
 // CRITICAL: Load Supabase error protection FIRST
@@ -232,7 +232,7 @@ export default function App() {
           <ApplicationRouter />
         </Suspense>
         <UnifiedPresenceInitializer />
-        <PWAInitializer />
+        {/* <PWAInitializer /> */}
         <AuthModalRouter />
         <Toaster />
       </OptimizedProviderTree>
