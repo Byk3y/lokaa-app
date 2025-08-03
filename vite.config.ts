@@ -411,12 +411,21 @@ export default defineConfig(({ mode }) => {
             return `assets-${Date.now()}/[name]-[hash].js`;
           },
           manualChunks: (id) => {
-            // CRITICAL: Handle React FIRST - put in main bundle for guaranteed availability
-            if (id.includes('react/') || id.includes('react-dom/') || id.includes('react/jsx-runtime')) {
+            // CRITICAL: Force ALL React-related modules into main bundle
+            if (id.includes('node_modules/react/') || 
+                id.includes('node_modules/react-dom/') || 
+                id.includes('react/jsx-runtime') ||
+                id.includes('react/jsx-dev-runtime') ||
+                id.includes('/react.') ||
+                id.includes('/react-dom.') ||
+                id === 'react' || 
+                id === 'react-dom' ||
+                id.endsWith('/react') ||
+                id.endsWith('/react-dom')) {
               return undefined; // Force into main bundle - absolutely critical for Vercel
             }
             
-            // CRITICAL: Handle Giphy SECOND to prevent any chunking issues
+            // CRITICAL: Handle Giphy to prevent any chunking issues
             if (id.includes('@giphy')) {
               return undefined; // Force into main bundle - absolutely no chunking
             }
