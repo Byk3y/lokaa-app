@@ -219,7 +219,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      isProd && VitePWA({
+      false && VitePWA({
         registerType: 'autoUpdate',
         strategies: 'generateSW',
         workbox: {
@@ -403,6 +403,10 @@ export default defineConfig(({ mode }) => {
       minify: 'esbuild',
       cssCodeSplit: true,
       chunkSizeWarningLimit: 500, // Aggressive optimization - target smaller chunks
+      sourcemap: false, // Disable sourcemaps in production for faster builds
+      modulePreload: {
+        polyfill: false // Disable module preload polyfill to avoid conflicts
+      },
       rollupOptions: {
         output: {
           manualChunks: (id) => {
@@ -451,7 +455,13 @@ export default defineConfig(({ mode }) => {
               if (id.includes('zod') || id.includes('yup') || id.includes('joi')) {
                 return 'validation-vendor';
               }
-              // Giphy libraries
+              // Giphy libraries - separate to avoid initialization issues
+              if (id.includes('@giphy/js-fetch-api')) {
+                return 'giphy-api-vendor';
+              }
+              if (id.includes('@giphy/react-components')) {
+                return 'giphy-components-vendor';
+              }
               if (id.includes('@giphy')) {
                 return 'giphy-vendor';
               }
