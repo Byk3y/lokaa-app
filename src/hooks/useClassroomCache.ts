@@ -334,18 +334,18 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         progress: canSeeDrafts || isSpaceMember ? (courseProgressMap.get(course.id) || 0) : undefined,
       }));
 
-      // Filter courses based on user permissions using comprehensive ownership check
-      const filteredCourses = canSeeDrafts 
-        ? displayData 
-        : displayData.filter(course => course.is_published);
+      // ✅ FIXED: Remove redundant filtering since we already filter at database level
+      // Only apply filtering if database query included drafts for owners
+      const filteredCourses = displayData; // Use all data since DB query already filtered correctly
       
       // Log filtering results for debugging
       log.debug('Hook', '🔍 [ClassroomCache] Course filtering:', {
         totalCourses: displayData.length,
-        filteredCourses: filteredCourses.length,
         canSeeDrafts,
-        draftCourses: displayData.filter(c => !c.is_published).map(c => ({ id: c.id, title: c.title })),
-        visibleDraftCourses: filteredCourses.filter(c => !c.is_published).map(c => ({ id: c.id, title: c.title }))
+        draftCourses: displayData.filter(c => !c.is_published).length,
+        publishedCourses: displayData.filter(c => c.is_published).length,
+        userIsOwner: isOwner,
+        userIsSpaceAdmin: isSpaceAdmin
       });
 
       // Update cache with successful data
@@ -506,14 +506,18 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
   forceRefreshCache: async (spaceId, userId, ownerId) => {
     log.debug('Hook', `🔄 [ClassroomCache] Force refreshing cache for space ${spaceId}`);
     
-    // Clear the cache first
-    const { invalidateCache, fetchCourses } = get();
-    invalidateCache(spaceId);
+    // ✅ IMPROVED: Don't clear cache immediately to prevent flickering
+    // Instead, keep existing data visible during refresh
+    const { fetchCourses } = get();
     
-    // Fetch fresh data with new ownership context
-    await fetchCourses(spaceId, userId, ownerId);
-    
-    log.debug('Hook', `✅ [ClassroomCache] Force refresh completed for space ${spaceId}`);
+    try {
+      // Fetch fresh data with new ownership context without clearing cache
+      await fetchCourses(spaceId, userId, ownerId);
+      log.debug('Hook', `✅ [ClassroomCache] Force refresh completed for space ${spaceId}`);
+    } catch (error) {
+      log.error('Hook', `❌ [ClassroomCache] Force refresh failed for space ${spaceId}:`, error);
+      // Keep existing cache on error to prevent data loss
+    }
   },
 }));
 

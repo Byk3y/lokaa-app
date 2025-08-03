@@ -60,11 +60,23 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
       // Check if any draft courses are missing (indicating stale ownership data)
       const hasDraftCourses = cachedCourses.some(course => !course.is_published);
       
-      // ✅ OPTIMIZED: Only force refresh if user is owner/admin and missing drafts
-      // This prevents unnecessary refreshes for regular users
+      // ✅ FIXED: Add delay to prevent flickering and only refresh once per session
+      // This prevents the disappearing draft courses issue
       if (!hasDraftCourses && (ownerId === userId || user?.role === 'admin')) {
-        log.debug('Hook', '🔄 [useCachedClassroom] Force refreshing cache for fresh ownership data');
-        forceRefreshCache(spaceId, userId, ownerId);
+        const sessionKey = `classroom_refresh_${spaceId}_${userId}`;
+        const lastRefresh = sessionStorage.getItem(sessionKey);
+        const now = Date.now();
+        
+        // Only refresh once every 5 minutes to prevent constant flickering
+        if (!lastRefresh || (now - parseInt(lastRefresh)) > 300000) {
+          log.debug('Hook', '🔄 [useCachedClassroom] Scheduling delayed cache refresh for ownership data');
+          
+          // Add delay to prevent immediate flickering
+          setTimeout(() => {
+            sessionStorage.setItem(sessionKey, now.toString());
+            forceRefreshCache(spaceId, userId, ownerId);
+          }, 1000);
+        }
       }
     }
   }, [user?.id, spaceId, userId, ownerId, getCourses, forceRefreshCache]);
