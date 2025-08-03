@@ -80,6 +80,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   // Core state
   const [baseCourse, setBaseCourse] = useState<CourseDetailData | null>(null);
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
   
   // Optimistic updates state
   const [optimisticUpdates, setOptimisticUpdates] = useState<OptimisticUpdatesMap>({});
@@ -133,6 +134,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   ): Promise<CourseDetailData | null> => {
     try {
       setCurrentCourseId(courseId);
+      setIsInitializing(true);
       
       log.debug('Hook', `🎓 [useCourseDetail] Fetching course: ${courseId}`);
       
@@ -140,6 +142,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
       const cachedCourse = getCachedCourse(courseId);
       if (cachedCourse && (enableOfflineSupport || !isOffline)) {
         setBaseCourse(cachedCourse);
+        setIsInitializing(false);
         log.debug('Hook', `🎓 [useCourseDetail] Using cached course data for: ${courseId}`);
         return cachedCourse;
       } else {
@@ -161,12 +164,14 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
 
       setBaseCourse(courseData);
       setCachedCourse(courseId, courseData);
+      setIsInitializing(false);
       
       log.debug('Hook', `🎓 [useCourseDetail] Fresh course data fetched and cached for: ${courseId}`);
       return courseData;
       
     } catch (error: any) {
       log.error('Hook', `🎓 [useCourseDetail] Error in fetchCourseDetails for course ${courseId}:`, error);
+      setIsInitializing(false);
       return null;
     }
   }, [
@@ -324,7 +329,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
   
   return {
     course,
-    loading: fetchingLoading,
+    loading: fetchingLoading || isInitializing,
     loadingPhase: 'complete', // Simplified - no phases
     error: fetchingError,
     fetchCourseDetails,

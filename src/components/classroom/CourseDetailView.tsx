@@ -394,7 +394,10 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     );
   }
 
-  // Desktop loading state - only show spinner for desktop view
+  // Use course data directly (optimistic updates handled in useCourseDetail hook)
+  const displayCourse = course;
+
+  // Show loading state first
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -402,9 +405,6 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
       </div>
     );
   }
-
-  // Use course data directly (optimistic updates handled in useCourseDetail hook)
-  const displayCourse = course;
 
   // Desktop error state - only show error for desktop view
   if (error || !displayCourse) {

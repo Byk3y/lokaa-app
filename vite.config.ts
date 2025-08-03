@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 
@@ -219,6 +220,21 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      nodePolyfills({
+        // Enable polyfills for specific Node.js modules
+        include: ['stream', 'util', 'url', 'http', 'https', 'buffer', 'process'],
+        // Whether to polyfill `global`
+        globals: {
+          global: true,
+          process: true,
+          Buffer: true,
+        },
+        // Override the default polyfills for specific modules
+        overrides: {
+          // Since `fs` is not supported in browsers, we can use the polyfill
+          fs: 'memfs',
+        },
+      }),
       ...(false ? [VitePWA({
         registerType: 'autoUpdate',
         strategies: 'generateSW',
@@ -328,29 +344,34 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
+      mainFields: ['module', 'main'], // Prefer ES modules over CommonJS
+      conditions: ['import', 'module', 'browser', 'default'],
     },
     optimizeDeps: {
       include: [
         "react",
         "react-dom",
+        "react/jsx-runtime", 
+        "react/jsx-dev-runtime",
         "@supabase/supabase-js",
         "@radix-ui/react-icons",
         "@radix-ui/react-dialog",
         "@radix-ui/react-dropdown-menu",
         "lucide-react",
-        "react/jsx-runtime",
-        "react/jsx-dev-runtime",
         "styled-components",
-        "shallowequal"
-      ],
-      exclude: [
+        "shallowequal",
         "@giphy/js-fetch-api",
-        "@giphy/react-components"
+        "@giphy/react-components",
+        "react-use"
       ],
+      exclude: [],
       esbuildOptions: {
         define: {
           global: 'globalThis',
         },
+        // Ensure React is properly handled
+        jsx: 'automatic',
+        target: 'es2020'
       },
       force: true
     },
@@ -359,6 +380,8 @@ export default defineConfig(({ mode }) => {
       'global': 'globalThis',
       // Provide process.env for Node.js compatibility
       'process.env.NODE_ENV': JSON.stringify(mode),
+      // Node.js polyfills for browser compatibility
+      'process': JSON.stringify({ env: { NODE_ENV: mode } }),
     },
     build: {
       target: 'es2020',
@@ -372,19 +395,34 @@ export default defineConfig(({ mode }) => {
       // Force cache busting
       assetsDir: `assets-${Date.now()}`,
       rollupOptions: {
+        external: (id) => {
+          // Never externalize React or React-DOM - they must be bundled
+          if (id === 'react' || id === 'react-dom' || id === 'react/jsx-runtime') {
+            return false;
+          }
+          return false; // Bundle everything by default
+        },
         output: {
+          // Ensure proper chunk loading order by prioritizing React
+          chunkFileNames: (chunkInfo) => {
+            if (chunkInfo.name === 'react-vendor') {
+              return `assets-${Date.now()}/[name]-[hash].js`;
+            }
+            return `assets-${Date.now()}/[name]-[hash].js`;
+          },
           manualChunks: (id) => {
-            // CRITICAL: Handle Giphy FIRST to prevent any chunking issues
+            // CRITICAL: Handle React FIRST - put in main bundle for guaranteed availability
+            if (id.includes('react/') || id.includes('react-dom/') || id.includes('react/jsx-runtime')) {
+              return undefined; // Force into main bundle - absolutely critical for Vercel
+            }
+            
+            // CRITICAL: Handle Giphy SECOND to prevent any chunking issues
             if (id.includes('@giphy')) {
               return undefined; // Force into main bundle - absolutely no chunking
             }
             
             // Vendor chunks - separate large dependencies
             if (id.includes('node_modules')) {
-              // React core - keep together for better caching
-              if (id.includes('react/') || id.includes('react-dom/')) {
-                return 'react-vendor';
-              }
               // UI libraries
               if (id.includes('@radix-ui') || id.includes('lucide-react')) {
                 return 'ui-vendor';
