@@ -6,7 +6,7 @@ A platform for creating and managing collaborative spaces.
 
 🚀 **Live App**: https://lokaa-app.vercel.app
 
-**Latest Version**: 0.0.3 with deployment fixes
+**Latest Version**: 0.0.4 with all fixes deployed
 
 ## Project Status
 
