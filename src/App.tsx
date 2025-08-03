@@ -21,6 +21,9 @@ import { AuthModalRouter } from '@/features/auth/components/modals';
 // CRITICAL: Load Supabase error protection FIRST
 import { supabaseLoadFailedBlocker } from '@/utils/supabaseLoadFailedBlocker';
 
+// Service Worker cleanup
+import '@/utils/serviceWorkerCleanup';
+
 // Dev-only console helpers
 if (import.meta.env.DEV) {
   import('@/devtools/exposeForConsole').then(({ exposeForConsole }) => {

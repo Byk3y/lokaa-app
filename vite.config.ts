@@ -219,7 +219,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      false && VitePWA({
+      ...(false ? [VitePWA({
         registerType: 'autoUpdate',
         strategies: 'generateSW',
         workbox: {
@@ -321,13 +321,15 @@ export default defineConfig(({ mode }) => {
           type: 'module',
           navigateFallback: 'index.html',
         },
-      })
-    ].filter(Boolean),
+      })] : []),
+    ],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json'],
+      // Fix CommonJS module resolution for styled-components dependencies
+      mainFields: ['module', 'main'],
     },
     optimizeDeps: {
       include: [
@@ -339,7 +341,9 @@ export default defineConfig(({ mode }) => {
         "@radix-ui/react-dropdown-menu",
         "lucide-react",
         "react/jsx-runtime",
-        "react/jsx-dev-runtime"
+        "react/jsx-dev-runtime",
+        "styled-components",
+        "shallowequal"
       ],
       exclude: [
         "@giphy/js-fetch-api",
@@ -349,6 +353,9 @@ export default defineConfig(({ mode }) => {
         define: {
           global: 'globalThis',
         },
+        // Fix CommonJS module resolution
+        mainFields: ['module', 'main'],
+        format: 'esm'
       },
       force: true
     },
@@ -418,6 +425,11 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: (id) => {
+            // CRITICAL: Handle Giphy FIRST to prevent any chunking issues
+            if (id.includes('@giphy')) {
+              return undefined; // Force into main bundle - absolutely no chunking
+            }
+            
             // Vendor chunks - separate large dependencies
             if (id.includes('node_modules')) {
               // React core - keep together for better caching
@@ -459,10 +471,6 @@ export default defineConfig(({ mode }) => {
               // Validation libraries
               if (id.includes('zod') || id.includes('yup') || id.includes('joi')) {
                 return 'validation-vendor';
-              }
-              // Disable Giphy chunking completely to prevent initialization issues
-              if (id.includes('@giphy')) {
-                return null; // Keep in main bundle
               }
               // Rich text editor dependencies
               if (id.includes('@tiptap') || id.includes('prosemirror')) {
