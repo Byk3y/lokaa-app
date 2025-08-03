@@ -412,11 +412,8 @@ export default defineConfig(({ mode }) => {
           manualChunks: (id) => {
             // Vendor chunks - separate large dependencies
             if (id.includes('node_modules')) {
-              // React core - be very specific to avoid conflicts
-              if ((id.includes('/react/') && !id.includes('react-')) || 
-                  (id.includes('/react-dom/') && !id.includes('react-dom-')) ||
-                  id.endsWith('/react') || id.endsWith('/react-dom') ||
-                  id.includes('react/index') || id.includes('react-dom/index')) {
+              // React core - use standard approach
+              if (id.includes('react')) {
                 return 'react-vendor';
               }
               // UI libraries

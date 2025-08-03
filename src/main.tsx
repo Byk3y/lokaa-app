@@ -17,30 +17,25 @@ import './utils/hmrOptimizer'
 // import './utils/authModals' // REMOVED
 // import { redirectToSpace } from './utils/spaceRedirect'
 
+// Service worker temporarily disabled to fix preload errors
 // Initialize service worker manager
-import { ServiceWorkerManager } from './utils/serviceWorkerManager';
+// import { ServiceWorkerManager } from './utils/serviceWorkerManager';
 
-// Initialize service worker based on environment
-if (import.meta.env.PROD) {
-  // Production: Initialize service worker
-  ServiceWorkerManager.getInstance().register();
-} else {
-  // Development: Clear any existing service workers (with feature detection)
-  if ('serviceWorker' in navigator && navigator.serviceWorker) {
-    navigator.serviceWorker
-      .getRegistrations()
-      .then(registrations => {
-        registrations.forEach(registration => {
-          log.debug('App', '🧹 Unregistering service worker:', registration.scope);
-          registration.unregister();
-        });
-      })
-      .catch(err => {
-        log.warn('App', '⚠️ Error clearing service workers:', err);
+// Clear any existing service workers in all environments
+if ('serviceWorker' in navigator && navigator.serviceWorker) {
+  navigator.serviceWorker
+    .getRegistrations()
+    .then(registrations => {
+      registrations.forEach(registration => {
+        log.debug('App', '🧹 Unregistering service worker:', registration.scope);
+        registration.unregister();
       });
-  } else {
-    log.debug('App', 'ℹ️ Service workers not supported in this environment');
-  }
+    })
+    .catch(err => {
+      log.warn('App', '⚠️ Error clearing service workers:', err);
+    });
+} else {
+  log.debug('App', 'ℹ️ Service workers not supported in this environment');
 }
 
 // Immediate space redirection for authenticated users
