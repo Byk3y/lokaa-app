@@ -331,19 +331,19 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: [
+        "react",
+        "react-dom",
         "@supabase/supabase-js",
         "@radix-ui/react-icons",
         "@radix-ui/react-dialog",
         "@radix-ui/react-dropdown-menu",
         "lucide-react",
-        "@giphy/js-fetch-api",
-        "@giphy/react-components",
         "react/jsx-runtime",
         "react/jsx-dev-runtime"
       ],
       exclude: [
-        "react",
-        "react-dom"
+        "@giphy/js-fetch-api",
+        "@giphy/react-components"
       ],
       esbuildOptions: {
         define: {
@@ -420,9 +420,9 @@ export default defineConfig(({ mode }) => {
           manualChunks: (id) => {
             // Vendor chunks - separate large dependencies
             if (id.includes('node_modules')) {
-              // React core - exclude from chunking to avoid issues
+              // React core - keep together for better caching
               if (id.includes('react/') || id.includes('react-dom/')) {
-                return null; // Don't chunk React, let it be handled naturally
+                return 'react-vendor';
               }
               // UI libraries
               if (id.includes('@radix-ui') || id.includes('lucide-react')) {
@@ -460,10 +460,10 @@ export default defineConfig(({ mode }) => {
               if (id.includes('zod') || id.includes('yup') || id.includes('joi')) {
                 return 'validation-vendor';
               }
-              // Temporarily disable Giphy vendor chunks to fix initialization
-              // if (id.includes('@giphy')) {
-              //   return 'vendor';
-              // }
+              // Fix Giphy initialization by keeping it in main vendor chunk
+              if (id.includes('@giphy')) {
+                return 'vendor';
+              }
               // Rich text editor dependencies
               if (id.includes('@tiptap') || id.includes('prosemirror')) {
                 return 'editor-vendor';
