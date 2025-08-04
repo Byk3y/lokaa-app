@@ -358,13 +358,15 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
           } />
         </Route>
 
-        {/* Legacy /subdomain direct routes - WITH VALIDATION TO AVOID ROOT PATH */}
+        {/* Legacy /subdomain direct routes - PUBLIC ACCESS for invite links */}
+        <Route path="/:subdomain" element={
+          <Suspense fallback={<SpaceLoadingFallback />}>
+            <LazyRoutes.SpaceRedirectWithValidation />
+          </Suspense>
+        } />
+        
+        {/* Legacy subdomain routes - PROTECTED */}
         <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
-          <Route path="/:subdomain" element={
-            <Suspense fallback={<SpaceLoadingFallback />}>
-              <LazyRoutes.SpaceRedirectWithValidation />
-            </Suspense>
-          } />
           <Route path="/:subdomain/members" element={<Navigate to="/:subdomain/space/members" replace />} />
           <Route path="/:subdomain/calendar" element={<Navigate to="/:subdomain/space/calendar" replace />} />
           <Route path="/:subdomain/leaderboard" element={<Navigate to="/:subdomain/space/leaderboard" replace />} />
