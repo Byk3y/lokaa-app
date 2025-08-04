@@ -161,30 +161,27 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
           )}
         </div>
 
-        {/* Right sidebar */}
-        {/* Only render on desktop to prevent unnecessary mounting and hook execution on mobile */}
-        {isDesktop && (
-          <div className="w-[273px] flex-shrink-0">
-            <SpaceInfoSidebar
-              spaceName={name}
-              spaceIcon={spaceIconUrl}
-              spaceDescription={shortDescription}
-              coverImage={coverPhotoUrl}
-              isPrivate={isPrivate}
-              memberCount={memberCount}
-              adminCount={adminCount}
-              onlineCount={onlineCount}
-              canAccessSettings={isOwner}
-              permissionsLoading={false} // SpaceAboutDisplay doesn't have complex loading states
-              subdomain={subdomain}
-              isOwner={isOwner}
-              isMember={isMember}
-              actionButtonText={actionButtonText || 'Join Space'}
-              onAction={onAction}
-              hideOnlineAvatars={true}
-            />
-          </div>
-        )}
+        {/* Right sidebar - show on all screen sizes */}
+        <div className="w-full lg:w-[273px] flex-shrink-0">
+          <SpaceInfoSidebar
+            spaceName={name}
+            spaceIcon={spaceIconUrl}
+            spaceDescription={shortDescription}
+            coverImage={coverPhotoUrl}
+            isPrivate={isPrivate}
+            memberCount={memberCount}
+            adminCount={adminCount}
+            onlineCount={onlineCount}
+            canAccessSettings={isOwner}
+            permissionsLoading={false} // SpaceAboutDisplay doesn't have complex loading states
+            subdomain={subdomain}
+            isOwner={isOwner}
+            isMember={isMember}
+            actionButtonText={actionButtonText || 'Join Space'}
+            onAction={onAction}
+            hideOnlineAvatars={true}
+          />
+        </div>
       </div>
     </div>
   );
