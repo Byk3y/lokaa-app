@@ -129,9 +129,15 @@ export default function SpaceAboutPage() {
   }, [location.state]);
 
   const handleJoinSpace = async () => {
+    // If user is not authenticated, redirect to login
     if (!user) {
-      navigate('/auth/signin', { state: { from: location } });
-      toast({ title: "Login Required", description: "Please log in to join this space." });
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+    
+    // If user is already a member, go to space
+    if (isMember && spaceAboutData?.subdomain) {
+      navigate(`/${spaceAboutData.subdomain}/space`, { replace: true });
       return;
     }
     
@@ -241,11 +247,11 @@ export default function SpaceAboutPage() {
         pricePerMonth={spaceAboutData.price_per_month || 0}
         primaryColor={spaceAboutData.primary_color || "#2AB5A0"}
         onEditAbout={handleEditAbout}
-        isOwner={user?.id === spaceAboutData.owner?.id}
+        isOwner={false}
         isMember={isMember}
         isAuthenticated={!!user}
         actionButtonText={`Join ${spaceAboutData.name}`}
-        onAction={!isMember && user ? handleJoinSpace : undefined}
+        onAction={handleJoinSpace}
         owner={spaceAboutData.owner}
         memberCount={activeMemberCount}
         adminCount={adminCount}

@@ -135,11 +135,6 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
           <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">About {name}</h2>
-              {isOwner && onEditAbout && (
-                <Button variant="outline" size="sm" onClick={onEditAbout}>
-                  Edit About Section
-                </Button>
-              )}
             </div>
             
             <div className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 whitespace-pre-line">
@@ -154,29 +149,14 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
             </div>
           </div>
 
-          {/* Mobile-only join button */}
-          {!isDesktop && !isMember && isAuthenticated && onAction && (
+          {/* Mobile-only join button - always show on mobile since no sidebar */}
+          {!isDesktop && onAction && (
             <div className="mt-8 text-center">
               <Button 
                 onClick={onAction}
                 className="bg-[#2AB5A0] hover:bg-[#249B8A] text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-md"
               >
-                {actionButtonText || 'Join Space'}
-              </Button>
-            </div>
-          )}
-
-          {/* Mobile-only login prompt for unauthenticated users */}
-          {!isDesktop && !isAuthenticated && (
-            <div className="mt-8 text-center">
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Want to join this space? Sign up to get started!
-              </p>
-              <Button 
-                onClick={() => window.location.href = '/login'}
-                className="bg-[#2AB5A0] hover:bg-[#249B8A] text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-md"
-              >
-                Sign Up to Join
+                {isMember ? 'Go to Space' : (actionButtonText || 'Join Space')}
               </Button>
             </div>
           )}
@@ -200,7 +180,7 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
               memberCount={memberCount}
               adminCount={adminCount}
               onlineCount={onlineCount}
-              canAccessSettings={isOwner && isAuthenticated}
+              canAccessSettings={false}
               permissionsLoading={false} // SpaceAboutDisplay doesn't have complex loading states
               subdomain={subdomain}
               isOwner={isOwner}
