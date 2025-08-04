@@ -154,6 +154,33 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
             </div>
           </div>
 
+          {/* Mobile-only join button */}
+          {!isDesktop && !isMember && isAuthenticated && onAction && (
+            <div className="mt-8 text-center">
+              <Button 
+                onClick={onAction}
+                className="bg-[#2AB5A0] hover:bg-[#249B8A] text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-md"
+              >
+                {actionButtonText || 'Join Space'}
+              </Button>
+            </div>
+          )}
+
+          {/* Mobile-only login prompt for unauthenticated users */}
+          {!isDesktop && !isAuthenticated && (
+            <div className="mt-8 text-center">
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Want to join this space? Sign up to get started!
+              </p>
+              <Button 
+                onClick={() => window.location.href = '/login'}
+                className="bg-[#2AB5A0] hover:bg-[#249B8A] text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-md"
+              >
+                Sign Up to Join
+              </Button>
+            </div>
+          )}
+
           {isMember && (
             <div className="mt-8 text-center">
               <p className="text-green-600 dark:text-green-400 font-semibold">You are a member of this space!</p>
@@ -161,27 +188,29 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
           )}
         </div>
 
-        {/* Right sidebar - show on all screen sizes */}
-        <div className="w-full lg:w-[273px] flex-shrink-0">
-          <SpaceInfoSidebar
-            spaceName={name}
-            spaceIcon={spaceIconUrl}
-            spaceDescription={shortDescription}
-            coverImage={coverPhotoUrl}
-            isPrivate={isPrivate}
-            memberCount={memberCount}
-            adminCount={adminCount}
-            onlineCount={onlineCount}
-            canAccessSettings={isOwner}
-            permissionsLoading={false} // SpaceAboutDisplay doesn't have complex loading states
-            subdomain={subdomain}
-            isOwner={isOwner}
-            isMember={isMember}
-            actionButtonText={actionButtonText || 'Join Space'}
-            onAction={onAction}
-            hideOnlineAvatars={true}
-          />
-        </div>
+        {/* Right sidebar - desktop only */}
+        {isDesktop && (
+          <div className="w-[273px] flex-shrink-0">
+            <SpaceInfoSidebar
+              spaceName={name}
+              spaceIcon={spaceIconUrl}
+              spaceDescription={shortDescription}
+              coverImage={coverPhotoUrl}
+              isPrivate={isPrivate}
+              memberCount={memberCount}
+              adminCount={adminCount}
+              onlineCount={onlineCount}
+              canAccessSettings={isOwner && isAuthenticated}
+              permissionsLoading={false} // SpaceAboutDisplay doesn't have complex loading states
+              subdomain={subdomain}
+              isOwner={isOwner}
+              isMember={isMember}
+              actionButtonText={actionButtonText || 'Join Space'}
+              onAction={onAction}
+              hideOnlineAvatars={true}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

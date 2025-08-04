@@ -201,17 +201,6 @@ export default function SpaceAboutPage() {
     );
   }
 
-  // Debug logging for authentication state
-  console.log('🔍 [SpaceAboutPage] Debug info:', {
-    userId: user?.id,
-    ownerId: spaceAboutData?.owner?.id,
-    isOwner: user?.id === spaceAboutData?.owner?.id,
-    isMember,
-    isAuthenticated: !!user,
-    spaceName: spaceAboutData?.name,
-    memberCounts: { activeMemberCount, adminCount, onlineCount }
-  });
-
   return (
     <div className="min-h-screen bg-[#F5FAFA] dark:bg-gray-900">
       <Helmet>
