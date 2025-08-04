@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { formatAsTitle } from '@/utils/textUtils';
 import { CheckCircle2, Edit, FileText, Save, X, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,15 @@ const LessonContent: React.FC<LessonContentProps> = ({
   const [editingContent, setEditingContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  
+  // Reset edit state when lesson changes
+  useEffect(() => {
+    setIsEditing(false);
+    setEditingContent('');
+    setIsInlineCreating(false);
+    setNewPageTitle('');
+    setNewPageContent('');
+  }, [lesson?.id]);
   
   // Debouncing refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
