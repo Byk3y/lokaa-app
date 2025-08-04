@@ -33,7 +33,6 @@ interface SpaceInfoSidebarProps {
   adminCount?: number | null;
   onlineCount?: number | null;
   canAccessSettings?: boolean;
-  permissionsLoading?: boolean;
   subdomain?: string;
   spaceId?: string;
   isOwner?: boolean;
@@ -52,7 +51,6 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   spaceDescription,
   coverImage,
   canAccessSettings,
-  permissionsLoading,
   subdomain,
   spaceId,
   isOwner,
@@ -290,13 +288,8 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
             )}
           </div>
 
-          {/* Show loading state while permissions are being determined */}
-          {permissionsLoading ? (
-            /* Loading state - show skeleton button */
-            <div className="w-full mt-1.5 py-3 px-4 bg-gray-100 dark:bg-gray-700 rounded-md animate-pulse">
-              <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>
-            </div>
-          ) : canAccessSettings ? (
+          {/* Always show button immediately - no loading state */}
+          {canAccessSettings ? (
             <Button 
               variant="outline" 
               className="w-full mt-1.5 py-3 text-sm font-semibold border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
