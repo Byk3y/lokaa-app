@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, FileText, CheckCircle, ArrowLeft } from "lucide-react";
 import { formatAsTitle } from '@/utils/textUtils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useRootFolders } from '@/hooks/useRootFolders';
 import { log } from '@/utils/logger';
 import { getLessonUrl } from '@/utils/slugUtils';
+import SidebarHeader from './components/SidebarHeader';
+import FolderList from './components/FolderList';
+import RootPagesList from './components/RootPagesList';
+import EmptyState from './components/EmptyState';
 import type { 
   CourseLesson, 
   CourseModule, 
@@ -160,9 +156,6 @@ export default function CourseSidebar({
     }));
   };
 
-  const isLessonSelected = (lesson: CourseLesson) => {
-    return selectedLesson?.id === lesson.id;
-  };
 
   if (!course) {
     return (
@@ -181,333 +174,53 @@ export default function CourseSidebar({
 
   return (
     <div className="w-80 border-r border-gray-100 bg-white flex flex-col mt-1 ml-4 rounded-lg shadow-lg h-fit">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-100">
-        {/* Back to Courses Button */}
-        <div className="mb-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleBackToCourses}
-            className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 p-2 h-auto -ml-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Courses
-          </Button>
-        </div>
-        
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-semibold text-gray-900 truncate">
-              {formatAsTitle(course.title)}
-            </h2>
-            <div className="mt-2">
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                <span>Progress</span>
-                <span>{course.progress || 0}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${course.progress || 0}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-          {(isOwner || isAdmin) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
-                  <MoreHorizontal className="h-4 w-4" strokeWidth={2.5} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={onEditCourse}>
-                  Edit course
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onAddFolder}>
-                  Add folder
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={onDeleteCourse}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  Delete course
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-        
-        {/* Add New Page Button */}
-        {(isOwner || isAdmin) && (
-          <Button
-            onClick={() => onAddLesson?.()}
-            disabled={isCreatingPage}
-            className="w-full h-9 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {isCreatingPage ? 'Creating...' : 'New page'}
-          </Button>
-        )}
-        </div>
+      <SidebarHeader
+        course={course}
+        isOwner={isOwner}
+        isAdmin={isAdmin}
+        isCreatingPage={isCreatingPage}
+        onEditCourse={onEditCourse}
+        onDeleteCourse={onDeleteCourse}
+        onAddFolder={onAddFolder}
+        onAddLesson={onAddLesson}
+        onBackToCourses={handleBackToCourses}
+      />
 
       {/* Content */}
       <div className="overflow-y-auto p-3">
         <div className="space-y-2">
           {/* Root Pages */}
-          {organizedPages.rootPages.length > 0 && (
-            <div className="space-y-1">
-              {organizedPages.rootPages.map((lesson) => (
-                <div key={lesson.id} className="group">
-                  <div 
-                    className={`
-                      flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-150
-                      ${isLessonSelected(lesson) 
-                        ? 'bg-blue-50 border border-blue-200' 
-                        : 'hover:bg-gray-50 border border-transparent'
-                      }
-                    `}
-                    onClick={() => handleLessonSelect(lesson)}
-                  >
-                    <div className="flex items-center flex-1 min-w-0">
-                      <FileText className={`
-                        mr-3 h-4 w-4 flex-shrink-0
-                        ${isLessonSelected(lesson) ? 'text-blue-600' : 'text-gray-400'}
-                      `} />
-                      <div className="flex-1 min-w-0">
-                        <div className={`
-                          text-sm font-medium truncate flex items-center gap-2
-                          ${isLessonSelected(lesson) ? 'text-blue-900' : 'text-gray-900'}
-                        `}>
-                          <span className="truncate">{formatAsTitle(lesson.title)}</span>
-                          {!lesson.is_published && (isOwner || isAdmin) && (
-                            <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                              Draft
-                            </span>
-                          )}
-                        </div>
-        </div>
-      </div>
-
-                    <div className="flex items-center gap-1">
-                      {lesson.completed && (
-                        <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" strokeWidth={2.5} />
-                      )}
-                      {(isOwner || isAdmin) && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-100 hover:bg-gray-200"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="h-4 w-4" strokeWidth={2.5} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem className="text-sm">
-                              Edit page
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onRevertToDraft && onRevertToDraft(lesson.id, lesson.title, lesson.is_published)}
-                              className="text-sm"
-                            >
-                              {lesson.is_published ? 'Revert to draft' : 'Publish page'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onChangeFolder && onChangeFolder(lesson.id, lesson.title, lesson.module_id)}
-                              className="text-sm"
-                            >
-                              Change folder
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onDuplicatePage && onDuplicatePage(lesson.id)}
-                              className="text-sm"
-                            >
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-sm">
-                              <ChevronRight className="mr-2 h-3 w-3" />
-                              Drip status: Off
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onDeletePage && onDeletePage(lesson.id, lesson.title)}
-                              className="text-sm text-red-600 focus:text-red-600"
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <RootPagesList
+            rootPages={organizedPages.rootPages}
+            selectedLesson={selectedLesson}
+            onLessonSelect={handleLessonSelect}
+            isOwner={isOwner}
+            isAdmin={isAdmin}
+            onRevertToDraft={onRevertToDraft}
+            onChangeFolder={onChangeFolder}
+            onDuplicatePage={onDuplicatePage}
+            onDeletePage={onDeletePage}
+          />
 
           {/* Folders */}
-          {folders.map((folder) => (
-            <div key={folder.id} className="space-y-1">
-              <div className="group">
-                <div 
-                  className="flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-all duration-150"
-                  onClick={() => toggleFolder(folder.id)}
-                >
-                  <div className="flex items-center flex-1 min-w-0">
-                    <span className="text-sm font-bold text-gray-900 truncate">
-                      {folder.title}
-                    </span>
-                    <span className="ml-2 text-xs text-gray-500">
-                      ({organizedPages.folderPages[folder.id]?.length || 0})
-                  </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-1">
-                    {(isOwner || isAdmin) && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                            className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-100 hover:bg-gray-200"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" strokeWidth={2.5} />
-                    </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem 
-                            onClick={() => onAddLesson?.(folder.id)}
-                            className="text-sm"
-                          >
-                            Add page in folder
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-sm">
-                            Edit folder
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-sm text-red-600 focus:text-red-600">
-                            Delete folder
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                    
-                    {/* Chevron moved to far right */}
-                    {(expandedFolders[folder.id] !== false) ? (
-                      <ChevronDown className="h-4 w-4 text-gray-600 flex-shrink-0" strokeWidth={2.5} />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" strokeWidth={2.5} />
-                    )}
-                  </div>
-                </div>
-              </div>
+          <FolderList
+            folders={folders}
+            organizedPages={organizedPages}
+            expandedFolders={expandedFolders}
+            onToggleFolder={toggleFolder}
+            selectedLesson={selectedLesson}
+            onLessonSelect={handleLessonSelect}
+            isOwner={isOwner}
+            isAdmin={isAdmin}
+            onAddLesson={onAddLesson}
+            onRevertToDraft={onRevertToDraft}
+            onChangeFolder={onChangeFolder}
+            onDuplicatePage={onDuplicatePage}
+            onDeletePage={onDeletePage}
+          />
 
-              {/* Folder Contents */}
-              {(expandedFolders[folder.id] !== false) && organizedPages.folderPages[folder.id] && (
-                <div className="space-y-1">
-                  {organizedPages.folderPages[folder.id].map((lesson) => (
-                    <div key={lesson.id} className="group">
-                      <div 
-                        className={`
-                          flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-150
-                          ${isLessonSelected(lesson) 
-                            ? 'bg-blue-50 border border-blue-200' 
-                            : 'hover:bg-gray-50 border border-transparent'
-                          }
-                        `}
-                        onClick={() => handleLessonSelect(lesson)}
-                      >
-                        <div className="flex items-center flex-1 min-w-0">
-                          <FileText className={`
-                            mr-3 h-4 w-4 flex-shrink-0
-                            ${isLessonSelected(lesson) ? 'text-blue-600' : 'text-gray-400'}
-                          `} />
-                          <div className="flex-1 min-w-0">
-                            <div className={`
-                              text-sm font-medium truncate flex items-center gap-2
-                              ${isLessonSelected(lesson) ? 'text-blue-900' : 'text-gray-900'}
-                            `}>
-                              <span className="truncate">{formatAsTitle(lesson.title)}</span>
-                              {!lesson.is_published && (isOwner || isAdmin) && (
-                                <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                                  Draft
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                          {lesson.completed && (
-                            <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" strokeWidth={2.5} />
-                          )}
-                          {(isOwner || isAdmin) && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-7 w-7 p-0 opacity-100 sm:opacity-100 md:opacity-100 hover:bg-gray-200"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <MoreHorizontal className="h-4 w-4" strokeWidth={2.5} />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem className="text-sm">
-                                  Edit page
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => onRevertToDraft && onRevertToDraft(lesson.id, lesson.title, lesson.is_published)}
-                                  className="text-sm"
-                                >
-                                  {lesson.is_published ? 'Revert to draft' : 'Publish page'}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => onChangeFolder && onChangeFolder(lesson.id, lesson.title, lesson.module_id)}
-                                  className="text-sm"
-                                >
-                                  Change folder
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => onDuplicatePage && onDuplicatePage(lesson.id)}
-                                  className="text-sm"
-                                >
-                                  Duplicate
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-sm">
-                                  <ChevronRight className="mr-2 h-3 w-3" />
-                                  Drip status: Off
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => onDeletePage && onDeletePage(lesson.id, lesson.title)}
-                                  className="text-sm text-red-600 focus:text-red-600"
-                                >
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-
-          {/* New Page Placeholder */}
-          {organizedPages.rootPages.length === 0 && folders.length === 0 && (
-            <div className="text-center py-12">
-              <FileText className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No pages yet</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by creating a new page.</p>
-            </div>
-          )}
+          {/* Empty State */}
+          <EmptyState show={organizedPages.rootPages.length === 0 && folders.length === 0} />
         </div>
       </div>
     </div>
