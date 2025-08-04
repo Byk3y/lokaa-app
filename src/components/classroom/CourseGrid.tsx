@@ -63,7 +63,6 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
   const prevCoursesLength = React.useRef(courses?.length || 0);
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'development' && courses?.length !== prevCoursesLength.current) {
-      console.log('🎓 [CourseGrid] Courses loaded:', courses.length);
       prevCoursesLength.current = courses?.length || 0;
     }
   }, [courses?.length]);

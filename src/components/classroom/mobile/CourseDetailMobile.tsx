@@ -100,17 +100,12 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     enableCaching: true,
     userId: user?.id || null,
     onOptimisticUpdate: (updatedCourse) => {
-      console.log('🎓 [CourseDetailMobile] Progress update optimistic update received:', {
-        progress: updatedCourse.progress,
-        lessonCount: updatedCourse.modules?.flatMap(m => m.lessons)?.length
-      });
       
       // PHASE 1.3: No longer using local optimistic state - progress updates go to useCourseDetail hook
       // Also update the cached progress
       updateCachedProgress?.(updatedCourse.id, updatedCourse.progress || 0);
     },
     onProgressUpdate: () => {
-      console.log('🎓 [CourseDetailMobile] Progress update callback triggered, refreshing course data');
       // Refresh course data after database update is complete
       refetch();
     }
@@ -303,7 +298,6 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
       return;
     }
 
-    console.log('🎓 [CourseDetailMobile] handleMarkAsDone called for lesson:', selectedLesson.id);
     await markLessonAsDone(selectedLesson, course);
   }, [selectedLesson, course, markLessonAsDone]);
 
@@ -319,13 +313,11 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
   // Mobile state signaling - memoized for performance
   const signalMobileState = useCallback(() => {
     const mobileState = { isMobile: true, showTabs: false };
-    console.log('🎓 [CourseDetailMobile] Sending mobile state:', mobileState);
     onMobileStateChange?.(mobileState);
   }, [onMobileStateChange]);
 
   const cleanupMobileState = useCallback(() => {
     const cleanupState = { isMobile: false, showTabs: true };
-    console.log('🎓 [CourseDetailMobile] Cleaning up mobile state:', cleanupState);
     onMobileStateChange?.(cleanupState);
   }, [onMobileStateChange]);
 

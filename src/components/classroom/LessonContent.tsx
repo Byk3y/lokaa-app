@@ -19,17 +19,6 @@ const LessonContent: React.FC<LessonContentProps> = ({
   onCreateNewPage,
   onMarkAsDone
 }) => {
-  // Debug logging to see lesson data structure
-  console.log('🎓 [LessonContent] Lesson data received:', {
-    lessonId: lesson?.id,
-    lessonTitle: lesson?.title,
-    contentUrl: lesson?.content_url,
-    hasContentText: !!lesson?.content_text,
-    contentTextLength: lesson?.content_text?.length,
-    hasEducationalContent: !!lesson?.educational_content,
-    educationalContentMediaUrl: lesson?.educational_content?.media_url,
-    lessonObject: lesson
-  });
   const [isEditing, setIsEditing] = useState(false);
   const [isInlineCreating, setIsInlineCreating] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState('');
@@ -236,17 +225,14 @@ const LessonContent: React.FC<LessonContentProps> = ({
   };
 
   const debouncedSave = useCallback(async (title?: string, content?: string) => {
-    console.log('🎓 [LessonContent] debouncedSave called with:', { title, contentLength: content?.length });
     
     if (!lesson || !onUpdateLesson) {
-      console.log('🎓 [LessonContent] Missing lesson or onUpdateLesson:', { hasLesson: !!lesson, hasOnUpdateLesson: !!onUpdateLesson });
       setIsEditing(false);
       return;
     }
 
     // Prevent concurrent saves
     if (isSaving) {
-      console.log('🎓 [LessonContent] Save already in progress, skipping');
       return;
     }
 
@@ -254,7 +240,6 @@ const LessonContent: React.FC<LessonContentProps> = ({
 
     try {
       const finalContent = content || editingContent;
-      console.log('🎓 [LessonContent] Final content length:', finalContent?.length);
       
       // Extract video URL from HTML content if available
       let finalVideoUrl: string | null = null;
@@ -267,13 +252,11 @@ const LessonContent: React.FC<LessonContentProps> = ({
         
         if (iframeMatch && iframeMatch[1]) {
           finalVideoUrl = iframeMatch[1];
-          console.log('🎓 [LessonContent] Found YouTube video URL from iframe:', finalVideoUrl);
         } else {
           // Look for direct YouTube URLs in the content
           const youtubeMatch = finalContent.match(/(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[^\s"']+)/);
           if (youtubeMatch) {
             finalVideoUrl = youtubeMatch[1];
-            console.log('🎓 [LessonContent] Found YouTube video URL from direct link:', finalVideoUrl);
           }
         }
       }
@@ -281,15 +264,8 @@ const LessonContent: React.FC<LessonContentProps> = ({
       // Clean the content by removing embedded video iframes (since we store video URL separately)
       if (finalContent && finalVideoUrl) {
         cleanedContent = VideoContentExtractor.cleanHTMLContent(finalContent);
-        console.log('🎓 [LessonContent] Cleaned content length:', cleanedContent?.length);
       }
 
-      console.log('🎓 [LessonContent] About to call onUpdateLesson with:', {
-        lessonId: lesson.id,
-        title: title || lesson.title,
-        contentLength: finalContent?.length,
-        finalVideoUrl
-      });
 
       // Prepare update object - only include content_url if we found a video
       const updateData: any = {
@@ -300,20 +276,16 @@ const LessonContent: React.FC<LessonContentProps> = ({
       // Only update content_url if we found a video URL in the content
       if (finalVideoUrl) {
         updateData.content_url = finalVideoUrl;
-        console.log('🎓 [LessonContent] Including video URL in update:', finalVideoUrl);
       } else {
-        console.log('🎓 [LessonContent] No video URL found, preserving existing video');
       }
 
       // Update the lesson
       await onUpdateLesson(lesson.id, updateData);
       
-      console.log('🎓 [LessonContent] onUpdateLesson completed successfully');
       
       setIsEditing(false);
       setEditingContent('');
       
-      console.log('🎓 [LessonContent] Showing success toast');
       toast({
         title: "Lesson Updated",
         description: "Your changes have been saved successfully.",

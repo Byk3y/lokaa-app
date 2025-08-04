@@ -343,18 +343,6 @@ const LessonViewMobile: React.FC<LessonViewMobileProps> = React.memo(({
     return Math.round(scrollPosition);
   }, [scrollPosition]);
 
-  // Development logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [LessonViewMobile] Component render:', {
-      lessonId: lesson?.id,
-      lessonTitle: lesson?.title,
-      hasVideo,
-      isReadingMode,
-      scrollPosition: readingProgress,
-      isInViewport,
-      isVisible
-    });
-  }
 
   return (
     <div 

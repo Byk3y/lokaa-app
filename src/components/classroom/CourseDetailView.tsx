@@ -71,7 +71,6 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     onProgressUpdate: () => {
       // Refresh course data to update UI with new completion status
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Progress updated, refreshing course data');
       }
       refetch();
     }
@@ -82,7 +81,6 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     course,
     onOwnershipChange: (isOwner) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Ownership changed:', isOwner);
       }
     }
   });
@@ -101,12 +99,10 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     course,
     onLessonChange: (lesson) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Lesson changed:', lesson?.title);
       }
     },
     onNavigationStateChange: (state) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Navigation state changed:', state);
       }
     }
   });
@@ -114,7 +110,6 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   // FIXED: Move useCallback to top level to prevent Rules of Hooks violation
   const handleMobileStateChange = useCallback((state: { isMobile: boolean; showTabs: boolean }) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('🎓 [CourseDetailView] Mobile state change from container:', state);
     }
     // Signal to parent about mobile state for tab visibility
     window.dispatchEvent(new CustomEvent('courseDetailMobileState', {
@@ -148,17 +143,14 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     onCourseDeleted: onBack,
     onPageDeleted: (pageId) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Page deleted:', pageId);
       }
     },
     onPageUpdated: (pageId) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Page updated:', pageId);
       }
     },
     onPageMoved: (pageId, newFolderId) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Page moved:', pageId, 'to folder:', newFolderId);
       }
     },
     onRefetch: refetch,
@@ -184,13 +176,11 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     selectedLesson,
     onLessonCreated: (lesson) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Lesson created:', lesson.title);
       }
     },
     onLessonUpdated: (lessonId, updates) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🎓 [CourseDetailView] Lesson updated:', lessonId, updates);
-        console.log('🎓 [CourseDetailView] Optimistic updates handled via useCourseDetail hook');
+        // Lesson updated - optimistic updates handled via useCourseDetail hook
       }
       
       // Note: Optimistic updates now handled in useCourseDetail hook for consistency
@@ -207,18 +197,6 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
 
   log.debug('Component', '🎓 [CourseDetailView] Component rendered with courseId:', courseId);
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 [CourseDetailView] Component render:', {
-      courseId,
-      hasCourse: !!course,
-      hasSelectedLesson: !!selectedLesson,
-      isMobile,
-      showCourseOverview,
-      showLessonView,
-      hasOptimisticUpdates,
-      pathname: window.location.pathname
-    });
-  }
 
   // Fetch course data when courseId changes
   useEffect(() => {
@@ -241,13 +219,10 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     }
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('🎓 [CourseDetailView] handleMarkAsDone called for lesson:', selectedLesson.id);
     }
 
     try {
-      console.log('🎓 [CourseDetailView] About to call markLessonAsDone...');
       await markLessonAsDone(selectedLesson, displayCourse);
-      console.log('🎓 [CourseDetailView] markLessonAsDone completed successfully');
     } catch (error) {
       console.error('🎓 [CourseDetailView] Error in handleMarkAsDone:', error);
       toast({
