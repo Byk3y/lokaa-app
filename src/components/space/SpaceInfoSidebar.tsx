@@ -289,7 +289,16 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
           </div>
 
           {/* Always show button immediately - no loading state */}
-          {!canAccessSettings && (
+          {canAccessSettings ? (
+            <Button 
+              variant="outline" 
+              className="w-full mt-1.5 py-3 text-sm font-semibold border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              onClick={handleOpenSettings}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+          ) : (
             <Button 
               variant="outline" 
               className="w-full mt-1.5 py-3 text-sm font-semibold bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 relative hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"

@@ -103,11 +103,6 @@ export const SpaceDescriptionEditor = memo(function SpaceDescriptionEditor({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">About This Space</h2>
-        {canEditSpace && !editingAbout && (
-          <Button variant="outline" size="sm" onClick={() => setEditingAbout(true)}>
-            <Edit className="w-4 h-4 mr-2" /> Edit About
-          </Button>
-        )}
       </div>
 
       {/* About Description Editor/Display */}
