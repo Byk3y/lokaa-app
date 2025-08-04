@@ -119,18 +119,23 @@ export class ModuleErrorBoundary extends Component<Props, State> {
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
             
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Module Loading Error
+              {import.meta.env?.DEV ? 'Development Module Error' : 'Loading Error'}
             </h2>
             
             <p className="text-gray-600 mb-4">
-              A component failed to load. This usually happens during development when files are being updated.
+              {import.meta.env?.DEV 
+                ? 'A module failed to load during development. This is usually caused by HMR (Hot Module Replacement) issues.'
+                : 'We encountered an issue loading part of the application. Please try refreshing the page.'
+              }
             </p>
             
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-6">
-              <p className="text-sm text-yellow-800">
-                <strong>Quick Fix:</strong> Try refreshing the page or click retry below.
-              </p>
-            </div>
+            {import.meta.env?.DEV && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-6">
+                <p className="text-sm text-yellow-800">
+                  <strong>Quick Fix:</strong> This often resolves automatically. Try the options below.
+                </p>
+              </div>
+            )}
             
             <div className="flex gap-3 justify-center mb-4">
               <button 
@@ -183,9 +188,11 @@ export class ModuleErrorBoundary extends Component<Props, State> {
               </details>
             )}
             
-            <p className="text-xs text-gray-400 mt-4">
-              If this keeps happening, try restarting your development server.
-            </p>
+            {import.meta.env?.DEV && (
+              <p className="text-xs text-gray-400 mt-4">
+                If this keeps happening, try restarting your development server.
+              </p>
+            )}
           </div>
         </div>
       );

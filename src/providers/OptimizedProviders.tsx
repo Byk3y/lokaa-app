@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
-import React, { memo, useRef, useEffect, useMemo, useCallback, Component, ErrorInfo } from 'react';
+import React, { memo, useRef, useEffect, useMemo, useCallback } from 'react';
+import { ModuleErrorBoundary } from '../components/errors/ModuleErrorBoundary';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
@@ -244,79 +245,4 @@ if (process.env.NODE_ENV === 'development') {
   log.debug('App', '- window.getProviderPerformance()');
 }
 
-// Module Error Boundary for handling lazy loading failures
-interface ModuleErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-  retryCount: number;
-}
-
-class ModuleErrorBoundary extends Component<{ children: React.ReactNode }, ModuleErrorBoundaryState> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null, retryCount: 0 };
-  }
-
-  static getDerivedStateFromError(error: Error): Partial<ModuleErrorBoundaryState> {
-    // Check if this is a module import error
-    const isModuleError = (
-      error.message?.includes('Importing a module script failed') ||
-      error.message?.includes('Loading chunk') ||
-      error.message?.includes('Failed to fetch') ||
-      error.name === 'ChunkLoadError'
-    );
-
-    if (isModuleError) {
-      log.error('App', '🚨 [ModuleErrorBoundary] Caught module import error:', error);
-      return { hasError: true, error };
-    }
-
-    // For other errors, let them bubble up
-    throw error;
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    log.error('App', '🚨 [ModuleErrorBoundary] Module error details:', { error, errorInfo });
-  }
-
-  handleRetry = () => {
-    this.setState(prevState => ({
-      hasError: false,
-      error: null,
-      retryCount: prevState.retryCount + 1
-    }));
-  };
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Module Loading Error</h2>
-            <p className="text-gray-600 mb-4">
-              A component failed to load. This usually happens during development.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <button 
-                onClick={this.handleRetry}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                disabled={this.state.retryCount >= 3}
-              >
-                🔄 Retry {this.state.retryCount > 0 && `(${this.state.retryCount}/3)`}
-              </button>
-              <button 
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                ↻ Reload Page
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-} 
+ 

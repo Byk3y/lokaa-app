@@ -57,6 +57,7 @@ interface RealtimeConfig {
     memoryWarning: number;
     memoryError: number;
   };
+  enableConnectionPooling: boolean; // New config option
 }
 
 class UnifiedRealtimeSystem {
@@ -73,15 +74,17 @@ class UnifiedRealtimeSystem {
   private isEnabled = true;
   private performanceMode: 'performance' | 'standard' | 'battery' = 'standard';
   private backgroundOptimizationActive = false;
+  private connectionPool = new Map<string, RealtimeChannel>(); // Connection pooling
+  private maxConcurrentConnections = 5; // Limit concurrent connections
 
   private constructor() {
     this.config = {
       maxReconnectAttempts: 5,
       reconnectBaseDelay: 1000,
       heartbeatInterval: 30000,
-      batchDelay: 500,
+      batchDelay: 100,
       maxBatchSize: 10,
-      connectionTimeout: 10000,
+      connectionTimeout: 15000,
       enableBatching: true,
       enableHeartbeat: true,
       enableAdaptiveMode: true,
@@ -91,7 +94,8 @@ class UnifiedRealtimeSystem {
         latencyError: 3000,
         memoryWarning: 50 * 1024 * 1024, // 50MB
         memoryError: 100 * 1024 * 1024,  // 100MB
-      }
+      },
+      enableConnectionPooling: true, // Enable connection pooling
     };
 
     this.initializeSystem();
@@ -212,11 +216,29 @@ class UnifiedRealtimeSystem {
   }
 
   /**
-   * Create optimized channel with performance monitoring
+   * Create optimized channel with performance monitoring and connection pooling
    */
   private createOptimizedChannel(channelKey: string, spaceId: string, table: string): RealtimeChannel {
     const startTime = performance.now();
     this.connectionStatus.set(channelKey, 'connecting');
+
+    // Check connection pool first
+    if (this.config.enableConnectionPooling) {
+      const poolKey = `${spaceId}_${table}`;
+      const existingChannel = this.connectionPool.get(poolKey);
+      
+      if (existingChannel && this.connectionStatus.get(poolKey) === 'connected') {
+        devLogger.log('RealtimeSystem', `🔄 Reusing existing connection for ${poolKey}`);
+        return existingChannel;
+      }
+    }
+
+    // Check if we've reached the connection limit
+    if (this.channels.size >= this.maxConcurrentConnections) {
+      devLogger.warn('RealtimeSystem', `⚠️ Connection limit reached (${this.maxConcurrentConnections}), waiting for available slot`);
+      // Wait for a connection to become available
+      return this.waitForConnectionSlot(channelKey, spaceId, table);
+    }
 
     const channel = getSupabaseClient()
       .channel(`unified_realtime_${channelKey}`)
@@ -241,7 +263,34 @@ class UnifiedRealtimeSystem {
       adaptiveMode: this.performanceMode
     });
 
+    // Add to connection pool if enabled
+    if (this.config.enableConnectionPooling) {
+      const poolKey = `${spaceId}_${table}`;
+      this.connectionPool.set(poolKey, channel);
+    }
+
     return channel;
+  }
+
+  /**
+   * Wait for an available connection slot
+   */
+  private waitForConnectionSlot(channelKey: string, spaceId: string, table: string): RealtimeChannel {
+    // For now, create a temporary channel that will be replaced when slot is available
+    const tempChannel = getSupabaseClient().channel(`temp_${channelKey}`);
+    
+    // Check for available slot in background
+    const checkSlot = () => {
+      if (this.channels.size < this.maxConcurrentConnections) {
+        // Replace temp channel with real one
+        this.createOptimizedChannel(channelKey, spaceId, table);
+      } else {
+        setTimeout(checkSlot, 1000); // Check again in 1 second
+      }
+    };
+    
+    setTimeout(checkSlot, 1000);
+    return tempChannel;
   }
 
   /**
@@ -389,13 +438,13 @@ class UnifiedRealtimeSystem {
         break;
 
       case 'CLOSED':
-        this.cleanup(channelKey);
+        this.cleanupChannel(channelKey);
         break;
     }
   }
 
   /**
-   * Handle connection errors with intelligent recovery
+   * Handle connection errors with intelligent recovery and connection pooling
    */
   private handleConnectionError(channelKey: string): void {
     const currentAttempts = this.reconnectAttempts.get(channelKey) || 0;
@@ -413,6 +462,14 @@ class UnifiedRealtimeSystem {
 
       // CRITICAL FIX: Invalidate related caches when realtime fails
       this.invalidateRelatedCaches(channelKey);
+      
+      // Remove from connection pool on permanent failure
+      if (this.config.enableConnectionPooling) {
+        const [spaceId, table] = channelKey.split('_');
+        const poolKey = `${spaceId}_${table}`;
+        this.connectionPool.delete(poolKey);
+      }
+      
       return;
     }
 
@@ -829,7 +886,8 @@ class UnifiedRealtimeSystem {
     // Register invalidation callback
     const invalidationCallback = () => {
       queryKeys.forEach(key => {
-        advancedQueryEngine.invalidateQuery(key);
+        // Invalidate cache for the query key
+        globalCache.invalidate(key);
       });
     };
 
@@ -847,14 +905,14 @@ class UnifiedRealtimeSystem {
       this.channels.delete(channelKey);
     }
 
-    this.cleanup(channelKey);
+    this.cleanupChannel(channelKey);
     devLogger.log('RealtimeSystem', `🗑️ Channel removed: ${channelKey}`);
   }
 
   /**
    * Cleanup resources for a channel
    */
-  private cleanup(channelKey: string): void {
+  private cleanupChannel(channelKey: string): void {
     // Clear heartbeat timer
     const heartbeatTimer = this.heartbeatTimers.get(channelKey);
     if (heartbeatTimer) {
