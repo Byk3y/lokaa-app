@@ -14,7 +14,7 @@ import SpaceInfoSidebar from "./SpaceInfoSidebar";
 import SpaceMediaGallery from "./SpaceMediaGallery";
 import SpaceMembershipActions from "./SpaceMembershipActions";
 import SpaceDescriptionEditor from "./SpaceDescriptionEditor";
-import SpaceSettingsAccess from "./SpaceSettingsAccess";
+
 import SpaceStatsDisplay from "./SpaceStatsDisplay";
 
 interface AboutTabLayoutProps {
@@ -168,14 +168,7 @@ export const AboutTabLayout = memo(function AboutTabLayout(props: AboutTabLayout
           membershipLoading={membershipLoading}
         />
 
-        {/* Settings Access */}
-        <SpaceSettingsAccess
-          spaceData={{
-            id: currentSpaceData.id,
-            subdomain: currentSpaceData.subdomain
-          }}
-          canAccessSettings={canAccessSettings}
-        />
+
 
         {/* Description Editor Section */}
         <SpaceDescriptionEditor
