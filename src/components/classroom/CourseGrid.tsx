@@ -138,6 +138,7 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
           key={course.id}
           course={course}
           isOwner={isOwner}
+          isAdmin={isAdmin}
           user={user}
           onViewCourse={onViewCourse}
           onEditCourse={onEditCourse}

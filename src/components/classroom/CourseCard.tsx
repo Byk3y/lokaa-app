@@ -16,6 +16,7 @@ import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 interface CourseCardProps {
   course: CourseDisplayData;
   isOwner: boolean;
+  isAdmin?: boolean; // Add isAdmin prop to show DRAFT badge for admins too
   user: any;
   onViewCourse: (course: CourseDisplayData) => void;
   onEditCourse: (course: CourseDisplayData) => void;
@@ -29,6 +30,7 @@ interface CourseCardProps {
 export const CourseCard = memo<CourseCardProps>(function CourseCard({
   course,
   isOwner,
+  isAdmin = false,
   user,
   onViewCourse,
   onEditCourse,
@@ -87,15 +89,15 @@ export const CourseCard = memo<CourseCardProps>(function CourseCard({
       className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out overflow-hidden cursor-pointer group relative"
       onClick={handleCardClick}
     >
-      {/* DRAFT Badge */}
-      {!course.is_published && isOwner && (
+      {/* DRAFT Badge - Show for owners and admins */}
+      {!course.is_published && (isOwner || isAdmin) && (
         <div className="absolute top-3 left-3 bg-amber-400 text-amber-900 px-2.5 py-1 rounded-md text-xs font-semibold z-10 shadow">
           DRAFT
         </div>
       )}
 
-      {/* Three Dots Menu - Only show for owners */}
-      {isOwner && (
+      {/* Three Dots Menu - Show for owners and admins */}
+      {(isOwner || isAdmin) && (
         <div className="absolute top-3 right-3 z-20">
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild data-dropdown-trigger>

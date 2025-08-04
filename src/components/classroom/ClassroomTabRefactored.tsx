@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { CourseGrid } from './CourseGrid';
 import CourseDetailView from './CourseDetailView';
 import CreateCourseDialog from '../space/dialogs/CreateCourseDialog';
+import EditCourseDialog from './dialogs/EditCourseDialog';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
@@ -62,15 +63,36 @@ export const ClassroomTabRefactored = ({
   const [isCreateCourseDialogOpen, setIsCreateCourseDialogOpen] = useState(false);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   
+  // Edit course dialog state
+  const [isEditCourseDialogOpen, setIsEditCourseDialogOpen] = useState(false);
+  const [courseToEdit, setCourseToEdit] = useState<CourseDisplayData | null>(null);
+  
   
   // Use context data if props aren't provided
   const effectiveSpace = propSpace || currentSpace;
   const effectiveAuth = propAuth || { user, isAuthenticated: !!user, authLoading };
   
-  // Fix permissions logic: prioritize spacePermissions when propPermissions has default incorrect values
-  const hasValidPropPermissions = propPermissions && 
-    (propPermissions.isOwner !== false || propPermissions.isAdmin !== false || propPermissions.canCreateContent !== false);
-  const effectivePermissions = hasValidPropPermissions ? propPermissions : spacePermissions;
+  // Fix permissions logic with stable loading state to prevent flashing
+  // Don't show/hide admin buttons until permissions are definitively loaded
+  const effectivePermissions = React.useMemo(() => {
+    // If spacePermissions is explicitly null (still loading), keep stable state
+    if (spacePermissions === null) {
+      // During loading, use propPermissions if available, otherwise remain stable
+      return propPermissions || {
+        isOwner: false,
+        isAdmin: false,
+        canCreateContent: false
+      };
+    }
+    
+    // Once spacePermissions has loaded (not null), use it as authoritative
+    return spacePermissions || {
+      isOwner: false,
+      isAdmin: false,
+      canCreateContent: false
+    };
+  }, [spacePermissions, propPermissions]);
+
   
   // Track previous active tab state for cache management
   const prevActiveTab = useRef(isActiveTab);
@@ -130,30 +152,6 @@ export const ClassroomTabRefactored = ({
   // FIXED: Remove dependency on location.pathname which can be stale during state transitions
   const isOnCourseDetailRoute = location.pathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
 
-  // ✅ OPTIMIZED: Reduced debug logging frequency
-  // Only log view mode changes when they actually change
-  const prevViewMode = useRef(viewMode);
-  const prevSelectedCourseId = useRef(selectedCourseId);
-  const prevPathname = useRef(location.pathname);
-  
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && (
-      viewMode !== prevViewMode.current ||
-      selectedCourseId !== prevSelectedCourseId.current ||
-      location.pathname !== prevPathname.current
-    )) {
-      console.log('🔍 [ClassroomTabRefactored] View mode check:', {
-        viewMode,
-        selectedCourseId,
-        isOnCourseDetailRoute: !!isOnCourseDetailRoute,
-        pathname: location.pathname
-      });
-      
-      prevViewMode.current = viewMode;
-      prevSelectedCourseId.current = selectedCourseId;
-      prevPathname.current = location.pathname;
-    }
-  }, [viewMode, selectedCourseId, location.pathname, isOnCourseDetailRoute]);
 
   // Handle course selection (view course)
   const handleCourseView = (course: CourseDisplayData) => {
@@ -193,6 +191,21 @@ export const ClassroomTabRefactored = ({
   const handleCreateCourseInternal = () => {
     log.debug('Component', '🎓 [ClassroomTab] Opening create course dialog');
     setIsCreateCourseDialogOpen(true);
+  };
+
+  // Handle edit course
+  const handleEditCourseInternal = (course: CourseDisplayData) => {
+    log.debug('Component', '🎓 [ClassroomTab] Opening edit course dialog for:', course.title);
+    setCourseToEdit(course);
+    setIsEditCourseDialogOpen(true);
+  };
+
+  // Handle course updated from edit dialog
+  const handleCourseUpdated = (updatedCourse: CourseDisplayData) => {
+    log.debug('Component', '🎓 [ClassroomTab] Course updated:', updatedCourse.title);
+    updateCourse(updatedCourse.id, updatedCourse);
+    setIsEditCourseDialogOpen(false);
+    setCourseToEdit(null);
   };
 
   // Handle course creation from dialog
@@ -318,9 +331,6 @@ export const ClassroomTabRefactored = ({
   const isClassroomTabActive = isPersistentTabActive('classroom');
   
   if (viewMode === 'detail' && selectedCourseId && isOnCourseDetailRoute && isClassroomTabActive) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('✅ [ClassroomTabRefactored] Rendering CourseDetailView');
-    }
     return (
       <>
         <CourseDetailView
@@ -333,9 +343,6 @@ export const ClassroomTabRefactored = ({
   
   // FIXED: Reset view mode if we're not on a course detail route OR classroom tab is not active
   if (viewMode === 'detail' && (!isOnCourseDetailRoute || !isClassroomTabActive)) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔄 [ClassroomTabRefactored] Resetting view mode to grid - not on course detail route or classroom tab not active');
-    }
     setViewMode('grid');
     setSelectedCourseId(null);
   }
@@ -354,7 +361,7 @@ export const ClassroomTabRefactored = ({
         user={effectiveAuth?.user}
         onCreateCourse={handleCreateCourseInternal}
         onViewCourse={handleCourseView}
-        onEditCourse={handleEditCourse}
+        onEditCourse={handleEditCourseInternal}
         onEnroll={handleEnroll}
         onUnenroll={handleUnenroll}
         onDeleteCourse={handleDeleteCourse}
@@ -372,6 +379,16 @@ export const ClassroomTabRefactored = ({
         isCreating={isCreatingCourse}
         spacePricingType={effectiveSpace?.pricing_type}
         primaryColor={effectiveSpace?.primary_color ?? '#26A69A'}
+      />
+
+      {/* Course Edit Dialog */}
+      <EditCourseDialog
+        isOpen={isEditCourseDialogOpen}
+        onOpenChange={setIsEditCourseDialogOpen}
+        course={courseToEdit}
+        spacePricingType={effectiveSpace?.pricing_type}
+        primaryColor={effectiveSpace?.primary_color ?? '#26A69A'}
+        onCourseUpdated={handleCourseUpdated}
       />
     </>
   );
