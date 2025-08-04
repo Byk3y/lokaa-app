@@ -486,12 +486,12 @@ const LessonContent: React.FC<LessonContentProps> = ({
     const processedContent = ensureValidContent(removeDuplicateH2Titles(editingContent));
     
     return (
-      <div className="flex flex-col h-full bg-white">
-        {/* Full-width rich text editor with proper spacing */}
-        <div className="flex-1 pt-1 pb-6 px-6 overflow-hidden bg-gray-50">
+      <div className="flex flex-col h-full bg-white w-full">
+        {/* Full-width rich text editor with proper spacing - consistent with normal view */}
+        <div className="flex-1 pt-1 pb-6 px-6 course-content-container bg-gray-50 w-full">
           <div className="w-full h-full flex flex-col">
             {/* RichTextEditor at the top */}
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 w-full">
               <RichTextEditor
                 content={processedContent}
                 onChange={(content) => {
@@ -499,7 +499,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
                 }}
                 placeholder="Start writing your content..."
                 defaultTitle={lesson.title}
-                className="h-full"
+                className="h-full w-full"
                 isSaving={isSaving}
                               onSave={(title, content, published) => {
                 setEditingContent(content);
@@ -541,8 +541,8 @@ const LessonContent: React.FC<LessonContentProps> = ({
 
   // --- Skool-style: title left, actions right inside content card ---
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="flex-1 pt-1 pb-6 px-6 overflow-y-auto bg-gray-50">
+    <div className="flex flex-col h-full bg-white w-full">
+      <div className="flex-1 pt-1 pb-6 px-6 course-content-container bg-gray-50 w-full">
         <div className="w-full">
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">

@@ -405,7 +405,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   // Regular course view with Skool-style "New page" button (Desktop)
   return (
     <>
-      <div className="flex">
+      <div className="flex w-full">
         <CourseSidebar
           course={displayCourse}
           selectedLesson={selectedLesson}
@@ -425,7 +425,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
           onChangeFolder={(pageId, title, currentFolderId) => openChangeFolderDialog(pageId, title, currentFolderId)}
         />
 
-        <div className="flex-1">
+        <div className="flex-1 w-full min-w-0">
           {/* Show inline page creation in right panel - Direct to editor without title field */}
           {isCreatingPage ? (
             <div className="flex-1 pt-1 pb-6 pl-12 pr-6 overflow-hidden bg-gray-50">
