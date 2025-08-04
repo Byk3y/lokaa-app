@@ -479,7 +479,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
     return (
       <div className="flex flex-col h-full bg-white">
         {/* Full-width rich text editor with proper spacing */}
-        <div className="flex-1 p-6 overflow-hidden bg-gray-50">
+        <div className="flex-1 pt-1 pb-6 px-6 overflow-hidden bg-gray-50">
           <div className="w-full h-full flex flex-col">
             {/* RichTextEditor at the top */}
             <div className="flex-1 min-h-0">
