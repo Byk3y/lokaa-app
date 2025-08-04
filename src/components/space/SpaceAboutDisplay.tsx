@@ -45,6 +45,7 @@ interface SpaceAboutDisplayProps {
   onlineCount?: number | null;
   actionButtonText?: string;
   onAction?: () => void;
+  spaceId?: string;
 }
 
 const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
@@ -71,6 +72,7 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
   onlineCount = 0,
   actionButtonText,
   onAction,
+  spaceId,
 }) => {
   // Add mobile detection for conditional rendering
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
@@ -131,6 +133,26 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
           
           <Separator className="my-6" />
 
+          {/* Created by Section */}
+          {owner && (
+            <div className="mb-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={owner.avatar_url || undefined} alt={owner.full_name || 'Space Creator'} />
+                  <AvatarFallback className="text-lg font-semibold">
+                    {(owner.full_name || 'SC').charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col justify-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Created by</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100 text-xl">
+                    {owner.full_name || 'Space Creator'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* About Section */}
           <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
             <div className="flex justify-between items-center mb-3">
@@ -183,6 +205,7 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
               canAccessSettings={false}
               permissionsLoading={false} // SpaceAboutDisplay doesn't have complex loading states
               subdomain={subdomain}
+              spaceId={spaceId}
               isOwner={isOwner}
               isMember={isMember}
               actionButtonText={actionButtonText || 'Join Space'}

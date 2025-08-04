@@ -256,6 +256,7 @@ export default function SpaceAboutPage() {
         memberCount={activeMemberCount}
         adminCount={adminCount}
         onlineCount={onlineCount}
+        spaceId={spaceAboutData.id}
       />
     </div>
   );
