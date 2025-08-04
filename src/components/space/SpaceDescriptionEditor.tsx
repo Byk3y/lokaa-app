@@ -105,7 +105,7 @@ export const SpaceDescriptionEditor = memo(function SpaceDescriptionEditor({
         <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">About This Space</h2>
         {canEditSpace && !editingAbout && (
           <Button variant="outline" size="sm" onClick={() => setEditingAbout(true)}>
-            <Settings className="w-4 h-4 mr-2" /> Edit About
+            <Edit className="w-4 h-4 mr-2" /> Edit About
           </Button>
         )}
       </div>
