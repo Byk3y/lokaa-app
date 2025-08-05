@@ -31,7 +31,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
   
   // Debouncing refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSaveDataRef = useRef<{title?: string, content?: string} | null>(null);
+  const lastSaveDataRef = useRef<{title?: string, content?: string, removeVideo?: boolean} | null>(null);
 
 
   // Inline creation handlers
@@ -51,13 +51,13 @@ const LessonContent: React.FC<LessonContentProps> = ({
         variant: "default"
       });
     } catch (error: unknown) {
-      log.error('Component', 'Error creating page:', error);
+      log.error('Component', 'Error creating page:', error instanceof Error ? error : new Error('Unknown error'));
       toast({
         title: "Error Creating Page",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
-      throw error; // Re-throw to let EmptyLessonState handle it
+      throw error instanceof Error ? error : new Error('An unexpected error occurred'); // Re-throw to let EmptyLessonState handle it
     } finally {
       setIsSaving(false);
     }
@@ -78,7 +78,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
     setEditingContent(content);
   };
 
-  const debouncedSave = useCallback(async (title?: string, content?: string) => {
+  const debouncedSave = useCallback(async (title?: string, content?: string, removeVideo?: boolean) => {
     
     if (!lesson || !onUpdateLesson) {
       setIsEditing(false);
@@ -122,16 +122,20 @@ const LessonContent: React.FC<LessonContentProps> = ({
 
 
       // Prepare update object - only include content_url if we found a video
-      const updateData: { title: string; content_text: string; content_url?: string } = {
+      const updateData: { title: string; content_text: string; content_url?: string | null } = {
         title: title || lesson.title,
         content_text: cleanedContent
       };
       
-      // Only update content_url if we found a video URL in the content
-      if (finalVideoUrl) {
+      // Handle video removal or addition
+      if (removeVideo) {
+        // Explicitly remove video by setting content_url to null
+        updateData.content_url = null;
+      } else if (finalVideoUrl) {
+        // Add video if found in content
         updateData.content_url = finalVideoUrl;
-      } else {
       }
+      // If neither removeVideo nor finalVideoUrl, don't update content_url (keep existing)
 
       // Update the lesson
       await onUpdateLesson(lesson.id, updateData);
@@ -155,8 +159,8 @@ const LessonContent: React.FC<LessonContentProps> = ({
     }
   }, [lesson, onUpdateLesson, editingContent, isSaving, toast]);
 
-  const handleSave = useCallback((title?: string, content?: string, published?: boolean) => {
-    log.debug('Component', '🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length });
+  const handleSave = useCallback((title?: string, content?: string, published?: boolean, removeVideo?: boolean) => {
+    log.debug('Component', '🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length, removeVideo });
     
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -164,12 +168,13 @@ const LessonContent: React.FC<LessonContentProps> = ({
     }
     
     // Store the save data for comparison
-    const currentSaveData = { title, content };
+    const currentSaveData = { title, content, removeVideo };
     
     // Check if this is the same data as the last save attempt
     if (lastSaveDataRef.current && 
         lastSaveDataRef.current.title === title && 
-        lastSaveDataRef.current.content === content) {
+        lastSaveDataRef.current.content === content &&
+        lastSaveDataRef.current.removeVideo === removeVideo) {
       log.debug('Component', '🎓 [LessonContent] Duplicate save detected, ignoring');
       return;
     }
@@ -179,7 +184,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
     // Debounce the save operation
     saveTimeoutRef.current = setTimeout(() => {
       log.debug('Component', '🎓 [LessonContent] Executing debounced save');
-      debouncedSave(title, content);
+      debouncedSave(title, content, removeVideo);
     }, 500); // 500ms debounce
   }, [debouncedSave]);
 
@@ -203,11 +208,11 @@ const LessonContent: React.FC<LessonContentProps> = ({
       <LessonEditor
         lesson={lesson}
         editingContent={editingContent}
-        isSaving={isSaving}
+                isSaving={isSaving}
         onContentChange={handleContentChange}
         onSave={handleSave}
-        onCancel={handleCancel}
-      />
+              onCancel={handleCancel}
+            />
     );
   }
 
