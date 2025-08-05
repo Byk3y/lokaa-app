@@ -313,10 +313,18 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
       // Update content_url if provided
       if (updates.content_url !== undefined) {
         console.log('🎓 [useLessonManagement] Updating content_url to:', updates.content_url);
-        const { error } = await supabase
+        console.log('🎓 [useLessonManagement] DEBUG: Lesson ID:', lessonId);
+        console.log('🎓 [useLessonManagement] DEBUG: Full updates object:', updates);
+        
+        const { data, error } = await supabase
           .from('course_lessons')
           .update({ content_url: updates.content_url })
-          .eq('id', lessonId);
+          .eq('id', lessonId)
+          .select('id, content_url');
+          
+        console.log('🎓 [useLessonManagement] DEBUG: Update response data:', data);
+        console.log('🎓 [useLessonManagement] DEBUG: Update response error:', error);
+        
         if (error) {
           console.error('🎓 [useLessonManagement] Error updating content_url:', error);
           throw error;

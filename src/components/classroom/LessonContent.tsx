@@ -95,11 +95,12 @@ const LessonContent: React.FC<LessonContentProps> = ({
     try {
       const finalContent = content || editingContent;
       
-      // Extract video URL from HTML content if available
+      // Extract video URL from HTML content if available (but skip if removing video)
       let finalVideoUrl: string | null = null;
       let cleanedContent = finalContent;
       
-      if (finalContent) {
+      if (finalContent && !removeVideo) {
+        // Only extract video if we're NOT removing it
         // Extract video URL from HTML content
         const iframeMatch = finalContent.match(/src=["']([^"']*youtube\.com\/embed\/[^"']*)["']/) ||
                             finalContent.match(/src=([^\s>]*youtube\.com\/embed\/[^\s>]*)/);
@@ -116,7 +117,11 @@ const LessonContent: React.FC<LessonContentProps> = ({
       }
 
       // Clean the content by removing embedded video iframes (since we store video URL separately)
-      if (finalContent && finalVideoUrl) {
+      // But only if we found a video and we're not removing it
+      if (finalContent && finalVideoUrl && !removeVideo) {
+        cleanedContent = VideoContentExtractor.cleanHTMLContent(finalContent);
+      } else if (removeVideo && finalContent) {
+        // If removing video, clean any video content from HTML
         cleanedContent = VideoContentExtractor.cleanHTMLContent(finalContent);
       }
 
@@ -161,6 +166,11 @@ const LessonContent: React.FC<LessonContentProps> = ({
 
   const handleSave = useCallback((title?: string, content?: string, published?: boolean, removeVideo?: boolean) => {
     log.debug('Component', '🎓 [LessonContent] handleSave called with:', { title, contentLength: content?.length, removeVideo });
+    
+    // Add debug logging for video removal detection
+    if (removeVideo) {
+      log.debug('Component', '🎓 [LessonContent] Video removal detected - will skip video extraction from editor HTML');
+    }
     
     // Clear any existing timeout
     if (saveTimeoutRef.current) {

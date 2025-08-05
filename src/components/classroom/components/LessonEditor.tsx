@@ -412,11 +412,14 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
         if (hasVideo && showVideo) {
           return (
             <div className="mb-8 px-6 relative group">
-              <VideoRenderer lesson={lesson} />
+              {/* Add top padding to prevent video cropping due to X button */}
+              <div className="pt-4">
+                <VideoRenderer lesson={lesson} />
+              </div>
               {/* X button to remove video - appears on hover */}
               <button
                 onClick={() => setShowVideo(false)}
-                className="absolute top-2 right-2 w-8 h-8 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
+                className="absolute top-6 right-8 w-8 h-8 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
                 title="Remove video"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
