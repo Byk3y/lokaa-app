@@ -340,11 +340,9 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
 
       console.log('🎓 [useLessonManagement] All database updates completed successfully');
       
-      // PHASE 1.2 IMPROVEMENT: Clear optimistic update after successful database update
-      if (clearOptimisticUpdate) {
-        console.log('🎓 [useLessonManagement] Clearing optimistic update after successful database update');
-        clearOptimisticUpdate(lessonId);
-      }
+      // Note: Keep optimistic updates since we removed the refetch for performance
+      // The optimistic updates ensure the UI shows the correct state until next data refresh
+      // Previously this was causing video additions to disappear from UI after successful saves
       
       // Note: Removed unnecessary refetch - optimistic updates already handle UI consistency
       // This was causing timeout errors (57014) on the course_modules query after successful lesson updates

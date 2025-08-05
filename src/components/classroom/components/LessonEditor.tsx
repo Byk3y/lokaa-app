@@ -411,7 +411,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
         const hasVideo = VideoContentExtractor.hasVideo(lesson);
         if (hasVideo && showVideo) {
           return (
-            <div className="mb-8 relative group">
+            <div className="mb-8 px-6 relative group">
               <VideoRenderer lesson={lesson} />
               {/* X button to remove video - appears on hover */}
               <button
