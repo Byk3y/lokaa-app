@@ -393,8 +393,8 @@ export default defineConfig(({ mode }) => {
       modulePreload: {
         polyfill: false // Disable module preload polyfill to avoid conflicts
       },
-      // Force cache busting
-      assetsDir: `assets-${Date.now()}`,
+      // Standard assets directory
+      assetsDir: 'assets',
       rollupOptions: {
         external: (id) => {
           // Never externalize React or React-DOM - they must be bundled

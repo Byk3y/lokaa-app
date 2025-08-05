@@ -389,7 +389,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
       </div>
 
       {/* 2. TITLE INPUT */}
-      <div className="relative mb-4 px-6 pt-6">
+      <div className="relative mb-1 px-6 pt-2">
         <input
           type="text"
           value={title}
@@ -411,15 +411,15 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
         const hasVideo = VideoContentExtractor.hasVideo(lesson);
         if (hasVideo && showVideo) {
           return (
-            <div className="mb-8 px-6 relative group">
+            <div className="mb-1 px-6 relative group">
               {/* Add top padding to prevent video cropping due to X button */}
-              <div className="pt-4">
+              <div className="pt-2">
                 <VideoRenderer lesson={lesson} />
               </div>
               {/* X button to remove video - appears on hover */}
               <button
                 onClick={() => setShowVideo(false)}
-                className="absolute top-6 right-8 w-8 h-8 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
+                className="absolute top-4 right-8 w-8 h-8 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
                 title="Remove video"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -434,7 +434,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
 
       {/* 4. CONTENT AREA */}
       <div className="flex-1 overflow-y-auto">
-        <div className="min-h-[200px] editor-content [&_h1]:text-2xl px-6 pb-6">
+        <div className={`min-h-[200px] editor-content [&_h1]:text-2xl px-6 pb-6 ${isSaving ? '[&_iframe]:hidden' : ''}`}>
           <EditorContent editor={editor} />
         </div>
       </div>

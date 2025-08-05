@@ -38,7 +38,7 @@ const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '' })
         style={{
           /* Video sizing - much larger and properly styled */
           position: 'relative',
-          margin: '1.5rem auto 2.5rem auto',
+          margin: '0.25rem auto 0.25rem auto',
           width: '100%',
           maxWidth: '1200px', /* Much larger for better visibility */
           borderRadius: '12px',

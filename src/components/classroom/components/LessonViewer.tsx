@@ -86,7 +86,7 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
               if (hasVideo) {
                 log.debug('Component', '🎥 [LessonViewer] Rendering video container div');
                 return (
-                  <div className="mb-8">
+                  <div className="mb-2">
                     <VideoRenderer lesson={lesson} />
                   </div>
                 );
@@ -102,7 +102,10 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
                 const contentSource = getContentSource(lesson);
                 let processedContent = removeDuplicateH2Titles(contentSource.content, lesson.title);
                 
-                // Add spacing around video elements
+                // ALWAYS clean video content from HTML to prevent duplicates since VideoRenderer handles videos
+                processedContent = VideoContentExtractor.cleanHTMLContent(processedContent);
+                
+                // Add spacing around any remaining video elements (shouldn't be any after cleaning)
                 processedContent = addVideoSpacing(processedContent);
                 
                 return (

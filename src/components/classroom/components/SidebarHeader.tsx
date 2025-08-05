@@ -48,7 +48,7 @@ export default function SidebarHeader({
         </Button>
       </div>
       
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0">
           <h2 className="text-xl font-semibold text-gray-900 truncate">
             {formatAsTitle(course.title)}
@@ -69,8 +69,12 @@ export default function SidebarHeader({
         {(isOwner || isAdmin) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
-                <MoreHorizontal className="h-4 w-4" strokeWidth={2.5} />
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100 mt-1">
+                <svg className="h-4 w-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                  <circle cx="6" cy="12" r="1.5" />
+                  <circle cx="12" cy="12" r="1.5" />
+                  <circle cx="18" cy="12" r="1.5" />
+                </svg>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">

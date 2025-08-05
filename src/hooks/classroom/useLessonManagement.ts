@@ -199,7 +199,7 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
           onLessonCreated?.(newLesson);
         }
       } else {
-        console.warn('🎓 [useLessonManagement] No fresh course data available for new lesson selection');
+        log.warn('Hook', '🎓 [useLessonManagement] No fresh course data available for new lesson selection');
       }
 
       toast({
@@ -231,18 +231,15 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
   ]);
   
   const handleUpdateLesson = useCallback(async (lessonId: string, updates: LessonUpdates) => {
-    console.log('🎓 [useLessonManagement] handleUpdateLesson called with:', { lessonId, updates });
+    log.debug('Hook', '🎓 [useLessonManagement] Updating lesson:', lessonId);
     
-    // PHASE 1.2 IMPROVEMENT: Apply optimistic update first for immediate UI feedback
+    // Apply optimistic update first for immediate UI feedback
     if (applyOptimisticUpdate) {
-      console.log('🎓 [useLessonManagement] Applying optimistic update for immediate UI feedback');
       applyOptimisticUpdate(lessonId, updates);
     }
     
     try {
       const supabase = getSupabaseClient();
-      
-      console.log('🎓 [useLessonManagement] Getting lesson content_id for:', lessonId);
       // Get lesson's content_id
       const { data: lessonData, error: lessonError } = await supabase
         .from('course_lessons')
@@ -251,31 +248,25 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
         .single();
 
       if (lessonError) {
-        console.error('🎓 [useLessonManagement] Error getting lesson data:', lessonError);
+        log.error('Hook', '🎓 [useLessonManagement] Error getting lesson data:', lessonError);
         throw lessonError;
       }
-      
-      console.log('🎓 [useLessonManagement] Lesson data retrieved:', lessonData);
 
       // Update lesson title if provided
       if (updates.title) {
-        console.log('🎓 [useLessonManagement] Updating lesson title to:', updates.title);
         const { error } = await supabase
           .from('course_lessons')
           .update({ title: updates.title })
           .eq('id', lessonId);
         if (error) {
-          console.error('🎓 [useLessonManagement] Error updating lesson title:', error);
+          log.error('Hook', '🎓 [useLessonManagement] Error updating lesson title:', error);
           throw error;
         }
-        console.log('🎓 [useLessonManagement] Lesson title updated successfully');
       }
 
       // Update content
       if (updates.content_text) {
-        console.log('🎓 [useLessonManagement] Updating content, has content_id:', !!lessonData.content_id);
         if (lessonData.content_id) {
-          console.log('🎓 [useLessonManagement] Updating educational_content table');
           // Update educational content with timeout handling
           try {
             const { error } = await supabase
@@ -284,85 +275,69 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
               .eq('id', lessonData.content_id);
             
             if (error) {
-              console.error('🎓 [useLessonManagement] Error updating educational content:', error);
+              log.error('Hook', '🎓 [useLessonManagement] Error updating educational content:', error);
               throw error;
             }
-            console.log('🎓 [useLessonManagement] Educational content updated successfully');
           } catch (error: any) {
-            console.error('🎓 [useLessonManagement] Error updating educational content:', error);
+            log.error('Hook', '🎓 [useLessonManagement] Error updating educational content:', error);
             if (error.message?.includes('timeout') || error.message?.includes('504') || error.message?.includes('upstream request timeout')) {
               throw new Error('Database update timed out. The server is taking too long to respond. Please try again in a moment.');
             }
             throw error;
           }
         } else {
-          console.log('🎓 [useLessonManagement] Updating legacy content_text field');
           // Update legacy content_text field
           const { error } = await supabase
             .from('course_lessons')
             .update({ content_text: updates.content_text })
             .eq('id', lessonId);
           if (error) {
-            console.error('🎓 [useLessonManagement] Error updating legacy content:', error);
+            log.error('Hook', '🎓 [useLessonManagement] Error updating legacy content:', error);
             throw error;
           }
-          console.log('🎓 [useLessonManagement] Legacy content updated successfully');
         }
       }
 
       // Update content_url if provided
       if (updates.content_url !== undefined) {
-        console.log('🎓 [useLessonManagement] Updating content_url to:', updates.content_url);
-        console.log('🎓 [useLessonManagement] DEBUG: Lesson ID:', lessonId);
-        console.log('🎓 [useLessonManagement] DEBUG: Full updates object:', updates);
-        
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('course_lessons')
           .update({ content_url: updates.content_url })
-          .eq('id', lessonId)
-          .select('id, content_url');
-          
-        console.log('🎓 [useLessonManagement] DEBUG: Update response data:', data);
-        console.log('🎓 [useLessonManagement] DEBUG: Update response error:', error);
+          .eq('id', lessonId);
         
         if (error) {
-          console.error('🎓 [useLessonManagement] Error updating content_url:', error);
+          log.error('Hook', '🎓 [useLessonManagement] Error updating content_url:', error);
           throw error;
         }
-        console.log('🎓 [useLessonManagement] Content URL updated successfully');
       }
 
       // Update publish status if provided
       if (updates.is_published !== undefined) {
-        console.log('🎓 [useLessonManagement] Updating publish status to:', updates.is_published);
         const { error } = await supabase
           .from('course_lessons')
           .update({ is_published: updates.is_published })
           .eq('id', lessonId);
         if (error) {
-          console.error('🎓 [useLessonManagement] Error updating publish status:', error);
+          log.error('Hook', '🎓 [useLessonManagement] Error updating publish status:', error);
           throw error;
         }
-        console.log('🎓 [useLessonManagement] Publish status updated successfully');
       }
 
-      console.log('🎓 [useLessonManagement] All database updates completed successfully');
-      
       // For video operations, we need to refresh data to ensure database state is reflected
       // Video operations are critical and need immediate consistency
       if (updates.content_url !== undefined) {
-        console.log('🎓 [useLessonManagement] Video operation detected - refreshing course data');
-        onInvalidateCache?.();
-        await onRefetch?.();
-        
-        // Clear optimistic updates after refetch for video operations
-        if (clearOptimisticUpdate) {
-          console.log('🎓 [useLessonManagement] Clearing optimistic update after video operation refetch');
-          clearOptimisticUpdate(lessonId);
+        try {
+          onInvalidateCache?.();
+          await onRefetch?.();
+          
+          // Clear optimistic updates after successful refetch for video operations
+          if (clearOptimisticUpdate) {
+            clearOptimisticUpdate(lessonId);
+          }
+        } catch (refetchError) {
+          log.warn('Hook', '🎓 [useLessonManagement] Refetch failed after video operation, but database update succeeded:', refetchError);
+          // Keep optimistic updates if refetch fails - they ensure UI shows correct state
         }
-      } else {
-        // For non-video operations, keep optimistic updates for performance
-        console.log('🎓 [useLessonManagement] Non-video operation - keeping optimistic updates');
       }
       
       // Note: Removed unnecessary refetch - optimistic updates already handle UI consistency
@@ -371,15 +346,11 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
       // Notify parent of successful update
       onLessonUpdated?.(lessonId, updates);
       
-      console.log('🎓 [useLessonManagement] handleUpdateLesson completed successfully');
-      
     } catch (error: any) {
-      console.error('🎓 [useLessonManagement] Error in handleUpdateLesson:', error);
       log.error('Hook', '🎓 [useLessonManagement] Error updating lesson:', error);
       
-      // PHASE 1.2 IMPROVEMENT: Clear optimistic update on error to revert UI
+      // Clear optimistic update on error to revert UI
       if (clearOptimisticUpdate) {
-        console.log('🎓 [useLessonManagement] Clearing optimistic update due to error');
         clearOptimisticUpdate(lessonId);
       }
       

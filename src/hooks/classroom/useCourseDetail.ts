@@ -310,10 +310,9 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
         }
         
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🎓 [useCourseDetail] Applied optimistic update to lesson ${lesson.id}:`, {
+          log.debug('Hook', `🎓 [useCourseDetail] Applied optimistic update to lesson ${lesson.id}`, {
             originalTitle: lesson.title,
-            updatedTitle: updatedLesson.title,
-            updates: optimisticUpdate.updates
+            updatedTitle: updatedLesson.title
           });
         }
         
