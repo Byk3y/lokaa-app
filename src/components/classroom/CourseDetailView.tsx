@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import { useClassroomStore } from '@/stores/classroom/classroomStore';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
+import useClassroomCache from '@/hooks/useClassroomCache';
 import { ClassroomDialogManager } from './ClassroomDialogManager';
 import { DeleteCourseDialog } from './dialogs/DeleteCourseDialog';
 import DeletePageDialog from './dialogs/DeletePageDialog';
@@ -73,6 +74,13 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
       if (process.env.NODE_ENV === 'development') {
       }
       refetch();
+    },
+    onOptimisticUpdate: (updatedCourse) => {
+      // Update classroom cache with new progress for course cards
+      if (updatedCourse && space?.id) {
+        const classroomCache = useClassroomCache.getState();
+        classroomCache.updateCourseProgress(space.id, updatedCourse.id, updatedCourse.progress || 0);
+      }
     }
   });
 

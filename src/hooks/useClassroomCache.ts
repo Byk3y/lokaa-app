@@ -307,12 +307,62 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
 
       const isSpaceMember = !!spaceMemberData;
       
-      // MOBILE OPTIMIZATION: Temporarily disable lesson queries to fix 400 errors
-      // This will eliminate the white screen and improve mobile performance
-      // TODO: Re-enable lesson progress calculation once query issues are resolved
-      if (false && (isSpaceMember || canSeeDrafts) && courseIds.length > 0) {
-        // Disabled for now to fix 400 errors
-        log.debug('Hook', '📱 [ClassroomCache] Lesson queries disabled for mobile performance');
+      // Calculate progress for courses the user has access to
+      if ((isSpaceMember || canSeeDrafts) && courseIds.length > 0) {
+        try {
+          // Get all lesson IDs for these courses
+          const { data: lessonIds, error: lessonError } = await (getSupabaseClient() as any)
+            .from('course_lessons')
+            .select('id, course_id')
+            .in('course_id', courseIds);
+
+          if (lessonError) {
+            log.warn('Hook', '📊 [ClassroomCache] Error fetching lesson IDs:', lessonError);
+          } else if (lessonIds && lessonIds.length > 0) {
+            const allLessonIds = lessonIds.map(l => l.id);
+            
+            // Get completed lessons for this user
+            const { data: completions, error: completionError } = await (getSupabaseClient() as any)
+              .from('lesson_completions')
+              .select('lesson_id, course_id')
+              .eq('user_id', userId)
+              .in('lesson_id', allLessonIds);
+
+            if (completionError) {
+              log.warn('Hook', '📊 [ClassroomCache] Error fetching completions:', completionError);
+            } else if (completions) {
+              // Group completions by course
+              const courseCompletions = new Map<string, string[]>();
+              completions.forEach(completion => {
+                const courseId = completion.course_id;
+                if (!courseCompletions.has(courseId)) {
+                  courseCompletions.set(courseId, []);
+                }
+                courseCompletions.get(courseId)!.push(completion.lesson_id);
+              });
+
+              // Calculate progress for each course
+              courseIds.forEach(courseId => {
+                const courseLessons = lessonIds.filter(l => l.course_id === courseId);
+                const completedLessons = courseCompletions.get(courseId) || [];
+                const progress = courseLessons.length > 0 
+                  ? Math.round((completedLessons.length / courseLessons.length) * 100)
+                  : 0;
+                
+                courseProgressMap.set(courseId, progress);
+              });
+
+              log.debug('Hook', '📊 [ClassroomCache] Progress calculated:', {
+                coursesWithProgress: courseProgressMap.size,
+                totalLessons: allLessonIds.length,
+                totalCompletions: completions.length
+              });
+            }
+          }
+        } catch (error) {
+          log.warn('Hook', '📊 [ClassroomCache] Error calculating progress:', error);
+          // Don't fail the entire request - just log the error
+        }
       }
 
       const displayData: CourseDisplayData[] = coursesData.map((course: any) => ({
