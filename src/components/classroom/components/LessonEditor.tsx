@@ -117,7 +117,8 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
   isSaving,
   onContentChange,
   onSave,
-  onCancel
+  onCancel,
+  onSaveComplete
 }) => {
   const processedContent = ensureValidContent(removeDuplicateH2Titles(editingContent, lesson.title));
   
