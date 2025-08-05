@@ -348,9 +348,22 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
 
       console.log('🎓 [useLessonManagement] All database updates completed successfully');
       
-      // Note: Keep optimistic updates since we removed the refetch for performance
-      // The optimistic updates ensure the UI shows the correct state until next data refresh
-      // Previously this was causing video additions to disappear from UI after successful saves
+      // For video operations, we need to refresh data to ensure database state is reflected
+      // Video operations are critical and need immediate consistency
+      if (updates.content_url !== undefined) {
+        console.log('🎓 [useLessonManagement] Video operation detected - refreshing course data');
+        onInvalidateCache?.();
+        await onRefetch?.();
+        
+        // Clear optimistic updates after refetch for video operations
+        if (clearOptimisticUpdate) {
+          console.log('🎓 [useLessonManagement] Clearing optimistic update after video operation refetch');
+          clearOptimisticUpdate(lessonId);
+        }
+      } else {
+        // For non-video operations, keep optimistic updates for performance
+        console.log('🎓 [useLessonManagement] Non-video operation - keeping optimistic updates');
+      }
       
       // Note: Removed unnecessary refetch - optimistic updates already handle UI consistency
       // This was causing timeout errors (57014) on the course_modules query after successful lesson updates
