@@ -97,17 +97,6 @@ export const ClassroomTabRefactored = ({
   // Track previous active tab state for cache management
   const prevActiveTab = useRef(isActiveTab);
   
-  // Force cache refresh on mount to ensure progress calculation runs
-  useEffect(() => {
-    if (effectiveSpace?.id && user?.id && isActiveTab) {
-      log.debug('Component', '🔄 [ClassroomTab] Component mounted, forcing cache refresh for progress calculation');
-      // Small delay to ensure component is fully mounted
-      setTimeout(() => {
-        refetch();
-      }, 100);
-    }
-  }, [effectiveSpace?.id, user?.id, isActiveTab, refetch]);
-  
   // Effect to handle tab activation and cache management
   useEffect(() => {
     const wasInactive = !prevActiveTab.current;
@@ -115,15 +104,11 @@ export const ClassroomTabRefactored = ({
     
     if (wasInactive && isNowActive) {
       log.debug('Component', '🔄 [ClassroomTab] Component activated, checking course data');
-      // Force cache refresh to ensure progress calculation runs with new logic
-      if (effectiveSpace?.id && user?.id) {
-        log.debug('Component', '🔄 [ClassroomTab] Force refreshing cache to update progress calculation');
-        refetch();
-      }
+      // The classroom cache system will automatically handle data fetching
     }
     
     prevActiveTab.current = isActiveTab;
-  }, [isActiveTab, effectiveSpace?.id, user?.id, refetch]);
+  }, [isActiveTab, effectiveSpace?.id]);
 
   // Effect to handle returning from course detail view to classroom
   useEffect(() => {
