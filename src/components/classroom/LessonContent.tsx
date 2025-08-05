@@ -205,17 +205,14 @@ const LessonContent: React.FC<LessonContentProps> = ({
 
   if (isEditing && (lesson.content_type === 'text' || lesson.content_type === 'rich_text')) {
     return (
-              <LessonEditor
-          lesson={lesson}
-          editingContent={editingContent}
-          isSaving={isSaving}
-          onContentChange={handleContentChange}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          onSaveComplete={() => {
-            // Reset any video-related states if needed
-          }}
-        />
+      <LessonEditor
+        lesson={lesson}
+        editingContent={editingContent}
+                isSaving={isSaving}
+        onContentChange={handleContentChange}
+        onSave={handleSave}
+              onCancel={handleCancel}
+            />
     );
   }
 

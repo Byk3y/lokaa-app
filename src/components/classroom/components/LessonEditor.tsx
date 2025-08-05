@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { log } from '@/utils/logger';
 import VideoRenderer from './VideoRenderer';
@@ -104,7 +104,6 @@ export interface LessonEditorProps {
   onContentChange: (content: string) => void;
   onSave: (title: string, content: string, published?: boolean, removeVideo?: boolean) => void;
   onCancel: () => void;
-  onSaveComplete?: () => void;
 }
 
 /**
@@ -117,8 +116,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
   isSaving,
   onContentChange,
   onSave,
-  onCancel,
-  onSaveComplete
+  onCancel
 }) => {
   const processedContent = ensureValidContent(removeDuplicateH2Titles(editingContent, lesson.title));
   
@@ -128,16 +126,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
   const [showTitleError, setShowTitleError] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
-  const [isSavingVideo, setIsSavingVideo] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
-
-  // Reset video saving state when save completes
-  useEffect(() => {
-    if (!isSaving && isSavingVideo) {
-      setIsSavingVideo(false);
-      onSaveComplete?.();
-    }
-  }, [isSaving, isSavingVideo, onSaveComplete]);
 
   // Initialize TipTap editor
   const editor = useEditor({
@@ -171,14 +160,6 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
     // Check if video was intentionally removed (was shown initially but now hidden)
     const hadVideoInitially = VideoContentExtractor.hasVideo(lesson);
     const videoRemoved = hadVideoInitially && !showVideo;
-    
-    // Check if we're adding a new video (content contains video but lesson doesn't have one)
-    const contentHasVideo = editor?.getHTML().includes('youtube.com/embed') || editor?.getHTML().includes('youtube.com/watch');
-    const isAddingVideo = !hadVideoInitially && contentHasVideo;
-    
-    if (isAddingVideo) {
-      setIsSavingVideo(true);
-    }
     
     onSave(title, editor?.getHTML() || '', published, videoRemoved);
   };
@@ -428,9 +409,9 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
       {/* 3. VIDEO PREVIEW */}
       {(() => {
         const hasVideo = VideoContentExtractor.hasVideo(lesson);
-        if (hasVideo && showVideo && !isSavingVideo) {
+        if (hasVideo && showVideo) {
           return (
-            <div className="mb-8 px-6 relative group">
+            <div className="mb-8 relative group">
               <VideoRenderer lesson={lesson} />
               {/* X button to remove video - appears on hover */}
               <button
