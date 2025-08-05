@@ -310,13 +310,6 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       // Calculate progress for courses the user has access to
       if ((isSpaceMember || canSeeDrafts) && courseIds.length > 0) {
         try {
-          log.debug('Hook', '📊 [ClassroomCache] Starting progress calculation:', {
-            isSpaceMember,
-            canSeeDrafts,
-            courseIds: courseIds.length,
-            userId
-          });
-
           // Get all lesson IDs for these courses
           const { data: lessonIds, error: lessonError } = await (getSupabaseClient() as any)
             .from('course_lessons')
@@ -326,11 +319,6 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
           if (lessonError) {
             log.warn('Hook', '📊 [ClassroomCache] Error fetching lesson IDs:', lessonError);
           } else if (lessonIds && lessonIds.length > 0) {
-            log.debug('Hook', '📊 [ClassroomCache] Found lessons:', {
-              totalLessons: lessonIds.length,
-              lessonIds: lessonIds.map(l => ({ id: l.id, courseId: l.course_id }))
-            });
-
             const allLessonIds = lessonIds.map(l => l.id);
             
             // Get completed lessons for this user
@@ -343,11 +331,6 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
             if (completionError) {
               log.warn('Hook', '📊 [ClassroomCache] Error fetching completions:', completionError);
             } else if (completions) {
-              log.debug('Hook', '📊 [ClassroomCache] Found completions:', {
-                totalCompletions: completions.length,
-                completions: completions.map(c => ({ lessonId: c.lesson_id, courseId: c.course_id }))
-              });
-
               // Group completions by course
               const courseCompletions = new Map<string, string[]>();
               completions.forEach(completion => {
@@ -367,13 +350,6 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
                   : 0;
                 
                 courseProgressMap.set(courseId, progress);
-                
-                log.debug('Hook', '📊 [ClassroomCache] Course progress calculated:', {
-                  courseId,
-                  totalLessons: courseLessons.length,
-                  completedLessons: completedLessons.length,
-                  progress
-                });
               });
 
               log.debug('Hook', '📊 [ClassroomCache] Progress calculated:', {
@@ -381,22 +357,12 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
                 totalLessons: allLessonIds.length,
                 totalCompletions: completions.length
               });
-            } else {
-              log.debug('Hook', '📊 [ClassroomCache] No completions found for user');
             }
-          } else {
-            log.debug('Hook', '📊 [ClassroomCache] No lessons found for courses');
           }
         } catch (error) {
           log.warn('Hook', '📊 [ClassroomCache] Error calculating progress:', error);
           // Don't fail the entire request - just log the error
         }
-      } else {
-        log.debug('Hook', '📊 [ClassroomCache] Skipping progress calculation:', {
-          isSpaceMember,
-          canSeeDrafts,
-          courseIds: courseIds.length
-        });
       }
 
       const displayData: CourseDisplayData[] = coursesData.map((course: any) => ({
@@ -417,17 +383,6 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
         weeks: 0,
         progress: canSeeDrafts || isSpaceMember ? (courseProgressMap.get(course.id) || 0) : undefined,
       }));
-
-      // Debug: Log the final course data with progress
-      displayData.forEach(course => {
-        log.debug('Hook', '📊 [ClassroomCache] Final course data:', {
-          courseId: course.id,
-          title: course.title,
-          progress: course.progress,
-          canSeeDrafts,
-          isSpaceMember
-        });
-      });
 
       // ✅ FIXED: Remove redundant filtering since we already filter at database level
       // Only apply filtering if database query included drafts for owners
