@@ -104,6 +104,7 @@ export interface LessonEditorProps {
   onContentChange: (content: string) => void;
   onSave: (title: string, content: string, published?: boolean, removeVideo?: boolean) => void;
   onCancel: () => void;
+  onSaveComplete?: () => void;
 }
 
 /**
@@ -126,7 +127,16 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
   const [showTitleError, setShowTitleError] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset video saving state when save completes
+  useEffect(() => {
+    if (!isSaving && isSavingVideo) {
+      setIsSavingVideo(false);
+      onSaveComplete?.();
+    }
+  }, [isSaving, isSavingVideo, onSaveComplete]);
 
   // Initialize TipTap editor
   const editor = useEditor({
@@ -160,6 +170,14 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
     // Check if video was intentionally removed (was shown initially but now hidden)
     const hadVideoInitially = VideoContentExtractor.hasVideo(lesson);
     const videoRemoved = hadVideoInitially && !showVideo;
+    
+    // Check if we're adding a new video (content contains video but lesson doesn't have one)
+    const contentHasVideo = editor?.getHTML().includes('youtube.com/embed') || editor?.getHTML().includes('youtube.com/watch');
+    const isAddingVideo = !hadVideoInitially && contentHasVideo;
+    
+    if (isAddingVideo) {
+      setIsSavingVideo(true);
+    }
     
     onSave(title, editor?.getHTML() || '', published, videoRemoved);
   };
@@ -409,7 +427,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
       {/* 3. VIDEO PREVIEW */}
       {(() => {
         const hasVideo = VideoContentExtractor.hasVideo(lesson);
-        if (hasVideo && showVideo) {
+        if (hasVideo && showVideo && !isSavingVideo) {
           return (
             <div className="mb-8 px-6 relative group">
               <VideoRenderer lesson={lesson} />
