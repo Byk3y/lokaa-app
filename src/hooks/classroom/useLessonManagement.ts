@@ -346,10 +346,8 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
         clearOptimisticUpdate(lessonId);
       }
       
-      // Refresh data to ensure consistency (but optimistic updates are already cleared)
-      console.log('🎓 [useLessonManagement] Refreshing course data for consistency');
-      onInvalidateCache?.();
-      await onRefetch?.();
+      // Note: Removed unnecessary refetch - optimistic updates already handle UI consistency
+      // This was causing timeout errors (57014) on the course_modules query after successful lesson updates
       
       // Notify parent of successful update
       onLessonUpdated?.(lessonId, updates);

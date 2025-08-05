@@ -186,7 +186,16 @@ export function useCourseFetching(options: UseCourseFetchingOptions = {}): UseCo
       return transformedCourse;
       
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to fetch course details';
+      let errorMessage = error.message || 'Failed to fetch course details';
+      
+      // Handle specific database timeout errors (PostgreSQL error 57014)
+      if (error.code === '57014' || (error.message && error.message.includes('statement timeout'))) {
+        errorMessage = 'The course is taking longer than expected to load. This may be due to high server load. Please try again in a moment.';
+        
+        if (enableLogging) {
+          log.warn('Hook', '🎓 [useCourseFetching] Database timeout detected (57014), providing user-friendly message');
+        }
+      }
       
       if (enableLogging) {
         log.error('Hook', '🎓 [useCourseFetching] Error fetching course:', error);
