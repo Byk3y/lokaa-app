@@ -1,4 +1,5 @@
 import React from 'react';
+import { log } from '@/utils/logger';
 import { VideoContentExtractor } from '@/utils/videoContentExtractor';
 import type { CourseLesson } from '@/types/classroom/courseDetail';
 
@@ -12,25 +13,25 @@ export interface VideoRendererProps {
  * Extracted from LessonContent.tsx for better modularity
  */
 const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '' }) => {
-  console.log('🎥 [VideoRenderer] renderVideoContent called');
+  log.debug('Component', '🎥 [VideoRenderer] renderVideoContent called');
   
   // Use VideoContentExtractor to detect videos in both content_url and embedded HTML
   const videoInfo = VideoContentExtractor.extractVideoInfo(lesson);
   
-  console.log('🎥 [VideoRenderer] videoInfo:', videoInfo);
+  log.debug('Component', '🎥 [VideoRenderer] videoInfo:', videoInfo);
   
   if (!videoInfo) {
-    console.log('🎥 [VideoRenderer] No videoInfo, returning null');
+    log.debug('Component', '🎥 [VideoRenderer] No videoInfo, returning null');
     return null;
   }
 
   // Generate embed URL with proper parameters
   const embedUrl = VideoContentExtractor.generateEmbedUrl(videoInfo, window.location.origin);
-  console.log('🎥 [VideoRenderer] Generated embedUrl:', embedUrl);
+  log.debug('Component', '🎥 [VideoRenderer] Generated embedUrl:', embedUrl);
   
   if (videoInfo.platform === 'youtube') {
-    console.log('🎥 [VideoRenderer] Rendering YouTube video with embedUrl:', embedUrl);
-    console.log('🎥 [VideoRenderer] DEBUG: About to render video container with lesson-view-video-container class');
+    log.debug('Component', '🎥 [VideoRenderer] Rendering YouTube video with embedUrl:', embedUrl);
+    log.debug('Component', '🎥 [VideoRenderer] DEBUG: About to render video container with lesson-view-video-container class');
     return (
       <div 
         className={`lesson-view-video-container ${className}`}

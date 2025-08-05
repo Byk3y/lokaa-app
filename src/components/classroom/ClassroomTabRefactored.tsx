@@ -313,11 +313,11 @@ export const ClassroomTabRefactored = ({
         description: `"${course.title}" has been deleted successfully.`,
         variant: "default"
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       log.error('Component', 'Error deleting course:', error);
       toast({
         title: "Error Deleting Course",
-        description: error.message || "An unexpected error occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
     }

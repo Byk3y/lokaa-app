@@ -232,7 +232,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     try {
       await markLessonAsDone(selectedLesson, displayCourse);
     } catch (error) {
-      console.error('🎓 [CourseDetailView] Error in handleMarkAsDone:', error);
+      log.error('Component', '🎓 [CourseDetailView] Error in handleMarkAsDone:', error);
       toast({
         title: "Error",
         description: "Failed to update lesson completion status.",

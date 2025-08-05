@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckCircle2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatAsTitle } from '@/utils/textUtils';
+import { log } from '@/utils/logger';
 import VideoRenderer from './VideoRenderer';
 import { VideoContentExtractor } from '@/utils/videoContentExtractor';
 import { getContentSource, removeDuplicateH2Titles, addVideoSpacing } from '@/utils/lessonContentUtils';
@@ -74,7 +75,7 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
             {/* Video content with proper spacing - always show dedicated video if content_url exists */}
             {(() => {
               const hasVideo = VideoContentExtractor.hasVideo(lesson);
-              console.log('🎥 [LessonViewer] Video rendering check:', {
+              log.debug('Component', '🎥 [LessonViewer] Video rendering check:', {
                 lessonId: lesson.id,
                 lessonTitle: lesson.title,
                 hasVideo,
@@ -83,14 +84,14 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
               });
               
               if (hasVideo) {
-                console.log('🎥 [LessonViewer] Rendering video container div');
+                log.debug('Component', '🎥 [LessonViewer] Rendering video container div');
                 return (
                   <div className="mb-8">
                     <VideoRenderer lesson={lesson} />
                   </div>
                 );
               } else {
-                console.log('🎥 [LessonViewer] No video, returning null');
+                log.debug('Component', '🎥 [LessonViewer] No video, returning null');
                 return null;
               }
             })()}

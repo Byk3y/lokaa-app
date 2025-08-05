@@ -286,7 +286,7 @@ const CourseDetailContainer: React.FC<CourseDetailContainerProps> = ({
   };
 
   // Error handling
-  const handleError = (error: any) => {
+  const handleError = (error: Error | unknown) => {
     log.error('Container', '🎓 [CourseDetailContainer] Error caught by boundary:', error);
     toast({
       title: "Error",

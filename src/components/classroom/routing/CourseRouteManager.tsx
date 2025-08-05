@@ -537,17 +537,17 @@ interface CourseRouteContextType {
   isNavigating: boolean;
   recoveryMode: boolean;
   routeErrors: RouteError[];
-  navigateToRoute: (path: string, options?: any) => Promise<boolean>;
+  navigateToRoute: (path: string, options?: { replace?: boolean; state?: Record<string, unknown> }) => Promise<boolean>;
   navigateToCourse: (courseId: string) => Promise<boolean>;
   navigateToLesson: (courseId: string, lessonId: string) => Promise<boolean>;
   navigateToModule: (courseId: string, moduleId: string) => Promise<boolean>;
   goBack: () => void;
   goForward: () => void;
   getCurrentRoute: () => string;
-  getRouteParams: () => any;
+  getRouteParams: () => Record<string, string | undefined>;
   getBreadcrumbs: () => Array<{ label: string; path: string }>;
   getNavigationHistory: () => string[];
-  getCachedRoute: (path: string) => any;
+  getCachedRoute: (path: string) => { timestamp: number; data: Record<string, unknown> } | null;
   recoverFromError: (error: RouteError) => boolean;
   clearErrors: () => void;
 }

@@ -101,11 +101,11 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({
         description: `"${finalTitle}" has been saved successfully.`,
         variant: "default"
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       log.error('Component', 'Error saving lesson:', error);
       toast({
         title: "Error Saving Lesson",
-        description: error.message || "An unexpected error occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
     } finally {

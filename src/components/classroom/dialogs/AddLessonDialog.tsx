@@ -134,11 +134,11 @@ export default function AddLessonDialog({
         description: `"${finalTitle}" has been added successfully.`,
         variant: "default"
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       log.error('Component', 'Error creating lesson:', error);
       toast({
         title: "Error Creating Lesson",
-        description: error.message || "An unexpected error occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
     }

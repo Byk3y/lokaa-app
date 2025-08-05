@@ -1,4 +1,5 @@
 import React from 'react';
+import { log } from '@/utils/logger';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import VideoRenderer from './VideoRenderer';
 import { VideoContentExtractor } from '@/utils/videoContentExtractor';
@@ -51,7 +52,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
           {/* Video preview below the editor */}
           {(() => {
             const hasVideo = VideoContentExtractor.hasVideo(lesson);
-            console.log('🎥 [LessonEditor] Edit mode video check:', {
+            log.debug('Component', '🎥 [LessonEditor] Edit mode video check:', {
               lessonId: lesson.id,
               lessonTitle: lesson.title,
               hasVideo,
@@ -60,7 +61,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
             });
             
             if (hasVideo) {
-              console.log('🎥 [LessonEditor] Rendering video in edit mode');
+              log.debug('Component', '🎥 [LessonEditor] Rendering video in edit mode');
               return (
                 <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Video Preview</h3>
@@ -68,7 +69,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
                 </div>
               );
             } else {
-              console.log('🎥 [LessonEditor] No video to show in edit mode');
+              log.debug('Component', '🎥 [LessonEditor] No video to show in edit mode');
               return null;
             }
           })()}

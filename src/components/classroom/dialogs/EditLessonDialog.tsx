@@ -132,11 +132,11 @@ export default function EditLessonDialog({
         description: `"${finalTitle}" has been saved successfully.`,
         variant: "default"
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       log.error('Component', 'Error updating lesson:', error);
       toast({
         title: "Error Updating Lesson",
-        description: error.message || "An unexpected error occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
     }

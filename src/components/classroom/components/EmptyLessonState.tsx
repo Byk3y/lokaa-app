@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Edit, FileText } from 'lucide-react';
+import { log } from '@/utils/logger';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { extractTitleFromContent } from '@/utils/lessonContentUtils';
 
@@ -59,7 +60,7 @@ const EmptyLessonState: React.FC<EmptyLessonStateProps> = ({
       }
     } catch (error) {
       // Error handling is done in the parent component
-      console.error('EmptyLessonState: Error saving inline creation:', error);
+      log.error('Component', 'EmptyLessonState: Error saving inline creation:', error);
     }
   };
 

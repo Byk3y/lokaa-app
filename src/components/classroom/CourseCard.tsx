@@ -17,7 +17,7 @@ interface CourseCardProps {
   course: CourseDisplayData;
   isOwner: boolean;
   isAdmin?: boolean; // Add isAdmin prop to show DRAFT badge for admins too
-  user: any;
+  user: { id: string; email?: string } | null;
   onViewCourse: (course: CourseDisplayData) => void;
   onEditCourse: (course: CourseDisplayData) => void;
   onEnroll: (course: CourseDisplayData) => void;

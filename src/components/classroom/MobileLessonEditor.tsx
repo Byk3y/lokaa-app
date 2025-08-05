@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Save, X, Loader2, Search, MoreHorizontal, ChevronDown } from 'lucide-react';
 import { formatAsTitle } from '@/utils/textUtils';
+import { log } from '@/utils/logger';
 import RichTextEditor from '@/components/ui/rich-text-editor';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -56,7 +57,7 @@ const MobileLessonEditor: React.FC<MobileLessonEditorProps> = ({
         setHasUnsavedChanges(false);
         
         // Debug logging to help track content loading
-        console.log('MobileLessonEditor - Initializing content:', {
+        log.debug('Component', 'MobileLessonEditor - Initializing content:', {
           lessonId: lesson.id,
           hasEducationalContent: !!lesson.educational_content?.text_content,
           hasContentText: !!lesson.content_text,
@@ -132,11 +133,11 @@ const MobileLessonEditor: React.FC<MobileLessonEditorProps> = ({
         description: `"${finalTitle}" has been saved successfully.`,
         variant: "default"
       });
-    } catch (error: any) {
-      console.error('Error saving lesson:', error);
+    } catch (error: unknown) {
+      log.error('Component', 'Error saving lesson:', error);
       toast({
         title: "Error Saving Lesson",
-        description: error.message || "An unexpected error occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
     } finally {

@@ -22,7 +22,7 @@ interface CourseGridProps {
   hasValidAuth: boolean;
   isOwner: boolean;
   isAdmin?: boolean;
-  user: any;
+  user: { id: string; email?: string } | null;
   
   // Handlers
   onCreateCourse: () => void;

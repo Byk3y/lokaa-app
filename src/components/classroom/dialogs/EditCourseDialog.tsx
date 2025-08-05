@@ -201,11 +201,11 @@ export function EditCourseDialog({
         // Close dialog
         onOpenChange(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       log.error('Component', "Error updating course:", error);
       toast({
         title: "Failed to Update Course",
-        description: error.message,
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive"
       });
     } finally {

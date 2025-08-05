@@ -77,7 +77,7 @@ export function ClassroomDialogManager({ space, onDeletePage, onRevertToDraft, o
     setPageToDelete({ id: pageId, title });
   };
 
-  const handleCourseCreated = (course: any) => {
+  const handleCourseCreated = (course: CourseDisplayData) => {
     // The hook will handle updating the store
     // Additional logic can be added here if needed
     log.debug('Component', 'Course created:', course);
@@ -104,12 +104,12 @@ export function ClassroomDialogManager({ space, onDeletePage, onRevertToDraft, o
     log.debug('Component', 'Delete module');
   };
 
-  const handleLessonCreated = async (lessonData: any) => {
+  const handleLessonCreated = async (lessonData: { title: string; content: string; moduleId?: string }) => {
     // Lesson creation logic implemented
     log.debug('Component', 'Create lesson:', lessonData);
   };
 
-  const handleLessonUpdated = async (updatedLesson: any) => {
+  const handleLessonUpdated = async (updatedLesson: { id: string; title: string; content: string }) => {
     // Lesson update logic implemented
     log.debug('Component', 'Update lesson:', updatedLesson);
   };
