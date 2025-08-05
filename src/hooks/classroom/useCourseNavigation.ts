@@ -129,6 +129,35 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
     setSelectedLessonState(lesson);
     onLessonChange?.(lesson);
   }, [onLessonChange]);
+
+  // Sync selectedLesson with updated course data to ensure completion status is current
+  useEffect(() => {
+    if (!course || !selectedLesson) return;
+    
+    // Find the current lesson in the updated course data
+    const updatedLesson = course.modules
+      .flatMap(module => module.lessons)
+      .find(lesson => lesson.id === selectedLesson.id);
+    
+    if (updatedLesson && (
+      updatedLesson.completed !== selectedLesson.completed ||
+      updatedLesson.title !== selectedLesson.title ||
+      updatedLesson.content_url !== selectedLesson.content_url ||
+      updatedLesson.is_published !== selectedLesson.is_published
+    )) {
+      log.debug('Hook', '🎓 [useCourseNavigation] Syncing selectedLesson with updated course data:', {
+        lessonId: selectedLesson.id,
+        oldCompleted: selectedLesson.completed,
+        newCompleted: updatedLesson.completed,
+        oldTitle: selectedLesson.title,
+        newTitle: updatedLesson.title
+      });
+      
+      // Update the selectedLesson with fresh data from course
+      setSelectedLessonState(updatedLesson);
+      onLessonChange?.(updatedLesson);
+    }
+  }, [course, selectedLesson, onLessonChange]);
   
   // DISABLED: Auto-select first lesson if none selected (Desktop only)
   // This was causing automatic navigation to course details from classroom overview
