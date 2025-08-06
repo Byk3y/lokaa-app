@@ -54,7 +54,7 @@ export const TrulyPersistentAppShell: React.FC = () => {
 
 
   // Track which components should be visible
-  const [currentRoute, setCurrentRoute] = useState<'chat' | 'notifications' | 'space' | 'other'>('other');
+  const [currentRoute, setCurrentRoute] = useState<'chat' | 'notifications' | 'space' | 'discover' | 'other'>('other');
   const [showTabs, setShowTabs] = useState(true); // Control tab visibility for mobile course views
 
   // Debug logging to track persistent shell lifecycle (only in development)
@@ -87,12 +87,14 @@ export const TrulyPersistentAppShell: React.FC = () => {
 
   // Determine current route type and update state
   useEffect(() => {
-    let routeType: 'chat' | 'notifications' | 'space' | 'other' = 'other';
+    let routeType: 'chat' | 'notifications' | 'space' | 'discover' | 'other' = 'other';
     
     if (location.pathname.startsWith('/app/chat')) {
       routeType = 'chat';
     } else if (location.pathname.startsWith('/app/notifications') || location.pathname.startsWith('/notifs')) {
       routeType = 'notifications';
+    } else if (location.pathname === '/discover') {
+      routeType = 'discover';
     } else if (location.pathname.startsWith('/profile/')) {
       routeType = 'other'; // Profile routes use React Router
     } else if (location.pathname.match(/^\/[^\/]+\/space/) || location.pathname.match(/^\/[^\/]+\/course/)) {
@@ -120,7 +122,8 @@ export const TrulyPersistentAppShell: React.FC = () => {
         pathname: location.pathname,
         oldRoute: currentRoute,
         newRoute: routeType,
-        spaceVisible: routeType === 'space'
+        spaceVisible: routeType === 'space',
+        discoverVisible: routeType === 'discover'
       });
     }
     
@@ -158,6 +161,16 @@ export const TrulyPersistentAppShell: React.FC = () => {
         className="route-container"
       >
         <SpaceShellLayout showTabs={showTabs} />
+      </div>
+
+      {/* Discover Component - Always mounted, visibility controlled */}
+      <div 
+        style={{ display: isRouteVisible('discover') ? 'block' : 'none' }}
+        className="route-container"
+      >
+        <Suspense fallback={<div>Loading discover...</div>}>
+          <LazyRoutes.Discover />
+        </Suspense>
       </div>
 
       {/* Other routes - React Router handles these normally */}

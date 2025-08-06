@@ -221,13 +221,19 @@ export function useOptimizedCachedPosts(
           return;
         }
         
-        // Only refresh for reasonable tab switches (5-30 seconds)
+        // Only refresh for reasonable tab switches (5-30 seconds) AND only if no data exists
         if (isReasonableTabSwitch && spaceId && shouldRefreshOnTabSwitch(spaceId)) {
-          devLogger.log('TabSwitch', 'Triggering smart refresh after reasonable tab switch');
-          // Small delay to let other systems settle
-          setTimeout(() => {
-            fetchPosts(1, true);
-          }, 500);
+          const hasExistingData = posts.length > 0 || pinnedPosts.length > 0;
+          
+          if (!hasExistingData) {
+            devLogger.log('TabSwitch', 'Triggering smart refresh after reasonable tab switch (no existing data)');
+            // Small delay to let other systems settle
+            setTimeout(() => {
+              fetchPosts(1, true);
+            }, 500);
+          } else {
+            devLogger.log('TabSwitch', 'Skipping tab switch refresh - data already available');
+          }
         }
       }
     };
@@ -249,7 +255,13 @@ export function useOptimizedCachedPosts(
   const fetchPosts = useCallback(async (page: number = 1, forceRefresh: boolean = false) => {
     if (!spaceId) return;
 
-    setLoading(true);
+    // SMART LOADING: Only show loading state if we don't have any cached data
+    const hasExistingData = posts.length > 0 || pinnedPosts.length > 0;
+    const shouldShowLoading = !hasExistingData || (page === 1 && forceRefresh);
+    
+    if (shouldShowLoading) {
+      setLoading(true);
+    }
     setError(null);
 
     try {

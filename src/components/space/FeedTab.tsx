@@ -932,7 +932,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
           </div>
         )}
 
-        {/* Show minimal loading indicator during pagination */}
+        {/* Show pagination loading indicator when loading more posts with existing posts visible */}
         {postsLoading && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
           <div className="flex justify-center items-center py-4 mt-6">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />

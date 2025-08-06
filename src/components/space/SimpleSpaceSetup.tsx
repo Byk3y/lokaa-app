@@ -172,8 +172,9 @@ export default function SimpleSpaceSetup({
     }
   };
   
-  // Don't render if dismissed, no permission, or still loading
-  if (progress.setupDismissed || !canSeeSetup || loading) {
+  // Don't render if dismissed, no permission, still loading, or no valid progress data yet
+  // This prevents the setup guide from flashing during initial load
+  if (progress.setupDismissed || !canSeeSetup || loading || !progress.lastUpdated) {
     return null;
   }
   

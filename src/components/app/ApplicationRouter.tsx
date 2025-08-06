@@ -199,13 +199,6 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
           </Suspense>
         } />
         
-        {/* Public Discover page - no auth required, enhanced progressively */}
-        <Route path="/discover" element={
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <LazyRoutes.Discover />
-          </Suspense>
-        } />
-        
         {/* Recovery tools route - public access */}
         <Route path="/fix" element={<WhiteScreenFix><div>Recovery tools loaded</div></WhiteScreenFix>} />
         
@@ -285,6 +278,9 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
             
             {/* Course detail pages - moved inside persistent shell to prevent unmounting */}
             <Route path="/:subdomain/course/:courseSlug" element={<div />} />
+            
+            {/* Discover page - moved inside persistent shell to prevent unmounting during navigation */}
+            <Route path="/discover" element={<div />} />
           </Route>
           
           {/* Special routes outside persistent shell that need React Router */}
