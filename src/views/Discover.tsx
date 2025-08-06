@@ -717,12 +717,15 @@ export default function Discover() {
             {/* Mobile hamburger menu */}
             <Button
               variant="ghost"
-              className="sm:hidden text-gray-600 mr-2 p-2"
+              className="sm:hidden text-gray-600 mr-1 p-2"
               onClick={() => setSpaceDrawerOpen(true)}
               aria-label="Toggle space drawer"
             >
               <Menu className="h-5 w-5" />
             </Button>
+            
+            {/* Mobile Logo */}
+            <h1 className="text-3xl font-bold leading-none sm:hidden" style={{ color: '#00A389' }}>Lokaa</h1>
             
             <h1 className="text-4xl font-bold leading-none hidden md:block" style={{ color: '#00A389' }}>Lokaa</h1>
             {/* Wrap SpaceSwitcher to hide on mobile */}
@@ -739,11 +742,6 @@ export default function Discover() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                {/* Mobile Actions */}
-                <div className="sm:hidden">
-                  <ChatButton variant="icon" className="text-gray-600 hover:text-gray-900" />
-                </div>
-                
                 {/* Desktop Actions */}
                 <HeaderActions className="hidden sm:flex" />
               </>

@@ -108,7 +108,48 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
     throw error;
   }
 
-  if (isMobileBrowser()) {
+  const isProduction = !import.meta.env?.DEV;
+  const isMobile = isMobileBrowser();
+
+  // PRODUCTION: Silent recovery without showing error screens
+  if (isProduction) {
+    log.debug('Component', '🔧 [ModuleErrorFallback] Production module error - silent recovery');
+    
+    // Multi-attempt recovery strategy for production
+    const retryAttempts = [100, 500, 1500]; // Progressive delays
+    
+    retryAttempts.forEach((delay, index) => {
+      setTimeout(() => {
+        log.debug('Component', `🔄 [ModuleErrorFallback] Silent recovery attempt ${index + 1}`);
+        try {
+          resetErrorBoundary();
+        } catch (retryError) {
+          log.warn('Component', `🔄 Recovery attempt ${index + 1} failed:`, retryError);
+          
+          // If all retries fail, force page reload as last resort
+          if (index === retryAttempts.length - 1) {
+            log.warn('Component', '🔄 All recovery attempts failed, forcing page reload');
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          }
+        }
+      }, delay);
+    });
+    
+    // Show minimal loading state instead of error screen
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin h-8 w-8 rounded-full border-t-2 border-b-2 border-blue-500 mb-3"></div>
+          <p className="text-gray-600 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // DEVELOPMENT: Show detailed error screens for debugging
+  if (isMobile) {
     log.warn('Component', '🔄 [ModuleErrorFallback] Module error on mobile browser - likely network blocking');
     log.warn('Component', '📱 [ModuleErrorFallback] Mobile browsers block network requests during app backgrounding');
     log.warn('Component', '🔧 [ModuleErrorFallback] Auto-recovering without showing error screen...');
@@ -122,15 +163,15 @@ const ModuleErrorFallback = ({ error, resetErrorBoundary }: { error: Error; rese
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
           <div className="text-blue-500 text-6xl mb-4">🔄</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Reconnecting...</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Development: Mobile Network Issue</h2>
           <p className="text-gray-600 mb-4">
-            Restoring connection after background activity.
+            Mobile browser network blocking detected in development.
           </p>
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
           <p className="text-xs text-gray-400 mt-4">
-            This happens when mobile browsers pause network activity.
+            This screen only appears in development mode.
           </p>
         </div>
       </div>

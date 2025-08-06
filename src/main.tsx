@@ -17,6 +17,9 @@ import './utils/hmrOptimizer'
 // import './utils/authModals' // REMOVED
 // import { redirectToSpace } from './utils/spaceRedirect'
 
+// MOBILE OPTIMIZATION: Initialize mobile component preloader
+import { MobileComponentPreloader } from './utils/mobileComponentPreloader'
+
 // Service worker temporarily disabled to fix preload errors
 // Initialize service worker manager
 // import { ServiceWorkerManager } from './utils/serviceWorkerManager';
@@ -108,6 +111,9 @@ try {
 
   const root = ReactDOM.createRoot(rootElement);
   root.render(<App />);
+  
+  // Initialize mobile component preloader after app starts
+  MobileComponentPreloader.initialize();
   
   log.debug('App', '✅ React app initialized successfully');
 } catch (error) {

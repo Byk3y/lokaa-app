@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 import { useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 
 /**
  * Lazy-loaded route components for code splitting
@@ -11,7 +12,22 @@ import { useState, useEffect } from 'react';
 // REMOVED: Space component - not used in current architecture (SpaceShellLayout + SpaceTabContent used instead)
 // export const Space = lazy(() => import('@/views/Space'));
 export const Dashboard = lazy(() => import('@/views/Dashboard'));
-export const Discover = lazy(() => import('@/views/Discover'));
+
+// Discover component with mobile preloading
+export const Discover = lazy(() => {
+  const importPromise = import('@/views/Discover');
+  
+  // Preload on mobile devices to prevent network timing issues
+  if (shouldEnableMobileFeatures()) {
+    // Start preloading immediately for mobile
+    importPromise.catch(error => {
+      console.warn('Mobile preload failed for Discover component:', error);
+    });
+  }
+  
+  return importPromise;
+});
+
 export const Profile = lazy(() => import('@/views/Profile'));
 export const ChatPage = lazy(() => import('@/views/ChatPage'));
 export const NotificationsPage = lazy(() => import('@/views/NotificationsPage'));
