@@ -11,6 +11,9 @@ export default function AuthConfirmPage() {
   const [resendMsg, setResendMsg] = useState<string | null>(null);
   const [resendErr, setResendErr] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [otpInput, setOtpInput] = useState<string>('');
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [otpErr, setOtpErr] = useState<string | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -129,6 +132,41 @@ export default function AuthConfirmPage() {
     }
   };
 
+  const handleVerifyCode = async () => {
+    setOtpErr(null);
+    const email = (initialEmail || emailInput || '').trim();
+    const code = otpInput.trim();
+    if (!email) {
+      setOtpErr('Enter your email first.');
+      return;
+    }
+    if (!code) {
+      setOtpErr('Enter the 6-digit code from your email.');
+      return;
+    }
+    setIsVerifyingCode(true);
+    try {
+      const client = getSupabaseClient();
+      const { data, error } = await client.auth.verifyOtp({ type: 'signup', email, token: code });
+      if (error) {
+        setOtpErr(error.message || 'Invalid or expired code.');
+        return;
+      }
+      if (data?.session) {
+        setStatus('success');
+        setMessage('Email verified! Redirecting...');
+        setTimeout(() => window.location.replace('/discover'), 600);
+      } else {
+        setStatus('needsSignIn');
+        setMessage('Email verified! Please sign in.');
+      }
+    } catch (e: any) {
+      setOtpErr(e?.message || 'Could not verify the code.');
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
@@ -165,6 +203,29 @@ export default function AuthConfirmPage() {
             {resendMsg && <div className="text-sm text-green-700">{resendMsg}</div>}
             {resendErr && <div className="text-sm text-red-600">{resendErr}</div>}
             <div className="text-sm text-gray-500 mt-2">Already verified? <a href="/login" className="text-teal-700 underline">Sign in</a></div>
+
+            <div className="mt-6">
+              <div className="text-sm text-gray-700 mb-2">Have a 6‑digit code from the email? Enter it below.</div>
+              <div className="flex gap-2 items-center">
+                <input
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value)}
+                  placeholder="123456"
+                  className="flex-1 border rounded px-3 py-2"
+                />
+                <button
+                  onClick={handleVerifyCode}
+                  disabled={isVerifyingCode}
+                  className={`px-4 py-2 rounded-md text-white ${!isVerifyingCode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                >
+                  {isVerifyingCode ? 'Verifying...' : 'Verify code'}
+                </button>
+              </div>
+              {otpErr && <div className="text-sm text-red-600 mt-1">{otpErr}</div>}
+            </div>
           </div>
         )}
       </div>
