@@ -34,6 +34,38 @@ interface ProgressData {
  * Simple cache operations
  */
 class CourseCache {
+  // --- Alias Mapping -------------------------------------------------------
+  // Persist a mapping of external identifiers (short_id/slug) to canonical
+  // course UUID so cache hits are consistent regardless of the route param.
+  private getAliasKey(requestedId: string): string {
+    return `course_alias_${requestedId}`;
+  }
+
+  rememberAlias(requestedId: string, canonicalUuid: string): void {
+    try {
+      if (!requestedId || !canonicalUuid) return;
+      const key = this.getAliasKey(requestedId);
+      const payload = { uuid: canonicalUuid, timestamp: Date.now() };
+      localStorage.setItem(key, JSON.stringify(payload));
+      log.debug('Utils', `[CourseCache] Remembered alias ${requestedId} → ${canonicalUuid}`);
+    } catch (error) {
+      log.warn('Utils', '[CourseCache] Failed to remember course alias:', error);
+    }
+  }
+
+  resolveAlias(idOrAlias: string): string | null {
+    try {
+      const key = this.getAliasKey(idOrAlias);
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { uuid: string; timestamp: number };
+      return parsed?.uuid || null;
+    } catch (error) {
+      log.warn('Utils', '[CourseCache] Failed to resolve course alias:', error);
+      return null;
+    }
+  }
+
   private getCacheKey(type: string, id: string, userId?: string): string {
     return userId ? `${type}_${id}_${userId}` : `${type}_${id}`;
   }
@@ -80,13 +112,34 @@ class CourseCache {
 
   // Course detail caching
   getCourseDetail(courseId: string): CourseDetailData | null {
-    const key = this.getCacheKey('course_detail', courseId);
-    return this.get<CourseDetailData>(key, CACHE_CONFIG.COURSE_DETAIL_TTL);
+    // Try direct key first
+    const directKey = this.getCacheKey('course_detail', courseId);
+    const direct = this.get<CourseDetailData>(directKey, CACHE_CONFIG.COURSE_DETAIL_TTL);
+    if (direct) return direct;
+
+    // Try alias (short_id/slug → uuid)
+    const alias = this.resolveAlias(courseId);
+    if (alias) {
+      const aliasKey = this.getCacheKey('course_detail', alias);
+      const viaAlias = this.get<CourseDetailData>(aliasKey, CACHE_CONFIG.COURSE_DETAIL_TTL);
+      if (viaAlias) return viaAlias;
+    }
+
+    return null;
   }
 
   setCourseDetail(courseId: string, courseData: CourseDetailData): void {
-    const key = this.getCacheKey('course_detail', courseId);
-    this.set(key, courseData);
+    // Always write under the requested identifier
+    const keyRequested = this.getCacheKey('course_detail', courseId);
+    this.set(keyRequested, courseData);
+
+    // Also write under canonical UUID to unify cache hits
+    if (courseData?.id && courseData.id !== courseId) {
+      const keyCanonical = this.getCacheKey('course_detail', courseData.id);
+      this.set(keyCanonical, courseData);
+      // Remember alias for future lookups
+      this.rememberAlias(courseId, courseData.id);
+    }
   }
 
   // Progress caching

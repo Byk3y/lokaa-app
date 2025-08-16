@@ -12,6 +12,7 @@ import { log } from '@/utils/logger';
  */
 
 import { useEffect, useRef } from 'react';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 /**
@@ -45,12 +46,8 @@ export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
         });
         log.debug('Hook', `✅ [AutoPresence] Successfully updated via Bridge V2`);
       } else {
-        // Fallback to direct Supabase call
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabase = createClient(
-          import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY
-        );
+        // Fallback to direct Supabase call using the shared singleton client
+        const supabase = getSupabaseClient();
         
         // Update current space to online, all others to offline
         await supabase

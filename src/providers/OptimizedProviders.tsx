@@ -30,9 +30,28 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
+      retry: (failureCount, error) => {
+        // Don't retry circuit breaker errors or resource exhaustion
+        if (error?.message?.includes('Circuit breaker') || 
+            error?.message?.includes('insufficient') ||
+            error?.message?.includes('resources')) {
+          return false;
+        }
+        // Exponential backoff for retries (max 3 attempts)
+        return failureCount < 3;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff up to 30s
+      staleTime: 10 * 60 * 1000, // 10 minutes (increased from 5)
+      gcTime: 20 * 60 * 1000, // 20 minutes (increased from 10)
+      // Add specific configuration for space_members queries
+      queryKeyHashFn: (queryKey) => {
+        // Use longer cache for space_members queries
+        if (Array.isArray(queryKey) && queryKey.some(key => 
+          typeof key === 'string' && key.includes('space_members'))) {
+          return `space_members_${JSON.stringify(queryKey)}`;
+        }
+        return JSON.stringify(queryKey);
+      },
     },
   },
 });

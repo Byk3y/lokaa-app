@@ -55,6 +55,7 @@ export const LandingPageWrapper = lazy(() => import('@/views/LandingPage').then(
 export const StorageDebugger = lazy(() => import('@/views/StorageDebugger'));
 export const SpaceDebugPage = lazy(() => import('@/views/SpaceDebugPage'));
 export const DebugPage = lazy(() => import('@/views/DebugPage'));
+export const AuthConfirmPage = lazy(() => import('@/views/AuthConfirmPage'));
 
 // Utility pages
 export const QuickSpaceRedirect = lazy(() => import('@/views/QuickSpaceRedirect'));

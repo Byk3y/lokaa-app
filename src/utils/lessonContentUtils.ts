@@ -1,4 +1,5 @@
 import type { CourseLesson } from '@/types/classroom/courseDetail';
+import { VideoContentExtractor } from '@/utils/videoContentExtractor';
 
 /**
  * Utility functions for LessonContent component
@@ -13,6 +14,7 @@ export interface ContentSource {
 
 /**
  * Determines the source and content of a lesson from multiple possible fields
+ * Handles deduplication of video content to prevent duplicate video displays
  */
 export const getContentSource = (lesson: CourseLesson | null): ContentSource => {
   if (!lesson) {
@@ -23,36 +25,39 @@ export const getContentSource = (lesson: CourseLesson | null): ContentSource => 
     };
   }
 
+  let content = '';
+  let isEducationalContent = false;
+  let source: ContentSource['source'] = 'no_content';
+
+  // Priority 1: educational_content (new system)
   if (lesson?.educational_content?.text_content) {
-    return {
-      content: lesson.educational_content.text_content,
-      isEducationalContent: true,
-      source: 'educational_content'
-    };
+    content = lesson.educational_content.text_content;
+    isEducationalContent = true;
+    source = 'educational_content';
   }
-  
-  // Check if we have content_text in the lesson (legacy field)
-  if (lesson?.content_text) {
-    return {
-      content: lesson.content_text,
-      isEducationalContent: false,
-      source: 'legacy_content_text'
-    };
+  // Priority 2: legacy content_text field
+  else if (lesson?.content_text) {
+    content = lesson.content_text;
+    isEducationalContent = false;
+    source = 'legacy_content_text';
   }
-  
-  // Check if we have content in the posts table
-  if (lesson?.posts?.content) {
-    return {
-      content: lesson.posts.content,
-      isEducationalContent: false,
-      source: 'posts_content'
-    };
+  // Priority 3: posts table content
+  else if (lesson?.posts?.content) {
+    content = lesson.posts.content;
+    isEducationalContent = false;
+    source = 'posts_content';
   }
-  
+
+  // ✅ Clean only when a featured video (content_url/media_url) will render separately at the top
+  // If video is embedded inline in the HTML (no content_url), preserve placement
+  if (content && (lesson?.content_url || lesson?.educational_content?.media_url)) {
+    content = VideoContentExtractor.cleanHTMLContent(content);
+  }
+
   return {
-    content: '',
-    isEducationalContent: false,
-    source: 'no_content'
+    content,
+    isEducationalContent,
+    source
   };
 };
 

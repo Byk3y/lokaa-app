@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, FileText, CheckCircle, ChevronRight } from "lucide-react";
+import { MoreHorizontal, FileText, CheckCircle, ChevronRight, Plus } from "lucide-react";
 import { formatAsTitle } from '@/utils/textUtils';
 import {
   DropdownMenu,
@@ -16,6 +16,8 @@ interface RootPagesListProps {
   onLessonSelect: (lesson: CourseLesson) => void;
   isOwner?: boolean;
   isAdmin?: boolean;
+  isCreatingPage?: boolean;
+  onAddLesson?: (moduleId?: string) => void;
   onRevertToDraft?: (pageId: string, title: string, isPublished: boolean) => void;
   onChangeFolder?: (pageId: string, title: string, moduleId: string | null) => void;
   onDuplicatePage?: (pageId: string) => void;
@@ -28,6 +30,8 @@ export default function RootPagesList({
   onLessonSelect,
   isOwner = false,
   isAdmin = false,
+  isCreatingPage = false,
+  onAddLesson,
   onRevertToDraft,
   onChangeFolder,
   onDuplicatePage,
@@ -37,13 +41,9 @@ export default function RootPagesList({
     return selectedLesson?.id === lesson.id;
   };
 
-  if (rootPages.length === 0) {
-    return null;
-  }
-
   return (
     <div className="space-y-1">
-      {rootPages.map((lesson) => (
+      {rootPages.length > 0 && rootPages.map((lesson) => (
         <div key={lesson.id} className="group">
           <div 
             className={`
@@ -130,6 +130,20 @@ export default function RootPagesList({
           </div>
         </div>
       ))}
+      
+      {/* New Page Button for root level */}
+      {(isOwner || isAdmin) && (
+        <div className="pt-2">
+          <Button
+            onClick={() => onAddLesson?.()}
+            disabled={isCreatingPage}
+            className="w-full h-8 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium border border-gray-200"
+          >
+            <Plus className="mr-2 h-3 w-3" />
+            {isCreatingPage ? 'Creating...' : 'New page'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

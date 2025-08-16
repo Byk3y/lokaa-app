@@ -138,12 +138,25 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
       
       log.debug('Hook', `🎓 [useCourseDetail] Fetching course: ${courseId}`);
       
-      // Check cache first
+      // Check cache first (try route id, then alias via courseCache internal logic)
       const cachedCourse = getCachedCourse(courseId);
       if (cachedCourse && (enableOfflineSupport || !isOffline)) {
+        // Serve cache immediately for fast paint
         setBaseCourse(cachedCourse);
         setIsInitializing(false);
         log.debug('Hook', `🎓 [useCourseDetail] Using cached course data for: ${courseId}`);
+
+        // Kick off a background refetch to reconcile stale cache (SWR)
+        try {
+          const fresh = await fetchCourseData({ courseId });
+          if (fresh) {
+            setBaseCourse(fresh);
+            setCachedCourse(courseId, fresh);
+            log.debug('Hook', `🎓 [useCourseDetail] Background refetch updated course: ${courseId}`);
+          }
+        } catch (e) {
+          log.warn('Hook', `🎓 [useCourseDetail] Background refetch failed for: ${courseId}`, e);
+        }
         return cachedCourse;
       } else {
         log.debug('Hook', `🎓 [useCourseDetail] Cache miss for course: ${courseId}, fetching fresh data`);
@@ -163,6 +176,8 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
       }
 
       setBaseCourse(courseData);
+      // Cache under both the requested key and the canonical UUID. The setter
+      // handles writing both and remembering alias mapping.
       setCachedCourse(courseId, courseData);
       setIsInitializing(false);
       
@@ -301,12 +316,18 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
           updatedLesson.is_published = optimisticUpdate.updates.is_published;
         }
         
-        // Apply content_text to educational_content if it exists
-        if (optimisticUpdate.updates.content_text !== undefined && updatedLesson.educational_content) {
-          updatedLesson.educational_content = {
-            ...updatedLesson.educational_content,
-            text_content: optimisticUpdate.updates.content_text
-          };
+        // Apply content_text to the appropriate field
+        // - If the lesson uses educational_content, update its text_content
+        // - Otherwise, update legacy lesson.content_text so the viewer reflects edits immediately
+        if (optimisticUpdate.updates.content_text !== undefined) {
+          if (updatedLesson.educational_content) {
+            updatedLesson.educational_content = {
+              ...updatedLesson.educational_content,
+              text_content: optimisticUpdate.updates.content_text
+            };
+          } else {
+            updatedLesson.content_text = optimisticUpdate.updates.content_text as string;
+          }
         }
         
         if (process.env.NODE_ENV === 'development') {

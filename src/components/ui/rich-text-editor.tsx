@@ -182,7 +182,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         controls: false,
         nocookie: false,
         HTMLAttributes: {
-          style: 'width: 100%; height: 360px; border: 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 0; padding: 0; display: block;',
+          class: 'youtube-embed',
+          style: 'width: 100%; aspect-ratio: 16/9; border: 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 0; padding: 0; display: block;',
         },
       }),
       Link.configure({
@@ -224,9 +225,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   }, [editor, content]);
 
   const handleSave = () => {
-    // Use the title from the title field, or default if empty
-    const finalTitle = title.trim() || 'Untitled Page';
-    onSave(finalTitle, editor?.getHTML() || '', published);
+    // Only save if there's a title
+    if (title.trim()) {
+      onSave(title.trim(), editor?.getHTML() || '', published);
+    }
   };
 
   // Add keyboard shortcuts
@@ -338,12 +340,17 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         const videoInfo = extractVideoInfo(videoData.url);
         
         if (videoInfo.provider === 'youtube' && videoInfo.videoId) {
-          // Use TipTap's YouTube extension
-          editor.chain().focus().setYoutubeVideo({
-            src: videoData.url,
-            width: 720,
-            height: 405,
-          }).run();
+          // Use TipTap's YouTube extension and ensure a paragraph after the video
+          editor
+            .chain()
+            .focus()
+            .setYoutubeVideo({
+              src: videoData.url,
+              width: 720,
+              height: 405,
+            })
+            .insertContent('<p></p>')
+            .run();
 
           toast({
             title: "Video embedded",
@@ -358,7 +365,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             lessonId,
             courseId,
           });
-          editor.chain().focus().insertContent(result.embedHtml).run();
+          // Insert the embed and add a trailing paragraph so user can type below
+          editor
+            .chain()
+            .focus()
+            .insertContent(result.embedHtml)
+            .insertContent('<p></p>')
+            .run();
         }
       } else if (videoData.type === 'upload' && videoData.file) {
         // For uploaded videos, use our upload service
@@ -367,7 +380,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           lessonId,
           courseId,
         });
-        editor.chain().focus().insertContent(result.embedHtml).run();
+        editor
+          .chain()
+          .focus()
+          .insertContent(result.embedHtml)
+          .insertContent('<p></p>')
+          .run();
       }
 
       toast({
@@ -433,11 +451,19 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const url = window.prompt('Enter YouTube URL:');
     if (url && editor) {
       try {
-        editor.chain().focus().setYoutubeVideo({
-          src: url,
-          width: 720,
-          height: 405,
-        }).run();
+                  // Add a paragraph before the video if we're at the start of the document
+          if (editor.state.selection.anchor === 0) {
+            editor.chain().focus().insertContent('<p></p>').run();
+          }
+          
+          editor.chain().focus().setYoutubeVideo({
+            src: url,
+            width: 720,
+            height: 405,
+          }).run();
+          
+          // Add a paragraph after the video for better spacing
+          editor.chain().focus().insertContent('<p></p>').run();
         
         toast({
           title: "YouTube video added",
@@ -691,15 +717,16 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
       {/* Content Area - Flexible scroll area */}
       <div className="flex-1 overflow-y-auto">
-        {/* Title - Only show if not hidden */}
+        {/* Title Area with Fixed Height and Spacing */}
         {!hideTitle && (
-          <div className="relative mb-4 px-6 pt-6">
+          <div className="relative px-6 pt-6 pb-4 bg-white sticky top-0 z-10 border-b border-gray-100">
             <input
               type="text"
               value={title}
               onChange={(e) => {
-                setTitle(formatAsTitle(e.target.value));
-                if (e.target.value.trim()) {
+                const newTitle = formatAsTitle(e.target.value);
+                setTitle(newTitle);
+                if (newTitle.trim()) {
                   setShowTitleError(false);
                 }
               }}
@@ -711,9 +738,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </div>
         )}
 
-
-        {/* Editor Content */}
-        <div className="min-h-[200px] editor-content [&_h1]:text-2xl px-6 pb-6">
+        {/* Editor Content with Top Padding */}
+        <div className="min-h-[200px] editor-content [&_h1]:text-2xl px-6 pb-6 pt-6">
           <EditorContent editor={editor} />
         </div>
       </div>
@@ -766,7 +792,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         {/* Second Row: SAVE button */}
         <div className="px-6 pb-3">
           <button 
-            onClick={handleSave} 
+            onClick={() => {
+              if (!title.trim()) {
+                setShowTitleError(true);
+                return;
+              }
+              handleSave();
+            }} 
             disabled={isSaving}
             className="w-full py-3 rounded-lg text-sm font-medium transition-colors bg-gray-300 text-gray-700 hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >

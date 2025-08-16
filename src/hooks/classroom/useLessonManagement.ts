@@ -160,13 +160,13 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
 
       const nextOrder = (maxOrderData?.[0]?.lesson_order || 0) + 1;
 
-      // Create lesson
+      // Create lesson - ✅ FIXED: Don't store content in both places
       const { data: lessonData, error: lessonError } = await supabase
         .from('course_lessons')
         .insert({
           title: finalTitle,
           content_type: 'rich_text',
-          content_text: newPageContent,
+          content_text: null, // ✅ Don't duplicate content - use educational_content only
           module_id: targetModuleId,
           lesson_order: nextOrder,
           content_id: contentData.id,
@@ -264,6 +264,9 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
         }
       }
 
+      // Track whether we changed textual content to drive a refetch for consistency
+      let didUpdateTextContent = false;
+
       // Update content
       if (updates.content_text) {
         if (lessonData.content_id) {
@@ -278,6 +281,7 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
               log.error('Hook', '🎓 [useLessonManagement] Error updating educational content:', error);
               throw error;
             }
+            didUpdateTextContent = true;
           } catch (error: any) {
             log.error('Hook', '🎓 [useLessonManagement] Error updating educational content:', error);
             if (error.message?.includes('timeout') || error.message?.includes('504') || error.message?.includes('upstream request timeout')) {
@@ -295,6 +299,7 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
             log.error('Hook', '🎓 [useLessonManagement] Error updating legacy content:', error);
             throw error;
           }
+          didUpdateTextContent = true;
         }
       }
 
@@ -328,15 +333,44 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
       if (updates.content_url !== undefined) {
         try {
           onInvalidateCache?.();
-          await onRefetch?.();
-          
-          // Clear optimistic updates after successful refetch for video operations
-          if (clearOptimisticUpdate) {
+          const fresh = await onRefetch?.();
+          // For videos we can clear immediately after a successful refetch
+          if (clearOptimisticUpdate && fresh) {
             clearOptimisticUpdate(lessonId);
           }
         } catch (refetchError) {
           log.warn('Hook', '🎓 [useLessonManagement] Refetch failed after video operation, but database update succeeded:', refetchError);
           // Keep optimistic updates if refetch fails - they ensure UI shows correct state
+        }
+      }
+      
+      // Also refresh when text content was updated to avoid stale cached course data
+      if (didUpdateTextContent) {
+        try {
+          onInvalidateCache?.();
+          const fresh = await onRefetch?.();
+          // Only clear optimistic update when we confirm the fresh data contains the new content
+          if (fresh) {
+            const allLessons = fresh.modules.flatMap(m => m.lessons);
+            const updated = allLessons.find(l => l.id === lessonId);
+            const freshText = updated?.educational_content?.text_content ?? updated?.content_text ?? null;
+            const proposedText = updates.content_text ?? null;
+            if (freshText !== null && proposedText !== null && freshText.trim() === proposedText.trim()) {
+              if (clearOptimisticUpdate) {
+                clearOptimisticUpdate(lessonId);
+              }
+            } else {
+              log.warn('Hook', '🎓 [useLessonManagement] Fresh data did not yet reflect text change. Keeping optimistic update and scheduling a retry refetch.');
+              // Retry once shortly after to account for any lag
+              setTimeout(async () => {
+                try {
+                  await onRefetch?.();
+                } catch {}
+              }, 500);
+            }
+          }
+        } catch (refetchError) {
+          log.warn('Hook', '🎓 [useLessonManagement] Refetch failed after text update, UI may rely on optimistic state until next load:', refetchError);
         }
       }
       

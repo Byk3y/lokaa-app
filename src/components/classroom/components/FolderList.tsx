@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, MoreHorizontal, FileText, CheckCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, FileText, CheckCircle, Plus } from "lucide-react";
 import { formatAsTitle } from '@/utils/textUtils';
 import {
   DropdownMenu,
@@ -21,6 +21,7 @@ interface FolderListProps {
   onLessonSelect: (lesson: CourseLesson) => void;
   isOwner?: boolean;
   isAdmin?: boolean;
+  isCreatingPage?: boolean;
   onAddLesson?: (moduleId?: string) => void;
   onRevertToDraft?: (pageId: string, title: string, isPublished: boolean) => void;
   onChangeFolder?: (pageId: string, title: string, moduleId: string | null) => void;
@@ -37,6 +38,7 @@ export default function FolderList({
   onLessonSelect,
   isOwner = false,
   isAdmin = false,
+  isCreatingPage = false,
   onAddLesson,
   onRevertToDraft,
   onChangeFolder,
@@ -197,6 +199,20 @@ export default function FolderList({
                   </div>
                 </div>
               ))}
+              
+              {/* New Page Button for this folder */}
+              {(isOwner || isAdmin) && (
+                <div className="pt-2">
+                  <Button
+                    onClick={() => onAddLesson?.(folder.id)}
+                    disabled={isCreatingPage}
+                    className="w-full h-8 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium border border-gray-200"
+                  >
+                    <Plus className="mr-2 h-3 w-3" />
+                    {isCreatingPage ? 'Creating...' : 'New page'}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

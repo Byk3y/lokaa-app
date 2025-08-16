@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { CheckCircle2, Edit, FileText } from 'lucide-react';
 import { log } from '@/utils/logger';
 import RichTextEditor from '@/components/ui/rich-text-editor';
+import LessonEditor from '@/components/classroom/components/LessonEditor';
+import type { CourseLesson } from '@/types/classroom/courseDetail';
 import { extractTitleFromContent } from '@/utils/lessonContentUtils';
 
 export interface EmptyLessonStateProps {
@@ -97,18 +99,27 @@ const EmptyLessonState: React.FC<EmptyLessonStateProps> = ({
               </div>
             ) : (
               <div className="w-full">
-                <RichTextEditor
-                  content={newPageContent}
-                  onChange={setNewPageContent}
-                  placeholder="Start writing your content..."
-                  defaultTitle={newPageTitle}
+                {/* Use the same editor as existing pages to ensure identical video behavior */}
+                <LessonEditor
+                  lesson={{
+                    id: 'temp-new-page',
+                    title: newPageTitle || 'Title',
+                    content_type: 'rich_text',
+                    content_text: newPageContent,
+                    content_url: null,
+                    lesson_order: 0,
+                    is_published: true,
+                    educational_content: { id: 'temp-content', title: newPageTitle || 'Title', content_type: 'rich_text', text_content: newPageContent, media_url: null, embed_data: null, estimated_duration: null, difficulty_level: null },
+                  } as CourseLesson}
+                  editingContent={newPageContent}
+                  isSaving={isSaving}
+                  onContentChange={setNewPageContent}
                   onSave={(title, content) => {
                     setNewPageTitle(title);
                     setNewPageContent(content);
                     handleSaveInlineCreation();
                   }}
                   onCancel={handleCancelInlineCreation}
-                  className="w-full max-w-none"
                 />
               </div>
             )}

@@ -196,6 +196,8 @@ export default function CourseSidebar({
             onLessonSelect={handleLessonSelect}
             isOwner={isOwner}
             isAdmin={isAdmin}
+            isCreatingPage={isCreatingPage}
+            onAddLesson={onAddLesson}
             onRevertToDraft={onRevertToDraft}
             onChangeFolder={onChangeFolder}
             onDuplicatePage={onDuplicatePage}
@@ -212,6 +214,7 @@ export default function CourseSidebar({
             onLessonSelect={handleLessonSelect}
             isOwner={isOwner}
             isAdmin={isAdmin}
+            isCreatingPage={isCreatingPage}
             onAddLesson={onAddLesson}
             onRevertToDraft={onRevertToDraft}
             onChangeFolder={onChangeFolder}

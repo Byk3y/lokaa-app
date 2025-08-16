@@ -50,7 +50,7 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
   }, [spaceId, userId, ownerId, getCourses, isLoading, fetchCourses]);
 
   // ✅ OPTIMIZED: Reduced frequency of ownership checks
-  // Only check ownership when user ID changes, not on every render
+  // Only check ownership/admin when user ID changes, not on every render
   useEffect(() => {
     if (!spaceId || !userId || !user?.id) return;
 
@@ -62,7 +62,8 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
       
       // ✅ FIXED: Add delay to prevent flickering and only refresh once per session
       // This prevents the disappearing draft courses issue
-      if (!hasDraftCourses && (ownerId === userId || user?.role === 'admin')) {
+      // Trigger for space owner (ownerId === userId) OR space admin (checked server-side in fetch)
+      if (!hasDraftCourses && (ownerId === userId)) {
         const sessionKey = `classroom_refresh_${spaceId}_${userId}`;
         const lastRefresh = sessionStorage.getItem(sessionKey);
         const now = Date.now();

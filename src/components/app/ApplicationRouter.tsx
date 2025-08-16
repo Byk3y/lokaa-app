@@ -184,6 +184,11 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
           </Suspense>
         } />
         <Route path="/auth/callback" element={<AuthRedirect />} />
+        <Route path="/auth/confirm" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <LazyRoutes.AuthConfirmPage />
+          </Suspense>
+        } />
         
         {/* Legacy @username format support */}
         <Route path="/@:slug" element={<ProfileRouteHandler />} />

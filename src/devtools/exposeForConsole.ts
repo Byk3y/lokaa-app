@@ -10,6 +10,7 @@ import { FileValidationService, validateImageDimensionsInternal } from '@/servic
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { chatApiService } from '@/features/chat/services/ChatApiService';
 import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
+import { exposeMigrationToBrowser } from '@/utils/migrateLessonContent';
 
 // Mock SupabaseIndexedDBBridge for development testing
 class DevSupabaseIndexedDBBridge {
@@ -333,6 +334,9 @@ export async function exposeForConsole() {
   (window as any).chatApiService = chatApiService;
   (window as any).migrationAdapter = migrationAdapter;
 
+  // Expose lesson content migration tools
+  exposeMigrationToBrowser();
+
   if (process.env.NODE_ENV === 'development') {
     log.debug('App', '🛠️ [DevTools] Console helpers exposed to window.lokaaTest');
     log.debug('App', '📖 Available commands:');
@@ -343,5 +347,6 @@ export async function exposeForConsole() {
     log.debug('App', '  window.lokaaTest.utils - Environment and utility functions');
     log.debug('App', '  window.chatApiService - Direct ChatApiService access');
     log.debug('App', '  window.migrationAdapter - Direct MigrationAdapter access');
+    log.debug('App', '  window.migrateLessonContent - Lesson content migration tools');
   }
 } 

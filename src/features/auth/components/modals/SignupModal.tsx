@@ -10,8 +10,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useModal } from '@/shared/components/modals/hooks/useModal';
+import { useAuth } from '@/contexts/AuthContext';
 import type { SignupFormData, AuthModalProps } from '@/shared/components/modals/types/modal';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,8 +29,11 @@ export default function SignupModal({
   redirectTo 
 }: SignupModalProps) {
   const { closeSignupModal, openLoginModal } = useModal();
+  const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -51,39 +54,35 @@ export default function SignupModal({
 
   const onSubmit = async (values: SignupFormValues) => {
     setIsLoading(true);
+    setSubmitError(null);
 
     try {
-      const { data, error: authError } = await getSupabaseClient().auth.signUp({
-        email: values.email,
-        password: values.password,
-        options: {
-          data: {
-            firstName: values.firstName,
-            lastName: values.lastName,
-            full_name: `${values.firstName} ${values.lastName}`
-          }
-        }
+      // Persist email so confirm page can verify if Supabase doesn't include it
+      try { localStorage.setItem('pending-signup-email', values.email); } catch {}
+      const result = await signUp(values.email, values.password, {
+        username: `${values.firstName.toLowerCase()}-${values.lastName.toLowerCase()}`,
+        firstName: values.firstName,
+        lastName: values.lastName
       });
 
-      if (authError) {
-        log.error('Component', 'Signup error:', authError);
-        onError?.(authError.message || 'Signup failed');
+      if (result.error) {
+        log.error('Component', 'Signup error:', result.error);
+        const msg = result.error.message || 'Signup failed';
+        setSubmitError(msg);
+        onError?.(msg);
         return;
       }
 
-      log.debug('Component', 'Signup successful', data);
-
-      // Close modal first
-      closeSignupModal();
-
-      // Handle success callback
-      onSuccess?.();
+      log.debug('Component', 'Signup successful', result);
 
       // Handle redirect - check if email confirmation is required
-      if (data.user && !data.user.email_confirmed_at) {
-        // Show success message for email confirmation
-        alert('Please check your email and click the confirmation link to complete your account setup.');
-      } else {
+      if (result.data?.user && !result.data.session) {
+        // Keep modal open and show info + resend option
+        setInfoMessage('Please check your email and click the confirmation link to complete your account setup.');
+      } else if (result.data?.session) {
+        // Close modal and notify success when user is logged in
+        closeSignupModal();
+        onSuccess?.();
         // User is immediately logged in, redirect
         if (redirectTo) {
           window.location.replace(redirectTo);
@@ -93,6 +92,7 @@ export default function SignupModal({
     } catch (err: any) {
       log.error('Component', 'Signup exception:', err);
       const errorMessage = err.message || 'An unexpected error occurred. Please try again.';
+      setSubmitError(errorMessage);
       onError?.(errorMessage);
     } finally {
       setIsLoading(false);
@@ -107,6 +107,40 @@ export default function SignupModal({
   return (
     <Form methods={form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {infoMessage && (
+          <div className="rounded-md border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800">
+            {infoMessage}
+            <div className="mt-2">
+              <button
+                type="button"
+                className="text-teal-700 underline"
+                onClick={async () => {
+                  try {
+                    const { getSupabaseClient } = await import('@/integrations/supabase/client');
+                    await getSupabaseClient().auth.resend({ type: 'signup', email: form.getValues('email') });
+                    setInfoMessage('Verification email resent. Please check your inbox (and spam folder).');
+                  } catch (e) {
+                    setSubmitError('Unable to resend verification email. Please try again in a minute.');
+                  }
+                }}
+              >
+                Resend verification email
+              </button>
+            </div>
+          </div>
+        )}
+        {submitError && (
+          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {submitError}
+            {submitError.toLowerCase().includes('already') && (
+              <>
+                {' '}– <button type="button" onClick={handleSwitchToLogin} className="underline">Sign in</button>
+                {' '}or{' '}
+                <a href="/forgot-password" className="underline">Reset password</a>
+              </>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <FormField
             control={form.control}

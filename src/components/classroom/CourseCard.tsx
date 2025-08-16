@@ -80,6 +80,14 @@ export const CourseCard = memo<CourseCardProps>(function CourseCard({
 
   // Get progress percentage (default to 0 if undefined)
   const progressPercent = course.progress || 0;
+  
+  // TEMP DEBUG: Log course progress data
+  console.log(`🎯 [CourseCard] "${course.title}" received progress:`, {
+    courseId: course.id?.slice(0, 8) + '...',
+    progressFromProps: course.progress,
+    progressPercent,
+    courseTitle: course.title?.slice(0, 30) + (course.title?.length > 30 ? '...' : '')
+  });
 
   return (
     <motion.div

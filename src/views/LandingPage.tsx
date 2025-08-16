@@ -15,6 +15,22 @@ import ModernDropdownTrigger from '@/components/ModernDropdownTrigger';
 import StickyNoteVisual from '@/components/ui/StickyNoteVisual';
 import UpcomingActivityCard from '@/components/ui/UpcomingActivityCard';
 
+/**
+ * 🎯 LANDING PAGE TOGGLE SYSTEM
+ * 
+ * To switch between feature-focused content and space cards:
+ * 
+ * 1. ENABLE SPACE CARDS (when you have real spaces):
+ *    Add to your .env file: VITE_SHOW_SPACE_CARDS=true
+ * 
+ * 2. DISABLE SPACE CARDS (current state - feature-focused):
+ *    Remove VITE_SHOW_SPACE_CARDS from .env or set to false
+ * 
+ * 3. AUTOMATIC FALLBACK:
+ *    If VITE_SHOW_SPACE_CARDS=true but no spaces exist, 
+ *    it will automatically show feature-focused content
+ */
+
 // Categories for the discovery section - refined selection for desktop view
 const categories = [
   { id: 'all', label: 'All', icon: '•' },
@@ -53,6 +69,10 @@ export default function LandingPage() {
     searchQuery = '', 
     setSearchQuery = () => {} 
   } = useSpacesData() || {};
+  
+  // 🎯 [LANDING PAGE TOGGLE] Easy way to switch between feature-focused and space cards
+  const SHOW_SPACE_CARDS = import.meta.env.VITE_SHOW_SPACE_CARDS === 'true' || false;
+  const hasSpaces = filteredSpaces.length > 0;
   
   // 🚀 [Phase 1] CRITICAL FIX: Redirect authenticated users immediately
   useEffect(() => {
@@ -372,35 +392,88 @@ export default function LandingPage() {
           </section>
         </DottedBackground>
 
-        {/* Categories section with reduced top margin */}
-        <CategoriesFilter 
-          activeCategory={activeCategory} 
-          setActiveCategory={setActiveCategory} 
-        />
-
-        {/* Space cards section with reduced padding */}
-        <section className="py-4 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-10">
-            {/* Show message when no spaces match filters */}
-            {!isLoading && filteredSpaces.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-lg text-gray-600">No spaces found that match your criteria.</p>
-                <button
-                  onClick={handleDirectSignUp} 
-                  className="inline-block mt-4 px-5 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
-                >
-                  Create a new space
-                </button>
-          </div>
-            )}
-
-            {/* Space cards grid */}
-            <SpaceCardGrid 
-              spaces={filteredSpaces} 
-              isLoading={isLoading} 
+        {/* Conditional Landing Page Content */}
+        {SHOW_SPACE_CARDS && hasSpaces ? (
+          // Show space cards when enabled and spaces exist
+          <>
+            {/* Categories section with reduced top margin */}
+            <CategoriesFilter 
+              activeCategory={activeCategory} 
+              setActiveCategory={setActiveCategory} 
             />
-          </div>
-        </section>
+
+            {/* Space cards section with reduced padding */}
+            <section className="py-4 bg-gray-50">
+              <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-10">
+                {/* Show message when no spaces match filters */}
+                {!isLoading && filteredSpaces.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-lg text-gray-600">No spaces found that match your criteria.</p>
+                    <button
+                      onClick={handleDirectSignUp} 
+                      className="inline-block mt-4 px-5 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                    >
+                      Create a new space
+                    </button>
+                  </div>
+                )}
+
+                {/* Space cards grid */}
+                <SpaceCardGrid 
+                  spaces={filteredSpaces} 
+                  isLoading={isLoading} 
+                />
+              </div>
+            </section>
+          </>
+        ) : (
+          // Show feature-focused content when space cards are disabled or no spaces exist
+          <section className="py-16 bg-white">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-10">
+              <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+                Everything you need to build a thriving community
+              </h2>
+              
+              <div className="grid md:grid-cols-3 gap-8 mb-12">
+                {/* Feature 1 */}
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">🚀</span>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Launch in Minutes</h3>
+                  <p className="text-gray-600">Create your space with our intuitive builder. No coding required.</p>
+                </div>
+                
+                {/* Feature 2 */}
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">💰</span>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Monetize Your Community</h3>
+                  <p className="text-gray-600">Turn your passion into profit with built-in monetization tools.</p>
+                </div>
+                
+                {/* Feature 3 */}
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">📈</span>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Grow Together</h3>
+                  <p className="text-gray-600">Engage members with posts, courses, and real-time interactions.</p>
+                </div>
+              </div>
+              
+              <div className="text-center">
+                <button
+                  onClick={handleDirectSignUp}
+                  className="px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-medium text-lg transition-colors"
+                >
+                  Start Building Your Community
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Footer section with reduced padding */}
         <footer className="bg-white border-t border-gray-100 py-6">

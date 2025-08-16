@@ -215,7 +215,20 @@ import { useClassroomIntegration } from '@/hooks/classroom';
 - Check accessibility compliance
 
 ### Security Review
-- **ALWAYS run Semgrep security scan on generated code**
+- **Run Semgrep security scan ONLY when necessary:**
+  - When adding new API endpoints or data processing logic
+  - When implementing authentication/authorization features
+  - When handling user input or file uploads
+  - When making database queries or data transformations
+  - When adding third-party integrations
+  - When implementing payment or sensitive data handling
+- **DO NOT run security scans for:**
+  - UI styling changes (CSS, Tailwind classes)
+  - Simple text content updates
+  - SVG/icon modifications
+  - Component prop changes without logic
+  - File organization or import changes
+  - Documentation updates
 - Review all security findings before merging
 - Address critical and high-severity vulnerabilities immediately
 - Use Semgrep for both automated and manual security reviews

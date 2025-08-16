@@ -128,6 +128,9 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
   const [showVideo, setShowVideo] = useState(true);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Determine if this lesson has a FEATURED video (separate player) versus an inline embed
+  const hasFeaturedVideo = !!lesson.content_url || !!lesson.educational_content?.media_url;
+
   // Initialize TipTap editor
   const editor = useEditor({
     extensions: [
@@ -157,8 +160,8 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
       return;
     }
     
-    // Check if video was intentionally removed (was shown initially but now hidden)
-    const hadVideoInitially = VideoContentExtractor.hasVideo(lesson);
+    // Check if featured video was intentionally removed (shown initially but now hidden)
+    const hadVideoInitially = hasFeaturedVideo;
     const videoRemoved = hadVideoInitially && !showVideo;
     
     onSave(title, editor?.getHTML() || '', published, videoRemoved);
@@ -248,9 +251,12 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
     const url = window.prompt('Enter YouTube URL');
     if (url) {
       try {
-        const videoId = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)?.[1];
-        if (videoId) {
-          editor?.chain().focus().setYoutubeVideo({ src: `https://www.youtube.com/embed/${videoId}` }).run();
+        const idMatch = url.match(/(?:youtube\.com\/embed\/|youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]+)/);
+        const videoId = idMatch?.[1];
+        if (editor && videoId) {
+          // Use HTML embed for consistency
+          const embedHtml = `<div class="video-container" style="position: relative; width: 100%; max-width: 560px; margin: 16px auto;"><div style="position: relative; width: 100%; height: 0; padding-bottom: 56.25%;"><iframe src="https://www.youtube.com/embed/${videoId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div></div>`;
+          editor.chain().focus().insertContent(embedHtml).insertContent('<p></p>').run();
           toast({
             title: "YouTube video added",
             description: "Video has been embedded in your content",
@@ -272,7 +278,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
   if (!editor) {
     return null;
   }
-
+  
   return (
     <div className="flex flex-col h-full bg-white w-full">
       {/* Full-width content area with proper spacing - consistent with normal view */}
@@ -403,18 +409,17 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
           aria-invalid={showTitleError}
           className={`w-full text-xl font-bold border-0 bg-transparent outline-none focus:ring-0 p-0 placeholder-gray-400
             ${showTitleError ? 'text-red-500' : 'text-gray-900'}`}
-        />
-      </div>
-
-      {/* 3. VIDEO PREVIEW */}
-      {(() => {
-        const hasVideo = VideoContentExtractor.hasVideo(lesson);
-        if (hasVideo && showVideo) {
-          return (
+            />
+          </div>
+          
+      {/* 3. VIDEO PREVIEW - only for featured videos (content_url/media_url) */}
+          {(() => {
+            if (hasFeaturedVideo && showVideo) {
+              return (
             <div className="mb-1 px-6 relative group">
               {/* Add top padding to prevent video cropping due to X button */}
               <div className="pt-2">
-                <VideoRenderer lesson={lesson} />
+                  <VideoRenderer lesson={lesson} />
               </div>
               {/* X button to remove video - appears on hover */}
               <button
@@ -426,11 +431,11 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </div>
-          );
-        }
-        return null;
-      })()}
+                </div>
+              );
+            }
+              return null;
+          })()}
 
       {/* 4. CONTENT AREA */}
       <div className="flex-1 overflow-y-auto">

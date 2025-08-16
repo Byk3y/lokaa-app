@@ -31,6 +31,10 @@ import type {
 
 export class EducationalContentService {
   private supabase = getSupabaseClient();
+  // Lightweight content cache for viewer hydration to avoid deep nested
+  // selects on revisit. Stores only text_content keyed by lessonId.
+  private static textCache = new Map<string, { text: string; ts: number }>();
+  private static readonly TEXT_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
   // ============================================================================
   // EDUCATIONAL CONTENT METHODS
@@ -208,17 +212,29 @@ export class EducationalContentService {
   /**
    * Get lesson with educational content
    */
-  async getLessonWithContent(lessonId: string): Promise<LessonWithContent | null> {
+  async getLessonWithContent(lessonId: string, options?: { textOnly?: boolean }): Promise<LessonWithContent | null> {
     try {
+      const textOnly = options?.textOnly === true;
+
+      // Text-only fast path with in-memory cache
+      if (textOnly) {
+        const cached = EducationalContentService.textCache.get(lessonId);
+        if (cached && Date.now() - cached.ts < EducationalContentService.TEXT_TTL_MS) {
+          return {
+            id: lessonId as any,
+            educational_content: { text_content: cached.text } as any,
+            course_videos: [],
+            content_blocks: [],
+          } as unknown as LessonWithContent;
+        }
+      }
+
       // Get lesson data
-      const { data: lessonData, error: lessonError } = await this.supabase
-        .from('course_lessons')
-        .select(`
-          *,
-          educational_content(*),
-          course_videos(*),
-          lesson_content_blocks(*, educational_content(*))
-        `)
+      const baseQuery = this.supabase.from('course_lessons' as any);
+      const selectAll = `*, educational_content(*), course_videos(*), lesson_content_blocks(*, educational_content(*))`;
+      const selectTextOnly = `id, content_id, educational_content(text_content)`;
+      const { data: lessonData, error: lessonError } = await baseQuery
+        .select((textOnly ? selectTextOnly : selectAll) as any)
         .eq('id', lessonId)
         .single();
 
@@ -227,25 +243,37 @@ export class EducationalContentService {
         throw lessonError;
       }
 
+      const ld: any = lessonData as any;
+
       // If lesson doesn't have content_id, it's using the old system
-      if (!lessonData.content_id) {
+      if (!ld?.content_id) {
         log.warn('EducationalContent', '⚠️ Lesson using old post-based system:', lessonId);
         
         // Return lesson with legacy content handling
         return {
-          ...lessonData,
+          ...ld,
           educational_content: null as any, // Will need special handling
-          course_videos: lessonData.course_videos || [],
+          course_videos: ld?.course_videos || [],
           content_blocks: [],
         };
       }
 
-      return {
-        ...lessonData,
-        educational_content: lessonData.educational_content,
-        course_videos: lessonData.course_videos || [],
-        content_blocks: lessonData.lesson_content_blocks || [],
-      };
+      const result = {
+        ...ld,
+        educational_content: ld?.educational_content,
+        course_videos: ld?.course_videos || [],
+        content_blocks: ld?.lesson_content_blocks || [],
+      } as LessonWithContent;
+
+      // Populate text-only cache
+      if (textOnly && ld?.educational_content?.text_content) {
+        EducationalContentService.textCache.set(lessonId, {
+          text: ld.educational_content.text_content,
+          ts: Date.now(),
+        });
+      }
+
+      return result;
     } catch (error) {
       log.error('EducationalContent', 'Failed to get lesson with content:', error);
       throw error;

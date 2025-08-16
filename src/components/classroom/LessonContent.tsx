@@ -6,6 +6,7 @@ import { getContentSource, extractTitleFromContent } from '@/utils/lessonContent
 import EmptyLessonState from './components/EmptyLessonState';
 import LessonEditor from './components/LessonEditor';
 import LessonViewer from './components/LessonViewer';
+import { EducationalContentService } from '@/services/EducationalContentService';
 import type { CourseLesson, LessonContentProps } from '@/types/classroom/courseDetail';
 
 const LessonContent: React.FC<LessonContentProps> = ({ 
@@ -21,6 +22,8 @@ const LessonContent: React.FC<LessonContentProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editingContent, setEditingContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isHydratingContent, setIsHydratingContent] = useState(false);
+  const [hydratedTextContent, setHydratedTextContent] = useState<string | null>(null);
   const { toast } = useToast();
   
   // Reset edit state when lesson changes
@@ -28,6 +31,45 @@ const LessonContent: React.FC<LessonContentProps> = ({
     setIsEditing(false);
     setEditingContent('');
   }, [lesson?.id]);
+
+  // Lazy hydrate educational content for the selected lesson when needed
+  useEffect(() => {
+    const hydrate = async () => {
+      if (!lesson) return;
+      // Only hydrate if the lesson references educational_content but it isn't loaded
+      if (lesson.content_id && !lesson.educational_content) {
+        try {
+          setIsHydratingContent(true);
+          const svc = new EducationalContentService();
+          const withContent = await svc.getLessonWithContent(lesson.id, { textOnly: true });
+          if (withContent?.educational_content?.text_content) {
+            setHydratedTextContent(withContent.educational_content.text_content);
+          }
+        } catch (e) {
+          // Non-fatal: viewer will fallback to legacy content_text if present
+        } finally {
+          setIsHydratingContent(false);
+        }
+      }
+    };
+    hydrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson?.id, lesson?.content_id]);
+
+  // Merge hydrated text into a display lesson without mutating or saving
+  const displayLesson = React.useMemo(() => {
+    if (!lesson) return lesson;
+    if (hydratedTextContent) {
+      return {
+        ...lesson,
+        educational_content: {
+          ...(lesson.educational_content || {} as any),
+          text_content: hydratedTextContent
+        }
+      } as typeof lesson;
+    }
+    return lesson;
+  }, [lesson, hydratedTextContent]);
   
   // Debouncing refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -229,7 +271,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
   // --- Skool-style: title left, actions right inside content card ---
   return (
     <LessonViewer
-      lesson={lesson}
+      lesson={displayLesson}
       isOwner={isOwner}
       isAdmin={isAdmin}  
       completed={completed}

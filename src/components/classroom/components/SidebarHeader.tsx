@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Plus, MoreHorizontal, ArrowLeft } from "lucide-react";
+import { MoreHorizontal, ArrowLeft } from "lucide-react";
 import { formatAsTitle } from '@/utils/textUtils';
 import {
   DropdownMenu,
@@ -94,18 +94,6 @@ export default function SidebarHeader({
           </DropdownMenu>
         )}
       </div>
-      
-      {/* Add New Page Button */}
-      {(isOwner || isAdmin) && (
-        <Button
-          onClick={() => onAddLesson?.()}
-          disabled={isCreatingPage}
-          className="w-full h-9 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {isCreatingPage ? 'Creating...' : 'New page'}
-        </Button>
-      )}
     </div>
   );
 }

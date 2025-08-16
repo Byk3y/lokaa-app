@@ -25,7 +25,8 @@
     "test:security:coverage": "vitest run --coverage src/__tests__/security",
     "ci:security": "vitest run --coverage --coverage.thresholds.lines=90 --coverage.thresholds.functions=90 --coverage.thresholds.branches=90 --coverage.thresholds.statements=90 src/__tests__/security",
     "check:coverage": "node scripts/checkCoverage.js",
-    "check:validation": "vitest run --dir tests/validation"
+    "check:validation": "vitest run --dir tests/validation",
+    "landing:feature": "./scripts/toggle-landing-page.sh"
   },
   "engines": {
     "node": ">=20.0.0"

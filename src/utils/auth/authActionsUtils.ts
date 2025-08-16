@@ -114,11 +114,17 @@ export const signUp = async (
     setters.setHasRouted(false);
     
     // Attempt to sign up
+    const isLocalhost = typeof window !== 'undefined' && window.location.origin.startsWith('http://localhost');
+    const redirectTo = isLocalhost
+      ? 'https://lokaa.app/auth/confirm' // ensure https link for email clients
+      : `${window.location.origin}/auth/confirm`;
+
     const { data, error } = await getSupabaseClient().auth.signUp({ 
       email, 
       password,
       options: {
-        data: metadata
+        data: metadata,
+        emailRedirectTo: redirectTo
       }
     });
     

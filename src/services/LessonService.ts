@@ -26,6 +26,11 @@ export interface LessonCreateData {
 export interface LessonUpdateData {
   title?: string;
   content_text?: string;
+  /**
+   * Canonical video URL for the lesson. When provided, the HTML content should have
+   * any embedded video iframes removed to avoid duplicates. Explicit null clears video.
+   */
+  content_url?: string | null;
   is_published?: boolean;
   lesson_order?: number;
   module_id?: string;
@@ -166,6 +171,10 @@ export class LessonService {
       const lessonUpdates: any = {};
       if (updates.title !== undefined) lessonUpdates.title = updates.title;
       if (updates.is_published !== undefined) lessonUpdates.is_published = updates.is_published;
+      // Apply content_url when explicitly present (including null to remove)
+      if (Object.prototype.hasOwnProperty.call(updates, 'content_url')) {
+        lessonUpdates.content_url = updates.content_url;
+      }
       if (updates.lesson_order !== undefined) lessonUpdates.lesson_order = updates.lesson_order;
       if (updates.module_id !== undefined) lessonUpdates.module_id = updates.module_id;
       if (updates.estimated_duration !== undefined) lessonUpdates.estimated_duration = updates.estimated_duration;
@@ -386,14 +395,14 @@ export class LessonService {
       // Create the duplicate lesson
       const duplicateData: LessonCreateData = {
         title: `${originalLesson.title} (Copy)`,
-        content_text: originalLesson.content_text,
-        module_id: targetModuleId || originalLesson.module_id,
-        course_id: originalLesson.course_id,
-        content_type: originalLesson.content_type,
-        page_type: originalLesson.page_type,
+        content_text: originalLesson.content_text || undefined,
+        module_id: targetModuleId || (originalLesson.module_id as string),
+        course_id: (originalLesson as any).course_id as string,
+        content_type: (originalLesson.content_type as any) || 'rich_text',
+        page_type: (originalLesson.page_type as any) || 'page',
         is_published: originalLesson.is_published,
-        estimated_duration: originalLesson.estimated_duration,
-        difficulty_level: originalLesson.difficulty_level
+        estimated_duration: originalLesson.estimated_duration ?? undefined,
+        difficulty_level: (originalLesson.difficulty_level as any) ?? undefined
       };
 
       const duplicatedLesson = await this.createLesson(duplicateData);

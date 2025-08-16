@@ -5,6 +5,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 
 import { useUserSpacesStore } from '@/hooks/useUserSpacesStore';
 import { authMigrationHelper } from '@/utils/auth/authMigrationHelper';
+import { signUp as signUpAction } from '@/utils/auth/authActionsUtils';
 // import { simpleMobileManager } from '@/utils/SimpleMobileManager' // ✅ Simplified mobile manager
 
 
@@ -14,6 +15,7 @@ interface AuthContextType {
   loading: boolean;
   routingInProgress: boolean;
   signOut: (path?: string) => Promise<void>;
+  signUp: (email: string, password: string, options?: { username?: string; firstName?: string; lastName?: string }) => Promise<{ data?: { user: User | null; session: Session | null; } | null; error: any; success?: boolean; }>;
   // Enhanced authentication utilities
   refreshSession: () => Promise<boolean>;
   validateSession: () => Promise<boolean>;
@@ -61,7 +63,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } catch (error) {
         retryCount++;
         if (retryCount >= maxRetries) {
-          log.error('Context', '[AuthProvider] Failed to initialize auth after', maxRetries, 'attempts:', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          log.error('Context', `[AuthProvider] Failed to initialize auth after ${maxRetries} attempts: ${errorMessage}`, error instanceof Error ? error : undefined);
           setLoading(false);
           return;
         }
@@ -284,16 +287,60 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // Sign up functionality
+  const signUp = useCallback(async (
+    email: string, 
+    password: string, 
+    options?: { username?: string; firstName?: string; lastName?: string }
+  ) => {
+    try {
+      log.debug('Context', '[AuthProvider] Starting sign up process for:', email);
+      
+      const result = await signUpAction(email, password, options, {
+        setAuthErrors: (errors) => {
+          // Handle auth errors - could be enhanced to show toasts
+          log.warn('Context', '[AuthProvider] Sign up auth errors:', errors);
+        },
+        setHasRouted: (hasRouted) => {
+          setRoutingInProgress(hasRouted);
+        },
+        setUser: (user) => {
+          setUser(user);
+        }
+      });
+
+      if (result.success && result.data?.session) {
+        // Update session and user state on successful signup
+        setSession(result.data.session);
+        setUser(result.data.session.user);
+        log.debug('Context', '[AuthProvider] Sign up successful, session created');
+      } else if (result.success && result.data?.user && !result.data.session) {
+        // Email confirmation required
+        log.debug('Context', '[AuthProvider] Sign up successful, email confirmation required');
+      }
+
+      return result;
+    } catch (error) {
+      log.error('Context', '[AuthProvider] Sign up error:', error);
+      return {
+        error: { message: error instanceof Error ? error.message : 'Sign up failed' },
+        data: null,
+        success: false
+      };
+    }
+  }, []);
+
   const contextValue = useMemo(() => ({
     session,
     user,
     loading,
     routingInProgress,
     signOut,
+    signUp,
     // Enhanced authentication utilities
     refreshSession,
     validateSession
-  }), [session, user, loading, routingInProgress, signOut, refreshSession, validateSession]);
+  }), [session, user, loading, routingInProgress, signOut, signUp, refreshSession, validateSession]);
 
   return (
     <AuthContext.Provider value={contextValue}>

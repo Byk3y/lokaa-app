@@ -137,7 +137,7 @@ export function useCourseFetching(options: UseCourseFetchingOptions = {}): UseCo
 
       const canViewDrafts = isCreator || isGeneralAdmin || isSpaceAdmin;
 
-      // Fetch modules and lessons
+      // Fetch modules and lessons (lightweight outline)
       const { data: modulesData, error: modulesError } = await supabase
         .from('course_modules')
         .select(`
@@ -168,18 +168,27 @@ export function useCourseFetching(options: UseCourseFetchingOptions = {}): UseCo
       }
 
       // Transform and filter data
+      const transformedModules = (modulesData || []).map(module => ({
+        ...module,
+        lessons: (module.course_lessons || [])
+          .filter(lesson => canViewDrafts || lesson.is_published)
+          .sort((a, b) => a.lesson_order - b.lesson_order)
+          .map(lesson => ({
+            ...lesson,
+            completed: completedLessonIds.has(lesson.id)
+          }))
+      }));
+
+      // Calculate course progress
+      const allLessons = transformedModules.flatMap(module => module.lessons);
+      const totalLessons = allLessons.length;
+      const completedLessons = allLessons.filter(lesson => lesson.completed).length;
+      const progressPercentage = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
       const transformedCourse: CourseDetailData = {
         ...courseData,
-        modules: (modulesData || []).map(module => ({
-          ...module,
-          lessons: (module.course_lessons || [])
-            .filter(lesson => canViewDrafts || lesson.is_published)
-            .sort((a, b) => a.lesson_order - b.lesson_order)
-            .map(lesson => ({
-              ...lesson,
-              completed: completedLessonIds.has(lesson.id)
-            }))
-        }))
+        modules: transformedModules,
+        progress: progressPercentage
       };
 
       setLastFetchedCourse(transformedCourse);
