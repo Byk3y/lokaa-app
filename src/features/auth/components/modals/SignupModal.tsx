@@ -77,8 +77,9 @@ export default function SignupModal({
 
       // Handle redirect - check if email confirmation is required
       if (result.data?.user && !result.data.session) {
-        // Keep modal open and show info + resend option
-        setInfoMessage('Please check your email and click the confirmation link to complete your account setup.');
+        // Redirect to confirmation page so user can enter OTP or resend
+        const confirmUrl = `/auth/confirm?email=${encodeURIComponent(values.email)}&type=signup`;
+        window.location.assign(confirmUrl);
       } else if (result.data?.session) {
         // Close modal and notify success when user is logged in
         closeSignupModal();
