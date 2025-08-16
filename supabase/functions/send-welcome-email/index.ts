@@ -42,7 +42,28 @@ serve(async (req) => {
       throw new Error('Invalid email type')
     }
 
-    // Send email using Resend API
+    // 1) Optionally create contact in Resend Audience (best-effort)
+    const audienceId = Deno.env.get('RESEND_AUDIENCE_ID');
+    if (audienceId) {
+      try {
+        await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${resendApiKey}`,
+          },
+          body: JSON.stringify({
+            email: to,
+            firstName: firstName || undefined,
+            unsubscribed: false,
+          })
+        });
+      } catch (_) {
+        // ignore audience errors
+      }
+    }
+
+    // 2) Send email using Resend API
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {

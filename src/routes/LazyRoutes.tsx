@@ -1,4 +1,5 @@
 import { lazy } from 'react';
+import { lazyWithReload } from '@/utils/lazyWithReload';
 import { useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
@@ -58,7 +59,7 @@ export const DebugPage = lazy(() => import('@/views/DebugPage'));
 export const AuthConfirmPage = lazy(() => import('@/views/AuthConfirmPage'));
 
 // Utility pages
-export const QuickSpaceRedirect = lazy(() => import('@/views/QuickSpaceRedirect'));
+export const QuickSpaceRedirect = lazyWithReload(() => import('@/views/QuickSpaceRedirect'), { id: 'QuickSpaceRedirect' });
 export const SpaceRedirect = lazy(() => import('@/views/SpaceRedirect'));
 export const SpaceRedirectWithValidation = lazy(() => import('@/views/SpaceRedirect').then(module => ({ default: module.SpaceRedirectWithValidation })));
 

@@ -132,12 +132,23 @@ export function SpaceSidebar() {
                     onClick={() => goToSpace(space.id)}
                   >
                     <Avatar className="h-10 w-10 border-2 border-lokaa-200">
-                      <AvatarImage 
-                        src={space.cover_image} 
-                        onError={(e) => {
-                          log.debug('Component', `Failed to load avatar for space: ${space.name}`);
-                        }}
-                      />
+                      {/* Prefer icon; fallback to cover; if neither, rely on initials */}
+                      {(() => {
+                        const src = space.icon_image || space.cover_image || '';
+                        if (!src) return null;
+                        return (
+                          <AvatarImage
+                            src={src}
+                            loading="eager"
+                            decoding="async"
+                            onError={(e) => {
+                              // Hide the broken img so fallback initials show instantly
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                              log.debug('Component', `Failed to load avatar for space: ${space.name}`);
+                            }}
+                          />
+                        );
+                      })()}
                       <AvatarFallback 
                         className="bg-lokaa-100 text-lokaa-700"
                         style={{ 
@@ -184,12 +195,21 @@ export function SpaceSidebar() {
                       onClick={() => goToSpace(space.id)}
                     >
                       <Avatar className="h-10 w-10">
-                        <AvatarImage 
-                          src={space.cover_image} 
-                          onError={(e) => {
-                            log.debug('Component', `Failed to load avatar for space: ${space.name}`);
-                          }}
-                        />
+                        {(() => {
+                          const src = space.icon_image || space.cover_image || '';
+                          if (!src) return null;
+                          return (
+                            <AvatarImage
+                              src={src}
+                              loading="eager"
+                              decoding="async"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                log.debug('Component', `Failed to load avatar for space: ${space.name}`);
+                              }}
+                            />
+                          );
+                        })()}
                         <AvatarFallback 
                           className="bg-lokaa-100 text-lokaa-700"
                           style={{ 
