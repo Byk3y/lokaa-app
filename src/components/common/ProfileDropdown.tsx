@@ -9,7 +9,7 @@ import { safelyNavigateToProfile } from '@/utils/profileRedirect';
 import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { navigateToProfileWithContext, getCurrentSpaceContext } from '@/utils/spaceContextUtils';
 import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
-import { getInitials } from '@/shared/utils/avatar-utils';
+import { getInitials, AvatarUtils } from '@/shared/utils/avatar-utils';
 
 interface CustomMenuItem {
   label: string;
@@ -107,7 +107,8 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
     
     if (profileSlug) {
       // Use the new space context utility for clean navigation with Skool-style URLs
-      navigateToProfileWithContext(profileSlug, navigate);
+      const normalized = profileSlug.replace(/^\/?@/, '').replace(/^\//, '');
+      navigateToProfileWithContext(normalized, navigate);
     } else if (currentUser) {
       // Fallback to settings if no profile URL is available
       navigate(`/settings/profile`);
@@ -176,6 +177,8 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
   
   if (!currentUser) return null;
 
+  const fallbackBg = AvatarUtils.getEnhancedAvatarColor(currentUser.id);
+
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       {/* Profile button */}
@@ -189,7 +192,10 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
       >
         <Avatar className={`${getAvatarSize()} transition border border-[#E1E4E8] cursor-pointer`}>
           <AvatarImage src={avatarUrl} alt={displayName} />
-          <AvatarFallback className="bg-teal-50 text-teal-900">
+          <AvatarFallback
+            style={{ backgroundColor: fallbackBg }}
+            className="text-white font-semibold"
+          >
             {getInitials(displayName)}
           </AvatarFallback>
         </Avatar>
