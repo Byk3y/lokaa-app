@@ -80,14 +80,24 @@ export function useStableSpaceId({
       }
     }
 
-    // Update ref if we successfully resolved
-    if (resolvedSpaceId && subdomainChanged) {
-      lastResolvedRef.current = { subdomain, spaceId: resolvedSpaceId };
-      log.debug('Hook', `🔒 [useStableSpaceId] Successfully resolved stable space ID for ${subdomain}: ${resolvedSpaceId}`);
+    // Update ref if we successfully resolved for this subdomain
+    if (resolvedSpaceId) {
+      if (subdomainChanged || lastResolvedRef.current.spaceId !== resolvedSpaceId) {
+        lastResolvedRef.current = { subdomain, spaceId: resolvedSpaceId };
+        log.debug('Hook', `🔒 [useStableSpaceId] Successfully resolved stable space ID for ${subdomain}: ${resolvedSpaceId}`);
+      }
+      return resolvedSpaceId;
     }
 
-    // Return the resolved space ID or keep the last valid one
-    return resolvedSpaceId || lastResolvedRef.current.spaceId;
+    // IMPORTANT: If subdomain changed but we couldn't resolve the new ID yet,
+    // do NOT fall back to the previous space ID — return undefined to avoid
+    // loading posts from the previous space.
+    if (subdomainChanged) {
+      return undefined;
+    }
+
+    // If subdomain hasn't changed, keep using the last resolved ID
+    return lastResolvedRef.current.spaceId;
   }, [contextSpaceData, currentSpaceData, subdomain, authLoading]);
 
   return stableSpaceId;

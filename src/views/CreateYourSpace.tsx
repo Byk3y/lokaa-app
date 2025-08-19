@@ -333,6 +333,18 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
               userId: user.id
             }));
             localStorage.setItem(`user_owns_space_${createdSpace.subdomain}`, 'true');
+
+            // Seed fast-fallback cache for new subdomain so space ID resolves instantly
+            try {
+              const fallbackKey = `space_fallback_${createdSpace.subdomain}`;
+              const fallbackData = {
+                id: createdSpace.id,
+                name: spaceName,
+                subdomain: createdSpace.subdomain,
+                timestamp: Date.now(),
+              };
+              localStorage.setItem(fallbackKey, JSON.stringify(fallbackData));
+            } catch {}
           } catch {}
 
           // Navigate to the new space page
