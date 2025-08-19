@@ -460,7 +460,7 @@ export default function GeneralSettingsTab() {
           <div>
             <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Stand out with a custom URL</p>
             <p className="text-sm text-yellow-700 dark:text-yellow-400">
-              {formData.subdomain ? `${formData.subdomain}.lokaa.so` : "Set your unique space URL"}
+              {formData.subdomain ? `lokaa.app/${formData.subdomain}` : "Set your unique space URL"}
             </p>
           </div>
           <Button variant="outline" className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 border-yellow-500 text-xs px-3 py-1.5" disabled={!canEdit} onClick={() => toast({title: "Subdomain Change", description: "Changing subdomain might have other implications. This feature is under review."})}>

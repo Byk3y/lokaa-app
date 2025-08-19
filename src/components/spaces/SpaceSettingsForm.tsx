@@ -193,11 +193,11 @@ export default function SpaceSettingsForm({ space }: SpaceSettingsFormProps) {
                               setSubdomainChanged(true);
                             }}
                           />
-                          <span className="ml-2 text-muted-foreground">.lokaa.so</span>
+                          <span className="ml-2 text-muted-foreground">lokaa.app/</span>
                         </div>
                       </FormControl>
                       <FormDescription>
-                        This will be the URL for your space: https://{field.value || "your-space"}.lokaa.so
+                        This will be the URL for your space: https://lokaa.app/{field.value || "your-space"}
                       </FormDescription>
                       {subdomainChanged && (
                         <Alert variant="warning" className="mt-2">
