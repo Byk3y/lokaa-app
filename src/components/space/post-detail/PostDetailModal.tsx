@@ -403,7 +403,7 @@ export default function PostDetailModal({
                 </div>
                 
                 {/* Menu Button */}
-                <DropdownMenu>
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
                       <MoreHorizontal className="h-4 w-4 text-gray-700" />
