@@ -147,7 +147,7 @@ export function useFeedLogic({
   const { user: contextUser, loading: authLoading } = useOptimizedAuth();
   const currentUser = userProp || contextUser;
   
-  const { spaceData: contextSpaceData } = useSpace();
+  const { space: contextSpaceData } = useSpace();
   
   // ============================================================================
   // SPACE DATA & PERMISSIONS
@@ -163,19 +163,19 @@ export function useFeedLogic({
   
   // PHASE 1.5 FIX: Enhanced space data selection - only use storeSpace if it has valid name
   const currentSpaceData = useMemo(() => {
-    // CRITICAL: Only use storeSpace if it has a valid name field
-    if (storeSpace && storeSpace.name) {
+    // Use store space ONLY if it matches the current URL subdomain
+    if (storeSpace && storeSpace.name && storeSpace.subdomain === subdomain) {
       return storeSpace;
     }
-    
-    // Fall back to context space data
-    if (contextSpaceData && contextSpaceData.name) {
+
+    // Otherwise, prefer context space if it matches the URL subdomain
+    if (contextSpaceData && contextSpaceData.name && contextSpaceData.subdomain === subdomain) {
       return contextSpaceData;
     }
-    
-    // If neither has a valid name, return null (will trigger fallback)
+
+    // No matching space data yet → wait (prevents using previous space transiently)
     return null;
-  }, [storeSpace, contextSpaceData]);
+  }, [storeSpace, contextSpaceData, subdomain]);
   
   // 🔒 STABLE SPACE ID: Use the new stable space ID hook to prevent flickering during tab switches
   const stableSpaceId = useStableSpaceId({

@@ -318,6 +318,11 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
           // Clear SpaceContext cache and set navigation context for fast load
           try {
             clearSpaceContextCache();
+            // Reset settings store to avoid transiently using previous space in UI
+            try {
+              const settingsStore = (await import('@/hooks/useSpaceSettingsStore')).default;
+              settingsStore.getState().resetStore();
+            } catch {}
             const spaceInfo = {
               id: createdSpace.id,
               name: spaceName,

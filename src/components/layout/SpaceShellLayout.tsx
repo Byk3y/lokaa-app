@@ -85,9 +85,8 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
   // PHASE 1.5 FIX: Prevent race condition with SpaceContext
   useEffect(() => {
     if (subdomain && user?.id) {
-      // CRITICAL: Only load if we don't already have matching space data
-      const hasMatchingSpaceData = storeSpace && storeSpace.subdomain === subdomain;
-      
+      // Only consider it a match if the store space belongs to the current subdomain
+      const hasMatchingSpaceData = !!storeSpace && storeSpace.subdomain === subdomain;
       if (!hasMatchingSpaceData) {
         log.debug('Component', `🔒 [Phase1.5] [SpaceShellLayout] Loading space data for ${subdomain} - no matching data found`);
         const preserveSpace = location.state?.preserveSpace === true;
@@ -96,7 +95,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
         log.debug('Component', `🔒 [Phase1.5] [SpaceShellLayout] Skipping loadActiveSpace - already have matching data for ${subdomain}`);
       }
     }
-  }, [subdomain, user?.id, loadActiveSpace, storeSpace?.subdomain]); // Added storeSpace?.subdomain dependency
+  }, [subdomain, user?.id, loadActiveSpace, storeSpace?.subdomain]);
 
   // Effect to handle initial navigation and ensure Feed tab is the default
   useEffect(() => {
@@ -135,7 +134,8 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
 
   // PHASE 2.6: CACHE WARMING + AVATAR PRELOADING - Warm cache when space data loads
   useEffect(() => {
-    if (storeSpace && storeSpace.subdomain && subdomain && user?.id) {
+    // Run only when the loaded storeSpace matches the current URL subdomain
+    if (storeSpace && storeSpace.subdomain === subdomain && user?.id) {
       // Cache warming removed - using simplified cache system
       
       // New simple presence system automatically handles space-specific presence
