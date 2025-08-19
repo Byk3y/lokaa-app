@@ -26,7 +26,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { getPostUrl } from '@/utils/slugUtils';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
 import { Link } from 'react-router-dom';
 import {
   PostContent,
@@ -98,6 +98,7 @@ export default function PostDetailModal({
   // State for edit mode
   const [isEditMode, setIsEditMode] = useState(false);
   const isUserAuthor = currentUserId === post?.author?.id;
+  const [spaceIconFailed, setSpaceIconFailed] = useState(false);
   
   // State for delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -368,19 +369,12 @@ export default function PostDetailModal({
                 <div className="flex items-center space-x-2 flex-1 min-w-0 mx-2">
                   {/* Icon stays visible always */}
                   <div className="h-7 w-7 rounded-lg bg-gray-900 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {space?.icon_image ? (
+                    {space?.icon_image && !spaceIconFailed ? (
                       <img 
                         src={resolveImageUrl(space.icon_image)} 
-                        alt={`${space.name} icon`}
+                        alt={`${space?.name || 'Space'} icon`}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          // Fallback to initials if image fails to load
-                          e.currentTarget.style.display = 'none';
-                          const parent = e.currentTarget.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `<span class="text-white text-xs font-bold">${space?.name ? space.name.charAt(0).toUpperCase() : 'S'}</span>`;
-                          }
-                        }}
+                        onError={() => setSpaceIconFailed(true)}
                       />
                     ) : (
                       <span className="text-white text-xs font-bold">
@@ -448,10 +442,19 @@ export default function PostDetailModal({
                 to={`/profile/${post.author.id}`}
                 onMouseEnter={() => prefetchUser(post.author.id, 100)}
               >
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={post.author.avatar} alt={post.author.name} />
-                  <AvatarFallback>{getInitial(post.author.name)}</AvatarFallback>
-                </Avatar>
+                <OptimizedAvatar
+                  user={{
+                    id: post.author.id,
+                    full_name: post.author.name,
+                    avatar_url: post.author.avatar
+                  }}
+                  size="lg"
+                  enableLazyLoading={false}
+                  enableCaching={true}
+                  placeholderType="initials"
+                  loadingTransition="fade"
+                  className="h-10 w-10 rounded-full"
+                />
               </Link>
               <div>
                 <Link 

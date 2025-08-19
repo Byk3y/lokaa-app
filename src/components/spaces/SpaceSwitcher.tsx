@@ -68,7 +68,8 @@ export default function SpaceSwitcher({
   const [loading, setLoading] = useState<boolean>(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const navigate = useNavigate();
-  const { spaceData: storeSpace, clearCache } = useSpace();
+  const { spaceData: contextSpace, clearCache } = useSpace();
+  const { space: settingsSpace } = useSpaceSettingsStore();
   const { refreshSpacesTrigger } = useMembershipStore(); // Use the store hook
   
   // 🔧 PERFORMANCE FIX: Fast check for users without spaces using cache
@@ -357,10 +358,11 @@ export default function SpaceSwitcher({
   const displayName = currentSpaceName || currentSpaceDetails?.name || currentSpaceSubdomain;
   const formattedDisplayName = capitalizeWords(displayName);
   
-  // Prioritize icon from the store for the current space to ensure freshness
-  const currentIcon = storeSpace?.subdomain === currentSpaceSubdomain 
-    ? storeSpace?.icon_image 
-    : currentSpaceDetails?.icon_image;
+  // Prioritize freshly saved icon from settings store, then SpaceContext, then fetched list
+  const currentIcon =
+    (settingsSpace?.subdomain === currentSpaceSubdomain && settingsSpace?.icon_image) ||
+    (contextSpace?.subdomain === currentSpaceSubdomain && contextSpace?.icon_image) ||
+    currentSpaceDetails?.icon_image;
 
   const handleCreateSpace = () => {
     navigate('/create-space');
