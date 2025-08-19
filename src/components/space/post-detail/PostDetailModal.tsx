@@ -280,6 +280,23 @@ export default function PostDetailModal({
   const isAdmin = post?.isAdmin;
   const canDelete = isUserAuthor || isAdmin;
 
+  // Always-available actions
+  const handleCopyLink = async () => {
+    try {
+      const url = getPostUrl({ slug: post.slug, id: post.id }, { subdomain: space?.subdomain });
+      const full = `${window.location.origin}${url}`;
+      await navigator.clipboard.writeText(full);
+      toast({ title: 'Link copied', description: 'Post link copied to clipboard.' });
+    } catch {
+      toast({ title: 'Unable to copy', description: 'Could not copy link.', variant: 'destructive' });
+    }
+  };
+
+  const handleOpenInNewTab = () => {
+    const url = getPostUrl({ slug: post.slug, id: post.id }, { subdomain: space?.subdomain });
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <>
       
@@ -431,6 +448,16 @@ export default function PostDetailModal({
                         </DropdownMenuItem>
                       </>
                     )}
+                    {/* Always-visible utilities */}
+                    {(isAdmin || isUserAuthor) && <DropdownMenuSeparator />}
+                    <DropdownMenuItem onSelect={handleCopyLink}>
+                      <CornerDownRight className="mr-2 h-4 w-4 rotate-180" />
+                      <span>Copy post link</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleOpenInNewTab}>
+                      <CornerDownRight className="mr-2 h-4 w-4" />
+                      <span>Open in new tab</span>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
