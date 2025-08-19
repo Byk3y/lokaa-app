@@ -2,6 +2,8 @@ import { log } from '@/utils/logger';
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { conversationStore } from '@/features/chat/store/conversationStore';
+import { userConversationsCacheService } from '@/utils/indexeddb/core/CacheService';
 
 import { useUserSpacesStore } from '@/hooks/useUserSpacesStore';
 import { authMigrationHelper } from '@/utils/auth/authMigrationHelper';
@@ -149,11 +151,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(session?.user || null);
         
         if (event === 'SIGNED_IN' && session?.user) {
+          // Clear chat store and cache to prevent stale conversations from prior sessions
+          try { conversationStore.getState().reset(); } catch {}
+          try { await userConversationsCacheService.clear(); } catch {}
           preloadSpaces(session.user.id);
           setLoading(false);
           setRoutingInProgress(false);
           // Mobile manager disabled - handled by comprehensive fix
+
+          // Fire-and-forget welcome email on first verified session
+          try {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+            if (supabaseUrl && anonKey) {
+              const projectRef = new URL(supabaseUrl).host.split('.')[0];
+              const functionsUrl = `https://${projectRef}.functions.supabase.co`;
+              const firstName = (session.user.user_metadata?.full_name as string | undefined)
+                || (session.user.user_metadata?.first_name as string | undefined)
+                || undefined;
+              const localKey = `welcome-email-queued:${session.user.id}`;
+              if (!sessionStorage.getItem(localKey)) {
+                sessionStorage.setItem(localKey, '1');
+                fetch(`${functionsUrl}/send-welcome-email`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${anonKey}`
+                  },
+                  body: JSON.stringify({
+                    type: 'welcome',
+                    to: session.user.email,
+                    firstName
+                  })
+                }).catch(() => {});
+              }
+            }
+          } catch {}
         } else if (event === 'SIGNED_OUT') {
+          // Clear chat store and cache on sign out
+          try { conversationStore.getState().reset(); } catch {}
+          try { await userConversationsCacheService.clear(); } catch {}
           setLoading(false);
           setRoutingInProgress(false);
           // Mobile manager disabled - handled by comprehensive fix

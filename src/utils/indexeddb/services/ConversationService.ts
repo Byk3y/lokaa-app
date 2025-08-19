@@ -151,9 +151,8 @@ export class ConversationService {
     try {
       // Check if we should use cache-first approach
       const shouldUseCacheFirst = mobileBrowserService.shouldUseCacheFirst();
-      
       if (!forceNetwork && shouldUseCacheFirst) {
-        const cachedData = await userConversationsCacheService.get(cacheKey);
+        const cachedData = await userConversationsCacheService.get(`conv:${conversationId}:${cacheKey}`);
         if (cachedData) {
           this.metrics.cacheHits++;
           return {
@@ -181,8 +180,7 @@ export class ConversationService {
             params: { conversationId, includeParticipants }
           }
         };
-        
-        await userConversationsCacheService.set(cacheKey, networkResult.data, cacheOptions);
+        await userConversationsCacheService.set(`conv:${conversationId}:${cacheKey}`, networkResult.data, cacheOptions);
       }
 
       this.metrics.cacheMisses++;
@@ -198,7 +196,7 @@ export class ConversationService {
       // Mobile blocking fallback
       if (mobileBrowserService.isMobileBrowserBlocking(error)) {
         this.metrics.mobileBlocking++;
-        const cachedData = await userConversationsCacheService.get(cacheKey, { skipCache: true });
+        const cachedData = await userConversationsCacheService.get(`conv:${conversationId}:${cacheKey}`, { skipCache: true });
         if (cachedData) {
           return {
             data: cachedData as unknown as ChatConversation,
@@ -402,6 +400,15 @@ export class ConversationService {
       }
 
       const { data, error } = await query;
+
+      // Cache per-user result to support mobile cache-first fallback safely
+      try {
+        if (!error && data) {
+          await userConversationsCacheService.set(`user:${userId}:conversations`, data as any, {
+            metadata: { userId }
+          });
+        }
+      } catch {}
 
       return { data: data as UserConversation[], error };
 

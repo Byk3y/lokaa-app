@@ -26,6 +26,13 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
  */
 export function useConversations() {
   const { user } = useOptimizedAuth();
+  // Reset conversations when the authenticated user changes to avoid stale data flashes
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      useConversationStore.getState().reset();
+    } catch {}
+  }, [user?.id]);
   
   // Store selectors
   const {

@@ -44,14 +44,15 @@ serve(async (req) => {
     let subject: string
     let html: string
     let text: string
+    const entityRefId = crypto.randomUUID()
 
     if (type === 'welcome') {
       subject = 'Welcome to Lokaa! 🎉'
-      html = getWelcomeEmailTemplate(firstName || 'there')
+      html = getWelcomeEmailTemplate(firstName || 'there', entityRefId)
       text = getWelcomeEmailText(firstName || 'there')
     } else if (type === 'verification') {
       subject = 'Verify your Lokaa account'
-      html = getVerificationEmailTemplate(confirmationUrl!, firstName)
+      html = getVerificationEmailTemplate(confirmationUrl!, firstName, entityRefId)
       text = getVerificationEmailText(confirmationUrl!, firstName)
     } else {
       throw new Error('Invalid email type')
@@ -122,6 +123,9 @@ serve(async (req) => {
         subject,
         html,
         text,
+        headers: {
+          'X-Entity-Ref-ID': entityRefId
+        }
       }),
     })
 
@@ -160,7 +164,7 @@ serve(async (req) => {
   }
 })
 
-function getWelcomeEmailTemplate(firstName: string): string {
+function getWelcomeEmailTemplate(firstName: string, entityRefId: string): string {
   const appDomain = Deno.env.get('APP_DOMAIN') || 'https://lokaa.app'
   const year = new Date().getFullYear()
   
@@ -172,25 +176,32 @@ function getWelcomeEmailTemplate(firstName: string): string {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Welcome to Lokaa</title>
       </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #059669; margin: 0;">Welcome to Lokaa! 🎉</h1>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px; font-size: 14px;">
+        <!-- Preheader (hidden) -->
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;visibility:hidden;">${firstName ? `${firstName}, ` : ''}you’re ready to explore spaces, learn, and connect on Lokaa. · ${entityRefId}</div>
+        <!-- Header wordmark (top-left) -->
+        <div style="margin: 6px 0 16px;">
+          <div style="font-size:30px; font-weight:900; letter-spacing:0.2px; color:#059669; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Lokaa</div>
         </div>
+        <!-- Title -->
+        <div style="margin: 0 0 12px; font-size:18px; font-weight:600; color:#111827;">Welcome to Lokaa!</div>
+        <!-- Visible preview line to reduce clipping -->
+        <div style="margin: 0 0 12px; font-size:13px; color:#6b7280;">You’re ready to explore spaces, learn, and connect.</div>
         
-        <div style="background: #f8fafc; padding: 30px; border-radius: 8px; margin: 20px 0;">
-          <h2 style="margin-top: 0; color: #374151;">Hi ${firstName},</h2>
+        <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 0 0 12px; color: #111827;">Hi ${firstName},</p>
           
           <p>Welcome to Lokaa — where knowledge meets community. 🚀</p>
 
           <p>You're now part of a growing network of creators and learners building spaces that matter. Here's what you can do inside Lokaa:</p>
 
-          <ul style="padding-left: 20px;">
+          <ul style="padding-left: 20px; margin: 0 0 12px;">
             <li>✨ Start or join a Space — find your people.</li>
             <li>📚 Share & learn together — from real experiences, not just theory.</li>
             <li>🤝 Connect with others — collaborate, grow, and build something bigger.</li>
           </ul>
 
-          <p>This is just the beginning. Your journey starts today.</p>
+          <p style="margin: 0 0 16px;">This is just the beginning. Your journey starts today.</p>
 
           <div style="text-align: center; margin: 30px 0;">
             <a href="${appDomain}/discover" 
@@ -215,7 +226,7 @@ function getWelcomeEmailText(firstName: string): string {
   return `Welcome to Lokaa!\n\nHi ${firstName},\n\nWelcome to Lokaa — where knowledge meets community. 🚀\n\nYou're now part of a growing network of creators and learners building spaces that matter. Here's what you can do inside Lokaa:\n- Start or join a Space — find your people.\n- Share & learn together — from real experiences, not just theory.\n- Connect with others — collaborate, grow, and build something bigger.\n\nThis is just the beginning. Your journey starts today.\n\nCreate or join a space: ${appDomain}/discover\n\n© ${year} Lokaa. All rights reserved.`
 }
 
-function getVerificationEmailTemplate(confirmationUrl: string, firstName?: string): string {
+function getVerificationEmailTemplate(confirmationUrl: string, firstName: string | undefined, entityRefId: string): string {
   const appDomain = Deno.env.get('APP_DOMAIN') || 'https://lokaa.app'
   const year = new Date().getFullYear()
   
@@ -227,15 +238,18 @@ function getVerificationEmailTemplate(confirmationUrl: string, firstName?: strin
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Verify your Lokaa account</title>
       </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #059669; margin: 0;">Verify Your Account</h1>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px; font-size: 14px;">
+        <!-- Preheader (hidden) -->
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;visibility:hidden;">${firstName ? `${firstName}, ` : ''}confirm your email to start exploring spaces on Lokaa. · ${entityRefId}</div>
+        <!-- Header wordmark (top-left) -->
+        <div style="margin: 6px 0 16px;">
+          <div style="font-size:30px; font-weight:900; letter-spacing:0.2px; color:#059669; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Lokaa</div>
         </div>
+        <!-- Title -->
+        <div style="margin: 0 0 20px; font-size:20px; font-weight:600; color:#111827;">Verify your account</div>
         
-        <div style="background: #f8fafc; padding: 30px; border-radius: 8px; margin: 20px 0;">
-          <h2 style="margin-top: 0; color: #374151;">
-            ${firstName ? `Hi ${firstName}!` : 'Hello!'}
-          </h2>
+        <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 0 0 12px; color: #111827;">${firstName ? `Hi ${firstName},` : 'Hello,'}</p>
           
           <p>Thanks for signing up for Lokaa! Please verify your email address by clicking the button below:</p>
           
@@ -246,11 +260,11 @@ function getVerificationEmailTemplate(confirmationUrl: string, firstName?: strin
             </a>
           </div>
           
-          <p style="color: #6b7280; font-size: 14px;">
+          <p style="color: #6b7280;">
             This link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
           </p>
           
-          <p style="color: #6b7280; font-size: 14px;">
+          <p style="color: #6b7280;">
             If the button doesn't work, copy and paste this link into your browser:<br>
             <a href="${confirmationUrl}" style="color: #059669; word-break: break-all;">${confirmationUrl}</a>
           </p>
