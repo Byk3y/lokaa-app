@@ -290,6 +290,14 @@ export default function SpaceSwitcher({
             userId: userId
           };
           localStorage.setItem('lastActiveSpace', JSON.stringify(lastActiveSpace));
+
+          // Seed stable-space fallback for instant resolution on first paint
+          try {
+            localStorage.setItem(
+              `space_fallback_${subdomain}`,
+              JSON.stringify({ id: selectedSpace.id, name: selectedSpace.name, subdomain })
+            );
+          } catch {}
           
           // Set ownership flag if user owns the space
           if (selectedSpace.owner_id === userId) {
@@ -301,6 +309,22 @@ export default function SpaceSwitcher({
           log.error('Component', 'Error pre-caching space context:', e);
         }
       }
+
+      // Notify listeners to clear any in-memory arrays immediately
+      try {
+        const switchEvent = new CustomEvent('spaceSwitch', {
+          detail: { fromId: currentSpace?.id, toId: selectedSpace?.id, subdomain }
+        });
+        window.dispatchEvent(switchEvent);
+      } catch {}
+
+      // Brief readiness step: prime store for target space to avoid flashes
+      try {
+        const store = useSpaceSettingsStore.getState();
+        if (store?.loadActiveSpace) {
+          await store.loadActiveSpace({ subdomain }, userId, true);
+        }
+      } catch {}
     }
     
     // Navigate to the new space

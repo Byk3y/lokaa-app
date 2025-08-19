@@ -252,6 +252,17 @@ export function useOptimizedCachedPosts(
     };
   }, [spaceId, subscriberId.current]);
 
+  // Listen for explicit space switch events to immediately clear in-memory arrays
+  useEffect(() => {
+    const handleSpaceSwitch = () => {
+      setPosts([]);
+      setPinnedPosts([]);
+      setLoading(true);
+    };
+    window.addEventListener('spaceSwitch', handleSpaceSwitch as EventListener);
+    return () => window.removeEventListener('spaceSwitch', handleSpaceSwitch as EventListener);
+  }, []);
+
   const fetchPosts = useCallback(async (page: number = 1, forceRefresh: boolean = false) => {
     if (!spaceId) return;
 
@@ -342,8 +353,9 @@ export function useOptimizedCachedPosts(
           const enrichedPosts = await enrichPostsWithMetadata(posts, spaceId, subscriberId.current);
           const enrichedPinnedPosts = await enrichPostsWithMetadata(pinnedPosts, spaceId, subscriberId.current);
 
-          setPosts(enrichedPosts);
-          setPinnedPosts(enrichedPinnedPosts);
+          // Final safety filter: never accept records from another space
+          setPosts(enrichedPosts.filter(p => p.space_id === spaceId && !p.is_pinned));
+          setPinnedPosts(enrichedPinnedPosts.filter(p => p.space_id === spaceId && p.is_pinned));
           setCurrentPage(page);
           setLoading(false);
 
@@ -572,8 +584,8 @@ export function useOptimizedCachedPosts(
           const enrichedPosts = await enrichPostsWithMetadata(cachedRegular, spaceId, subscriberId);
           const enrichedPinnedPosts = await enrichPostsWithMetadata(cachedPinned, spaceId, subscriberId);
           
-          setPosts(enrichedPosts.filter(p => !p.is_pinned));
-          setPinnedPosts(enrichedPinnedPosts.filter(p => p.is_pinned));
+          setPosts(enrichedPosts.filter(p => p.space_id === spaceId && !p.is_pinned));
+          setPinnedPosts(enrichedPinnedPosts.filter(p => p.space_id === spaceId && p.is_pinned));
           setCurrentPage(1);
           setTotalCount(totalCount); // Use actual total count from database
           setLoading(false);
