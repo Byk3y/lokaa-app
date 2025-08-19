@@ -28,13 +28,12 @@ export const TrulyPersistentAppShell: React.FC = () => {
   const { subdomain } = useParams<{ subdomain: string }>();
   const isOnMobile = isMobile();
 
-  // Handle authentication for space routes
+  // Handle authentication for space routes without breaking hooks order
   const isSpaceRoute = location.pathname.match(/^\/[^\/]+\/space/);
-  
+  let authGateElement: React.ReactNode | null = null;
   if (isSpaceRoute) {
-    // If authentication is still loading, show loading screen
     if (authLoading) {
-      return (
+      authGateElement = (
         <div className="flex h-screen w-full items-center justify-center bg-gray-50 dark:bg-gray-900">
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
@@ -44,11 +43,8 @@ export const TrulyPersistentAppShell: React.FC = () => {
           </div>
         </div>
       );
-    }
-    
-    // If not authenticated, redirect to landing page
-    if (!user) {
-      return <Navigate to="/" state={{ from: location }} replace />;
+    } else if (!user) {
+      authGateElement = <Navigate to="/" state={{ from: location }} replace />;
     }
   }
 
@@ -132,6 +128,11 @@ export const TrulyPersistentAppShell: React.FC = () => {
 
   // Helper function to determine visibility
   const isRouteVisible = (routeType: string) => currentRoute === routeType;
+
+  if (authGateElement) {
+    // Still render with consistent hooks order; just gate the UI
+    return <>{authGateElement}</>;
+  }
 
   return (
     <div className="truly-persistent-app-shell min-h-screen bg-gray-50">

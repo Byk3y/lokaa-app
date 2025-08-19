@@ -2,6 +2,8 @@ import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useSpace } from '@/contexts/SpaceContext';
+import { clearAllSpaceData } from '@/utils/spaceDataCleaner';
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import LoadingIndicator from "@/components/LoadingIndicator";
@@ -10,6 +12,7 @@ import { devLogger } from '@/utils/developmentLogger';
 export default function CreateYourSpace() {
   const { user } = useOptimizedAuth();
   const navigate = useNavigate();
+  const { space: currentSpace, clearCache: clearSpaceContextCache } = useSpace();
   const [spaceName, setSpaceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [charCount, setCharCount] = useState(0);
@@ -304,6 +307,34 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
         const sessionReady = await waitForSessionReady();
         
         if (sessionReady) {
+          // Perform comprehensive cleanup before navigating to avoid cross-space bleed
+          try {
+            await clearAllSpaceData(currentSpace?.id, createdSpace.id, false);
+          } catch (e) {
+            // Non-blocking cleanup failure
+            devLogger.log('SpaceManagement', '[CreateSpace] Cleanup before navigation failed, continuing anyway', e);
+          }
+
+          // Clear SpaceContext cache and set navigation context for fast load
+          try {
+            clearSpaceContextCache();
+            const spaceInfo = {
+              id: createdSpace.id,
+              name: spaceName,
+              subdomain: createdSpace.subdomain,
+              owner_id: user.id
+            } as const;
+            sessionStorage.setItem('navigatedFromSpace', JSON.stringify(spaceInfo));
+            localStorage.setItem('lastActiveSpace', JSON.stringify({
+              id: createdSpace.id,
+              name: spaceName,
+              subdomain: createdSpace.subdomain,
+              timestamp: Date.now(),
+              userId: user.id
+            }));
+            localStorage.setItem(`user_owns_space_${createdSpace.subdomain}`, 'true');
+          } catch {}
+
           // Navigate to the new space page
           devLogger.log('SpaceManagement', "Session ready - navigating to new space with subdomain:", createdSpace.subdomain);
           navigate(`/${createdSpace.subdomain}/space`);
@@ -315,6 +346,10 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
             description: "If you encounter loading issues, please refresh the page.",
             variant: "default",
           });
+          try {
+            await clearAllSpaceData(currentSpace?.id, createdSpace.id, false);
+            clearSpaceContextCache();
+          } catch {}
           navigate(`/${createdSpace.subdomain}/space`);
         }
       } else {

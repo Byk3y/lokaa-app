@@ -170,7 +170,12 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
     sessionStorage.removeItem('lokaa-signing-out');
     log.debug('Component', '🚪 [ApplicationRouter] Detected sign out redirect, skipping loading screen');
   } else if (loading) {
-    return <AppLoadingScreen />;
+    // Do not block public routes with the global spinner
+    const path = location.pathname;
+    const isPublicPath = /^\/(|login$|signup$|forgot-password$|auth(\/?|$).+|debug$|storage-debug$|fix$)/.test(path);
+    if (!isPublicPath) {
+      return <AppLoadingScreen />;
+    }
   }
   
   return (

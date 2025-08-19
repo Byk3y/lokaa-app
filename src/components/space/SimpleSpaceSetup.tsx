@@ -95,7 +95,7 @@ export default function SimpleSpaceSetup({
           const actions = useSpaceSettingsStore.getState();
           actions.loadActiveSpace({ subdomain: spaceSubdomain, spaceId }, user.id, true)
             .then(() => {
-              openModal();
+              openModalToTab("general");
               toast({ title: "Settings opened", description: "Add your group description in the General tab." });
             })
             .catch(() => {
@@ -114,7 +114,7 @@ export default function SimpleSpaceSetup({
           const actions = useSpaceSettingsStore.getState();
           actions.loadActiveSpace({ subdomain: spaceSubdomain, spaceId }, user.id, true)
             .then(() => {
-              openModal();
+              openModalToTab("general");
               toast({ title: "Settings opened", description: "Upload your cover image in the General tab." });
             })
             .catch(() => {
@@ -172,9 +172,9 @@ export default function SimpleSpaceSetup({
     }
   };
   
-  // Don't render if dismissed, no permission, still loading, or no valid progress data yet
-  // This prevents the setup guide from flashing during initial load
-  if (progress.setupDismissed || !canSeeSetup || loading || !progress.lastUpdated) {
+  // Don't render if dismissed, no permission, or still loading
+  // Allow rendering on brand-new spaces even when lastUpdated is null
+  if (progress.setupDismissed || !canSeeSetup || loading) {
     return null;
   }
   

@@ -254,11 +254,11 @@ export default function SpaceSwitcher({
       
       // **PHASE 1**: Comprehensive space data cleanup BEFORE navigation
       try {
-        await clearAllSpaceData({
-          currentSpaceId: currentSpace?.id,
-          targetSpaceId: selectedSpace?.id,
-          clearAll: false // Only clear current space, not all
-        });
+        await clearAllSpaceData(
+          currentSpace?.id,
+          selectedSpace?.id,
+          false // Only clear current space, not all
+        );
         
         log.debug('Component', `✅ [SpaceSwitcher] Cleanup completed for space switch`);
       } catch (error) {
@@ -466,12 +466,11 @@ export default function SpaceSwitcher({
             <Globe className="h-5 w-5 mr-2" />
             Discover spaces
           </DropdownMenuItem>
-          {/* Optionally add Create Space button here if desired */}
-          {/* <DropdownMenuSeparator />
-          <DropdownMenuItem className="p-3 cursor-pointer flex items-center space-x-3" onClick={() => { navigate('/create-space'); setIsDropdownOpen(false); }}>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="p-3 cursor-pointer flex items-center space-x-3" onClick={handleCreateSpace}>
             <Plus className="h-5 w-5 mr-2" />
-            Create new space
-          </DropdownMenuItem> */}
+            Create a space
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </TooltipProvider>

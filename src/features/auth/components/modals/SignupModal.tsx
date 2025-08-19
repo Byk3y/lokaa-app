@@ -34,6 +34,7 @@ export default function SignupModal({
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -52,6 +53,13 @@ export default function SignupModal({
     setIsLoading(false);
   }, [form]);
 
+  // Countdown timer for rate-limit cooldown
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setTimeout(() => setCooldownSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldownSeconds]);
+
   const onSubmit = async (values: SignupFormValues) => {
     setIsLoading(true);
     setSubmitError(null);
@@ -67,19 +75,82 @@ export default function SignupModal({
 
       if (result.error) {
         log.error('Component', 'Signup error:', result.error);
-        const msg = result.error.message || 'Signup failed';
-        setSubmitError(msg);
-        onError?.(msg);
+        const rawMsg = result.error.message || 'Signup failed';
+        const normalized = rawMsg.toLowerCase();
+
+        // Handle rate limit explicitly with a visible cooldown
+        if (normalized.includes('rate limit')) {
+          // Default to 60s if Supabase throttles; users often retry immediately
+          setCooldownSeconds((prev) => (prev > 0 ? prev : 60));
+          setSubmitError('Too many attempts. Please wait a moment and try again.');
+          onError?.(rawMsg);
+          return;
+        }
+
+        // Handle existing account UX explicitly
+        if (normalized.includes('already') || normalized.includes('registered') || normalized.includes('exists')) {
+          setSubmitError('Account already exists. You can sign in or reset your password.');
+          onError?.(rawMsg);
+          return;
+        }
+
+        // Default fallback
+        setSubmitError(rawMsg);
+        onError?.(rawMsg);
         return;
       }
 
       log.debug('Component', 'Signup successful', result);
 
+      // Safety: If Supabase returns a user that already has email_confirmed_at,
+      // treat this as an existing account and do NOT redirect to /auth/confirm.
+      if (result.data?.user && (result.data.user as any)?.email_confirmed_at) {
+        setSubmitError('Account already exists. You can sign in or reset your password.');
+        setIsLoading(false);
+        return;
+      }
+
       // Handle redirect - check if email confirmation is required
       if (result.data?.user && !result.data.session) {
-        // Redirect to confirmation page so user can enter OTP or resend
-        const confirmUrl = `/auth/confirm?email=${encodeURIComponent(values.email)}&type=signup`;
-        window.location.assign(confirmUrl);
+        // Probe sign-in to distinguish between "needs verification" vs "already exists"
+        try {
+          const { getSupabaseClient } = await import('@/integrations/supabase/client');
+          const { data: signInData, error: signInError } = await getSupabaseClient().auth.signInWithPassword({
+            email: values.email,
+            password: values.password
+          });
+
+          if (signInData?.session) {
+            // User could sign in immediately
+            closeSignupModal();
+            onSuccess?.();
+            if (redirectTo) window.location.replace(redirectTo);
+            return;
+          }
+
+          if (signInError) {
+            const m = signInError.message.toLowerCase();
+            if (m.includes('confirm') || m.includes('email not confirmed') || m.includes('not confirmed')) {
+              const confirmUrl = `/auth/confirm?email=${encodeURIComponent(values.email)}&type=signup`;
+              window.location.assign(confirmUrl);
+              return;
+            }
+            if (m.includes('invalid') || m.includes('wrong') || m.includes('credentials')) {
+              setSubmitError('Account already exists. You can sign in or reset your password.');
+              setIsLoading(false);
+              return;
+            }
+            // Fallback: do not redirect; show generic message
+            setSubmitError('We could not create this account. If you already have one, please sign in.');
+            setIsLoading(false);
+            return;
+          }
+        } catch {
+          // If probe fails for any reason, avoid redirecting to prevent confusion
+          setSubmitError('Account may already exist. Please sign in or reset your password.');
+          setIsLoading(false);
+          return;
+        }
       } else if (result.data?.session) {
         // Close modal and notify success when user is logged in
         closeSignupModal();
@@ -133,6 +204,11 @@ export default function SignupModal({
         {submitError && (
           <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {submitError}
+            {cooldownSeconds > 0 && (
+              <div className="mt-1 text-red-600">
+                Try again in {cooldownSeconds}s
+              </div>
+            )}
             {submitError.toLowerCase().includes('already') && (
               <>
                 {' '}– <button type="button" onClick={handleSwitchToLogin} className="underline">Sign in</button>
@@ -244,9 +320,9 @@ export default function SignupModal({
         <Button
           type="submit"
           className="w-full"
-          disabled={isLoading || !form.formState.isValid}
+          disabled={isLoading || !form.formState.isValid || cooldownSeconds > 0}
         >
-          {isLoading ? 'Creating account...' : 'Create account'}
+          {isLoading ? 'Creating account...' : cooldownSeconds > 0 ? `Try again in ${cooldownSeconds}s` : 'Create account'}
         </Button>
 
         {/* Terms and Privacy */}

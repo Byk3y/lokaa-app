@@ -499,7 +499,7 @@ export default function Discover() {
         let errorMessage = 'Failed to load spaces. Please try again later.';
         
         if (error instanceof Error) {
-          log.error('Page', 'Error details:', error.message);
+          log.error('Page', `Error details: ${error.message}`, error);
           
           if (error.message.includes('network')) {
             errorMessage = 'Network error. Please check your internet connection and try again.';
@@ -660,50 +660,44 @@ export default function Discover() {
   };
 
   // 🚀 PERFORMANCE: Progressive Authentication Enhancement (Background)
-  // This runs in the background without blocking the UI
+  // Guarded: only runs when actually on /discover to avoid background redirects from the shell
   useEffect(() => {
+    // Ensure this effect only runs on the Discover route
+    if (location.pathname !== '/discover') {
+      return;
+    }
+
     const enhanceWithAuth = async () => {
       // CRITICAL: Only run for authenticated users with valid session, and only once
-      // Don't run immediately after logout when user state may be stale
       if (user?.id && !authEnhancementComplete && user.email) {
         log.debug('Page', '🚀 [Discover] Progressive auth enhancement starting...');
-        
         try {
-          // SAFETY: Add a small delay to ensure user state is stable after auth changes
+          // SAFETY: small delay to stabilize auth state
           await new Promise(resolve => setTimeout(resolve, 100));
-          
-          // Double-check user is still authenticated after delay
           if (!user?.id || !user.email) {
             log.debug('Page', '🚀 [Discover] User state became invalid, skipping enhancement');
             setAuthEnhancementComplete(true);
             return;
           }
-          
           // Background check: Should user be redirected to their space?
           const result = await aggressiveDiscoverOverride(user.id, navigate);
-          
           if (result.redirected) {
             log.debug('Page', `🚀 [Discover] Background redirect applied: ${result.strategy}`);
-            // User was redirected, component will unmount
-            return;
-          } else {
-            log.debug('Page', `🚀 [Discover] User legitimately belongs on discover: ${result.strategy}`);
-            setAuthEnhancementComplete(true);
+            return; // User redirected, component may unmount
           }
+          log.debug('Page', `🚀 [Discover] User legitimately belongs on discover: ${result.strategy}`);
+          setAuthEnhancementComplete(true);
         } catch (error) {
           log.warn('Page', '🚀 [Discover] Background auth enhancement failed (non-critical):', error);
-          // Continue with public experience if enhancement fails
           setAuthEnhancementComplete(true);
         }
       } else if (!user) {
-        // For non-authenticated users, mark enhancement as complete immediately
         setAuthEnhancementComplete(true);
       }
     };
-    
-    // Run enhancement in background without blocking UI
+
     enhanceWithAuth();
-  }, [user?.id, user?.email, navigate, authEnhancementComplete]);
+  }, [user?.id, user?.email, navigate, authEnhancementComplete, location.pathname]);
 
   // 🚀 PUBLIC PAGE: No routing progress blocking needed
   // The page renders immediately for all users (public or authenticated)
