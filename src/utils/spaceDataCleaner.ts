@@ -23,7 +23,6 @@ export const clearSpaceCache = async (spaceId: string): Promise<void> => {
       `space_fallback_${spaceId}`,
       `space_data_${spaceId}`,
       `space_members_${spaceId}`,
-      `space_posts_${spaceId}`,
       `space_settings_${spaceId}`,
       `leaderboard_${spaceId}`,
       `categories_${spaceId}`
@@ -38,10 +37,19 @@ export const clearSpaceCache = async (spaceId: string): Promise<void> => {
       }
     });
 
-    // Invalidate global cache coordinator for this space
+    // CRITICAL FIX: Clear post-related cache with correct key patterns
     if (globalCache?.invalidate) {
+      // Clear categories cache
       globalCache.invalidate(`categories:${spaceId}`);
-      globalCache.invalidate(`posts:${spaceId}`);
+      
+      // Clear all post-related cache entries with correct patterns
+      globalCache.invalidatePattern(`posts:${spaceId}`);
+      globalCache.invalidatePattern(`posts_count:${spaceId}`);
+      
+      // Clear specific post cache keys that might exist
+      globalCache.invalidate(`posts:${spaceId}:1:25`);
+      globalCache.invalidate(`posts:${spaceId}:pinned`);
+      
       log.debug('Utils', `✅ [SpaceDataCleaner] Global cache invalidated for space: ${spaceId}`);
     }
 

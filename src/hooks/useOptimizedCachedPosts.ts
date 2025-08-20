@@ -177,7 +177,43 @@ export function useOptimizedCachedPosts(
   const pageVisibilityRef = useRef<{
     wasHidden: boolean;
     hiddenTimestamp: number;
-  }>({ wasHidden: false, hiddenTimestamp: 0 });
+    lastActivity: number;
+  }>({ wasHidden: false, hiddenTimestamp: 0, lastActivity: Date.now() });
+  
+  // CRITICAL FIX: Add idle time detection for space switching issues
+  const IDLE_THRESHOLD = 10 * 60 * 1000; // 10 minutes
+  const isIdleReturn = useRef(false);
+  
+  // Track user activity
+  useEffect(() => {
+    const updateActivity = () => {
+      const now = Date.now();
+      const timeSinceLastActivity = now - pageVisibilityRef.current.lastActivity;
+      
+      // Check if returning from extended idle period
+      if (timeSinceLastActivity > IDLE_THRESHOLD && !isIdleReturn.current) {
+        isIdleReturn.current = true;
+        devLogger.log('CacheDebug', `🕐 [IdleReturn] Detected return from extended idle period (${Math.round(timeSinceLastActivity / 60000)} minutes)`, {
+          spaceId,
+          subscriberId: subscriberId.current
+        });
+      }
+      
+      pageVisibilityRef.current.lastActivity = now;
+    };
+    
+    // Update activity on user interactions
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    events.forEach(event => {
+      document.addEventListener(event, updateActivity, { passive: true });
+    });
+    
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, updateActivity);
+      });
+    };
+  }, [spaceId]);
   
   // Enhanced page visibility tracking for mobile
   useEffect(() => {
@@ -507,6 +543,29 @@ export function useOptimizedCachedPosts(
 
     const subscriberId = `posts-${spaceId}-${user.id}`;
     
+    // CRITICAL FIX: Reset state when spaceId changes to prevent cross-space contamination
+    const resetStateForSpaceSwitch = () => {
+      setPosts([]);
+      setPinnedPosts([]);
+      setCurrentPage(1);
+      setTotalCount(0);
+      setError(null);
+      setLoading(false);
+      setIsTabSwitching(false);
+      hasAutoFetched.current.clear(); // Clear auto-fetch tracking
+      
+      devLogger.log('CacheDebug', `🔄 [SpaceSwitch] Reset state for new space: ${spaceId}`, {
+        subscriberId,
+        previousSpaceId: hasAutoFetched.current.has(spaceId) ? 'unknown' : 'none'
+      });
+    };
+    
+    // Check if this is a space switch (different spaceId than before)
+    const isSpaceSwitch = !hasAutoFetched.current.has(spaceId);
+    if (isSpaceSwitch) {
+      resetStateForSpaceSwitch();
+    }
+    
     // **FIX**: Show immediate loading feedback when switching tabs
     const shouldRefresh = shouldRefreshOnTabSwitch(spaceId);
     if (shouldRefresh) {
@@ -532,9 +591,17 @@ export function useOptimizedCachedPosts(
         // **FIX**: Prioritize valid cached data over tab switching refresh logic
         const hasValidCache = cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned);
         
+        // CRITICAL FIX: Force refresh if returning from idle period
+        const shouldForceRefreshForIdle = isIdleReturn.current;
+        if (shouldForceRefreshForIdle) {
+          devLogger.log('CacheDebug', `🕐 [IdleReturn] Forcing refresh due to idle return for space ${spaceId}`, { subscriberId });
+          isIdleReturn.current = false; // Reset flag
+        }
+        
         devLogger.log('CacheDebug', `Cache check for space ${spaceId}`, {
           hasValidCache,
           shouldRefreshForTabSwitch,
+          shouldForceRefreshForIdle,
           cachedRegularLength: cachedRegular?.length || 0,
           cachedPinnedLength: cachedPinned?.length || 0,
           subscriberId,
@@ -544,7 +611,8 @@ export function useOptimizedCachedPosts(
         
         // **FIX**: Implement stale-while-revalidate pattern
         // If we have valid cached data, use it immediately and refresh in background
-        if (hasValidCache) {
+        // UNLESS we're returning from idle period - then force refresh
+        if (hasValidCache && !shouldForceRefreshForIdle) {
           devLogger.log('CacheDebug', `Using cached posts for space ${spaceId}`, { subscriberId });
           
           // Get the actual total count from database even when using cache (with caching)
@@ -595,15 +663,17 @@ export function useOptimizedCachedPosts(
         // **FIX**: If no valid cache exists, fetch immediately but show loading state briefly
         if (!hasAutoFetched.current.has(spaceId)) {
           hasAutoFetched.current.add(spaceId);
-          const reason = 'no-cache';
+          const reason = shouldForceRefreshForIdle ? 'idle-return' : 'no-cache';
           devLogger.log('CacheDebug', `Fetching posts for space ${spaceId} (${reason})`, { subscriberId });
           
           // Show loading state briefly to indicate data is being fetched
           setLoading(true);
-          await fetchPosts(1, false);
-        } else if (shouldRefreshForTabSwitch) {
+          await fetchPosts(1, shouldForceRefreshForIdle);
+        } else if (shouldRefreshForTabSwitch || shouldForceRefreshForIdle) {
           // Only refresh if tab switching suggests it's needed AND we have no valid cache
-          devLogger.log('CacheDebug', `Tab switch refresh triggered for space ${spaceId}`, { subscriberId });
+          // OR if returning from idle period
+          const refreshReason = shouldForceRefreshForIdle ? 'idle-return' : 'tab-switch';
+          devLogger.log('CacheDebug', `${refreshReason} refresh triggered for space ${spaceId}`, { subscriberId });
           setLoading(true);
           await fetchPosts(1, true);
         }

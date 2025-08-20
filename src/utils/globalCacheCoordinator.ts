@@ -68,7 +68,10 @@ export const globalCache = {
   invalidatePattern: (pattern: string) => {
     const keysToDelete = Array.from(memoryCache.keys()).filter(key => key.includes(pattern));
     keysToDelete.forEach(key => memoryCache.delete(key));
-    log.debug('Cache', `Invalidated ${keysToDelete.length} cache entries matching pattern: ${pattern}`);
+    log.debug('Cache', `Invalidated ${keysToDelete.length} cache entries matching pattern: ${pattern}`, {
+      deletedKeys: keysToDelete,
+      totalCacheSize: memoryCache.size
+    });
   },
   
   // PHASE 3A FIX: Add missing getCachedData method
