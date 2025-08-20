@@ -67,9 +67,10 @@ export default function SpaceSwitcher({
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+  const [isSwitching, setIsSwitching] = useState<boolean>(false);
   const navigate = useNavigate();
   const { spaceData: contextSpace, clearCache } = useSpace();
-  const { space: settingsSpace } = useSpaceSettingsStore();
+  const { space: settingsSpace, loadActiveSpace } = useSpaceSettingsStore();
   const { refreshSpacesTrigger } = useMembershipStore(); // Use the store hook
   
   // 🔧 PERFORMANCE FIX: Fast check for users without spaces using cache
@@ -255,6 +256,7 @@ export default function SpaceSwitcher({
       
       // **PHASE 1**: Comprehensive space data cleanup BEFORE navigation
       try {
+        setIsSwitching(true);
         await clearAllSpaceData(
           currentSpace?.id,
           selectedSpace?.id,
@@ -269,7 +271,7 @@ export default function SpaceSwitcher({
       // ENHANCED: Clear SpaceContext cache
       clearCache();
       
-      // ENHANCED: Pre-cache the target space info for faster loading and instant ID resolution
+      // ENHANCED: Pre-cache the target space info for faster loading
       if (selectedSpace) {
         try {
           // Store space info for session context
@@ -291,33 +293,9 @@ export default function SpaceSwitcher({
           };
           localStorage.setItem('lastActiveSpace', JSON.stringify(lastActiveSpace));
 
-          // Seed stable space-id fallback for the target subdomain
+          // Seed stable space-id fallback for instant resolution on first paint
           try {
-            localStorage.setItem(`space_fallback_${selectedSpace.subdomain}`, JSON.stringify({ id: selectedSpace.id }));
-          } catch {}
-          
-          // Mark switch in progress and broadcast event so consumers can clear state immediately
-          try {
-            sessionStorage.setItem('spaceSwitchInProgress', '1');
-            window.dispatchEvent(new CustomEvent('spaceSwitch', {
-              detail: {
-                fromId: currentSpace?.id,
-                toId: selectedSpace.id,
-                fromSubdomain: currentSpaceSubdomain,
-                toSubdomain: subdomain,
-                timestamp: Date.now()
-              }
-            }));
-          } catch {}
-          
-          // Optional readiness gate: attempt to warm the target space in the settings store
-          try {
-            const actions = useSpaceSettingsStore.getState();
-            const ready = await Promise.race([
-              actions.loadActiveSpace({ subdomain, spaceId: selectedSpace.id }, userId, true).then(() => true),
-              new Promise<boolean>(resolve => setTimeout(() => resolve(false), 700))
-            ]);
-            log.debug('Component', `[SpaceSwitcher] Readiness warm-up for ${subdomain}:`, ready);
+            localStorage.setItem(`space_fallback_${subdomain}`, JSON.stringify({ id: selectedSpace.id }));
           } catch {}
           
           // Set ownership flag if user owns the space
@@ -329,6 +307,16 @@ export default function SpaceSwitcher({
         } catch (e) {
           log.error('Component', 'Error pre-caching space context:', e);
         }
+      }
+
+      // Readiness wait: try to load target space into store before navigating (bounded)
+      try {
+        const readiness = loadActiveSpace({ subdomain }, userId, true);
+        const timeout = new Promise<void>((resolve) => setTimeout(() => resolve(), 700));
+        await Promise.race([readiness, timeout]);
+      } catch {}
+      finally {
+        setIsSwitching(false);
       }
     }
     

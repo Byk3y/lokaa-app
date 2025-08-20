@@ -241,19 +241,6 @@ export function useOptimizedCachedPosts(
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [spaceId, shouldRefreshOnTabSwitch, isMobile]);
-
-  // Proactively clear local arrays when a space switch is initiated to avoid any visual carryover
-  useEffect(() => {
-    const onSpaceSwitch = () => {
-      try {
-        setPosts([]);
-        setPinnedPosts([]);
-        setLoading(true);
-      } catch {}
-    };
-    window.addEventListener('spaceSwitch', onSpaceSwitch as EventListener);
-    return () => window.removeEventListener('spaceSwitch', onSpaceSwitch as EventListener);
-  }, []);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -355,11 +342,8 @@ export function useOptimizedCachedPosts(
           const enrichedPosts = await enrichPostsWithMetadata(posts, spaceId, subscriberId.current);
           const enrichedPinnedPosts = await enrichPostsWithMetadata(pinnedPosts, spaceId, subscriberId.current);
 
-          // Final guard: ensure records match current spaceId
-          const safeRegular = enrichedPosts.filter(p => p.space_id === spaceId && !p.is_pinned);
-          const safePinned = enrichedPinnedPosts.filter(p => p.space_id === spaceId && p.is_pinned);
-          setPosts(safeRegular);
-          setPinnedPosts(safePinned);
+          setPosts(enrichedPosts);
+          setPinnedPosts(enrichedPinnedPosts);
           setCurrentPage(page);
           setLoading(false);
 
@@ -587,10 +571,9 @@ export function useOptimizedCachedPosts(
           // Enrich cached posts with metadata
           const enrichedPosts = await enrichPostsWithMetadata(cachedRegular, spaceId, subscriberId);
           const enrichedPinnedPosts = await enrichPostsWithMetadata(cachedPinned, spaceId, subscriberId);
-          const safeRegular = enrichedPosts.filter(p => p.space_id === spaceId && !p.is_pinned);
-          const safePinned = enrichedPinnedPosts.filter(p => p.space_id === spaceId && p.is_pinned);
-          setPosts(safeRegular);
-          setPinnedPosts(safePinned);
+          
+          setPosts(enrichedPosts.filter(p => !p.is_pinned));
+          setPinnedPosts(enrichedPinnedPosts.filter(p => p.is_pinned));
           setCurrentPage(1);
           setTotalCount(totalCount); // Use actual total count from database
           setLoading(false);
