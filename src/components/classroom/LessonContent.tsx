@@ -124,6 +124,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
     
     if (!lesson || !onUpdateLesson) {
       setIsEditing(false);
+      setIsSaving(false); // Reset saving state if early return
       return;
     }
 
@@ -132,7 +133,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
       return;
     }
 
-    setIsSaving(true);
+    // isSaving is already set to true in handleSave, so we don't need to set it again
 
     try {
       const finalContent = content || editingContent;
@@ -214,6 +215,10 @@ const LessonContent: React.FC<LessonContentProps> = ({
       log.debug('Component', '🎓 [LessonContent] Video removal detected - will skip video extraction from editor HTML');
     }
     
+    // Set saving state immediately when save is triggered
+    setIsSaving(true);
+    log.debug('Component', '🎓 [LessonContent] Set isSaving to true immediately');
+    
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -228,6 +233,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
         lastSaveDataRef.current.content === content &&
         lastSaveDataRef.current.removeVideo === removeVideo) {
       log.debug('Component', '🎓 [LessonContent] Duplicate save detected, ignoring');
+      setIsSaving(false); // Reset saving state if duplicate
       return;
     }
     
