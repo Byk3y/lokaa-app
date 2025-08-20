@@ -135,7 +135,7 @@ export const signUp = async (
     }
     
     // Supabase automatically sends verification email when signUp is called
-    // No need to send custom email here to avoid duplicates
+    // Using Supabase's built-in email system with custom template
     log.debug('Utils', '🔍 [AuthActions] Supabase will send verification email automatically', {
       hasUser: !!data.user,
       hasSession: !!data.session
