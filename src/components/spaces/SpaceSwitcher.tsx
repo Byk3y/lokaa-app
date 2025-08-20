@@ -67,10 +67,9 @@ export default function SpaceSwitcher({
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
-  const [isSwitching, setIsSwitching] = useState<boolean>(false);
   const navigate = useNavigate();
   const { spaceData: contextSpace, clearCache } = useSpace();
-  const { space: settingsSpace, loadActiveSpace } = useSpaceSettingsStore();
+  const { space: settingsSpace } = useSpaceSettingsStore();
   const { refreshSpacesTrigger } = useMembershipStore(); // Use the store hook
   
   // 🔧 PERFORMANCE FIX: Fast check for users without spaces using cache
@@ -256,7 +255,6 @@ export default function SpaceSwitcher({
       
       // **PHASE 1**: Comprehensive space data cleanup BEFORE navigation
       try {
-        setIsSwitching(true);
         await clearAllSpaceData(
           currentSpace?.id,
           selectedSpace?.id,
@@ -292,11 +290,6 @@ export default function SpaceSwitcher({
             userId: userId
           };
           localStorage.setItem('lastActiveSpace', JSON.stringify(lastActiveSpace));
-
-          // Seed stable space-id fallback for instant resolution on first paint
-          try {
-            localStorage.setItem(`space_fallback_${subdomain}`, JSON.stringify({ id: selectedSpace.id }));
-          } catch {}
           
           // Set ownership flag if user owns the space
           if (selectedSpace.owner_id === userId) {
@@ -307,16 +300,6 @@ export default function SpaceSwitcher({
         } catch (e) {
           log.error('Component', 'Error pre-caching space context:', e);
         }
-      }
-
-      // Readiness wait: try to load target space into store before navigating (bounded)
-      try {
-        const readiness = loadActiveSpace({ subdomain }, userId, true);
-        const timeout = new Promise<void>((resolve) => setTimeout(() => resolve(), 700));
-        await Promise.race([readiness, timeout]);
-      } catch {}
-      finally {
-        setIsSwitching(false);
       }
     }
     
