@@ -134,6 +134,38 @@ export const signUp = async (
       return { error, data: null };
     }
     
+    // Send custom verification email with improved template
+    if (data.user && !data.session) {
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+        if (supabaseUrl && anonKey) {
+          const projectRef = new URL(supabaseUrl).host.split('.')[0];
+          const functionsUrl = `https://${projectRef}.functions.supabase.co`;
+          
+          // Send custom verification email
+          await fetch(`${functionsUrl}/send-welcome-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`
+            },
+            body: JSON.stringify({
+              type: 'verification',
+              to: email,
+              firstName: options?.firstName,
+              confirmationUrl: redirectTo
+            })
+          });
+          
+          log.debug('Utils', '✅ [AuthActions] Custom verification email sent');
+        }
+      } catch (emailError) {
+        log.warn('Utils', '⚠️ [AuthActions] Failed to send custom verification email:', emailError);
+        // Don't fail the signup if custom email fails - Supabase will send default email
+      }
+    }
+    
     // Enhanced success handling with validation
     if (data.session) {
       const validationResult = await validateAuthSession();
