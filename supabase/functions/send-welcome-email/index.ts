@@ -178,7 +178,7 @@ function getWelcomeEmailTemplate(firstName: string, entityRefId: string): string
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px; font-size: 14px;">
         <!-- Preheader (hidden) -->
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0;visibility:hidden;">${firstName ? `${firstName}, ` : ''}you’re ready to explore spaces, learn, and connect on Lokaa. · ${entityRefId}</div>
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;visibility:hidden;">${firstName ? `${firstName}, ` : ''}you're ready to explore spaces, learn, and connect on Lokaa. · ${entityRefId}</div>
         <!-- Header wordmark (top-left) -->
         <div style="margin: 6px 0 16px;">
           <div style="font-size:30px; font-weight:900; letter-spacing:0.2px; color:#059669; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Lokaa</div>
@@ -186,7 +186,7 @@ function getWelcomeEmailTemplate(firstName: string, entityRefId: string): string
         <!-- Title -->
         <div style="margin: 0 0 12px; font-size:18px; font-weight:600; color:#111827;">Welcome to Lokaa!</div>
         <!-- Visible preview line to reduce clipping -->
-        <div style="margin: 0 0 12px; font-size:13px; color:#6b7280;">You’re ready to explore spaces, learn, and connect.</div>
+        <div style="margin: 0 0 12px; font-size:13px; color:#6b7280;">You're ready to explore spaces, learn, and connect.</div>
         
         <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin: 16px 0;">
           <p style="margin: 0 0 12px; color: #111827;">Hi ${firstName},</p>
