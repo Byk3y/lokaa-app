@@ -112,45 +112,10 @@ export default function SignupModal({
 
       // Handle redirect - check if email confirmation is required
       if (result.data?.user && !result.data.session) {
-        // Probe sign-in to distinguish between "needs verification" vs "already exists"
-        try {
-          const { getSupabaseClient } = await import('@/integrations/supabase/client');
-          const { data: signInData, error: signInError } = await getSupabaseClient().auth.signInWithPassword({
-            email: values.email,
-            password: values.password
-          });
-
-          if (signInData?.session) {
-            // User could sign in immediately
-            closeSignupModal();
-            onSuccess?.();
-            if (redirectTo) window.location.replace(redirectTo);
-            return;
-          }
-
-          if (signInError) {
-            const m = signInError.message.toLowerCase();
-            if (m.includes('confirm') || m.includes('email not confirmed') || m.includes('not confirmed')) {
-              const confirmUrl = `/auth/confirm?email=${encodeURIComponent(values.email)}&type=signup`;
-              window.location.assign(confirmUrl);
-              return;
-            }
-            if (m.includes('invalid') || m.includes('wrong') || m.includes('credentials')) {
-              setSubmitError('Account already exists. You can sign in or reset your password.');
-              setIsLoading(false);
-              return;
-            }
-            // Fallback: do not redirect; show generic message
-            setSubmitError('We could not create this account. If you already have one, please sign in.');
-            setIsLoading(false);
-            return;
-          }
-        } catch {
-          // If probe fails for any reason, avoid redirecting to prevent confusion
-          setSubmitError('Account may already exist. Please sign in or reset your password.');
-          setIsLoading(false);
-          return;
-        }
+        // Email confirmation required - redirect to confirm page
+        const confirmUrl = `/auth/confirm?email=${encodeURIComponent(values.email)}&type=signup`;
+        window.location.assign(confirmUrl);
+        return;
       } else if (result.data?.session) {
         // Close modal and notify success when user is logged in
         closeSignupModal();
