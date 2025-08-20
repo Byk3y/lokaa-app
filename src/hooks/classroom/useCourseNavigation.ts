@@ -143,14 +143,19 @@ export const useCourseNavigation = (props: UseCourseNavigationProps): UseCourseN
       updatedLesson.completed !== selectedLesson.completed ||
       updatedLesson.title !== selectedLesson.title ||
       updatedLesson.content_url !== selectedLesson.content_url ||
-      updatedLesson.is_published !== selectedLesson.is_published
+      updatedLesson.is_published !== selectedLesson.is_published ||
+      // Check for content changes in both new and legacy systems
+      updatedLesson.educational_content?.text_content !== selectedLesson.educational_content?.text_content ||
+      updatedLesson.content_text !== selectedLesson.content_text
     )) {
       log.debug('Hook', '🎓 [useCourseNavigation] Syncing selectedLesson with updated course data:', {
         lessonId: selectedLesson.id,
         oldCompleted: selectedLesson.completed,
         newCompleted: updatedLesson.completed,
         oldTitle: selectedLesson.title,
-        newTitle: updatedLesson.title
+        newTitle: updatedLesson.title,
+        contentChanged: updatedLesson.educational_content?.text_content !== selectedLesson.educational_content?.text_content ||
+                       updatedLesson.content_text !== selectedLesson.content_text
       });
       
       // Update the selectedLesson with fresh data from course

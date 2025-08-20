@@ -238,6 +238,41 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
       applyOptimisticUpdate(lessonId, updates);
     }
     
+    // Immediately update selectedLesson if it's the current lesson for instant viewer feedback
+    if (selectedLesson && selectedLesson.id === lessonId && onSelectedLessonChange) {
+      const optimisticSelectedLesson = { ...selectedLesson };
+      
+      // Apply the same updates to selectedLesson
+      if (updates.title) {
+        optimisticSelectedLesson.title = updates.title;
+      }
+      if (updates.content_url !== undefined) {
+        optimisticSelectedLesson.content_url = updates.content_url;
+      }
+      if (updates.is_published !== undefined) {
+        optimisticSelectedLesson.is_published = updates.is_published;
+      }
+      if (updates.content_text !== undefined) {
+        // Apply content_text to the appropriate field
+        if (optimisticSelectedLesson.educational_content) {
+          optimisticSelectedLesson.educational_content = {
+            ...optimisticSelectedLesson.educational_content,
+            text_content: updates.content_text
+          };
+        } else {
+          optimisticSelectedLesson.content_text = updates.content_text;
+        }
+      }
+      
+      // Update selectedLesson immediately for instant viewer feedback
+      onSelectedLessonChange(optimisticSelectedLesson);
+      log.debug('Hook', '🎓 [useLessonManagement] Applied immediate optimistic update to selectedLesson:', {
+        lessonId,
+        updateType: Object.keys(updates).join(', '),
+        selectedLessonUpdated: true
+      });
+    }
+    
     try {
       const supabase = getSupabaseClient();
       // Get lesson's content_id
@@ -328,54 +363,41 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
         }
       }
 
-      // For video operations, we need to refresh data to ensure database state is reflected
-      // Video operations are critical and need immediate consistency
-      if (updates.content_url !== undefined) {
-        try {
-          onInvalidateCache?.();
-          const fresh = await onRefetch?.();
-          // For videos we can clear immediately after a successful refetch
-          if (clearOptimisticUpdate && fresh) {
+      // Always refetch fresh data after a successful save to reconcile the UI
+      try {
+        const freshCourseData = await onRefetch?.();
+        
+        if (freshCourseData) {
+          log.debug('Hook', '🎓 [useLessonManagement] Course cache updated after successful save', {
+            lessonId,
+            updateType: Object.keys(updates).join(', '),
+            cacheUpdated: true
+          });
+
+          // Now that we have fresh data, clear the optimistic update
+          if (clearOptimisticUpdate) {
             clearOptimisticUpdate(lessonId);
           }
-        } catch (refetchError) {
-          log.warn('Hook', '🎓 [useLessonManagement] Refetch failed after video operation, but database update succeeded:', refetchError);
-          // Keep optimistic updates if refetch fails - they ensure UI shows correct state
-        }
-      }
-      
-      // Also refresh when text content was updated to avoid stale cached course data
-      if (didUpdateTextContent) {
-        try {
-          onInvalidateCache?.();
-          const fresh = await onRefetch?.();
-          // Only clear optimistic update when we confirm the fresh data contains the new content
-          if (fresh) {
-            const allLessons = fresh.modules.flatMap(m => m.lessons);
-            const updated = allLessons.find(l => l.id === lessonId);
-            const freshText = updated?.educational_content?.text_content ?? updated?.content_text ?? null;
-            const proposedText = updates.content_text ?? null;
-            if (freshText !== null && proposedText !== null && freshText.trim() === proposedText.trim()) {
-              if (clearOptimisticUpdate) {
-                clearOptimisticUpdate(lessonId);
-              }
-            } else {
-              log.warn('Hook', '🎓 [useLessonManagement] Fresh data did not yet reflect text change. Keeping optimistic update and scheduling a retry refetch.');
-              // Retry once shortly after to account for any lag
-              setTimeout(async () => {
-                try {
-                  await onRefetch?.();
-                } catch {}
-              }, 500);
+
+          // Update the selected lesson with the fresh data to ensure the editor is in sync
+          const allLessons = freshCourseData.modules.flatMap(m => m.lessons);
+          const updatedLesson = allLessons.find(l => l.id === lessonId);
+          if (updatedLesson && onSelectedLessonChange) {
+            // Only update if the lesson is still selected (user hasn't navigated away)
+            if (selectedLesson && selectedLesson.id === lessonId) {
+              onSelectedLessonChange(updatedLesson);
+              log.debug('Hook', '🎓 [useLessonManagement] Updated selectedLesson with fresh data after update:', {
+                lessonId,
+                lessonTitle: updatedLesson.title,
+                contentUrl: updatedLesson.content_url,
+                selectedLessonStillCurrent: true
+              });
             }
           }
-        } catch (refetchError) {
-          log.warn('Hook', '🎓 [useLessonManagement] Refetch failed after text update, UI may rely on optimistic state until next load:', refetchError);
         }
+      } catch (refetchError) {
+        log.warn('Hook', '🎓 [useLessonManagement] Failed to refetch course data after save, optimistic update will persist.', refetchError);
       }
-      
-      // Note: Removed unnecessary refetch - optimistic updates already handle UI consistency
-      // This was causing timeout errors (57014) on the course_modules query after successful lesson updates
       
       // Notify parent of successful update
       onLessonUpdated?.(lessonId, updates);
@@ -386,6 +408,16 @@ export const useLessonManagement = (props: UseLessonManagementProps): UseLessonM
       // Clear optimistic update on error to revert UI
       if (clearOptimisticUpdate) {
         clearOptimisticUpdate(lessonId);
+      }
+      
+      // Revert selectedLesson optimistic update on error
+      if (selectedLesson && selectedLesson.id === lessonId && onSelectedLessonChange) {
+        // Restore the original selectedLesson state
+        onSelectedLessonChange(selectedLesson);
+        log.debug('Hook', '🎓 [useLessonManagement] Reverted optimistic selectedLesson update on error:', {
+          lessonId,
+          selectedLessonReverted: true
+        });
       }
       
       // Provide specific error feedback to the user
