@@ -74,7 +74,7 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
               </div>
             </div>
             
-            {/* Video content with proper spacing - always show dedicated video if content_url exists */}
+            {/* Video content with proper spacing - only show in viewer mode (not editing) */}
             {(() => {
               const hasVideo = VideoContentExtractor.hasVideo(lesson);
               log.debug('Component', '🎥 [LessonViewer] Video rendering check:', {
@@ -82,14 +82,22 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
                 lessonTitle: lesson.title,
                 hasVideo,
                 contentUrl: lesson.content_url,
-                willShowDedicatedVideo: hasVideo
+                willShowDedicatedVideo: hasVideo,
+                isSaving
               });
               
-              if (hasVideo) {
+              if (hasVideo && !isSaving) {
                 log.debug('Component', '🎥 [LessonViewer] Rendering video container div');
                 return (
                   <div className="mb-2">
-                    <VideoRenderer lesson={lesson} isSaving={isSaving} />
+                    <VideoRenderer lesson={lesson} isSaving={false} />
+                  </div>
+                );
+              } else if (hasVideo && isSaving) {
+                log.debug('Component', '🎥 [LessonViewer] Showing loading state during save');
+                return (
+                  <div className="mb-2">
+                    <VideoRenderer lesson={lesson} isSaving={true} />
                   </div>
                 );
               } else {

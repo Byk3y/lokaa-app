@@ -414,12 +414,12 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
           
       {/* 3. VIDEO PREVIEW - only for featured videos (content_url/media_url) */}
           {(() => {
-            if (hasFeaturedVideo && showVideo) {
+            if (hasFeaturedVideo && showVideo && !isSaving) {
               return (
             <div className="mb-1 px-6 relative group">
               {/* Add top padding to prevent video cropping due to X button */}
               <div className="pt-2">
-                  <VideoRenderer lesson={lesson} isSaving={isSaving} />
+                  <VideoRenderer lesson={lesson} isSaving={false} />
               </div>
               {/* X button to remove video - appears on hover */}
               <button
