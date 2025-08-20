@@ -8,15 +8,10 @@ import {
 } from '../htmlSanitizer';
 
 // Mock DOMPurify for testing
-jest.mock('dompurify', () => ({
-  sanitize: jest.fn((content, config) => {
-    // Simple mock that removes script tags but keeps basic HTML
-    return content
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
-  })
+vi.mock('dompurify', () => ({
+  default: {
+    sanitize: vi.fn((content) => content),
+  }
 }));
 
 describe('htmlSanitizer', () => {

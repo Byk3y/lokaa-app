@@ -192,6 +192,24 @@ const CourseDetailContainer: React.FC<CourseDetailContainerProps> = ({
     },
     onLessonUpdated: (lessonId, updates) => {
       log.debug('Container', '🎓 [CourseDetailContainer] Lesson updated:', lessonId, updates);
+      
+      // Update selectedLesson with fresh data to ensure edit mode shows current content
+      if (selectedLesson && selectedLesson.id === lessonId && course) {
+        // Find the updated lesson in the fresh course data
+        const allLessons = course.modules.flatMap(m => m.lessons);
+        const updatedLesson = allLessons.find(l => l.id === lessonId);
+        
+        if (updatedLesson) {
+          // Update selectedLesson with the fresh lesson data
+          setSelectedLesson(updatedLesson);
+          log.debug('Container', '🎓 [CourseDetailContainer] Updated selectedLesson with fresh data:', {
+            lessonId,
+            lessonTitle: updatedLesson.title,
+            hasEducationalContent: !!updatedLesson.educational_content?.text_content,
+            hasContentText: !!updatedLesson.content_text
+          });
+        }
+      }
     },
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,

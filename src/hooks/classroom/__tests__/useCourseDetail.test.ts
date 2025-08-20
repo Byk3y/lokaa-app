@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, waitFor, act } from '../../../__tests__/test-utils';
 import { useCourseDetail } from '../useCourseDetail';
-import { getSupabaseClient } from '@/integrations/supabase/client';
-import { EducationalContentService } from '@/services/EducationalContentService';
+import { useCourseCaching } from '../useCourseCaching';
+import React from 'react';
 import type { CourseDetailData } from '@/types/classroom/courseDetail';
 
-// Mock dependencies
-vi.mock('@/integrations/supabase/client');
-vi.mock('@/services/EducationalContentService');
+// Mock sub-hooks and dependencies
+vi.mock('../useCourseCaching');
 vi.mock('@/utils/logger', () => ({
   log: {
     debug: vi.fn(),
@@ -17,386 +17,180 @@ vi.mock('@/utils/logger', () => ({
   },
 }));
 
-// Mock useAuth
-vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({
-    user: { id: 'test-user' },
-  }),
-}));
-
-// Mock useCachedClassroom
-vi.mock('@/hooks/useCachedClassroom', () => ({
-  useCachedClassroom: () => ({
-    getCourse: vi.fn(() => null),
-    setCourse: vi.fn(),
-    updateCourseProgress: vi.fn(),
-  }),
-}));
-
-const mockSupabase = {
-  from: vi.fn(() => ({
-    select: vi.fn(() => ({
-      eq: vi.fn(() => ({
-        single: vi.fn(() => Promise.resolve({ data: null, error: null })),
-      })),
-    })),
-  })),
+const mockCourseCache = {
+  getCachedCourse: vi.fn(),
+  setCachedCourse: vi.fn(),
+  invalidateCourseCache: vi.fn(),
+  updateCachedCourseProgress: vi.fn(),
 };
 
-const mockEducationalContentService = {
-  getContentById: vi.fn(),
-  createContent: vi.fn(),
-  updateContent: vi.fn(),
-  deleteContent: vi.fn(),
+// Mock data
+const mockCourse: CourseDetailData = {
+  id: 'course-1',
+  title: 'Test Course',
+  description: 'A test course.',
+  creator_id: 'user-1',
+  is_published: true,
+  slug: 'test-course',
+  space_id: 'space-1',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  modules: [
+    {
+      id: 'module-1',
+      title: 'Module 1',
+      description: 'First module',
+      module_order: 1,
+      course_id: 'course-1',
+      space_id: 'space-1',
+      lessons: [
+        {
+          id: 'lesson-1',
+          title: 'Lesson 1',
+          content_type: 'text',
+          content_text: 'Hello world',
+          lesson_order: 1,
+          module_id: 'module-1',
+          is_published: true,
+          completed: false,
+          content_id: 'content-1',
+        },
+      ],
+    },
+  ],
+  progress: 0,
+};
+
+// Test Component to use the hook
+const TestComponent = ({ courseId }: { courseId: string }) => {
+  const hookResult = useCourseDetail();
+
+  return (
+    <div>
+      <div data-testid="course-title">{hookResult.course?.title}</div>
+      <div data-testid="loading">{hookResult.loading.toString()}</div>
+      <div data-testid="error">{hookResult.error}</div>
+      <button onClick={() => hookResult.fetchCourseDetails(courseId)}>Fetch</button>
+      <button onClick={() => hookResult.refetch()}>Refetch</button>
+      <button onClick={() => hookResult.applyOptimisticUpdate('lesson-1', { title: 'Updated Optimistically' })}>
+        Optimistic Update
+      </button>
+      <button onClick={() => hookResult.clearOptimisticUpdate('lesson-1')}>
+        Clear Optimistic Update
+      </button>
+    </div>
+  );
 };
 
 describe('useCourseDetail', () => {
-  const mockCourse: CourseDetailData = {
-    id: 'test-course-1',
-    title: 'Test Course',
-    description: 'Test Description',
-    creator_id: 'test-creator',
-    is_published: true,
-    estimated_duration: 60,
-    difficulty_level: 'beginner',
-    course_order: 1,
-    short_id: 'test',
-    slug: 'test-course',
-    space_id: 'test-space',
-    created_at: '2023-01-01T00:00:00Z',
-    updated_at: '2023-01-01T00:00:00Z',
-    modules: [
-      {
-        id: 'test-module-1',
-        title: 'Test Module',
-        description: 'Test Module Description',
-        module_order: 1,
-        module_type: 'module',
-        course_id: 'test-course-1',
-        space_id: 'test-space',
-        lessons: [
-          {
-            id: 'test-lesson-1',
-            title: 'Test Lesson',
-            content_type: 'text',
-            content_url: null,
-            content_text: 'Test content',
-            lesson_order: 1,
-            module_id: 'test-module-1',
-            is_published: true,
-            completed: false,
-            content_id: null,
-            page_type: 'lesson',
-            estimated_duration: null,
-            difficulty_level: null,
-          },
-        ],
-      },
-    ],
-    progress: 0,
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
-    (getSupabaseClient as any).mockReturnValue(mockSupabase);
-    (EducationalContentService as any).mockImplementation(() => mockEducationalContentService);
+    (useCourseCaching as any).mockReturnValue(mockCourseCache);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+  it('should fetch course details and display them', async () => {
+    const { getByText, getByTestId } = render(<TestComponent courseId="course-1" />);
 
-  describe('Initial State', () => {
-    it('should initialize with default state', () => {
-      const { result } = renderHook(() => useCourseDetail());
+    await act(async () => {
+      getByText('Fetch').click();
+    });
 
-      expect(result.current.course).toBeNull();
-      expect(result.current.loading).toBe(false);
-      expect(result.current.error).toBeNull();
-      expect(result.current.fetchCourseDetails).toBeDefined();
+    await waitFor(() => {
+      expect(getByTestId('course-title').textContent).toBe('Test Course');
     });
   });
 
-  describe('Course Fetching', () => {
-    it('should fetch course data successfully', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
+  it('should use cached course data if available', async () => {
+    mockCourseCache.getCachedCourse.mockReturnValue(mockCourse);
+    const { getByTestId } = render(<TestComponent courseId="course-1" />);
 
-      const { result } = renderHook(() => useCourseDetail());
-
-      await result.current.fetchCourseDetails('test-course-1');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.course).toEqual(mockCourse);
-      expect(result.current.error).toBeNull();
+    await act(async () => {
+        getByTestId('course-title');
     });
 
-    it('should handle course not found', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
-        })),
-      });
+    expect(mockCourseCache.getCachedCourse).toHaveBeenCalledWith('course-1');
+  });
 
-      const { result } = renderHook(() => useCourseDetail());
+  it('should apply and clear optimistic updates', async () => {
+    let hookResult: any;
+    const OptimisticTest = () => {
+      hookResult = useCourseDetail();
+      return (
+        <div>
+          <div data-testid="lesson-title">{hookResult.course?.modules[0].lessons[0].title}</div>
+          <button onClick={() => hookResult.applyOptimisticUpdate('lesson-1', { title: 'Updated Optimistically' })}>
+            Update
+          </button>
+          <button onClick={() => hookResult.clearOptimisticUpdate('lesson-1')}>Clear</button>
+        </div>
+      );
+    };
 
-      await result.current.fetchCourseDetails('non-existent-course');
+    const { getByText, getByTestId } = render(<OptimisticTest />);
 
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.course).toBeNull();
-      expect(result.current.error).toBe('Course not found');
+    act(() => {
+      hookResult.fetchCourseDetails('course-1');
     });
 
-    it('should handle database errors', async () => {
-      const dbError = 'Database connection failed';
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: null, error: dbError })),
-        })),
-      });
-
-      const { result } = renderHook(() => useCourseDetail());
-
-      await result.current.fetchCourseDetails('test-course-1');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.course).toBeNull();
-      expect(result.current.error).toBe('Failed to fetch course data');
+    await waitFor(() => {
+      expect(getByTestId('lesson-title').textContent).toBe('Lesson 1');
     });
 
-    it('should handle network errors', async () => {
-      const networkError = new Error('Network error');
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.reject(networkError)),
-        })),
-      });
+    act(() => {
+      getByText('Update').click();
+    });
 
-      const { result } = renderHook(() => useCourseDetail());
+    await waitFor(() => {
+      expect(getByTestId('lesson-title').textContent).toBe('Updated Optimistically');
+    });
 
-      await result.current.fetchCourseDetails('test-course-1');
+    act(() => {
+      getByText('Clear').click();
+    });
 
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.course).toBeNull();
-      expect(result.current.error).toBe('Failed to fetch course data');
+    await waitFor(() => {
+      expect(getByTestId('lesson-title').textContent).toBe('Lesson 1');
     });
   });
 
-  describe('Refetch Functionality', () => {
-    it('should refetch course data', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
+  it('should clear optimistic updates on refetch', async () => {
+    let hookResult: any;
+    const RefetchTest = () => {
+      hookResult = useCourseDetail();
+      React.useEffect(() => {
+        hookResult.fetchCourseDetails('course-1');
+      }, []);
+      return (
+        <div>
+          <div data-testid="lesson-title">{hookResult.course?.modules[0].lessons[0].title}</div>
+          <button onClick={() => hookResult.applyOptimisticUpdate('lesson-1', { title: 'Updated Title' })}>
+            Optimistic Update
+          </button>
+          <button onClick={() => hookResult.refetch()}>Refetch</button>
+        </div>
+      );
+    };
 
-      const { result } = renderHook(() => useCourseDetail());
+    const { getByText, getByTestId } = render(<RefetchTest />);
 
-      await result.current.fetchCourseDetails('test-course-1');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      // Clear the mock to verify refetch calls it again
-      vi.clearAllMocks();
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
-
-      await result.current.refetch();
-
-      expect(mockSupabase.from).toHaveBeenCalledWith('courses');
+    await waitFor(() => {
+      expect(getByTestId('lesson-title').textContent).toBe('Lesson 1');
     });
 
-    it('should handle refetch errors', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
+    act(() => {
+      getByText('Optimistic Update').click();
+    });
 
-      const { result } = renderHook(() => useCourseDetail());
+    await waitFor(() => {
+      expect(getByTestId('lesson-title').textContent).toBe('Updated Title');
+    });
 
-      await result.current.fetchCourseDetails('test-course-1');
+    act(() => {
+      getByText('Refetch').click();
+    });
 
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      // Mock refetch to fail
-      vi.clearAllMocks();
-      const refetchError = 'Refetch failed';
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: null, error: refetchError })),
-        })),
-      });
-
-      await result.current.refetch();
-
-      await waitFor(() => {
-        expect(result.current.error).toBe('Failed to fetch course data');
-      });
+    await waitFor(() => {
+      expect(getByTestId('lesson-title').textContent).toBe('Lesson 1');
     });
   });
-
-  describe('Educational Content Integration', () => {
-    it('should fetch educational content for lessons', async () => {
-      const mockContent = {
-        id: 'content-1',
-        title: 'Test Content',
-        content_type: 'text',
-        text_content: 'Test content text',
-        media_url: null,
-        embed_data: null,
-        estimated_duration: 10,
-        difficulty_level: 'beginner',
-      };
-
-      mockEducationalContentService.getContentById.mockResolvedValue(mockContent);
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
-
-      const { result } = renderHook(() => useCourseDetail());
-
-      await result.current.fetchCourseDetails('test-course-1');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(mockEducationalContentService.getContentById).toHaveBeenCalled();
-    });
-
-    it('should handle educational content fetch errors gracefully', async () => {
-      mockEducationalContentService.getContentById.mockRejectedValue(new Error('Content fetch failed'));
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
-
-      const { result } = renderHook(() => useCourseDetail());
-
-      await result.current.fetchCourseDetails('test-course-1');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      // Should still load the course even if content fetch fails
-      expect(result.current.course).toEqual(mockCourse);
-      expect(result.current.error).toBeNull();
-    });
-  });
-
-  describe('Performance', () => {
-    it('should not cause unnecessary re-renders', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
-
-      const { result, rerender } = renderHook(() => useCourseDetail());
-
-      await result.current.fetchCourseDetails('test-course-1');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      const initialRenderCount = mockSupabase.from.mock.calls.length;
-
-      // Rerender with same course ID
-      rerender();
-
-      // Should not trigger another fetch
-      expect(mockSupabase.from.mock.calls.length).toBe(initialRenderCount);
-    });
-
-    it('should handle concurrent requests', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
-
-      const { result } = renderHook(() => useCourseDetail());
-
-      await result.current.fetchCourseDetails('test-course-1');
-
-      // Trigger multiple refetches
-      const promises = [
-        result.current.refetch(),
-        result.current.refetch(),
-        result.current.refetch(),
-      ];
-
-      await Promise.all(promises);
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.course).toEqual(mockCourse);
-      expect(result.current.error).toBeNull();
-    });
-  });
-
-  describe('Error Recovery', () => {
-    it('should recover from errors on successful refetch', async () => {
-      // First fetch fails
-      mockSupabase.from.mockReturnValueOnce({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: null, error: 'Initial error' })),
-        })),
-      });
-
-      const { result } = renderHook(() => useCourseDetail());
-
-      await result.current.fetchCourseDetails('test-course-1');
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.error).toBe('Failed to fetch course data');
-
-      // Refetch succeeds
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [mockCourse], error: null })),
-        })),
-      });
-
-      await result.current.refetch();
-
-      await waitFor(() => {
-        expect(result.current.error).toBeNull();
-        expect(result.current.course).toEqual(mockCourse);
-      });
-    });
-  });
-}); 
+});

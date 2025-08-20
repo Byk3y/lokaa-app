@@ -193,6 +193,24 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
         // Lesson updated - optimistic updates handled via useCourseDetail hook
       }
       
+      // Update selectedLesson with fresh data to ensure edit mode shows current content
+      if (selectedLesson && selectedLesson.id === lessonId && course) {
+        // Find the updated lesson in the fresh course data
+        const allLessons = course.modules.flatMap(m => m.lessons);
+        const updatedLesson = allLessons.find(l => l.id === lessonId);
+        
+        if (updatedLesson) {
+          // Update selectedLesson with the fresh lesson data
+          setSelectedLesson(updatedLesson);
+          log.debug('Component', '🎓 [CourseDetailView] Updated selectedLesson with fresh data:', {
+            lessonId,
+            lessonTitle: updatedLesson.title,
+            hasEducationalContent: !!updatedLesson.educational_content?.text_content,
+            hasContentText: !!updatedLesson.content_text
+          });
+        }
+      }
+      
       // Note: Optimistic updates now handled in useCourseDetail hook for consistency
       // This callback serves for logging and future component-level side effects
     },

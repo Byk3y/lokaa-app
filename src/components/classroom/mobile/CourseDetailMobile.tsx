@@ -204,6 +204,24 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     },
     onLessonUpdated: (lessonId, updates) => {
       log.debug('Mobile', '🎓 [CourseDetailMobile] Lesson updated:', lessonId, updates);
+      
+      // Update selectedLesson with fresh data to ensure edit mode shows current content
+      if (selectedLesson && selectedLesson.id === lessonId && course) {
+        // Find the updated lesson in the fresh course data
+        const allLessons = course.modules.flatMap(m => m.lessons);
+        const updatedLesson = allLessons.find(l => l.id === lessonId);
+        
+        if (updatedLesson) {
+          // Update selectedLesson with the fresh lesson data
+          setSelectedLesson(updatedLesson);
+          log.debug('Mobile', '🎓 [CourseDetailMobile] Updated selectedLesson with fresh data:', {
+            lessonId,
+            lessonTitle: updatedLesson.title,
+            hasEducationalContent: !!updatedLesson.educational_content?.text_content,
+            hasContentText: !!updatedLesson.content_text
+          });
+        }
+      }
     },
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,
@@ -441,9 +459,9 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
               
               await handleUpdateLesson(selectedLesson.id, updates);
               
-              // Refresh course data
-              invalidateCache();
-              await refetch();
+              // Note: Removed explicit cache invalidation and refetching
+              // The optimistic updates and lesson management hook handle UI updates properly
+              // This prevents race conditions that were causing edits to not persist
             } catch (error) {
               console.error('Error updating lesson:', error);
               throw error;

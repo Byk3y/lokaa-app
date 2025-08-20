@@ -205,6 +205,10 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
       
       // Force fresh data fetch by bypassing cache
       try {
+        // First, invalidate the cache to ensure we get fresh data
+        invalidateCourseCache(currentCourseId);
+        log.debug('Hook', `🎓 [useCourseDetail] Invalidated cache for course: ${currentCourseId}`);
+        
         // Fetch course data directly without checking cache
         const courseData = await fetchCourseData({ courseId: currentCourseId });
         if (!courseData) {
@@ -212,10 +216,20 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
           return null;
         }
 
+        // Update both base course state and cache immediately
         setBaseCourse(courseData);
         setCachedCourse(currentCourseId, courseData);
         
-        log.debug('Hook', `🎓 [useCourseDetail] Fresh course data fetched and cached for: ${currentCourseId}`);
+        // Clear all optimistic updates now that we have fresh data
+        clearAllOptimisticUpdates();
+        
+        log.debug('Hook', `🎓 [useCourseDetail] Fresh course data fetched and cached for: ${currentCourseId}`, {
+          courseId: currentCourseId,
+          lessonCount: courseData.modules.flatMap(m => m.lessons).length,
+          cacheUpdated: true,
+          baseCourseUpdated: true
+        });
+        
         return courseData;
       } catch (error: any) {
         log.error('Hook', `🎓 [useCourseDetail] Error in refetch for course ${currentCourseId}:`, error);
@@ -223,7 +237,7 @@ export function useCourseDetail(options: UseCourseDetailOptions = {}): UseCourse
       }
     }
     return null;
-  }, [currentCourseId, fetchCourseData, setCachedCourse]);
+  }, [currentCourseId, fetchCourseData, setCachedCourse, invalidateCourseCache]);
 
   // Silent refetch function 
   const silentRefetch = useCallback(async () => {

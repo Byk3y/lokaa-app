@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '../../../__tests__/test-utils';
 import { BrowserRouter } from 'react-router-dom';
 import CourseDetailView from '@/components/classroom/CourseDetailView';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -200,13 +200,13 @@ describe('CourseDetailView Integration Tests', () => {
     // Set up default mock implementations
     const { useCourseDetail, useCourseProgress, useCourseOwnership, useCourseNavigation, useCourseDialogs, useLessonManagement, useCourseRouteManager } = defaultMockHooks;
     
-    vi.mocked(useCourseDetail).mockReturnValue(useCourseDetail);
-    vi.mocked(useCourseProgress).mockReturnValue(useCourseProgress);
-    vi.mocked(useCourseOwnership).mockReturnValue(useCourseOwnership);
-    vi.mocked(useCourseNavigation).mockReturnValue(useCourseNavigation);
-    vi.mocked(useCourseDialogs).mockReturnValue(useCourseDialogs);
-    vi.mocked(useLessonManagement).mockReturnValue(useLessonManagement);
-    vi.mocked(useCourseRouteManager).mockReturnValue(useCourseRouteManager);
+    (useCourseDetail as any).mockReturnValue(useCourseDetail);
+    (useCourseProgress as any).mockReturnValue(useCourseProgress);
+    (useCourseOwnership as any).mockReturnValue(useCourseOwnership);
+    (useCourseNavigation as any).mockReturnValue(useCourseNavigation);
+    (useCourseDialogs as any).mockReturnValue(useCourseDialogs);
+    (useLessonManagement as any).mockReturnValue(useLessonManagement);
+    (useCourseRouteManager as any).mockReturnValue(useCourseRouteManager);
   });
 
   afterEach(() => {
@@ -231,7 +231,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseNavigation).mockReturnValue(mockHooks.useCourseNavigation);
+      (useCourseNavigation as any).mockReturnValue(mockHooks.useCourseNavigation);
 
       renderCourseDetailView();
 
@@ -248,7 +248,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseNavigation).mockReturnValue(mockHooks.useCourseNavigation);
+      (useCourseNavigation as any).mockReturnValue(mockHooks.useCourseNavigation);
 
       renderCourseDetailView();
 
@@ -267,7 +267,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseDetail).mockReturnValue(mockHooks.useCourseDetail);
+      (useCourseDetail as any).mockReturnValue(mockHooks.useCourseDetail);
 
       renderCourseDetailView();
 
@@ -285,7 +285,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseDetail).mockReturnValue(mockHooks.useCourseDetail);
+      (useCourseDetail as any).mockReturnValue(mockHooks.useCourseDetail);
 
       renderCourseDetailView();
 
@@ -305,7 +305,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseNavigation).mockReturnValue(mockHooks.useCourseNavigation);
+      (useCourseNavigation as any).mockReturnValue(mockHooks.useCourseNavigation);
 
       renderCourseDetailView();
 
@@ -324,7 +324,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseProgress).mockReturnValue(mockHooks.useCourseProgress);
+      (useCourseProgress as any).mockReturnValue(mockHooks.useCourseProgress);
 
       renderCourseDetailView();
 
@@ -345,7 +345,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseNavigation).mockReturnValue(mockHooks.useCourseNavigation);
+      (useCourseNavigation as any).mockReturnValue(mockHooks.useCourseNavigation);
 
       renderCourseDetailView();
 
@@ -363,7 +363,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseNavigation).mockReturnValue(mockHooks.useCourseNavigation);
+      (useCourseNavigation as any).mockReturnValue(mockHooks.useCourseNavigation);
 
       renderCourseDetailView();
 
@@ -383,7 +383,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseDialogs).mockReturnValue(mockHooks.useCourseDialogs);
+      (useCourseDialogs as any).mockReturnValue(mockHooks.useCourseDialogs);
 
       renderCourseDetailView();
 
@@ -403,7 +403,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useLessonManagement).mockReturnValue(mockHooks.useLessonManagement);
+      (useLessonManagement as any).mockReturnValue(mockHooks.useLessonManagement);
 
       renderCourseDetailView();
 
@@ -420,7 +420,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useLessonManagement).mockReturnValue(mockHooks.useLessonManagement);
+      (useLessonManagement as any).mockReturnValue(mockHooks.useLessonManagement);
 
       renderCourseDetailView();
 
@@ -439,7 +439,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseOwnership).mockReturnValue(mockHooks.useCourseOwnership);
+      (useCourseOwnership as any).mockReturnValue(mockHooks.useCourseOwnership);
 
       renderCourseDetailView();
 
@@ -456,7 +456,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseOwnership).mockReturnValue(mockHooks.useCourseOwnership);
+      (useCourseOwnership as any).mockReturnValue(mockHooks.useCourseOwnership);
 
       renderCourseDetailView();
 
@@ -475,7 +475,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseProgress).mockReturnValue(mockHooks.useCourseProgress);
+      (useCourseProgress as any).mockReturnValue(mockHooks.useCourseProgress);
 
       renderCourseDetailView();
 
@@ -492,7 +492,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseOwnership).mockReturnValue(mockHooks.useCourseOwnership);
+      (useCourseOwnership as any).mockReturnValue(mockHooks.useCourseOwnership);
 
       renderCourseDetailView();
 
@@ -512,7 +512,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseRouteManager).mockReturnValue(mockHooks.useCourseRouteManager);
+      (useCourseRouteManager as any).mockReturnValue(mockHooks.useCourseRouteManager);
 
       renderCourseDetailView();
 
@@ -529,7 +529,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseRouteManager).mockReturnValue(mockHooks.useCourseRouteManager);
+      (useCourseRouteManager as any).mockReturnValue(mockHooks.useCourseRouteManager);
 
       renderCourseDetailView();
 
@@ -560,7 +560,7 @@ describe('CourseDetailView Integration Tests', () => {
         },
       };
 
-      vi.mocked(mockHooks.useCourseDetail).mockReturnValue(mockHooks.useCourseDetail);
+      (useCourseDetail as any).mockReturnValue(mockHooks.useCourseDetail);
 
       renderCourseDetailView();
 

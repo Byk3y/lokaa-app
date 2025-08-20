@@ -252,7 +252,12 @@ export class CourseService {
             estimated_duration,
             difficulty_level,
             created_at,
-            updated_at
+            updated_at,
+            educational_content (
+              id, title, content_type, text_content, media_url, media_metadata,
+              thumbnail_url, embed_data, estimated_duration, difficulty_level,
+              created_at, updated_at, slug
+            )
           )
         `)
         .eq('course_id', courseId)

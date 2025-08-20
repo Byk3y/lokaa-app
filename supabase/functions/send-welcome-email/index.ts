@@ -230,6 +230,10 @@ function getVerificationEmailTemplate(confirmationUrl: string, firstName: string
   const appDomain = Deno.env.get('APP_DOMAIN') || 'https://lokaa.app'
   const year = new Date().getFullYear()
   
+  // Extract the token from the confirmation URL for display
+  const urlParams = new URL(confirmationUrl).searchParams
+  const token = urlParams.get('token') || '123456' // Fallback for display purposes
+  
   return `
     <!DOCTYPE html>
     <html>
@@ -240,7 +244,7 @@ function getVerificationEmailTemplate(confirmationUrl: string, firstName: string
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px; font-size: 14px;">
         <!-- Preheader (hidden) -->
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0;visibility:hidden;">${firstName ? `${firstName}, ` : ''}confirm your email to start exploring spaces on Lokaa. · ${entityRefId}</div>
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;visibility:hidden;">${firstName ? `${firstName}, ` : ''}enter code ${token} to verify your Lokaa account. · ${entityRefId}</div>
         <!-- Header wordmark (top-left) -->
         <div style="margin: 6px 0 16px;">
           <div style="font-size:30px; font-weight:900; letter-spacing:0.2px; color:#059669; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Lokaa</div>
@@ -251,22 +255,31 @@ function getVerificationEmailTemplate(confirmationUrl: string, firstName: string
         <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin: 16px 0;">
           <p style="margin: 0 0 12px; color: #111827;">${firstName ? `Hi ${firstName},` : 'Hello,'}</p>
           
-          <p>Thanks for signing up for Lokaa! Please verify your email address by clicking the button below:</p>
+          <p>Thanks for signing up for Lokaa! Please verify your email address using the 6-digit code below:</p>
           
+          <!-- PRIMARY: Large, prominent verification code -->
+          <div style="text-align: center; margin: 30px 0; padding: 20px; background: white; border-radius: 8px; border: 2px solid #059669;">
+            <p style="margin: 0 0 8px; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Verification Code</p>
+            <div style="font-size: 32px; font-weight: 700; color: #059669; letter-spacing: 4px; font-family: 'Courier New', monospace;">${token}</div>
+            <p style="margin: 8px 0 0; color: #6b7280; font-size: 12px;">Enter this code on the verification page</p>
+          </div>
+          
+          <!-- SECONDARY: Button as alternative method -->
           <div style="text-align: center; margin: 30px 0;">
+            <p style="margin: 0 0 12px; color: #6b7280; font-size: 13px;">Or click the button below to verify automatically:</p>
             <a href="${confirmationUrl}" 
-               style="background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">
+               style="background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">
               Verify Email Address
             </a>
           </div>
           
-          <p style="color: #6b7280;">
-            This link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
+          <p style="color: #6b7280; font-size: 13px;">
+            This verification code will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
           </p>
           
-          <p style="color: #6b7280;">
+          <p style="color: #6b7280; font-size: 13px;">
             If the button doesn't work, copy and paste this link into your browser:<br>
-            <a href="${confirmationUrl}" style="color: #059669; word-break: break-all;">${confirmationUrl}</a>
+            <a href="${confirmationUrl}" style="color: #059669; word-break: break-all; font-size: 12px;">${confirmationUrl}</a>
           </p>
         </div>
         
@@ -282,5 +295,25 @@ function getVerificationEmailTemplate(confirmationUrl: string, firstName: string
 function getVerificationEmailText(confirmationUrl: string, firstName?: string): string {
   const greeting = firstName ? `Hi ${firstName},` : 'Hello,'
   const year = new Date().getFullYear()
-  return `Verify your Lokaa account\n\n${greeting}\n\nThanks for signing up for Lokaa! Please verify your email address by opening the link below:\n\n${confirmationUrl}\n\nThis link will expire in 24 hours. If you didn't create an account, ignore this email.\n\n© ${year} Lokaa. All rights reserved.`
+  
+  // Extract the token from the confirmation URL for display
+  const urlParams = new URL(confirmationUrl).searchParams
+  const token = urlParams.get('token') || '123456' // Fallback for display purposes
+  
+  return `Verify your Lokaa account
+
+${greeting}
+
+Thanks for signing up for Lokaa! Please verify your email address using the 6-digit code below:
+
+VERIFICATION CODE: ${token}
+
+Enter this code on the verification page to complete your signup.
+
+Alternatively, you can click this link to verify automatically:
+${confirmationUrl}
+
+This verification code will expire in 24 hours. If you didn't create an account, ignore this email.
+
+© ${year} Lokaa. All rights reserved.`
 }

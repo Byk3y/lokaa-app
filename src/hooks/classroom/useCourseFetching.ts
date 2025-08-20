@@ -137,21 +137,79 @@ export function useCourseFetching(options: UseCourseFetchingOptions = {}): UseCo
 
       const canViewDrafts = isCreator || isGeneralAdmin || isSpaceAdmin;
 
-      // Fetch modules and lessons (lightweight outline)
-      const { data: modulesData, error: modulesError } = await supabase
+      // OPTIMIZED: Split the complex nested query into smaller, efficient parts
+      // Phase 1: Fetch modules with basic metadata (fast)
+      let modulesQuery = supabase
         .from('course_modules')
         .select(`
-          id, title, description, module_order, module_type, course_id, space_id,
-          course_lessons (
-            id, title, content_type, content_text, content_url, lesson_order, module_id,
-            content_id, slug, page_type, is_published, estimated_duration,
-            difficulty_level, created_at, updated_at
-          )
+          id, title, description, module_order, module_type, course_id, space_id, is_published
         `)
         .eq('course_id', courseData.id)
         .order('module_order');
 
+      // Only filter by published if user can't view drafts
+      if (!canViewDrafts) {
+        modulesQuery = modulesQuery.eq('is_published', true);
+      }
+
+      const { data: modulesData, error: modulesError } = await modulesQuery;
+
       if (modulesError) throw modulesError;
+
+      // Phase 2: Fetch lessons for all modules in a single query (efficient)
+      let lessonsQuery = supabase
+        .from('course_lessons')
+        .select(`
+          id, title, content_type, content_text, content_url, lesson_order, module_id,
+          content_id, slug, page_type, is_published, estimated_duration,
+          difficulty_level, created_at, updated_at
+        `)
+        .in('module_id', modulesData?.map(m => m.id) || [])
+        .order('lesson_order');
+
+      // Only filter by published if user can't view drafts
+      if (!canViewDrafts) {
+        lessonsQuery = lessonsQuery.eq('is_published', true);
+      }
+
+      const { data: lessonsData, error: lessonsError } = await lessonsQuery;
+
+      if (lessonsError) throw lessonsError;
+
+      // Phase 3: Fetch educational content for lessons that need it (lazy loading)
+      const lessonsWithContent = lessonsData?.filter(lesson => lesson.content_id) || [];
+      let educationalContentMap = new Map();
+      
+      if (lessonsWithContent.length > 0) {
+        const contentIds = lessonsWithContent.map(lesson => lesson.content_id).filter(Boolean);
+        const { data: contentData, error: contentError } = await supabase
+          .from('educational_content')
+          .select(`
+            id, title, content_type, text_content, media_url, media_metadata,
+            thumbnail_url, embed_data, estimated_duration, difficulty_level,
+            created_at, updated_at, slug
+          `)
+          .in('id', contentIds);
+
+        if (contentError) {
+          if (enableLogging) {
+            log.warn('Hook', '🎓 [useCourseFetching] Failed to fetch educational content:', contentError);
+          }
+        } else {
+          educationalContentMap = new Map(contentData?.map(content => [content.id, content]) || []);
+        }
+      }
+
+      // Debug: Log the optimized query results
+      if (enableLogging) {
+        log.debug('Hook', `🎓 [useCourseFetching] Optimized query results:`, {
+          courseId,
+          modulesCount: modulesData?.length || 0,
+          lessonsCount: lessonsData?.length || 0,
+          contentCount: educationalContentMap.size,
+          queryStrategy: 'split-query-optimization'
+        });
+      }
 
       // Fetch lesson completions
       let completedLessonIds = new Set<string>();
@@ -168,16 +226,23 @@ export function useCourseFetching(options: UseCourseFetchingOptions = {}): UseCo
       }
 
       // Transform and filter data
-      const transformedModules = (modulesData || []).map(module => ({
-        ...module,
-        lessons: (module.course_lessons || [])
-          .filter(lesson => canViewDrafts || lesson.is_published)
+      const transformedModules = (modulesData || []).map(module => {
+        // Get lessons for this module
+        const moduleLessons = (lessonsData || [])
+          .filter(lesson => lesson.module_id === module.id)
+          .filter(lesson => canViewDrafts || lesson.is_published) // Filter drafts in app layer
           .sort((a, b) => a.lesson_order - b.lesson_order)
           .map(lesson => ({
             ...lesson,
-            completed: completedLessonIds.has(lesson.id)
-          }))
-      }));
+            completed: completedLessonIds.has(lesson.id),
+            educational_content: lesson.content_id ? educationalContentMap.get(lesson.content_id) : null
+          }));
+
+        return {
+          ...module,
+          lessons: moduleLessons
+        };
+      }).filter(module => canViewDrafts || module.is_published); // Filter draft modules in app layer
 
       // Calculate course progress
       const allLessons = transformedModules.flatMap(module => module.lessons);
