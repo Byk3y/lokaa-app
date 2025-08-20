@@ -148,6 +148,61 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
     },
   });
 
+  // Add removal buttons to embedded videos after editor is ready
+  React.useEffect(() => {
+    if (editor) {
+      // Add removal buttons to existing embedded videos
+      addRemoveButtonsToVideos();
+      
+      // Listen for new video insertions
+      const handleUpdate = () => {
+        setTimeout(addRemoveButtonsToVideos, 100);
+      };
+      
+      editor.on('update', handleUpdate);
+      
+      return () => {
+        editor.off('update', handleUpdate);
+      };
+    }
+  }, [editor]);
+
+  // Function to add remove buttons to embedded videos
+  const addRemoveButtonsToVideos = () => {
+    if (!editor) return;
+    
+    const videoElements = editor.view.dom.querySelectorAll('div[data-youtube-video]');
+    videoElements.forEach((videoElement) => {
+      // Check if remove button already exists
+      if (videoElement.querySelector('.video-remove-btn')) return;
+      
+      // Create remove button
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'video-remove-btn';
+      removeBtn.innerHTML = '×';
+      removeBtn.title = 'Remove video';
+      removeBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Find the position of this video in the editor
+        const pos = editor.view.posAtDOM(videoElement, 0);
+        if (pos !== null) {
+          // Delete the video node
+          editor.chain().focus().deleteRange({ from: pos, to: pos + 1 }).run();
+          
+          toast({
+            title: "Video removed",
+            description: "Video has been removed from your content",
+            variant: "default"
+          });
+        }
+      };
+      
+      videoElement.appendChild(removeBtn);
+    });
+  };
+
   // Handle published state change
   const handlePublishedChange = (newPublished: boolean) => {
     setPublished(newPublished);
@@ -414,23 +469,31 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
           
       {/* 3. VIDEO PREVIEW - only for featured videos (content_url/media_url) */}
           {(() => {
+            // Only show video preview when not saving and video should be shown
+            log.debug('Component', '🎓 [LessonEditor] Video preview check:', {
+              hasFeaturedVideo,
+              showVideo,
+              isSaving,
+              willShow: hasFeaturedVideo && showVideo && !isSaving
+            });
+            
             if (hasFeaturedVideo && showVideo && !isSaving) {
               return (
             <div className="mb-1 px-6 relative group">
               {/* Add top padding to prevent video cropping due to X button */}
-              <div className="pt-2">
+              <div className="pt-2 relative">
                   <VideoRenderer lesson={lesson} isSaving={false} />
+                  {/* X button to remove video - appears on hover */}
+                  <button
+                    onClick={() => setShowVideo(false)}
+                    className="absolute top-2 right-2 w-8 h-8 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 z-20"
+                    title="Remove video"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
               </div>
-              {/* X button to remove video - appears on hover */}
-              <button
-                onClick={() => setShowVideo(false)}
-                className="absolute top-4 right-8 w-8 h-8 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
-                title="Remove video"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
                 </div>
               );
             }

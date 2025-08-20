@@ -83,7 +83,9 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
                 hasVideo,
                 contentUrl: lesson.content_url,
                 willShowDedicatedVideo: hasVideo,
-                isSaving
+                isSaving,
+                willShowNormal: hasVideo && !isSaving,
+                willShowLoading: hasVideo && isSaving
               });
               
               if (hasVideo && !isSaving) {
