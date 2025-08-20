@@ -419,7 +419,7 @@ const LessonEditor: React.FC<LessonEditorProps> = ({
             <div className="mb-1 px-6 relative group">
               {/* Add top padding to prevent video cropping due to X button */}
               <div className="pt-2">
-                  <VideoRenderer lesson={lesson} />
+                  <VideoRenderer lesson={lesson} isSaving={isSaving} />
               </div>
               {/* X button to remove video - appears on hover */}
               <button

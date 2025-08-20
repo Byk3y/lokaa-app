@@ -15,6 +15,7 @@ export interface LessonViewerProps {
   completed: boolean;
   onEdit: () => void;
   onMarkAsDone?: () => void;
+  isSaving?: boolean;
 }
 
 /**
@@ -28,7 +29,8 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
   isAdmin,
   completed,
   onEdit,
-  onMarkAsDone
+  onMarkAsDone,
+  isSaving = false
 }) => {
   return (
     <div className="flex flex-col h-full bg-white w-full">
@@ -87,7 +89,7 @@ const LessonViewer: React.FC<LessonViewerProps> = ({
                 log.debug('Component', '🎥 [LessonViewer] Rendering video container div');
                 return (
                   <div className="mb-2">
-                    <VideoRenderer lesson={lesson} />
+                    <VideoRenderer lesson={lesson} isSaving={isSaving} />
                   </div>
                 );
               } else {

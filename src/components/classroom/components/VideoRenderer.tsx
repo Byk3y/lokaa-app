@@ -6,13 +6,14 @@ import type { CourseLesson } from '@/types/classroom/courseDetail';
 export interface VideoRendererProps {
   lesson: CourseLesson;
   className?: string;
+  isSaving?: boolean;
 }
 
 /**
  * VideoRenderer component handles the rendering of video content for lessons
  * Extracted from LessonContent.tsx for better modularity
  */
-const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '' }) => {
+const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '', isSaving = false }) => {
   log.debug('Component', '🎥 [VideoRenderer] renderVideoContent called');
   
   // Use VideoContentExtractor to detect videos in both content_url and embedded HTML
@@ -23,6 +24,36 @@ const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '' })
   if (!videoInfo) {
     log.debug('Component', '🎥 [VideoRenderer] No videoInfo, returning null');
     return null;
+  }
+
+  // Show loading state during save to prevent flash of duplicate videos
+  if (isSaving) {
+    log.debug('Component', '🎥 [VideoRenderer] Showing loading state during save');
+    return (
+      <div 
+        className={`lesson-view-video-container ${className}`}
+        style={{
+          position: 'relative',
+          margin: '0.25rem auto 0.25rem auto',
+          width: '100%',
+          maxWidth: '1200px',
+          borderRadius: '12px',
+          overflow: 'hidden',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          padding: '0',
+          paddingBottom: '56.25%',
+          height: '0',
+          backgroundColor: '#f3f4f6'
+        }}
+      >
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex items-center space-x-2 text-gray-500">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-sm">Updating video...</span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Generate embed URL with proper parameters

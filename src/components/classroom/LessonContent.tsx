@@ -277,6 +277,7 @@ const LessonContent: React.FC<LessonContentProps> = ({
       completed={completed}
       onEdit={handleEdit}
       onMarkAsDone={onMarkAsDone}
+      isSaving={isSaving}
     />
   );
 };
