@@ -134,63 +134,12 @@ export const signUp = async (
       return { error, data: null };
     }
     
-    // Send custom verification email with improved template
-    if (data.user && !data.session) {
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-        
-        log.debug('Utils', '🔍 [AuthActions] Attempting to send custom verification email', {
-          hasSupabaseUrl: !!supabaseUrl,
-          hasAnonKey: !!anonKey,
-          email,
-          firstName: options?.firstName
-        });
-        
-        if (supabaseUrl && anonKey) {
-          const projectRef = new URL(supabaseUrl).host.split('.')[0];
-          const functionsUrl = `https://${projectRef}.functions.supabase.co`;
-          
-          log.debug('Utils', '🔍 [AuthActions] Function URL constructed', { functionsUrl });
-          
-          // Send custom verification email
-          const response = await fetch(`${functionsUrl}/send-welcome-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`
-            },
-            body: JSON.stringify({
-              type: 'verification',
-              to: email,
-              firstName: options?.firstName,
-              confirmationUrl: redirectTo
-            })
-          });
-
-          const responseData = await response.json();
-
-          if (response.ok) {
-            log.debug('Utils', '✅ [AuthActions] Custom verification email sent successfully', responseData);
-          } else {
-            log.error('Utils', '❌ [AuthActions] Custom verification email failed', { status: response.status, data: responseData });
-          }
-        } else {
-          log.warn('Utils', '⚠️ [AuthActions] Missing environment variables for custom email', {
-            hasSupabaseUrl: !!supabaseUrl,
-            hasAnonKey: !!anonKey
-          });
-        }
-      } catch (emailError) {
-        log.error('Utils', '❌ [AuthActions] Exception sending custom verification email:', emailError);
-        // Don't fail the signup if custom email fails - Supabase will send default email
-      }
-    } else {
-      log.debug('Utils', '🔍 [AuthActions] Skipping custom email - user has session or no user data', {
-        hasUser: !!data.user,
-        hasSession: !!data.session
-      });
-    }
+    // Supabase automatically sends verification email when signUp is called
+    // No need to send custom email here to avoid duplicates
+    log.debug('Utils', '🔍 [AuthActions] Supabase will send verification email automatically', {
+      hasUser: !!data.user,
+      hasSession: !!data.session
+    });
     
     // Enhanced success handling with validation
     if (data.session) {
