@@ -269,7 +269,7 @@ export default function SpaceSwitcher({
       // ENHANCED: Clear SpaceContext cache
       clearCache();
       
-      // ENHANCED: Pre-cache the target space info for faster loading
+      // ENHANCED: Pre-cache the target space info for faster loading and instant ID resolution
       if (selectedSpace) {
         try {
           // Store space info for session context
@@ -291,12 +291,33 @@ export default function SpaceSwitcher({
           };
           localStorage.setItem('lastActiveSpace', JSON.stringify(lastActiveSpace));
 
-          // Seed stable-space fallback for instant resolution on first paint
+          // Seed stable space-id fallback for the target subdomain
           try {
-            localStorage.setItem(
-              `space_fallback_${subdomain}`,
-              JSON.stringify({ id: selectedSpace.id, name: selectedSpace.name, subdomain })
-            );
+            localStorage.setItem(`space_fallback_${selectedSpace.subdomain}`, JSON.stringify({ id: selectedSpace.id }));
+          } catch {}
+          
+          // Mark switch in progress and broadcast event so consumers can clear state immediately
+          try {
+            sessionStorage.setItem('spaceSwitchInProgress', '1');
+            window.dispatchEvent(new CustomEvent('spaceSwitch', {
+              detail: {
+                fromId: currentSpace?.id,
+                toId: selectedSpace.id,
+                fromSubdomain: currentSpaceSubdomain,
+                toSubdomain: subdomain,
+                timestamp: Date.now()
+              }
+            }));
+          } catch {}
+          
+          // Optional readiness gate: attempt to warm the target space in the settings store
+          try {
+            const actions = useSpaceSettingsStore.getState();
+            const ready = await Promise.race([
+              actions.loadActiveSpace({ subdomain, spaceId: selectedSpace.id }, userId, true).then(() => true),
+              new Promise<boolean>(resolve => setTimeout(() => resolve(false), 700))
+            ]);
+            log.debug('Component', `[SpaceSwitcher] Readiness warm-up for ${subdomain}:`, ready);
           } catch {}
           
           // Set ownership flag if user owns the space
@@ -309,22 +330,6 @@ export default function SpaceSwitcher({
           log.error('Component', 'Error pre-caching space context:', e);
         }
       }
-
-      // Notify listeners to clear any in-memory arrays immediately
-      try {
-        const switchEvent = new CustomEvent('spaceSwitch', {
-          detail: { fromId: currentSpace?.id, toId: selectedSpace?.id, subdomain }
-        });
-        window.dispatchEvent(switchEvent);
-      } catch {}
-
-      // Brief readiness step: prime store for target space to avoid flashes
-      try {
-        const store = useSpaceSettingsStore.getState();
-        if (store?.loadActiveSpace) {
-          await store.loadActiveSpace({ subdomain }, userId, true);
-        }
-      } catch {}
     }
     
     // Navigate to the new space
