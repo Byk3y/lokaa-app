@@ -23,7 +23,26 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
-      "@typescript-eslint/no-unused-vars": "off",
+      // TypeScript Rules
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-inferrable-types": "error",
+      
+      // React Rules
+      "react-hooks/exhaustive-deps": "error",
+      
+      // Code Quality Rules
+      "no-console": "warn",
+      "no-debugger": "error",
+      "no-alert": "warn",
+      "prefer-const": "error",
+      "no-var": "error",
+      "no-duplicate-imports": "error",
+      
+      // Performance Rules
+      "no-unused-expressions": "warn",
+      "no-unreachable": "error",
+      "no-empty": "warn",
     },
   }
 );

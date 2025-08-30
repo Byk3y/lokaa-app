@@ -26,9 +26,9 @@ class HMRMonitor {
     if (!import.meta.hot) return;
 
     // Monitor HMR failures only
-    const originalWarn = log.warn('Utils',;
-    
-    log.warn('Utils', = (...args) => {
+        const originalWarn = log.warn;
+
+    log.warn = (...args) => {
       const message = args.join(' ');
       
       // Only capture React Fast Refresh failures

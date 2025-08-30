@@ -456,7 +456,7 @@ if (process.env.NODE_ENV === 'development') {
   (window as any).optimizedFetcher = optimizedFetcher;
   (window as any).fetchMetrics = () => {
     const metrics = optimizedFetcher.getMetrics();
-    log.table('Utils',(Array.from(metrics.entries()));
+    log.table('Utils', Array.from(metrics.entries()));
     return metrics;
   };
   

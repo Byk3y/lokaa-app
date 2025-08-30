@@ -233,7 +233,7 @@ if (typeof window !== 'undefined') {
   }
   
   // Add to console help
-  const originalConsoleLog = log.debug('Utils',;
+  const originalConsoleLog = log.debug;
   setTimeout(() => {
     log.debug('Utils', '\n🔧 [Mobile Debug] Additional HMR Recovery Tools:');
     log.debug('Utils', '   - window.fixModuleError() - Fix module import failures');

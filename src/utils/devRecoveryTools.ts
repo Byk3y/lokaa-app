@@ -112,7 +112,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
       }
     };
     
-    log.table('Utils',(report);
+    log.table('Utils', report);
     return report;
   };
   

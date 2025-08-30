@@ -37,14 +37,14 @@ function startPerformanceTest(): void {
   performanceData = [];
   
   // Monitor console messages for key metrics
-  const originalConsoleLog = log.debug('Utils',;
+  const originalConsoleLog = log.debug;
   let loadingStateCount = 0;
   let renderCount = 0;
   let cacheHitCount = 0;
   let trustTokenCount = 0;
   let fastPathTiming = 0;
   
-  log.debug('Utils', = function(...args) {
+  log.debug = function(...args) {
     const message = args.join(' ');
     
     // Track loading states
@@ -95,7 +95,7 @@ function startPerformanceTest(): void {
     
     if (performanceData.length >= 6) { // Stop after 30 seconds
       clearInterval(interval);
-      log.debug('Utils', = originalConsoleLog; // Restore original log.debug('Utils',
+      log.debug = originalConsoleLog; // Restore original log.debug
       generatePerformanceReport();
     }
   }, 5000);
@@ -249,8 +249,8 @@ function quickPerformanceTest(): void {
   let renderCount = 0;
   let cacheCount = 0;
   
-  const originalLog = log.debug('Utils',;
-  log.debug('Utils', = function(...args) {
+  const originalLog = log.debug;
+  log.debug = function(...args) {
     const message = args.join(' ');
     if (message.includes('Showing loading state')) loadingCount++;
     if (message.includes('Rendering content')) renderCount++;
@@ -259,7 +259,7 @@ function quickPerformanceTest(): void {
   };
   
   setTimeout(() => {
-    log.debug('Utils', = originalLog;
+    log.debug = originalLog;
     log.debug('Utils', '⚡ ========== QUICK PERFORMANCE RESULTS ==========');
     log.debug('Utils', `📊 Loading States: ${loadingCount} (target: ≤1)`);
     log.debug('Utils', `🔄 Renders: ${renderCount} (target: ≤2)`);

@@ -74,7 +74,7 @@ export const useClassroomLoading = (): ClassroomLoadingManager => {
     return loadingStates[key] || false;
   }, [loadingStates]);
 
-  const withLoading = useCallback(async <T>(
+  const withLoading = useCallback(async <T,>(
     key: string, 
     asyncFn: () => Promise<T>
   ): Promise<T> => {
