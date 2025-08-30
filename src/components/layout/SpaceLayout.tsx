@@ -10,9 +10,9 @@ import SpaceSwitcher from "@/components/spaces/SpaceSwitcher";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
-import useSpaceSettingsModal from "@/hooks/useSpaceSettingsModal";
+
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
-import SpaceSettingsModal from "@/components/modals/SpaceSettingsModal";
+import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
 import BottomNav from "@/components/mobile/BottomNav";
@@ -316,7 +316,7 @@ export default function SpaceLayout({
   const navigate = useNavigate();
   const location = useLocation();
   
-  const openSettingsModal = useSpaceSettingsModal();
+
 
   // Effect to load space on mount or if subdomain changes
   useEffect(() => {

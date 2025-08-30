@@ -12,6 +12,8 @@ import { Globe, Lock, Image as ImageIcon, Camera, Upload, AlertCircle, Loader2 }
 import { toast } from '@/hooks/use-toast';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Alert } from '@/components/ui/alert';
+import { uploadImageComplete } from '@/utils/imageUpload';
+import { validateImageFile, getCompressionSettings } from '@/utils/imageCompression';
 
 async function uploadFile(bucketName: string, filePath: string, file: File, spaceId?: string): Promise<string> {
   if (!file) throw new Error("File not selected");
