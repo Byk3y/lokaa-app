@@ -12,6 +12,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { PostCardProps } from '@/features/posts/types/postCard';
 import type { Attachment } from '@/features/posts/types/postTypes';
 import { devLogger } from '@/utils/developmentLogger';
+import { getSpaceIdBySubdomain } from '@/config/knownSpaces';
 
 export interface PostFetchOptions {
   timeout?: number;
@@ -30,11 +31,7 @@ export class PostService {
   private static readonly DEFAULT_TIMEOUT = 15000; // 15 seconds
   private static readonly DEFAULT_MAX_RETRIES = 2;
 
-  // Space ID mapping for URL-based fallback when space context isn't ready
-  private static readonly SPACE_MAPPING: Record<string, string> = {
-    'nocode-architects': '235e68d1-89df-4d2d-8945-e7756d60de20',
-    // Add other spaces as needed
-  };
+  // Space ID mapping moved to centralized configuration in @/config/knownSpaces
 
   /**
    * Extract space ID from URL pathname as fallback
@@ -42,7 +39,7 @@ export class PostService {
   private static extractSpaceIdFromUrl(pathname: string): string | null {
     const segments = pathname.split('/');
     const subdomain = segments[1];
-    return this.SPACE_MAPPING[subdomain] || null;
+    return getSpaceIdBySubdomain(subdomain);
   }
 
   /**

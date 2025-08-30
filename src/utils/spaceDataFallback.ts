@@ -1,7 +1,11 @@
 import { log } from '@/utils/logger';
+import { getKnownSpaceConfig, createEnhancedSpaceData, type KnownSpaceConfig } from '@/config/knownSpaces';
+
 /**
  * Space Data Fallback System
  * Provides fallback data when database queries timeout to ensure all tabs work
+ * 
+ * Now uses centralized configuration from @/config/knownSpaces
  */
 
 export interface SpaceFallbackData {
@@ -18,57 +22,31 @@ export interface SpaceFallbackData {
 }
 
 /**
- * Hardcoded fallback data for known spaces
- * This ensures tabs work even during database connectivity issues
+ * Convert KnownSpaceConfig to SpaceFallbackData format
  */
-const SPACE_FALLBACK_DATA: Record<string, SpaceFallbackData> = {
-  'nocode-architects': {
-    id: '235e68d1-89df-4d2d-8945-e7756d60de20',
-    name: 'Nocode Devils',
-    subdomain: 'nocode-architects',
-    description: 'A community for no-code architects and builders',
-    owner_id: '1fca49da-3a53-4a0f-aeb3-63b567f35f84', // FIXED: Updated to correct owner ID
-    member_count: 6,
-    admin_count: 1,
-    online_count: 2,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  'nextpath-ai': {
-    id: 'cc18c511-9b54-4e14-8abc-75b8c800c39d',
-    name: 'Nextpath-ai',
-    subdomain: 'nextpath-ai',
-    description: 'AI-powered learning and development community',
-    owner_id: '1fca49da-3a53-4a0f-aeb3-63b567f35f84', // FIXED: Updated to correct owner ID
-    member_count: 1,
-    admin_count: 1,
-    online_count: 1,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  'aqua-space': {
-    id: 'c1f7c014-ed72-4c9b-bd88-9dcd23343104',
-    name: 'aqua space',
-    subdomain: 'aqua-space',
-    description: 'A community space for collaboration and discussion',
-    owner_id: '13468c2b-cd4c-42c8-81f8-bb5373e0456e', // FIXED: Correct owner ID for aqua-space
-    member_count: 5,
-    admin_count: 1,
-    online_count: 1,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-};
+function convertToSpaceFallbackData(config: KnownSpaceConfig): SpaceFallbackData {
+  return {
+    id: config.id,
+    name: config.name,
+    subdomain: config.subdomain,
+    description: config.description,
+    owner_id: config.owner_id,
+    member_count: config.member_count,
+    admin_count: config.admin_count,
+    online_count: config.online_count,
+    created_at: config.created_at,
+    updated_at: config.updated_at
+  };
+}
 
 /**
  * Get fallback space data for a subdomain
  */
 export function getSpaceFallbackData(subdomain: string): SpaceFallbackData | null {
-  const fallbackData = SPACE_FALLBACK_DATA[subdomain];
+  const config = getKnownSpaceConfig(subdomain);
   
-  if (fallbackData) {
-    // Removed excessive logging to prevent console spam
-    return fallbackData;
+  if (config) {
+    return convertToSpaceFallbackData(config);
   }
   
   // CRITICAL FIX: Don't generate invalid fallback IDs that cause database errors
