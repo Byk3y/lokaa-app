@@ -1,54 +1,39 @@
 import { log } from '@/utils/logger';
 import { devLogger } from '@/utils/developmentLogger';
-// HMR TEST COMMENT A: Test completed - HMR optimizations active
-import React, { lazy, Suspense, useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
-import { motion } from "framer-motion";
-import { Loader2, Tag, AlertTriangle, RefreshCw, MessageSquare, Users, Calendar, Search, Filter, Pin, Plus, ChevronDown } from "lucide-react";
+import React, { Suspense, useEffect, useMemo, memo } from 'react';
+import { Loader2 } from "lucide-react";
 
-// HMR OPTIMIZATION: Group core UI and business logic imports
 import { Button } from "@/components/ui/button";
-import { useToast } from '@/hooks/use-toast';
 import { useFeedLogic } from "@/hooks/useFeedLogic";
-import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts";
-import { useRealtimeSpaceCommentsOptimized } from "@/hooks/useRealtimeSpaceCommentsOptimized";
-import { useRealtimePostLikes } from "@/hooks/useRealtimePostLikes";
-import { getSupabaseClient } from "@/integrations/supabase/client";
 
-// HMR OPTIMIZATION: Group type and utility imports
+
+
 import type { FeedTabProps } from "@/types/feedTypes";
 export type { FetchedPostType } from "@/types/feedTypes";
-import { getCategoryDisplayName } from "@/utils/feedUtils";
+
 import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
 
-// HMR OPTIMIZATION: Group stable component imports (less likely to change)
+
 import SpaceInfoSidebar from "./SpaceInfoSidebar";
 import FeedHeader from "./FeedHeader";
-import PostCard from "./PostCard";
-import PostsPagination from './PostsPagination';
-import { NewPostNotification } from "@/components/feed/NewPostNotification";
-// 🎭 PHASE 1 FIX: Import PostDetailModal directly to fix import errors
-import PostDetailModal from "@/components/space/post-detail/PostDetailModal";
+import SimpleSpaceSetup from "./SimpleSpaceSetup";
 
-// HMR OPTIMIZATION: Lazy load heavy/modal components to reduce initial bundle and HMR cascades
-const SimpleSpaceSetup = lazy(() => import("./SimpleSpaceSetup"));
-const CreatePostModal = lazy(() => import("@/features/posts/components/CreatePostModal").then(module => ({ default: module.CreatePostModal })));
-const CreateCategoryModal = lazy(() => import("@/components/space/CreateCategoryModal"));
+// Extracted Feed Components
+import SearchResultsList from "./feed/SearchResultsList";
+import PinnedPostsList from "./feed/PinnedPostsList";
+import CategoryTabs from "./feed/CategoryTabs";
+import RegularPostsList from "./feed/RegularPostsList";
+import FeedModals from "./feed/FeedModals";
 
 // Search functionality imports
-import { useSearch } from "@/contexts/SearchContext";
-import { SearchResultCard } from '@/features/search/components/SearchResultCard';
-import { OptimizedAvatar } from '@/components/ui/OptimizedAvatar';
-import { createHighlightedContent } from '@/utils/searchUtils';
-import { formatCommentTime } from '@/utils/formatters';
+import { useSearchHook as useSearch } from '@/features/search/store/search-store';
 
-// Preserved space data is now handled by individual components
+
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useSpaceDataFallback } from '@/hooks/useSpaceDataFallback';
 
 function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
-  
-  
-  // 🧪 HMR TEST COMMENT: Testing HMR optimization effectiveness (Test 3A)
   // ============================================================================
   // HOOKS MUST BE AT THE TOP - CRITICAL FIX FOR HOOK ORDER ERROR
   // ============================================================================
@@ -160,231 +145,10 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   }, [currentSpaceData?.id, searchIntegration, setSpaceSearch]);
 
   // ============================================================================
-  // FALLBACK SPACE DATA FOR SIDEBAR
+  // SPACE DATA FALLBACK HOOK
   // ============================================================================
   
-  // Create fallback space data when currentSpaceData is null but we have access
-  const fallbackSpaceData = React.useMemo(() => {
-    if (currentSpaceData) return null; // Use real data when available
-    
-    // Extract subdomain from URL as fallback
-    const pathname = window.location.pathname;
-    const subdomainMatch = pathname.match(/\/([^\/]+)\/space/);
-    const urlSubdomain = subdomainMatch?.[1] || 'space';
-    
-    // PHASE 1 FIX: Enhanced fallback with immediate hardcoded data to prevent flashing
-    let cachedSpaceData = null;
-    
-    // PRIORITY 1: Hardcoded fallback for known spaces (prevents any flashing)
-    if (urlSubdomain === 'nocode-architects') {
-      cachedSpaceData = {
-        id: '235e68d1-89df-4d2d-8945-e7756d60de20',
-        name: 'Nocode Devils',
-        subdomain: 'nocode-architects',
-        description: 'A space for nocode developers and enthusiasts',
-        icon_image: null,
-        cover_image: null,
-        is_private: false
-      };
-      log.debug('Component', `🔒 [Phase1] Using hardcoded fallback for ${urlSubdomain}`);
-    }
-    
-    // PRIORITY 2: Try multiple cache sources for space data
-    if (!cachedSpaceData) {
-      // 1. Try lastActiveSpace cache
-      try {
-        const lastActiveSpace = localStorage.getItem('lastActiveSpace');
-        if (lastActiveSpace) {
-          const parsed = JSON.parse(lastActiveSpace);
-          if (parsed.subdomain === urlSubdomain) {
-            const cacheAge = Date.now() - (parsed.timestamp || 0);
-            const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours
-            if (cacheAge < maxCacheAge && parsed.data) {
-              cachedSpaceData = {
-                id: parsed.data.id as string,
-                name: parsed.data.name as string,
-                subdomain: parsed.data.subdomain as string,
-                description: (parsed.data.description as string) || null,
-                icon_image: (parsed.data.icon_image as string) || null,
-                cover_image: (parsed.data.cover_image as string) || null,
-                is_private: (parsed.data.is_private as boolean) || false
-              };
-              log.debug('Component', `🔒 [Phase1] Using lastActiveSpace cache for ${urlSubdomain}`);
-            }
-          }
-        }
-      } catch (e) {
-        log.warn('Component', '[FeedTab] Failed to read lastActiveSpace cache:', e);
-      }
-      
-      // 2. Try space_fallback_${subdomain} cache
-      if (!cachedSpaceData) {
-        try {
-          const persistentCache = localStorage.getItem(`space_fallback_${urlSubdomain}`);
-          if (persistentCache) {
-            const parsed = JSON.parse(persistentCache);
-            const cacheAge = Date.now() - (parsed.timestamp || 0);
-            const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours
-            if (cacheAge < maxCacheAge && parsed.data) {
-              cachedSpaceData = {
-                id: parsed.data.id as string,
-                name: parsed.data.name as string,
-                subdomain: parsed.data.subdomain as string,
-                description: (parsed.data.description as string) || null,
-                icon_image: (parsed.data.icon_image as string) || null,
-                cover_image: (parsed.data.cover_image as string) || null,
-                is_private: (parsed.data.is_private as boolean) || false
-              };
-              log.debug('Component', `🔒 [Phase1] Using persistent cache for ${urlSubdomain}`);
-            }
-          }
-        } catch (e) {
-          log.warn('Component', '[FeedTab] Failed to read persistent cache:', e);
-        }
-      }
-    }
-
-    // Return the best available fallback data - only for known spaces with real UUIDs
-    if (cachedSpaceData) {
-      return cachedSpaceData;
-    }
-    
-    // CRITICAL FIX: Only provide fallback for spaces with known real UUIDs
-    if (urlSubdomain === 'nocode-architects') {
-      return {
-        id: '235e68d1-89df-4d2d-8945-e7756d60de20',
-        name: 'Nocode Devils',
-        subdomain: urlSubdomain,
-        description: null,
-        icon_image: null,
-        cover_image: null,
-        is_private: false
-      };
-    }
-    
-    if (urlSubdomain === 'music-business') {
-      return {
-        id: '987e5232-68a8-4d1c-88be-e6f77a5e93fd',
-        name: 'Music Business',
-        subdomain: urlSubdomain,
-        description: null,
-        icon_image: null,
-        cover_image: null,
-        is_private: false
-      };
-    }
-    
-    // For unknown spaces, return null to prevent invalid database queries
-    log.warn('Component', `⚠️ [FeedTab] No fallback data available for ${urlSubdomain} - returning null`);
-    return null;
-  }, [currentSpaceData]);
-  
-  // Use optimized member counts hook for real-time data
-  const spaceIdForCounts = currentSpaceData?.id || fallbackSpaceData?.id || '';
-  const memberCounts = useSimpleMemberCounts(spaceIdForCounts);
-  
-  // 🔔 DISABLED: Space-level comment subscription to prevent double counting
-  // PostCard components now handle their own real-time comment updates via usePostComments
-  // This prevents the double counting issue where each comment was processed twice
-  /*
-  const { isConnected: commentsConnected } = useRealtimeSpaceCommentsOptimized({
-    spaceId: spaceIdForCounts,
-    userId: currentUser?.id || null,
-    isEnabled: false, // 🔥 DISABLED: Prevents double counting with PostCard-level subscriptions
-    onCommentAdded: (data) => {
-      // Adapter: Convert from {postId, commentId, authorName, spaceId} to (postId, newCommentCount)
-      // For now, we'll increment by 1 since we don't have the exact count in the data
-      handleCommentAddedInModal(data.postId, 0); // The function will handle getting the actual count
-    },
-  });
-  */
-
-  // 🔥 DISABLED: FeedTab-level real-time likes subscription to prevent double counting
-  // PostCard components now handle their own real-time like updates via usePostLikes → useRealtimePostLikes
-  // This prevents the double counting issue where each like was processed twice:
-  // 1. PostCard subscription (correctly skips own likes) 
-  // 2. FeedTab subscription (was NOT skipping own likes, causing double counting)
-  /*
-  const { isConnected: likesConnected } = useRealtimePostLikes({
-    spaceId: spaceIdForCounts,
-    userId: currentUser?.id || null,
-    enabled: false, // 🔥 DISABLED: Prevents double counting with PostCard-level subscriptions
-    onLikeAdded: (postId, userId) => {
-      // Handle real-time like from other users - delegate to feed logic
-      log.debug('Component', '🔔 [FeedTab] Real-time post like added:', { postId, userId });
-      handleLikeToggledInCard(postId, 0); // The function will fetch the updated like count
-    }
-    // 🚀 SIMPLIFIED: No onLikeRemoved - users toggle likes optimistically like Instagram/LinkedIn
-  });
-  */
-  
-  // PHASE 1.5 FIX: Ensure sidebarSpaceData ALWAYS provides space name
-  const sidebarSpaceData = React.useMemo(() => {
-    // PRIORITY 1: Use real current space data when available
-    if (currentSpaceData) {
-      log.debug('Component', `🔒 [Phase1.5] Using real space data for sidebar: ${currentSpaceData.name}`);
-      return currentSpaceData;
-    }
-    
-    // PRIORITY 2: Use fallback data - but ensure it's never null
-    const fallback = fallbackSpaceData;
-    if (fallback) {
-      log.debug('Component', `🔒 [Phase1.5] Using fallback space data for sidebar: ${fallback.name}`);
-      return fallback;
-    }
-    
-    // PRIORITY 3: Emergency hardcoded fallback to prevent null sidebar
-    const pathname = window.location.pathname;
-    const subdomainMatch = pathname.match(/\/([^\/]+)\/space/);
-    const urlSubdomain = subdomainMatch?.[1] || 'space';
-    
-    // CRITICAL FIX: Only provide emergency fallback for known spaces with real UUIDs
-    if (urlSubdomain === 'nocode-architects') {
-      const emergencyFallback = {
-        id: '235e68d1-89df-4d2d-8945-e7756d60de20',
-        name: 'Nocode Devils',
-        subdomain: urlSubdomain,
-        description: 'a space to build and learn together and grow',
-        icon_image: 'https://nmddvthcsyppyjncqfsk.supabase.co/storage/v1/object/public/space-icons/235e68d1-89df-4d2d-8945-e7756d60de20_1747910766771_Generated_Image_March_26__2025_-_9_20AM_png.jpeg',
-        cover_image: 'https://nmddvthcsyppyjncqfsk.supabase.co/storage/v1/object/public/space-covers/235e68d1-89df-4d2d-8945-e7756d60de20_1747911651153_Untitled.png',
-        is_private: false
-      };
-      log.debug('Component', `🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
-      return emergencyFallback;
-    }
-    
-    if (urlSubdomain === 'music-business') {
-      const emergencyFallback = {
-        id: '987e5232-68a8-4d1c-88be-e6f77a5e93fd',
-        name: 'Music Business',
-        subdomain: urlSubdomain,
-        description: 'A community for music business professionals',
-        icon_image: null,
-        cover_image: null,
-        is_private: false
-      };
-      log.debug('Component', `🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
-      return emergencyFallback;
-    }
-    
-    if (urlSubdomain === 'nextpath-ai') {
-      const emergencyFallback = {
-        id: 'cc18c511-9b54-4e14-8abc-75b8c800c39d',
-        name: 'Nextpath AI',
-        subdomain: urlSubdomain,
-        description: 'AI-powered learning and development community',
-        icon_image: null,
-        cover_image: null,
-        is_private: false
-      };
-      log.debug('Component', `🚨 [Phase1.5] Using EMERGENCY fallback for sidebar: ${emergencyFallback.name}`);
-      return emergencyFallback;
-    }
-    
-    // For unknown spaces, return null to prevent invalid database queries
-    log.warn('Component', `⚠️ [Phase1.5] No emergency fallback available for ${urlSubdomain} - returning null`);
-    return null;
-  }, [currentSpaceData, fallbackSpaceData]);
+  const { fallbackSpaceData, sidebarSpaceData, spaceIdForCounts } = useSpaceDataFallback(currentSpaceData);
 
   // ============================================================================
   // LOADING STATE & ERRORS
@@ -425,7 +189,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     return <div className="p-4 text-center">Loading feed...</div>;
   }
 
-  // Mobile detection moved to top of component to fix hook order
+
 
   // ============================================================================
   // SCROLL POSITION MANAGEMENT
@@ -442,41 +206,8 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // ============================================================================
   
   return (
+    <>
     <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4">
-      {/* URL Post Loading Overlay */}
-      {modalStates.isLoadingUrlPost && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 flex items-center space-x-4">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <span className="text-lg font-medium">Loading post...</span>
-          </div>
-        </div>
-      )}
-
-      {/* URL Post Error Display */}
-      {modalStates.urlPostError && !modalStates.isLoadingUrlPost && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md">
-            <h3 className="text-lg font-semibold text-red-600 mb-2">Post Not Found</h3>
-            <p className="text-gray-600 mb-4">{modalStates.urlPostError}</p>
-            <div className="flex space-x-3">
-              <button 
-                onClick={() => window.location.href = `/${currentSpaceData?.subdomain || window.location.pathname.split('/')[1]}/space`}
-                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
-              >
-                Return to Feed
-              </button>
-              <button 
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Feed Content */}
       <div className="flex-grow">
         {/* Render FeedHeader once, it will handle its own responsiveness - Hide when searching */}
@@ -489,275 +220,27 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
 
 
 
-        {/* Category Tabs - Standalone Pills (sticky only on desktop) - Hide when searching */}
+        {/* Category Tabs - Hide when searching */}
         {!isSearchActive && (
-          <div className="mt-6">
-            <div className="flex items-center space-x-2 overflow-x-auto pb-1 px-4 sm:px-0" role="tablist">
-            <button 
-              role="tab"
-              aria-selected={selectedTab === "all"}
-              onClick={() => handleTabSelect("all")}
-              className={`flex-shrink-0 px-3 py-3 rounded-full text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === "all" 
-                  ? 'bg-primary text-white' 
-                  : 'bg-gray-200 text-primary hover:bg-primary/10 hover:text-primary-dark dark:bg-gray-700 dark:text-primary dark:hover:bg-primary/20'
-              }`}
-            >
-              All
-            </button>
-            
-            {spaceCategories.map((category) => (
-              <button 
-                  key={category.id}
-                  role="tab"
-                  aria-selected={selectedTab === category.id}
-                  onClick={() => handleTabSelect(category.id)}
-                  className={`flex-shrink-0 px-3 py-3 rounded-full text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 whitespace-nowrap ${selectedTab === category.id
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-primary hover:bg-primary/10 hover:text-primary-dark dark:bg-gray-700 dark:text-primary dark:hover:bg-primary/20'
-                }`}
-                  disabled={categoriesLoading && spaceCategories.length === 0}
-                  style={{ 
-                    opacity: (categoriesLoading && spaceCategories.length === 0) ? 0.7 : 1 
-                  }}
-              >
-                {category.icon && <span className="mr-1 sm:mr-1.5">{category.icon}</span>}
-                {category.name}
-              </button>
-            ))}
-            
-            {(effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
-              <button 
-                className="flex-shrink-0 flex items-center justify-center px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 whitespace-nowrap"
-                onClick={openCategoryModal}
-              >
-                <Tag className="h-4 w-4 mr-1 sm:mr-1.5" />
-                Edit
-              </button>
-            )}
-          </div>
-        </div>
+          <CategoryTabs
+            selectedTab={selectedTab}
+            spaceCategories={spaceCategories}
+            categoriesLoading={categoriesLoading}
+            effectivePermissions={effectivePermissions}
+            handleTabSelect={handleTabSelect}
+            openCategoryModal={openCategoryModal}
+          />
         )}
 
-        {/* Search Results - Display as regular PostCards integrated into feed flow */}
-        {isSearchActive && searchIntegration && currentSpaceData?.id && (
-          <div className="mt-6">
-            {(() => {
-              devLogger.log('FeedTab', 'Rendering search results as PostCards:', {
-              isSearchActive,
-              hasIntegration: !!searchIntegration,
-              spaceId: currentSpaceData?.id,
-              resultsCount: searchIntegration.results?.length,
-                                query: searchIntegration.query,
-              isLoading: searchIntegration.isLoading,
-              error: searchIntegration.error
-              });
-              return null;
-            })()}
-            
-            {/* Search Loading State */}
-            {searchIntegration.isLoading && (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground text-center">Searching posts...</p>
-              </div>
-            )}
-            
-            {/* Search Error State */}
-            {searchIntegration.error && (
-              <div className="p-6 text-center mt-6 bg-red-50 border border-red-200 rounded-lg mx-4 sm:mx-0">
-                <div className="text-red-600 mb-3">
-                  <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-                  <p className="font-medium">Search failed</p>
-                  <p className="text-sm text-red-500 mt-1">{searchIntegration.error}</p>
-                </div>
-              </div>
-            )}
-            
-            {/* Search Results as PostCards */}
-            {!searchIntegration.isLoading && !searchIntegration.error && searchIntegration.results && (
-              <div className="space-y-4">
-                {searchIntegration.results.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
-                    No posts found matching "{searchIntegration.query}"
-                  </div>
-                ) : (
-                  (() => {
-                    // Group search results by post ID
-                    const groupedResults = searchIntegration.results.reduce((groups, result) => {
-                      const postId = result.id;
-                      if (!groups[postId]) {
-                        groups[postId] = { post: null, comments: [] };
-                      }
-                      
-                      if (result.result_type === 'post') {
-                        groups[postId].post = result;
-                      } else if (result.result_type === 'comment') {
-                        groups[postId].comments.push(result);
-                      }
-                      
-                      return groups;
-                    }, {} as Record<string, { post: any, comments: any[] }>);
-
-                    // Render grouped results with comments nested within post cards
-                    return Object.entries(groupedResults).map(([postId, group]) => {
-                      if (group.post) {
-                        // Convert search result to PostCard format
-                        const postCardData = {
-                          id: group.post.id,
-                          spaceId: group.post.space_id || '',
-                          currentUserId: null,
-                          author: {
-                            id: group.post.user_id || '',
-                            name: group.post.user_full_name || 'Unknown User',
-                            avatar: group.post.user_avatar_url || null
-                          },
-                          title: group.post.title || null,
-                          content: group.post.content || '',
-                          createdAt: group.post.created_at,
-                          editedAt: group.post.updated_at || null,
-                          category: group.post.category_id ? {
-                            id: group.post.category_id,
-                            name: group.post.category_name || 'Category',
-                            icon: group.post.category_icon || null
-                          } : null,
-                          likes: group.post.like_count || 0,
-                          comments: group.post.comment_count || 0,
-                          isPinned: group.post.is_pinned || false,
-                          isAdmin: effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner,
-                          media_urls: null,
-                          className: '',
-                          slug: group.post.slug || group.post.id
-                        };
-
-                        return (
-                          <div key={postId}>
-                            {/* Main Post - no extra container */}
-                            <PostCard
-                              {...postCardData}
-                              onPostClick={handlePostCardClick}
-                              onLikeToggled={handleLikeToggledInCard}
-                              isAdmin={effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner}
-                              // Add search highlighting
-                              searchQuery={searchIntegration.query}
-                            />
-                            
-                            {/* Comments attached directly under the post */}
-                            {group.comments.map((comment) => (
-                              <div key={`comment-${comment.comment_id}`} className="border-t border-gray-100 bg-gray-50 relative w-full md:w-[768px]">
-                                {/* Blue vertical line on the left - matches Skool reference */}
-                                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-400"></div>
-                                
-                                <div className="flex items-start space-x-3 px-4 py-3 pl-4">
-                                  {/* Comment Avatar - matches PostDetailModal styling */}
-                                  <OptimizedAvatar
-                                    user={{
-                                      id: comment.comment_user_id || 'unknown',
-                                      full_name: comment.comment_user_name || 'Unknown User',
-                                      avatar_url: comment.comment_user_avatar || null
-                                    }}
-                                    size="lg"
-                                    enableLazyLoading={false}
-                                    enableCaching={true}
-                                    placeholderType="initials"
-                                    loadingTransition="fade"
-                                    className="h-9 w-9 flex-shrink-0"
-                                  />
-                                  
-                                                                    {/* Comment Content - matches PostDetailModal styling */}
-                                  <div className="flex-grow min-w-0">
-                                    <div className="bg-gray-100 rounded-xl p-3">
-                                                                            <div className="flex items-center space-x-2">
-                                        <span className="text-sm sm:text-base font-semibold text-gray-900 truncate">
-                                          {comment.comment_user_name || 'Unknown User'}
-                                        </span>
-                                        <span className="text-sm text-gray-500 flex-shrink-0">
-                                          {formatCommentTime(comment.comment_created_at)}
-                                        </span>
-                                      </div>
-                                      <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed max-w-full overflow-hidden">
-                                        {searchIntegration.query ? (
-                                          <span dangerouslySetInnerHTML={createHighlightedContent(comment.comment_content, searchIntegration.query)} />
-                                        ) : (
-                                          comment.comment_content
-                                        )}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      } else if (group.comments.length > 0) {
-                        // If only comments exist (no parent post), render them as standalone
-                        return (
-                          <div key={postId} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:-translate-y-0.5 overflow-hidden w-full md:w-[768px]">
-                            {group.comments.map((comment) => (
-                              <div key={`comment-${comment.comment_id}`} className="p-4 border-b border-gray-100 last:border-b-0">
-                                <div className="flex items-start space-x-3">
-                                  {/* Comment Avatar - matches PostDetailModal styling */}
-                                  <OptimizedAvatar
-                                    user={{
-                                      id: comment.comment_user_id || 'unknown',
-                                      full_name: comment.comment_user_name || 'Unknown User',
-                                      avatar_url: comment.comment_user_avatar || null
-                                    }}
-                                    size="lg"
-                                    enableLazyLoading={false}
-                                    enableCaching={true}
-                                    placeholderType="initials"
-                                    loadingTransition="fade"
-                                    className="h-9 w-9 flex-shrink-0"
-                                  />
-                                  
-                                  {/* Comment Content - matches PostDetailModal styling */}
-                                  <div className="flex-grow min-w-0">
-                                    <div className="bg-gray-100 rounded-xl p-3">
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-sm sm:text-base font-semibold text-gray-900 truncate">
-                                          {comment.comment_user_name || 'Unknown User'}
-                                        </span>
-                                        <span className="text-sm text-gray-500 flex-shrink-0">
-                                          {formatCommentTime(comment.comment_created_at)}
-                                        </span>
-                                      </div>
-                                      <p className="text-gray-800 mt-1 whitespace-pre-wrap break-words leading-relaxed max-w-full overflow-hidden">
-                                        {searchIntegration.query ? (
-                                          <span dangerouslySetInnerHTML={createHighlightedContent(comment.comment_content, searchIntegration.query)} />
-                                        ) : (
-                                          comment.comment_content
-                                        )}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      }
-                      return null;
-                    });
-                  })()
-                )}
-                
-                {/* Load More for Search Results */}
-                {searchIntegration.hasMore && (
-                  <div className="flex justify-center mt-6">
-                    <Button
-                      onClick={searchIntegration.loadMore}
-                      variant="outline"
-                      size="sm"
-                      className="px-6"
-                    >
-                      Load More Results
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Search Results */}
+        <SearchResultsList
+          searchIntegration={searchIntegration}
+          isSearchActive={isSearchActive}
+          currentSpaceData={currentSpaceData}
+          effectivePermissions={effectivePermissions}
+          handlePostCardClick={handlePostCardClick}
+          handleLikeToggledInCard={handleLikeToggledInCard}
+        />
 
         {/* Render SimpleSpaceSetup here - only for admins/owners - Hide when searching */}
         {!isSearchActive && currentSpaceData && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
@@ -785,160 +268,48 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
         {/* Regular Posts Content - Hide when searching */}
         {!isSearchActive && (
           <>
-            {/* Posts Content - Show skeletons during pagination loading, loading screen only when no data */}
-            {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground text-center">Loading posts...</p>
-          </div>
-        )}
-        
-        {!postsLoading && postsError && (
-          <div className="p-6 text-center mt-6 bg-red-50 border border-red-200 rounded-lg mx-4 sm:mx-0">
-            <div className="text-red-600 mb-3">
-              <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-              <p className="font-medium">Failed to load posts</p>
-              <p className="text-sm text-red-500 mt-1">{postsError}</p>
-            </div>
-            <Button 
-              onClick={() => refetchPosts(true)}
-              variant="outline"
-              size="sm"
-              className="border-red-300 text-red-600 hover:bg-red-50"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
-            </Button>
-          </div>
-        )}
+            {/* Pinned Posts */}
+            <PinnedPostsList
+              pinnedPosts={filteredPinnedPosts}
+              selectedTab={selectedTab}
+              effectivePermissions={effectivePermissions}
+              mapPostToCardProps={mapPostToCardProps}
+              handlePostCardClick={handlePostCardClick}
+              handleLikeToggledInCard={handleLikeToggledInCard}
+              handlePinToggled={handlePinToggled}
+              handleCommentAddedInModal={handleCommentAddedInModal}
+              postsLoading={postsLoading}
+              postsError={postsError}
+            />
 
-        {/* Real-time New Posts Notification - positioned on top of post cards with reduced spacing */}
-        <div className="mt-4">
-          <NewPostNotification
-            newPostCount={realtimeState.newPostCount}
-            isLoading={realtimeState.isLoadingNewPosts}
-            isVisible={!realtimeState.isDismissed && realtimeState.newPostCount > 0}
-            onLoadPosts={() => handleLoadNewPosts(realtimeState.newPostIds)}
-            onDismiss={handleDismissNotification}
-          />
-        </div>
-
-        {/* Pinned Posts - Only visible to admins/owners */}
-        {!postsLoading && !postsError && filteredPinnedPosts.length > 0 && selectedTab === "all" && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
-          <div className="space-y-4 mt-6">
-            <div className="space-y-4">
-              {filteredPinnedPosts
-                .sort((a, b) => {
-                  // Sort by pin_position (lower number = higher priority, position 1 is at top)
-                  if (a.pin_position !== null && b.pin_position !== null) {
-                    return a.pin_position - b.pin_position;
-                  }
-                  // Fallback to pinned_at for posts without position (newest first)
-                  if (a.pinned_at && b.pinned_at) {
-                    return new Date(b.pinned_at).getTime() - new Date(a.pinned_at).getTime();
-                  }
-                  return 0;
-                })
-                .map((post) => (
-                  <PostCard
-                    key={`pinned-${post.id}`}
-                    {...mapPostToCardProps(post)}
-                    isPinned={true}
-                    isAdmin={effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner}
-                    onPostClick={handlePostCardClick}
-                    onLikeToggled={handleLikeToggledInCard}
-                    onPinToggled={handlePinToggled}
-                    onCommentAdded={handleCommentAddedInModal} // 🔥 ENABLE REAL-TIME COMMENT UPDATES
-                  />
-                ))}
-            </div>
-          </div>
-        )}
-        
-        {/* Category-specific Pinned Posts - Only visible to admins/owners */}
-        {!postsLoading && !postsError && filteredPinnedPosts.length > 0 && selectedTab !== "all" && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
-          <div className="space-y-4 mt-6">
-            <div className="space-y-4">
-              {filteredPinnedPosts
-                .sort((a, b) => {
-                  // Sort by pin_position (lower number = higher priority, position 1 is at top)
-                  if (a.pin_position !== null && b.pin_position !== null) {
-                    return a.pin_position - b.pin_position;
-                  }
-                  // Fallback to pinned_at for posts without position (newest first)
-                  if (a.pinned_at && b.pinned_at) {
-                    return new Date(b.pinned_at).getTime() - new Date(a.pinned_at).getTime();
-                  }
-                  return 0;
-                })
-                .map((post) => (
-                  <PostCard
-                    key={`pinned-${post.id}`}
-                    {...mapPostToCardProps(post)}
-                    isPinned={true}
-                    isAdmin={effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner}
-                    onPostClick={handlePostCardClick}
-                    onLikeToggled={handleLikeToggledInCard}
-                    onPinToggled={handlePinToggled}
-                    onCommentAdded={handleCommentAddedInModal} // 🔥 ENABLE REAL-TIME COMMENT UPDATES
-                  />
-                ))}
-            </div>
-          </div>
-        )}
-        
-        {/* Regular Posts List with Skeleton Support */}
-        {!postsLoading && !postsError && fetchedPosts.length === 0 && pinnedPosts.length === 0 && !hasInstantAccess && (
-          <div className="p-4 text-center text-gray-500 mt-6 px-4 sm:px-0">No posts yet. Be the first to share something!</div>
-        )}
-        
-        {!postsLoading && !postsError && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
-          <div className="space-y-4 mt-6">
-            {(() => {
-              // Filter by selected category and render using postsToShow computed value
-              return postsToShow
-                .filter(post => selectedTab === "all" || post.category?.id === selectedTab)
-                .map(post => (
-                  <PostCard
-                    key={post.id}
-                    {...mapPostToCardProps(post)}
-                    isAdmin={effectivePermissions.effectiveIsAdmin || effectivePermissions.effectiveIsOwner}
-                    onPostClick={handlePostCardClick}
-                    onLikeToggled={handleLikeToggledInCard}
-                    onPinToggled={handlePinToggled}
-                    onCommentAdded={handleCommentAddedInModal} // 🔥 ENABLE REAL-TIME COMMENT UPDATES
-                  />
-                ));
-            })()}
-            
-            {/* Pagination Component - Only show when there are more than 25 posts IN THE CURRENT CATEGORY */}
-            {(() => {
-              // Calculate filtered count based on selected category
-              const filteredCount = selectedTab === "all" 
-                ? totalCount 
-                : postsToShow.filter(post => post.category?.id === selectedTab).length;
-              
-              return filteredCount > 25 && (
-              <PostsPagination
+            {/* Regular Posts List */}
+            <RegularPostsList
+              fetchedPosts={fetchedPosts}
+              pinnedPosts={pinnedPosts}
+              postsToShow={postsToShow}
+              currentSpaceData={currentSpaceData}
+              postsLoading={postsLoading}
+              postsError={postsError}
+              hasInstantAccess={hasInstantAccess}
+              selectedTab={selectedTab}
+              effectivePermissions={effectivePermissions}
+              realtimeState={realtimeState}
+              totalCount={totalCount}
                 currentPage={currentPage}
                 totalPages={totalPages}
-                  totalCount={filteredCount}
-                  postsPerPage={25}
-                onPageChange={loadPage}
-                isLoading={postsLoading}
-              />
-              );
-            })()}
-          </div>
-        )}
-
-        {/* Show pagination loading indicator when loading more posts with existing posts visible */}
-        {postsLoading && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
-          <div className="flex justify-center items-center py-4 mt-6">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="ml-2 text-sm text-gray-600">Loading more posts...</span>
-          </div>
-        )}
+              hasNextPage={hasNextPage}
+              mapPostToCardProps={mapPostToCardProps}
+              handlePostCardClick={handlePostCardClick}
+              handleLikeToggledInCard={handleLikeToggledInCard}
+              handlePinToggled={handlePinToggled}
+              handleCommentAddedInModal={handleCommentAddedInModal}
+              handleLoadNewPosts={handleLoadNewPosts}
+              handleDismissNotification={handleDismissNotification}
+              refetchPosts={refetchPosts}
+              loadPage={loadPage}
+              openCreatePostModal={openCreatePostModal}
+              postInputRef={postInputRef}
+            />
           </>
         )}
       </div>
@@ -954,7 +325,6 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
             coverImage={sidebarSpaceData.cover_image || undefined}
             isPrivate={sidebarSpaceData.is_private || false}
             canAccessSettings={effectivePermissions.canAccessSettings}
-            permissionsLoading={authLoading || storeLoadingSpace}
             subdomain={sidebarSpaceData.subdomain || 'space'} 
             spaceId={sidebarSpaceData.id || ''} 
             isOwner={effectivePermissions.effectiveIsOwner || false}
@@ -963,55 +333,25 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
           />
         </div>
       )}
-      
-      {/* Create Post Modal */}
-      {modalStates.isCreatePostOpen && currentSpaceData && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading...</div></div>}>
-          <CreatePostModal
-            isOpen={modalStates.isCreatePostOpen}
-            onClose={closeCreatePostModal}
-            spaceId={currentSpaceData.id}
-            currentUserId={currentUser?.id || ''} 
-            onPostCreated={handlePostCreated}
-            spaceName={currentSpaceData.name || 'Current Space'}
-            userName={currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || currentUser?.email || 'User'}
-            userAvatarUrl={currentUser?.user_metadata?.avatar_url}
-          />
-        </Suspense>
-      )}
-      
-      {/* Create Category Modal */}
-      {currentSpaceData && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading...</div></div>}>
-          <CreateCategoryModal
-            isOpen={modalStates.isCategoryOpen}
-            onClose={closeCategoryModal}
-            spaceId={currentSpaceData.id}
-            userId={currentUser.id}
-            onCategoryCreated={() => {
-              closeCategoryModal();
-              refreshCategories();
-            }}
-          />
-        </Suspense>
-      )}
-      
-      {/* Post Detail Modal */}
-      {modalStates.isPostDetailOpen && modalStates.selectedPostForModal && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading...</div></div>}>
-          <PostDetailModal
-            isOpen={modalStates.isPostDetailOpen}
-            onClose={handleClosePostModal}
-            post={modalStates.selectedPostForModal}
-            onCommentAdded={handleCommentAddedInModal}
-            onPinToggled={handlePinToggled}
-            onPostUpdated={handlePostUpdated}
-            onPostDeleted={handlePostDeleted}
-            onLikeToggled={handleLikeToggledInCard}
-          />
-        </Suspense>
-      )}
     </div>
+    
+    {/* Feed Modals - Outside main layout container */}
+    <FeedModals
+      modalStates={modalStates}
+      currentSpaceData={currentSpaceData}
+      currentUser={currentUser}
+      handleClosePostModal={handleClosePostModal}
+      closeCreatePostModal={closeCreatePostModal}
+      closeCategoryModal={closeCategoryModal}
+      handlePostCreated={handlePostCreated}
+      handleCommentAddedInModal={handleCommentAddedInModal}
+      handlePinToggled={handlePinToggled}
+      handlePostUpdated={handlePostUpdated}
+      handlePostDeleted={handlePostDeleted}
+      handleLikeToggledInCard={handleLikeToggledInCard}
+      refreshCategories={refreshCategories}
+    />
+    </>
   );
 }
 

@@ -1,5 +1,4 @@
 import { log } from '@/utils/logger';
-// HMR TEST COMMENT C: Test completed - Hook HMR optimized
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useOptimizedAuth } from "@/contexts/AuthContext";
