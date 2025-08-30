@@ -14,7 +14,7 @@ import Confetti from 'react-confetti';
 import SpacePrivacySettings from "@/components/space/SpacePrivacySettings";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
+
 import useSpaceSettingsStore, { type SpaceSettingsData } from "@/hooks/useSpaceSettingsStore";
 import { checkSpaceAccessForUser } from '@/utils/debugTools';
 import { spaceAccessDebugger } from '@/shared/services/debug/space-access-debug';
@@ -582,8 +582,7 @@ export default function Space({ initialTab }: SpaceProps) {
     >
           {renderActiveTabContent()}
         
-        {/* Render the SpaceSettingsModal - It will now use the store */}
-        <NewSpaceSettingsModal />
+        {/* SpaceSettingsModal rendered at app level to avoid duplicates */}
         
         {/* AI User Journey Components */}
         {renderJourneyComponent()}

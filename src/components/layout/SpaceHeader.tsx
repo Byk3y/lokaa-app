@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import MobileSpaceDrawer from '@/components/mobile/MobileSpaceDrawer';
 import ChatModal from '@/components/chat/ChatModal';
 import MemberSettingsModal from '@/components/modals/MemberSettingsModal';
-import NewSpaceSettingsModal from '@/components/modals/NewSpaceSettingsModal';
+
 import HeaderActions from '@/components/common/HeaderActions';
 import { useSpacePermissions } from '@/hooks/useSpacePermissions';
 import { useSpace } from '@/hooks/useSpace';
@@ -336,8 +336,7 @@ export default function SpaceHeader({
         user={user}
       />
 
-      {/* Admin/Owner Settings Modal */}
-      <NewSpaceSettingsModal />
+      {/* Admin/Owner Settings Modal - Rendered at app level */}
 
       {/* Invite Modal */}
       <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>

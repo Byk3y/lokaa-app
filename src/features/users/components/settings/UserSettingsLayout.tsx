@@ -9,7 +9,7 @@ import SettingsSidebar from './SettingsSidebar';
 import SettingsTabRouter from './SettingsTabRouter';
 import { useSettingsNavigation } from '../../hooks/useSettingsNavigation';
 import SpaceSwitcher from '@/components/spaces/SpaceSwitcher';
-import NewSpaceSettingsModal from '@/components/modals/NewSpaceSettingsModal';
+
 
 // Mobile tab configuration - all available tabs
 const mobileTabs = [
@@ -195,8 +195,7 @@ export default function UserSettingsLayout() {
         </div>
       </div>
       
-      {/* Space Settings Modal - available from user settings context */}
-      <NewSpaceSettingsModal />
+      {/* Space Settings Modal - Rendered at app level to avoid duplicates */}
     </div>
   );
 } 

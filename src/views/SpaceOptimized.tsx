@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Confetti from 'react-confetti';
-import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
+
 import { useSpace, SpaceProvider } from "@/contexts/SpaceContext";
 import SpaceLoadingSkeleton from "@/components/space/SpaceLoadingSkeleton";
 import { Link } from "react-router-dom";
@@ -468,8 +468,7 @@ function SpaceContent() {
           </div>
         </main>
         
-        {/* Space Settings Modal */}
-        <NewSpaceSettingsModal />
+        {/* Space Settings Modal - Rendered at app level to avoid duplicates */}
         
         {/* Creation Success Notification */}
         {notificationShown && (
