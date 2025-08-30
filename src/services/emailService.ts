@@ -44,18 +44,8 @@ export class EmailService {
     }
   }
 
-  /**
-   * Send welcome email after signup
-   */
-  static async sendWelcomeEmail(to: string, firstName: string): Promise<{ success: boolean; error?: string }> {
-    const html = this.getWelcomeEmailTemplate(firstName);
-    
-    return this.sendEmail({
-      to,
-      subject: 'Welcome to Lokaa! 🎉',
-      html,
-    });
-  }
+  // TODO: Onboarding/lifecycle emails will be handled via database-driven triggers 
+  // and scheduled edge functions, not client-side events
 
   /**
    * Send email verification email
@@ -70,53 +60,7 @@ export class EmailService {
     });
   }
 
-  /**
-   * Welcome email template
-   */
-  private static getWelcomeEmailTemplate(firstName: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Welcome to Lokaa</title>
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #059669; margin: 0;">Welcome to Lokaa! 🎉</h1>
-          </div>
-          
-          <div style="background: #f8fafc; padding: 30px; border-radius: 8px; margin: 20px 0;">
-            <h2 style="margin-top: 0; color: #374151;">Hi ${firstName}!</h2>
-            
-            <p>Thank you for joining Lokaa, the platform where knowledge meets community.</p>
-            
-            <p>You're now part of a growing community of learners and educators. Here's what you can do:</p>
-            
-            <ul style="padding-left: 20px;">
-              <li>🎓 Create and share courses</li>
-              <li>🤝 Join learning communities</li>
-              <li>📚 Access high-quality content</li>
-              <li>💬 Connect with other learners</li>
-            </ul>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.VITE_APP_DOMAIN}" 
-                 style="background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">
-                Start Learning
-              </a>
-            </div>
-          </div>
-          
-          <div style="text-align: center; color: #6b7280; font-size: 14px; margin-top: 30px;">
-            <p>Questions? Reply to this email or visit our <a href="${process.env.VITE_APP_DOMAIN}/help" style="color: #059669;">help center</a>.</p>
-            <p>© 2024 Lokaa. All rights reserved.</p>
-          </div>
-        </body>
-      </html>
-    `;
-  }
+
 
   /**
    * Email verification template

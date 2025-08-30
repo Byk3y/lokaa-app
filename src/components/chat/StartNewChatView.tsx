@@ -45,7 +45,7 @@ export default function StartNewChatView({ onBack, onConversationCreated }: Star
       try {
         // First try to get recent conversation users
         const { data: userConversationsData, error: userConversationsError } = await getSupabaseClient()
-          .from('user_conversations')
+          .from('user_conversations_secure')
           .select('other_participants')
           .eq('user_id', currentUser.id)
           .order('last_message_at', { ascending: false })
@@ -153,7 +153,7 @@ export default function StartNewChatView({ onBack, onConversationCreated }: Star
         // Now fetch the conversation details
         const conversationId = data;
         const { data: conversationData, error: fetchError } = await getSupabaseClient()
-          .from('user_conversations')
+          .from('user_conversations_secure')
           .select('*')
           .eq('conversation_id', conversationId)
           .eq('user_id', currentUser.id)

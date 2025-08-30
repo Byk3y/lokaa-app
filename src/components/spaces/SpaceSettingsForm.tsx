@@ -133,7 +133,7 @@ export default function SpaceSettingsForm({ space }: SpaceSettingsFormProps) {
         <TabsTrigger value="pricing">Pricing</TabsTrigger>
       </TabsList>
       
-      <Form {...form}>
+      <Form methods={form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <TabsContent value="general">
             <Card>

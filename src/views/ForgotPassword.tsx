@@ -130,7 +130,7 @@ export default function ForgotPassword() {
                 </Link>
               </div>
             ) : (
-              <Form {...form}>
+              <Form methods={form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                   <FormField
                     control={form.control}

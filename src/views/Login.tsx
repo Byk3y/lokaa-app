@@ -150,7 +150,7 @@ export default function Login() {
             </h2>
             
             {/* Form */}
-            <Form {...form}>
+            <Form methods={form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                 <FormField
                   control={form.control}

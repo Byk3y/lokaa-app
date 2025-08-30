@@ -7,10 +7,21 @@ const corsHeaders = {
 }
 
 interface EmailRequest {
-  type: 'welcome' | 'verification';
+  type: 'verification';
   to: string;
   firstName?: string;
   confirmationUrl?: string;
+  userId?: string; // Added for analytics tracking
+  variant?: string; // Added for A/B testing
+}
+
+interface EmailAnalytics {
+  userId: string;
+  emailType: string;
+  variant?: string;
+  sentAt: string;
+  delivered: boolean;
+  error?: string;
 }
 
 serve(async (req) => {
@@ -20,7 +31,7 @@ serve(async (req) => {
   }
 
   try {
-    const { type, to, firstName, confirmationUrl }: EmailRequest = await req.json()
+    const { type, to, firstName, confirmationUrl, userId, variant }: EmailRequest = await req.json()
 
     // Read and sanitize Resend API key (trim to avoid hidden whitespace/newlines)
     const resendApiKeyRaw = Deno.env.get('RESEND_API_KEY')
@@ -46,11 +57,7 @@ serve(async (req) => {
     let text: string
     const entityRefId = crypto.randomUUID()
 
-    if (type === 'welcome') {
-      subject = 'Welcome to Lokaa! 🎉'
-      html = getWelcomeEmailTemplate(firstName || 'there', entityRefId)
-      text = getWelcomeEmailText(firstName || 'there')
-    } else if (type === 'verification') {
+    if (type === 'verification') {
       subject = 'Verify your Lokaa account'
       html = getVerificationEmailTemplate(confirmationUrl!, firstName, entityRefId)
       text = getVerificationEmailText(confirmationUrl!, firstName)
@@ -58,36 +65,8 @@ serve(async (req) => {
       throw new Error('Invalid email type')
     }
 
-    // 0) Idempotency for welcome: record in DB before sending
-    let userId: string | null = null
-    if (type === 'welcome' && admin) {
-      try {
-        // Look up user by email to get id
-        const { data: u } = await admin
-          .from('users')
-          .select('id')
-          .eq('email', to)
-          .maybeSingle()
-        userId = u?.id ?? null
-        if (userId) {
-          // Insert if not exists
-          const { error: insErr } = await admin
-            .from('email_sends')
-            .insert({ user_id: userId, type: 'welcome' })
-            .select('user_id')
-            .maybeSingle()
-          if (insErr && !`${insErr.message}`.includes('duplicate key')) {
-            // Non-duplicate error; continue without blocking send
-          }
-          // If row exists already, return early; welcome already sent/queued
-          if (insErr && `${insErr.message}`.includes('duplicate key')) {
-            return new Response(JSON.stringify({ success: true, alreadySent: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-          }
-        }
-      } catch (_) {
-        // proceed with best-effort
-      }
-    }
+    // TODO: Onboarding/lifecycle emails will be handled via database-driven triggers 
+    // and scheduled edge functions, not client-side events
 
     // 1) Optionally create contact in Resend Audience (best-effort)
     const audienceId = Deno.env.get('RESEND_AUDIENCE_ID');
@@ -124,7 +103,10 @@ serve(async (req) => {
         html,
         text,
         headers: {
-          'X-Entity-Ref-ID': entityRefId
+          'X-Entity-Ref-ID': entityRefId,
+          'X-Email-Type': type,
+          'X-User-ID': userIdFromDb || '',
+          'X-Variant': variant || ''
         }
       }),
     })
@@ -136,15 +118,8 @@ serve(async (req) => {
 
     const data = await res.json()
 
-    // 3) Mark sent_at
-    if (type === 'welcome' && admin && userId) {
-      try {
-        await admin.from('email_sends')
-          .update({ sent_at: new Date().toISOString() })
-          .eq('user_id', userId)
-          .eq('type', 'welcome')
-      } catch (_) {}
-    }
+    // TODO: Onboarding/lifecycle emails will be handled via database-driven triggers 
+    // and scheduled edge functions, not client-side events
 
     return new Response(
       JSON.stringify({ success: true, data }),
@@ -154,6 +129,30 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    // Record failed send in analytics if possible
+    try {
+      const { type, to, userId, variant }: EmailRequest = await req.json()
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      const admin = (supabaseUrl && serviceRoleKey)
+        ? createClient(supabaseUrl, serviceRoleKey)
+        : null
+        
+      if (admin && userId) {
+        await admin.from('email_analytics')
+          .insert({
+            user_id: userId,
+            email_type: type,
+            variant: variant || null,
+            sent_at: new Date().toISOString(),
+            delivered: false,
+            error: error.message
+          })
+      }
+    } catch (_) {
+      // Ignore analytics errors
+    }
+    
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
       {
@@ -164,67 +163,7 @@ serve(async (req) => {
   }
 })
 
-function getWelcomeEmailTemplate(firstName: string, entityRefId: string): string {
-  const appDomain = Deno.env.get('APP_DOMAIN') || 'https://lokaa.app'
-  const year = new Date().getFullYear()
-  
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Lokaa</title>
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 20px; font-size: 14px;">
-        <!-- Preheader (hidden) -->
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0;visibility:hidden;">${firstName ? `${firstName}, ` : ''}you're ready to explore spaces, learn, and connect on Lokaa. · ${entityRefId}</div>
-        <!-- Header wordmark (top-left) -->
-        <div style="margin: 6px 0 16px;">
-          <div style="font-size:30px; font-weight:900; letter-spacing:0.2px; color:#059669; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Lokaa</div>
-        </div>
-        <!-- Title -->
-        <div style="margin: 0 0 12px; font-size:18px; font-weight:600; color:#111827;">Welcome to Lokaa!</div>
-        <!-- Visible preview line to reduce clipping -->
-        <div style="margin: 0 0 12px; font-size:13px; color:#6b7280;">You're ready to explore spaces, learn, and connect.</div>
-        
-        <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin: 16px 0;">
-          <p style="margin: 0 0 12px; color: #111827;">Hi ${firstName},</p>
-          
-          <p>Welcome to Lokaa — where knowledge meets community. 🚀</p>
 
-          <p>You're now part of a growing network of creators and learners building spaces that matter. Here's what you can do inside Lokaa:</p>
-
-          <ul style="padding-left: 20px; margin: 0 0 12px;">
-            <li>✨ Start or join a Space — find your people.</li>
-            <li>📚 Share & learn together — from real experiences, not just theory.</li>
-            <li>🤝 Connect with others — collaborate, grow, and build something bigger.</li>
-          </ul>
-
-          <p style="margin: 0 0 16px;">This is just the beginning. Your journey starts today.</p>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${appDomain}/discover" 
-               style="background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-              Create or join a space
-            </a>
-          </div>
-        </div>
-        
-        <div style="text-align: center; color: #6b7280; font-size: 14px; margin-top: 30px;">
-          <p>Questions? Reply to this email or visit our <a href="${appDomain}/help" style="color: #059669;">help center</a>.</p>
-          <p>© ${year} Lokaa. All rights reserved.</p>
-        </div>
-      </body>
-    </html>
-  `
-}
-
-function getWelcomeEmailText(firstName: string): string {
-  const appDomain = Deno.env.get('APP_DOMAIN') || 'https://lokaa.app'
-  const year = new Date().getFullYear()
-  return `Welcome to Lokaa!\n\nHi ${firstName},\n\nWelcome to Lokaa — where knowledge meets community. 🚀\n\nYou're now part of a growing network of creators and learners building spaces that matter. Here's what you can do inside Lokaa:\n- Start or join a Space — find your people.\n- Share & learn together — from real experiences, not just theory.\n- Connect with others — collaborate, grow, and build something bigger.\n\nThis is just the beginning. Your journey starts today.\n\nCreate or join a space: ${appDomain}/discover\n\n© ${year} Lokaa. All rights reserved.`
-}
 
 function getVerificationEmailTemplate(confirmationUrl: string, firstName: string | undefined, entityRefId: string): string {
   const appDomain = Deno.env.get('APP_DOMAIN') || 'https://lokaa.app'

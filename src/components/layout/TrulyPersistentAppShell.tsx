@@ -1,9 +1,9 @@
 import { log } from '@/utils/logger';
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, useMemo } from 'react';
 import { useLocation, useParams, Outlet, Navigate } from 'react-router-dom';
 import BottomNav from '@/components/mobile/BottomNav';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
-import { isMobile } from '@/utils/mobileDetection';
+import { getStableMobileDetection } from '@/utils/mobileDetection';
 import SpaceShellLayout from './SpaceShellLayout';
 import { Loader2 } from 'lucide-react';
 
@@ -26,7 +26,9 @@ export const TrulyPersistentAppShell: React.FC = () => {
   const location = useLocation();
   const { user, loading: authLoading } = useOptimizedAuth();
   const { subdomain } = useParams<{ subdomain: string }>();
-  const isOnMobile = isMobile();
+  
+  // ✅ STABLE: Use stable mobile detection to prevent hook order issues
+  const isOnMobile = useMemo(() => getStableMobileDetection(), []);
 
   // Handle authentication for space routes without breaking hooks order
   const isSpaceRoute = location.pathname.match(/^\/[^\/]+\/space/);

@@ -381,9 +381,9 @@ export class ConversationService {
     try {
       const { spaceId, conversationType, limit = 50 } = options;
 
-      // Use the user_conversations view for efficient querying
+      // Use the secure user_conversations view for efficient querying
       let query = getSupabaseClient()
-        .from('user_conversations')
+        .from('user_conversations_secure')
         .select(`*`)
         .eq('user_id', userId)
         .order('last_message_at', { ascending: false })

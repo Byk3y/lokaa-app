@@ -139,7 +139,7 @@ export class ChatApiService {
       log.debug('Service', '[ChatApiService] 🖥️ Direct network call for user:', userId);
       
       const result = await getSupabaseClient()
-        .from('user_conversations')
+        .from('user_conversations_secure')
         .select('*')
         .eq('user_id', userId)
         .order('last_message_at', { ascending: false });

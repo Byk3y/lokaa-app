@@ -262,7 +262,14 @@ export default function AuthConfirmPage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg text-center font-mono"
             />
             {otpErr && (
-              <p className="text-red-600 text-sm mt-2">{otpErr}</p>
+              <p className="text-red-600 text-sm mt-2">
+                {otpErr}
+                {otpErr.includes('500') && (
+                  <span className="block text-xs text-gray-500 mt-1">
+                    Server error detected. Please try again in a moment.
+                  </span>
+                )}
+              </p>
             )}
           </div>
 

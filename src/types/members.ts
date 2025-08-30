@@ -10,7 +10,7 @@ export type MemberStatus = 'active' | 'cancelling' | 'churned' | 'banned';
 
 /**
  * Interface for a member in a space
- * Maps to the space_members_view in database
+ * Maps to the space_members_view_secure in database
  */
 export interface SpaceMember {
   id: string;

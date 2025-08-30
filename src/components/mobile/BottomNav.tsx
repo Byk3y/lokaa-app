@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageSquare, User, Bell } from 'lucide-react';
 import NotificationBadge from '@/components/notifications/NotificationBadge';
 import useSpaceSettingsStore, { trackRouteChange } from '@/hooks/useSpaceSettingsStore';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useConversations } from '@/features/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMobileBackgroundDetection } from '@/hooks/useMobileLifecycle';
@@ -50,9 +50,13 @@ export default function BottomNav() {
   const { unreadCount } = useConversations();
   const previousPathRef = useRef(location.pathname);
   const { returnedFromBackground } = useMobileBackgroundDetection();
-  const isMobile = shouldEnableMobileFeatures(); // UNIFIED: Use centralized mobile detection
-  // ✅ SKOOL-STYLE: Removed keyboard detection - nav stays visible always
+  
+  // ✅ STABLE: Use stable mobile detection to prevent hook order issues
+  const isMobile = shouldEnableMobileFeatures();
+  
+  // ✅ CONSISTENT: Always declare all hooks in the same order
   const [userProfileUrl, setUserProfileUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const pathname = location.pathname;
   
@@ -62,6 +66,7 @@ export default function BottomNav() {
       if (!user?.id) return;
       
       try {
+        setIsLoading(true);
         const { data, error } = await migrationAdapter.getUserProfile(user.id, ['profile_url']);
         
         if (error) {
@@ -74,14 +79,14 @@ export default function BottomNav() {
         }
       } catch (error) {
         log.error('Component', 'Error fetching user profile URL:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchUserProfileUrl();
   }, [user?.id]);
 
-  // ✅ SKOOL-STYLE: Removed keyboard detection - overlay input handles positioning itself
-  
   // Track route changes for cache optimization
   useEffect(() => {
     const currentPath = location.pathname;
@@ -94,10 +99,10 @@ export default function BottomNav() {
   }, [location.pathname]);
   
   // **ENHANCED**: Detect if we're currently in a space
-  const isInSpace = pathname.includes('/space') && space?.subdomain;
-  const currentTab = isInSpace ? extractTabFromPathname(pathname) : null;
+  const isInSpace = useMemo(() => pathname.includes('/space') && space?.subdomain, [pathname, space?.subdomain]);
+  const currentTab = useMemo(() => isInSpace ? extractTabFromPathname(pathname) : null, [isInSpace, pathname]);
   
-  const isActive = (path: string) => {
+  const isActive = useMemo(() => (path: string) => {
     // Home button: active when in spaces or at root
     if (path === '/') {
       if (isInSpace) {
@@ -128,7 +133,7 @@ export default function BottomNav() {
     
     // Other pages: use startsWith for flexibility
     return pathname.startsWith(path);
-  };
+  }, [isInSpace, currentTab, pathname, space?.subdomain, userProfileUrl]);
   
   const handleHomeClick = () => {
     const fromRoute = location.pathname;
@@ -227,12 +232,12 @@ export default function BottomNav() {
     }
   };
 
-  const navItems = [
+  const navItems = useMemo(() => [
     { path: '/', label: 'Home', icon: Home, onClick: handleHomeClick },
     { path: '/app/chat', label: 'Chat', icon: MessageSquare, onClick: handleChatClick, unreadCount },
     { path: '/notifs', label: 'Notifications', icon: Bell, notification: true, isNotificationBadge: true },
     { path: '/profile', label: 'Profile', icon: User, onClick: handleProfileClick, notification: true },
-  ];
+  ], [handleHomeClick, handleChatClick, handleProfileClick, unreadCount]);
 
   // ✅ SKOOL-STYLE: Keep bottom nav always visible - no hiding when keyboard opens
   // Input will overlay on top of nav instead of nav disappearing

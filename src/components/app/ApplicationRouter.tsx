@@ -191,7 +191,7 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
         <Route path="/auth/callback" element={<AuthRedirect />} />
         <Route path="/auth/confirm" element={
           <Suspense fallback={<RouteLoadingFallback />}>
-            <LazyRoutes.AuthConfirmPage />
+            <LazyRoutes.LandingPageWrapper />
           </Suspense>
         } />
         
@@ -242,6 +242,13 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
         <Route path="/forgot-password" element={
           <Suspense fallback={<RouteLoadingFallback />}>
             <LazyRoutes.LandingPageWrapper />
+          </Suspense>
+        } />
+        
+        {/* Password reset page - handles reset links from emails */}
+        <Route path="/reset-password" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <LazyRoutes.ResetPasswordPage />
           </Suspense>
         } />
         

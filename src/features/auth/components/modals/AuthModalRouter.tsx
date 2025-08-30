@@ -16,6 +16,7 @@ import SignupModal from './SignupModal';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import LoginModalContent from './LoginModalContent';
 import BaseModal from '@/shared/components/modals/BaseModal';
+import EmailVerificationModal from './EmailVerificationModal';
 
 export default function AuthModalRouter() {
   const location = useLocation();
@@ -60,7 +61,6 @@ export default function AuthModalRouter() {
             onSuccess={() => handleAuthModalClose('auth-login')}
             onError={(error) => {
               // Keep modal open to show error
-              log.error('Component', 'Login error:', error);
             }}
           />
         );
@@ -92,7 +92,7 @@ export default function AuthModalRouter() {
             onSuccess={() => {
               handleAuthModalClose('auth-forgot');
             }}
-            onError={(error) => {
+            onError={(error: string) => {
               // Keep modal open to show error
             }}
           />
@@ -101,6 +101,24 @@ export default function AuthModalRouter() {
           ...config,
           title: 'Reset Password',
           size: 'sm'
+        };
+      } else if (id === 'auth-verification') {
+        content = (
+          <EmailVerificationModal
+            email={modal.config.email}
+            onSuccess={() => {
+              handleAuthModalClose('auth-verification');
+            }}
+            onError={(error: string) => {
+              // Keep modal open to show error
+            }}
+          />
+        );
+        config = {
+          ...config,
+          size: 'sm',
+          closable: true,
+          backdrop: true
         };
       }
 

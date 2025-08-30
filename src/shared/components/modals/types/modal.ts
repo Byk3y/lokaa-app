@@ -16,6 +16,7 @@ export interface ModalConfig {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   position?: 'center' | 'top';
   className?: string;
+  email?: string; // Add support for passing email to verification modal
 }
 
 // Modal content props

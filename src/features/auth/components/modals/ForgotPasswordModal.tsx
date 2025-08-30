@@ -50,28 +50,34 @@ export default function ForgotPasswordModal({
     setSuccessMessage('');
 
     try {
-      const { error: resetError } = await getSupabaseClient().auth.resetPasswordForEmail(
-        values.email,
-        {
-          redirectTo: `${window.location.origin}/reset-password`,
-        }
-      );
+      // Send OTP for password reset using signInWithOtp
+      const { error: resetError } = await getSupabaseClient().auth.signInWithOtp({
+        email: values.email,
+        options: {
+          shouldCreateUser: false, // Don't create user if they don't exist
+        },
+      });
 
       if (resetError) {
-        log.error('Component', 'Password reset error:', resetError);
-        onError?.(resetError.message || 'Failed to send reset link');
+        log.error('Component', 'Password reset OTP error:', resetError);
+        onError?.(resetError.message || 'Failed to send reset code');
         return;
       }
 
-      log.debug('Component', 'Password reset email sent');
-      setSuccessMessage('Check your email for a password reset link');
+      log.debug('Component', 'Password reset OTP sent');
+      setSuccessMessage('Check your email for a 6-digit reset code');
       form.reset();
+      
+      // Redirect to reset password page with email parameter
+      setTimeout(() => {
+        window.location.href = `/reset-password?email=${encodeURIComponent(values.email)}`;
+      }, 2000);
       
       // Handle success callback
       onSuccess?.();
 
     } catch (err: any) {
-      log.error('Component', 'Password reset exception:', err);
+      log.error('Component', 'Password reset OTP exception:', err);
       const errorMessage = err.message || 'An unexpected error occurred';
       onError?.(errorMessage);
     } finally {
@@ -85,7 +91,7 @@ export default function ForgotPasswordModal({
   };
 
   return (
-    <Form {...form}>
+    <Form methods={form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         {successMessage && (
           <div className="text-green-600 text-sm bg-green-50 border border-green-200 rounded-lg p-3">

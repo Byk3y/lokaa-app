@@ -319,18 +319,22 @@ export const resetPassword = async (
   setters.setLoading(true);
   setters.setAuthErrors([]);
   try {
-    const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/update-password`,
+    // Send OTP for password reset using signInWithOtp
+    const { error } = await getSupabaseClient().auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false, // Don't create user if they don't exist
+      },
     });
     if (error) {
-      log.warn('Utils', '⚠️ [AuthActions] Password reset error:', error.message);
+      log.warn('Utils', '⚠️ [AuthActions] Password reset OTP error:', error.message);
       setters.setAuthErrors(prev => [...prev, `Password reset failed: ${error.message}`]);
       const errorToReturn: AppError = { message: error.message };
       return { error: errorToReturn, success: false };
     }
     return { error: null, success: true };
   } catch (err: unknown) {
-    log.error('Utils', '❌ [AuthActions] Exception during password reset:', err);
+    log.error('Utils', '❌ [AuthActions] Exception during password reset OTP:', err);
     const message = err instanceof Error ? err.message : String(err);
     setters.setAuthErrors(prev => [...prev, `Password reset exception: ${message}`]);
     const errorResult: { error: AppError; success: boolean } = { error: { message }, success: false };

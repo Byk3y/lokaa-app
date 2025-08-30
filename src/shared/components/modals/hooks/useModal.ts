@@ -62,6 +62,16 @@ export const useModal = () => {
       }
       return openModal('auth-forgot', null, { title: 'Reset Password', size: 'sm' });
     },
+    openVerificationModal: (email?: string) => {
+      // Update URL to reflect modal state
+      if (typeof window !== 'undefined' && window.location.pathname !== '/auth/confirm') {
+        window.history.pushState(null, '', '/auth/confirm');
+      }
+      return openModal('auth-verification', null, { 
+        size: 'sm',
+        email: email 
+      });
+    },
     closeLoginModal: () => {
       // Reset URL back to home when closing auth modal
       if (typeof window !== 'undefined' && window.location.pathname === '/login') {
@@ -82,6 +92,13 @@ export const useModal = () => {
         window.history.pushState(null, '', '/');
       }
       return closeModal('auth-forgot');
+    },
+    closeVerificationModal: () => {
+      // Reset URL back to home when closing auth modal
+      if (typeof window !== 'undefined' && window.location.pathname === '/auth/confirm') {
+        window.history.pushState(null, '', '/');
+      }
+      return closeModal('auth-verification');
     },
     
     // Modal state checks

@@ -54,7 +54,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   
   // 🔥 [MODAL FIX] Use modal system for signup and login with close handlers
-  const { openSignupModal, openLoginModal } = useModal();
+  const { openSignupModal, openLoginModal, openVerificationModal, openForgotPasswordModal } = useModal();
   
   // 🔥 [MODAL FIX] Track processed modal state to prevent repeated opening
   const processedModalState = useRef<string | null>(null);
@@ -94,6 +94,8 @@ export default function LandingPage() {
       modalType = 'signup';
     } else if (currentPath === '/forgot-password') {
       modalType = 'forgot';
+    } else if (currentPath === '/auth/confirm') {
+      modalType = 'verification';
     }
 
     if (modalType) {
@@ -105,10 +107,14 @@ export default function LandingPage() {
       // Set the processed state immediately to prevent loops
       processedModalState.current = modalType;
 
-        if (modalType === 'login') {
+      if (modalType === 'login') {
         openLoginModal();
-        } else if (modalType === 'signup') {
+      } else if (modalType === 'signup') {
         openSignupModal();
+      } else if (modalType === 'forgot') {
+        openForgotPasswordModal();
+      } else if (modalType === 'verification') {
+        openVerificationModal();
       }
     } else {
       // Clear modal states when not on auth routes
@@ -116,10 +122,10 @@ export default function LandingPage() {
     }
 
     // Redirect authenticated users
-    if (user && (currentPath === '/login' || currentPath === '/signup')) {
+    if (user && (currentPath === '/login' || currentPath === '/signup' || currentPath === '/forgot-password' || currentPath === '/auth/confirm')) {
       navigate('/app');
     }
-  }, [user, location, navigate, openLoginModal, openSignupModal]);
+  }, [user, location, navigate, openLoginModal, openSignupModal, openVerificationModal, openForgotPasswordModal]);
 
   // Reset the processed state when component unmounts or user changes
   useEffect(() => {

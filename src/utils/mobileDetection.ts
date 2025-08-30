@@ -5,6 +5,10 @@
  * Designed to work with the Mobile App Optimizer
  */
 
+// Global cache for mobile detection to prevent changes during session
+let mobileDetectionCache: boolean | null = null;
+let mobileDetectionInitialized = false;
+
 /**
  * Simple, reliable mobile detection
  * Used by Mobile App Optimizer for consistent behavior
@@ -24,6 +28,7 @@ function detectMobileDevice(): boolean {
   const isMobilePlatform = /Android|iOS|iPhone|iPad/i.test(navigator.platform || '');
   
   // Check for touch capability (but not just any touch screen)
+  // Only consider it mobile touch if it's actually a mobile device
   const hasRealTouch = navigator.maxTouchPoints > 0 && /Android|iPhone|iPad/i.test(userAgent);
   
   // Device is mobile if it has mobile user agent AND (mobile platform OR real touch)
@@ -35,9 +40,51 @@ function detectMobileDevice(): boolean {
 /**
  * Should enable mobile-specific features
  * Uses simplified mobile detection for consistent behavior
+ * NOW CACHED to prevent changes during session
  */
 export function shouldEnableMobileFeatures(): boolean {
-  return detectMobileDevice();
+  return getStableMobileDetection();
+}
+
+/**
+ * Get stable mobile detection that doesn't change during session
+ * This prevents hook order violations when viewport changes
+ */
+export function getStableMobileDetection(): boolean {
+  // If already initialized, return cached value
+  if (mobileDetectionInitialized) {
+    return mobileDetectionCache!;
+  }
+
+  // Initialize mobile detection once
+  mobileDetectionCache = detectMobileDevice();
+  mobileDetectionInitialized = true;
+
+  // Log the detection result for debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('📱 [MobileDetection] Initialized:', {
+      isMobile: mobileDetectionCache,
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      maxTouchPoints: navigator.maxTouchPoints,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      }
+    });
+  }
+
+  return mobileDetectionCache;
+}
+
+/**
+ * Force refresh mobile detection (for testing only)
+ * Should not be used in production as it can cause hook order issues
+ */
+export function forceRefreshMobileDetection(): boolean {
+  mobileDetectionInitialized = false;
+  mobileDetectionCache = null;
+  return getStableMobileDetection();
 }
 
 /**
@@ -54,7 +101,7 @@ export function getMobileInfo() {
     };
   }
 
-  const isMobile = detectMobileDevice();
+  const isMobile = getStableMobileDetection();
   
   return {
     isMobile,
@@ -69,16 +116,20 @@ export function getMobileInfo() {
     detection: {
       userAgentMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(navigator.userAgent || ''),
       viewportMobile: window.innerWidth <= 768,
-      touchCapable: 'ontouchstart' in window || navigator.maxTouchPoints > 0
+      touchCapable: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+      cached: mobileDetectionInitialized,
+      cachedValue: mobileDetectionCache
     }
   };
 }
 
 /**
  * Refresh mobile detection (simplified - no caching needed)
+ * @deprecated Use getStableMobileDetection() instead
  */
 export function refreshMobileDetection(): boolean {
-  return detectMobileDevice();
+  console.warn('⚠️ [MobileDetection] refreshMobileDetection() is deprecated. Use getStableMobileDetection() instead.');
+  return getStableMobileDetection();
 }
 
 /**
@@ -86,10 +137,10 @@ export function refreshMobileDetection(): boolean {
  */
 export function getMobileDetectionDebug() {
   return {
-    isMobile: detectMobileDevice(),
-    cached: false, // No caching in simplified version
-    cacheAge: 0,
-    cacheValid: false,
+    isMobile: getStableMobileDetection(),
+    cached: mobileDetectionInitialized,
+    cacheAge: mobileDetectionInitialized ? Date.now() : 0,
+    cacheValid: mobileDetectionInitialized,
     lastDetectionTime: Date.now(),
     info: getMobileInfo()
   };
@@ -97,10 +148,11 @@ export function getMobileDetectionDebug() {
 
 /**
  * Legacy compatibility function
+ * Now uses stable detection to prevent hook order issues
  */
 export function isMobile(): boolean {
-  return detectMobileDevice();
+  return getStableMobileDetection();
 }
 
 // Export the main detection function as default
-export default detectMobileDevice; 
+export default getStableMobileDetection; 

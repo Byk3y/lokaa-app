@@ -28,7 +28,7 @@ export default function SignupModal({
   onError, 
   redirectTo 
 }: SignupModalProps) {
-  const { closeSignupModal, openLoginModal } = useModal();
+  const { closeSignupModal, openLoginModal, openVerificationModal } = useModal();
   const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -65,6 +65,8 @@ export default function SignupModal({
     setSubmitError(null);
 
     try {
+
+
       // Persist email so confirm page can verify if Supabase doesn't include it
       try { localStorage.setItem('pending-signup-email', values.email); } catch {}
       const result = await signUp(values.email, values.password, {
@@ -73,6 +75,32 @@ export default function SignupModal({
         lastName: values.lastName
       });
 
+      // Debug logging to help identify the issue
+      log.debug('Component', 'Signup result:', {
+        hasError: !!result.error,
+        errorMessage: result.error?.message,
+        hasData: !!result.data,
+        hasUser: !!result.data?.user,
+        hasSession: !!result.data?.session,
+        userEmailConfirmed: (result.data?.user as any)?.email_confirmed_at
+      });
+
+      // Enhanced debugging for user object
+      if (result.data?.user) {
+        const user = result.data.user as any;
+        log.debug('Component', 'User object details:', {
+          id: user.id,
+          email: user.email,
+          email_confirmed_at: user.email_confirmed_at,
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+          user_metadata: user.user_metadata,
+          app_metadata: user.app_metadata,
+          allKeys: Object.keys(user)
+        });
+      }
+
+      // Check for errors FIRST before any other logic
       if (result.error) {
         log.error('Component', 'Signup error:', result.error);
         const rawMsg = result.error.message || 'Signup failed';
@@ -100,21 +128,72 @@ export default function SignupModal({
         return;
       }
 
+      // Additional safety check: if no error but also no data, something went wrong
+      if (!result.data) {
+        log.error('Component', 'Signup returned no error but also no data');
+        setSubmitError('Signup failed. Please try again.');
+        onError?.('Signup failed - no data returned');
+        return;
+      }
+
       log.debug('Component', 'Signup successful', result);
 
-      // Safety: If Supabase returns a user that already has email_confirmed_at,
-      // treat this as an existing account and do NOT redirect to /auth/confirm.
-      if (result.data?.user && (result.data.user as any)?.email_confirmed_at) {
-        setSubmitError('Account already exists. You can sign in or reset your password.');
-        setIsLoading(false);
-        return;
+      // Check if this is an existing user (Supabase doesn't return error for existing emails)
+      if (result.data?.user && !result.data.session) {
+        const user = result.data.user as any;
+        
+        // Check if user already exists by looking for email_confirmed_at
+        if (user.email_confirmed_at) {
+          log.debug('Component', 'Detected existing confirmed user during signup:', {
+            email: user.email,
+            emailConfirmed: user.email_confirmed_at
+          });
+          setSubmitError('Account already exists. You can sign in or reset your password.');
+          onError?.('Account already exists');
+          return;
+        }
+        
+        // Check if user was created more than 1 minute ago (likely an existing user)
+        if (user.created_at) {
+          const createdAt = new Date(user.created_at);
+          const oneMinuteAgo = new Date(Date.now() - 60 * 1000); // 1 minute ago
+          
+          log.debug('Component', 'Checking user creation time:', {
+            email: user.email,
+            createdAt: user.created_at,
+            createdAtDate: createdAt,
+            oneMinuteAgo: oneMinuteAgo,
+            isOlderThanOneMinute: createdAt < oneMinuteAgo
+          });
+          
+          if (createdAt < oneMinuteAgo) {
+            log.debug('Component', 'Detected existing user (created more than 1 minute ago):', {
+              email: user.email,
+              createdAt: user.created_at
+            });
+            setSubmitError('Account already exists. You can sign in or reset your password.');
+            onError?.('Account already exists');
+            return;
+          }
+        }
+        
+        // Additional check: if user has app_metadata or user_metadata that suggests it's an existing user
+        if (user.app_metadata && Object.keys(user.app_metadata).length > 0) {
+          log.debug('Component', 'Detected existing user (has app_metadata):', {
+            email: user.email,
+            appMetadata: user.app_metadata
+          });
+          setSubmitError('Account already exists. You can sign in or reset your password.');
+          onError?.('Account already exists');
+          return;
+        }
       }
 
       // Handle redirect - check if email confirmation is required
       if (result.data?.user && !result.data.session) {
-        // Email confirmation required - redirect to confirm page
-        const confirmUrl = `/auth/confirm?email=${encodeURIComponent(values.email)}&type=signup`;
-        window.location.assign(confirmUrl);
+        // Email confirmation required - open verification modal with email
+        closeSignupModal();
+        openVerificationModal(values.email);
         return;
       } else if (result.data?.session) {
         // Close modal and notify success when user is logged in
