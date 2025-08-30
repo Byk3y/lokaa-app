@@ -7,7 +7,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { useProfileImage } from '@/contexts/ProfileImageContext';
+import { useProfileImageHook as useProfileImage } from '@/features/users/store/profile-image-store';
 
 // This type defines the expected return from Cropper
 interface CropArea {

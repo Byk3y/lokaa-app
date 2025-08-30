@@ -19,7 +19,7 @@ import NewSpaceSettingsModal from '@/components/modals/NewSpaceSettingsModal';
 import HeaderActions from '@/components/common/HeaderActions';
 import { useSpacePermissions } from '@/hooks/useSpacePermissions';
 import { useSpace } from '@/hooks/useSpace';
-import { useSearch } from '@/contexts/SearchContext';
+import { useSearchHook as useSearch } from '@/features/search/store/search-store';
 
 interface SpaceHeaderProps {
   subdomain: string | undefined;

@@ -17,11 +17,8 @@ import { SpaceProvider } from '../contexts/SpaceContext';
 import { UserProfileProvider } from '../contexts/UserProfileContext';
 import { GlobalPresenceProvider } from '../providers/GlobalPresenceProvider';
 import { MembershipProvider } from '../contexts/MembershipContext';
-import { ProfileImageProvider } from '../contexts/ProfileImageContext';
 import ModalProvider from '../shared/components/modals/ModalProvider';
 import { SupabaseProvider } from '../contexts/SupabaseContext';
-import { TabVisibilityProvider } from '../contexts/TabVisibilityContext';
-import { SearchProvider } from '../contexts/SearchContext';
 
 // Comment cache system removed - using simplified course cache
 
@@ -222,23 +219,17 @@ export const OptimizedProviderTree = memo(function OptimizedProviderTree({
         <OptimizedRouterProvider>
           <ModalProvider>
             <MemoizedAuthProvider>
-              <ProfileImageProvider>
-                <SearchProvider>
-                  <MemoizedSpaceProvider>
-                    <TabVisibilityProvider>
-                      <MembershipProvider>
-                        <UserProfileProvider>
-                          <MemoizedPresenceProvider>
-                            <SupabaseProvider>
-                              {children}
-                            </SupabaseProvider>
-                          </MemoizedPresenceProvider>
-                        </UserProfileProvider>
-                      </MembershipProvider>
-                    </TabVisibilityProvider>
-                  </MemoizedSpaceProvider>
-                </SearchProvider>
-              </ProfileImageProvider>
+              <MemoizedSpaceProvider>
+                <MembershipProvider>
+                  <UserProfileProvider>
+                    <MemoizedPresenceProvider>
+                      <SupabaseProvider>
+                        {children}
+                      </SupabaseProvider>
+                    </MemoizedPresenceProvider>
+                  </UserProfileProvider>
+                </MembershipProvider>
+              </MemoizedSpaceProvider>
             </MemoizedAuthProvider>
           </ModalProvider>
         </OptimizedRouterProvider>

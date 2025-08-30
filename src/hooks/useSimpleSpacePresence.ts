@@ -15,7 +15,7 @@ import { log } from '@/utils/logger';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
-import { useTabVisibility } from '@/contexts/TabVisibilityContext';
+import { useTabVisibilityHook as useTabVisibility } from '@/features/tabs/store/tab-visibility-store';
 import { debounce } from '@/utils/debounce';
 
 interface SpacePresenceResult {

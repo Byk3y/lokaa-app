@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { useSpace } from "@/contexts/SpaceContext";
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
-import { useSearch } from '@/contexts/SearchContext';
+import { useSearchHook as useSearch } from '@/features/search/store/search-store';
 import { MobileSearchOverlay } from "@/features/search";
 import { 
   NotificationIcon, 
