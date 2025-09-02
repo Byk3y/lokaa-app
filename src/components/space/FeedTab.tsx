@@ -1,7 +1,7 @@
 import { log } from '@/utils/logger';
 import { devLogger } from '@/utils/developmentLogger';
-import React, { Suspense, useEffect, memo, lazy } from 'react';
-import { useFeedLogic } from "@/hooks/useFeedLogic";
+import { Suspense, useEffect, memo, lazy } from 'react';
+import { useFeedLogicOptimized } from "@/hooks/useFeedLogicOptimized";
 
 
 
@@ -73,10 +73,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     
     // Computed values
     filteredPinnedPosts,
-    filteredRegularPosts,
     postsToShow,
-    userNameForModal,
-    userAvatarForModal,
     
     // Pagination
     totalCount,
@@ -104,14 +101,13 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     // Real-time handlers
     handleLoadNewPosts,
     handleDismissNotification,
-    clearNewPosts,
     
     // Utility functions
     mapPostToCardProps,
     refetchPosts,
     loadPage,
     refreshCategories,
-  } = useFeedLogic({ 
+  } = useFeedLogicOptimized({ 
     user: userProp, 
     isOwner: isOwnerProp, 
     isAdmin: isAdminProp, 
@@ -146,7 +142,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // SPACE DATA FALLBACK HOOK
   // ============================================================================
   
-  const { fallbackSpaceData, sidebarSpaceData, spaceIdForCounts } = useSpaceDataFallback(currentSpaceData);
+  const { sidebarSpaceData } = useSpaceDataFallback(currentSpaceData);
 
   // ============================================================================
   // LOADING STATE & ERRORS
@@ -159,9 +155,6 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   const hasDataIndicators = spaceDataAvailableViaPostsLoading || categoriesDataAvailable;
   
   // Note: Preserved space data functionality has been simplified
-  const pathname = window.location.pathname;
-  const subdomainMatch = pathname.match(/\/([^\/]+)\/space/);
-  const urlSubdomain = subdomainMatch?.[1];
   const hasPreservedData = false; // Simplified - no longer using preserved data
   
   // REDUCED: Only log critical state changes, not every render
@@ -353,5 +346,28 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   );
 }
 
-// 🚀 PERFORMANCE FIX: Wrap with React.memo to prevent unnecessary re-renders
-export default memo(FeedTab); 
+// 🚀 PERFORMANCE FIX: Enhanced React.memo with custom comparison to prevent unnecessary re-renders
+const FeedTabMemo = memo(FeedTab, (prevProps, nextProps) => {
+  // Only re-render if these critical props change
+  const criticalPropsChanged = (
+    prevProps.user?.id !== nextProps.user?.id ||
+    prevProps.isOwner !== nextProps.isOwner ||
+    prevProps.isAdmin !== nextProps.isAdmin ||
+    prevProps.hasInstantAccess !== nextProps.hasInstantAccess
+  );
+
+  // Log re-render causes in development
+  if (process.env.NODE_ENV === 'development' && criticalPropsChanged) {
+    const changedProps = [];
+    if (prevProps.user?.id !== nextProps.user?.id) changedProps.push('user.id');
+    if (prevProps.isOwner !== nextProps.isOwner) changedProps.push('isOwner');
+    if (prevProps.isAdmin !== nextProps.isAdmin) changedProps.push('isAdmin');
+    if (prevProps.hasInstantAccess !== nextProps.hasInstantAccess) changedProps.push('hasInstantAccess');
+    
+    log.debug('Component', `🔄 [FeedTab] Re-render caused by props: ${changedProps.join(', ')}`);
+  }
+
+  return !criticalPropsChanged; // Return true if props are equal (no re-render needed)
+});
+
+export default FeedTabMemo; 

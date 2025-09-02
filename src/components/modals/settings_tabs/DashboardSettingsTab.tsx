@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, TrendingUp, Users, DollarSign, Calendar, BarChart3 } from 'lucide-react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useSimpleMemberCounts } from '@/hooks/useSimpleMemberCounts';
+import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 
-export default function DashboardSettingsTab() {
+function DashboardSettingsTab() {
   const { space } = useSpaceSettingsStore();
   const { totalMembers, onlineMembers, loading: countsLoading } = useSimpleMemberCounts(space?.id || '');
 
@@ -192,3 +193,12 @@ export default function DashboardSettingsTab() {
     </div>
   );
 }
+
+// 🚀 PERFORMANCE FIX: Enhanced React.memo with custom comparison to prevent unnecessary re-renders
+const DashboardSettingsTabMemo = memo(DashboardSettingsTab, (prevProps, nextProps) => {
+  // Since this component has no props, we should never re-render unless the component itself changes
+  // This memoization is primarily for internal state optimization
+  return true; // Always return true to prevent re-renders based on props (since there are none)
+});
+
+export default withPerformanceMemo(DashboardSettingsTabMemo, 'DashboardSettingsTab');

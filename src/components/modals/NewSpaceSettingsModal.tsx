@@ -1,11 +1,11 @@
 import { log } from '@/utils/logger';
-import React, { useEffect, useState, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import React, { useEffect, useState, useCallback, memo, useMemo } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, X, ArrowLeft } from 'lucide-react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
-import { useNavigate } from 'react-router-dom';
+
 import SettingsSidebar from './SettingsSidebar';
 import GeneralSettingsTab from './settings_tabs/GeneralSettingsTab';
 import CategoriesSettingsTab from './settings_tabs/CategoriesSettingsTab';
@@ -18,7 +18,8 @@ import DashboardSettingsTab from './settings_tabs/DashboardSettingsTab';
 import MetricsSettingsTab from './settings_tabs/MetricsSettingsTab';
 import { toast } from "@/hooks/use-toast";
 import { exposeValidationForTesting } from '@/utils/test-helpers';
-import { Settings, Palette, ListTree, AlertTriangle, LayoutList, DollarSign, ClipboardList, UserPlus, BarChart3, TrendingUp } from 'lucide-react';
+import { Settings, ListTree, DollarSign, ClipboardList, UserPlus, BarChart3 } from 'lucide-react';
+import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 
 export type SettingsTabKey = "dashboard" | "general" | "categories" | "tabs" | "pricing" | "rules" | "invite" | "metrics" | "danger_zone";
 
@@ -32,7 +33,7 @@ const mobileTabs: { key: SettingsTabKey; label: string; icon: React.ElementType 
   { key: "rules", label: "Rules", icon: ClipboardList },
 ];
 
-export default function NewSpaceSettingsModal() {
+function NewSpaceSettingsModal() {
   const { 
     space,
     permissions,
@@ -45,26 +46,25 @@ export default function NewSpaceSettingsModal() {
     isOpen,
     initialTab,
     closeModal,
-    openModal,
     loadActiveSpace,
     saveSpaceSettings,
   } = useSpaceSettingsStore();
   
   const { user } = useOptimizedAuth();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTabKey>("dashboard");
   const [isMobile, setIsMobile] = useState(false);
 
+  // 🚀 PERFORMANCE FIX: Memoized mobile check function to prevent unnecessary re-renders
+  const checkMobile = useCallback(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
+
   // Detect mobile screen size
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [checkMobile]);
 
   // Prevent body scroll when mobile modal is open
   useEffect(() => {
@@ -83,13 +83,23 @@ export default function NewSpaceSettingsModal() {
     }
   }, []);
 
-  useEffect(() => {
+  // 🚀 PERFORMANCE FIX: Memoized load space handler to prevent unnecessary re-renders
+  const handleLoadSpace = useCallback(() => {
     if (isOpen && user && space?.subdomain) {
       loadActiveSpace({ subdomain: space.subdomain }, user.id, true);
     } else if (isOpen && user && !space) {
       log.warn('Component', "SpaceSettingsModal opened but no space context (subdomain) available in store to load.");
     }
   }, [isOpen, user, space?.subdomain, loadActiveSpace]);
+
+  useEffect(() => {
+    handleLoadSpace();
+  }, [handleLoadSpace]);
+
+  // 🚀 PERFORMANCE FIX: Memoized tab change handler to prevent unnecessary re-renders
+  const handleTabChange = useCallback((tab: SettingsTabKey) => {
+    setActiveTab(tab);
+  }, []);
 
   // Set initial tab when modal opens with initialTab
   useEffect(() => {
@@ -100,7 +110,8 @@ export default function NewSpaceSettingsModal() {
     }
   }, [isOpen, initialTab]);
 
-  const handleSaveChanges = async () => {
+  // 🚀 PERFORMANCE FIX: Memoized save handler to prevent unnecessary re-renders
+  const handleSaveChanges = useCallback(async () => {
     if (!isDirty || isSubmitting) return;
     const result = await saveSpaceSettings();
     if (result.success) {
@@ -110,9 +121,10 @@ export default function NewSpaceSettingsModal() {
     } else {
       toast({ title: "Error", description: "An unexpected error occurred while saving.", variant: "destructive" });
     }
-  };
+  }, [isDirty, isSubmitting, saveSpaceSettings]);
 
-  const renderTabContent = () => {
+  // 🚀 PERFORMANCE FIX: Memoized tab content rendering to prevent unnecessary re-renders
+  const renderTabContent = useMemo(() => {
     if (loadingSpace || loadingPermissions) {
       return <div className="flex-grow flex items-center justify-center p-10"><Loader2 className="h-12 w-12 animate-spin text-yellow-500" /></div>;
     }
@@ -148,7 +160,7 @@ export default function NewSpaceSettingsModal() {
       default:
         return <GeneralSettingsTab />;
     }
-  };
+  }, [loadingSpace, loadingPermissions, error, space, permissions, formData, activeTab]);
 
   if (!isOpen) {
     return null;
@@ -206,7 +218,7 @@ export default function NewSpaceSettingsModal() {
               {mobileTabs.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => handleTabChange(tab.key)}
                   className={`flex-shrink-0 text-sm font-medium transition-colors ${
                     activeTab === tab.key
                       ? 'text-gray-900 border-b-4 border-gray-900 pb-2'
@@ -221,7 +233,7 @@ export default function NewSpaceSettingsModal() {
 
           {/* Mobile Content - Full screen */}
           <div className={`flex-grow overflow-y-auto bg-white ${isDirty ? 'pb-40' : 'pb-32'}`}>
-            {renderTabContent()}
+            {renderTabContent}
           </div>
 
           {/* Mobile Footer - Only show if there are unsaved changes */}
@@ -283,11 +295,11 @@ export default function NewSpaceSettingsModal() {
         <div className="flex flex-grow overflow-hidden">
           <SettingsSidebar 
             activeTab={activeTab} 
-            onTabChange={setActiveTab} 
+            onTabChange={handleTabChange} 
             isOwner={permissions?.isOwner || false}
           />
           <div className="flex-grow bg-white dark:bg-slate-850 overflow-y-auto">
-            {renderTabContent()}
+            {renderTabContent}
           </div>
         </div>
 
@@ -317,4 +329,13 @@ export default function NewSpaceSettingsModal() {
       </DialogContent>
     </Dialog>
   );
-} 
+}
+
+// 🚀 PERFORMANCE FIX: Enhanced React.memo with custom comparison to prevent unnecessary re-renders
+const NewSpaceSettingsModalMemo = memo(NewSpaceSettingsModal, () => {
+  // Since this component has no props, we should never re-render unless the component itself changes
+  // This memoization is primarily for internal state optimization
+  return true; // Always return true to prevent re-renders based on props (since there are none)
+});
+
+export default withPerformanceMemo(NewSpaceSettingsModalMemo, 'NewSpaceSettingsModal');

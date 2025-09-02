@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
+import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

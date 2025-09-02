@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useSettingsValidation } from '@/hooks/useSettingsValidation';
 import { useMembershipStore } from '@/features/spaces/store/membership-store';
@@ -14,6 +14,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Alert } from '@/components/ui/alert';
 import { uploadImageComplete } from '@/utils/imageUpload';
 import { validateImageFile, getCompressionSettings } from '@/utils/imageCompression';
+import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 
 async function uploadFile(bucketName: string, filePath: string, file: File, spaceId?: string): Promise<string> {
   if (!file) throw new Error("File not selected");
@@ -55,7 +56,7 @@ type FormDataField =
   | 'icon_image'
   | 'cover_image';
 
-export default function GeneralSettingsTab() {
+function GeneralSettingsTab() {
   const { space, formData, setFormDataField, permissions } = useSpaceSettingsStore();
   const { triggerSpacesRefresh } = useMembershipStore();
   const [subdomainInput, setSubdomainInput] = useState(formData.subdomain || "");
@@ -541,4 +542,13 @@ export default function GeneralSettingsTab() {
       </div>
     </div>
   );
-} 
+}
+
+// 🚀 PERFORMANCE FIX: Enhanced React.memo with custom comparison to prevent unnecessary re-renders
+const GeneralSettingsTabMemo = memo(GeneralSettingsTab, (prevProps, nextProps) => {
+  // Since this component has no props, we should never re-render unless the component itself changes
+  // This memoization is primarily for internal state optimization
+  return true; // Always return true to prevent re-renders based on props (since there are none)
+});
+
+export default withPerformanceMemo(GeneralSettingsTabMemo, 'GeneralSettingsTab');
