@@ -5,7 +5,8 @@ import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import CourseDetailView from '@/components/classroom/CourseDetailView';
 import { SpaceLoadingFallback } from '@/routes/LazyRoutes';
-import { usePersistentTabs } from '@/hooks/usePersistentTabs';
+// ✅ FIXED: Removed usePersistentTabs - using standard React Router navigation
+import { extractTabFromPathname } from '@/utils/tabUtils';
 
 /**
  * CourseDetailPage - Router-aware wrapper for CourseDetailView
@@ -24,8 +25,9 @@ const CourseDetailPage: React.FC = () => {
   const { user, loading: authLoading } = useOptimizedAuth();
   const { space, loading: spaceLoading } = useSpace();
   
-  // Use persistent tabs to check if we should actually be showing course detail
-  const { currentTab, isTabActive } = usePersistentTabs(subdomain);
+  // ✅ FIXED: Use standard React Router navigation to determine tab state
+  const currentTab = extractTabFromPathname(location.pathname);
+  const isTabActive = (tab: string) => currentTab === tab;
   
   // Extract course slug from URL pathname (new pattern only)
   const extractCourseSlugFromPath = () => {

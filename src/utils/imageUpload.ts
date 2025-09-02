@@ -196,12 +196,18 @@ export const uploadImage = async (
       
       onProgress?.(50);
       
-      const { data: uploadData, error: uploadError } = await getSupabaseClient().storage
-        .from(STORAGE_BUCKET_NAME)
-        .upload(filePath, compressedFile, {
+      // Lazy load storage module for uploads
+      const { uploadFile, getPublicUrl } = await import('@/integrations/supabase/storage');
+      
+      const { data: uploadData, error: uploadError } = await uploadFile(
+        STORAGE_BUCKET_NAME,
+        filePath,
+        compressedFile,
+        {
           cacheControl: '3600',
           upsert: true
-        });
+        }
+      );
         
       if (uploadError) {
         log.error('ImageUpload', "Upload error:", uploadError);
@@ -212,9 +218,7 @@ export const uploadImage = async (
       onProgress?.(80);
       
       // Get public URL
-      const { data: urlData } = getSupabaseClient().storage
-        .from(STORAGE_BUCKET_NAME)
-        .getPublicUrl(filePath);
+      const { data: urlData } = getPublicUrl(STORAGE_BUCKET_NAME, filePath);
       
       const publicUrl = urlData.publicUrl;
       log.debug('ImageUpload', "Public URL:", publicUrl);

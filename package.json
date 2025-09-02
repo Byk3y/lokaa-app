@@ -28,7 +28,18 @@
     "ci:security": "vitest run --coverage --coverage.thresholds.lines=90 --coverage.thresholds.functions=90 --coverage.thresholds.branches=90 --coverage.thresholds.statements=90 src/__tests__/security",
     "check:coverage": "node scripts/checkCoverage.js",
     "check:validation": "vitest run --dir tests/validation",
-    "landing:feature": "./scripts/toggle-landing-page.sh"
+    "landing:feature": "./scripts/toggle-landing-page.sh",
+    "create:component": "./scripts/create-component.sh",
+    "create:feature": "./scripts/create-component.sh",
+    "ai:migration": "node scripts/ai-migration-assistant.js",
+    "ai:patterns": "node scripts/ai-migration-assistant.js patterns",
+    "ai:history": "node scripts/ai-migration-assistant.js history",
+    "debug:components": "node scripts/debug-utilities.js components",
+    "debug:bundle": "node scripts/debug-utilities.js bundle",
+    "debug:regression": "node scripts/debug-utilities.js regression",
+    "debug:baseline": "node scripts/debug-utilities.js baseline",
+    "debug:report": "node scripts/debug-utilities.js report",
+    "debug:dashboard": "node scripts/debug-utilities.js dashboard"
   },
   "engines": {
     "node": ">=20.0.0"

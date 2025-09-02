@@ -1,0 +1,344 @@
+{
+  "timestamp": "2025-08-31T00:06:55.931Z",
+  "summary": {
+    "overallHealth": "critical",
+    "criticalIssues": 3,
+    "warnings": 5,
+    "recommendations": 8
+  },
+  "componentAnalysis": {
+    "analysis": {
+      "slowComponents": [
+        {
+          "name": "FeedTab",
+          "averageTime": 23,
+          "maxTime": 45,
+          "renderCount": 156
+        },
+        {
+          "name": "SpaceSettingsModal",
+          "averageTime": 34,
+          "maxTime": 67,
+          "renderCount": 23
+        },
+        {
+          "name": "RichTextEditor",
+          "averageTime": 28,
+          "maxTime": 89,
+          "renderCount": 67
+        }
+      ],
+      "excessiveRerenders": [
+        {
+          "name": "FeedTab",
+          "rerendersPerMinute": 12,
+          "commonCauses": [
+            "props.posts",
+            "props.isLoading"
+          ]
+        },
+        {
+          "name": "RichTextEditor",
+          "rerendersPerMinute": 15,
+          "commonCauses": [
+            "props.content",
+            "internal state"
+          ]
+        }
+      ],
+      "memoryLeaks": [],
+      "optimizationOpportunities": [
+        {
+          "component": "FeedTab",
+          "opportunities": [
+            {
+              "type": "memoization",
+              "description": "Consider React.memo() or useMemo() for expensive calculations",
+              "impact": "high",
+              "effort": "medium"
+            },
+            {
+              "type": "prop-optimization",
+              "description": "Optimize prop passing to reduce unnecessary re-renders",
+              "impact": "high",
+              "effort": "low"
+            }
+          ]
+        },
+        {
+          "component": "SpaceSettingsModal",
+          "opportunities": [
+            {
+              "type": "memoization",
+              "description": "Consider React.memo() or useMemo() for expensive calculations",
+              "impact": "high",
+              "effort": "medium"
+            },
+            {
+              "type": "lazy-loading",
+              "description": "Consider lazy loading for heavy components",
+              "impact": "high",
+              "effort": "low"
+            }
+          ]
+        },
+        {
+          "component": "RichTextEditor",
+          "opportunities": [
+            {
+              "type": "memoization",
+              "description": "Consider React.memo() or useMemo() for expensive calculations",
+              "impact": "high",
+              "effort": "medium"
+            },
+            {
+              "type": "prop-optimization",
+              "description": "Optimize prop passing to reduce unnecessary re-renders",
+              "impact": "high",
+              "effort": "low"
+            },
+            {
+              "type": "state-management",
+              "description": "Consider moving state to parent or using useCallback/useMemo",
+              "impact": "medium",
+              "effort": "medium"
+            },
+            {
+              "type": "lazy-loading",
+              "description": "Consider lazy loading for heavy components",
+              "impact": "high",
+              "effort": "low"
+            }
+          ]
+        }
+      ]
+    },
+    "report": {
+      "timestamp": "2025-08-31T00:06:55.939Z",
+      "summary": {
+        "totalComponentsAnalyzed": 7,
+        "slowComponents": 3,
+        "excessiveRerenders": 2,
+        "optimizationOpportunities": 8
+      },
+      "details": {
+        "slowComponents": [
+          {
+            "name": "FeedTab",
+            "averageTime": 23,
+            "maxTime": 45,
+            "renderCount": 156
+          },
+          {
+            "name": "SpaceSettingsModal",
+            "averageTime": 34,
+            "maxTime": 67,
+            "renderCount": 23
+          },
+          {
+            "name": "RichTextEditor",
+            "averageTime": 28,
+            "maxTime": 89,
+            "renderCount": 67
+          }
+        ],
+        "excessiveRerenders": [
+          {
+            "name": "FeedTab",
+            "rerendersPerMinute": 12,
+            "commonCauses": [
+              "props.posts",
+              "props.isLoading"
+            ]
+          },
+          {
+            "name": "RichTextEditor",
+            "rerendersPerMinute": 15,
+            "commonCauses": [
+              "props.content",
+              "internal state"
+            ]
+          }
+        ],
+        "memoryLeaks": [],
+        "optimizationOpportunities": [
+          {
+            "component": "FeedTab",
+            "opportunities": [
+              {
+                "type": "memoization",
+                "description": "Consider React.memo() or useMemo() for expensive calculations",
+                "impact": "high",
+                "effort": "medium"
+              },
+              {
+                "type": "prop-optimization",
+                "description": "Optimize prop passing to reduce unnecessary re-renders",
+                "impact": "high",
+                "effort": "low"
+              }
+            ]
+          },
+          {
+            "component": "SpaceSettingsModal",
+            "opportunities": [
+              {
+                "type": "memoization",
+                "description": "Consider React.memo() or useMemo() for expensive calculations",
+                "impact": "high",
+                "effort": "medium"
+              },
+              {
+                "type": "lazy-loading",
+                "description": "Consider lazy loading for heavy components",
+                "impact": "high",
+                "effort": "low"
+              }
+            ]
+          },
+          {
+            "component": "RichTextEditor",
+            "opportunities": [
+              {
+                "type": "memoization",
+                "description": "Consider React.memo() or useMemo() for expensive calculations",
+                "impact": "high",
+                "effort": "medium"
+              },
+              {
+                "type": "prop-optimization",
+                "description": "Optimize prop passing to reduce unnecessary re-renders",
+                "impact": "high",
+                "effort": "low"
+              },
+              {
+                "type": "state-management",
+                "description": "Consider moving state to parent or using useCallback/useMemo",
+                "impact": "medium",
+                "effort": "medium"
+              },
+              {
+                "type": "lazy-loading",
+                "description": "Consider lazy loading for heavy components",
+                "impact": "high",
+                "effort": "low"
+              }
+            ]
+          }
+        ]
+      },
+      "recommendations": [
+        {
+          "priority": "high",
+          "category": "performance",
+          "title": "Optimize Slow Components",
+          "description": "3 components are rendering slower than 16ms",
+          "actions": [
+            "Implement React.memo() for pure components",
+            "Use useMemo() for expensive calculations",
+            "Consider component splitting for large components"
+          ]
+        },
+        {
+          "priority": "high",
+          "category": "optimization",
+          "title": "Reduce Unnecessary Re-renders",
+          "description": "2 components are re-rendering excessively",
+          "actions": [
+            "Optimize prop passing patterns",
+            "Use useCallback for event handlers",
+            "Consider state management optimization"
+          ]
+        }
+      ]
+    }
+  },
+  "bundleAnalysis": {
+    "summary": {
+      "totalChunks": 75,
+      "totalSize": 3958.15,
+      "averageChunkSize": 52.775333333333336
+    },
+    "issues": [
+      {
+        "type": "large-chunk",
+        "severity": "warning",
+        "chunk": "dist/assets/supabase-vendor-CU6jfvUy.js",
+        "size": 575.35,
+        "message": "Chunk dist/assets/supabase-vendor-CU6jfvUy.js (575.35kB) is larger than recommended"
+      },
+      {
+        "type": "large-chunk",
+        "severity": "warning",
+        "chunk": "dist/assets/index-Dv9g0gIz.js",
+        "size": 893.36,
+        "message": "Chunk dist/assets/index-Dv9g0gIz.js (893.36kB) is larger than recommended"
+      },
+      {
+        "type": "total-size",
+        "severity": "warning",
+        "size": 3958.15,
+        "message": "Total bundle size (3958.15kB) exceeds recommended limit"
+      }
+    ],
+    "recommendations": [
+      {
+        "priority": "medium",
+        "category": "tree-shaking",
+        "title": "Improve Tree Shaking",
+        "description": "Bundle size suggests unused code may be included",
+        "actions": [
+          "Audit imports for unused exports",
+          "Use named imports instead of default imports",
+          "Remove unused dependencies"
+        ]
+      },
+      {
+        "priority": "low",
+        "category": "optimization",
+        "title": "Bundle Optimization",
+        "description": "General optimization opportunities",
+        "actions": [
+          "Enable gzip compression on server",
+          "Implement service worker caching",
+          "Consider using a CDN for static assets"
+        ]
+      }
+    ],
+    "largeChunks": [],
+    "duplicates": []
+  },
+  "regressionCheck": {
+    "baseline": {
+      "timestamp": "2025-08-30T23:51:10.868Z",
+      "buildMetrics": {
+        "buildTime": 20365
+      },
+      "bundleMetrics": {
+        "totalSize": 5082,
+        "fileCount": 90
+      },
+      "renderMetrics": {
+        "averageRenderTime": 12.5,
+        "slowComponents": 2,
+        "totalComponents": 45
+      }
+    },
+    "current": {
+      "timestamp": "2025-08-31T00:07:18.748Z",
+      "buildMetrics": {
+        "buildTime": 23766
+      },
+      "bundleMetrics": {
+        "totalSize": 5082,
+        "fileCount": 90
+      },
+      "renderMetrics": {
+        "averageRenderTime": 12.5,
+        "slowComponents": 2,
+        "totalComponents": 45
+      }
+    },
+    "regressions": []
+  }
+}

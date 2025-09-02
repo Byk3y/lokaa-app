@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React from 'react';
 import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PostCard from "@/components/space/PostCard";
@@ -8,8 +8,7 @@ import type { CachedPostType } from "@/features/posts/types/cachedPost";
 import type { PostCardProps } from "@/features/posts/types/postCard";
 import type { EffectivePermissions } from "@/types/feedTypes";
 
-// Lazy load SimpleSpaceSetup
-const SimpleSpaceSetup = lazy(() => import("@/components/space/SimpleSpaceSetup"));
+// SimpleSpaceSetup is now handled by parent FeedTab component
 
 interface RealtimeState {
   newPostIds: string[];
@@ -91,28 +90,7 @@ export const RegularPostsList: React.FC<RegularPostsListProps> = ({
 }) => {
   return (
     <>
-      {/* SimpleSpaceSetup - only for admins/owners */}
-      {currentSpaceData && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
-        <div className="mt-6 sm:px-0">
-          <Suspense fallback={<div className="p-4 text-center text-gray-500">Loading setup guide...</div>}>
-            <SimpleSpaceSetup 
-              spaceId={currentSpaceData.id}
-              spaceName={currentSpaceData.name}
-              spaceSubdomain={currentSpaceData.subdomain}
-              isOwner={effectivePermissions.effectiveIsOwner}
-              isAdmin={effectivePermissions.effectiveIsAdmin}
-              hasAnyPosts={fetchedPosts.length > 0 || pinnedPosts.length > 0}
-              onCreatePost={() => {
-                if (postInputRef?.current) {
-                  postInputRef.current.focus();
-                } else {
-                  openCreatePostModal();
-                }
-              }} 
-            />
-          </Suspense>
-        </div>
-      )}
+      {/* SimpleSpaceSetup is now rendered by parent FeedTab component */}
 
       {/* Posts Loading State - Show skeletons during pagination loading, loading screen only when no data */}
       {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (

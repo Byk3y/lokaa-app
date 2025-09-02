@@ -1,9 +1,6 @@
 import { log } from '@/utils/logger';
 import { devLogger } from '@/utils/developmentLogger';
-import React, { Suspense, useEffect, useMemo, memo } from 'react';
-import { Loader2 } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import React, { Suspense, useEffect, memo, lazy } from 'react';
 import { useFeedLogic } from "@/hooks/useFeedLogic";
 
 
@@ -16,7 +13,8 @@ import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
 
 import SpaceInfoSidebar from "./SpaceInfoSidebar";
 import FeedHeader from "./FeedHeader";
-import SimpleSpaceSetup from "./SimpleSpaceSetup";
+// Lazy load SimpleSpaceSetup to avoid import conflict with RegularPostsList
+const SimpleSpaceSetup = lazy(() => import("./SimpleSpaceSetup"));
 
 // Extracted Feed Components
 import SearchResultsList from "./feed/SearchResultsList";

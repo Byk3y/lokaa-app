@@ -103,44 +103,24 @@ function useTabSwitchingBehavior(spaceId: string | undefined) {
       devLogger.log('TabSwitch', `Feed tab visited for space ${spaceId} - showing immediate feedback`, {
         isFirstVisit: !currentState,
         lastVisit: currentState?.lastTabVisit,
-        timeSinceLastVisit: currentState ? now - currentState.lastTabVisit : 0
+        timeSinceLastVisit: currentState ? now - (currentState.lastTabVisit || 0) : 0
       });
     } else {
       devLogger.log('TabSwitch', `Feed tab visited for space ${spaceId}`, {
         isFirstVisit: !currentState,
         lastVisit: currentState?.lastTabVisit,
-        timeSinceLastVisit: currentState ? now - currentState.lastTabVisit : 0
+        timeSinceLastVisit: currentState ? now - (currentState.lastTabVisit || 0) : 0
       });
     }
   }, []);
   
-  // Check if we should refresh data when switching to feed tab
+  // ✅ FIXED: Disable tab switching refresh logic since we now use persistent components
   const shouldRefreshOnTabSwitch = useCallback((spaceId: string): boolean => {
-    if (!isMobile) return false; // Only for mobile
-    
-    const state = tabVisibilityRef.current.get(spaceId);
-    
-    // **FIX**: Don't automatically refresh on "first visit" after hard refresh
-    // Instead, let the cache system decide if data is stale
-    if (!state) {
-      devLogger.log('TabSwitch', `No tab state found for space ${spaceId} - letting cache system decide`);
-      return false; // Don't force refresh, let cache system handle it
-    }
-    
-    const timeSinceLastVisit = Date.now() - state.lastTabVisit;
-    // **FIX**: Increased threshold to 60 seconds and be more conservative
-    const refreshThreshold = 60000; // 60 seconds instead of 30
-    const shouldRefresh = timeSinceLastVisit > refreshThreshold;
-    
-    devLogger.log('TabSwitch', `Checking refresh need for space ${spaceId}`, {
-      timeSinceLastVisit,
-      threshold: refreshThreshold,
-      shouldRefresh,
-      isFirstVisit: !state
-    });
-    
-    return shouldRefresh;
-  }, [isMobile]);
+    // With persistent tab content, components don't remount when switching tabs
+    // so we don't need to refresh data on tab switches
+    devLogger.log('TabSwitch', `Tab switching refresh disabled for persistent components - space ${spaceId}`);
+    return false;
+  }, []);
   
   return { trackTabVisit, shouldRefreshOnTabSwitch, isMobile };
 }
@@ -566,12 +546,12 @@ export function useOptimizedCachedPosts(
       resetStateForSpaceSwitch();
     }
     
-    // **FIX**: Show immediate loading feedback when switching tabs
-    const shouldRefresh = shouldRefreshOnTabSwitch(spaceId);
-    if (shouldRefresh) {
-      setIsTabSwitching(true);
-      devLogger.log('TabSwitch', `Tab switching detected for space ${spaceId} - showing immediate feedback`);
-    }
+    // ✅ FIXED: No need for tab switching loading state with persistent components
+    // const shouldRefresh = shouldRefreshOnTabSwitch(spaceId);
+    // if (shouldRefresh) {
+    //   setIsTabSwitching(true);
+    //   devLogger.log('TabSwitch', `Tab switching detected for space ${spaceId} - showing immediate feedback`);
+    // }
     
     // Track this tab visit
     trackTabVisit(spaceId);
@@ -585,8 +565,8 @@ export function useOptimizedCachedPosts(
         const cachedRegular = globalCache.getCachedData<any[]>(regularKey);
         const cachedPinned = globalCache.getCachedData<any[]>(pinnedKey);
         
-        // Enhanced cache logic: check if we should refresh due to tab switching
-        const shouldRefreshForTabSwitch = shouldRefreshOnTabSwitch(spaceId);
+        // ✅ FIXED: No need for tab switching refresh logic with persistent components
+        // const shouldRefreshForTabSwitch = shouldRefreshOnTabSwitch(spaceId);
         
         // **FIX**: Prioritize valid cached data over tab switching refresh logic
         const hasValidCache = cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned);
@@ -600,7 +580,6 @@ export function useOptimizedCachedPosts(
         
         devLogger.log('CacheDebug', `Cache check for space ${spaceId}`, {
           hasValidCache,
-          shouldRefreshForTabSwitch,
           shouldForceRefreshForIdle,
           cachedRegularLength: cachedRegular?.length || 0,
           cachedPinnedLength: cachedPinned?.length || 0,
@@ -669,10 +648,9 @@ export function useOptimizedCachedPosts(
           // Show loading state briefly to indicate data is being fetched
           setLoading(true);
           await fetchPosts(1, shouldForceRefreshForIdle);
-        } else if (shouldRefreshForTabSwitch || shouldForceRefreshForIdle) {
-          // Only refresh if tab switching suggests it's needed AND we have no valid cache
-          // OR if returning from idle period
-          const refreshReason = shouldForceRefreshForIdle ? 'idle-return' : 'tab-switch';
+        } else if (shouldForceRefreshForIdle) {
+          // Only refresh if returning from idle period
+          const refreshReason = 'idle-return';
           devLogger.log('CacheDebug', `${refreshReason} refresh triggered for space ${spaceId}`, { subscriberId });
           setLoading(true);
           await fetchPosts(1, true);

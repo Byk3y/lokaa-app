@@ -48,6 +48,24 @@ export const SpaceJoinPage = lazy(() => import('@/views/SpaceJoinPage'));
 export const PostDetailPage = lazy(() => import('@/views/PostDetailPage'));
 export const CourseDetailPage = lazy(() => import('@/views/CourseDetailPage'));
 
+// ✅ FIXED: Add tab components for SpaceShellLayout Outlet with proper props
+export const FeedTab = lazy(() => import('@/components/space/tabs/FeedTabWrapper'));
+export const AboutTab = lazy(() => import('@/components/space/AboutTab'));
+export const MembersTab = lazy(() => import('@/components/space/MembersTab'));
+export const ClassroomTab = lazy(() => import('@/components/space/tabs/ClassroomTabWrapper'));
+export const CalendarTab = lazy(() => import('@/components/space/tabs/CalendarTabWrapper'));
+export const LeaderboardTab = lazy(() => import('@/components/space/tabs/LeaderboardTabWrapper'));
+export const SearchTab = lazy(() => Promise.resolve({ 
+  default: () => (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">Search</h1>
+        <p className="text-gray-600">Search functionality is under development.</p>
+      </div>
+    </div>
+  ) 
+}));
+
 // Landing and marketing pages (can afford loading delay)
 export const SmartLanding = lazy(() => import('@/views/SmartLanding'));
 export const LandingPageWrapper = lazy(() => import('@/views/LandingPage').then(module => ({ default: module.LandingPageWrapper })));

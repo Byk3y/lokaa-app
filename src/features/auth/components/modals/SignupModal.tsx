@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useModal } from '@/shared/components/modals/hooks/useModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { SignupFormData, AuthModalProps } from '@/shared/components/modals/types/modal';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -232,8 +233,9 @@ export default function SignupModal({
                 className="text-teal-700 underline"
                 onClick={async () => {
                   try {
-                    const { getSupabaseClient } = await import('@/integrations/supabase/client');
-                    await getSupabaseClient().auth.resend({ type: 'signup', email: form.getValues('email') });
+                    // Lazy load auth module for resend
+                    const { resend } = await import('@/integrations/supabase/auth');
+                    await resend({ type: 'signup', email: form.getValues('email') });
                     setInfoMessage('Verification email resent. Please check your inbox (and spam folder).');
                   } catch (e) {
                     setSubmitError('Unable to resend verification email. Please try again in a minute.');

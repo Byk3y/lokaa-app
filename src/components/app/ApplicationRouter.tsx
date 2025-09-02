@@ -6,23 +6,18 @@ import { Loader2 } from "lucide-react";
 // Import auth components and hooks
 import { useOptimizedAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import SpaceProtectedRoute from "@/components/auth/SpaceProtectedRoute";
 import AuthRedirect from "@/components/auth/AuthRedirect";
 
 // Import lazy routes and loading fallbacks
 import * as LazyRoutes from "@/routes/LazyRoutes";
 import { RouteLoadingFallback, SpaceLoadingFallback } from "@/routes/LazyRoutes";
 
-// Import layout components
-import SpaceShellLayout from "@/components/layout/SpaceShellLayout";
-import UnifiedAppLayout from "@/components/layout/UnifiedAppLayout";
-import PersistentAppShell from "@/components/layout/PersistentAppShell";
-import TrulyPersistentAppShell from "@/components/layout/TrulyPersistentAppShell";
-import SpaceTabContent from "@/components/space/SpaceTabContent";
-import SpaceTabContentPersistent from "@/components/space/SpaceTabContentPersistent";
-import PostLegacyRedirect from "@/components/PostLegacyRedirect";
-import ProfileRouteHandler from "@/components/profile/ProfileRouteHandler";
-import WhiteScreenFix from "@/components/errors/WhiteScreenFix";
+// Import layout components - converted to lazy loading for better code splitting
+import { lazy } from "react";
+const TrulyPersistentAppShell = lazy(() => import("@/components/layout/TrulyPersistentAppShell"));
+const PostLegacyRedirect = lazy(() => import("@/components/PostLegacyRedirect"));
+const ProfileRouteHandler = lazy(() => import("@/components/profile/ProfileRouteHandler"));
+const WhiteScreenFix = lazy(() => import("@/components/errors/WhiteScreenFix"));
 
 // Import navigation coordinator
 import { navigationCoordinator } from "@/utils/navigationCoordinator";
@@ -196,7 +191,11 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
         } />
         
         {/* Legacy @username format support */}
-        <Route path="/@:slug" element={<ProfileRouteHandler />} />
+        <Route path="/@:slug" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <ProfileRouteHandler />
+          </Suspense>
+        } />
         
         {/* Fix for incorrect profile routes */}
         <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
@@ -210,7 +209,11 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
         } />
         
         {/* Recovery tools route - public access */}
-        <Route path="/fix" element={<WhiteScreenFix><div>Recovery tools loaded</div></WhiteScreenFix>} />
+        <Route path="/fix" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <WhiteScreenFix><div>Recovery tools loaded</div></WhiteScreenFix>
+          </Suspense>
+        } />
         
         {/* Debug tools - public access */}
         <Route path="/storage-debug" element={
@@ -268,7 +271,11 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
         <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
           {/* REVOLUTIONARY FIX: Single Persistent Shell Route */}
           {/* This captures ALL app routes and renders everything simultaneously */}
-          <Route element={<TrulyPersistentAppShell />}>
+          <Route element={
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <TrulyPersistentAppShell />
+            </Suspense>
+          }>
             {/* Chat routes */}
             <Route path="/app/chat" element={<div />} />
             <Route path="/app/notifications" element={<div />} />
@@ -281,8 +288,7 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
               </Suspense>
             } />
             
-            {/* REVOLUTIONARY: Dummy route elements - persistent shell handles everything internally */}
-            {/* React Router only provides URL matching, TrulyPersistentAppShell does the actual rendering */}
+            {/* ✅ FIXED: Simplified space routes - tab content handled by PersistentTabContent */}
             <Route path="/:subdomain/space" element={<div />} />
             <Route path="/:subdomain/space/feed" element={<div />} />
             <Route path="/:subdomain/space/about" element={<div />} />
@@ -386,7 +392,11 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
         </Route>
         
         {/* Profile Routes - Handled by ProfileRouteHandler */}
-        <Route path="/@:username/*" element={<ProfileRouteHandler />} />
+        <Route path="/@:username/*" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <ProfileRouteHandler />
+          </Suspense>
+        } />
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />

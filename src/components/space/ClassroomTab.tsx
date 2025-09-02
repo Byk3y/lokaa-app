@@ -8,5 +8,5 @@
 // - CourseCardSkeleton: Loading state component
 // And many more focused components
 
-import ClassroomTabRefactored from './ClassroomTabRefactored';
+import { ClassroomTabRefactored } from '../classroom/ClassroomTabRefactored';
 export default ClassroomTabRefactored;

@@ -39,7 +39,7 @@ const createOptimizedChunks = () => ({
   'auth-module': [], // Will be populated dynamically
 });
 
-// 🔹 Smart chunk splitting based on module path
+// 🔹 Enhanced smart chunk splitting based on module path and usage patterns
 const createDynamicChunks = (id: string) => {
   // Performance optimizations go to performance chunk
   if (id.includes('src/hooks/useCleanupTracker') ||
@@ -47,6 +47,20 @@ const createDynamicChunks = (id: string) => {
       id.includes('src/utils/persistentCache') ||
       id.includes('src/components/performance')) {
     return 'performance-core';
+  }
+  
+  // Supabase feature-specific chunks
+  if (id.includes('node_modules/@supabase')) {
+    if (id.includes('auth') || id.includes('gotrue')) {
+      return 'supabase-auth';
+    }
+    if (id.includes('realtime') || id.includes('websocket')) {
+      return 'supabase-realtime';
+    }
+    if (id.includes('storage') || id.includes('upload')) {
+      return 'supabase-storage';
+    }
+    return 'supabase-core';
   }
   
   // Chat features
@@ -58,7 +72,7 @@ const createDynamicChunks = (id: string) => {
   if (id.includes('src/features/spaces') || 
       id.includes('src/pages/Space') ||
       id.includes('src/components/space')) {
-    // Split space components by type
+    // Split space components by type for better caching
     if (id.includes('FeedTab') || id.includes('PostCard') || id.includes('CreatePostModal')) {
       return 'space-feed';
     }
@@ -95,12 +109,19 @@ const createDynamicChunks = (id: string) => {
     return 'settings-module';
   }
   
+  // Editor and content creation
+  if (id.includes('src/components/editor') ||
+      id.includes('src/hooks/editor') ||
+      id.includes('rich-text-editor')) {
+    return 'editor-module';
+  }
+  
   // Provider optimizations
   if (id.includes('src/providers/OptimizedProviders')) {
     return 'provider-core';
   }
   
-  // Keep node_modules in vendor chunks
+  // Keep node_modules in vendor chunks (handled by manual chunks above)
   if (id.includes('node_modules')) {
     return null; // Let manual chunks handle this
   }
@@ -389,7 +410,7 @@ export default defineConfig(({ mode }) => {
       target: 'es2020',
       minify: 'esbuild',
       cssCodeSplit: true,
-      chunkSizeWarningLimit: 500, // Aggressive optimization - target smaller chunks
+      chunkSizeWarningLimit: 300, // More aggressive - target even smaller chunks
       sourcemap: false, // Disable sourcemaps in production for faster builds
       modulePreload: {
         polyfill: false // Disable module preload polyfill to avoid conflicts
@@ -406,27 +427,46 @@ export default defineConfig(({ mode }) => {
         },
         output: {
           manualChunks: {
-            // Explicitly define React in main bundle by NOT including it here
-            // All other major dependencies get their own chunks
+            // Core utilities - small and stable
             'vendor': ['lodash', 'uuid', 'date-fns', 'clsx', 'tailwind-merge'],
-            'ui-vendor': [
+            
+            // Split large UI library into smaller chunks
+            'ui-core': [
               '@radix-ui/react-dialog', 
               '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-avatar',
               '@radix-ui/react-tooltip',
-              '@radix-ui/react-tabs',
-              '@radix-ui/react-select',
               'lucide-react'
             ],
+            'ui-forms': [
+              '@radix-ui/react-select',
+              '@radix-ui/react-checkbox',
+              '@radix-ui/react-radio-group',
+              '@radix-ui/react-switch'
+            ],
+            'ui-layout': [
+              '@radix-ui/react-tabs',
+              '@radix-ui/react-accordion',
+              '@radix-ui/react-separator'
+            ],
+            
+            // Backend and data management
             'supabase-vendor': ['@supabase/supabase-js'],
-            'router-vendor': ['react-router-dom'],
-            'form-vendor': ['react-hook-form', '@hookform/resolvers'],
             'query-vendor': ['@tanstack/react-query'],
-            'state-vendor': ['zustand', 'immer'],
+            'router-vendor': ['react-router-dom'],
+            
+            // Forms and validation
+            'form-vendor': ['react-hook-form', '@hookform/resolvers'],
             'validation-vendor': ['zod'],
-            'animation-vendor': ['framer-motion'],
+            
+            // State management
+            'state-vendor': ['zustand', 'immer'],
+            
+            // Rich content
             'editor-vendor': ['@tiptap/react', '@tiptap/starter-kit'],
-            'content-vendor': ['@emoji-mart/react', '@emoji-mart/data']
+            'content-vendor': ['@emoji-mart/react', '@emoji-mart/data'],
+            
+            // Animations and interactions
+            'animation-vendor': ['framer-motion']
           }
         }
       }

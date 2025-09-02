@@ -12,7 +12,8 @@ import { toast } from '@/hooks/use-toast';
 import { getCourseUrl, generateSlug, getUniqueCourseSlug } from '@/utils/slugUtils';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
-import { usePersistentTabs } from '@/hooks/usePersistentTabs';
+// ✅ FIXED: Removed usePersistentTabs - using standard React Router navigation
+import { extractTabFromPathname } from '@/utils/tabUtils';
 import { useCachedClassroom } from '@/hooks/useCachedClassroom';
 
 export const ClassroomTabRefactored = ({
@@ -37,9 +38,9 @@ export const ClassroomTabRefactored = ({
   const navigate = useNavigate();
   const location = useLocation();
   
-  // 🚀 REVOLUTIONARY: Use persistent tab system instead of URL checking
-  const { isTabActive } = usePersistentTabs();
-  const isActiveTab = isTabActive('classroom');
+  // ✅ FIXED: Use standard React Router navigation to determine tab state
+  const currentTab = extractTabFromPathname(location.pathname);
+  const isActiveTab = currentTab === 'classroom';
   
   // Use classroom cache system instead of Zustand store for proper progress synchronization
   const {
@@ -174,7 +175,7 @@ export const ClassroomTabRefactored = ({
     try {
       navigate(courseUrl, { replace: false });
     } catch (error) {
-      log.error('Component', `🎓 [ClassroomTab] Navigation error:`, error);
+      log.error('Component', `🎓 [ClassroomTab] Navigation error:`, error instanceof Error ? error : new Error(String(error)));
       // Fallback to window.location
       window.location.href = courseUrl;
     }
@@ -237,7 +238,12 @@ export const ClassroomTabRefactored = ({
       
       log.debug('Component', '🎓 [ClassroomTab] Generated slug for course:', { baseSlug, uniqueSlug });
       
-      const { data, error } = await supabase
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) {
+        throw new Error('Supabase client not available');
+      }
+      
+      const { data, error } = await supabaseClient
         .from('courses')
         .insert({
           title: courseData.title,
@@ -278,7 +284,7 @@ export const ClassroomTabRefactored = ({
       
       setIsCreateCourseDialogOpen(false);
     } catch (error) {
-      log.error('Component', 'Failed to create course:', error);
+      log.error('Component', 'Failed to create course:', error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "Error",
         description: "Failed to create course. Please try again.",
@@ -296,9 +302,12 @@ export const ClassroomTabRefactored = ({
     }
 
     try {
-      const supabase = getSupabaseClient();
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) {
+        throw new Error('Supabase client not available');
+      }
       
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('courses')
         .delete()
         .eq('id', course.id);
@@ -314,7 +323,7 @@ export const ClassroomTabRefactored = ({
         variant: "default"
       });
     } catch (error: unknown) {
-      log.error('Component', 'Error deleting course:', error);
+      log.error('Component', 'Error deleting course:', error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "Error Deleting Course",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
@@ -325,10 +334,9 @@ export const ClassroomTabRefactored = ({
 
 
 
-  // FIXED: Use persistent tab state instead of URL parsing to avoid race conditions
+  // ✅ FIXED: Use standard React Router navigation to determine tab state
   // Render course detail view only if we're on a course detail route AND classroom tab is active
-  const { isTabActive: isPersistentTabActive } = usePersistentTabs();
-  const isClassroomTabActive = isPersistentTabActive('classroom');
+  const isClassroomTabActive = currentTab === 'classroom';
   
   if (viewMode === 'detail' && selectedCourseId && isOnCourseDetailRoute && isClassroomTabActive) {
     return (
