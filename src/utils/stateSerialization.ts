@@ -1,9 +1,12 @@
 import { log } from '@/utils/logger';
+import { cryptoHashGenerator } from '@/utils/cryptoHash';
 /**
  * 🚀 State Serialization Utilities
  * 
  * Phase 6B: Handles complex state objects and references for component hydration.
  * Provides safe serialization/deserialization with versioning and validation.
+ * 
+ * 🔐 SECURITY: Uses cryptographically secure SHA-256 hashing for data integrity.
  */
 
 // Serialized state interface
@@ -53,19 +56,19 @@ class StateSerializer {
    * 🔄 SERIALIZE STATE
    * Converts complex state objects to cache-friendly format
    */
-  serialize(
+  async serialize(
     state: any,
     componentId: string,
     userId: string,
     options: SerializationOptions = {}
-  ): SerializedState {
+  ): Promise<SerializedState> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
     this.referenceMap.clear();
     this.referenceCounter = 0;
 
     try {
       const serializedData = this.serializeValue(state, opts, 0);
-      const checksum = this.generateChecksum(serializedData);
+      const checksum = await this.generateChecksum(serializedData);
 
       const result: SerializedState = {
         data: serializedData,
@@ -97,12 +100,12 @@ class StateSerializer {
    * 🔄 DESERIALIZE STATE
    * Converts serialized state back to original format
    */
-  deserialize(serializedState: SerializedState, options: SerializationOptions = {}): any {
+  async deserialize(serializedState: SerializedState, options: SerializationOptions = {}): Promise<any> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
     try {
       // Validate checksum
-      const expectedChecksum = this.generateChecksum(serializedState.data);
+      const expectedChecksum = await this.generateChecksum(serializedState.data);
       if (expectedChecksum !== serializedState.metadata.checksum) {
         throw new Error('State checksum validation failed - data may be corrupted');
       }
@@ -326,16 +329,30 @@ class StateSerializer {
     return 'object';
   }
 
-  private generateChecksum(data: any): string {
-    // Simple checksum for validation
-    const str = JSON.stringify(data);
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+  private async generateChecksum(data: any): Promise<string> {
+    try {
+      // Use cryptographically secure hash for data integrity
+      const result = await cryptoHashGenerator.generateHash(data, { 
+        algorithm: 'SHA-256',
+        fallbackToSimple: true 
+      });
+      
+      log.debug('Utils', `🔐 [StateSerializer] Generated ${result.algorithm} checksum`);
+      return result.hash;
+      
+    } catch (error) {
+      log.error('Utils', '🚨 [StateSerializer] Crypto hash failed, using fallback:', error);
+      
+      // Fallback to simple hash if crypto fails
+      const str = JSON.stringify(data);
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      return hash.toString(36);
     }
-    return hash.toString(36);
   }
 }
 

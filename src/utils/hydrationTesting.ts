@@ -82,7 +82,7 @@ class HydrationTester {
 
         // Test serialization
         const serializationStart = Date.now();
-        const serialized = stateSerializer.serialize(
+        const serialized = await stateSerializer.serialize(
           config.testData,
           config.componentId,
           config.userId
@@ -92,7 +92,7 @@ class HydrationTester {
 
         // Test deserialization
         const deserializationStart = Date.now();
-        const deserialized = stateSerializer.deserialize(serialized);
+        const deserialized = await stateSerializer.deserialize(serialized);
         const deserializationTime = Date.now() - deserializationStart;
         totalDeserializationTime += deserializationTime;
 

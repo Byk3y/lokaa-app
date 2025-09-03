@@ -73,7 +73,7 @@ export class SpaceAssetsUtils {
     
     if (!name) return '#1A8A7E'; // Default professional teal (matching your brand)
     
-    // Generate deterministic color from name hash
+    // Generate deterministic color from name hash (using simple hash for performance)
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
       const char = name.charCodeAt(i);
