@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { EditorContent } from '@tiptap/react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -44,8 +44,13 @@ export interface RichTextEditorProps {
 /**
  * Refactored Rich Text Editor using extracted components and hooks
  * Significantly reduced complexity through modular architecture
+ * 
+ * 🚀 PERFORMANCE OPTIMIZED:
+ * - React.memo to prevent unnecessary re-renders
+ * - Memoized callbacks and computed values
+ * - Optimized hook dependencies
  */
-const RichTextEditor: React.FC<RichTextEditorProps> = ({
+const RichTextEditor: React.FC<RichTextEditorProps> = React.memo(({
   content,
   onChange,
   placeholder = "Start writing your content...",
@@ -85,10 +90,17 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     editor
   });
 
+  // Memoize upload options to prevent unnecessary re-creation
+  const uploadOptions = useMemo(() => ({
+    spaceId,
+    lessonId,
+    courseId
+  }), [spaceId, lessonId, courseId]);
+
   // Handle image uploads
   const { imageInputRef, handleImageUpload, triggerImageUpload } = useImageUpload({
     editor,
-    options: { spaceId, lessonId, courseId }
+    options: uploadOptions
   });
 
   // Handle video uploads and embeds
@@ -100,7 +112,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     closeVideoModal
   } = useVideoUpload({
     editor,
-    options: { spaceId, lessonId, courseId }
+    options: uploadOptions
   });
 
   // Handle resource insertions
@@ -112,24 +124,31 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     handlePinCommunityPost
   } = useResourceHandlers({ editor });
 
-  // Ensure content is properly set in the editor
-  useEffect(() => {
-    if (editor && content !== undefined) {
-      const currentContent = editor.getHTML();
-      if (currentContent !== content) {
-        editor.commands.setContent(content);
-      }
-    }
+  // Memoize content comparison to prevent unnecessary updates
+  const shouldUpdateContent = useMemo(() => {
+    if (!editor || content === undefined) return false;
+    const currentContent = editor.getHTML();
+    return currentContent !== content;
   }, [editor, content]);
 
-  if (!editor) {
-    return (
-      <div className={clsx("bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col h-96", className)}>
-        <div className="flex items-center justify-center h-full">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-        </div>
+  // Ensure content is properly set in the editor
+  useEffect(() => {
+    if (shouldUpdateContent && editor) {
+      editor.commands.setContent(content);
+    }
+  }, [shouldUpdateContent, editor, content]);
+
+  // Memoize loading state to prevent unnecessary re-renders
+  const loadingState = useMemo(() => (
+    <div className={clsx("bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col h-96", className)}>
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
       </div>
-    );
+    </div>
+  ), [className]);
+
+  if (!editor) {
+    return loadingState;
   }
 
   return (
@@ -260,5 +279,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     </div>
   );
 };
+
+});
+
+// Add display name for debugging
+RichTextEditor.displayName = 'RichTextEditor';
 
 export default RichTextEditor;

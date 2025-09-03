@@ -15,8 +15,12 @@ export interface ToolbarButtonProps {
 /**
  * Reusable toolbar button component for rich text editors
  * Supports both icon and text-based buttons with consistent styling
+ * 
+ * 🚀 PERFORMANCE OPTIMIZED:
+ * - React.memo to prevent unnecessary re-renders
+ * - Optimized className computation
  */
-export const ToolbarButton: React.FC<ToolbarButtonProps> = ({ 
+export const ToolbarButton: React.FC<ToolbarButtonProps> = React.memo(({ 
   onClick, 
   isActive = false, 
   title, 
@@ -64,6 +68,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
       </span>
     )}
   </button>
-);
+));
+
+// Add display name for debugging
+ToolbarButton.displayName = 'ToolbarButton';
 
 export default ToolbarButton;
