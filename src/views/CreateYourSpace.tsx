@@ -8,11 +8,13 @@ import { getSupabaseClient } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import LoadingIndicator from "@/components/LoadingIndicator";
 import { devLogger } from '@/utils/developmentLogger';
+import { useMembershipStore } from '@/features/spaces/store/membership-store';
 
 export default function CreateYourSpace() {
   const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const { space: currentSpace, clearCache: clearSpaceContextCache } = useSpace();
+  const { triggerSpacesRefresh } = useMembershipStore();
   const [spaceName, setSpaceName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [charCount, setCharCount] = useState(0);
@@ -351,6 +353,14 @@ CREATE POLICY "spaces_insert" ON spaces FOR INSERT TO authenticated WITH CHECK (
               localStorage.setItem(fallbackKey, JSON.stringify(fallbackData));
             } catch {}
           } catch {}
+
+          // CRITICAL FIX: Invalidate spaces cache so new space appears in dropdown
+          try {
+            await triggerSpacesRefresh();
+            devLogger.log('SpaceManagement', "✅ Spaces cache invalidated - new space will appear in dropdown");
+          } catch (error) {
+            devLogger.log('SpaceManagement', "⚠️ Failed to invalidate spaces cache:", error);
+          }
 
           // Navigate to the new space page
           devLogger.log('SpaceManagement', "Session ready - navigating to new space with subdomain:", createdSpace.subdomain);
