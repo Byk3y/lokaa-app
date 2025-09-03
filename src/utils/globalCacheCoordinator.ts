@@ -113,19 +113,36 @@ export const cacheQueries = {
     return globalCache.get(
       key,
       async () => {
-        const { data, error } = await getSupabaseClient()
-          .from('space_categories')
-          .select('id, name, icon, created_at, is_archived, space_id, created_by')
-          .eq('space_id', spaceId)
-          .eq('is_archived', false)
-          .order('name');
-          
-        if (error) {
-          log.error('Cache', `Failed to fetch categories for space ${spaceId}:`, error);
-          throw error;
-        }
+              const { data, error } = await getSupabaseClient()
+        .from('space_categories')
+        .select('id, name, icon, created_at, is_archived, space_id, created_by')
+        .eq('space_id', spaceId)
+        .eq('is_archived', false)
+        .order('created_at', { ascending: true });
         
-        return data || [];
+      if (error) {
+        log.error('Cache', `Failed to fetch categories for space ${spaceId}:`, error);
+        throw error;
+      }
+      
+      // Filter out any invalid categories
+      const filteredData = data ? data.filter(cat => 
+        cat && cat.name && 
+        !cat.name.includes("Non-Member") && 
+        !cat.name.includes("Attempt")
+      ) : [];
+      
+      // Sort categories with "General Discussion" first, then by creation order
+      const sortedData = filteredData.sort((a, b) => {
+        const aIsGeneral = a.name.toLowerCase() === 'general discussion';
+        const bIsGeneral = b.name.toLowerCase() === 'general discussion';
+        
+        if (aIsGeneral && !bIsGeneral) return -1;
+        if (bIsGeneral && !aIsGeneral) return 1;
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      });
+        
+      return sortedData;
       },
       subscriberId
     );

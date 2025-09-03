@@ -313,7 +313,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
       </div>
       
       {/* Common modals that should persist across tab changes */}
-      <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading settings...</div></div>}>
+      <Suspense fallback={null}>
         <NewSpaceSettingsModal />
       </Suspense>
     </SpaceLayout>

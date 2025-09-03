@@ -4,9 +4,12 @@ import { log } from '@/utils/logger';
  * 
  * Centralized state management for authentication flow progress.
  * Coordinates UI components to prevent loading state conflicts.
+ * 
+ * Phase 6B: Enhanced with smart state hydration integration.
  */
 
 import { useState, useEffect } from 'react';
+import { smartStateHydrator } from '@/services/SmartStateHydrator';
 
 type AuthFlowStage = 
   | 'initializing'
@@ -205,6 +208,80 @@ class AuthFlowStateManager {
   shouldUseFastPath(): boolean {
     return this.state.stage === 'checking-cache' || this.state.stage === 'initializing';
   }
+
+  // Phase 6B: Smart State Hydration Integration
+
+  /**
+   * Check if components are hydrated and skip loading states
+   */
+  shouldSkipLoadingForHydratedComponents(componentId: string, userId: string): boolean {
+    try {
+      const hydrationStatus = smartStateHydrator.getHydrationStatus(componentId);
+      return hydrationStatus === 'hydrated';
+    } catch (error) {
+      log.warn('Utils', `⚠️ [AuthFlowStateManager] Failed to check hydration status for ${componentId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Coordinate hydration with auth flow stages
+   */
+  async coordinateWithHydration(componentId: string, userId: string): Promise<boolean> {
+    try {
+      // If component is hydrated, skip loading states
+      if (this.shouldSkipLoadingForHydratedComponents(componentId, userId)) {
+        log.debug('Utils', `✅ [AuthFlowStateManager] Component ${componentId} is hydrated, skipping loading states`);
+        return true;
+      }
+
+      // If auth flow is in fast path, allow hydration to proceed
+      if (this.shouldUseFastPath()) {
+        log.debug('Utils', `🚀 [AuthFlowStateManager] Auth flow in fast path, allowing hydration for ${componentId}`);
+        return true;
+      }
+
+      // Otherwise, wait for auth flow to complete
+      log.debug('Utils', `⏳ [AuthFlowStateManager] Waiting for auth flow completion before hydrating ${componentId}`);
+      return false;
+    } catch (error) {
+      log.error('Utils', `🚨 [AuthFlowStateManager] Hydration coordination failed for ${componentId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Notify hydration system of auth flow completion
+   */
+  notifyHydrationOfAuthCompletion(): void {
+    try {
+      // This would trigger hydration for components that were waiting
+      log.debug('Utils', '🔄 [AuthFlowStateManager] Notifying hydration system of auth completion');
+      
+      // In a real implementation, this would trigger hydration for waiting components
+      // For now, we just log the event
+    } catch (error) {
+      log.error('Utils', '🚨 [AuthFlowStateManager] Failed to notify hydration system:', error);
+    }
+  }
+
+  /**
+   * Get hydration-aware loading state for components
+   */
+  getHydrationAwareLoadingState(componentId: string, userId: string): {
+    shouldShowLoading: boolean;
+    isHydrated: boolean;
+    authStage: AuthFlowStage;
+  } {
+    const isHydrated = this.shouldSkipLoadingForHydratedComponents(componentId, userId);
+    const shouldShowLoading = !isHydrated && this.shouldComponentShowLoading(componentId);
+    
+    return {
+      shouldShowLoading,
+      isHydrated,
+      authStage: this.state.stage
+    };
+  }
 }
 
 // Export singleton instance
@@ -231,6 +308,18 @@ export const useComponentLoading = (componentName: string) => {
     authStage: state.stage,
     blockComponent: () => authFlowStateManager.blockComponent(componentName),
     unblockComponent: () => authFlowStateManager.unblockComponent(componentName)
+  };
+}
+
+// Phase 6B: Hook for hydration-aware loading state
+export const useHydrationAwareLoading = (componentId: string, userId: string) => {
+  const state = useAuthFlowState();
+  
+  return {
+    ...authFlowStateManager.getHydrationAwareLoadingState(componentId, userId),
+    blockComponent: () => authFlowStateManager.blockComponent(componentId),
+    unblockComponent: () => authFlowStateManager.unblockComponent(componentId),
+    coordinateWithHydration: () => authFlowStateManager.coordinateWithHydration(componentId, userId)
   };
 }
 

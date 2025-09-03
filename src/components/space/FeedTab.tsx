@@ -1,6 +1,6 @@
 import { log } from '@/utils/logger';
 import { devLogger } from '@/utils/developmentLogger';
-import { Suspense, useEffect, memo, lazy } from 'react';
+import { Suspense, useEffect, memo, lazy, useMemo } from 'react';
 import { useFeedLogicOptimized } from "@/hooks/useFeedLogicOptimized";
 
 
@@ -31,10 +31,22 @@ import { useSearchHook as useSearch } from '@/features/search/store/search-store
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSpaceDataFallback } from '@/hooks/useSpaceDataFallback';
 
+// Phase 6B: Smart State Hydration - SAFE IMPLEMENTATION
+import { useSafeStateHydration } from '@/hooks/useSafeStateHydration';
+import { SafeHydrationIndicator } from '@/components/hydration/SafeHydrationWrapper';
+import { useBackgroundSync } from '@/hooks/useBackgroundSync';
+
 function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
   // ============================================================================
   // HOOKS MUST BE AT THE TOP - CRITICAL FIX FOR HOOK ORDER ERROR
   // ============================================================================
+
+  // Enable SafeHydration logging for debugging
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.devLogger) {
+      window.devLogger.onlyAllow('SafeHydration', 'Service', 'Hook', 'CacheManager');
+    }
+  }, []);
   
   // Add mobile detection FIRST - before any conditional logic
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
@@ -120,6 +132,164 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // ============================================================================
   
   const { searchIntegration, isSearchActive, setSpaceSearch } = useSearch();
+
+  // ============================================================================
+  // PHASE 6B: SMART STATE HYDRATION - SAFE IMPLEMENTATION
+  // ============================================================================
+  
+  // Memoized feed state for hydration - includes actual data to prevent loading spinners
+  const feedState = useMemo(() => ({
+    // UI State
+    selectedTab,
+    currentPage,
+    
+    // Actual Data (prevents loading spinners)
+    posts: fetchedPosts,
+    pinnedPosts,
+    categories: spaceCategories,
+    
+    // Loading States (to prevent re-fetching)
+    postsLoading,
+    categoriesLoading,
+    postsError,
+    categoriesError,
+    
+    // Metadata
+    lastUpdated: Date.now(),
+    hasData: fetchedPosts.length > 0 || spaceCategories.length > 0 || pinnedPosts.length > 0
+  }), [
+    selectedTab, 
+    currentPage, 
+    fetchedPosts, 
+    pinnedPosts, 
+    spaceCategories, 
+    postsLoading, 
+    categoriesLoading, 
+    postsError, 
+    categoriesError
+  ]);
+
+  const {
+    isHydrated,
+    isHydrating,
+    hydratedState,
+    hydrationError,
+    saveState,
+    clearCache,
+    hydrationTime,
+    performanceMetrics
+  } = useSafeStateHydration(
+    `feed-tab-${currentSpaceData?.id || 'default'}`,
+    currentUser?.id || 'anonymous',
+    feedState,
+    {
+      autoSave: true, // Enable auto-save with debouncing
+      saveInterval: 2000,
+      sensitiveKeys: ['password', 'token', 'secret'],
+      debounceMs: 1000,
+      enablePerformanceTracking: true
+    }
+  );
+
+  // Use hydrated state if available, otherwise use local state
+  const effectiveFeedState = useMemo(() => {
+    if (isHydrated && hydratedState) {
+      console.log(`🔍 [FeedTab] Using hydrated state:`, hydratedState);
+      console.log(`🔍 [FeedTab] Hydrated categories:`, hydratedState.categories);
+      console.log(`🔍 [FeedTab] Hydrated posts:`, hydratedState.posts?.length);
+      console.log(`🔍 [FeedTab] Hydrated hasData:`, hydratedState.hasData);
+      return hydratedState;
+    }
+    console.log(`🔍 [FeedTab] Using local state:`, feedState);
+    console.log(`🔍 [FeedTab] Local categories:`, feedState.categories);
+    console.log(`🔍 [FeedTab] Local posts:`, feedState.posts?.length);
+    return feedState;
+  }, [isHydrated, hydratedState, feedState]);
+
+  // Extract effective state values - prioritize hydrated data to prevent loading spinners
+  // BUT prioritize local selectedTab when user has interacted (to fix category tab clicking)
+  const effectiveSelectedTab = selectedTab || effectiveFeedState.selectedTab;
+  const effectivePosts = effectiveFeedState.posts || fetchedPosts;
+  const effectivePinnedPosts = effectiveFeedState.pinnedPosts || pinnedPosts;
+  const effectiveCategories = effectiveFeedState.categories || spaceCategories;
+  const effectiveCurrentPage = effectiveFeedState.currentPage || currentPage;
+  
+  // Use hydrated loading states to prevent re-fetching when we have cached data
+  const effectivePostsLoading = isHydrated && effectiveFeedState.hasData ? false : postsLoading;
+  const effectiveCategoriesLoading = isHydrated && effectiveFeedState.hasData ? false : categoriesLoading;
+  
+  // Prevent rendering with empty data while hydration is in progress
+  const isHydrationInProgress = isHydrating && !isHydrated;
+  // Only wait for hydration if we're actually hydrating AND we have no data yet
+  const shouldWaitForHydration = isHydrationInProgress && (effectivePosts.length === 0 && effectiveCategories.length === 0);
+  
+  // Compute filtered pinned posts using effective data
+  const effectiveFilteredPinnedPosts = useMemo(() => {
+    if (effectiveSelectedTab === "all") return effectivePinnedPosts;
+    return effectivePinnedPosts.filter(post => post.category?.id === effectiveSelectedTab);
+  }, [effectivePinnedPosts, effectiveSelectedTab]);
+
+  // Save state when feed state changes (with debouncing) - but only if we have actual data
+  useEffect(() => {
+    if (isHydrated && saveState && (fetchedPosts.length > 0 || spaceCategories.length > 0 || pinnedPosts.length > 0)) {
+      console.log(`🔍 [FeedTab] Saving state with data - posts: ${fetchedPosts.length}, categories: ${spaceCategories.length}, pinnedPosts: ${pinnedPosts.length}`);
+      saveState(feedState);
+    } else if (isHydrated && saveState) {
+      console.log(`🔍 [FeedTab] Skipping save - no data yet - posts: ${fetchedPosts.length}, categories: ${spaceCategories.length}, pinnedPosts: ${pinnedPosts.length}`);
+    }
+  }, [feedState, isHydrated, saveState, fetchedPosts.length, spaceCategories.length, pinnedPosts.length]);
+
+  // Debug posts loading state
+  useEffect(() => {
+    console.log(`🔍 [FeedTab] Posts loading state - postsLoading: ${postsLoading}, postsError: ${postsError}, fetchedPosts: ${fetchedPosts.length}, pinnedPosts: ${pinnedPosts.length}`);
+  }, [postsLoading, postsError, fetchedPosts.length, pinnedPosts.length]);
+
+  // Clear cache if we detect we're hydrating empty data
+  useEffect(() => {
+    if (isHydrated && hydratedState && hydratedState.hasData === false && (fetchedPosts.length > 0 || spaceCategories.length > 0 || pinnedPosts.length > 0)) {
+      console.log(`🔍 [FeedTab] Clearing cache - hydrated empty data but now have real data`);
+      if (clearCache) {
+        clearCache();
+      }
+    }
+  }, [isHydrated, hydratedState, fetchedPosts.length, spaceCategories.length, pinnedPosts.length, clearCache]);
+
+  // Force re-hydration when posts load after initial hydration
+  useEffect(() => {
+    if (isHydrated && hydratedState && hydratedState.posts?.length === 0 && fetchedPosts.length > 0) {
+      console.log(`🔍 [FeedTab] Posts loaded after hydration - forcing re-hydration with real data`);
+      if (clearCache) {
+        clearCache();
+      }
+    }
+  }, [isHydrated, hydratedState, fetchedPosts.length, clearCache]);
+
+  // Force re-hydration when pinned posts load after initial hydration
+  useEffect(() => {
+    if (isHydrated && hydratedState && hydratedState.pinnedPosts?.length === 0 && pinnedPosts.length > 0) {
+      console.log(`🔍 [FeedTab] Pinned posts loaded after hydration - forcing re-hydration with real data`);
+      if (clearCache) {
+        clearCache();
+      }
+    }
+  }, [isHydrated, hydratedState, pinnedPosts.length, clearCache]);
+
+  // Background sync for feed data
+  const backgroundSync = useBackgroundSync(
+    `feed-tab-${currentSpaceData?.id || 'default'}`,
+    currentUser?.id || 'anonymous',
+    async () => {
+      // Sync feed data in background
+      if (isHydrated && saveState) {
+        await saveState(feedState);
+      }
+    },
+    {
+      enabled: isHydrated,
+      interval: 30000, // 30 seconds
+      enableLogging: true
+    }
+  );
   
   // Update search context when space changes
   useEffect(() => {
@@ -150,9 +320,10 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
 
   // ENHANCED: Detect if space data is actually available through posts loading
   // If posts are successfully fetching, it means space ID is available even if currentSpaceData is null
-  const spaceDataAvailableViaPostsLoading = !postsError && (postsLoading || fetchedPosts.length > 0);
-  const categoriesDataAvailable = !categoriesError && (categoriesLoading || spaceCategories.length > 0);
-  const hasDataIndicators = spaceDataAvailableViaPostsLoading || categoriesDataAvailable;
+  const spaceDataAvailableViaPostsLoading = !postsError && (effectivePostsLoading || effectivePosts.length > 0);
+  const categoriesDataAvailable = !categoriesError && (effectiveCategoriesLoading || effectiveCategories.length > 0);
+  const pinnedPostsDataAvailable = effectivePinnedPosts.length > 0;
+  const hasDataIndicators = spaceDataAvailableViaPostsLoading || categoriesDataAvailable || pinnedPostsDataAvailable;
   
   // Note: Preserved space data functionality has been simplified
   const hasPreservedData = false; // Simplified - no longer using preserved data
@@ -196,6 +367,21 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // RENDER JSX - Pure presentation logic
   // ============================================================================
   
+  // Show loading while hydration is in progress to prevent empty state flash
+  if (shouldWaitForHydration) {
+    console.log(`🔍 [FeedTab] Showing hydration loading - isHydrating: ${isHydrating}, isHydrated: ${isHydrated}, posts: ${effectivePosts.length}, categories: ${effectiveCategories.length}`);
+    return (
+      <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4">
+        <div className="flex-grow">
+          <div className="p-4 text-center text-gray-500">
+            <div className="animate-spin h-6 w-6 rounded-full border-t-2 border-b-2 border-teal-500 mx-auto mb-2"></div>
+            <p className="text-sm">Restoring your feed...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
     <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4">
@@ -209,14 +395,23 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
         />
         )}
 
+        {/* Safe Hydration Status Indicator */}
+        <SafeHydrationIndicator
+          isHydrated={isHydrated}
+          isHydrating={isHydrating}
+          hydrationTime={hydrationTime}
+          error={hydrationError}
+          performanceMetrics={performanceMetrics}
+        />
+
 
 
         {/* Category Tabs - Hide when searching */}
         {!isSearchActive && (
           <CategoryTabs
-            selectedTab={selectedTab}
-            spaceCategories={spaceCategories}
-            categoriesLoading={categoriesLoading}
+            selectedTab={effectiveSelectedTab}
+            spaceCategories={effectiveCategories}
+            categoriesLoading={effectiveCategoriesLoading}
             effectivePermissions={effectivePermissions}
             handleTabSelect={handleTabSelect}
             openCategoryModal={openCategoryModal}
@@ -243,7 +438,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
                 spaceSubdomain={currentSpaceData.subdomain}
                 isOwner={effectivePermissions.effectiveIsOwner}
                 isAdmin={effectivePermissions.effectiveIsAdmin}
-                hasAnyPosts={fetchedPosts.length > 0 || pinnedPosts.length > 0}
+                hasAnyPosts={effectivePosts.length > 0 || effectivePinnedPosts.length > 0}
                 onCreatePost={() => {
                   if (postInputRef?.current) {
                     postInputRef.current.focus();
@@ -261,32 +456,32 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
           <>
             {/* Pinned Posts */}
             <PinnedPostsList
-              pinnedPosts={filteredPinnedPosts}
-              selectedTab={selectedTab}
+              pinnedPosts={effectiveFilteredPinnedPosts}
+              selectedTab={effectiveSelectedTab}
               effectivePermissions={effectivePermissions}
               mapPostToCardProps={mapPostToCardProps}
               handlePostCardClick={handlePostCardClick}
               handleLikeToggledInCard={handleLikeToggledInCard}
               handlePinToggled={handlePinToggled}
               handleCommentAddedInModal={handleCommentAddedInModal}
-              postsLoading={postsLoading}
+              postsLoading={effectivePostsLoading}
               postsError={postsError}
             />
 
             {/* Regular Posts List */}
             <RegularPostsList
-              fetchedPosts={fetchedPosts}
+              fetchedPosts={effectivePosts}
               pinnedPosts={pinnedPosts}
               postsToShow={postsToShow}
               currentSpaceData={currentSpaceData}
-              postsLoading={postsLoading}
+              postsLoading={effectivePostsLoading}
               postsError={postsError}
               hasInstantAccess={hasInstantAccess}
-              selectedTab={selectedTab}
+              selectedTab={effectiveSelectedTab}
               effectivePermissions={effectivePermissions}
               realtimeState={realtimeState}
               totalCount={totalCount}
-                currentPage={currentPage}
+                currentPage={effectiveCurrentPage}
                 totalPages={totalPages}
               hasNextPage={hasNextPage}
               mapPostToCardProps={mapPostToCardProps}
@@ -342,6 +537,12 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
       handleLikeToggledInCard={handleLikeToggledInCard}
       refreshCategories={refreshCategories}
     />
+
+    {/* Phase 6B: Hydration Indicator - TEMPORARILY DISABLED */}
+    {/* <HydrationIndicator
+      isSyncing={false} // This would be connected to background sync
+      lastSyncTime={Date.now()}
+    /> */}
     </>
   );
 }

@@ -29,6 +29,7 @@ export function useOptimizedCachedCategories(spaceId: string): UseOptimizedCache
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const previousSpaceIdRef = useRef<string | null>(null);
 
   const cacheKey = `categories:${spaceId}`;
   const subscriberId = `categories-hook-${spaceId}`;
@@ -48,6 +49,9 @@ export function useOptimizedCachedCategories(spaceId: string): UseOptimizedCache
     abortControllerRef.current = new AbortController();
     setIsLoading(true);
     setError(null);
+    
+    // CRITICAL FIX: Clear categories immediately when spaceId changes to prevent cross-space contamination
+    setCategories([]);
 
     try {
       log.debug('Hook', `[useOptimizedCachedCategories] Fetching categories for space ${spaceId}`);
@@ -96,6 +100,20 @@ export function useOptimizedCachedCategories(spaceId: string): UseOptimizedCache
     globalCache.invalidate(cacheKey);
     await fetchCategories();
   }, [fetchCategories, cacheKey]);
+
+  // CRITICAL FIX: Detect space switches and clear categories immediately
+  useEffect(() => {
+    const isSpaceSwitch = previousSpaceIdRef.current !== null && previousSpaceIdRef.current !== spaceId;
+    
+    if (isSpaceSwitch) {
+      log.debug('Hook', `[useOptimizedCachedCategories] Space switch detected: ${previousSpaceIdRef.current} → ${spaceId}`);
+      // Clear categories immediately to prevent showing old space's categories
+      setCategories([]);
+      setError(null);
+    }
+    
+    previousSpaceIdRef.current = spaceId;
+  }, [spaceId]);
 
   // Initial fetch
   useEffect(() => {

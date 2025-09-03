@@ -168,7 +168,10 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
     // Do not block public routes with the global spinner
     const path = location.pathname;
     const isPublicPath = /^\/(|login$|signup$|forgot-password$|auth(\/?|$).+|debug$|storage-debug$|fix$)/.test(path);
-    if (!isPublicPath) {
+    const isSpaceRoute = path.match(/^\/[^\/]+\/space/);
+    
+    // CRITICAL FIX: Don't show loading screen for space routes - let space components handle their own loading
+    if (!isPublicPath && !isSpaceRoute) {
       return <AppLoadingScreen />;
     }
   }
