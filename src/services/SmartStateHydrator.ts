@@ -6,15 +6,13 @@ import { log } from '@/utils/logger';
  * component state restoration on refresh, eliminating loading spinners.
  * 
  * Integrates with:
- * - EnhancedCacheManager (memory + localStorage)
- * - SimpleCache (unified caching)
- * - IndexedDB (structured data)
+ * - EnhancedCacheManager (memory cache)
+ * - SimpleCache (localStorage cache)
  * - AuthFlowStateManager (loading coordination)
  */
 
 import { enhancedCacheManager } from './EnhancedCacheManager';
 import { simpleCache } from '@/utils/SimpleCache';
-import { indexedDBManager } from '@/utils/indexeddb/core/IndexedDBManager';
 // import { authFlowStateManager } from '@/utils/authFlowStateManager'; // Unused import
 import { loadingStateManager, LoadingOperation } from '@/managers/LoadingStateManager';
 
@@ -35,7 +33,7 @@ export interface ComponentState {
 export interface HydrationResult {
   success: boolean;
   state?: ComponentState;
-  source?: 'memory' | 'localStorage' | 'indexeddb' | 'none';
+  source?: 'memory' | 'localStorage' | 'none';
   error?: string;
   hydrationTime?: number;
 }
@@ -58,8 +56,7 @@ class SmartStateHydrator {
   // Cache priority order (fastest to slowest)
   private readonly CACHE_PRIORITY = [
     'memory',      // EnhancedCacheManager memory cache
-    'localStorage', // SimpleCache localStorage
-    'indexeddb'    // IndexedDB structured data
+    'localStorage' // SimpleCache localStorage
   ] as const;
 
   private constructor() {
@@ -266,8 +263,7 @@ class SmartStateHydrator {
 
       const savePromise = Promise.all([
         this.saveToMemoryCache(cacheKey, componentState),
-        this.saveToLocalStorageCache(cacheKey, componentState),
-        this.saveToIndexedDBCache(cacheKey, componentState)
+        this.saveToLocalStorageCache(cacheKey, componentState)
       ]).then(() => true);
 
       // Race between save operation and timeout
@@ -462,7 +458,7 @@ class SmartStateHydrator {
   // =================== PRIVATE METHODS ===================
 
   private async tryCacheSource(
-    source: 'memory' | 'localStorage' | 'indexeddb',
+    source: 'memory' | 'localStorage',
     componentId: string,
     userId: string
   ): Promise<{ success: boolean; state?: ComponentState }> {
@@ -474,8 +470,6 @@ class SmartStateHydrator {
           return this.tryMemoryCache(cacheKey);
         case 'localStorage':
           return this.tryLocalStorageCache(cacheKey);
-        case 'indexeddb':
-          return await this.tryIndexedDBCache(cacheKey);
         default:
           return { success: false };
       }
@@ -501,19 +495,6 @@ class SmartStateHydrator {
     return { success: false };
   }
 
-  private async tryIndexedDBCache(_cacheKey: string): Promise<{ success: boolean; state?: ComponentState }> {
-    try {
-      const db = indexedDBManager.getDatabase();
-      if (!db) return { success: false };
-
-      // This would need to be implemented with the IndexedDB service
-      // For now, return false as IndexedDB integration is complex
-      return { success: false };
-    } catch (error) {
-      return { success: false };
-    }
-  }
-
   private async saveToMemoryCache(cacheKey: string, state: ComponentState): Promise<void> {
     enhancedCacheManager.set(cacheKey, state, {
       ttl: 5 * 60 * 1000, // 5 minutes
@@ -527,11 +508,6 @@ class SmartStateHydrator {
       ttl: 10 * 60 * 1000, // 10 minutes
       persist: true
     });
-  }
-
-  private async saveToIndexedDBCache(_cacheKey: string, _state: ComponentState): Promise<void> {
-    // IndexedDB integration would go here
-    // For now, skip as it requires more complex implementation
   }
 
   private generateCacheKey(componentId: string, userId: string): string {
