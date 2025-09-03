@@ -68,7 +68,7 @@ export function useSafeStateHydration<T>(
     autoSave = false, // Start with auto-save disabled for safety
     saveInterval = 2000, // 2 second debounce
     sensitiveKeys = [],
-    debounceMs = 1000, // 1 second debounce for saves
+    debounceMs = 2000, // 2 second debounce for saves (increased to reduce frequency)
     enablePerformanceTracking = true
   } = options;
 

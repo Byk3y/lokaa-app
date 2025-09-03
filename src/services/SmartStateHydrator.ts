@@ -101,12 +101,12 @@ class SmartStateHydrator {
       log.debug('Service', `🔍 [SmartStateHydrator] User ID: ${userId}`);
       log.debug('Service', `🔍 [SmartStateHydrator] Fallback state available: ${!!fallbackState}`);
 
-      // Add timeout to prevent blocking
+      // Add timeout to prevent blocking - increased to 5000ms for better reliability
       const timeoutPromise = new Promise<HydrationResult>((_, reject) => {
         setTimeout(() => {
-          log.error('Service', `⏰ [SmartStateHydrator] Hydration timeout for ${componentId}`);
+          log.warn('Service', `⏰ [SmartStateHydrator] Hydration timeout for ${componentId} (this is normal for slow networks)`);
           reject(new Error('Hydration timeout'));
-        }, 3000); // Increased to 3 seconds
+        }, 5000); // Increased to 5 seconds for better reliability
       });
 
       console.log(`🔍 [SmartStateHydrator] About to call performHydration for ${componentId}`);
@@ -259,7 +259,7 @@ class SmartStateHydrator {
       // Add timeout protection to prevent UI blocking
       const timeoutPromise = new Promise<boolean>((_, reject) => {
         setTimeout(() => {
-          log.error('Service', `⏰ [SmartStateHydrator] Save timeout for ${componentId} after ${timeoutMs}ms`);
+          log.warn('Service', `⏰ [SmartStateHydrator] Save timeout for ${componentId} after ${timeoutMs}ms (this prevents UI blocking)`);
           reject(new Error(`Save timeout after ${timeoutMs}ms`));
         }, timeoutMs);
       });
