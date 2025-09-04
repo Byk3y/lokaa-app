@@ -6,10 +6,7 @@ import { Loader2, X, ArrowLeft } from 'lucide-react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
-// Phase 6B: Smart State Hydration - SAFE IMPLEMENTATION
-import { useSafeStateHydration } from '@/hooks/useSafeStateHydration';
-import { SafeHydrationIndicator } from '@/components/hydration/SafeHydrationWrapper';
-import { useBackgroundSync } from '@/hooks/useBackgroundSync';
+
 
 import SettingsSidebar from './SettingsSidebar';
 import GeneralSettingsTab from './settings_tabs/GeneralSettingsTab';
@@ -89,17 +86,10 @@ function NewSpaceSettingsModal() {
   }, []);
 
   // ============================================================================
-  // PHASE 6B: SMART STATE HYDRATION - SAFE IMPLEMENTATION
+  // MODAL STATE MANAGEMENT
   // ============================================================================
 
-  // Enable SafeHydration logging for debugging
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.devLogger) {
-      window.devLogger.onlyAllow('SafeHydration', 'Service', 'Hook', 'CacheManager');
-    }
-  }, []);
-  
-  // Memoized modal state for hydration
+  // Memoized modal state
   const modalState = useMemo(() => ({
     activeTab,
     formData: formData || {},
@@ -107,66 +97,17 @@ function NewSpaceSettingsModal() {
     lastUpdated: Date.now()
   }), [activeTab, formData, isDirty]);
 
-  const {
-    isHydrated,
-    isHydrating,
-    hydratedState,
-    hydrationError,
-    saveState,
-    clearCache,
-    hydrationTime,
-    performanceMetrics
-  } = useSafeStateHydration(
-    `space-settings-modal-${space?.id || 'new'}`,
-    user?.id || 'anonymous',
-    modalState,
-    {
-      autoSave: true, // Enable auto-save with debouncing
-      saveInterval: 2000,
-      sensitiveKeys: ['password', 'token', 'secret'],
-      debounceMs: 1000,
-      enablePerformanceTracking: true
-    }
-  );
 
-  // Use hydrated state if available, otherwise use local state
-  const effectiveModalState = useMemo(() => {
-    if (isHydrated && hydratedState) {
-      console.log(`🔍 [NewSpaceSettingsModal] Using hydrated state:`, hydratedState);
-      return hydratedState;
-    }
-    console.log(`🔍 [NewSpaceSettingsModal] Using local state:`, modalState);
-    return modalState;
-  }, [isHydrated, hydratedState, modalState]);
+
+  // Use direct modal state
+  const effectiveModalState = modalState;
 
   // Extract effective state values
   const effectiveActiveTab = effectiveModalState.activeTab || activeTab;
   const effectiveFormData = effectiveModalState.formData || formData || {};
   const effectiveIsDirty = effectiveModalState.isDirty || isDirty;
 
-  // Save state when modal state changes (with debouncing)
-  useEffect(() => {
-    if (isHydrated && saveState) {
-      saveState(modalState);
-    }
-  }, [modalState, isHydrated, saveState]);
 
-  // Background sync for modal data
-  const backgroundSync = useBackgroundSync(
-    `space-settings-modal-${space?.id || 'new'}`,
-    user?.id || 'anonymous',
-    async () => {
-      // Sync modal data in background
-      if (isHydrated && saveState) {
-        await saveState(modalState);
-      }
-    },
-    {
-      enabled: isHydrated,
-      interval: 60000, // 1 minute
-      enableLogging: true
-    }
-  );
 
   // 🚀 PERFORMANCE FIX: Memoized load space handler to prevent unnecessary re-renders
   const handleLoadSpace = useCallback(() => {
@@ -373,14 +314,7 @@ function NewSpaceSettingsModal() {
             </DialogDescription>
           </div>
           <div className="flex items-center space-x-2">
-            {/* Safe Hydration Status Indicator */}
-            <SafeHydrationIndicator
-              isHydrated={isHydrated}
-              isHydrating={isHydrating}
-              hydrationTime={hydrationTime}
-              error={hydrationError}
-              performanceMetrics={performanceMetrics}
-            />
+
             <Button variant="ghost" size="icon" onClick={closeModal} className="rounded-full dark:text-gray-400 dark:hover:bg-slate-700">
               <X className="h-5 w-5" />
             </Button>
@@ -423,7 +357,7 @@ function NewSpaceSettingsModal() {
         </DialogFooter>
       </DialogContent>
 
-      {/* Phase 6B: Hydration Indicator - TEMPORARILY DISABLED */}
+      {/* Hydration Indicator - DISABLED */}
       {/* <HydrationIndicator
         isSyncing={false} // This would be connected to background sync
         lastSyncTime={Date.now()}

@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { conversationStore } from '@/features/chat/store/conversationStore';
@@ -35,21 +35,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [routingInProgress, setRoutingInProgress] = useState(false);
   const preloadSpaces = useUserSpacesStore(state => state.preloadSpaces);
+  
+  // Use ref to store preloadSpaces to avoid dependency issues
+  const preloadSpacesRef = useRef(preloadSpaces);
+  preloadSpacesRef.current = preloadSpaces;
 
-  // ✅ FIXED: Development-mode circular dependency detection
+  // ✅ FIXED: Development-mode circular dependency detection - moved to useLayoutEffect to prevent render loops
   const renderCount = useRef(0);
   const lastRenderTime = useRef(performance.now());
   
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       renderCount.current++;
       const now = performance.now();
       const timeSinceLastRender = now - lastRenderTime.current;
       lastRenderTime.current = now;
       
-      // Warn if too many rapid re-renders (potential circular dependency)
-      if (renderCount.current > 1 && timeSinceLastRender < 50) {
-        console.warn('🚨 [AuthContext] Potential circular dependency detected!', {
+      // Only warn if there are truly excessive re-renders (more than 5 in 100ms)
+      if (renderCount.current > 5 && timeSinceLastRender < 100) {
+        console.warn('🚨 [AuthContext] Excessive re-renders detected!', {
           renderCount: renderCount.current,
           timeSinceLastRender: `${timeSinceLastRender.toFixed(2)}ms`,
           session: !!session,
@@ -58,8 +62,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
       }
       
-      // Log every 10th render for monitoring
-      if (renderCount.current % 10 === 0) {
+      // Log every 20th render for monitoring (reduced frequency)
+      if (renderCount.current % 20 === 0) {
         console.debug('🔍 [AuthContext] Render count:', renderCount.current);
       }
     }
@@ -166,7 +170,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // Clear chat store and cache to prevent stale conversations from prior sessions
               try { conversationStore.getState().reset(); } catch {}
               try { await userConversationsCacheService.clear(); } catch {}
-              preloadSpaces(session.user.id);
+              preloadSpacesRef.current(session.user.id);
               setLoading(false);
               setRoutingInProgress(false);
             } else if (event === 'SIGNED_OUT') {
@@ -206,7 +210,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(data.session?.user || null);
         
         if (data.session?.user) {
-          preloadSpaces(data.session.user.id);
+          preloadSpacesRef.current(data.session.user.id);
         }
         
         setLoading(false);
@@ -235,7 +239,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         retryTimeout = null;
       }
     };
-  }, [preloadSpaces]); // ✅ FIXED: Only preloadSpaces dependency - stable from Zustand store
+  }, []); // ✅ FIXED: Empty dependency array - preloadSpaces is stable from Zustand store
 
   // ✅ FIXED: Remove this useEffect entirely - retry logic is now handled in the main initialization
   // This eliminates the third useEffect that was causing additional circular dependency issues

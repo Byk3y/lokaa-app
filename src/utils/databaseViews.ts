@@ -239,7 +239,7 @@ class DatabaseViews {
     if (!forceRefresh) {
       const cached = this.getFromCache(view, cacheKey);
       if (cached) {
-        log.debug('Utils', `🎯 [DatabaseViews] Cache hit for view: ${viewName}`);
+        // Cache hit
         return cached;
       }
     }
@@ -251,7 +251,7 @@ class DatabaseViews {
     }
 
     try {
-      log.debug('Utils', `🔍 [DatabaseViews] Executing view query: ${viewName}`);
+      // Executing view query
       
       const { data, error } = await this.supabase.rpc('execute_view_query', {
         view_name: viewName,
@@ -265,7 +265,7 @@ class DatabaseViews {
       // Cache the result
       this.setCache(view, cacheKey, data, ttl);
 
-      log.debug('Utils', `✅ [DatabaseViews] View query completed: ${viewName}, rows: ${data?.length || 0}`);
+      // View query completed
       
       return data || [];
 
@@ -285,7 +285,7 @@ class DatabaseViews {
     view.lastRefreshed = Date.now();
     view.cache.clear();
 
-    log.debug('Utils', `🔄 [DatabaseViews] Refreshed view: ${viewName}`);
+    // View refreshed
   }
 
   /**
@@ -353,7 +353,7 @@ class DatabaseViews {
     for (const view of this.views.values()) {
       view.cache.clear();
     }
-    log.debug('Utils', '🧹 [DatabaseViews] Cleared all view caches');
+    // All view caches cleared
   }
 
   /**

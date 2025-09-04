@@ -101,7 +101,7 @@ class QueryBatcher {
       const cached = this.getFromCache<T>(cacheKey);
       if (cached) {
         this.metrics.cacheHits++;
-        log.debug('Utils', `🎯 [QueryBatcher] Cache hit for: ${cacheKey}`);
+        // Cache hit
         return cached;
       }
     }
@@ -112,7 +112,7 @@ class QueryBatcher {
     const existingBatch = this.pendingQueries.get(queryKey);
     if (existingBatch && existingBatch.length > 0) {
       this.metrics.deduplicatedQueries++;
-      log.debug('Utils', `🔄 [QueryBatcher] Deduplicating query: ${queryKey}`);
+      // Query deduplicated
       
       return new Promise<T>((resolve, reject) => {
         existingBatch.push({
@@ -225,7 +225,7 @@ class QueryBatcher {
       this.metrics.averageResponseTime = 
         (this.metrics.averageResponseTime + duration) / 2;
 
-      log.debug('Utils', `⚡ [QueryBatcher] Batch executed: ${queryKey}, size: ${batch.length}, duration: ${duration}ms`);
+      // Batch executed successfully
 
     } catch (error) {
       // Reject all promises in the batch
@@ -253,7 +253,7 @@ class QueryBatcher {
         
         if (attempt < this.options.maxRetries) {
           const delay = Math.pow(2, attempt) * 100; // Exponential backoff
-          log.debug('Utils', `🔄 [QueryBatcher] Retry ${attempt + 1}/${this.options.maxRetries} after ${delay}ms`);
+          // Retry scheduled
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }

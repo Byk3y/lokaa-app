@@ -1,20 +1,28 @@
-import { log } from '@/utils/logger';
+// React and routing
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+
+// Contexts and hooks
+import { useOptimizedAuth } from '@/contexts/AuthContext';
+import { useSpace } from '@/contexts/SpaceContext';
+import { toast } from '@/hooks/use-toast';
+import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
+import { useCachedClassroom } from '@/hooks/useCachedClassroom';
+
+// Utils and services
+import { log } from '@/utils/logger';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { generateSlug, getUniqueCourseSlug } from '@/utils/slugUtils';
+import { extractTabFromPathname } from '@/utils/tabUtils';
+
+// Components
 import { CourseGrid } from './CourseGrid';
 import CourseDetailView from './CourseDetailView';
 import CreateCourseDialog from '../space/dialogs/CreateCourseDialog';
 import EditCourseDialog from './dialogs/EditCourseDialog';
-import { getSupabaseClient } from '@/integrations/supabase/client';
-import { useOptimizedAuth } from '@/contexts/AuthContext';
-import { useSpace } from '@/contexts/SpaceContext';
-import { toast } from '@/hooks/use-toast';
-import { getCourseUrl, generateSlug, getUniqueCourseSlug } from '@/utils/slugUtils';
-import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
+
+// Types
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
-// ✅ FIXED: Removed usePersistentTabs - using standard React Router navigation
-import { extractTabFromPathname } from '@/utils/tabUtils';
-import { useCachedClassroom } from '@/hooks/useCachedClassroom';
 
 export const ClassroomTabRefactored = ({
   courses: propCourses = [],
@@ -135,9 +143,20 @@ export const ClassroomTabRefactored = ({
     });
     
     // If we're on classroom page with no courses and not loading, trigger a refetch
+    // But only if we haven't already tried to refetch recently
     if (isOnClassroomPage && hasSpaceInfo && hasNoCourses && isNotLoading) {
-      log.debug('Component', '🔄 [ClassroomTab] Detected return to classroom without courses, triggering refetch');
-      refetch();
+      const lastRefetchKey = `classroom_refetch_${effectiveSpace.id}`;
+      const lastRefetch = sessionStorage.getItem(lastRefetchKey);
+      const now = Date.now();
+      
+      // Only refetch if we haven't refetched in the last 30 seconds
+      if (!lastRefetch || (now - parseInt(lastRefetch)) > 30000) {
+        log.debug('Component', '🔄 [ClassroomTab] Detected return to classroom without courses, triggering refetch');
+        sessionStorage.setItem(lastRefetchKey, now.toString());
+        refetch();
+      } else {
+        log.debug('Component', '🔄 [ClassroomTab] Skipping refetch - already tried recently');
+      }
     }
   }, [location.pathname, effectiveSpace?.id, courses.length, loading, isActiveTab, refetch]);
   
@@ -375,7 +394,7 @@ export const ClassroomTabRefactored = ({
         onDeleteCourse={handleDeleteCourse}
         onClearSearch={handleClearSearch}
         isProcessingEnrollment={null}
-        primaryColor={effectiveSpace?.primary_color ?? '#26A69A'}
+        primaryColor={'#26A69A'}
         searchTerm={searchTerm}
       />
 
@@ -385,8 +404,8 @@ export const ClassroomTabRefactored = ({
         onOpenChange={setIsCreateCourseDialogOpen}
         onCreateCourse={handleCourseCreate}
         isCreating={isCreatingCourse}
-        spacePricingType={effectiveSpace?.pricing_type}
-        primaryColor={effectiveSpace?.primary_color ?? '#26A69A'}
+        spacePricingType={'free'}
+        primaryColor={'#26A69A'}
       />
 
       {/* Course Edit Dialog */}
@@ -394,8 +413,8 @@ export const ClassroomTabRefactored = ({
         isOpen={isEditCourseDialogOpen}
         onOpenChange={setIsEditCourseDialogOpen}
         course={courseToEdit}
-        spacePricingType={effectiveSpace?.pricing_type}
-        primaryColor={effectiveSpace?.primary_color ?? '#26A69A'}
+        spacePricingType={'free'}
+        primaryColor={'#26A69A'}
         onCourseUpdated={handleCourseUpdated}
       />
     </>

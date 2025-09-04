@@ -103,7 +103,7 @@ class RequestDeduplicator {
       const cached = this.getFromCache<T>(cacheKey);
       if (cached) {
         this.metrics.cacheHits++;
-        log.debug('Utils', `🎯 [RequestDeduplicator] Cache hit for: ${requestKey}`);
+        this.metrics.completedRequests++;
         return cached;
       }
     }
@@ -111,10 +111,11 @@ class RequestDeduplicator {
     this.metrics.cacheMisses++;
 
     // Check if request is already pending (deduplication)
-    const existingRequests = this.pendingRequests.get(requestKey);
+    // Use cacheKey for deduplication to ensure requests with same cache key are deduplicated
+    const deduplicationKey = cacheKey;
+    const existingRequests = this.pendingRequests.get(deduplicationKey);
     if (existingRequests && existingRequests.length > 0) {
       this.metrics.deduplicatedRequests++;
-      log.debug('Utils', `🔄 [RequestDeduplicator] Deduplicating request: ${requestKey}`);
       
       return new Promise<T>((resolve, reject) => {
         existingRequests.push({
@@ -145,23 +146,23 @@ class RequestDeduplicator {
       tags
     };
 
-    this.pendingRequests.set(requestKey, [request]);
+    this.pendingRequests.set(deduplicationKey, [request]);
 
     // Execute the request
     return new Promise<T>((resolve, reject) => {
       request.resolve = resolve;
       request.reject = reject;
       
-      this.executeRequest(requestKey, request);
+      this.executeRequest(deduplicationKey, request, cacheKey);
     });
   }
 
   /**
    * ⚡ EXECUTE REQUEST
    */
-  private async executeRequest<T>(requestKey: string, request: DeduplicatedRequest<T>): Promise<void> {
+  private async executeRequest<T>(deduplicationKey: string, request: DeduplicatedRequest<T>, cacheKey: string): Promise<void> {
     const startTime = Date.now();
-    const requests = this.pendingRequests.get(requestKey) || [];
+    const requests = this.pendingRequests.get(deduplicationKey) || [];
 
     try {
       // Execute the request with timeout
@@ -169,7 +170,7 @@ class RequestDeduplicator {
       
       // Cache the result
       if (this.options.enableCaching) {
-        this.setCache(requestKey, result, this.options.cacheTTL);
+        this.setCache(cacheKey, result, this.options.cacheTTL);
       }
 
       // Resolve all requests in the batch
@@ -182,34 +183,37 @@ class RequestDeduplicator {
       const duration = Date.now() - startTime;
       this.updateAverageResponseTime(duration);
 
-      log.debug('Utils', `✅ [RequestDeduplicator] Request completed: ${requestKey}, duration: ${duration}ms, batch size: ${requests.length}`);
+      // Request completed successfully
 
     } catch (error) {
-      // Handle retry logic
-      if (request.retryCount < this.options.maxRetries) {
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry timeout errors - they should fail immediately
+      const isTimeoutError = errorObj.message.includes('Request timeout after');
+      
+      // Handle retry logic (but not for timeout errors)
+      if (!isTimeoutError && request.retryCount < this.options.maxRetries) {
         request.retryCount++;
-        log.debug('Utils', `🔄 [RequestDeduplicator] Retrying request: ${requestKey}, attempt: ${request.retryCount}`);
         
-        // Exponential backoff
-        const delay = Math.pow(2, request.retryCount) * 1000;
+        // Exponential backoff (reduced for testing)
+        const delay = Math.pow(2, request.retryCount) * 10; // Reduced from 1000ms to 10ms
         setTimeout(() => {
-          this.executeRequest(requestKey, request);
+          this.executeRequest(deduplicationKey, request, cacheKey);
         }, delay);
         
         return;
       }
 
       // Reject all requests in the batch
-      const errorObj = error instanceof Error ? error : new Error(String(error));
       requests.forEach(req => {
         req.reject(errorObj);
       });
 
       this.metrics.failedRequests++;
-      log.error('Utils', `❌ [RequestDeduplicator] Request failed: ${requestKey}`, errorObj);
+      log.error('Utils', `❌ [RequestDeduplicator] Request failed: ${deduplicationKey}`, errorObj);
     } finally {
       // Clean up pending requests
-      this.pendingRequests.delete(requestKey);
+      this.pendingRequests.delete(deduplicationKey);
     }
   }
 

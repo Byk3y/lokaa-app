@@ -16,6 +16,8 @@ import { useAutoPresenceUpdater } from "@/hooks/useAutoPresenceUpdater"; // 🎯
 import { getSupabaseClient } from "@/integrations/supabase/client"; // Add for category verification
 import { devLogger } from "@/utils/developmentLogger";
 import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
+import { categoryVerificationCache } from "@/utils/categoryVerificationCache";
+import { useCategoriesCache } from "@/hooks/useCategoriesCache";
 import PersistentTabContent from "@/components/space/PersistentTabContent";
 // ✅ FIXED: Removed usePersistentTabs - using standard React Router navigation
 /**
@@ -49,8 +51,8 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
   const navigate = useNavigate();
   const isInitialMount = useRef(true);
   
-  // **FIX**: Track which spaces have had categories verified to prevent multiple verifications
-  const verifiedSpacesRef = useRef<Set<string>>(new Set());
+  // **OPTIMIZED**: Use persistent verification cache instead of memory-only ref
+  const categoriesCache = useCategoriesCache();
   
   // State needed for the shell
   const [searchQuery, setSearchQuery] = useState("");
@@ -137,24 +139,34 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
           }
         });
       
-      // 🛡️ SAFEGUARD: Verify and create missing General Discussion category
+      // 🛡️ OPTIMIZED: Smart category verification with persistent cache
       const verifySpaceCategories = async () => {
-        // **FIX**: Only verify if we haven't already verified this space
-        if (verifiedSpacesRef.current.has(storeSpace.id)) {
-          devLogger.log('SpaceManagement', `[SpaceShellLayout] Categories already verified for space ${storeSpace.id}`);
+        // Check if verification is needed using smart cache
+        if (!categoryVerificationCache.shouldVerifyCategories(storeSpace.id)) {
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Skipping verification - cache hit for space ${storeSpace.id}`);
+          return;
+        }
+
+        // Check if we have recent category data from existing cache
+        if (categoryVerificationCache.hasRecentCategoryData(storeSpace.id, categoriesCache)) {
+          const spaceCache = categoriesCache.cache[storeSpace.id];
+          const hasGeneralDiscussion = spaceCache.categories.some((cat: any) => 
+            cat.name === 'General Discussion'
+          );
+          
+          // Update verification cache with existing data
+          categoryVerificationCache.updateVerification(storeSpace.id, {
+            hasCategories: spaceCache.categories.length > 0,
+            hasGeneralDiscussion,
+            categoriesCount: spaceCache.categories.length
+          });
+          
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Using cached categories for space ${storeSpace.id}`);
           return;
         }
         
         try {
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Verifying categories for space ${storeSpace.id}`);
-          
-          // Mark this space as verified to prevent duplicate verifications
-          verifiedSpacesRef.current.add(storeSpace.id);
-          
-          // Simple cache invalidation to ensure fresh data
-          if ((window as any).useCategoriesCache) {
-            (window as any).useCategoriesCache.getState().invalidateCache(storeSpace.id);
-          }
           
           // Check if space has any categories
           const supabaseClient = getSupabaseClient();
@@ -177,6 +189,17 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
 
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Found ${existingCategories?.length || 0} categories for space ${storeSpace.id}`);
 
+          const hasGeneralDiscussion = existingCategories?.some(cat => 
+            cat.name === 'General Discussion'
+          ) || false;
+
+          // Update verification cache
+          categoryVerificationCache.updateVerification(storeSpace.id, {
+            hasCategories: (existingCategories?.length || 0) > 0,
+            hasGeneralDiscussion,
+            categoriesCount: existingCategories?.length || 0
+          });
+
           // If no categories exist, create General Discussion
           if (!existingCategories || existingCategories.length === 0) {
             const { error: insertError } = await supabaseClient
@@ -192,6 +215,13 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
               devLogger.log('SpaceManagement', `[SpaceShellLayout] Error creating General Discussion category:`, insertError);
             } else {
               devLogger.log('SpaceManagement', `[SpaceShellLayout] Created General Discussion category for space ${storeSpace.id}`);
+              
+              // Update verification cache after creating category
+              categoryVerificationCache.updateVerification(storeSpace.id, {
+                hasCategories: true,
+                hasGeneralDiscussion: true,
+                categoriesCount: 1
+              });
             }
           }
         } catch (error) {
@@ -199,10 +229,10 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
         }
       };
       
-      // Run category verification after a short delay to ensure space is fully loaded
-      setTimeout(verifySpaceCategories, 1000);
+      // Run category verification immediately (no delay needed with smart cache)
+      verifySpaceCategories();
     }
-  }, [storeSpace, subdomain, user?.id]);
+  }, [storeSpace, subdomain, user?.id, categoriesCache]);
 
   // ✅ FIXED: Simplified tab state management - React Router handles navigation
   useEffect(() => {

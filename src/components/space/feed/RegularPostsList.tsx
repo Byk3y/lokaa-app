@@ -92,11 +92,19 @@ export const RegularPostsList: React.FC<RegularPostsListProps> = ({
     <>
       {/* SimpleSpaceSetup is now rendered by parent FeedTab component */}
 
-      {/* Posts Loading State - Show skeletons during pagination loading, loading screen only when no data */}
+      {/* Posts Loading State - Show only when no cached data exists */}
       {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
           <p className="text-muted-foreground text-center">Loading posts...</p>
+        </div>
+      )}
+      
+      {/* Background Refresh Indicator - Show when updating cached data */}
+      {postsLoading && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
+        <div className="flex justify-center items-center py-2 mb-4">
+          <Loader2 className="h-4 w-4 animate-spin text-primary mr-2" />
+          <span className="text-sm text-muted-foreground">Updating posts...</span>
         </div>
       )}
       

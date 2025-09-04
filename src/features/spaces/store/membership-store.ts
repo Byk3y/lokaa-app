@@ -5,7 +5,7 @@ import { log } from '@/utils/logger';
  * This store manages membership state using Zustand.
  * It will replace the React Context-based membership management system.
  * 
- * Phase 6B: Enhanced with smart state hydration for instant restoration.
+ * Enhanced membership state management with caching.
  */
 
 import { create } from 'zustand';
@@ -22,7 +22,7 @@ import {
 } from '../types/membership';
 import { debounce } from '@/utils/performanceOptimization';
 import { useUserSpacesStore } from '@/hooks/useUserSpacesStore';
-import { smartStateHydrator, HydrationStatus } from '@/services/SmartStateHydrator';
+
 
 // FIXED: Increased cache TTL to 5 minutes for better performance
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -174,27 +174,6 @@ interface MembershipStoreActions {
    * Reset store to initial state (called on sign out)
    */
   reset: () => void;
-
-  // Phase 6B: Smart State Hydration Methods
-  /**
-   * Hydrate store state from cache
-   */
-  hydrateFromCache: (userId: string, spaceId: string) => Promise<boolean>;
-  
-  /**
-   * Enable background sync for membership data
-   */
-  enableBackgroundSync: (userId: string, spaceId: string) => void;
-  
-  /**
-   * Get hydration status
-   */
-  getHydrationStatus: () => HydrationStatus;
-  
-  /**
-   * Invalidate hydration cache
-   */
-  invalidateHydrationCache: (userId: string, spaceId: string) => void;
 }
 
 /**
@@ -718,102 +697,6 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
       ...initialState,
       hasInitialized: false,
     }));
-  },
-
-  // Phase 6B: Smart State Hydration Methods
-  
-  // Hydrate store state from cache
-  hydrateFromCache: async (userId: string, spaceId: string): Promise<boolean> => {
-    try {
-      const componentId = `membership-store-${spaceId}`;
-      
-      log.debug('App', `🚀 [MembershipStore] Hydrating from cache for space ${spaceId}`);
-      
-      const result = await smartStateHydrator.hydrateComponent(
-        componentId,
-        userId,
-        get() // Use current state as fallback
-      );
-
-      if (result.success && result.state) {
-        // Restore state from cache
-        const cachedState = result.state.data;
-        set({
-          isMember: cachedState.isMember,
-          isOwner: cachedState.isOwner,
-          isAdmin: cachedState.isAdmin,
-          role: cachedState.role,
-          status: cachedState.status,
-          loading: false,
-          error: null,
-          currentSpaceId: spaceId
-        });
-
-        log.debug('App', `✅ [MembershipStore] Hydrated from cache for space ${spaceId} in ${result.hydrationTime}ms`);
-        return true;
-      }
-
-      log.debug('App', `❌ [MembershipStore] No cache found for space ${spaceId}`);
-      return false;
-    } catch (error) {
-      log.error('App', `🚨 [MembershipStore] Hydration failed for space ${spaceId}:`, error);
-      return false;
-    }
-  },
-
-  // Enable background sync for membership data
-  enableBackgroundSync: (userId: string, spaceId: string) => {
-    const componentId = `membership-store-${spaceId}`;
-    
-    const syncFunction = async () => {
-      try {
-        // Refresh membership status in background
-        await get().checkMembershipStatus(spaceId);
-        
-        // Save updated state to cache
-        const currentState = get();
-        await smartStateHydrator.saveComponentState(
-          componentId,
-          userId,
-          {
-            isMember: currentState.isMember,
-            isOwner: currentState.isOwner,
-            isAdmin: currentState.isAdmin,
-            role: currentState.role,
-            status: currentState.status,
-            currentSpaceId: currentState.currentSpaceId
-          }
-        );
-        
-        log.debug('App', `🔄 [MembershipStore] Background sync completed for space ${spaceId}`);
-      } catch (error) {
-        log.warn('App', `⚠️ [MembershipStore] Background sync failed for space ${spaceId}:`, error);
-      }
-    };
-
-    smartStateHydrator.enableBackgroundSync(componentId, syncFunction, {
-      enabled: true,
-      interval: 60000, // 1 minute
-      maxRetries: 3
-    });
-
-    log.debug('App', `🔄 [MembershipStore] Background sync enabled for space ${spaceId}`);
-  },
-
-  // Get hydration status
-  getHydrationStatus: (): HydrationStatus => {
-    const { currentSpaceId } = get();
-    if (!currentSpaceId) return 'idle';
-    
-    const componentId = `membership-store-${currentSpaceId}`;
-    return smartStateHydrator.getHydrationStatus(componentId);
-  },
-
-  // Invalidate hydration cache
-  invalidateHydrationCache: (userId: string, spaceId: string) => {
-    const componentId = `membership-store-${spaceId}`;
-    smartStateHydrator.clearComponentCache(componentId, userId);
-    log.debug('App', `🧹 [MembershipStore] Invalidated hydration cache for space ${spaceId}`);
   },
   
   // OPTIMIZATION: Debounced membership check to prevent excessive API calls

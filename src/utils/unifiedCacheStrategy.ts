@@ -19,8 +19,8 @@ export interface CacheConfig {
   invalidationStrategy: 'immediate' | 'lazy' | 'scheduled';
 }
 
-export interface CacheEntry<T = any> {
-  data: T;
+export interface CacheEntry<T = unknown> {
+  data: T | string;
   timestamp: number;
   ttl: number;
   accessCount: number;
@@ -150,7 +150,7 @@ class UnifiedCacheStrategy {
     const startTime = Date.now();
 
     // Compress data if enabled and beneficial
-    let processedData = data;
+    let processedData: T | string = data;
     let compressed = false;
     
     if (compress && this.shouldCompress(data)) {
@@ -181,7 +181,7 @@ class UnifiedCacheStrategy {
     const duration = Date.now() - startTime;
     this.updateAverageAccessTime(duration);
 
-    log.debug('Utils', `💾 [UnifiedCache] Set: ${key}, size: ${this.calculateSize(entry)}B, compressed: ${compressed}`);
+    // Cache entry set successfully
 
     // Check cache size limits
     this.enforceSizeLimits();
@@ -213,7 +213,7 @@ class UnifiedCacheStrategy {
 
     // Decompress if needed
     let data = entry.data;
-    if (entry.compressed) {
+    if (entry.compressed && typeof entry.data === 'string') {
       data = this.decompress(entry.data);
     }
 
@@ -252,12 +252,12 @@ class UnifiedCacheStrategy {
 
     if (invalidationStrategy === 'immediate') {
       keysToInvalidate.forEach(key => this.delete(key));
-      log.debug('Utils', `🔄 [UnifiedCache] Immediate invalidation: ${pattern}, keys: ${keysToInvalidate.length}`);
+      // Immediate invalidation completed
     } else if (invalidationStrategy === 'lazy') {
       const delay = rule?.delay || 1000;
       setTimeout(() => {
         keysToInvalidate.forEach(key => this.delete(key));
-        log.debug('Utils', `🔄 [UnifiedCache] Lazy invalidation: ${pattern}, keys: ${keysToInvalidate.length}`);
+        // Lazy invalidation completed
       }, delay);
     } else if (invalidationStrategy === 'scheduled') {
       // Schedule for next cleanup cycle
@@ -278,7 +278,7 @@ class UnifiedCacheStrategy {
     }
 
     keysToInvalidate.forEach(key => this.delete(key));
-    log.debug('Utils', `🏷️ [UnifiedCache] Tag invalidation: ${tags.join(', ')}, keys: ${keysToInvalidate.length}`);
+    // Tag invalidation completed
   }
 
   /**
@@ -291,14 +291,17 @@ class UnifiedCacheStrategy {
       ttl?: number;
       tags?: string[];
       priority?: 'high' | 'normal' | 'low';
+      forceRefresh?: boolean;
     } = {}
   ): Promise<T> {
-    const { ttl, tags, priority = 'normal' } = options;
+    const { ttl, tags, forceRefresh = false } = options;
 
-    // Check if already cached
-    const cached = this.get<T>(key);
-    if (cached) {
-      return cached;
+    // Check if already cached (unless force refresh)
+    if (!forceRefresh) {
+      const cached = this.get<T>(key);
+      if (cached) {
+        return cached;
+      }
     }
 
     try {
@@ -306,7 +309,7 @@ class UnifiedCacheStrategy {
       this.set(key, data, { ttl, tags });
       return data;
     } catch (error) {
-      log.error('Utils', `🔥 [UnifiedCache] Cache warming failed: ${key}`, error);
+      log.error('Utils', `🔥 [UnifiedCache] Cache warming failed: ${key}`, error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -346,24 +349,32 @@ class UnifiedCacheStrategy {
       totalSize: 0,
       averageAccessTime: 0
     };
-    log.debug('Utils', '🧹 [UnifiedCache] Cleared all cache');
+    // Cache cleared successfully
+  }
+
+  /**
+   * 🔧 UPDATE CONFIG
+   */
+  updateConfig(newConfig: Partial<CacheConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+    // Config updated successfully
   }
 
   /**
    * 🔧 HELPER METHODS
    */
-  private shouldCompress(data: any): boolean {
+  private shouldCompress(data: unknown): boolean {
     const serialized = JSON.stringify(data);
     return serialized.length > 1024; // Compress if larger than 1KB
   }
 
-  private compress(data: any): any {
+  private compress(data: unknown): string {
     // Simple compression using JSON stringify/parse
     // In production, you might want to use a proper compression library
     return JSON.stringify(data);
   }
 
-  private decompress(data: any): any {
+  private decompress(data: string): unknown {
     try {
       return JSON.parse(data);
     } catch {
@@ -395,7 +406,7 @@ class UnifiedCacheStrategy {
       const toRemove = entries.slice(0, this.cache.size - this.config.maxSize);
       toRemove.forEach(([key]) => this.delete(key));
       
-      log.debug('Utils', `📏 [UnifiedCache] Enforced size limit, removed ${toRemove.length} entries`);
+      // Size limit enforced
     }
   }
 
@@ -414,7 +425,7 @@ class UnifiedCacheStrategy {
       expiredKeys.forEach(key => this.delete(key));
       
       if (expiredKeys.length > 0) {
-        log.debug('Utils', `🧹 [UnifiedCache] Cleaned up ${expiredKeys.length} expired entries`);
+        // Expired entries cleaned up
       }
     }, 5 * 60 * 1000);
   }
@@ -433,5 +444,4 @@ export const unifiedCache = UnifiedCacheStrategy.getInstance();
 // Export class for testing
 export { UnifiedCacheStrategy };
 
-// Export types
-export type { CacheConfig, CacheEntry, CacheMetrics, CacheInvalidationRule };
+// Types are already exported as interfaces above

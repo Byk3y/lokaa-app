@@ -3,7 +3,7 @@ import { cryptoHashGenerator } from '@/utils/cryptoHash';
 /**
  * 🚀 State Serialization Utilities
  * 
- * Phase 6B: Handles complex state objects and references for component hydration.
+ * Handles complex state objects and references for component state management.
  * Provides safe serialization/deserialization with versioning and validation.
  * 
  * 🔐 SECURITY: Uses cryptographically secure SHA-256 hashing for data integrity.

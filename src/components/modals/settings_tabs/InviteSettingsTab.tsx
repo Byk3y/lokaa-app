@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import React, { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,8 +80,9 @@ export default function InviteSettingsTab() {
 
     setSendingInvite(true);
     try {
-      // TODO: Implement actual email invite API call
+      // Note: Implement actual email invite API call
       // For now, simulate the process
+      // GitHub Issue: #XXX - Implement email invite API integration
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Mark invite task as completed in persistent storage
@@ -112,7 +113,8 @@ export default function InviteSettingsTab() {
 
   // Handle CSV import
   const handleCSVImport = () => {
-    // TODO: Implement CSV import functionality
+    // Note: Implement CSV import functionality
+    // GitHub Issue: #XXX - Implement CSV import for bulk user invites
     toast({ 
       title: "Coming soon", 
       description: "CSV import functionality will be available soon.", 

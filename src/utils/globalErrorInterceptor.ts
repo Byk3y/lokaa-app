@@ -1,12 +1,24 @@
 import { log } from '@/utils/logger';
 /**
- * Global Error Interceptor for 401 Session Recovery
+ * Global Error Interceptor for Session Recovery
  * 
- * Intercepts 401 errors from API calls and automatically triggers
- * session refresh when sessions expire after mobile backgrounding
+ * Intercepts 401 and 406 errors from API calls and automatically triggers
+ * session refresh when sessions expire after mobile backgrounding or idle periods.
+ * 
+ * 401: Unauthorized - Invalid or missing authentication
+ * 406: Not Acceptable - Request format/context issues, often due to expired JWT
  */
 
 import { getSupabaseClient } from '@/integrations/supabase/client';
+
+interface SessionErrorContext {
+  statusCode: number;
+  url: string;
+  timestamp: number;
+  retryCount: number;
+  errorType: '401' | '406' | 'other';
+  isSupabaseRequest: boolean;
+}
 
 class GlobalErrorInterceptor {
   private static instance: GlobalErrorInterceptor;
@@ -19,8 +31,31 @@ class GlobalErrorInterceptor {
   private readonly RATE_LIMIT_WINDOW = 60000; // 1 minute
   private lastCleanup = Date.now();
   
+  // 406 error tracking and retry management
+  private retryQueue = new Map<string, SessionErrorContext>();
+  private readonly MAX_RETRY_ATTEMPTS = 3;
+  private readonly RETRY_BACKOFF_BASE = 1000; // 1 second
+  private readonly RETRY_BACKOFF_MAX = 10000; // 10 seconds
+  
   private constructor() {
     this.initializeErrorInterception();
+    this.initializePeriodicCleanup();
+  }
+  
+  private initializePeriodicCleanup(): void {
+    // Clean up retry queue every 5 minutes
+    setInterval(() => {
+      this.cleanupRetryQueue();
+    }, 5 * 60 * 1000);
+    
+    // Log session error statistics every 10 minutes in development
+    if (import.meta.env.DEV) {
+      setInterval(() => {
+        if (this.retryQueue.size > 0) {
+          this.logSessionErrorStats();
+        }
+      }, 10 * 60 * 1000);
+    }
   }
   
   static getInstance(): GlobalErrorInterceptor {
@@ -31,7 +66,7 @@ class GlobalErrorInterceptor {
   }
   
   private initializeErrorInterception(): void {
-    // Intercept fetch requests to catch 401 errors
+    // Intercept fetch requests to catch 401 and 406 errors
     if (typeof window !== 'undefined') {
       const originalFetch = window.fetch;
       
@@ -43,22 +78,26 @@ class GlobalErrorInterceptor {
         
         const response = await originalFetch(...args);
         
-        // Check for 401 errors from Supabase API
-        if (response.status === 401 && 
-            args[0]?.toString().includes('supabase.co/rest/v1/')) {
+        // Check for session-related errors from Supabase API
+        const url = args[0]?.toString() || '';
+        const isSupabaseRequest = url.includes('supabase.co/rest/v1/');
+        
+        if (isSupabaseRequest && (response.status === 401 || response.status === 406)) {
+          const errorContext: SessionErrorContext = {
+            statusCode: response.status,
+            url,
+            timestamp: Date.now(),
+            retryCount: 0,
+            errorType: response.status === 401 ? '401' : '406',
+            isSupabaseRequest: true
+          };
           
-          log.debug('Utils', '🚨 [GlobalErrorInterceptor] 401 detected from Supabase API');
+          log.debug('Utils', `🚨 [GlobalErrorInterceptor] ${response.status} detected from Supabase API: ${this.extractEndpoint(url)}`);
           
-          // Attempt automatic session refresh
-          const refreshSuccess = await this.handleSessionExpiry();
-          
-          if (refreshSuccess) {
-            log.debug('Utils', '✅ [GlobalErrorInterceptor] Session refreshed, retrying request');
-            
-            // Retry the original request with fresh session
-            return originalFetch(...args);
-          } else {
-            log.warn('Utils', '❌ [GlobalErrorInterceptor] Session refresh failed');
+          // Attempt automatic session refresh and retry
+          const retryResponse = await this.handleSessionErrorAndRetry(originalFetch, args, errorContext);
+          if (retryResponse) {
+            return retryResponse;
           }
         }
         
@@ -80,13 +119,14 @@ class GlobalErrorInterceptor {
           return;
         }
         
-        // Only intercept if it's specifically a 401 authentication error from Supabase
-        if (errorMessage.includes('401') && 
+        // Intercept session-related errors from Supabase
+        if ((errorMessage.includes('401') || errorMessage.includes('406')) && 
             errorMessage.includes('supabase.co') &&
             !errorMessage.includes('timeout') &&
             !errorMessage.includes('fallback')) {
           
-          log.debug('Utils', '🚨 [GlobalErrorInterceptor] 401 authentication error detected');
+          const errorType = errorMessage.includes('406') ? '406' : '401';
+          log.debug('Utils', `🚨 [GlobalErrorInterceptor] ${errorType} authentication error detected in console`);
           this.handleSessionExpiry();
         }
         
@@ -108,14 +148,15 @@ class GlobalErrorInterceptor {
           return;
         }
         
-        // Handle 401 errors
-        if ((errorMessage.includes('401') || errorMessage.includes('unauthorized')) &&
+        // Handle session-related errors
+        if ((errorMessage.includes('401') || errorMessage.includes('406') || errorMessage.includes('unauthorized')) &&
             errorMessage.includes('supabase') &&
             !errorMessage.includes('timeout') &&
             !errorMessage.includes('fallback') &&
-            errorMessage.includes('JWT')) {
+            (errorMessage.includes('JWT') || errorMessage.includes('Not Acceptable'))) {
           
-          log.debug('Utils', '🚨 [GlobalErrorInterceptor] 401 authentication error in unhandled rejection');
+          const errorType = errorMessage.includes('406') ? '406' : '401';
+          log.debug('Utils', `🚨 [GlobalErrorInterceptor] ${errorType} authentication error in unhandled rejection`);
           this.handleSessionExpiry();
           event.preventDefault(); // Prevent default error handling
         }
@@ -139,7 +180,7 @@ class GlobalErrorInterceptor {
         }
         
         // Handle network/auth errors gracefully
-        if (errorMessage.includes('401') || errorMessage.includes('Load failed') || errorMessage.includes('Fetch API')) {
+        if (errorMessage.includes('401') || errorMessage.includes('406') || errorMessage.includes('Load failed') || errorMessage.includes('Fetch API')) {
           log.debug('Utils', '🛡️ [GlobalErrorInterceptor] Handled network error gracefully:', errorMessage);
           event.preventDefault();
           return false;
@@ -147,6 +188,7 @@ class GlobalErrorInterceptor {
       }, true);
       
       log.debug('Utils', '🛡️ [GlobalErrorInterceptor] Initialized session recovery protection with React boundary protection');
+      log.info('Utils', '🚀 [GlobalErrorInterceptor] Enhanced with 406 error handling and intelligent retry logic');
     }
   }
   
@@ -206,6 +248,80 @@ class GlobalErrorInterceptor {
     this.lastCleanup = Date.now();
   }
   
+  /**
+   * Handle session errors (401/406) with intelligent retry logic
+   */
+  private async handleSessionErrorAndRetry(
+    originalFetch: typeof fetch,
+    args: Parameters<typeof fetch>,
+    errorContext: SessionErrorContext
+  ): Promise<Response | null> {
+    const requestKey = this.generateRequestKey(errorContext.url, args[1]);
+    
+    // Check if we've already tried this request too many times
+    const existingContext = this.retryQueue.get(requestKey);
+    if (existingContext && existingContext.retryCount >= this.MAX_RETRY_ATTEMPTS) {
+      log.warn('Utils', `❌ [GlobalErrorInterceptor] Max retry attempts reached for ${this.extractEndpoint(errorContext.url)}`);
+      this.retryQueue.delete(requestKey);
+      return null;
+    }
+    
+    // Update retry count
+    const currentRetryCount = existingContext ? existingContext.retryCount + 1 : 1;
+    errorContext.retryCount = currentRetryCount;
+    this.retryQueue.set(requestKey, errorContext);
+    
+    log.debug('Utils', `🔄 [GlobalErrorInterceptor] Attempting session refresh for ${errorContext.errorType} error (attempt ${currentRetryCount}/${this.MAX_RETRY_ATTEMPTS})`);
+    
+    // Attempt session refresh
+    const refreshSuccess = await this.handleSessionExpiry();
+    
+    if (refreshSuccess) {
+      log.debug('Utils', `✅ [GlobalErrorInterceptor] Session refreshed, retrying ${errorContext.errorType} request`);
+      
+      // Calculate exponential backoff delay
+      const backoffDelay = Math.min(
+        this.RETRY_BACKOFF_BASE * Math.pow(2, currentRetryCount - 1),
+        this.RETRY_BACKOFF_MAX
+      );
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      
+      try {
+        // Retry the original request with fresh session
+        const retryResponse = await originalFetch(...args);
+        
+        // Clean up retry tracking on success
+        this.retryQueue.delete(requestKey);
+        
+        if (retryResponse.ok) {
+          log.debug('Utils', `✅ [GlobalErrorInterceptor] Retry successful for ${this.extractEndpoint(errorContext.url)}`);
+        } else {
+          log.warn('Utils', `⚠️ [GlobalErrorInterceptor] Retry returned ${retryResponse.status} for ${this.extractEndpoint(errorContext.url)}`);
+        }
+        
+        return retryResponse;
+      } catch (retryError) {
+        log.error('Utils', `❌ [GlobalErrorInterceptor] Retry failed for ${this.extractEndpoint(errorContext.url)}:`, retryError);
+        return null;
+      }
+    } else {
+      log.warn('Utils', `❌ [GlobalErrorInterceptor] Session refresh failed for ${errorContext.errorType} error`);
+      this.retryQueue.delete(requestKey);
+      return null;
+    }
+  }
+  
+  /**
+   * Generate a unique key for request deduplication
+   */
+  private generateRequestKey(url: string, options?: RequestInit): string {
+    const method = options?.method || 'GET';
+    const body = options?.body ? JSON.stringify(options.body) : '';
+    return `${method}:${url}:${body}`;
+  }
+  
   private async handleSessionExpiry(): Promise<boolean> {
     // Prevent multiple simultaneous refresh attempts
     if (this.isRefreshing && this.refreshPromise) {
@@ -226,7 +342,7 @@ class GlobalErrorInterceptor {
   
   private async performSessionRefresh(): Promise<boolean> {
     try {
-      log.debug('Utils', '🔄 [GlobalErrorInterceptor] Attempting session refresh for 401 error');
+      log.debug('Utils', '🔄 [GlobalErrorInterceptor] Attempting session refresh for authentication error');
       
       // Get current session first
       const { data: currentSession } = await getSupabaseClient().auth.getSession();
@@ -292,6 +408,47 @@ class GlobalErrorInterceptor {
   // Check if currently refreshing
   public isCurrentlyRefreshing(): boolean {
     return this.isRefreshing;
+  }
+  
+  // Get retry queue status for monitoring
+  public getRetryQueueStatus(): { activeRetries: number; queueSize: number } {
+    const activeRetries = Array.from(this.retryQueue.values()).reduce(
+      (sum, context) => sum + context.retryCount, 0
+    );
+    return {
+      activeRetries,
+      queueSize: this.retryQueue.size
+    };
+  }
+  
+  // Clean up old retry entries
+  public cleanupRetryQueue(): void {
+    const now = Date.now();
+    const maxAge = 5 * 60 * 1000; // 5 minutes
+    
+    for (const [key, context] of this.retryQueue.entries()) {
+      if (now - context.timestamp > maxAge) {
+        this.retryQueue.delete(key);
+        log.debug('Utils', `🧹 [GlobalErrorInterceptor] Cleaned up old retry entry for ${this.extractEndpoint(context.url)}`);
+      }
+    }
+  }
+  
+  // Log session error statistics for monitoring
+  public logSessionErrorStats(): void {
+    const stats = this.getRetryQueueStatus();
+    const errorTypes = Array.from(this.retryQueue.values()).reduce((acc, context) => {
+      acc[context.errorType] = (acc[context.errorType] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    log.info('Utils', '📊 [GlobalErrorInterceptor] Session Error Statistics:', {
+      activeRetries: stats.activeRetries,
+      queueSize: stats.queueSize,
+      errorTypes,
+      isRefreshing: this.isRefreshing,
+      timestamp: new Date().toISOString()
+    });
   }
 }
 

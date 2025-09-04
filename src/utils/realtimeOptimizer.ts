@@ -126,7 +126,7 @@ class RealtimeOptimizer {
     this.metrics.totalSubscriptions++;
     this.metrics.activeSubscriptions++;
 
-    log.debug('Utils', `🎯 [RealtimeOptimizer] Subscribed: ${channel}:${event}, priority: ${priority}, total: ${this.subscriptions.size}`);
+    // Subscription added
 
     return id;
   }
@@ -144,7 +144,7 @@ class RealtimeOptimizer {
     this.metrics.activeSubscriptions--;
     this.metrics.inactiveSubscriptions++;
 
-    log.debug('Utils', `🚫 [RealtimeOptimizer] Unsubscribed: ${subscriptionId}, active: ${this.metrics.activeSubscriptions}`);
+    // Subscription removed
 
     return true;
   }
@@ -226,7 +226,7 @@ class RealtimeOptimizer {
     });
 
     this.metrics.batchedEvents += events.length;
-    log.debug('Utils', `📦 [RealtimeOptimizer] Processed batch: ${eventKey}, events: ${events.length}, subscribers: ${subscriptions.length}`);
+    // Batch processed
   }
 
   /**
@@ -246,7 +246,7 @@ class RealtimeOptimizer {
       }
     });
 
-    log.debug('Utils', `⚡ [RealtimeOptimizer] Processed immediate: ${channel}:${event}, subscribers: ${subscriptions.length}`);
+    // Event processed immediately
   }
 
   /**
@@ -269,7 +269,7 @@ class RealtimeOptimizer {
     });
 
     if (toRemove.length > 0) {
-      log.debug('Utils', `🧹 [RealtimeOptimizer] Cleaned up ${toRemove.length} inactive subscriptions`);
+      // Inactive subscriptions cleaned up
     }
   }
 
@@ -288,7 +288,7 @@ class RealtimeOptimizer {
       const toRemove = subscriptions[0];
       this.subscriptions.delete(toRemove.id);
       this.metrics.activeSubscriptions--;
-      log.debug('Utils', `🗑️ [RealtimeOptimizer] Removed lowest priority subscription: ${toRemove.id}`);
+      // Lowest priority subscription removed
     }
   }
 
@@ -351,7 +351,7 @@ class RealtimeOptimizer {
       this.unsubscribe(id);
     });
 
-    log.debug('Utils', `🏷️ [RealtimeOptimizer] Invalidated ${toRemove.length} subscriptions by tags: ${tags.join(', ')}`);
+    // Subscriptions invalidated by tags
   }
 
   /**
@@ -372,7 +372,7 @@ class RealtimeOptimizer {
     this.metrics.activeSubscriptions = 0;
     this.metrics.inactiveSubscriptions = 0;
 
-    log.debug('Utils', '🧹 [RealtimeOptimizer] Cleared all subscriptions');
+    // All subscriptions cleared
   }
 
   /**
@@ -380,7 +380,7 @@ class RealtimeOptimizer {
    */
   updateConfig(newConfig: Partial<RealtimeOptimizerConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    log.debug('Utils', `🔧 [RealtimeOptimizer] Config updated:`, this.config);
+    // Config updated
   }
 
   /**

@@ -5,11 +5,11 @@ import { log } from '@/utils/logger';
  * This manager coordinates ALL loading states across the application to prevent conflicts.
  * It ensures only ONE loading experience is active at a time and provides instant feedback.
  * 
- * Phase 6B: Enhanced with smart state hydration integration.
+ * Enhanced loading state management with performance optimization.
  */
 
 import { NavigateFunction } from 'react-router-dom';
-import { smartStateHydrator } from '@/services/SmartStateHydrator';
+
 
 // Loading state priorities (lower = higher priority)
 export enum LoadingPriority {
@@ -446,23 +446,16 @@ class LoadingStateManager {
     }
   }
 
-  // Phase 6B: Smart State Hydration Integration
-
   /**
-   * Check if component is hydrated and skip loading operations
+   * Check if component should skip loading (legacy method)
+   * Note: Always returns false since hydration system was removed
    */
   shouldSkipLoadingForHydratedComponent(componentId: string, userId: string): boolean {
-    try {
-      const hydrationStatus = smartStateHydrator.getHydrationStatus(componentId);
-      return hydrationStatus === 'hydrated';
-    } catch (error) {
-      log.warn('App', `⚠️ [LoadingStateManager] Failed to check hydration status for ${componentId}:`, error);
-      return false;
-    }
+    return false;
   }
 
   /**
-   * Start loading operation with hydration awareness
+   * Start loading operation (legacy method)
    */
   startOperationWithHydration(
     operation: LoadingOperation, 
@@ -481,27 +474,18 @@ class LoadingStateManager {
   }
 
   /**
-   * Complete loading operation and notify hydration system
+   * Complete loading operation (legacy method)
    */
   completeOperationWithHydration(
     operation: LoadingOperation, 
     componentId: string, 
     userId: string
   ): void {
-    // Complete the loading operation
     this.completeOperation(operation);
-
-    // Notify hydration system that loading is complete
-    try {
-      // This would trigger background sync for the component
-      log.debug('App', `🔄 [LoadingStateManager] Loading complete for ${componentId}, notifying hydration system`);
-    } catch (error) {
-      log.warn('App', `⚠️ [LoadingStateManager] Failed to notify hydration system for ${componentId}:`, error);
-    }
   }
 
   /**
-   * Get hydration-aware loading state
+   * Get loading state (legacy method)
    */
   getHydrationAwareLoadingState(componentId: string, userId: string): {
     shouldShowLoading: boolean;
@@ -523,32 +507,14 @@ class LoadingStateManager {
   }
 
   /**
-   * Coordinate with hydration system for optimal loading experience
+   * Coordinate loading (legacy method)
+   * Note: Always show loading since hydration system was removed
    */
   async coordinateWithHydration(componentId: string, userId: string): Promise<{
     shouldShowLoading: boolean;
     hydrationTime?: number;
   }> {
-    try {
-      // Check if component is hydrated
-      if (this.shouldSkipLoadingForHydratedComponent(componentId, userId)) {
-        return { shouldShowLoading: false };
-      }
-
-      // If not hydrated, check if we can hydrate quickly
-      const result = await smartStateHydrator.hydrateComponent(componentId, userId);
-      
-      if (result.success) {
-        log.debug('App', `✅ [LoadingStateManager] Quick hydration successful for ${componentId} in ${result.hydrationTime}ms`);
-        return { shouldShowLoading: false, hydrationTime: result.hydrationTime };
-      }
-
-      // Fall back to normal loading
-      return { shouldShowLoading: true };
-    } catch (error) {
-      log.error('App', `🚨 [LoadingStateManager] Hydration coordination failed for ${componentId}:`, error);
-      return { shouldShowLoading: true };
-    }
+    return { shouldShowLoading: true };
   }
 }
 

@@ -10,7 +10,7 @@ import type {
   LessonDialogState,
   FolderDialogState
 } from '@/types/classroom';
-import { smartStateHydrator, HydrationStatus } from '@/services/SmartStateHydrator';
+
 
 // Core classroom state interface
 interface ClassroomStoreState {
@@ -87,27 +87,6 @@ interface ClassroomStoreActions {
   getFilteredCourses: () => CourseDisplayData[];
   getMyCourses: () => CourseDisplayData[];
   getCourseById: (courseId: string) => CourseDisplayData | undefined;
-
-  // Phase 6B: Smart State Hydration Methods
-  /**
-   * Hydrate store state from cache
-   */
-  hydrateFromCache: (userId: string) => Promise<boolean>;
-  
-  /**
-   * Enable background sync for classroom data
-   */
-  enableBackgroundSync: (userId: string) => void;
-  
-  /**
-   * Get hydration status
-   */
-  getHydrationStatus: () => HydrationStatus;
-  
-  /**
-   * Invalidate hydration cache
-   */
-  invalidateHydrationCache: (userId: string) => void;
 }
 
 type ClassroomStore = ClassroomStoreState & ClassroomStoreActions;
@@ -399,102 +378,7 @@ export const useClassroomStore = create<ClassroomStore>()(
           return state.courses.find(course => course.id === courseId);
         },
 
-        // Phase 6B: Smart State Hydration Methods
-        
-        // Hydrate store state from cache
-        hydrateFromCache: async (userId: string): Promise<boolean> => {
-          try {
-            const componentId = 'classroom-store';
-            
-            const result = await smartStateHydrator.hydrateComponent(
-              componentId,
-              userId,
-              get() // Use current state as fallback
-            );
 
-            if (result.success && result.state) {
-              // Restore state from cache
-              const cachedState = result.state.data;
-              set({
-                courses: cachedState.courses || [],
-                selectedCourse: cachedState.selectedCourse || null,
-                modules: cachedState.modules || [],
-                searchTerm: cachedState.searchTerm || '',
-                activeTab: cachedState.activeTab || 'all-courses',
-                loading: false,
-                error: null,
-                auth: cachedState.auth || null,
-                permissions: cachedState.permissions || null,
-                courseDialog: cachedState.courseDialog || { isOpen: false, mode: 'create' },
-                moduleDialog: cachedState.moduleDialog || { isOpen: false, mode: 'create' },
-                lessonDialog: cachedState.lessonDialog || { isOpen: false, mode: 'create' },
-                folderDialog: cachedState.folderDialog || { isOpen: false, mode: 'create' },
-                isRefreshing: false,
-                lastRefreshTime: cachedState.lastRefreshTime || null,
-                hasValidCache: true
-              });
-
-              return true;
-            }
-
-            return false;
-          } catch (error) {
-            console.error('Classroom store hydration failed:', error);
-            return false;
-          }
-        },
-
-        // Enable background sync for classroom data
-        enableBackgroundSync: (userId: string) => {
-          const componentId = 'classroom-store';
-          
-          const syncFunction = async () => {
-            try {
-              // Refresh courses in background
-              const currentState = get();
-              if (currentState.auth) {
-                // Trigger course refresh
-                currentState.refreshCourses();
-                
-                // Save updated state to cache
-                await smartStateHydrator.saveComponentState(
-                  componentId,
-                  userId,
-                  {
-                    courses: currentState.courses,
-                    selectedCourse: currentState.selectedCourse,
-                    modules: currentState.modules,
-                    searchTerm: currentState.searchTerm,
-                    activeTab: currentState.activeTab,
-                    auth: currentState.auth,
-                    permissions: currentState.permissions,
-                    lastRefreshTime: Date.now()
-                  }
-                );
-              }
-            } catch (error) {
-              console.warn('Classroom store background sync failed:', error);
-            }
-          };
-
-          smartStateHydrator.enableBackgroundSync(componentId, syncFunction, {
-            enabled: true,
-            interval: 120000, // 2 minutes
-            maxRetries: 3
-          });
-        },
-
-        // Get hydration status
-        getHydrationStatus: (): HydrationStatus => {
-          const componentId = 'classroom-store';
-          return smartStateHydrator.getHydrationStatus(componentId);
-        },
-
-        // Invalidate hydration cache
-        invalidateHydrationCache: (userId: string) => {
-          const componentId = 'classroom-store';
-          smartStateHydrator.clearComponentCache(componentId, userId);
-        },
       })
     )
   )

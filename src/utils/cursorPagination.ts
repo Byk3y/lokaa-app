@@ -125,7 +125,7 @@ class CursorPagination {
         }
       };
 
-      log.debug('Utils', `📄 [CursorPagination] Paginated query: ${data.length} items, hasNext: ${hasNext}, hasPrev: ${!!cursor}`);
+      // Pagination completed
 
       return result;
 
@@ -224,7 +224,7 @@ class CursorPagination {
    */
   updateConfig(newConfig: Partial<CursorPaginationConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    log.debug('Utils', `🔧 [CursorPagination] Config updated:`, this.config);
+    // Config updated
   }
 }
 

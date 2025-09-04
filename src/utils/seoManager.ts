@@ -1,8 +1,9 @@
 import { log } from '@/utils/logger';
+import { schemaGenerator, type SchemaData } from './schemaGenerator';
 // =====================================
 // SEO & METADATA MANAGEMENT SYSTEM
 // =====================================
-// Phase 7: Production-ready SEO optimization
+// Phase 7: Production-ready SEO optimization + Phase 1 SEO Enhancement
 
 // Type declarations for global analytics functions
 declare global {
@@ -72,9 +73,10 @@ export class SEOManager {
    * Update SEO metadata for current page
    */
   async updateSEO(
-    type: 'space' | 'post' | 'user' | 'landing',
+    type: 'space' | 'post' | 'user' | 'landing' | 'course',
     identifier?: string,
-    spaceSubdomain?: string
+    spaceSubdomain?: string,
+    additionalData?: any
   ): Promise<void> {
     try {
       log.debug('Utils', `[SEO] Updating metadata for ${type}:`, identifier);
@@ -84,15 +86,18 @@ export class SEOManager {
       
       if (metadata) {
         this.applySEOData(metadata);
+        this.applyStructuredData(type, additionalData);
         this.trackPageView(type, identifier);
       } else {
         log.warn('Utils', '[SEO] No metadata received, using fallback');
         this.applyFallbackSEO(type);
+        this.applyStructuredData(type, additionalData);
       }
 
     } catch (error) {
       log.error('Utils', '[SEO] Failed to update metadata:', error);
       this.applyFallbackSEO(type);
+      this.applyStructuredData(type, additionalData);
     }
   }
 
@@ -281,26 +286,52 @@ export class SEOManager {
    * Apply fallback SEO for error cases
    */
   private applyFallbackSEO(type: string): void {
-    const fallbackData: SEOData = {
-      title: 'Lokaa | Community Platform',
-      description: 'Build and join thriving communities on Lokaa',
-      canonical: this.baseUrl,
-      openGraph: {
-        title: 'Lokaa',
-        description: 'Community Platform',
-        image: this.defaultImage,
-        url: this.baseUrl,
-        type: 'website',
-        site_name: 'Lokaa'
-      },
-      twitter: {
-        card: 'summary',
-        title: 'Lokaa',
-        description: 'Community Platform',
-        image: this.defaultImage,
-        site: '@lokaa_io'
-      }
-    };
+    let fallbackData: SEOData;
+
+    if (type === 'landing') {
+      fallbackData = {
+        title: 'Lokaa - Transform Your Passion Into a Profitable Community',
+        description: 'Build engaged communities around your passion, create valuable content, and monetize your expertise. Join thousands of creators building profitable communities on Lokaa.',
+        canonical: this.baseUrl,
+        keywords: ['community platform', 'turn passion into revenue', 'monetize your passion', 'build profitable community', 'online learning communities', 'passion communities'],
+        openGraph: {
+          title: 'Lokaa - Transform Your Passion Into a Profitable Community',
+          description: 'Build engaged communities around your passion, create valuable content, and monetize your expertise. Join thousands of creators building profitable communities on Lokaa.',
+          image: this.defaultImage,
+          url: this.baseUrl,
+          type: 'website',
+          site_name: 'Lokaa'
+        },
+        twitter: {
+          card: 'summary_large_image',
+          title: 'Lokaa - Transform Your Passion Into a Profitable Community',
+          description: 'Build engaged communities around your passion, create valuable content, and monetize your expertise. Join thousands of creators building profitable communities on Lokaa.',
+          image: this.defaultImage,
+          site: '@lokaa_app'
+        }
+      };
+    } else {
+      fallbackData = {
+        title: 'Lokaa | Community Platform',
+        description: 'Build and join thriving communities on Lokaa',
+        canonical: this.baseUrl,
+        openGraph: {
+          title: 'Lokaa',
+          description: 'Community Platform',
+          image: this.defaultImage,
+          url: this.baseUrl,
+          type: 'website',
+          site_name: 'Lokaa'
+        },
+        twitter: {
+          card: 'summary',
+          title: 'Lokaa',
+          description: 'Community Platform',
+          image: this.defaultImage,
+          site: '@lokaa_io'
+        }
+      };
+    }
 
     this.applySEOData(fallbackData);
   }
@@ -448,10 +479,125 @@ export class SEOManager {
   }
 
   /**
+   * Apply structured data based on page type
+   */
+  private applyStructuredData(type: string, additionalData?: any): void {
+    try {
+      // Clear existing structured data
+      this.clearStructuredData();
+
+      // Generate schemas based on page type
+      const schemas = schemaGenerator.generatePageSchemas(type as any, additionalData);
+      
+      // Apply each schema
+      schemas.forEach((schema, index) => {
+        this.setJsonLdSchema(schema, `schema-${index}`);
+      });
+
+      log.debug('Utils', `[SEO] Applied ${schemas.length} structured data schemas for ${type}`);
+
+    } catch (error) {
+      log.error('Utils', '[SEO] Failed to apply structured data:', error);
+    }
+  }
+
+  /**
+   * Clear structured data
+   */
+  private clearStructuredData(): void {
+    const existingSchemas = document.querySelectorAll('script[type="application/ld+json"][data-seo="dynamic"]');
+    existingSchemas.forEach(schema => schema.remove());
+  }
+
+  /**
+   * Set JSON-LD schema with optional ID
+   */
+  private setJsonLdSchema(schema: SchemaData, id?: string): void {
+    // Remove existing schema with same ID
+    if (id) {
+      const existing = document.querySelector(`script[type="application/ld+json"][data-schema-id="${id}"]`);
+      if (existing) {
+        existing.remove();
+      }
+    }
+
+    // Create new schema script
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.setAttribute('data-seo', 'dynamic');
+    if (id) {
+      script.setAttribute('data-schema-id', id);
+    }
+    script.textContent = JSON.stringify(schema, null, 0);
+    
+    document.head.appendChild(script);
+  }
+
+  /**
+   * Generate robots.txt content
+   */
+  generateRobotsTxt(): string {
+    const baseUrl = this.baseUrl;
+    
+    return `User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: ${baseUrl}/sitemap.xml
+Sitemap: ${baseUrl}/sitemap-images.xml
+Sitemap: ${baseUrl}/sitemap-news.xml
+
+# Crawl delay
+Crawl-delay: 1
+
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /static/
+Disallow: /private/
+
+# Allow important pages
+Allow: /
+Allow: /about
+Allow: /features
+Allow: /pricing
+Allow: /help
+Allow: /communities
+Allow: /*/about
+Allow: /*/space/
+Allow: /*/courses/
+
+# Block duplicate content
+Disallow: /*?*
+Disallow: /*#*
+Disallow: /*&*
+
+# Block search parameters
+Disallow: /*?search=*
+Disallow: /*?filter=*
+Disallow: /*?sort=*
+
+# Allow social media crawlers
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /`;
+  }
+
+  /**
    * Cleanup resources
    */
   destroy(): void {
     this.clearDynamicMeta();
+    this.clearStructuredData();
     log.debug('Utils', '[SEO] Manager destroyed');
   }
 }

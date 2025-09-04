@@ -5,11 +5,11 @@ import { log } from '@/utils/logger';
  * Centralized state management for authentication flow progress.
  * Coordinates UI components to prevent loading state conflicts.
  * 
- * Phase 6B: Enhanced with smart state hydration integration.
+ * Enhanced authentication flow state management.
  */
 
 import { useState, useEffect } from 'react';
-import { smartStateHydrator } from '@/services/SmartStateHydrator';
+
 
 type AuthFlowStage = 
   | 'initializing'
@@ -209,23 +209,16 @@ class AuthFlowStateManager {
     return this.state.stage === 'checking-cache' || this.state.stage === 'initializing';
   }
 
-  // Phase 6B: Smart State Hydration Integration
-
   /**
-   * Check if components are hydrated and skip loading states
+   * Check if components should skip loading (legacy method)
+   * Note: Always returns false since hydration system was removed
    */
   shouldSkipLoadingForHydratedComponents(componentId: string, userId: string): boolean {
-    try {
-      const hydrationStatus = smartStateHydrator.getHydrationStatus(componentId);
-      return hydrationStatus === 'hydrated';
-    } catch (error) {
-      log.warn('Utils', `⚠️ [AuthFlowStateManager] Failed to check hydration status for ${componentId}:`, error);
-      return false;
-    }
+    return false;
   }
 
   /**
-   * Coordinate hydration with auth flow stages
+   * Coordinate with auth flow stages (legacy method)
    */
   async coordinateWithHydration(componentId: string, userId: string): Promise<boolean> {
     try {
@@ -251,22 +244,14 @@ class AuthFlowStateManager {
   }
 
   /**
-   * Notify hydration system of auth flow completion
+   * Notify of auth flow completion (legacy method)
    */
   notifyHydrationOfAuthCompletion(): void {
-    try {
-      // This would trigger hydration for components that were waiting
-      log.debug('Utils', '🔄 [AuthFlowStateManager] Notifying hydration system of auth completion');
-      
-      // In a real implementation, this would trigger hydration for waiting components
-      // For now, we just log the event
-    } catch (error) {
-      log.error('Utils', '🚨 [AuthFlowStateManager] Failed to notify hydration system:', error);
-    }
+    // No-op since hydration system was removed
   }
 
   /**
-   * Get hydration-aware loading state for components
+   * Get loading state for components (legacy method)
    */
   getHydrationAwareLoadingState(componentId: string, userId: string): {
     shouldShowLoading: boolean;
@@ -311,7 +296,7 @@ export const useComponentLoading = (componentName: string) => {
   };
 }
 
-// Phase 6B: Hook for hydration-aware loading state
+// Legacy hook for loading state (hydration system removed)
 export const useHydrationAwareLoading = (componentId: string, userId: string) => {
   const state = useAuthFlowState();
   

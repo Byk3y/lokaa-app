@@ -271,7 +271,30 @@ export function useOptimizedCachedPosts(
   const fetchPosts = useCallback(async (page: number = 1, forceRefresh: boolean = false) => {
     if (!spaceId) return;
 
-    // SMART LOADING: Only show loading state if we don't have any cached data
+    // **CACHE-FIRST FIX**: Check cache before setting loading state
+    if (page === 1 && !forceRefresh) {
+      const regularKey = `posts:${spaceId}:1:25`;
+      const pinnedKey = `posts:${spaceId}:pinned`;
+      const cachedRegular = globalCache.getCachedData<any[]>(regularKey);
+      const cachedPinned = globalCache.getCachedData<any[]>(pinnedKey);
+      
+      if (cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned)) {
+        // Cache hit - set posts immediately without loading state
+        devLogger.log('CacheDebug', `[useOptimizedCachedPosts] Cache hit - setting posts immediately`, {
+          regular: cachedRegular.length,
+          pinned: cachedPinned.length,
+          spaceId: spaceId.slice(0, 8) + '...'
+        });
+        
+        setPosts(cachedRegular);
+        setPinnedPosts(cachedPinned);
+        setLoading(false);
+        setError(null);
+        return; // Exit early - no need to fetch
+      }
+    }
+
+    // **CACHE MISS**: Set loading state and fetch data
     const hasExistingData = posts.length > 0 || pinnedPosts.length > 0;
     const shouldShowLoading = !hasExistingData || (page === 1 && forceRefresh);
     

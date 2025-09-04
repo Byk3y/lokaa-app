@@ -286,8 +286,8 @@ export const useCategoriesCache = create<CategoriesCacheState>((set, get) => ({
     }));
 
     try {
-      // POST-OUTAGE FIX: Reduced timeout to test network connectivity
-      const QUERY_TIMEOUT = 15000; // Temporarily reduced to test if shorter queries work better
+      // POST-OUTAGE FIX: Optimized timeout for better UX
+      const QUERY_TIMEOUT = 8000; // Reduced to 8s for better user experience
       
       if (import.meta.env.DEV) {
         log.debug('Hook', '🔍 [CategoriesCache] Fetching categories for space:', spaceId);

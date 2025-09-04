@@ -14,6 +14,8 @@ import { useModal } from '@/shared/components/modals/hooks/useModal';
 import ModernDropdownTrigger from '@/components/ModernDropdownTrigger';
 import StickyNoteVisual from '@/components/ui/StickyNoteVisual';
 import UpcomingActivityCard from '@/components/ui/UpcomingActivityCard';
+import { seoManager } from '@/utils/seoManager';
+import { SEOAnalytics } from '@/utils/analytics';
 
 /**
  * 🎯 LANDING PAGE TOGGLE SYSTEM
@@ -81,6 +83,29 @@ export default function LandingPage() {
       navigate('/app', { replace: true });
     }
   }, [user, navigate]);
+
+  // 🎯 [Phase 2] SEO Optimization: Update meta tags for landing page
+  useEffect(() => {
+    const initializeSEO = async () => {
+      try {
+        await seoManager.updateSEO('landing');
+        log.debug('Page', '🎯 [SEO] Landing page meta tags updated');
+        
+        // Track SEO page view
+        SEOAnalytics.trackPageView('landing', window.location.href, [
+          'community platform',
+          'turn passion into revenue',
+          'monetize your passion',
+          'build profitable community',
+          'online learning communities'
+        ]);
+      } catch (error) {
+        log.error('Page', '🎯 [SEO] Failed to update landing page meta tags:', error);
+      }
+    };
+
+    initializeSEO();
+  }, []);
   
   // Handle auth routes directly from URL path
   useEffect(() => {
@@ -170,6 +195,8 @@ export default function LandingPage() {
 
   // Direct signup handler
   const handleDirectSignUp = useCallback(() => {
+    // Track conversion
+    SEOAnalytics.trackConversion('signup_click', undefined, 'community platform');
     openSignupModal();
   }, [openSignupModal]);
 
@@ -361,6 +388,28 @@ export default function LandingPage() {
                 Launch a thriving online community in minutes. Engage, monetize, and grow with powerful tools.
             </p>
 
+              {/* 🎯 [Phase 2] SEO Content - Hidden from users but visible to search engines */}
+              <div className="sr-only" aria-hidden="true">
+                <h2>Transform Your Passion Into a Profitable Community</h2>
+                <p>Join thousands of creators who are building engaged communities, monetizing their expertise, and turning their passion into revenue on Lokaa. Our community platform offers powerful tools for online learning communities, collaborative spaces, and knowledge sharing.</p>
+                
+                <h3>Key Features for Community Building</h3>
+                <ul>
+                  <li>Build and monetize your passion communities</li>
+                  <li>Create online learning communities with courses and lessons</li>
+                  <li>Connect with like-minded people who share your interests</li>
+                  <li>Monetize your expertise through community subscriptions</li>
+                  <li>Engage members with posts, discussions, and real-time interactions</li>
+                  <li>Launch your community in minutes with our intuitive builder</li>
+                </ul>
+
+                <h3>Popular Community Categories</h3>
+                <p>Discover thriving communities in technology, music, business, health, sports, relationships, hobbies, and more. Whether you're looking to build a profitable community or find communities that match your passion, Lokaa provides the perfect platform for community building and knowledge sharing.</p>
+
+                <h3>Success Stories</h3>
+                <p>See how creators have transformed their passions into profitable communities, generating sustainable revenue while building engaged learning communities. From tech enthusiasts to music producers, our platform helps you turn your expertise into income-generating communities.</p>
+              </div>
+
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             {user ? (
               <Link
@@ -480,6 +529,40 @@ export default function LandingPage() {
             </div>
           </section>
         )}
+
+        {/* 🎯 [Phase 2] SEO FAQ Section - Hidden but SEO-optimized */}
+        <section className="sr-only" aria-hidden="true">
+          <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
+            <h2>Frequently Asked Questions About Community Building</h2>
+            
+            <div className="space-y-6">
+              <div>
+                <h3>How do I turn my passion into revenue on Lokaa?</h3>
+                <p>Lokaa provides built-in monetization tools that allow you to create paid communities, offer premium content, and generate sustainable revenue from your expertise. You can set subscription fees, create exclusive content, and build income-generating communities around your passion.</p>
+              </div>
+              
+              <div>
+                <h3>What are the best ways to monetize my expertise?</h3>
+                <p>Our platform offers multiple monetization strategies including community subscriptions, premium courses, exclusive content access, and member-only features. You can also create tiered membership levels to maximize revenue from your community.</p>
+              </div>
+              
+              <div>
+                <h3>How much can I earn from my community?</h3>
+                <p>Earnings vary based on community size, engagement, and pricing strategy. Many creators generate significant monthly revenue by building engaged communities around their expertise. Our platform provides analytics to help you optimize your monetization strategy.</p>
+              </div>
+              
+              <div>
+                <h3>What tools help me build income-generating communities?</h3>
+                <p>Lokaa offers comprehensive community building tools including content management, member engagement features, payment processing, analytics dashboard, and automated marketing tools to help you grow and monetize your community effectively.</p>
+              </div>
+              
+              <div>
+                <h3>How do I find communities that share my passion?</h3>
+                <p>Use our discovery features to search for communities by category, interest, or keyword. Browse through technology, music, business, health, and other categories to find like-minded people and learning communities that match your interests.</p>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Footer section with reduced padding */}
         <footer className="bg-white border-t border-gray-100 py-6">

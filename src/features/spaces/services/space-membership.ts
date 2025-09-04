@@ -7,6 +7,7 @@ import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { SpaceCacheEntry } from '@/shared/types/spaces';
 import { setLastJoinedSpace, cacheSpaceForRedirection } from './space-cache';
+import { createDefaultPointsRecord } from '@/shared/services/database/membership-management';
 
 /**
  * Update the lastJoinedSpace in localStorage when a user joins a space
@@ -130,6 +131,13 @@ export async function joinSpace(spaceId: string, userId: string): Promise<boolea
       }
 
       log.debug('Service', 'Created new space membership record');
+      
+      // Create default points record for the new member
+      const pointsResult = await createDefaultPointsRecord(spaceId, userId);
+      if (!pointsResult.success) {
+        log.warn('Service', 'Failed to create default points record:', pointsResult.error);
+        // Don't fail the entire operation if points record creation fails
+      }
     }
 
     // Update cache for the newly joined space
