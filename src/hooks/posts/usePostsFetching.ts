@@ -159,12 +159,20 @@ export function usePostsFetching(params: FetchingParams) {
         setTotalCount((enrichedPosts.length + enrichedPinnedPosts.length));
         setLoading(false);
 
-        devLogger.log('CacheDebug', `Posts loaded successfully`, {
+        // Cache the fetched data
+        const regularKey = `posts:${spaceId}:${page}:25`;
+        const pinnedKey = `posts:${spaceId}:pinned`;
+        
+        globalCache.set(regularKey, enrichedPosts);
+        globalCache.set(pinnedKey, enrichedPinnedPosts);
+        
+        devLogger.log('CacheDebug', `Posts loaded and cached successfully`, {
           regular: enrichedPosts.length,
           pinned: enrichedPinnedPosts.length,
           subscriberId,
           fromRefresh: forceRefresh,
-          retryCount
+          retryCount,
+          cacheKeys: { regularKey, pinnedKey }
         });
 
         return; // Success, exit retry loop

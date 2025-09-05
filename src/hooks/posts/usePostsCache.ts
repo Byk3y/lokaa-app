@@ -30,6 +30,14 @@ export function usePostsCache(spaceId: string, subscriberId: string) {
     const cachedRegular = globalCache.getCachedData<any[]>(regularKey);
     const cachedPinned = globalCache.getCachedData<any[]>(pinnedKey);
     
+    devLogger.log('CacheDebug', `Checking cache for space ${spaceId}`, {
+      regularKey,
+      pinnedKey,
+      cachedRegular: cachedRegular?.length || 0,
+      cachedPinned: cachedPinned?.length || 0,
+      hasValidCache: cachedRegular && Array.isArray(cachedRegular) && cachedPinned && Array.isArray(cachedPinned)
+    });
+    
     return {
       regular: cachedRegular,
       pinned: cachedPinned,

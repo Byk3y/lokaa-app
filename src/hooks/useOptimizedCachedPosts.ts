@@ -197,6 +197,12 @@ export function useOptimizedCachedPosts(
         };
         
         enrichCachedPostsAsync();
+        
+        // Track this tab visit
+        trackTabVisit(spaceId);
+        
+        // Skip fetch since we loaded from cache
+        return;
       }
     }
     
