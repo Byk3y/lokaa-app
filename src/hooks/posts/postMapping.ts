@@ -28,7 +28,7 @@ function detectMediaInfo(url: string): {
   // Video platform detection
   const videoPatterns = [
     { platform: 'youtube', pattern: /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/, idGroup: 1 },
-    { platform: 'vimeo', pattern: /vimeo\.com\/(?:.*#|.*/videos/)?(\d+)/, idGroup: 1 },
+    { platform: 'vimeo', pattern: /vimeo\.com\/(?:.*#|.*\/videos\/)?(\d+)/, idGroup: 1 },
     { platform: 'tiktok', pattern: /tiktok\.com\/@[\w.-]+\/video\/(\d+)/, idGroup: 1 },
     { platform: 'instagram', pattern: /instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/, idGroup: 1 },
     { platform: 'twitter', pattern: /twitter\.com\/\w+\/status\/(\d+)/, idGroup: 1 },
