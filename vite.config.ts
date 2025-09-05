@@ -426,20 +426,40 @@ export default defineConfig(({ mode }) => {
           return false; // Bundle everything by default
         },
         output: {
-          // SIMPLIFIED: Put everything in main vendor chunk to avoid dependency issues
-          manualChunks: (id) => {
-            // Only split the largest libraries that don't have dependencies
-            if (id.includes('@emoji-mart')) {
-              return 'emoji-vendor';
-            }
-            
-            // Everything else goes to main vendor chunk
-            if (id.includes('node_modules')) {
-              return 'vendor';
-            }
-            
-            return null;
-          },
+              // CONSERVATIVE: Keep form validation libraries together, split only safe libraries
+    manualChunks: (id) => {
+      // Split large, independent libraries
+      if (id.includes('@emoji-mart')) {
+        return 'emoji-vendor';
+      }
+      
+      // Keep React ecosystem together
+      if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+        return 'react-vendor';
+      }
+      
+      // Keep form validation ecosystem together (react-hook-form, zod, @hookform)
+      if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
+        return 'form-vendor';
+      }
+      
+      // Keep UI libraries together
+      if (id.includes('@radix-ui') || id.includes('lucide-react')) {
+        return 'ui-vendor';
+      }
+      
+      // Keep Supabase together
+      if (id.includes('@supabase')) {
+        return 'supabase-vendor';
+      }
+      
+      // Everything else goes to main vendor chunk
+      if (id.includes('node_modules')) {
+        return 'vendor';
+      }
+
+      return null;
+    },
           // Phase 3.2: Optimize chunk naming for better caching
           chunkFileNames: (chunkInfo) => {
             const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk';
