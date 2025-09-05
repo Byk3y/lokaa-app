@@ -103,14 +103,14 @@ function useTabSwitchingBehavior(spaceId: string | undefined) {
     if (currentState) {
       devLogger.log('TabSwitch', `Feed tab visited for space ${spaceId} - showing immediate feedback`, {
         isFirstVisit: !currentState,
-        lastVisit: currentState?.lastTabVisit,
-        timeSinceLastVisit: currentState ? now - (currentState.lastTabVisit || 0) : 0
+        lastVisit: currentState.lastTabVisit,
+        timeSinceLastVisit: now - currentState.lastTabVisit
       });
     } else {
       devLogger.log('TabSwitch', `Feed tab visited for space ${spaceId}`, {
         isFirstVisit: !currentState,
-        lastVisit: currentState?.lastTabVisit,
-        timeSinceLastVisit: currentState ? now - (currentState.lastTabVisit || 0) : 0
+        lastVisit: undefined,
+        timeSinceLastVisit: 0
       });
     }
   }, []);
@@ -142,8 +142,7 @@ export function useOptimizedCachedPosts(
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   
-  // **FIX**: Add immediate loading state for tab switching
-  const [isTabSwitching, setIsTabSwitching] = useState(false);
+  // **FIX**: Add immediate loading state for tab switching (removed unused variable)
   
   // **NEW**: Track pagination loading separately from initial loading
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -347,7 +346,7 @@ export function useOptimizedCachedPosts(
           const pinnedPosts = await globalCache.get(
             pinnedKey,
             async () => {
-              const { data, error } = await getSupabaseClient()
+              const { data, error } = await getSupabaseClient()!
                 .from('posts')
                 .select(`
                   id, created_at, content, title, like_count, comment_count, 
@@ -542,7 +541,7 @@ export function useOptimizedCachedPosts(
           const pinnedPosts = await globalCache.get(
             pinnedKey,
             async () => {
-              const { data, error } = await getSupabaseClient()
+              const { data, error } = await getSupabaseClient()!
                 .from('posts')
                 .select(`
                   id, created_at, content, title, like_count, comment_count, 
@@ -691,7 +690,7 @@ export function useOptimizedCachedPosts(
     try {
       devLogger.log('CacheDebug', `[handleFetchFailureSilently] Attempting minimal fetch without metadata enrichment`, { subscriberId: subscriberId.current });
       
-      const { data: minimalPosts, error: minimalError } = await getSupabaseClient()
+      const { data: minimalPosts, error: minimalError } = await getSupabaseClient()!
         .from('posts')
         .select('*')
         .eq('space_id', spaceId!)
@@ -700,7 +699,7 @@ export function useOptimizedCachedPosts(
         .range((page - 1) * 25, page * 25 - 1);
 
       if (!minimalError && minimalPosts) {
-        const { data: minimalPinned, error: pinnedError } = await getSupabaseClient()
+        const { data: minimalPinned, error: pinnedError } = await getSupabaseClient()!
           .from('posts')
           .select('*')
           .eq('space_id', spaceId!)
@@ -770,7 +769,7 @@ export function useOptimizedCachedPosts(
     try {
       devLogger.log('CacheDebug', `Attempting minimal fetch without metadata enrichment`, { subscriberId: subscriberId.current });
       
-      const { data: minimalPosts, error: minimalError } = await getSupabaseClient()
+      const { data: minimalPosts, error: minimalError } = await getSupabaseClient()!
         .from('posts')
         .select('*')
         .eq('space_id', spaceId!)
@@ -779,7 +778,7 @@ export function useOptimizedCachedPosts(
         .range((page - 1) * 25, page * 25 - 1);
 
       if (!minimalError && minimalPosts) {
-        const { data: minimalPinned, error: pinnedError } = await getSupabaseClient()
+        const { data: minimalPinned, error: pinnedError } = await getSupabaseClient()!
           .from('posts')
           .select('*')
           .eq('space_id', spaceId!)
@@ -825,7 +824,6 @@ export function useOptimizedCachedPosts(
       setTotalCount(0);
       setError(null);
       setLoading(false);
-      setIsTabSwitching(false);
       hasAutoFetched.current.clear(); // Clear auto-fetch tracking
       hasLoadedFromCache.current.clear(); // Clear cache loading tracking
       
@@ -868,7 +866,6 @@ export function useOptimizedCachedPosts(
             setTotalCount(cachedRegular.length);
             setError(null);
             setLoading(false);
-            setIsTabSwitching(false);
             
             // Mark that we've loaded from cache to prevent duplicate fetches
             hasLoadedFromCache.current.add(spaceId);
@@ -944,7 +941,7 @@ export function useOptimizedCachedPosts(
           const totalCount = await globalCache.get(
             countKey,
             async () => {
-              const { count, error } = await getSupabaseClient()
+              const { count, error } = await getSupabaseClient()!
                 .from('posts')
                 .select('*', { count: 'exact', head: true })
                 .eq('space_id', spaceId)
@@ -969,7 +966,6 @@ export function useOptimizedCachedPosts(
           setCurrentPage(1);
           setTotalCount(totalCount); // Use actual total count from database
           setLoading(false);
-          setIsTabSwitching(false); // **FIX**: Clear tab switching state
           setError(null);
           
           // Still mark as auto-fetched to prevent duplicate fetches
@@ -1132,7 +1128,7 @@ export function useOptimizedCachedPosts(
       
       log.debug('Hook', `✅ [CacheDebug] Comment count updated successfully for post ${postId}`);
     } catch (error) {
-      log.error('Hook', `❌ [CacheDebug] Error updating comment count for post ${postId}:`, error);
+      log.error('Hook', `❌ [CacheDebug] Error updating comment count for post ${postId}:`, error instanceof Error ? error : undefined);
       // Fallback: try to refresh the data
       setTimeout(() => {
         if (spaceId) {
@@ -1333,7 +1329,7 @@ export function useOptimizedCachedPosts(
         // Log final result using development logger
         devLogger.log('MediaProcessing', 'Final media result', result);
         return result;
-      }).filter(Boolean) || null,
+      }).filter((item): item is NonNullable<typeof item> => item !== null) || null,
       isPinned: post.is_pinned || false,
       pinCategory: post.pin_category,
       isAdmin: false, // Will be set by component
@@ -1385,7 +1381,7 @@ async function enrichPostsWithMetadata(
     userIds.length > 0 ? globalCache.get(
       `users:${userIds.join(',')}`,
       async () => {
-        const { data, error } = await getSupabaseClient()
+        const { data, error } = await getSupabaseClient()!
           .from('users')
           .select('id, full_name, avatar_url, profile_url, activity_score')
           .in('id', userIds);
