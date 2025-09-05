@@ -181,7 +181,7 @@ class LoadingStateManager {
   /**
    * 🏁 Complete a loading operation
    */
-  completeOperation(operation: LoadingOperation, success: boolean = true): void {
+  completeOperation(operation: LoadingOperation, success = true): void {
     const loadingState = this.activeOperations.get(operation);
     if (!loadingState) return;
 

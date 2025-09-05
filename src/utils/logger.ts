@@ -32,7 +32,7 @@ class ProductionSafeLogger {
   };
 
   private isEnabled: boolean;
-  private startTime: number = 0;
+  private startTime = 0;
 
   constructor() {
     // Production safety: completely disable logging in production
@@ -139,7 +139,7 @@ class ProductionSafeLogger {
   /**
    * Group logging - create collapsible log groups
    */
-  group(category: string, title: string, collapsed: boolean = false): void {
+  group(category: string, title: string, collapsed = false): void {
     if (!this.isEnabled || isProduction) return;
     
     this.trackLog('group', category);

@@ -188,7 +188,7 @@ class ConsoleOptimizer {
   }
 
   // Public methods for configuration
-  public enableCategory(category: string, enabled: boolean = true): void {
+  public enableCategory(category: string, enabled = true): void {
     if (this.config.categories[category]) {
       this.config.categories[category].enabled = enabled;
     }

@@ -314,7 +314,7 @@ class LocalKeywordOptimizer {
   /**
    * Generate meta keywords for a specific location
    */
-  generateMetaKeywords(city: string, industry?: string, limit: number = 10): string {
+  generateMetaKeywords(city: string, industry?: string, limit = 10): string {
     const strategy = this.generateLocalKeywordStrategy(city, industry);
     const allKeywords = [
       ...strategy.primaryKeywords,

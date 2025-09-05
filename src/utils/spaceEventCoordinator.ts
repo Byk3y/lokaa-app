@@ -45,7 +45,7 @@ class SpaceEventCoordinator {
   addEventListener(
     type: SpaceEventType | 'all',
     handler: (event: SpaceEvent) => void | Promise<void>,
-    priority: number = 0
+    priority = 0
   ): string {
     const id = `listener_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     

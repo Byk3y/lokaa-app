@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { useCourseNavigation } from '@/hooks/classroom/useCourseNavigation';
-import { useCourseDetail } from '@/hooks/classroom/useCourseDetail';
 import type { CourseDetailData, CourseLesson } from '@/types/classroom/courseDetail';
 
 // Mock hooks

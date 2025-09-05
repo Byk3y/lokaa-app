@@ -107,7 +107,7 @@ export const DiscoverIcon: React.FC<NavIconProps> = ({ className, strokeWidth = 
 );
 
 // Helper function to get space tab icon by tab name
-export const getSpaceTabIcon = (tab: string, className?: string, strokeWidth: number = 2) => {
+export const getSpaceTabIcon = (tab: string, className?: string, strokeWidth = 2) => {
   switch(tab.toLowerCase()) {
     case 'feed': 
       return <FeedIcon className={className} strokeWidth={strokeWidth} />;

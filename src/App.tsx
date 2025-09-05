@@ -1,11 +1,9 @@
 import { log } from '@/utils/logger';
-import React, { Suspense, useEffect, lazy } from "react";
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { Suspense, useEffect } from "react";
 import { Toaster } from '@/components/ui/toaster';
 
 // Core components and hooks
 import { AppLoadingScreen, UnifiedPresenceInitializer } from '@/components/app/AppComponents';
-import { useAppInitialization } from '@/hooks/useAppInitialization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,13 +37,11 @@ if (import.meta.env.DEV) {
 // Core services and Mobile Event Coordinator
 import { globalRealtimeService } from '@/services/GlobalRealtimeService';
 import { mobileEventCoordinator } from '@/utils/MobileEventCoordinator';
-import { mobileMigrationHelper, LegacySystemDisabler } from '@/utils/MobileEventMigration';
+import { LegacySystemDisabler } from '@/utils/MobileEventMigration';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { preventScrollRestoration } from '@/utils/scrollPositionManager';
-import { env } from '@/core/config/env';
 
 export default function App() {
-  const { appReady } = useAppInitialization();
   const { isOffline, justCameOnline } = useNetworkStatus();
   const { toast } = useToast();
 
@@ -140,7 +136,7 @@ export default function App() {
         // Check if session expires within 15 minutes (proactive refresh)
         if (expiresAt - now < 900000) {
           log.debug('App', '🛡️ [SessionLongevity] Proactively refreshing session before background');
-          const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession();
+          const { error: refreshError } = await getSupabaseClient().auth.refreshSession();
           
           if (refreshError) {
             log.warn('App', '🛡️ [SessionLongevity] Proactive refresh failed:', refreshError);
@@ -170,7 +166,7 @@ export default function App() {
         if (expiresAt <= now || expiresAt - now < 300000) { // 5 minutes buffer
           log.debug('App', `🛡️ [SessionLongevity] Session needs refresh after ${Math.round(backgroundDuration/1000)}s background (${reason})`);
           
-          const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession();
+          const { error: refreshError } = await getSupabaseClient().auth.refreshSession();
           
           if (refreshError) {
             log.warn('App', `🛡️ [SessionLongevity] Session refresh failed (${reason}):`, refreshError);

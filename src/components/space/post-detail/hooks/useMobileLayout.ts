@@ -2,7 +2,7 @@
  * Hook for mobile layout calculations
  * Extracted from PostDetailModal for better separation of concerns
  */
-export function useMobileLayout(isMobile: boolean, isKeyboardOpen: boolean, showHeaderOnDesktop: boolean = false) {
+export function useMobileLayout(isMobile: boolean, isKeyboardOpen: boolean, showHeaderOnDesktop = false) {
   
   // Calculate dynamic modal styles based on mobile/keyboard state
   const getModalStyles = () => {

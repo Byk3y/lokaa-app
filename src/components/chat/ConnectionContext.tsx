@@ -4,6 +4,7 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { getInitial } from '@/shared/utils/avatar-utils';
 import { RefreshCw } from 'lucide-react';
+import { log } from '@/utils/logger';
 
 interface ConnectionContextProps {
   otherUserId: string;
@@ -57,14 +58,14 @@ const ConnectionContext = React.memo<ConnectionContextProps>(({
     }
     const cachedData = connectionCache.get(cacheKey);
     if (cachedData && isCacheValid(cachedData)) {
-      console.log('🔍 [ConnectionContext] Using cached data for:', cacheKey);
+      log.debug('ConnectionContext', 'Using cached data for:', cacheKey);
       setConnectionInfo(cachedData.data);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    console.log('🔍 [ConnectionContext] Fetching fresh data for users:', { user1: user.id, user2: otherUserId });
+    log.debug('ConnectionContext', 'Fetching fresh data for users:', { user1: user.id, user2: otherUserId });
     try {
       await new Promise(resolve => setTimeout(resolve, 100));
       const { data, error: rpcError } = await getSupabaseClient().rpc(
@@ -73,7 +74,7 @@ const ConnectionContext = React.memo<ConnectionContextProps>(({
       );
       if (rpcError) throw rpcError;
       const connectionData = data as unknown as ConnectionInfo;
-      console.log('🔍 [ConnectionContext] Fresh data loaded:', connectionData);
+      log.debug('ConnectionContext', 'Fresh data loaded:', connectionData);
       connectionCache.set(cacheKey, {
         data: connectionData,
         timestamp: Date.now(),
@@ -81,11 +82,11 @@ const ConnectionContext = React.memo<ConnectionContextProps>(({
       });
       setConnectionInfo(connectionData);
     } catch (err: any) {
-      console.error('🔍 [ConnectionContext] Error loading:', err);
+      log.error('ConnectionContext', 'Error loading:', err);
       setError('Unable to load connection details.');
     } finally {
       setLoading(false);
-      console.log('🔍 [ConnectionContext] Loading completed, loading state:', false);
+      log.debug('ConnectionContext', 'Loading completed, loading state:', false);
     }
   }, [user?.id, otherUserId, cacheKey]);
 
@@ -112,17 +113,17 @@ const ConnectionContext = React.memo<ConnectionContextProps>(({
 
   // --- Only now do conditional returns ---
   if (loading) {
-    console.log('🔍 [ConnectionContext] Rendering: loading state');
+    log.debug('ConnectionContext', 'Rendering: loading state');
     return null;
   }
   if (error || !connectionInfo || connectionInfo.connection_type === 'unknown') {
-    console.log('🔍 [ConnectionContext] Rendering: error or no connection', { error, connectionInfo });
+    log.debug('ConnectionContext', 'Rendering: error or no connection', { error, connectionInfo });
     return null;
   }
   if (!shouldRender) {
     return null;
   }
-  console.log('🔍 [ConnectionContext] Rendering: showing connection context', connectionInfo);
+  log.debug('ConnectionContext', 'Rendering: showing connection context', connectionInfo);
   return (
     <div className="flex flex-col items-center justify-center py-8 px-2 text-center">
       {/* Logo at the top */}

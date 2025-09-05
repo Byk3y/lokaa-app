@@ -113,7 +113,7 @@ export function useNotifications(type?: NotificationType): UseNotificationsRetur
   };
 
   // Fetch notifications from the server
-  const fetchNotifications = useCallback(async (page: number = 1, append: boolean = false) => {
+  const fetchNotifications = useCallback(async (page = 1, append = false) => {
     if (!user?.id) return;
 
     try {

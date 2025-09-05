@@ -34,7 +34,7 @@ interface OfflineSyncStatus {
 class OfflineDataSyncService {
   private actions: OfflineAction[] = [];
   private isOnline: boolean = navigator.onLine;
-  private syncInProgress: boolean = false;
+  private syncInProgress = false;
   private lastSyncTime: number | null = null;
   private errors: string[] = [];
   private syncInterval: NodeJS.Timeout | null = null;

@@ -203,7 +203,7 @@ export class MockBrowserEnvironment {
     } as any;
   }
 
-  simulateBackgroundReturn(secondsAgo: number = 30) {
+  simulateBackgroundReturn(secondsAgo = 30) {
     if (global.window) {
       (global.window as any).__lastVisibilityChange = Date.now() - (secondsAgo * 1000);
     }
@@ -283,7 +283,7 @@ export class MockSupabaseClient {
 
 // Test Data Factory
 export class TestDataFactory {
-  static createCacheEntry<T>(data: T, ageInMs: number = 0): CacheEntry<T> {
+  static createCacheEntry<T>(data: T, ageInMs = 0): CacheEntry<T> {
     return {
       data,
       timestamp: Date.now() - ageInMs,
@@ -305,7 +305,7 @@ export class TestDataFactory {
     return this.createCacheEntry(data, 3600000); // 1 hour old
   }
 
-  static createMockUser(id: string = 'test-user-id') {
+  static createMockUser(id = 'test-user-id') {
     return {
       id,
       full_name: `Test User ${id.slice(-4)}`,
@@ -328,7 +328,7 @@ export class TestDataFactory {
     };
   }
 
-  static createMockConversation(id: string = 'test-conversation-id') {
+  static createMockConversation(id = 'test-conversation-id') {
     return {
       conversation_id: id,
       user_id: 'user1',
@@ -423,7 +423,7 @@ export class PerformanceTestUtils {
     return { result, memoryDelta };
   }
 
-  static createPerformanceBenchmark(name: string, iterations: number = 100) {
+  static createPerformanceBenchmark(name: string, iterations = 100) {
     return async (fn: () => Promise<any>) => {
       const times: number[] = [];
       

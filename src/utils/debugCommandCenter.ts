@@ -51,7 +51,7 @@ interface MemoryUsage {
 class DebugCommandCenter {
   private static instance: DebugCommandCenter;
   private metrics: DebugMetrics;
-  private isMonitoring: boolean = false;
+  private isMonitoring = false;
   private observers: Map<string, any> = new Map();
 
   private constructor() {

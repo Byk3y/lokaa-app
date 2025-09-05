@@ -25,7 +25,7 @@ interface CachedActivityMetrics extends ActivityMetrics {
 const CACHE_TTL = 5 * 60 * 1000;
 const activityMetricsCache = new Map<string, CachedActivityMetrics>();
 
-export const useSpaceActivityMetrics = (spaceId: string, days: number = 30): ActivityMetrics => {
+export const useSpaceActivityMetrics = (spaceId: string, days = 30): ActivityMetrics => {
   const [activityData, setActivityData] = useState<ActivityMetrics>({
     data: [],
     totalActive: 0,

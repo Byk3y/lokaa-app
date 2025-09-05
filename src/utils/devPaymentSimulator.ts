@@ -109,7 +109,7 @@ export class DevPaymentSimulator {
   /**
    * Simulate trial access (with expiration date)
    */
-  static async startTrial(userId: string, spaceId: string, trialDays: number = 7): Promise<boolean> {
+  static async startTrial(userId: string, spaceId: string, trialDays = 7): Promise<boolean> {
     if (!this.isDevMode()) {
       log.warn('Utils', 'Payment simulator only available in development mode');
       return false;

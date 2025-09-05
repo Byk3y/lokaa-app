@@ -50,7 +50,7 @@ interface PushSubscriptionData {
 class PushNotificationService {
   private static instance: PushNotificationService;
   private state: NotificationPermissionState;
-  private vapidPublicKey: string = ''; // Will be set from environment or server
+  private vapidPublicKey = ''; // Will be set from environment or server
   private isInitialized = false;
 
   private constructor() {

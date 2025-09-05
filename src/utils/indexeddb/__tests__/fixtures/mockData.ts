@@ -128,7 +128,7 @@ export const mockUserConversations = [
 ];
 
 // Mock Cache Entries
-export const createMockCacheEntry = <T>(data: T, ageInMs: number = 0): CacheEntry<T> => ({
+export const createMockCacheEntry = <T>(data: T, ageInMs = 0): CacheEntry<T> => ({
   data,
   timestamp: Date.now() - ageInMs,
   key: `test_${Date.now()}`,

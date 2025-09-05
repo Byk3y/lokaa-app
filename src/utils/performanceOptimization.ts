@@ -22,7 +22,7 @@ export const scheduleWork = (callback: () => void, priority: 'low' | 'normal' | 
 export const processInChunks = async <T, R>(
   items: T[], 
   processor: (item: T, index: number) => R,
-  chunkSize: number = 100
+  chunkSize = 100
 ): Promise<R[]> => {
   const results: R[] = [];
   

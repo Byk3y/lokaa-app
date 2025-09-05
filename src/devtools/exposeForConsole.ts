@@ -158,7 +158,7 @@ function getFileValidationHelpers() {
     validateImageDimensionsInternal,
     
     // Helper to create test files
-    createTestFile: (name: string, type: string, size: number = 1024) => {
+    createTestFile: (name: string, type: string, size = 1024) => {
       const content = new Array(size).fill('a').join('');
       return new File([content], name, { type });
     },

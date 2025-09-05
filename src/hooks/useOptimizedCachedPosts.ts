@@ -257,7 +257,7 @@ export function useOptimizedCachedPosts(
   }, [spaceId, user?.id, checkCache, loadFromCache, clearCacheForSpaceSwitch, hasLoadedFromCacheForSpace, trackTabVisit, fetchPosts, fetchPostsSilently, scheduleBackgroundRefresh]);
   
   // Refetch function
-  const refetch = useCallback(async (forceRefresh: boolean = false) => {
+  const refetch = useCallback(async (forceRefresh = false) => {
     if (!spaceId) return;
     
     devLogger.log('CacheDebug', `🔄 [Refetch] Manual refetch triggered`, {

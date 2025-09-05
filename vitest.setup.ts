@@ -39,7 +39,7 @@ global.IDBKeyRange = FDBKeyRange as any;
 class MockFile extends Blob implements File {
   name: string;
   lastModified: number;
-  webkitRelativePath: string = '';
+  webkitRelativePath = '';
   
   constructor(fileBits: BlobPart[], fileName: string, options?: FilePropertyBag) {
     super(fileBits, options);
@@ -294,9 +294,9 @@ global.fetch = mockFetch;
 global.Image = class {
   onload: () => void = () => {};
   onerror: () => void = () => {};
-  src: string = '';
-  width: number = 0;
-  height: number = 0;
+  src = '';
+  width = 0;
+  height = 0;
   
   constructor() {
     setTimeout(() => {
@@ -308,9 +308,9 @@ global.Image = class {
 } as any;
 
 global.HTMLVideoElement = class {
-  videoWidth: number = 1920;
-  videoHeight: number = 1080;
-  readyState: number = 4;
+  videoWidth = 1920;
+  videoHeight = 1080;
+  readyState = 4;
 } as any;
 
 // Mock V2 IndexedDB bridge system instead of legacy

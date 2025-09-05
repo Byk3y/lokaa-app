@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSpace, SpaceData } from '@/hooks/useSpace';
+import { useSpace } from '@/hooks/useSpace';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
 /**

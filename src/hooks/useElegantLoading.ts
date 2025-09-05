@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
  */
 export function useElegantLoading(
   isLoading: boolean, 
-  minLoadingTimeMs: number = 500
+  minLoadingTimeMs = 500
 ): boolean {
   const [visibleLoading, setVisibleLoading] = useState(isLoading);
   const [loadingStartTime, setLoadingStartTime] = useState(0);

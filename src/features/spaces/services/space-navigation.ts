@@ -31,7 +31,7 @@ import {
  */
 export async function redirectToSpace(
   navigate?: NavigateFunction,
-  replace: boolean = true
+  replace = true
 ): Promise<boolean> {
   log.debug('Service', '🚀 Starting space redirection');
   

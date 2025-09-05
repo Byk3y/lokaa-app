@@ -27,7 +27,7 @@ export const useNewPostsState = ({
     setIsLoadingNewPosts(true);
     setLoadError(null);
     
-    const attemptLoad = async (attempt: number = 1): Promise<void> => {
+    const attemptLoad = async (attempt = 1): Promise<void> => {
       try {
   
         

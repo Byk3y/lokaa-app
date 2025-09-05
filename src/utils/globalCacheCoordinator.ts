@@ -149,7 +149,7 @@ export const cacheQueries = {
   },
   
   // PHASE 3A FIX: Add missing posts method
-  posts: async (spaceId: string, subscriberId: string, page: number = 1, limit: number = 25): Promise<any[]> => {
+  posts: async (spaceId: string, subscriberId: string, page = 1, limit = 25): Promise<any[]> => {
     const key = `posts:${spaceId}:${page}:${limit}`;
     
     return globalCache.get(

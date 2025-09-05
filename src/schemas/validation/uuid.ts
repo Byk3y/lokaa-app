@@ -173,7 +173,7 @@ export function validateUUIDs(uuids: string[]): {
 /**
  * Create custom UUID schema with field-specific error message
  */
-export function createUUIDSchema(fieldName: string, isOptional: boolean = false): z.ZodSchema {
+export function createUUIDSchema(fieldName: string, isOptional = false): z.ZodSchema {
   const baseSchema = z.string().refine(isValidUUID, {
     message: `${fieldName} must be a valid UUID format`,
   });

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { CourseRouteManager, useCourseRouteManager } from '@/components/classroom/routing/CourseRouteManager';
-import type { RouteState, RouteError, RouteOperation } from '@/types/classroom/courseDetail';
+import type { RouteState, RouteError } from '@/types/classroom/courseDetail';
 
 // Mock hooks and services
 vi.mock('@/hooks/useMediaQuery', () => ({
@@ -19,23 +19,6 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 describe('Course Routing Tests', () => {
-  const mockRouteState: RouteState = {
-    currentRoute: '/course/course-123',
-    navigationHistory: ['/course/course-123'],
-    breadcrumbs: [
-      { label: 'Courses', path: '/courses' },
-      { label: 'Test Course', path: '/course/course-123' },
-    ],
-    lastVisitedCourse: 'course-123',
-    lastVisitedLesson: 'lesson-1',
-  };
-
-  const mockRouteError: RouteError = {
-    type: 'permission',
-    message: 'Access denied',
-    timestamp: Date.now(),
-    recoverable: true,
-  };
 
   beforeEach(() => {
     vi.clearAllMocks();

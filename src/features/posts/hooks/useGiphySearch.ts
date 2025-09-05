@@ -45,7 +45,7 @@ export function useGiphySearch({ onGifSelected, onGifSelectedForContent, disable
   };
   
   // Function to fetch GIFs by category
-  const fetchGifsForCategory = (category: string, offset: number = 0) => {
+  const fetchGifsForCategory = (category: string, offset = 0) => {
     setActiveGifCategory(category);
     return fetchGifsByCategory(category, offset);
   };

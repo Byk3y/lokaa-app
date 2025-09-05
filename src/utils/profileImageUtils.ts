@@ -20,7 +20,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     const filePath = `profiles/${user.id}/${fileName}`;
     
     // Upload the file to Supabase Storage
-    const { data, error } = await getSupabaseClient().storage
+    const { error } = await getSupabaseClient().storage
       .from('avatars')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -44,7 +44,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     }
     
     // Update user metadata with the new avatar URL
-    const { error: updateError } = await getSupabaseClient().auth.updateUser({
+    const { error } = await getSupabaseClient().auth.updateUser({
       data: { 
         avatar_url: publicUrl,
         avatar_path: filePath,

@@ -139,7 +139,7 @@ export const usePostComments = ({
   }, [initialComments]);
 
   // 🎯 PHASE 2: Enhanced navigation skip logic with better timing and context awareness
-  const shouldSkipFetch = useCallback((isForAvatars: boolean = false, isModalContext: boolean = false) => {
+  const shouldSkipFetch = useCallback((isForAvatars = false, isModalContext = false) => {
     // 🔥 FIX: Don't skip fetches when they're specifically for avatar display
     if (isForAvatars) {
       return false;
@@ -238,7 +238,7 @@ export const usePostComments = ({
   }, [postId]);
 
   // 🎯 PHASE 2: Navigation-aware fetch with modal context support
-  const fetchComments = useCallback(async (forceRefresh: boolean = false, isForAvatars: boolean = false, isModalContext: boolean = false) => {
+  const fetchComments = useCallback(async (forceRefresh = false, isForAvatars = false, isModalContext = false) => {
     if (!postId) return;
     
     // 🎭 OPTIMIZED: Never skip avatar requests - they use lightweight queries

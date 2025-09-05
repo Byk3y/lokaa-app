@@ -69,7 +69,7 @@ export interface UUIDValidationResult {
   };
 }
 
-export function validateUUIDDetailed(value: string, fieldName: string = 'UUID'): UUIDValidationResult {
+export function validateUUIDDetailed(value: string, fieldName = 'UUID'): UUIDValidationResult {
   if (!value || typeof value !== 'string') {
     return {
       isValid: false,

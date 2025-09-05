@@ -27,7 +27,7 @@ import { SEOAnalytics } from '@/utils/analytics';
 
 
 // Helper function to resolve image URLs that might be stored in localStorage
-const resolveImageUrl = (imageUrl: string | null, fallbackUrl: string = '/default-cover.jpg'): string => {
+const resolveImageUrl = (imageUrl: string | null, fallbackUrl = '/default-cover.jpg'): string => {
   if (!imageUrl) return fallbackUrl;
   
   // If the URL starts with 'local:', retrieve from localStorage

@@ -29,7 +29,7 @@ export class EmergencyRollback {
   /**
    * Force rollback to legacy system
    */
-  async forceLegacyMode(reason: string = 'manual_rollback'): Promise<void> {
+  async forceLegacyMode(reason = 'manual_rollback'): Promise<void> {
     log.warn('Utils', '🚨 [EmergencyRollback] Initiating emergency rollback...');
     
     // Store rollback flags

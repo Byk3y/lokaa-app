@@ -142,7 +142,7 @@ export const useErrorHandling = (options: UseErrorHandlingOptions = {}): UseErro
     }
   }, [showToasts]);
 
-  const safeNavigate = useCallback((path: string, fallback: string = '/'): void => {
+  const safeNavigate = useCallback((path: string, fallback = '/'): void => {
     try {
       navigate(path);
     } catch (error) {

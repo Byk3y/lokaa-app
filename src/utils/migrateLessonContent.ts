@@ -62,7 +62,7 @@ export async function identifyLessonsWithDuplicateVideos(): Promise<LessonWithDu
 /**
  * Cleans video content from HTML in educational_content for lessons that have content_url
  */
-export async function cleanDuplicateVideoContent(dryRun: boolean = true): Promise<{
+export async function cleanDuplicateVideoContent(dryRun = true): Promise<{
   processed: number;
   cleaned: number;
   errors: number;

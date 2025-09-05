@@ -33,7 +33,7 @@ export function usePostsFetching(params: FetchingParams) {
   } = params;
 
   // Silent fetch (doesn't affect loading state)
-  const fetchPostsSilently = useCallback(async (page: number = 1, forceRefresh: boolean = false) => {
+  const fetchPostsSilently = useCallback(async (page = 1, forceRefresh = false) => {
     if (!spaceId) return;
 
     try {
@@ -98,7 +98,7 @@ export function usePostsFetching(params: FetchingParams) {
   }, [spaceId, subscriberId, setPosts, setPinnedPosts, setCurrentPage, setTotalCount]);
 
   // Regular fetch with loading states
-  const fetchPosts = useCallback(async (page: number = 1, forceRefresh: boolean = false) => {
+  const fetchPosts = useCallback(async (page = 1, forceRefresh = false) => {
     if (!spaceId) return;
 
     const maxRetries = 2;

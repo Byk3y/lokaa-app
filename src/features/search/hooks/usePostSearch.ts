@@ -72,7 +72,7 @@ export function usePostSearch({
   const performSearch = useCallback(async (
     searchQuery: string,
     searchFilters: SearchFilters,
-    isLoadMore: boolean = false
+    isLoadMore = false
   ) => {
     if (!spaceId || !searchQuery.trim()) {
       devLogger.log('usePostSearch', 'Clearing results - invalid query or spaceId:', { 

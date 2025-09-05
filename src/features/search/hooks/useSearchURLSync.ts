@@ -9,7 +9,7 @@ interface UseSearchURLSyncReturn {
 
 export function useSearchURLSync(
   spaceId: string | null,
-  enabled: boolean = true
+  enabled = true
 ): UseSearchURLSyncReturn {
   const location = useLocation();
   const navigate = useNavigate();

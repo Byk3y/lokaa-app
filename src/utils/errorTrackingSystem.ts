@@ -519,7 +519,7 @@ class ErrorTrackingSystem {
       // Handle className safely - it might be a string or SVGAnimatedString
       let className = '';
       if (element.className) {
-        let classNameValue: string = '';
+        let classNameValue = '';
         
         if (typeof element.className === 'string') {
           classNameValue = element.className;

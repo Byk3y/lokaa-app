@@ -108,7 +108,7 @@ export async function validateSession(req: Request): Promise<SessionValidationRe
 /**
  * Creates a standard error response
  */
-export function createErrorResponse(error: string, status: number = 500) {
+export function createErrorResponse(error: string, status = 500) {
   return new Response(
     JSON.stringify({
       code: error.toUpperCase().replace(/\s+/g, '_'),

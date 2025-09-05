@@ -245,7 +245,7 @@ export class SchemaGenerator {
   private baseUrl: string;
   private organizationName: string;
 
-  constructor(baseUrl: string = 'https://lokaa.app', organizationName: string = 'Lokaa') {
+  constructor(baseUrl = 'https://lokaa.app', organizationName = 'Lokaa') {
     this.baseUrl = baseUrl;
     this.organizationName = organizationName;
   }

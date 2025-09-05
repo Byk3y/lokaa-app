@@ -240,7 +240,7 @@ export class AppInitializationService {
         this.debugInterfaces.debugSpaceEvents = {
           getState: () => spaceEventCoordinator.getState(),
           getDebugInfo: () => spaceEventCoordinator.getDebugInfo(),
-          dispatchTestEvent: (type: string = 'space:data-updated') => {
+          dispatchTestEvent: (type = 'space:data-updated') => {
             return spaceEventCoordinator.dispatchEvent(type as any, {
               spaceId: 'debug-test-space',
               subdomain: 'debug-test',
