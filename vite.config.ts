@@ -466,14 +466,9 @@ export default defineConfig(({ mode }) => {
               return 'animation-vendor';
             }
             
-            // Phase 3.2: Split validation library
-            if (id.includes('zod')) {
-              return 'validation-vendor';
-            }
-            
-            // Phase 3.2: Split form libraries
-            if (id.includes('react-hook-form') || id.includes('@hookform')) {
-              return 'form-vendor';
+            // Phase 3.2: Keep form validation libraries together to prevent circular dependencies
+            if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
+              return 'form-validation-vendor';
             }
             
             // Phase 3.2: Split state management
