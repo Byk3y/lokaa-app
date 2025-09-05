@@ -466,10 +466,10 @@ export default defineConfig(({ mode }) => {
               return 'animation-vendor';
             }
             
-            // Phase 3.2: Keep form validation libraries together to prevent circular dependencies
-            if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
-              return 'form-validation-vendor';
-            }
+            // Phase 3.2: Temporarily disable form validation chunking to isolate the issue
+            // if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
+            //   return 'form-validation-vendor';
+            // }
             
             // Phase 3.2: Split state management
             if (id.includes('zustand') || id.includes('immer')) {

@@ -26,6 +26,7 @@ export function useFormValidation<T extends z.ZodType>(
   options: ValidationOptions = {}
 ) {
   // TEMPORARY FIX: Return minimal implementation to prevent bundling issues
+  // This should prevent any JavaScript runtime errors
   return {
     validateData: async () => ({ isValid: true, data: {} }),
     handleChange: () => {},
