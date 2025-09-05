@@ -136,7 +136,13 @@ export function useOptimizedCachedPosts(
   useEffect(() => {
     if (!spaceId || !user?.id) return;
 
-    // Reset state for space switch
+    // Check if this is a space switch
+    const isSpaceSwitch = hasAutoFetched.current.size > 0 && !hasAutoFetched.current.has(spaceId);
+    
+    // Check for cached data first (before any reset)
+    const { regular, pinned, hasValidCache } = checkCache(spaceId);
+    
+    // Reset state for space switch (only if no valid cache)
     const resetStateForSpaceSwitch = () => {
       devLogger.log('CacheDebug', `🔄 [SpaceSwitch] Resetting state for space: ${spaceId}`, { subscriberId: subscriberId.current });
       clearCacheForSpaceSwitch(spaceId);
@@ -148,17 +154,11 @@ export function useOptimizedCachedPosts(
       setError(null);
     };
     
-    // Check if this is a space switch
-    const isSpaceSwitch = hasAutoFetched.current.size > 0 && !hasAutoFetched.current.has(spaceId);
-    
-    if (isSpaceSwitch) {
+    if (isSpaceSwitch && !hasValidCache) {
       resetStateForSpaceSwitch();
     }
     
-    // Check for cached data first
-    const { regular, pinned, hasValidCache } = checkCache(spaceId);
-    
-    if (hasValidCache && !isSpaceSwitch) {
+    if (hasValidCache) {
       devLogger.log('CacheDebug', `🔄 [CacheLoad] Loading from cache for space: ${spaceId}`, { subscriberId: subscriberId.current });
       
       // Load from cache
