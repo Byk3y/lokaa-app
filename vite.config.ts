@@ -500,9 +500,13 @@ export default defineConfig(({ mode }) => {
               return 'router-vendor';
             }
             
-            // Phase 3.2: Core utilities
+            // Phase 3.2: Core utilities (but keep Zod-dependent files in main vendor)
             if (id.includes('lodash') || id.includes('uuid') || id.includes('date-fns') || 
                 id.includes('clsx') || id.includes('tailwind-merge')) {
+              // Don't put Zod-dependent files in utils-vendor to prevent dependency issues
+              if (id.includes('zod') || id.includes('schemas') || id.includes('validation')) {
+                return null; // Let it go to main vendor chunk
+              }
               return 'utils-vendor';
             }
             
