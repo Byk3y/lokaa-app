@@ -39,7 +39,7 @@ const createOptimizedChunks = () => ({
   'auth-module': [], // Will be populated dynamically
 });
 
-// 🔹 Enhanced smart chunk splitting based on module path and usage patterns
+// 🔹 Smart chunk splitting based on module path
 const createDynamicChunks = (id: string) => {
   // Performance optimizations go to performance chunk
   if (id.includes('src/hooks/useCleanupTracker') ||
@@ -47,20 +47,6 @@ const createDynamicChunks = (id: string) => {
       id.includes('src/utils/persistentCache') ||
       id.includes('src/components/performance')) {
     return 'performance-core';
-  }
-  
-  // Supabase feature-specific chunks
-  if (id.includes('node_modules/@supabase')) {
-    if (id.includes('auth') || id.includes('gotrue')) {
-      return 'supabase-auth';
-    }
-    if (id.includes('realtime') || id.includes('websocket')) {
-      return 'supabase-realtime';
-    }
-    if (id.includes('storage') || id.includes('upload')) {
-      return 'supabase-storage';
-    }
-    return 'supabase-core';
   }
   
   // Chat features
@@ -72,7 +58,7 @@ const createDynamicChunks = (id: string) => {
   if (id.includes('src/features/spaces') || 
       id.includes('src/pages/Space') ||
       id.includes('src/components/space')) {
-    // Split space components by type for better caching
+    // Split space components by type
     if (id.includes('FeedTab') || id.includes('PostCard') || id.includes('CreatePostModal')) {
       return 'space-feed';
     }
@@ -109,19 +95,12 @@ const createDynamicChunks = (id: string) => {
     return 'settings-module';
   }
   
-  // Editor and content creation
-  if (id.includes('src/components/editor') ||
-      id.includes('src/hooks/editor') ||
-      id.includes('rich-text-editor')) {
-    return 'editor-module';
-  }
-  
   // Provider optimizations
   if (id.includes('src/providers/OptimizedProviders')) {
     return 'provider-core';
   }
   
-  // Keep node_modules in vendor chunks (handled by manual chunks above)
+  // Keep node_modules in vendor chunks
   if (id.includes('node_modules')) {
     return null; // Let manual chunks handle this
   }
@@ -410,7 +389,7 @@ export default defineConfig(({ mode }) => {
       target: 'es2020',
       minify: 'esbuild',
       cssCodeSplit: true,
-      chunkSizeWarningLimit: 200, // Phase 3.2: More aggressive chunk size limit
+      chunkSizeWarningLimit: 500, // Aggressive optimization - target smaller chunks
       sourcemap: false, // Disable sourcemaps in production for faster builds
       modulePreload: {
         polyfill: false // Disable module preload polyfill to avoid conflicts
@@ -426,59 +405,28 @@ export default defineConfig(({ mode }) => {
           return false; // Bundle everything by default
         },
         output: {
-              // CONSERVATIVE: Keep form validation libraries together, split only safe libraries
-    manualChunks: (id) => {
-      // Split large, independent libraries
-      if (id.includes('@emoji-mart')) {
-        return 'emoji-vendor';
-      }
-      
-      // Keep React ecosystem together
-      if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-        return 'react-vendor';
-      }
-      
-      // Keep form validation ecosystem together (react-hook-form, zod, @hookform)
-      if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
-        return 'form-vendor';
-      }
-      
-      // Keep UI libraries together
-      if (id.includes('@radix-ui') || id.includes('lucide-react')) {
-        return 'ui-vendor';
-      }
-      
-      // Keep Supabase together
-      if (id.includes('@supabase')) {
-        return 'supabase-vendor';
-      }
-      
-      // Everything else goes to main vendor chunk
-      if (id.includes('node_modules')) {
-        return 'vendor';
-      }
-
-      return null;
-    },
-          // Phase 3.2: Optimize chunk naming for better caching
-          chunkFileNames: (chunkInfo) => {
-            const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk';
-            return `js/[name]-[hash].js`;
-          },
-          entryFileNames: 'js/[name]-[hash].js',
-          assetFileNames: (assetInfo) => {
-            const info = assetInfo.name.split('.');
-            const ext = info[info.length - 1];
-            if (/\.(css)$/.test(assetInfo.name)) {
-              return `css/[name]-[hash].${ext}`;
-            }
-            if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico)$/i.test(assetInfo.name)) {
-              return `images/[name]-[hash].${ext}`;
-            }
-            if (/\.(woff2?|eot|ttf|otf)$/i.test(assetInfo.name)) {
-              return `fonts/[name]-[hash].${ext}`;
-            }
-            return `assets/[name]-[hash].${ext}`;
+          manualChunks: {
+            // Explicitly define React in main bundle by NOT including it here
+            // All other major dependencies get their own chunks
+            'vendor': ['lodash', 'uuid', 'date-fns', 'clsx', 'tailwind-merge'],
+            'ui-vendor': [
+              '@radix-ui/react-dialog', 
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-avatar',
+              '@radix-ui/react-tooltip',
+              '@radix-ui/react-tabs',
+              '@radix-ui/react-select',
+              'lucide-react'
+            ],
+            'supabase-vendor': ['@supabase/supabase-js'],
+            'router-vendor': ['react-router-dom'],
+            'form-vendor': ['react-hook-form', '@hookform/resolvers'],
+            'query-vendor': ['@tanstack/react-query'],
+            'state-vendor': ['zustand', 'immer'],
+            'validation-vendor': ['zod'],
+            'animation-vendor': ['framer-motion'],
+            'editor-vendor': ['@tiptap/react', '@tiptap/starter-kit'],
+            'content-vendor': ['@emoji-mart/react', '@emoji-mart/data']
           }
         }
       }
@@ -489,13 +437,9 @@ export default defineConfig(({ mode }) => {
     css: {
       devSourcemap: mode === 'development',
       postcss: {
-        plugins: [
-          tailwindcss, 
-          autoprefixer,
-          // Phase 3.2: CSS optimization is handled by Vite's built-in minification
-        ],
+        plugins: [tailwindcss, autoprefixer],
       },
-      // Phase 3.2: Optimize CSS rebuilds during development
+      // Optimize CSS rebuilds during development
       preprocessorOptions: {
         css: {
           // Reduce CSS dependency tracking sensitivity
