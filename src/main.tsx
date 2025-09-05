@@ -102,6 +102,21 @@ if ('serviceWorker' in navigator && navigator.serviceWorker) {
   }
 })(); */
 
+// Add global error handlers for production
+if (import.meta.env.PROD) {
+  window.addEventListener('error', (event) => {
+    console.error('Global error caught:', event.error);
+    // Prevent the error from crashing the app
+    event.preventDefault();
+  });
+  
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    // Prevent the error from crashing the app
+    event.preventDefault();
+  });
+}
+
 // Initialize React app with error handling
 try {
   const rootElement = document.getElementById('root');
