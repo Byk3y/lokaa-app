@@ -426,91 +426,14 @@ export default defineConfig(({ mode }) => {
           return false; // Bundle everything by default
         },
         output: {
-          // Phase 3.2: Enhanced chunk splitting for better performance
+          // SIMPLIFIED: Put everything in main vendor chunk to avoid dependency issues
           manualChunks: (id) => {
-            // Phase 3.2: Split Supabase into smaller, more focused chunks
-            if (id.includes('@supabase/supabase-js')) {
-              if (id.includes('auth') || id.includes('gotrue')) {
-                return 'supabase-auth';
-              }
-              if (id.includes('realtime') || id.includes('websocket')) {
-                return 'supabase-realtime';
-              }
-              if (id.includes('storage') || id.includes('upload')) {
-                return 'supabase-storage';
-              }
-              if (id.includes('functions')) {
-                return 'supabase-functions';
-              }
-              return 'supabase-core';
-            }
-            
-            // Phase 3.2: Split large content libraries
+            // Only split the largest libraries that don't have dependencies
             if (id.includes('@emoji-mart')) {
               return 'emoji-vendor';
             }
             
-            // Phase 3.2: Split editor into smaller chunks
-            if (id.includes('@tiptap')) {
-              if (id.includes('starter-kit')) {
-                return 'editor-core';
-              }
-              if (id.includes('react')) {
-                return 'editor-react';
-              }
-              return 'editor-vendor';
-            }
-            
-            // Phase 3.2: Split animation library
-            if (id.includes('framer-motion')) {
-              return 'animation-vendor';
-            }
-            
-            // Phase 3.2: Temporarily disable form validation chunking to isolate the issue
-            // if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
-            //   return 'form-validation-vendor';
-            // }
-            
-            // Phase 3.2: Split state management
-            if (id.includes('zustand') || id.includes('immer')) {
-              return 'state-vendor';
-            }
-            
-            // Phase 3.2: Split UI libraries by size
-            if (id.includes('@radix-ui')) {
-              if (id.includes('react-dialog') || id.includes('react-dropdown-menu')) {
-                return 'ui-core';
-              }
-              if (id.includes('react-select') || id.includes('react-checkbox')) {
-                return 'ui-forms';
-              }
-              if (id.includes('react-tabs') || id.includes('react-accordion')) {
-                return 'ui-layout';
-              }
-              return 'ui-other';
-            }
-            
-            // Phase 3.2: Split query library
-            if (id.includes('@tanstack/react-query')) {
-              return 'query-vendor';
-            }
-            
-            // Phase 3.2: Split router
-            if (id.includes('react-router-dom')) {
-              return 'router-vendor';
-            }
-            
-            // Phase 3.2: Core utilities (but keep Zod-dependent files in main vendor)
-            if (id.includes('lodash') || id.includes('uuid') || id.includes('date-fns') || 
-                id.includes('clsx') || id.includes('tailwind-merge')) {
-              // Don't put Zod-dependent files in utils-vendor to prevent dependency issues
-              if (id.includes('zod') || id.includes('schemas') || id.includes('validation')) {
-                return null; // Let it go to main vendor chunk
-              }
-              return 'utils-vendor';
-            }
-            
-            // Phase 3.2: Keep node_modules in vendor chunks
+            // Everything else goes to main vendor chunk
             if (id.includes('node_modules')) {
               return 'vendor';
             }
