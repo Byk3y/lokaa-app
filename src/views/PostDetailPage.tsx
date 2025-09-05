@@ -14,8 +14,10 @@ import type { Attachment } from '@/features/posts/types/postTypes';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 
 /**
- * This page handles standalone post views at /:spaceSlug/space/:postSlug
+ * This page handles standalone post views at /:subdomain/post/:postSlug
  * It can be accessed directly or via history.pushState from post cards
+ * 
+ * Phase 3.2: Updated for new slug-based URL pattern
  */
 export default function PostDetailPage() {
   const { subdomain, postSlug } = useParams<{ subdomain: string; postSlug: string }>();
@@ -33,12 +35,15 @@ export default function PostDetailPage() {
   useEffect(() => {
     const currentPath = location.pathname;
     
-    // Check for /space/space duplication
-    if (currentPath.includes('/space/space')) {
-      log.warn('Page', 'PostDetailPage: Detected malformed URL with /space/space duplication:', currentPath);
-      const correctedPath = currentPath.replace(/\/space\/space/g, '/space');
-      navigate(correctedPath, { replace: true });
-      return;
+    // Phase 3.2: Validate new URL pattern /:subdomain/post/:postSlug
+    const expectedPattern = `/${subdomain}/post/${postSlug}`;
+    if (currentPath !== expectedPattern) {
+      log.warn('Page', 'PostDetailPage: URL pattern mismatch:', {
+        current: currentPath,
+        expected: expectedPattern,
+        subdomain,
+        postSlug
+      });
     }
     
     // Validate subdomain format
@@ -100,10 +105,11 @@ export default function PostDetailPage() {
         }
         
         // Then fetch the post by slug and space_id
-        log.debug('Page', '[Debug Post Fetch] Parameters:', {
+        log.debug('Page', '[Debug Post Fetch] Parameters (Phase 3.2 - New URL Pattern):', {
           subdomain,
           postSlug,
-          spaceIdUsed: spaceData.id 
+          spaceIdUsed: spaceData.id,
+          urlPattern: `/:subdomain/post/:postSlug`
         });
 
         const { data: postDataRaw, error: postError } = await getSupabaseClient()
@@ -175,9 +181,9 @@ export default function PostDetailPage() {
               throw new Error('Post not found');
             }
 
-            // Redirect to the slug URL if this was a legacy ID-based URL
+            // Redirect to the new slug URL pattern if this was a legacy ID-based URL
             if (legacyPost && legacyPost.slug) {
-              navigate(`/${subdomain}/space/${legacyPost.slug}`, {
+              navigate(`/${subdomain}/post/${legacyPost.slug}`, {
                 replace: true,
                 state: { preserveSpace: true }
               });

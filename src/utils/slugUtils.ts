@@ -3,6 +3,12 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 
 /**
  * Utility functions for generating and working with URL slugs
+ * 
+ * Phase 3.1: Updated for new URL structure
+ * - Post URLs: /:subdomain/posts/:slug (removed /space)
+ * - Course URLs: /:subdomain/courses/:slug (removed /space/classroom)
+ * - Lesson URLs: /:subdomain/courses/:course-slug/lessons/:lesson-slug
+ * - Backward compatibility maintained for legacy patterns
  */
 
 /**
@@ -119,8 +125,8 @@ export function getPostUrl(
       log.warn('Utils', "Post slug is missing, falling back to ID:", post.id);
     }
     
-    // Use post slug if available, otherwise fall back to ID
-    const result = `/${space.subdomain}/space/${post.slug || post.id}`;
+    // Phase 3.1: New URL structure - /:subdomain/posts/:slug
+    const result = `/${space.subdomain}/posts/${post.slug || post.id}`;
     log.debug('Utils', 'Generated URL:', result);
     return result;
   } 
@@ -132,7 +138,8 @@ export function getPostUrl(
       postSlug: postSlugOrSpace
     });
     
-    const result = `/${spaceSlugOrPost}/space/${postSlugOrSpace}`;
+    // Phase 3.1: New URL structure - /:subdomain/posts/:slug
+    const result = `/${spaceSlugOrPost}/posts/${postSlugOrSpace}`;
     log.debug('Utils', 'Generated URL:', result);
     return result;
   }
@@ -153,7 +160,8 @@ export function getPostUrl(
  * @returns The canonical URL including domain
  */
 export function getCanonicalPostUrl(spaceSlug: string, postSlug: string): string {
-  return `${window.location.origin}/${spaceSlug}/space/${postSlug}`;
+  // Phase 3.1: New URL structure - /:subdomain/posts/:slug
+  return `${window.location.origin}/${spaceSlug}/posts/${postSlug}`;
 }
 
 /**
@@ -234,7 +242,7 @@ export function getCourseUrl(
     
     if (!course || !course.id) {
       log.error('Utils', 'Invalid course or missing ID:', course);
-      return `/${space.subdomain}/space/classroom`; // Return to classroom as fallback
+      return `/${space.subdomain}/courses`; // Return to courses as fallback
     }
     
     // Debug object course parameters
@@ -250,8 +258,8 @@ export function getCourseUrl(
       log.warn('Utils', "Course slug is missing, falling back to ID:", course.id);
     }
     
-    // Use course slug if available, otherwise fall back to ID
-    const baseUrl = `/${space.subdomain}/space/classroom/${course.slug || course.id}`;
+    // Phase 3.1: New URL structure - /:subdomain/courses/:slug
+    const baseUrl = `/${space.subdomain}/courses/${course.slug || course.id}`;
     const result = moduleId ? `${baseUrl}?md=${moduleId}` : baseUrl;
     log.debug('Utils', 'Generated course URL:', result);
     return result;
@@ -265,7 +273,8 @@ export function getCourseUrl(
       moduleId
     });
     
-    const baseUrl = `/${spaceSlugOrCourse}/space/classroom/${courseSlugOrSpace}`;
+    // Phase 3.1: New URL structure - /:subdomain/courses/:slug
+    const baseUrl = `/${spaceSlugOrCourse}/courses/${courseSlugOrSpace}`;
     const result = moduleId ? `${baseUrl}?md=${moduleId}` : baseUrl;
     log.debug('Utils', 'Generated course URL:', result);
     return result;
@@ -288,12 +297,13 @@ export function getCourseUrl(
  * @returns The canonical URL including domain
  */
 export function getCanonicalCourseUrl(spaceSlug: string, courseSlug: string, moduleId?: string): string {
-  const baseUrl = `${window.location.origin}/${spaceSlug}/space/classroom/${courseSlug}`;
+  // Phase 3.1: New URL structure - /:subdomain/courses/:slug
+  const baseUrl = `${window.location.origin}/${spaceSlug}/courses/${courseSlug}`;
   return moduleId ? `${baseUrl}?md=${moduleId}` : baseUrl;
 }
 
 /**
- * Generate a lesson URL with lesson ID (Skool-style)
+ * Generate a lesson URL with lesson ID (Skool-style) - LEGACY
  * 
  * @param spaceSlug The slug of the space
  * @param courseShortId The short ID of the course (8 characters)
@@ -305,7 +315,7 @@ export function getLessonUrl(spaceSlug: string, courseShortId: string, lessonId:
 }
 
 /**
- * Generate a canonical lesson URL for SEO purposes (Skool-style)
+ * Generate a canonical lesson URL for SEO purposes (Skool-style) - LEGACY
  * 
  * @param spaceSlug The slug of the space
  * @param courseShortId The short ID of the course (8 characters)
@@ -314,6 +324,50 @@ export function getLessonUrl(spaceSlug: string, courseShortId: string, lessonId:
  */
 export function getCanonicalLessonUrl(spaceSlug: string, courseShortId: string, lessonId: string): string {
   return `${window.location.origin}/${spaceSlug}/space/classroom/${courseShortId}?md=${lessonId}`;
+}
+
+/**
+ * Generate a lesson URL with hierarchical structure (Phase 3.1)
+ * 
+ * @param spaceSlug The slug of the space
+ * @param courseSlug The slug of the course
+ * @param lessonSlug The slug of the lesson
+ * @returns The URL for the specific lesson
+ */
+export function getLessonUrlNew(spaceSlug: string, courseSlug: string, lessonSlug: string): string {
+  return `/${spaceSlug}/courses/${courseSlug}/lessons/${lessonSlug}`;
+}
+
+/**
+ * Generate a canonical lesson URL for SEO purposes (Phase 3.1)
+ * 
+ * @param spaceSlug The slug of the space
+ * @param courseSlug The slug of the course
+ * @param lessonSlug The slug of the lesson
+ * @returns The canonical URL including domain
+ */
+export function getCanonicalLessonUrlNew(spaceSlug: string, courseSlug: string, lessonSlug: string): string {
+  return `${window.location.origin}/${spaceSlug}/courses/${courseSlug}/lessons/${lessonSlug}`;
+}
+
+/**
+ * Generate a user profile URL (Phase 3.1)
+ * 
+ * @param userSlug The slug of the user
+ * @returns The URL for the user profile
+ */
+export function getUserProfileUrl(userSlug: string): string {
+  return `/@${userSlug}`;
+}
+
+/**
+ * Generate a canonical user profile URL for SEO purposes (Phase 3.1)
+ * 
+ * @param userSlug The slug of the user
+ * @returns The canonical URL including domain
+ */
+export function getCanonicalUserProfileUrl(userSlug: string): string {
+  return `${window.location.origin}/@${userSlug}`;
 }
 
 

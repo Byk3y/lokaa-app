@@ -24,6 +24,11 @@ import { supabaseLoadFailedBlocker } from '@/utils/supabaseLoadFailedBlocker';
 // Service Worker cleanup
 import '@/utils/serviceWorkerCleanup';
 
+// Phase 3.2: Performance optimizations
+import { initCriticalCSS } from '@/utils/criticalCSS';
+import { initFontOptimization } from '@/utils/fontOptimizer';
+import { performanceMonitor } from '@/utils/performanceMonitor';
+
 // Dev-only console helpers
 if (import.meta.env.DEV) {
   import('@/devtools/exposeForConsole').then(({ exposeForConsole }) => {
@@ -69,6 +74,35 @@ export default function App() {
       });
     }
   }, [justCameOnline, toast]);
+
+  // Phase 3.2: Initialize performance optimizations
+  useEffect(() => {
+    // Initialize critical CSS optimization
+    initCriticalCSS({
+      enabled: process.env.NODE_ENV === 'production',
+      maxSize: 14000, // 14KB limit
+    });
+
+    // Initialize font optimization
+    initFontOptimization({
+      enabled: process.env.NODE_ENV === 'production',
+      displayStrategy: 'swap',
+      useSwap: true,
+    });
+
+    // Initialize performance monitoring
+    performanceMonitor.init();
+
+    // Log performance metrics in development
+    if (process.env.NODE_ENV === 'development') {
+      setTimeout(() => {
+        const metrics = performanceMonitor.getMetrics();
+        const score = performanceMonitor.getPerformanceScore();
+        console.log('🚀 Performance Metrics:', metrics);
+        console.log('📊 Performance Score:', score.toFixed(1) + '/100');
+      }, 3000);
+    }
+  }, []);
 
   // Listen for manual reload requests from supabaseLoadFailedBlocker
   useEffect(() => {

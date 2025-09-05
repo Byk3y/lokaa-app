@@ -1,10 +1,10 @@
 import { log } from '@/utils/logger';
-import React, { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from 'react'
 import { getSupabaseClient } from '@/integrations/supabase/client'
 import { useOptimizedAuth } from './AuthContext'
 import { useLocation } from 'react-router-dom'
-import { fetchSpaceWithFallback, type SpaceFallbackData } from '@/utils/spaceDataFallback'
 import { Database } from '@/types/database.types'
+import { isSpaceRelatedUrl, extractSpaceFromUrl, getContentTypeFromUrl } from '@/utils/spaceContextUtils'
 
 export type Space = Database['public']['Tables']['spaces']['Row'] & {
   // Add the correct field names that actually exist in the database
@@ -82,6 +82,10 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client not available');
+      }
+      
       const { data, error } = await supabase
         .from('spaces')
         .select('*')
@@ -92,15 +96,37 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
       
       setSpace(data);
       setError(null);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🧪 [Phase 3.2] SpaceContext: Space data loaded successfully for: ${data.subdomain}`);
+      }
       return data;
     } catch (err) {
-      log.error('Context', 'Error fetching space:', err);
-      setError(err as Error);
+      const error = err instanceof Error ? err : new Error(String(err));
+      log.error('Context', 'Error fetching space:', error);
+      setError(error);
       return null;
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // ENHANCED: Expose space context to global window for development/testing
+  useEffect(() => {
+    // Only expose in development mode for testing
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      (window as any).spaceContext = {
+        space,
+        setSpace,
+        loading,
+        error,
+        fetchSpaceData,
+        clearCache: () => {
+          spaceCache.current.clear();
+          activeFetches.current.clear();
+        }
+      };
+    }
+  }, [space, setSpace, loading, error, fetchSpaceData]);
 
   // ENHANCED: Auto-fetch space data when URL subdomain changes
   useEffect(() => {
@@ -108,16 +134,17 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
       return; // Wait for auth to complete
     }
 
-    // Extract subdomain from current path (e.g., /music-business/space -> music-business)
-    const pathParts = location.pathname.split('/').filter(Boolean);
-    const currentSubdomain = pathParts[0];
+    // Extract subdomain from current path using utility function
+    const currentSubdomain = extractSpaceFromUrl(location.pathname);
+    
+    // Check if this is any space-related content URL using utility function
+    const isSpaceRelatedUrlCheck = isSpaceRelatedUrl(location.pathname);
     
     // Only auto-fetch if:
     // 1. We have a valid subdomain from URL
     // 2. It's not the special :subdomain placeholder
-    // 3. It looks like a space route pattern
+    // 3. It looks like a space-related route pattern (space, post, profile, course)
     // 4. We don't already have this space data loaded
-    const isSpaceRoute = pathParts.length >= 2 && pathParts[1] === 'space';
     const isValidSubdomain = currentSubdomain && 
                             currentSubdomain !== ':subdomain' && 
                             currentSubdomain !== 'app' && 
@@ -125,7 +152,15 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
                             currentSubdomain !== 'create-space' &&
                             currentSubdomain !== 'profile';
     
-    if (isSpaceRoute && isValidSubdomain) {
+    if (isSpaceRelatedUrlCheck && isValidSubdomain) {
+      // ENHANCED: Log the type of content URL detected
+      const urlType = getContentTypeFromUrl(location.pathname) || 'unknown';
+      
+      log.debug('SpaceManagement', `[SpaceContext] Detected ${urlType} URL: ${location.pathname} → space: ${currentSubdomain}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🧪 [Phase 3.2] SpaceContext: Detected content URL: ${urlType} at ${location.pathname}`);
+      }
+      
       // ENHANCED: More sophisticated check to prevent unnecessary fetches during navigation
       const needsNewData = !space || space.subdomain !== currentSubdomain;
       const hasActiveRequest = activeFetches.current.has(currentSubdomain);
@@ -172,7 +207,10 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         
         // If we found cached data, use it immediately and skip database fetch
         if (foundCachedData) {
-          log.debug('Context', `🚀 [SpaceContext] LOGIN OPTIMIZATION: Using cached data instead of database fetch for ${currentSubdomain}`);
+          log.debug('SpaceManagement', `🚀 [SpaceContext] LOGIN OPTIMIZATION: Using cached data instead of database fetch for ${currentSubdomain}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`🧪 [Phase 3.2] SpaceContext: Using cached space data for: ${currentSubdomain}`);
+          }
           setSpace(foundCachedData as Space);
           setError(null);
           // Update memory cache for future use
@@ -189,7 +227,10 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         // If we have cached data, use it immediately to prevent loading states
         if (hasCachedData) {
           const cached = spaceCache.current.get(currentSubdomain)!;
-          log.debug('Context', `⚡ [SpaceContext] Using immediate cache for navigation to ${currentSubdomain}`);
+          log.debug('SpaceManagement', `⚡ [SpaceContext] Using immediate cache for navigation to ${currentSubdomain}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`🧪 [Phase 3.2] SpaceContext: Using cached space data for navigation: ${currentSubdomain}`);
+          }
           setSpace(cached as Space);
           setError(null);
           return; // Don't fetch again if we have valid cache

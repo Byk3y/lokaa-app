@@ -1,6 +1,11 @@
 import { log } from '@/utils/logger';
 /**
  * URL Utilities for Space Navigation
+ * 
+ * Phase 3.1: Updated for new URL structure
+ * - Root space: /:subdomain (unified for all users)
+ * - Space sections: /:subdomain/:section (members only)
+ * - Backward compatibility maintained for legacy patterns
  */
 
 /**
@@ -10,6 +15,11 @@ import { log } from '@/utils/logger';
  * @returns The formatted URL string
  */
 export function getSpaceUrl(subdomain: string, section?: string): string {
+  if (!subdomain) {
+    log.warn('Utils', 'getSpaceUrl: subdomain is required');
+    return '/';
+  }
+
   // Normalize section names to ensure consistency
   // This helps prevent discrepancies between tab names and URL paths
   if (section) {
@@ -20,10 +30,32 @@ export function getSpaceUrl(subdomain: string, section?: string): string {
     if (section === 'classroom') section = 'classroom';
   }
   
+  // Phase 3.1: New URL structure - unified /:subdomain for root
   if (!section || section === 'community' || section === 'feed') {
     return `/${subdomain}`;
   }
+  
+  // Phase 3.1: Direct subdomain pattern for sections
   return `/${subdomain}/${section}`;
+}
+
+/**
+ * Generate a legacy space URL (for backward compatibility)
+ * @param subdomain The space subdomain
+ * @param section Optional section name
+ * @returns The legacy formatted URL string
+ */
+export function getLegacySpaceUrl(subdomain: string, section?: string): string {
+  if (!subdomain) {
+    log.warn('Utils', 'getLegacySpaceUrl: subdomain is required');
+    return '/';
+  }
+
+  if (!section || section === 'community' || section === 'feed') {
+    return `/${subdomain}/space`;
+  }
+  
+  return `/${subdomain}/space/${section}`;
 }
 
 /**

@@ -305,6 +305,11 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
             {/* Course detail pages - moved inside persistent shell to prevent unmounting */}
             <Route path="/:subdomain/course/:courseSlug" element={<div />} />
             
+            {/* NEW: Slug-based content routes (member-only) */}
+            <Route path="/:subdomain/space/classroom/:courseSlug" element={<div />} />
+            <Route path="/:subdomain/space/classroom/:courseSlug/:lessonSlug" element={<div />} />
+            <Route path="/:subdomain/profile/:username" element={<div />} />
+            
             {/* Discover page - moved inside persistent shell to prevent unmounting during navigation */}
             <Route path="/discover" element={<div />} />
           </Route>
@@ -321,6 +326,40 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
             <Route path="/:subdomain/debug" element={
               <Suspense fallback={<RouteLoadingFallback />}>
                 <LazyRoutes.SpaceDebugPage />
+              </Suspense>
+            } />
+          </Route>
+
+          {/* NEW: Legacy redirect routes for backward compatibility */}
+          <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
+            {/* Post redirects (ID to slug) */}
+            <Route path="/:subdomain/post/:postId" element={
+              <Suspense fallback={<SpaceLoadingFallback />}>
+                <LazyRoutes.PostLegacyRedirect />
+              </Suspense>
+            } />
+            <Route path="/spaces/:spaceId/posts/:postId" element={
+              <Suspense fallback={<SpaceLoadingFallback />}>
+                <LazyRoutes.PostLegacyRedirect />
+              </Suspense>
+            } />
+            
+            {/* Course redirects (ID to slug) */}
+            <Route path="/:subdomain/space/classroom/:courseId" element={
+              <Suspense fallback={<SpaceLoadingFallback />}>
+                <LazyRoutes.CourseLegacyRedirect />
+              </Suspense>
+            } />
+            <Route path="/:subdomain/space/classroom/:courseId/:lessonId" element={
+              <Suspense fallback={<SpaceLoadingFallback />}>
+                <LazyRoutes.LessonLegacyRedirect />
+              </Suspense>
+            } />
+            
+            {/* Profile redirects (global to space-specific) */}
+            <Route path="/profile/:uuid" element={
+              <Suspense fallback={<SpaceLoadingFallback />}>
+                <LazyRoutes.ProfileLegacyRedirect />
               </Suspense>
             } />
           </Route>

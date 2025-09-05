@@ -410,7 +410,7 @@ export default defineConfig(({ mode }) => {
       target: 'es2020',
       minify: 'esbuild',
       cssCodeSplit: true,
-      chunkSizeWarningLimit: 300, // More aggressive - target even smaller chunks
+      chunkSizeWarningLimit: 200, // Phase 3.2: More aggressive chunk size limit
       sourcemap: false, // Disable sourcemaps in production for faster builds
       modulePreload: {
         polyfill: false // Disable module preload polyfill to avoid conflicts
@@ -426,47 +426,117 @@ export default defineConfig(({ mode }) => {
           return false; // Bundle everything by default
         },
         output: {
-          manualChunks: {
-            // Core utilities - small and stable
-            'vendor': ['lodash', 'uuid', 'date-fns', 'clsx', 'tailwind-merge'],
+          // Phase 3.2: Enhanced chunk splitting for better performance
+          manualChunks: (id) => {
+            // Phase 3.2: Split Supabase into smaller, more focused chunks
+            if (id.includes('@supabase/supabase-js')) {
+              if (id.includes('auth') || id.includes('gotrue')) {
+                return 'supabase-auth';
+              }
+              if (id.includes('realtime') || id.includes('websocket')) {
+                return 'supabase-realtime';
+              }
+              if (id.includes('storage') || id.includes('upload')) {
+                return 'supabase-storage';
+              }
+              if (id.includes('functions')) {
+                return 'supabase-functions';
+              }
+              return 'supabase-core';
+            }
             
-            // Split large UI library into smaller chunks
-            'ui-core': [
-              '@radix-ui/react-dialog', 
-              '@radix-ui/react-dropdown-menu',
-              '@radix-ui/react-tooltip',
-              'lucide-react'
-            ],
-            'ui-forms': [
-              '@radix-ui/react-select',
-              '@radix-ui/react-checkbox',
-              '@radix-ui/react-radio-group',
-              '@radix-ui/react-switch'
-            ],
-            'ui-layout': [
-              '@radix-ui/react-tabs',
-              '@radix-ui/react-accordion',
-              '@radix-ui/react-separator'
-            ],
+            // Phase 3.2: Split large content libraries
+            if (id.includes('@emoji-mart')) {
+              return 'emoji-vendor';
+            }
             
-            // Backend and data management
-            'supabase-vendor': ['@supabase/supabase-js'],
-            'query-vendor': ['@tanstack/react-query'],
-            'router-vendor': ['react-router-dom'],
+            // Phase 3.2: Split editor into smaller chunks
+            if (id.includes('@tiptap')) {
+              if (id.includes('starter-kit')) {
+                return 'editor-core';
+              }
+              if (id.includes('react')) {
+                return 'editor-react';
+              }
+              return 'editor-vendor';
+            }
             
-            // Forms and validation
-            'form-vendor': ['react-hook-form', '@hookform/resolvers'],
-            'validation-vendor': ['zod'],
+            // Phase 3.2: Split animation library
+            if (id.includes('framer-motion')) {
+              return 'animation-vendor';
+            }
             
-            // State management
-            'state-vendor': ['zustand', 'immer'],
+            // Phase 3.2: Split validation library
+            if (id.includes('zod')) {
+              return 'validation-vendor';
+            }
             
-            // Rich content
-            'editor-vendor': ['@tiptap/react', '@tiptap/starter-kit'],
-            'content-vendor': ['@emoji-mart/react', '@emoji-mart/data'],
+            // Phase 3.2: Split form libraries
+            if (id.includes('react-hook-form') || id.includes('@hookform')) {
+              return 'form-vendor';
+            }
             
-            // Animations and interactions
-            'animation-vendor': ['framer-motion']
+            // Phase 3.2: Split state management
+            if (id.includes('zustand') || id.includes('immer')) {
+              return 'state-vendor';
+            }
+            
+            // Phase 3.2: Split UI libraries by size
+            if (id.includes('@radix-ui')) {
+              if (id.includes('react-dialog') || id.includes('react-dropdown-menu')) {
+                return 'ui-core';
+              }
+              if (id.includes('react-select') || id.includes('react-checkbox')) {
+                return 'ui-forms';
+              }
+              if (id.includes('react-tabs') || id.includes('react-accordion')) {
+                return 'ui-layout';
+              }
+              return 'ui-other';
+            }
+            
+            // Phase 3.2: Split query library
+            if (id.includes('@tanstack/react-query')) {
+              return 'query-vendor';
+            }
+            
+            // Phase 3.2: Split router
+            if (id.includes('react-router-dom')) {
+              return 'router-vendor';
+            }
+            
+            // Phase 3.2: Core utilities
+            if (id.includes('lodash') || id.includes('uuid') || id.includes('date-fns') || 
+                id.includes('clsx') || id.includes('tailwind-merge')) {
+              return 'utils-vendor';
+            }
+            
+            // Phase 3.2: Keep node_modules in vendor chunks
+            if (id.includes('node_modules')) {
+              return 'vendor';
+            }
+            
+            return null;
+          },
+          // Phase 3.2: Optimize chunk naming for better caching
+          chunkFileNames: (chunkInfo) => {
+            const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop() : 'chunk';
+            return `js/[name]-[hash].js`;
+          },
+          entryFileNames: 'js/[name]-[hash].js',
+          assetFileNames: (assetInfo) => {
+            const info = assetInfo.name.split('.');
+            const ext = info[info.length - 1];
+            if (/\.(css)$/.test(assetInfo.name)) {
+              return `css/[name]-[hash].${ext}`;
+            }
+            if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico)$/i.test(assetInfo.name)) {
+              return `images/[name]-[hash].${ext}`;
+            }
+            if (/\.(woff2?|eot|ttf|otf)$/i.test(assetInfo.name)) {
+              return `fonts/[name]-[hash].${ext}`;
+            }
+            return `assets/[name]-[hash].${ext}`;
           }
         }
       }
@@ -477,9 +547,13 @@ export default defineConfig(({ mode }) => {
     css: {
       devSourcemap: mode === 'development',
       postcss: {
-        plugins: [tailwindcss, autoprefixer],
+        plugins: [
+          tailwindcss, 
+          autoprefixer,
+          // Phase 3.2: CSS optimization is handled by Vite's built-in minification
+        ],
       },
-      // Optimize CSS rebuilds during development
+      // Phase 3.2: Optimize CSS rebuilds during development
       preprocessorOptions: {
         css: {
           // Reduce CSS dependency tracking sensitivity

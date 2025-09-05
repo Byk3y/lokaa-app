@@ -31,6 +31,8 @@ interface RegularPostsListProps {
   postsLoading: boolean;
   postsError: string | null;
   hasInstantAccess?: boolean;
+  isLoadingMore?: boolean; // New prop to distinguish pagination loading from space navigation loading
+  isBackgroundRefresh?: boolean; // New prop to distinguish background refresh from space navigation loading
   
   // UI State
   selectedTab: string;
@@ -69,6 +71,8 @@ export const RegularPostsList: React.FC<RegularPostsListProps> = ({
   postsLoading,
   postsError,
   hasInstantAccess,
+  isLoadingMore = false, // Default to false for backward compatibility
+  isBackgroundRefresh = false, // Default to false for backward compatibility
   selectedTab,
   effectivePermissions,
   realtimeState,
@@ -100,8 +104,8 @@ export const RegularPostsList: React.FC<RegularPostsListProps> = ({
         </div>
       )}
       
-      {/* Background Refresh Indicator - Show when updating cached data */}
-      {postsLoading && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
+      {/* Background Refresh Indicator - Show ONLY when actually doing background refresh */}
+      {isBackgroundRefresh && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
         <div className="flex justify-center items-center py-2 mb-4">
           <Loader2 className="h-4 w-4 animate-spin text-primary mr-2" />
           <span className="text-sm text-muted-foreground">Updating posts...</span>
@@ -187,8 +191,8 @@ export const RegularPostsList: React.FC<RegularPostsListProps> = ({
         </div>
       )}
 
-      {/* Show pagination loading indicator when loading more posts with existing posts visible */}
-      {postsLoading && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
+      {/* Show pagination loading indicator ONLY when actually loading more posts (pagination) */}
+      {isLoadingMore && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
         <div className="flex justify-center items-center py-4 mt-6">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <span className="ml-2 text-sm text-gray-600">Loading more posts...</span>

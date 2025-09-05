@@ -1,14 +1,17 @@
 import { log } from '@/utils/logger';
 /**
- * 📱 Mobile Session Manager - Phase 1
+ * 📱 Mobile Session Manager - Phase 3.2
  * 
  * Handles mobile-specific session recovery, background return detection,
  * and simplified auth flow for mobile devices.
+ * 
+ * Enhanced with content URL support for space context detection.
  */
 
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { NavigateFunction } from 'react-router-dom';
 import { shouldEnableMobileFeatures } from './mobileDetection';
+import { isSpaceRelatedUrl, extractSpaceFromUrl, getContentTypeFromUrl } from './spaceContextUtils';
 
 interface MobileSessionState {
   lastActiveTimestamp: number;
@@ -284,16 +287,39 @@ class MobileSessionManager {
 
   /**
    * Check if current URL indicates we should be in a space
+   * Enhanced to recognize all space-related content URLs
    */
-  private getCurrentSpaceFromURL(): { subdomain: string } | null {
+  private getCurrentSpaceFromURL(): { subdomain: string; contentType?: string } | null {
     try {
       const path = window.location.pathname;
-      const match = path.match(/^\/([^\/]+)\/?/);
-      if (match && match[1] && match[1] !== 'app' && match[1] !== 'discover' && match[1] !== 'login') {
-        return { subdomain: match[1] };
+      
+      // Use utility function to check if this is a space-related URL
+      if (!isSpaceRelatedUrl(path)) {
+        return null;
       }
-      return null;
-    } catch {
+      
+      // Extract space subdomain using utility function
+      const subdomain = extractSpaceFromUrl(path);
+      if (!subdomain) {
+        return null;
+      }
+      
+      // Skip non-space subdomains
+      if (['app', 'discover', 'login', 'create-space', 'profile'].includes(subdomain)) {
+        return null;
+      }
+      
+      // Get content type for enhanced logging
+      const contentType = getContentTypeFromUrl(path);
+      
+      log.debug('Utils', `📱 [MobileSessionManager] Detected ${contentType || 'space'} URL: ${path} → space: ${subdomain}`);
+      
+      return { 
+        subdomain,
+        contentType: contentType || undefined
+      };
+    } catch (error) {
+      log.warn('Utils', '📱 [MobileSessionManager] Error extracting space from URL:', error);
       return null;
     }
   }
@@ -808,6 +834,66 @@ class MobileSessionManager {
       }));
     } catch (error) {
       log.warn('Utils', '📱 [MobileSessionManager] Failed to update space cache:', error);
+    }
+  }
+
+  /**
+   * Enhanced space cache update for content URLs
+   * Handles caching when user navigates to posts, courses, profiles, etc.
+   */
+  updateSpaceCacheFromContentUrl(spaceData: { id: string; subdomain: string; name: string }, contentType?: string): void {
+    this.state.lastActiveSpace = spaceData.subdomain;
+    this.persistState();
+    
+    // Enhanced cache with content type information
+    try {
+      const cacheData = {
+        ...spaceData,
+        timestamp: Date.now(),
+        userId: this.state.userId,
+        contentType: contentType || 'space',
+        lastContentUrl: window.location.pathname
+      };
+      
+      localStorage.setItem('lastActiveSpace', JSON.stringify(cacheData));
+      
+      // Also cache the specific content URL for quick recovery
+      if (contentType && contentType !== 'space') {
+        const contentCacheKey = `space_content_${spaceData.subdomain}_${contentType}`;
+        localStorage.setItem(contentCacheKey, JSON.stringify({
+          spaceData,
+          contentType,
+          url: window.location.pathname,
+          timestamp: Date.now()
+        }));
+      }
+      
+      log.debug('Utils', `📱 [MobileSessionManager] Updated space cache for ${contentType || 'space'} content: ${spaceData.subdomain}`);
+    } catch (error) {
+      log.warn('Utils', '📱 [MobileSessionManager] Failed to update content URL cache:', error);
+    }
+  }
+
+  /**
+   * Get cached content URL for a specific space and content type
+   */
+  getCachedContentUrl(spaceSubdomain: string, contentType: string): string | null {
+    try {
+      const contentCacheKey = `space_content_${spaceSubdomain}_${contentType}`;
+      const cached = localStorage.getItem(contentCacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const cacheAge = Date.now() - parsed.timestamp;
+        const maxAge = 30 * 60 * 1000; // 30 minutes
+        
+        if (cacheAge < maxAge) {
+          return parsed.url;
+        }
+      }
+      return null;
+    } catch (error) {
+      log.warn('Utils', '📱 [MobileSessionManager] Error getting cached content URL:', error);
+      return null;
     }
   }
 }

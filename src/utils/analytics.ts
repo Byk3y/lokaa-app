@@ -49,6 +49,19 @@ export async function logAnalyticsEvent(event: Omit<AnalyticsEventInsert, 'creat
 // Flush queue to Supabase
 async function flushEventQueue() {
   if (eventQueue.length === 0) return;
+  
+  // Temporarily disabled to prevent 401 errors
+  // TODO: Re-enable when authentication is properly configured
+  log.debug('Utils', '[Analytics] Analytics disabled - events queued but not sent');
+  eventQueue = [];
+  if (batchTimeout) {
+    clearTimeout(batchTimeout);
+    batchTimeout = null;
+  }
+  return;
+
+  // Original implementation (commented out):
+  /*
   const supabase = getSupabaseClient();
   const batch = [...eventQueue];
   eventQueue = [];
@@ -65,6 +78,7 @@ async function flushEventQueue() {
   } catch (err) {
     log.error('Utils', '[Analytics] Exception during analytics insert:', err);
   }
+  */
 }
 
 // React hook for logging events

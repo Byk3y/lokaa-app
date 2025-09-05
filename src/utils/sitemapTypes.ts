@@ -128,6 +128,7 @@ export interface SitemapGenerationOptions {
   includeImages?: boolean;
   includeNews?: boolean;
   maxAge?: number; // in hours
+  // Phase 3.2: Only spaces are publicly discoverable for SEO
   contentTypes?: ('spaces' | 'posts' | 'courses' | 'lessons' | 'profiles')[];
 }
 

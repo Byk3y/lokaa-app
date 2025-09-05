@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
 import { schemaGenerator, type SchemaData } from './schemaGenerator';
+import { localSEO, type LocalBusinessSchema } from './localSEO';
 // =====================================
 // SEO & METADATA MANAGEMENT SYSTEM
 // =====================================
@@ -103,12 +104,20 @@ export class SEOManager {
 
   /**
    * Fetch metadata from Edge Function
+   * DISABLED: Edge Function requires authentication - using fallback instead
    */
   private async fetchMetadata(
     type: string,
     identifier?: string,
     spaceSubdomain?: string
   ): Promise<SEOData | null> {
+    // Temporarily disabled to prevent 401 errors
+    // TODO: Re-enable when Edge Function authentication is properly configured
+    log.debug('Utils', '[SEO] Edge Function disabled - using fallback metadata');
+    return null;
+
+    // Original implementation (commented out):
+    /*
     try {
       const response = await fetch(this.edgeFunctionUrl, {
         method: 'POST',
@@ -139,6 +148,7 @@ export class SEOManager {
       log.error('Utils', '[SEO] Edge Function request failed:', error);
       return null;
     }
+    */
   }
 
   /**
@@ -201,7 +211,7 @@ export class SEOManager {
 
     // JSON-LD Schema
     if (seoData.schema) {
-      this.setJsonLdSchema(seoData.schema);
+      this.setJsonLdSchema(seoData.schema, 'main-schema');
     }
 
     log.debug('Utils', '[SEO] Metadata applied successfully');
@@ -250,24 +260,6 @@ export class SEOManager {
     document.head.appendChild(link);
   }
 
-  /**
-   * Set JSON-LD schema
-   */
-  private setJsonLdSchema(schema: any): void {
-    // Remove existing schema
-    const existing = document.querySelector('script[type="application/ld+json"][data-seo="dynamic"]');
-    if (existing) {
-      existing.remove();
-    }
-
-    // Create new schema script
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.setAttribute('data-seo', 'dynamic');
-    script.textContent = JSON.stringify(schema);
-    
-    document.head.appendChild(script);
-  }
 
   /**
    * Clear dynamic meta tags
@@ -590,6 +582,87 @@ Allow: /
 
 User-agent: WhatsApp
 Allow: /`;
+  }
+
+  /**
+   * Apply local SEO optimization for a specific location
+   * Phase 4.1: Local SEO Implementation
+   */
+  applyLocalSEO(location?: string, options: {
+    updateTitle?: boolean;
+    updateDescription?: boolean;
+    addLocalSchema?: boolean;
+    addLocalKeywords?: boolean;
+  } = {}): void {
+    const {
+      updateTitle = true,
+      updateDescription = true,
+      addLocalSchema = true,
+      addLocalKeywords = true,
+    } = options;
+
+    if (!location) {
+      log.debug('LocalSEO', 'No location specified, using default local SEO');
+      return;
+    }
+
+    try {
+      // Update title with location
+      if (updateTitle) {
+        const currentTitle = document.title;
+        const localTitle = localSEO.generateLocalTitle(location, 'Community Platform');
+        this.setTitle(localTitle);
+        log.debug('LocalSEO', `Updated title for ${location}: ${localTitle}`);
+      }
+
+      // Update meta description with location
+      if (updateDescription) {
+        const currentDescription = this.getMetaContent('description') || 'Community platform';
+        const localDescription = localSEO.generateLocalMetaDescription(location, currentDescription);
+        this.setMetaTag('description', localDescription);
+        log.debug('LocalSEO', `Updated description for ${location}`);
+      }
+
+      // Add local keywords
+      if (addLocalKeywords) {
+        const baseKeywords = ['community platform', 'online communities', 'passion communities'];
+        const localKeywords = localSEO.generateLocalKeywords(location, baseKeywords);
+        this.setMetaTag('keywords', localKeywords.join(', '));
+        log.debug('LocalSEO', `Added local keywords for ${location}: ${localKeywords.length} keywords`);
+      }
+
+      // Add local business schema
+      if (addLocalSchema) {
+        const localBusinessSchema = localSEO.generateLocalBusinessSchema(location);
+        this.setJsonLdSchema(localBusinessSchema, 'local-business');
+        log.debug('LocalSEO', `Added local business schema for ${location}`);
+      }
+
+      log.debug('LocalSEO', `Local SEO applied for ${location}`);
+    } catch (error) {
+      log.error('LocalSEO', `Failed to apply local SEO for ${location}:`, error);
+    }
+  }
+
+  /**
+   * Generate location-specific FAQ schema
+   */
+  addLocalFAQSchema(location: string): void {
+    try {
+      const localFAQ = localSEO.generateLocalFAQ(location);
+      const faqSchema = schemaGenerator.generateFAQPageSchema(localFAQ);
+      this.setJsonLdSchema(faqSchema, 'local-faq');
+      log.debug('LocalSEO', `Added local FAQ schema for ${location}`);
+    } catch (error) {
+      log.error('LocalSEO', `Failed to add local FAQ schema for ${location}:`, error);
+    }
+  }
+
+  /**
+   * Get supported locations for local SEO
+   */
+  getSupportedLocations(): string[] {
+    return localSEO.getSupportedLocations().map(loc => loc.city);
   }
 
   /**

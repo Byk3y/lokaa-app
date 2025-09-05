@@ -1,7 +1,6 @@
 import { lazy } from 'react';
-import { lazyWithReload } from '@/utils/lazyWithReload';
 import { useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { lazyWithReload } from '@/utils/lazyWithReload';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 
 /**
@@ -47,6 +46,12 @@ export const SpaceAboutPage = lazy(() => import('@/views/SpaceAboutPage'));
 export const SpaceJoinPage = lazy(() => import('@/views/SpaceJoinPage'));
 export const PostDetailPage = lazy(() => import('@/views/PostDetailPage'));
 export const CourseDetailPage = lazy(() => import('@/views/CourseDetailPage'));
+
+// Legacy redirect components for URL migration
+export const PostLegacyRedirect = lazy(() => import('@/components/PostLegacyRedirect'));
+export const CourseLegacyRedirect = lazy(() => import('@/components/CourseLegacyRedirect'));
+export const LessonLegacyRedirect = lazy(() => import('@/components/LessonLegacyRedirect'));
+export const ProfileLegacyRedirect = lazy(() => import('@/components/ProfileLegacyRedirect'));
 
 // ✅ FIXED: Add tab components for SpaceShellLayout Outlet with proper props
 export const FeedTab = lazy(() => import('@/components/space/tabs/FeedTabWrapper'));

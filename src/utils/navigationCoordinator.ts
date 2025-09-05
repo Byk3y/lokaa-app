@@ -4,6 +4,9 @@ import { log } from '@/utils/logger';
  * 
  * Single source of truth for all navigation decisions.
  * Prevents duplicate route changes and component conflicts.
+ * 
+ * Phase 3.1: Enhanced with URL pattern validation and normalization
+ * for the new URL structure optimization.
  */
 
 import { NavigateFunction } from 'react-router-dom';
@@ -72,10 +75,20 @@ class NavigationCoordinator {
     options: { state?: any; replace?: boolean } = {}
   ): boolean {
     const now = Date.now();
-    const navigationKey = `${from}->${to}`;
+    
+    // Phase 3.1: Normalize URLs for consistent comparison
+    const normalizedTo = this.normalizeUrl(to);
+    const normalizedFrom = this.normalizeUrl(from);
+    const navigationKey = `${normalizedFrom}->${normalizedTo}`;
+    
+    // Phase 3.1: Validate URL patterns
+    if (!this.validateUrlPattern(normalizedTo)) {
+      devLogger.log('Navigation', 'Invalid URL pattern:', normalizedTo, 'from', source);
+      return false;
+    }
     
     // 🔥 [AUTH FIX] Special handling for auth routes to prevent loops
-    if (from === '/login' && to === '/' && source.includes('unauth-redirect')) {
+    if (normalizedFrom === '/login' && normalizedTo === '/' && source.includes('unauth-redirect')) {
       devLogger.log('Navigation', 'Blocked auth route loop:', navigationKey, 'from', source);
       return false;
     }
@@ -88,17 +101,17 @@ class NavigationCoordinator {
     }
     
     // Check if we're currently navigating
-    if (this.state.activeNavigation === to) {
-      devLogger.log('Navigation', 'Navigation to', to, 'already in progress, blocking duplicate from', source);
+    if (this.state.activeNavigation === normalizedTo) {
+      devLogger.log('Navigation', 'Navigation to', normalizedTo, 'already in progress, blocking duplicate from', source);
       return false;
     }
     
     // Execute the navigation
     devLogger.log('Navigation', 'Executing navigation:', navigationKey, `(${source})`);
-    this.state.activeNavigation = to;
+    this.state.activeNavigation = normalizedTo;
     this.state.lastNavigation = {
-      to,
-      from,
+      to: normalizedTo,
+      from: normalizedFrom,
       source,
       state: options.state,
       replace: options.replace ?? true,
@@ -108,7 +121,7 @@ class NavigationCoordinator {
     
     try {
       if (this.navigate) {
-        this.navigate(to, {
+        this.navigate(normalizedTo, {
           replace: options.replace ?? true,
           state: options.state
         });
@@ -116,7 +129,7 @@ class NavigationCoordinator {
         // Clear active navigation after a delay
         setTimeout(() => {
           this.state.activeNavigation = null;
-          devLogger.log('Navigation', 'Navigation completed:', to);
+          devLogger.log('Navigation', 'Navigation completed:', normalizedTo);
         }, 100);
         
         return true;
@@ -128,8 +141,8 @@ class NavigationCoordinator {
         
         // Fallback to window.location for critical navigation
         if (typeof window !== 'undefined') {
-          devLogger.log('Navigation', 'Using window.location fallback for:', to);
-          window.location.href = to;
+          devLogger.log('Navigation', 'Using window.location fallback for:', normalizedTo);
+          window.location.href = normalizedTo;
           return true;
         }
         
@@ -171,6 +184,78 @@ class NavigationCoordinator {
   forceAllowNext(): void {
     this.state.activeNavigation = null;
     devLogger.log('Navigation', 'Next navigation will be allowed');
+  }
+
+  /**
+   * Phase 3.1: Normalize URL for consistent comparison
+   */
+  private normalizeUrl(url: string): string {
+    if (!url) return '/';
+    
+    // Remove trailing slashes and normalize
+    let normalized = url.replace(/\/+$/, '') || '/';
+    
+    // Ensure leading slash
+    if (!normalized.startsWith('/')) {
+      normalized = '/' + normalized;
+    }
+    
+    return normalized;
+  }
+
+  /**
+   * Phase 3.1: Validate URL pattern for new structure
+   */
+  private validateUrlPattern(url: string): boolean {
+    if (!url || url === '/') return true;
+    
+    // Remove leading slash for pattern matching
+    const path = url.startsWith('/') ? url.slice(1) : url;
+    const segments = path.split('/').filter(Boolean);
+    
+    // Valid patterns:
+    // - /:subdomain (space root)
+    // - /:subdomain/:tab (space sections)
+    // - /:subdomain/posts/:slug (posts)
+    // - /:subdomain/courses/:slug (courses)
+    // - /:subdomain/courses/:course-slug/lessons/:lesson-slug (lessons)
+    // - /@:username (profiles)
+    // - /discover, /login, /register, etc. (app routes)
+    
+    if (segments.length === 0) return true; // Root path
+    
+    // App routes (no subdomain)
+    const appRoutes = ['discover', 'login', 'register', 'settings', 'profile'];
+    if (appRoutes.includes(segments[0])) return true;
+    
+    // Profile routes
+    if (segments[0].startsWith('@')) return true;
+    
+    // Space routes
+    if (segments.length >= 1) {
+      const subdomain = segments[0];
+      
+      // Basic subdomain validation (alphanumeric and hyphens)
+      if (!/^[a-zA-Z0-9-]+$/.test(subdomain)) return false;
+      
+      // Space root
+      if (segments.length === 1) return true;
+      
+      // Space sections
+      const validSections = ['about', 'members', 'classroom', 'calendar', 'leaderboard'];
+      if (segments.length === 2 && validSections.includes(segments[1])) return true;
+      
+      // Posts
+      if (segments[1] === 'posts' && segments.length === 3) return true;
+      
+      // Courses
+      if (segments[1] === 'courses' && segments.length >= 3) {
+        // Course detail or lesson detail
+        return true;
+      }
+    }
+    
+    return false;
   }
 }
 

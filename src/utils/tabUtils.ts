@@ -6,6 +6,11 @@ import { devLogger } from '@/utils/developmentLogger';
 /**
  * Tab Utilities for Space Navigation
  * 
+ * Phase 3.1: Updated for new URL structure
+ * - Root space: /:subdomain (unified for all users)
+ * - Space sections: /:subdomain/:tab (members only)
+ * - Backward compatibility maintained for legacy patterns
+ * 
  * Provides robust tab extraction from URL pathnames, handling edge cases
  * and React Router initialization timing issues.
  */
@@ -17,12 +22,17 @@ const VALID_TABS: SpaceTab[] = ['feed', 'about', 'members', 'classroom', 'calend
 /**
  * Extract tab name from a space pathname
  * 
- * Handles various URL patterns:
- * - /subdomain/space -> 'feed'
- * - /subdomain/space/classroom -> 'classroom'
- * - /subdomain/space/feed -> 'feed' 
- * - /subdomain/space/invalid -> 'feed' (fallback)
- * - /subdomain/space/classroom/courseSlug -> 'classroom' (course detail routes)
+ * Phase 3.1: Handles new URL patterns:
+ * - /:subdomain -> 'feed' (unified space root)
+ * - /:subdomain/about -> 'about' (member about tab)
+ * - /:subdomain/members -> 'members'
+ * - /:subdomain/classroom -> 'classroom'
+ * - /:subdomain/courses/courseSlug -> 'classroom' (course detail routes)
+ * 
+ * Legacy patterns (backward compatibility):
+ * - /:subdomain/space -> 'feed'
+ * - /:subdomain/space/classroom -> 'classroom'
+ * - /:subdomain/space/classroom/courseSlug -> 'classroom'
  */
 export function extractTabFromPathname(pathname: string): SpaceTab {
   if (!pathname || typeof pathname !== 'string') {
@@ -32,48 +42,71 @@ export function extractTabFromPathname(pathname: string): SpaceTab {
   // Remove trailing slashes for consistent parsing
   const cleanPath = pathname.replace(/\/+$/, '');
   
-  // ✅ FIX: Check if we're on a course detail route (new pattern only)
-  const isCourseDetailRoute = cleanPath.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
-  if (isCourseDetailRoute) {
-    return 'classroom'; // Course detail routes should keep classroom tab active
-  }
-  
   // Split path into segments
   const segments = cleanPath.split('/').filter(Boolean);
   
-  // Find the index of 'space' segment
+  // Phase 3.1: Check for new URL patterns first
+  if (segments.length >= 2) {
+    const subdomain = segments[0];
+    const secondSegment = segments[1];
+    
+    // Check if second segment is a valid tab (new pattern)
+    if (VALID_TABS.includes(secondSegment as SpaceTab)) {
+      return secondSegment as SpaceTab;
+    }
+    
+    // Check for course detail routes in new pattern
+    if (secondSegment === 'courses' && segments.length >= 3) {
+      return 'classroom'; // Course detail routes should keep classroom tab active
+    }
+  }
+  
+  // Legacy pattern: Check for 'space' segment
   const spaceIndex = segments.findIndex(segment => segment === 'space');
   
-  // If no 'space' segment found, default to feed
-  if (spaceIndex === -1) {
-    return 'feed';
+  if (spaceIndex !== -1) {
+    // Check if there's a segment after 'space'
+    const tabSegment = segments[spaceIndex + 1];
+    
+    // If no tab segment or at root space path, default to feed
+    if (!tabSegment) {
+      return 'feed';
+    }
+    
+    // Check for course detail routes in legacy pattern
+    if (tabSegment === 'classroom' && segments.length > spaceIndex + 2) {
+      return 'classroom'; // Course detail routes should keep classroom tab active
+    }
+    
+    // Validate the tab segment
+    if (VALID_TABS.includes(tabSegment as SpaceTab)) {
+      return tabSegment as SpaceTab;
+    }
   }
   
-  // Check if there's a segment after 'space'
-  const tabSegment = segments[spaceIndex + 1];
-  
-  // If no tab segment or at root space path, default to feed
-  if (!tabSegment) {
-    return 'feed';
-  }
-  
-  // Validate the tab segment
-  if (VALID_TABS.includes(tabSegment as SpaceTab)) {
-    return tabSegment as SpaceTab;
-  }
-  
-  // Invalid tab segment, fallback to feed
+  // If no valid tab found, default to feed
   return 'feed';
 }
 
 /**
  * Check if a pathname represents a root space path (should show feed)
+ * 
+ * Phase 3.1: Updated for new URL structure
+ * - /:subdomain -> true (new unified root)
+ * - /:subdomain/space -> true (legacy root)
  */
 export function isRootSpacePath(pathname: string): boolean {
   if (!pathname) return false;
   
   const cleanPath = pathname.replace(/\/+$/, '');
   const segments = cleanPath.split('/').filter(Boolean);
+  
+  // Phase 3.1: Check for new unified root pattern
+  if (segments.length === 1) {
+    return true; // /:subdomain is the new root
+  }
+  
+  // Legacy pattern: Check for 'space' segment
   const spaceIndex = segments.findIndex(segment => segment === 'space');
   
   // True if path ends with '/space' (no additional segments)
@@ -82,8 +115,31 @@ export function isRootSpacePath(pathname: string): boolean {
 
 /**
  * Build a space URL for a given subdomain and tab
+ * 
+ * Phase 3.1: Updated for new URL structure
+ * - Root space: /:subdomain (unified for all users)
+ * - Space sections: /:subdomain/:tab (members only)
  */
 export function buildSpaceUrl(subdomain: string, tab: SpaceTab = 'feed'): string {
+  if (!subdomain) return '/';
+  
+  // Phase 3.1: New URL structure - unified /:subdomain for root
+  if (tab === 'feed') {
+    return `/${subdomain}`;
+  }
+  
+  // Phase 3.1: Direct subdomain pattern for sections
+  return `/${subdomain}/${tab}`;
+}
+
+/**
+ * Build a legacy space URL for backward compatibility
+ * 
+ * @param subdomain The space subdomain
+ * @param tab The space tab
+ * @returns The legacy formatted URL string
+ */
+export function buildLegacySpaceUrl(subdomain: string, tab: SpaceTab = 'feed'): string {
   if (!subdomain) return '/';
   
   if (tab === 'feed') {

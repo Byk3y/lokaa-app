@@ -45,6 +45,7 @@ export function useFeedData(
     totalPages,
     hasNextPage,
     loadPage,
+    isLoadingMore,
     handlePostCreated: handleCachedPostCreated,
     handlePostUpdated: handleCachedPostUpdated,
     handlePostDeleted: handleCachedPostDeleted,
@@ -93,6 +94,7 @@ export function useFeedData(
     currentPage,
     totalPages,
     hasNextPage,
+    isLoadingMore,
     
     // Action handlers
     refetchPosts,

@@ -1,6 +1,10 @@
 import { log } from '@/utils/logger';
 /**
  * Utilities for reliable profile page navigation and redirection
+ * 
+ * Phase 3.2: Updated for space-based profile discovery
+ * - Global profiles: /profile/:username (legacy, will redirect to space-specific)
+ * - Space profiles: /:subdomain/profile/:username (new pattern)
  */
 import { NavigateFunction } from 'react-router-dom';
 
@@ -26,6 +30,55 @@ const redirectTracker = {
     this.attempts.clear();
   }
 };
+
+/**
+ * Phase 3.2: Generate space-based profile URL
+ * @param subdomain Space subdomain
+ * @param username Username
+ * @returns Space-based profile URL
+ */
+export function generateSpaceProfileUrl(subdomain: string, username: string): string {
+  return `/${subdomain}/profile/${username}`;
+}
+
+/**
+ * Phase 3.2: Parse space-based profile URL
+ * @param url URL or pathname to check
+ * @returns Object with information about the space profile URL
+ */
+export function parseSpaceProfileUrl(url: string): {
+  isSpaceProfileUrl: boolean;
+  subdomain: string | null;
+  username: string | null;
+  correctUrl: string | null;
+} {
+  // Get only the pathname part if a full URL is provided
+  const pathname = url.startsWith('http') ? new URL(url).pathname : url;
+  
+  // Check if this is a space profile URL: /:subdomain/profile/:username
+  const spaceProfileRegex = /^\/([^/]+)\/profile\/([^/]+)(?:\/.*)?$/;
+  const match = pathname.match(spaceProfileRegex);
+  
+  if (!match) {
+    return { isSpaceProfileUrl: false, subdomain: null, username: null, correctUrl: null };
+  }
+  
+  const subdomain = match[1];
+  const username = match[2];
+  
+  // Normalize to the correct format: /:subdomain/profile/:username
+  const correctUrl = `/${subdomain}/profile/${username}`;
+  
+  // Check if the URL is already in the correct format
+  const isCorrectFormat = pathname === correctUrl;
+  
+  return {
+    isSpaceProfileUrl: true,
+    subdomain,
+    username,
+    correctUrl: isCorrectFormat ? null : correctUrl
+  };
+}
 
 /**
  * Checks if a URL is a profile URL and ensures it's in the correct format
@@ -75,6 +128,37 @@ export function parseProfileUrl(url: string): {
     username,
     correctUrl: isCorrectFormat ? null : correctUrl
   };
+}
+
+/**
+ * Phase 3.2: Safely navigates to a space-based profile page
+ * @param navigate React Router navigate function
+ * @param subdomain Space subdomain
+ * @param username Username to navigate to
+ * @returns true if navigation was performed, false if prevented
+ */
+export function safelyNavigateToSpaceProfile(
+  navigate: NavigateFunction,
+  subdomain: string,
+  username: string
+): boolean {
+  if (!subdomain || !username) {
+    log.warn('Utils', 'safelyNavigateToSpaceProfile: Empty subdomain or username provided');
+    return false;
+  }
+  
+  // Construct the target URL
+  const targetUrl = `/${subdomain}/profile/${username.replace(/^@/, '')}`;
+  
+  // Check if we've already tried too many times
+  if (redirectTracker.recordAttempt(targetUrl)) {
+    log.warn('Utils', `safelyNavigateToSpaceProfile: Too many redirect attempts for ${targetUrl}, preventing further redirects`);
+    return false;
+  }
+  
+  log.debug('Utils', `safelyNavigateToSpaceProfile: Navigating to space profile: ${targetUrl}`);
+  navigate(targetUrl, { replace: true });
+  return true;
 }
 
 /**

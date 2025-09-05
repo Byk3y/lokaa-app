@@ -84,6 +84,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     currentPage,
     totalPages,
     hasNextPage,
+    isLoadingMore,
     
     // Action handlers
     handleTabSelect,
@@ -355,6 +356,8 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
               postsLoading={effectivePostsLoading}
               postsError={postsError}
               hasInstantAccess={hasInstantAccess}
+              isLoadingMore={isLoadingMore}
+              isBackgroundRefresh={false}
               selectedTab={effectiveSelectedTab}
               effectivePermissions={effectivePermissions}
               realtimeState={realtimeState}

@@ -35,6 +35,79 @@ export interface OrganizationSchema extends SchemaData {
   };
 }
 
+export interface LocalBusinessSchema extends SchemaData {
+  '@type': 'LocalBusiness';
+  name: string;
+  description: string;
+  url: string;
+  telephone?: string;
+  email?: string;
+  address: {
+    '@type': 'PostalAddress';
+    streetAddress?: string;
+    addressLocality: string;
+    addressRegion?: string;
+    postalCode?: string;
+    addressCountry: string;
+  };
+  geo?: {
+    '@type': 'GeoCoordinates';
+    latitude: number;
+    longitude: number;
+  };
+  openingHoursSpecification?: {
+    '@type': 'OpeningHoursSpecification';
+    dayOfWeek: string[];
+    opens: string;
+    closes: string;
+  }[];
+  priceRange?: string;
+  paymentAccepted?: string[];
+  currenciesAccepted?: string[];
+  areaServed?: {
+    '@type': 'GeoCircle' | 'Country' | 'State' | 'City';
+    name: string;
+  }[];
+  serviceArea?: {
+    '@type': 'GeoCircle' | 'Country' | 'State' | 'City';
+    name: string;
+  };
+  hasOfferCatalog?: {
+    '@type': 'OfferCatalog';
+    name: string;
+    itemListElement: {
+      '@type': 'Offer';
+      itemOffered: {
+        '@type': 'Service';
+        name: string;
+        description: string;
+      };
+    }[];
+  };
+  aggregateRating?: {
+    '@type': 'AggregateRating';
+    ratingValue: number;
+    reviewCount: number;
+    bestRating?: number;
+    worstRating?: number;
+  };
+  review?: {
+    '@type': 'Review';
+    author: {
+      '@type': 'Person';
+      name: string;
+    };
+    reviewRating: {
+      '@type': 'Rating';
+      ratingValue: number;
+      bestRating?: number;
+      worstRating?: number;
+    };
+    reviewBody?: string;
+    datePublished?: string;
+  }[];
+}
+
 export interface WebSiteSchema extends SchemaData {
   '@type': 'WebSite';
   name: string;
@@ -474,6 +547,134 @@ export class SchemaGenerator {
   /**
    * Validate schema data
    */
+  /**
+   * Generate LocalBusiness schema for local SEO
+   */
+  generateLocalBusinessSchema(businessData: {
+    name: string;
+    description: string;
+    url: string;
+    telephone?: string;
+    email?: string;
+    address: {
+      streetAddress?: string;
+      addressLocality: string;
+      addressRegion?: string;
+      postalCode?: string;
+      addressCountry: string;
+    };
+    geo?: {
+      latitude: number;
+      longitude: number;
+    };
+    openingHours?: Array<{
+      dayOfWeek: string[];
+      opens: string;
+      closes: string;
+    }>;
+    priceRange?: string;
+    areaServed?: string[];
+    services?: Array<{
+      name: string;
+      description: string;
+    }>;
+    aggregateRating?: {
+      ratingValue: number;
+      reviewCount: number;
+      bestRating?: number;
+      worstRating?: number;
+    };
+  }): LocalBusinessSchema {
+    const schema: LocalBusinessSchema = {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: businessData.name,
+      description: businessData.description,
+      url: businessData.url,
+      address: {
+        '@type': 'PostalAddress',
+        addressCountry: businessData.address.addressCountry,
+        addressLocality: businessData.address.addressLocality,
+        ...(businessData.address.streetAddress && { streetAddress: businessData.address.streetAddress }),
+        ...(businessData.address.addressRegion && { addressRegion: businessData.address.addressRegion }),
+        ...(businessData.address.postalCode && { postalCode: businessData.address.postalCode }),
+      },
+    };
+
+    // Add optional fields
+    if (businessData.telephone) {
+      schema.telephone = businessData.telephone;
+    }
+    if (businessData.email) {
+      schema.email = businessData.email;
+    }
+    if (businessData.geo) {
+      schema.geo = {
+        '@type': 'GeoCoordinates',
+        latitude: businessData.geo.latitude,
+        longitude: businessData.geo.longitude,
+      };
+    }
+    if (businessData.openingHours) {
+      schema.openingHoursSpecification = businessData.openingHours.map(hours => ({
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: hours.dayOfWeek,
+        opens: hours.opens,
+        closes: hours.closes,
+      }));
+    }
+    if (businessData.priceRange) {
+      schema.priceRange = businessData.priceRange;
+    }
+    if (businessData.areaServed) {
+      schema.areaServed = businessData.areaServed.map(area => ({
+        '@type': 'Country',
+        name: area,
+      }));
+    }
+    if (businessData.services) {
+      schema.hasOfferCatalog = {
+        '@type': 'OfferCatalog',
+        name: 'Services',
+        itemListElement: businessData.services.map(service => ({
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Service',
+            name: service.name,
+            description: service.description,
+          },
+        })),
+      };
+    }
+    if (businessData.aggregateRating) {
+      schema.aggregateRating = {
+        '@type': 'AggregateRating',
+        ratingValue: businessData.aggregateRating.ratingValue,
+        reviewCount: businessData.aggregateRating.reviewCount,
+        bestRating: businessData.aggregateRating.bestRating || 5,
+        worstRating: businessData.aggregateRating.worstRating || 1,
+      };
+    }
+
+    return schema;
+  }
+
+  /**
+   * Generate location-specific schema for different cities
+   */
+  generateLocationSpecificSchema(city: string, baseBusinessData: any): LocalBusinessSchema {
+    return this.generateLocalBusinessSchema({
+      ...baseBusinessData,
+      name: `Lokaa - ${city} Community Platform`,
+      description: `Connect with ${city} communities and turn your passion into profit. Join local ${city} communities on Lokaa.`,
+      address: {
+        ...baseBusinessData.address,
+        addressLocality: city,
+      },
+      areaServed: [city, baseBusinessData.address.addressCountry],
+    });
+  }
+
   validateSchema(schema: SchemaData): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 

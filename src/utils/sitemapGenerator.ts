@@ -24,6 +24,10 @@ import {
  * 
  * Generates XML sitemaps from database content with intelligent
  * prioritization and change frequency optimization.
+ * 
+ * Phase 3.2: Updated for space-based discovery only
+ * - Only spaces are publicly discoverable for SEO
+ * - Courses, lessons, and profiles are member-only (removed from sitemap)
  */
 export class SitemapGenerator {
   private config: SitemapConfig;
@@ -155,7 +159,8 @@ export class SitemapGenerator {
    * Fetch content from database
    */
   private async fetchDatabaseContent(options: SitemapGenerationOptions): Promise<DatabaseContent> {
-    const contentTypes = options.contentTypes || ['spaces', 'posts', 'courses', 'lessons', 'profiles'];
+    // Phase 3.2: Only fetch spaces for public discovery (member-only content removed)
+    const contentTypes = options.contentTypes || ['spaces'];
     
     const [spaces, posts, courses, lessons, profiles] = await Promise.all([
       contentTypes.includes('spaces') ? this.fetchSpaces() : Promise.resolve([]),
@@ -363,56 +368,21 @@ export class SitemapGenerator {
       });
     });
 
-    // Post pages
-    content.posts.forEach(post => {
-      urls.push({
-        loc: `${this.config.baseUrl}/${post.space_subdomain}/space/${post.slug}`,
-        lastmod: post.updated_at,
-        changefreq: CONTENT_FREQUENCIES.post,
-        priority: CONTENT_PRIORITIES.post,
-        images: this.extractPostImages(post)
-      });
-    });
+    // Phase 3.2: Post pages removed from sitemap (member-only content)
+    // Posts are not publicly discoverable - they require space membership
+    // content.posts.forEach(post => { ... });
 
-    // Course pages
-    content.courses.forEach(course => {
-      urls.push({
-        loc: `${this.config.baseUrl}/${course.space_subdomain}/courses/${course.slug}`,
-        lastmod: course.updated_at,
-        changefreq: CONTENT_FREQUENCIES.course,
-        priority: CONTENT_PRIORITIES.course,
-        images: course.cover_image ? [{
-          loc: course.cover_image,
-          title: course.title,
-          caption: course.description
-        }] : undefined
-      });
-    });
+    // Phase 3.2: Course pages removed from sitemap (member-only content)
+    // Courses are not publicly discoverable - they require space membership
+    // content.courses.forEach(course => { ... });
 
-    // Lesson pages
-    content.lessons.forEach(lesson => {
-      urls.push({
-        loc: `${this.config.baseUrl}/${lesson.space_subdomain}/courses/${lesson.course_slug}/lessons/${lesson.slug}`,
-        lastmod: lesson.updated_at,
-        changefreq: CONTENT_FREQUENCIES.lesson,
-        priority: CONTENT_PRIORITIES.lesson
-      });
-    });
+    // Phase 3.2: Lesson pages removed from sitemap (member-only content)
+    // Lessons are not publicly discoverable - they require space membership
+    // content.lessons.forEach(lesson => { ... });
 
-    // Profile pages
-    content.profiles.forEach(profile => {
-      urls.push({
-        loc: `${this.config.baseUrl}/@${profile.profile_url}`,
-        lastmod: profile.updated_at,
-        changefreq: CONTENT_FREQUENCIES.profile,
-        priority: CONTENT_PRIORITIES.profile,
-        images: profile.avatar_url ? [{
-          loc: profile.avatar_url,
-          title: profile.full_name || 'Profile',
-          caption: profile.bio
-        }] : undefined
-      });
-    });
+    // Phase 3.2: Profile pages removed from sitemap (member-only content)
+    // Profiles are not publicly discoverable - they require space membership
+    // content.profiles.forEach(profile => { ... });
 
     return urls;
   }

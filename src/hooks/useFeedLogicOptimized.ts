@@ -86,6 +86,7 @@ interface UseFeedLogicOptimizedReturn {
   currentPage: number;
   totalPages: number;
   hasNextPage: boolean;
+  isLoadingMore: boolean;
   
   // Action handlers
   handleTabSelect: (tab: string) => void;
@@ -187,6 +188,7 @@ export function useFeedLogicOptimized({
     currentPage,
     totalPages,
     hasNextPage,
+    isLoadingMore,
     refetchPosts,
     loadPage,
     refreshCategories,
@@ -461,6 +463,7 @@ export function useFeedLogicOptimized({
     currentPage,
     totalPages,
     hasNextPage,
+    isLoadingMore,
     
     // Action handlers
     handleTabSelect,
