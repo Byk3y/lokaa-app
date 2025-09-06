@@ -7,7 +7,9 @@
   "devCommand": "npm run dev",
   "git": {
     "deploymentEnabled": {
-      "main": true
+      "main": true,
+      "staging": true,
+      "feature/seo-and-fixes": true
     }
   },
   "rewrites": [
