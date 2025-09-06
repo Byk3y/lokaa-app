@@ -56,7 +56,7 @@ interface AuthValidationResult {
  * @param preserveSupabaseKeys - Whether to preserve Supabase's automatic auth keys (default: true)
  * @returns Array of keys that were cleared
  */
-export const clearAllAuthTokens = (preserveSupabaseKeys: boolean = true): string[] => {
+export const clearAllAuthTokens = (preserveSupabaseKeys = true): string[] => {
   const clearedKeys: string[] = [];
   
   try {
@@ -183,7 +183,7 @@ export const isValidAuthSession = async (): Promise<boolean> => {
  * @param forceFullCleanup - Whether to clear all auth keys including Supabase's (default: false)
  * @returns Validation result after cleanup
  */
-export const performAuthMigration = async (forceFullCleanup: boolean = false): Promise<AuthValidationResult> => {
+export const performAuthMigration = async (forceFullCleanup = false): Promise<AuthValidationResult> => {
   try {
     // First, validate current state
     const preCleanupValidation = await validateAuthSession();

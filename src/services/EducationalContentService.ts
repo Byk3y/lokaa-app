@@ -31,7 +31,7 @@ import type {
 
 export class EducationalContentService {
   private supabase = getSupabaseClient();
-  // Lightweight content cache for viewer hydration to avoid deep nested
+  // Lightweight content cache for viewer to avoid deep nested
   // selects on revisit. Stores only text_content keyed by lessonId.
   private static textCache = new Map<string, { text: string; ts: number }>();
   private static readonly TEXT_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -66,7 +66,7 @@ export class EducationalContentService {
       log.debug('EducationalContent', '✅ Educational content created successfully:', data.id);
       return data;
     } catch (error) {
-      log.error('EducationalContent', 'Failed to create educational content:', error);
+      log.error('EducationalContent', 'Failed to create educational content:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -221,20 +221,20 @@ export class EducationalContentService {
         const cached = EducationalContentService.textCache.get(lessonId);
         if (cached && Date.now() - cached.ts < EducationalContentService.TEXT_TTL_MS) {
           return {
-            id: lessonId as any,
-            educational_content: { text_content: cached.text } as any,
+            id: lessonId,
+            educational_content: { text_content: cached.text } as EducationalContent,
             course_videos: [],
             content_blocks: [],
-          } as unknown as LessonWithContent;
+          } as LessonWithContent;
         }
       }
 
       // Get lesson data
-      const baseQuery = this.supabase.from('course_lessons' as any);
+      const baseQuery = this.supabase.from('course_lessons');
       const selectAll = `*, educational_content(*), course_videos(*), lesson_content_blocks(*, educational_content(*))`;
       const selectTextOnly = `id, content_id, educational_content(text_content)`;
       const { data: lessonData, error: lessonError } = await baseQuery
-        .select((textOnly ? selectTextOnly : selectAll) as any)
+        .select(textOnly ? selectTextOnly : selectAll)
         .eq('id', lessonId)
         .single();
 
@@ -243,7 +243,7 @@ export class EducationalContentService {
         throw lessonError;
       }
 
-      const ld: any = lessonData as any;
+      const ld = lessonData as LessonWithContent;
 
       // If lesson doesn't have content_id, it's using the old system
       if (!ld?.content_id) {

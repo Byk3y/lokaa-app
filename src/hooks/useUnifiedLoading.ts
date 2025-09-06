@@ -94,7 +94,7 @@ export function useUnifiedLoading(options: UseUnifiedLoadingOptions = {}) {
       return loadingStateManager.startOperation(operation, context);
     },
     
-    complete: (operation: LoadingOperation, success: boolean = true) => {
+    complete: (operation: LoadingOperation, success = true) => {
       loadingStateManager.completeOperation(operation, success);
     },
     

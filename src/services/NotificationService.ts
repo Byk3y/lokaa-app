@@ -27,8 +27,8 @@ export class NotificationService {
    */
   async getNotifications(
     userId: string,
-    page: number = 1,
-    limit: number = 25,
+    page = 1,
+    limit = 25,
     type?: NotificationType
   ): Promise<NotificationListResponse> {
     try {

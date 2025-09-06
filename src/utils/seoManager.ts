@@ -1,8 +1,10 @@
 import { log } from '@/utils/logger';
+import { schemaGenerator, type SchemaData } from './schemaGenerator';
+import { localSEO, type LocalBusinessSchema } from './localSEO';
 // =====================================
 // SEO & METADATA MANAGEMENT SYSTEM
 // =====================================
-// Phase 7: Production-ready SEO optimization
+// Phase 7: Production-ready SEO optimization + Phase 1 SEO Enhancement
 
 // Type declarations for global analytics functions
 declare global {
@@ -53,9 +55,9 @@ interface MetaTag {
 export class SEOManager {
   private static instance: SEOManager;
   private currentMeta: Map<string, HTMLMetaElement> = new Map();
-  private baseUrl: string = 'https://lokaa.app';
-  private defaultImage: string = 'https://lokaa.app/og-default.png';
-  private edgeFunctionUrl: string = 'https://nmddvthcsyppyjncqfsk.supabase.co/functions/v1/seo-metadata-generator';
+  private baseUrl = 'https://lokaa.app';
+  private defaultImage = 'https://lokaa.app/og-default.png';
+  private edgeFunctionUrl = 'https://nmddvthcsyppyjncqfsk.supabase.co/functions/v1/seo-metadata-generator';
 
   private constructor() {
     this.initializeDefaults();
@@ -72,9 +74,10 @@ export class SEOManager {
    * Update SEO metadata for current page
    */
   async updateSEO(
-    type: 'space' | 'post' | 'user' | 'landing',
+    type: 'space' | 'post' | 'user' | 'landing' | 'course',
     identifier?: string,
-    spaceSubdomain?: string
+    spaceSubdomain?: string,
+    additionalData?: any
   ): Promise<void> {
     try {
       log.debug('Utils', `[SEO] Updating metadata for ${type}:`, identifier);
@@ -84,26 +87,37 @@ export class SEOManager {
       
       if (metadata) {
         this.applySEOData(metadata);
+        this.applyStructuredData(type, additionalData);
         this.trackPageView(type, identifier);
       } else {
         log.warn('Utils', '[SEO] No metadata received, using fallback');
         this.applyFallbackSEO(type);
+        this.applyStructuredData(type, additionalData);
       }
 
     } catch (error) {
       log.error('Utils', '[SEO] Failed to update metadata:', error);
       this.applyFallbackSEO(type);
+      this.applyStructuredData(type, additionalData);
     }
   }
 
   /**
    * Fetch metadata from Edge Function
+   * DISABLED: Edge Function requires authentication - using fallback instead
    */
   private async fetchMetadata(
     type: string,
     identifier?: string,
     spaceSubdomain?: string
   ): Promise<SEOData | null> {
+    // Temporarily disabled to prevent 401 errors
+    // TODO: Re-enable when Edge Function authentication is properly configured
+    log.debug('Utils', '[SEO] Edge Function disabled - using fallback metadata');
+    return null;
+
+    // Original implementation (commented out):
+    /*
     try {
       const response = await fetch(this.edgeFunctionUrl, {
         method: 'POST',
@@ -134,6 +148,7 @@ export class SEOManager {
       log.error('Utils', '[SEO] Edge Function request failed:', error);
       return null;
     }
+    */
   }
 
   /**
@@ -196,7 +211,7 @@ export class SEOManager {
 
     // JSON-LD Schema
     if (seoData.schema) {
-      this.setJsonLdSchema(seoData.schema);
+      this.setJsonLdSchema(seoData.schema, 'main-schema');
     }
 
     log.debug('Utils', '[SEO] Metadata applied successfully');
@@ -245,24 +260,6 @@ export class SEOManager {
     document.head.appendChild(link);
   }
 
-  /**
-   * Set JSON-LD schema
-   */
-  private setJsonLdSchema(schema: any): void {
-    // Remove existing schema
-    const existing = document.querySelector('script[type="application/ld+json"][data-seo="dynamic"]');
-    if (existing) {
-      existing.remove();
-    }
-
-    // Create new schema script
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.setAttribute('data-seo', 'dynamic');
-    script.textContent = JSON.stringify(schema);
-    
-    document.head.appendChild(script);
-  }
 
   /**
    * Clear dynamic meta tags
@@ -281,26 +278,52 @@ export class SEOManager {
    * Apply fallback SEO for error cases
    */
   private applyFallbackSEO(type: string): void {
-    const fallbackData: SEOData = {
-      title: 'Lokaa | Community Platform',
-      description: 'Build and join thriving communities on Lokaa',
-      canonical: this.baseUrl,
-      openGraph: {
-        title: 'Lokaa',
-        description: 'Community Platform',
-        image: this.defaultImage,
-        url: this.baseUrl,
-        type: 'website',
-        site_name: 'Lokaa'
-      },
-      twitter: {
-        card: 'summary',
-        title: 'Lokaa',
-        description: 'Community Platform',
-        image: this.defaultImage,
-        site: '@lokaa_io'
-      }
-    };
+    let fallbackData: SEOData;
+
+    if (type === 'landing') {
+      fallbackData = {
+        title: 'Lokaa - Transform Your Passion Into a Profitable Community',
+        description: 'Build engaged communities around your passion, create valuable content, and monetize your expertise. Join thousands of creators building profitable communities on Lokaa.',
+        canonical: this.baseUrl,
+        keywords: ['community platform', 'turn passion into revenue', 'monetize your passion', 'build profitable community', 'online learning communities', 'passion communities'],
+        openGraph: {
+          title: 'Lokaa - Transform Your Passion Into a Profitable Community',
+          description: 'Build engaged communities around your passion, create valuable content, and monetize your expertise. Join thousands of creators building profitable communities on Lokaa.',
+          image: this.defaultImage,
+          url: this.baseUrl,
+          type: 'website',
+          site_name: 'Lokaa'
+        },
+        twitter: {
+          card: 'summary_large_image',
+          title: 'Lokaa - Transform Your Passion Into a Profitable Community',
+          description: 'Build engaged communities around your passion, create valuable content, and monetize your expertise. Join thousands of creators building profitable communities on Lokaa.',
+          image: this.defaultImage,
+          site: '@lokaa_app'
+        }
+      };
+    } else {
+      fallbackData = {
+        title: 'Lokaa | Community Platform',
+        description: 'Build and join thriving communities on Lokaa',
+        canonical: this.baseUrl,
+        openGraph: {
+          title: 'Lokaa',
+          description: 'Community Platform',
+          image: this.defaultImage,
+          url: this.baseUrl,
+          type: 'website',
+          site_name: 'Lokaa'
+        },
+        twitter: {
+          card: 'summary',
+          title: 'Lokaa',
+          description: 'Community Platform',
+          image: this.defaultImage,
+          site: '@lokaa_io'
+        }
+      };
+    }
 
     this.applySEOData(fallbackData);
   }
@@ -448,10 +471,206 @@ export class SEOManager {
   }
 
   /**
+   * Apply structured data based on page type
+   */
+  private applyStructuredData(type: string, additionalData?: any): void {
+    try {
+      // Clear existing structured data
+      this.clearStructuredData();
+
+      // Generate schemas based on page type
+      const schemas = schemaGenerator.generatePageSchemas(type as any, additionalData);
+      
+      // Apply each schema
+      schemas.forEach((schema, index) => {
+        this.setJsonLdSchema(schema, `schema-${index}`);
+      });
+
+      log.debug('Utils', `[SEO] Applied ${schemas.length} structured data schemas for ${type}`);
+
+    } catch (error) {
+      log.error('Utils', '[SEO] Failed to apply structured data:', error);
+    }
+  }
+
+  /**
+   * Clear structured data
+   */
+  private clearStructuredData(): void {
+    const existingSchemas = document.querySelectorAll('script[type="application/ld+json"][data-seo="dynamic"]');
+    existingSchemas.forEach(schema => schema.remove());
+  }
+
+  /**
+   * Set JSON-LD schema with optional ID
+   */
+  private setJsonLdSchema(schema: SchemaData, id?: string): void {
+    // Remove existing schema with same ID
+    if (id) {
+      const existing = document.querySelector(`script[type="application/ld+json"][data-schema-id="${id}"]`);
+      if (existing) {
+        existing.remove();
+      }
+    }
+
+    // Create new schema script
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.setAttribute('data-seo', 'dynamic');
+    if (id) {
+      script.setAttribute('data-schema-id', id);
+    }
+    script.textContent = JSON.stringify(schema, null, 0);
+    
+    document.head.appendChild(script);
+  }
+
+  /**
+   * Generate robots.txt content
+   */
+  generateRobotsTxt(): string {
+    const baseUrl = this.baseUrl;
+    
+    return `User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: ${baseUrl}/sitemap.xml
+Sitemap: ${baseUrl}/sitemap-images.xml
+Sitemap: ${baseUrl}/sitemap-news.xml
+
+# Crawl delay
+Crawl-delay: 1
+
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /static/
+Disallow: /private/
+
+# Allow important pages
+Allow: /
+Allow: /about
+Allow: /features
+Allow: /pricing
+Allow: /help
+Allow: /communities
+Allow: /*/about
+Allow: /*/space/
+Allow: /*/courses/
+
+# Block duplicate content
+Disallow: /*?*
+Disallow: /*#*
+Disallow: /*&*
+
+# Block search parameters
+Disallow: /*?search=*
+Disallow: /*?filter=*
+Disallow: /*?sort=*
+
+# Allow social media crawlers
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /`;
+  }
+
+  /**
+   * Apply local SEO optimization for a specific location
+   * Phase 4.1: Local SEO Implementation
+   */
+  applyLocalSEO(location?: string, options: {
+    updateTitle?: boolean;
+    updateDescription?: boolean;
+    addLocalSchema?: boolean;
+    addLocalKeywords?: boolean;
+  } = {}): void {
+    const {
+      updateTitle = true,
+      updateDescription = true,
+      addLocalSchema = true,
+      addLocalKeywords = true,
+    } = options;
+
+    if (!location) {
+      log.debug('LocalSEO', 'No location specified, using default local SEO');
+      return;
+    }
+
+    try {
+      // Update title with location
+      if (updateTitle) {
+        const currentTitle = document.title;
+        const localTitle = localSEO.generateLocalTitle(location, 'Community Platform');
+        this.setTitle(localTitle);
+        log.debug('LocalSEO', `Updated title for ${location}: ${localTitle}`);
+      }
+
+      // Update meta description with location
+      if (updateDescription) {
+        const currentDescription = this.getMetaContent('description') || 'Community platform';
+        const localDescription = localSEO.generateLocalMetaDescription(location, currentDescription);
+        this.setMetaTag('description', localDescription);
+        log.debug('LocalSEO', `Updated description for ${location}`);
+      }
+
+      // Add local keywords
+      if (addLocalKeywords) {
+        const baseKeywords = ['community platform', 'online communities', 'passion communities'];
+        const localKeywords = localSEO.generateLocalKeywords(location, baseKeywords);
+        this.setMetaTag('keywords', localKeywords.join(', '));
+        log.debug('LocalSEO', `Added local keywords for ${location}: ${localKeywords.length} keywords`);
+      }
+
+      // Add local business schema
+      if (addLocalSchema) {
+        const localBusinessSchema = localSEO.generateLocalBusinessSchema(location);
+        this.setJsonLdSchema(localBusinessSchema, 'local-business');
+        log.debug('LocalSEO', `Added local business schema for ${location}`);
+      }
+
+      log.debug('LocalSEO', `Local SEO applied for ${location}`);
+    } catch (error) {
+      log.error('LocalSEO', `Failed to apply local SEO for ${location}:`, error);
+    }
+  }
+
+  /**
+   * Generate location-specific FAQ schema
+   */
+  addLocalFAQSchema(location: string): void {
+    try {
+      const localFAQ = localSEO.generateLocalFAQ(location);
+      const faqSchema = schemaGenerator.generateFAQPageSchema(localFAQ);
+      this.setJsonLdSchema(faqSchema, 'local-faq');
+      log.debug('LocalSEO', `Added local FAQ schema for ${location}`);
+    } catch (error) {
+      log.error('LocalSEO', `Failed to add local FAQ schema for ${location}:`, error);
+    }
+  }
+
+  /**
+   * Get supported locations for local SEO
+   */
+  getSupportedLocations(): string[] {
+    return localSEO.getSupportedLocations().map(loc => loc.city);
+  }
+
+  /**
    * Cleanup resources
    */
   destroy(): void {
     this.clearDynamicMeta();
+    this.clearStructuredData();
     log.debug('Utils', '[SEO] Manager destroyed');
   }
 }

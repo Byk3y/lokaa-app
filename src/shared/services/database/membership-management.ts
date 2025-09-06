@@ -67,6 +67,13 @@ export async function addUserToSpace(
       };
     }
     
+    // Create default points record for the new member
+    const pointsResult = await createDefaultPointsRecord(spaceId, userId);
+    if (!pointsResult.success) {
+      log.warn('Service', "[membership-management addUserToSpace] Failed to create default points record:", pointsResult.error);
+      // Don't fail the entire operation if points record creation fails
+    }
+    
     log.debug('Service', "[membership-management addUserToSpace] Successfully inserted into space_members.");
     return { success: true };
 
@@ -183,6 +190,71 @@ export async function getSpaceMembers(spaceId: string): Promise<{ success: boole
     return { 
       success: false, 
       error: err instanceof Error ? err : new Error(String(err))
+    };
+  }
+}
+
+/**
+ * Creates a default points record for a user in a space
+ * This ensures all space members have a points record for leaderboard functionality
+ */
+export async function createDefaultPointsRecord(
+  spaceId: string, 
+  userId: string
+): Promise<MembershipResult> {
+  log.debug('Service', "[membership-management createDefaultPointsRecord] Creating default points record:", { spaceId, userId });
+  
+  try {
+    // Check if points record already exists
+    const { data: existingRecord, error: checkError } = await getSupabaseClient()
+      .from('space_user_points')
+      .select('user_id')
+      .eq('space_id', spaceId)
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (checkError) {
+      log.error('Service', "[membership-management createDefaultPointsRecord] Error checking existing record:", checkError);
+      return { 
+        success: false, 
+        error: checkError, 
+        message: "Failed to check existing points record."
+      };
+    }
+
+    // If record already exists, no need to create
+    if (existingRecord && existingRecord.length > 0) {
+      log.debug('Service', "[membership-management createDefaultPointsRecord] Points record already exists");
+      return { success: true, message: "Points record already exists" };
+    }
+
+    // Create default points record
+    const { error: insertError } = await getSupabaseClient()
+      .from('space_user_points')
+      .insert({
+        user_id: userId,
+        space_id: spaceId,
+        points: 0
+      });
+
+    if (insertError) {
+      log.error('Service', "[membership-management createDefaultPointsRecord] Error creating points record:", insertError);
+      return { 
+        success: false, 
+        error: insertError, 
+        message: "Failed to create default points record."
+      };
+    }
+    
+    log.debug('Service', "[membership-management createDefaultPointsRecord] Successfully created default points record.");
+    return { success: true, message: "Default points record created" };
+
+  } catch (err) {
+    log.error('Service', "Unexpected error in createDefaultPointsRecord:", err);
+    return { 
+      success: false, 
+      error: err instanceof Error ? err : new Error(String(err)),
+      message: "Unexpected error occurred during points record creation."
     };
   }
 } 

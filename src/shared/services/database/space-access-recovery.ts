@@ -138,7 +138,7 @@ async function alternativeSpaceLookup(subdomain: string): Promise<SpaceRow | nul
  * Creates direct membership to the specified space for the current user
  * FIXED: Now uses space_members table instead of space_access
  */
-export async function createSpaceMembership(spaceId: string, role: string = 'member'): Promise<AccessRecoveryResult> {
+export async function createSpaceMembership(spaceId: string, role = 'member'): Promise<AccessRecoveryResult> {
   try {
     // Get current user
     const { data: { user } } = await getSupabaseClient().auth.getUser();

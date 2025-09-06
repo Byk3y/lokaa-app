@@ -187,7 +187,7 @@ export function useConversations() {
    */
   const createConversationEnhanced = useCallback(async (
     userIds: string[], 
-    isGroup: boolean = false, 
+    isGroup = false, 
     name?: string
   ): Promise<string> => {
     try {

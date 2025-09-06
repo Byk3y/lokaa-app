@@ -12,7 +12,7 @@ export type SpaceMember = Database['public']['Tables']['space_members']['Row'];
 // Space service functions
 export const SpaceService = {
   // Fetch all spaces
-  async getSpaces(limit: number = 10) {
+  async getSpaces(limit = 10) {
     return supabase
       .from('spaces')
       .select('*')

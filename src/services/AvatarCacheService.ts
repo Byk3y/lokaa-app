@@ -58,7 +58,7 @@ export class AvatarCacheService {
   /**
    * 🎯 Get cached avatar with smart LRU management
    */
-  static getCachedAvatar(userId: string, size: string = 'md'): string | null {
+  static getCachedAvatar(userId: string, size = 'md'): string | null {
     const key = `${userId}-${size}`;
     const entry = this.cache.get(key);
 
@@ -93,7 +93,7 @@ export class AvatarCacheService {
   /**
    * 🎯 Cache avatar with intelligent storage
    */
-  static setCachedAvatar(userId: string, url: string, size: string = 'md', isPreloaded: boolean = false): void {
+  static setCachedAvatar(userId: string, url: string, size = 'md', isPreloaded = false): void {
     const key = `${userId}-${size}`;
 
     // LRU eviction if at capacity

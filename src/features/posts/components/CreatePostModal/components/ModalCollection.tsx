@@ -1,9 +1,10 @@
-import React from 'react';
-import { EmojiPickerModal } from '../../modals/EmojiPickerModal';
-import { GiphySearchModal } from '../../modals/GiphySearchModal';
-import { VideoLinkModal } from '../../modals/VideoLinkModal';
-import { LinkModal } from '../../modals/LinkModal';
-import { VideoPlayerModal } from '../../modals/VideoPlayerModal';
+import React, { Suspense, lazy } from 'react';
+// Lazy load heavy content modals for better code splitting
+const EmojiPickerModal = lazy(() => import('../../modals/EmojiPickerModal').then(module => ({ default: module.EmojiPickerModal })));
+const GiphySearchModal = lazy(() => import('../../modals/GiphySearchModal').then(module => ({ default: module.GiphySearchModal })));
+const VideoLinkModal = lazy(() => import('../../modals/VideoLinkModal').then(module => ({ default: module.VideoLinkModal })));
+const LinkModal = lazy(() => import('../../modals/LinkModal').then(module => ({ default: module.LinkModal })));
+const VideoPlayerModal = lazy(() => import('../../modals/VideoPlayerModal').then(module => ({ default: module.VideoPlayerModal })));
 import * as Dialog from '@radix-ui/react-dialog';
 import { AlertTriangle } from 'lucide-react';
 
@@ -89,49 +90,69 @@ export const ModalCollection: React.FC<ModalCollectionProps> = ({
 }) => {
   return (
     <>
-      {/* Emoji Picker Modal */}
-      <EmojiPickerModal 
-        ref={emojiPickerRef}
-        visible={showEmojiPicker}
-        onEmojiSelect={onEmojiSelect}
-      />
+      {/* Emoji Picker Modal - Lazy loaded */}
+      {showEmojiPicker && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading emoji picker...</div></div>}>
+          <EmojiPickerModal 
+            ref={emojiPickerRef}
+            visible={showEmojiPicker}
+            onEmojiSelect={onEmojiSelect}
+          />
+        </Suspense>
+      )}
       
-      {/* Giphy Search Modal */}
-      <GiphySearchModal
-        ref={giphyContainerRef} 
-        searchTerm={giphySearchTerm}
-        onSearchChange={setGiphySearchTerm}
-        fetchGifs={fetchGifsForSearch}
-        fetchGifsByCategory={fetchGifsForCategory}
-        onGifSelect={onGifSelected}
-        visible={showGiphySearch}
-        activeCategory={activeGifCategory}
-        onClose={() => setShowGiphySearch(false)}
-        standalone={false}
-      />
+      {/* Giphy Search Modal - Lazy loaded */}
+      {showGiphySearch && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading GIF search...</div></div>}>
+          <GiphySearchModal
+            ref={giphyContainerRef} 
+            searchTerm={giphySearchTerm}
+            onSearchChange={setGiphySearchTerm}
+            fetchGifs={fetchGifsForSearch}
+            fetchGifsByCategory={fetchGifsForCategory}
+            onGifSelect={onGifSelected}
+            visible={showGiphySearch}
+            activeCategory={activeGifCategory}
+            onClose={() => setShowGiphySearch(false)}
+            standalone={false}
+          />
+        </Suspense>
+      )}
 
-      {/* Video Link Modal */}
-      <VideoLinkModal 
-        isOpen={isVideoLinkModalOpen}
-        onClose={() => setIsVideoLinkModalOpen(false)}
-        onSubmit={onVideoUrlSubmit}
-      />
+      {/* Video Link Modal - Lazy loaded */}
+      {isVideoLinkModalOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading video modal...</div></div>}>
+          <VideoLinkModal 
+            isOpen={isVideoLinkModalOpen}
+            onClose={() => setIsVideoLinkModalOpen(false)}
+            onSubmit={onVideoUrlSubmit}
+          />
+        </Suspense>
+      )}
 
-      {/* Link Modal */}
-      <LinkModal 
-        isOpen={isLinkModalOpen}
-        onClose={() => setIsLinkModalOpen(false)}
-        onSubmit={onLinkSubmit}
-      />
+      {/* Link Modal - Lazy loaded */}
+      {isLinkModalOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading link modal...</div></div>}>
+          <LinkModal 
+            isOpen={isLinkModalOpen}
+            onClose={() => setIsLinkModalOpen(false)}
+            onSubmit={onLinkSubmit}
+          />
+        </Suspense>
+      )}
       
-      {/* Video Player Modal */}
-      <VideoPlayerModal 
-        isOpen={isVideoPlayerModalOpen}
-        onClose={() => setIsVideoPlayerModalOpen(false)}
-        videoUrl={selectedVideo.url}
-        videoId={selectedVideo.videoId}
-        videoPlatform={selectedVideo.platform as 'youtube' | 'vimeo' | 'other' | undefined}
-      />
+      {/* Video Player Modal - Lazy loaded */}
+      {isVideoPlayerModalOpen && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading video player...</div></div>}>
+          <VideoPlayerModal 
+            isOpen={isVideoPlayerModalOpen}
+            onClose={() => setIsVideoPlayerModalOpen(false)}
+            videoUrl={selectedVideo.url}
+            videoId={selectedVideo.videoId}
+            videoPlatform={selectedVideo.platform as 'youtube' | 'vimeo' | 'other' | undefined}
+          />
+        </Suspense>
+      )}
 
       {/* Close Confirmation Dialog */}
       <Dialog.Root open={showCloseConfirmation} onOpenChange={setShowCloseConfirmation}>

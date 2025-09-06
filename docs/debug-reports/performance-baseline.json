@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-08-30T23:51:10.868Z",
+  "buildMetrics": {
+    "buildTime": 20365
+  },
+  "bundleMetrics": {
+    "totalSize": 5082,
+    "fileCount": 90
+  },
+  "renderMetrics": {
+    "averageRenderTime": 12.5,
+    "slowComponents": 2,
+    "totalComponents": 45
+  }
+}

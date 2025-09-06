@@ -73,7 +73,7 @@ function useDebouncedFetch() {
   const debouncedFetch = async (
     key: string,
     fetchFn: () => Promise<any>,
-    debounceMs: number = 300
+    debounceMs = 300
   ) => {
     // Check cache first
     const now = Date.now();

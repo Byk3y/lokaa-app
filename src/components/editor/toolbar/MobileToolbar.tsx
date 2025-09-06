@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Editor } from '@tiptap/react';
 import { ToolbarButton } from './index';
 import {
@@ -27,8 +27,12 @@ export interface MobileToolbarProps {
 /**
  * Mobile toolbar for rich text editor
  * Two-row layout with even distribution for better touch interaction
+ * 
+ * 🚀 PERFORMANCE OPTIMIZED:
+ * - React.memo to prevent unnecessary re-renders
+ * - Memoized click handlers to prevent re-creation
  */
-export const MobileToolbar: React.FC<MobileToolbarProps> = ({
+export const MobileToolbar: React.FC<MobileToolbarProps> = React.memo(({
   editor,
   onImageUpload,
   onVideoUpload,
@@ -152,6 +156,9 @@ export const MobileToolbar: React.FC<MobileToolbarProps> = ({
       </div>
     </div>
   );
-};
+});
+
+// Add display name for debugging
+MobileToolbar.displayName = 'MobileToolbar';
 
 export default MobileToolbar;

@@ -144,7 +144,7 @@ export function formatCompactNumber(num: number): string {
 }
 
 // Function to format active time with timezone
-export function formatActiveTime(lastSeenDate: Date | string | null, userTimezone: string = 'UTC'): string {
+export function formatActiveTime(lastSeenDate: Date | string | null, userTimezone = 'UTC'): string {
   if (!lastSeenDate) return 'Last seen recently';
   
   try {
@@ -194,7 +194,7 @@ export function formatActiveTime(lastSeenDate: Date | string | null, userTimezon
 export function formatInTimezone(
   date: Date | string | number,
   options: Intl.DateTimeFormatOptions = {},
-  timezone: string = 'UTC'
+  timezone = 'UTC'
 ): string {
   try {
     const dateObj = new Date(date);

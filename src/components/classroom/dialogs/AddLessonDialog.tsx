@@ -1,12 +1,12 @@
 import { log } from '@/utils/logger';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { formatAsTitle } from '@/utils/textUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import RichTextEditor from "@/components/ui/rich-text-editor";
+const RichTextEditor = lazy(() => import("@/components/ui/rich-text-editor"));
 import { Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -220,19 +220,21 @@ export default function AddLessonDialog({
                 
                 {useRichText ? (
                   <div className="flex-1 min-h-0">
-                    <RichTextEditor
-                      content={contentText}
-                      onChange={setContentText}
-                      placeholder="Start writing your lesson content..."
-                      className="h-[400px]"
-                      onSave={(title, content) => {
-                        setContentText(content);
-                        setTitle(title);
-                      }}
-                      onCancel={() => {
-                        // Handle cancel if needed
-                      }}
-                    />
+                    <Suspense fallback={<div className="h-[400px] flex items-center justify-center border rounded-md bg-gray-50"><div className="text-gray-500">Loading rich text editor...</div></div>}>
+                      <RichTextEditor
+                        content={contentText}
+                        onChange={setContentText}
+                        placeholder="Start writing your lesson content..."
+                        className="h-[400px]"
+                        onSave={(title, content) => {
+                          setContentText(content);
+                          setTitle(title);
+                        }}
+                        onCancel={() => {
+                          // Handle cancel if needed
+                        }}
+                      />
+                    </Suspense>
                   </div>
                 ) : (
                   <Textarea 

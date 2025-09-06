@@ -1,6 +1,5 @@
 import { log } from '@/utils/logger';
 import { Session, User as SupabaseUser, AuthError } from '@supabase/supabase-js'
-import { getSupabaseClient } from '@/integrations/supabase/client'
 import { NavigateFunction } from 'react-router-dom'
 import { User, SessionStateSetters } from './sessionUtils'
 import { clearAuthStorage } from './userUtils'
@@ -39,10 +38,9 @@ export const signIn = async (
     // Clear any problematic auth tokens before sign in
     await clearAllAuthTokens(true); // Preserve valid Supabase tokens
     
-    const { data, error } = await getSupabaseClient().auth.signInWithPassword({
-      email,
-      password,
-    });
+    // Lazy load auth module for sign in
+    const { signInWithPassword } = await import('@/integrations/supabase/auth');
+    const { data, error } = await signInWithPassword(email, password);
 
     if (error) {
       log.warn('Utils', '⚠️ [AuthActions] Sign in error:', error.message);
@@ -109,8 +107,11 @@ export const signUp = async (
     // Clear any problematic auth tokens before sign up
     await clearAllAuthTokens(true); // Preserve valid Supabase tokens
     
+    // Lazy load auth module for sign up
+    const { signOut, signUp: supabaseSignUp } = await import('@/integrations/supabase/auth');
+    
     // Clear any existing session
-    await getSupabaseClient().auth.signOut();
+    await signOut();
     setters.setHasRouted(false);
     
     // Attempt to sign up
@@ -119,13 +120,9 @@ export const signUp = async (
       ? 'https://lokaa.app/auth/confirm' // ensure https link for email clients
       : `${window.location.origin}/auth/confirm`;
 
-    const { data, error } = await getSupabaseClient().auth.signUp({ 
-      email, 
-      password,
-      options: {
-        data: metadata,
-        emailRedirectTo: redirectTo
-      }
+    const { data, error } = await supabaseSignUp(email, password, {
+      data: metadata,
+      emailRedirectTo: redirectTo
     });
     
     if (error) {

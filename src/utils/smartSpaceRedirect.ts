@@ -323,7 +323,7 @@ class SmartSpaceRedirector {
     userId: string, 
     navigate: NavigateFunction, 
     currentPath: string,
-    fromDiscover: boolean = false
+    fromDiscover = false
   ): Promise<SpaceRedirectResult> {
     
     // 🎯 PHASE 2B: Check if operation is already in progress

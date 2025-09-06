@@ -77,8 +77,8 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
     try {
       log.debug('Hook', '🔄 Fetching leaderboard from Supabase for space:', spaceId);
       
-      // POSTS PATTERN: 4-second timeout with fallback recovery
-      const TIMEOUT_MS = 15000; // Increased from 4000 to match working queries
+      // POSTS PATTERN: 8-second timeout with fallback recovery
+      const TIMEOUT_MS = 8000; // Reduced from 15000 to 8000 for better UX
       
       let rankedUsers: CachedLeaderboardUser[] = [];
       let currentUserStanding: CachedUserStanding | null = null;
@@ -96,7 +96,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
           topUserPointsPromise,
           new Promise<never>((_, reject) => {
             setTimeout(() => {
-              log.error('Hook', '[LeaderboardCache] Points query timeout for:', spaceId);
+              log.warn('Hook', '[LeaderboardCache] Points query timeout for:', spaceId);
               reject(new Error('Leaderboard points query timeout'));
             }, TIMEOUT_MS);
           })
@@ -119,7 +119,7 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
             profilesPromise,
             new Promise<never>((_, reject) => {
               setTimeout(() => {
-                log.error('Hook', '[LeaderboardCache] Profiles query timeout for:', spaceId);
+                log.warn('Hook', '[LeaderboardCache] Profiles query timeout for:', spaceId);
                 reject(new Error('Leaderboard profiles query timeout'));
               }, TIMEOUT_MS);
             })
@@ -146,27 +146,58 @@ export const useLeaderboardCache = create<LeaderboardCacheState>((set, get) => (
         // Handle current user standing with timeout protection
         if (currentUserId) {
           try {
+            // First, try to get existing points record (without .single() to avoid 406 error)
             const currentUserPromise = (getSupabaseClient() as any)
               .from('space_user_points')
               .select('points')
               .eq('space_id', spaceId)
               .eq('user_id', currentUserId)
-              .single();
+              .limit(1);
 
             const { data: rawCurrentUserPointData, error: currentUserPointError } = await Promise.race([
               currentUserPromise,
               new Promise<never>((_, reject) => {
                 setTimeout(() => {
-                  log.error('Hook', '[LeaderboardCache] Current user query timeout for:', spaceId);
+                  log.warn('Hook', '[LeaderboardCache] Current user query timeout for:', spaceId);
                   reject(new Error('Current user query timeout'));
                 }, TIMEOUT_MS);
               })
             ]);
 
-            const currentUserPointData = rawCurrentUserPointData as ({ points: number } | null);
+            let currentUserPointData: { points: number } | null = null;
 
-            if (currentUserPointError && currentUserPointError.code !== 'PGRST116') {
+            if (currentUserPointError) {
               throw currentUserPointError;
+            }
+
+            // If no record exists, create a default one
+            if (!rawCurrentUserPointData || rawCurrentUserPointData.length === 0) {
+              log.debug('Hook', '[LeaderboardCache] No points record found for user, creating default record');
+              
+              try {
+                const { data: insertData, error: insertError } = await (getSupabaseClient() as any)
+                  .from('space_user_points')
+                  .insert({
+                    user_id: currentUserId,
+                    space_id: spaceId,
+                    points: 0
+                  })
+                  .select('points')
+                  .single();
+
+                if (insertError) {
+                  log.warn('Hook', '[LeaderboardCache] Failed to create default points record:', insertError);
+                  // Continue with 0 points if insert fails
+                  currentUserPointData = { points: 0 };
+                } else {
+                  currentUserPointData = insertData;
+                }
+              } catch (insertError) {
+                log.warn('Hook', '[LeaderboardCache] Error creating default points record:', insertError);
+                currentUserPointData = { points: 0 };
+              }
+            } else {
+              currentUserPointData = rawCurrentUserPointData[0];
             }
             
             if (currentUserPointData) {

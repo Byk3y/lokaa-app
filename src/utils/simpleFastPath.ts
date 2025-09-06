@@ -96,7 +96,7 @@ export async function detectUserTypeSimple(userId: string): Promise<{
 export async function executeFastPath(
   userId: string,
   navigate: NavigateFunction,
-  currentPath: string = '/app'
+  currentPath = '/app'
 ): Promise<FastPathResult> {
   const startTime = Date.now();
   
@@ -391,7 +391,7 @@ export function getFastPathStats(): {
 }
 
 // NEW: Trust Token Creation - Creates cryptographic proof of access
-function createTrustToken(userId: string, subdomain: string, source: 'fast-path-redirect' | 'database-verified' | 'owner-check', isOwner: boolean = false): TrustToken {
+function createTrustToken(userId: string, subdomain: string, source: 'fast-path-redirect' | 'database-verified' | 'owner-check', isOwner = false): TrustToken {
   const now = Date.now();
   const trustToken: TrustToken = {
     userId,

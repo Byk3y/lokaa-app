@@ -8,10 +8,12 @@ import type { Space } from '@/types/space';
 import { toast } from "@/hooks/use-toast";
 import { devLogger } from '@/utils/developmentLogger';
 import { SpaceRedirectData } from "@/utils/spaceRedirect";
+import { useMembershipStore } from '@/features/spaces/store/membership-store';
 
 export default function CreateSpace() {
   const { user } = useOptimizedAuth();
   const navigate = useNavigate();
+  const { triggerSpacesRefresh } = useMembershipStore();
   const [groupName, setGroupName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [charCount, setCharCount] = useState(0);
@@ -151,6 +153,14 @@ export default function CreateSpace() {
         // Continue even if caching fails
       }
       
+      // CRITICAL FIX: Invalidate spaces cache so new space appears in dropdown
+      try {
+        await triggerSpacesRefresh();
+        devLogger.log('SpaceManagement', "✅ Spaces cache invalidated - new space will appear in dropdown");
+      } catch (error) {
+        devLogger.log('SpaceManagement', "⚠️ Failed to invalidate spaces cache:", error);
+      }
+
       // Navigate to the new space with a small delay to ensure data is saved
       devLogger.log('SpaceManagement', '➡️ Navigating to newly created space:', newSpace.subdomain);
       

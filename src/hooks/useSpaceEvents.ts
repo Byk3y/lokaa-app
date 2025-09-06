@@ -143,7 +143,7 @@ export function useSpaceEvent(
   eventType: SpaceEventType | 'all',
   handler: (event: SpaceEvent) => void | Promise<void>,
   dependencies: any[] = [],
-  priority: number = 0
+  priority = 0
 ) {
   const handlerRef = useRef(handler);
   const listenerIdRef = useRef<string | null>(null);

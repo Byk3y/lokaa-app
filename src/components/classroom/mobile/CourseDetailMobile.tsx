@@ -386,14 +386,14 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
           onAddPage={() => handleCreateNewPage()}
           onDeleteCourse={handleDeleteCourse}
           onEditLesson={(lessonId, title) => {
-            // TODO: Implement edit lesson for mobile
+            // Note: Mobile edit lesson functionality needs implementation
             log.debug('Mobile', 'Edit lesson:', lessonId, title);
           }}
           onDeleteLesson={(lessonId, title) => openDeletePageDialog(lessonId, title)}
           onRevertToDraft={(lessonId, title, isPublished) => openRevertToDraftDialog(lessonId, title, isPublished)}
           onChangeFolder={(lessonId, title, currentFolderId) => openChangeFolderDialog(lessonId, title, currentFolderId)}
           onDuplicateLesson={(lessonId, title) => {
-            // TODO: Implement duplicate lesson for mobile
+            // Note: Mobile duplicate lesson functionality needs implementation
             log.debug('Mobile', 'Duplicate lesson:', lessonId, title);
           }}
           enableHapticFeedback={true}

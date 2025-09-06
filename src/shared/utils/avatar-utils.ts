@@ -41,7 +41,7 @@ export function getAvatarColor(str: string): string {
     '#6366F1', // indigo
   ];
   
-  // Create a simple hash of the string
+  // Create a simple hash of the string (using simple hash for performance)
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);

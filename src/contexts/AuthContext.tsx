@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { conversationStore } from '@/features/chat/store/conversationStore';
@@ -35,16 +35,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [routingInProgress, setRoutingInProgress] = useState(false);
   const preloadSpaces = useUserSpacesStore(state => state.preloadSpaces);
+  
+  // Use ref to store preloadSpaces to avoid dependency issues
+  const preloadSpacesRef = useRef(preloadSpaces);
+  preloadSpacesRef.current = preloadSpaces;
 
-  // Initialize auth state - memoized to prevent unnecessary re-creation
-  const initializeAuth = useCallback(async (maxRetries = 3) => {
+  // ✅ FIXED: Development-mode circular dependency detection - moved to useLayoutEffect to prevent render loops
+  const renderCount = useRef(0);
+  const lastRenderTime = useRef(performance.now());
+  
+  useLayoutEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      renderCount.current++;
+      const now = performance.now();
+      const timeSinceLastRender = now - lastRenderTime.current;
+      lastRenderTime.current = now;
+      
+      // Only warn if there are truly excessive re-renders (more than 5 in 100ms)
+      if (renderCount.current > 5 && timeSinceLastRender < 100) {
+        console.warn('🚨 [AuthContext] Excessive re-renders detected!', {
+          renderCount: renderCount.current,
+          timeSinceLastRender: `${timeSinceLastRender.toFixed(2)}ms`,
+          session: !!session,
+          user: !!user,
+          loading
+        });
+      }
+      
+      // Log every 20th render for monitoring (reduced frequency)
+      if (renderCount.current % 20 === 0) {
+        console.debug('🔍 [AuthContext] Render count:', renderCount.current);
+      }
+    }
+  });
+
+  // ✅ FIXED: Remove function dependency - move logic into useEffect
+  // This eliminates the circular dependency caused by function references in useEffect deps
+
+  useEffect(() => {
+    const location = window.location;
+    
+    // Check for sign out redirect scenario
+    if (location.pathname === '/' && !location.search) {
+      setLoading(false);
+      return;
+    }
+
+    // ✅ FIXED: Move initializeAuth logic inside useEffect to eliminate function dependency
+    const initializeAuth = async (maxRetries = 3) => {
     const { MobileNetworkHandler } = await import('@/utils/mobileNetworkHandler');
     let retryCount = 0;
     
     while (retryCount < maxRetries) {
       try {
+        // Lazy load auth module for session retrieval
+        const { getSession } = await import('@/integrations/supabase/auth');
         const { data, error } = await MobileNetworkHandler.safeFetch(
-          () => getSupabaseClient().auth.getSession(),
+          () => getSession(),
           {
             maxRetries: 2,
             baseDelay: 1000,
@@ -74,16 +121,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
       }
     }
-  }, []);
-
-  useEffect(() => {
-    const location = window.location;
-    
-    // Check for sign out redirect scenario
-    if (location.pathname === '/' && !location.search) {
-      setLoading(false);
-      return;
-    }
+    };
 
     const initializeWithMigration = async () => {
       try {
@@ -106,18 +144,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeWithMigration();
-  }, [initializeAuth]);
+  }, []); // ✅ FIXED: Empty dependency array - no function dependencies
 
+  // ✅ FIXED: Consolidated auth initialization with proper cleanup
   useEffect(() => {
-    let retryCount = 0;
-    const maxRetries = 3;
+    let isMounted = true;
+    let subscription: any = null;
+    let retryTimeout: NodeJS.Timeout | null = null;
 
-    const checkSession = async () => {
+    const initializeAuthSystem = async () => {
+      if (!isMounted) return;
+
       try {
+        // Setup auth state change listener first
+        const { onAuthStateChange } = await import('@/integrations/supabase/auth');
+        const { data: { subscription: authSubscription } } = onAuthStateChange(
+          async (event, session) => {
+            if (!isMounted) return;
+            
+            // Handle auth state changes directly in AuthContext
+            setSession(session);
+            setUser(session?.user || null);
+            
+            if (event === 'SIGNED_IN' && session?.user) {
+              // Clear chat store and cache to prevent stale conversations from prior sessions
+              try { conversationStore.getState().reset(); } catch {}
+              try { await userConversationsCacheService.clear(); } catch {}
+              preloadSpacesRef.current(session.user.id);
+              setLoading(false);
+              setRoutingInProgress(false);
+            } else if (event === 'SIGNED_OUT') {
+              // Clear chat store and cache on sign out
+              try { conversationStore.getState().reset(); } catch {}
+              try { await userConversationsCacheService.clear(); } catch {}
+              setLoading(false);
+              setRoutingInProgress(false);
+            }
+          }
+        );
+        
+        subscription = authSubscription;
+
+        // Check current session
         const { MobileNetworkHandler } = await import('@/utils/mobileNetworkHandler');
+        const { getSession } = await import('@/integrations/supabase/auth');
         
         const { data, error } = await MobileNetworkHandler.safeFetch(
-          () => getSupabaseClient().auth.getSession(),
+          () => getSession(),
           {
             maxRetries: 2,
             baseDelay: 1000,
@@ -125,84 +198,61 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         );
         
-        if (error) throw error;
+        if (!isMounted) return;
+        
+              if (error) {
+        log.error('Context', '[AuthProvider] Session check failed:', error instanceof Error ? error : new Error(String(error)));
+        setLoading(false);
+        return;
+      }
         
         setSession(data.session);
         setUser(data.session?.user || null);
         
         if (data.session?.user) {
-          preloadSpaces(data.session.user.id);
+          preloadSpacesRef.current(data.session.user.id);
         }
         
+        setLoading(false);
+        
       } catch (error) {
-        retryCount++;
-        if (retryCount < maxRetries) {
-          setTimeout(() => checkSession(), 1000);
-        } else {
-          log.error('Context', '[AuthProvider] Session check failed after retries:', error);
-        }
+        if (!isMounted) return;
+        log.error('Context', '[AuthProvider] Auth system initialization failed:', error instanceof Error ? error : new Error(String(error)));
+        setLoading(false);
       }
     };
 
-    const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange(
-      async (event, session) => {
-        // Handle auth state changes directly in AuthContext
-        setSession(session);
-        setUser(session?.user || null);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Clear chat store and cache to prevent stale conversations from prior sessions
-          try { conversationStore.getState().reset(); } catch {}
-          try { await userConversationsCacheService.clear(); } catch {}
-          preloadSpaces(session.user.id);
-          setLoading(false);
-          setRoutingInProgress(false);
-          // Mobile manager disabled - handled by comprehensive fix
+    // Start initialization
+    initializeAuthSystem();
 
-          // TODO: Onboarding/lifecycle emails will be handled via database-driven triggers 
-          // and scheduled edge functions, not client-side events
-        } else if (event === 'SIGNED_OUT') {
-          // Clear chat store and cache on sign out
-          try { conversationStore.getState().reset(); } catch {}
-          try { await userConversationsCacheService.clear(); } catch {}
-          setLoading(false);
-          setRoutingInProgress(false);
-          // Mobile manager disabled - handled by comprehensive fix
-        }
+    // ✅ FIXED: Proper cleanup function
+    return () => {
+      isMounted = false;
+      
+      if (subscription) {
+        subscription.unsubscribe();
+        subscription = null;
       }
-    );
+      
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+        retryTimeout = null;
+      }
+    };
+  }, []); // ✅ FIXED: Empty dependency array - preloadSpaces is stable from Zustand store
 
-    checkSession();
+  // ✅ FIXED: Remove this useEffect entirely - retry logic is now handled in the main initialization
+  // This eliminates the third useEffect that was causing additional circular dependency issues
 
-    // Return a cleanup function to unsubscribe from the listener on unmount
-    return () => subscription.unsubscribe();
-  }, [preloadSpaces]);
-
-  useEffect(() => {
-    if (loading && session === null) {
-      let retryCount = 0;
-      const maxRetries = 3;
-
-      const retryInit = () => {
-        retryCount++;
-        if (retryCount <= maxRetries) {
-          setTimeout(() => {
-            initializeAuth(maxRetries - retryCount + 1);
-          }, 1000 * retryCount);
-        }
-      };
-
-      retryInit();
-    }
-  }, [loading, session, initializeAuth]);
-
-  // Enhanced session refresh functionality
+  // ✅ FIXED: Optimized session refresh with stable dependencies
   const refreshSession = useCallback(async (): Promise<boolean> => {
     try {
       const { MobileNetworkHandler } = await import('@/utils/mobileNetworkHandler');
       
+      // Lazy load auth module for session refresh
+      const { refreshSession: supabaseRefreshSession } = await import('@/integrations/supabase/auth');
       const { data, error } = await MobileNetworkHandler.safeFetch(
-        () => getSupabaseClient().auth.refreshSession(),
+        () => supabaseRefreshSession(),
         {
           maxRetries: 3,
           baseDelay: 1500,
@@ -223,12 +273,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return false;
     } catch (error) {
-      log.error('Context', '[AuthProvider] Session refresh failed:', error);
+      log.error('Context', '[AuthProvider] Session refresh failed:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
-  }, []);
+  }, []); // ✅ FIXED: Empty dependency array - function is stable
 
-  // Enhanced session validation functionality
+  // ✅ FIXED: Optimized session validation with stable dependencies
   const validateSession = useCallback(async (): Promise<boolean> => {
     try {
       const { clearAllAuthTokens, validateAuthSession } = await import('@/utils/auth/authTokenUtils');
@@ -249,12 +299,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return false;
     } catch (error) {
-      log.error('Context', '[AuthProvider] Session validation failed:', error);
+      log.error('Context', '[AuthProvider] Session validation failed:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
-  }, []);
+  }, []); // ✅ FIXED: Empty dependency array - function is stable
 
-  // Enhanced signOut with direct clearAllAuthTokens integration
+  // ✅ FIXED: Optimized signOut with stable dependencies
   const signOut = useCallback(async (path?: string) => {
     try {
       // Use direct clearAllAuthTokens integration for immediate cleanup
@@ -264,10 +314,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       clearAllAuthTokens();
 
       // Sign out from Supabase
-      const { error } = await getSupabaseClient().auth.signOut();
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) {
+        throw new Error('Supabase client not available');
+      }
+      const { error } = await supabaseClient.auth.signOut();
       
       if (error) {
-        log.error('Context', '[AuthProvider] Supabase signOut error:', error);
+        log.error('Context', '[AuthProvider] Supabase signOut error:', error instanceof Error ? error : new Error(String(error)));
       }
 
       // Clear auth state
@@ -281,24 +335,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       window.location.href = targetPath;
 
     } catch (error) {
-      log.error('Context', '[AuthProvider] Enhanced signOut error:', error);
+      log.error('Context', '[AuthProvider] Enhanced signOut error:', error instanceof Error ? error : new Error(String(error)));
       
       // Fallback: Basic Supabase signOut
       try {
-        await getSupabaseClient().auth.signOut();
+        const fallbackClient = getSupabaseClient();
+        if (fallbackClient?.auth) {
+          await fallbackClient.auth.signOut();
+        }
         setSession(null);
         setUser(null);
         setLoading(false);
         setRoutingInProgress(false);
         window.location.href = '/';
       } catch (fallbackError) {
-        log.error('Context', '[AuthProvider] Fallback signOut failed:', fallbackError);
+        log.error('Context', '[AuthProvider] Fallback signOut failed:', fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError)));
         window.location.href = '/';
       }
     }
-  }, []);
+  }, []); // ✅ FIXED: Empty dependency array - function is stable
 
-  // Sign up functionality
+  // ✅ FIXED: Optimized signUp with stable dependencies
   const signUp = useCallback(async (
     email: string, 
     password: string, 
@@ -332,14 +389,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       return result;
     } catch (error) {
-      log.error('Context', '[AuthProvider] Sign up error:', error);
+      log.error('Context', '[AuthProvider] Sign up error:', error instanceof Error ? error : new Error(String(error)));
       return {
         error: { message: error instanceof Error ? error.message : 'Sign up failed' },
         data: null,
         success: false
       };
     }
-  }, []);
+  }, []); // ✅ FIXED: Empty dependency array - function is stable
 
   const contextValue = useMemo(() => ({
     session,

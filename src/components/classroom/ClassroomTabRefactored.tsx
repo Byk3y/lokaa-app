@@ -1,19 +1,28 @@
-import { log } from '@/utils/logger';
+// React and routing
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+
+// Contexts and hooks
+import { useOptimizedAuth } from '@/contexts/AuthContext';
+import { useSpace } from '@/contexts/SpaceContext';
+import { toast } from '@/hooks/use-toast';
+import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
+import { useCachedClassroom } from '@/hooks/useCachedClassroom';
+
+// Utils and services
+import { log } from '@/utils/logger';
+import { getSupabaseClient } from '@/integrations/supabase/client';
+import { generateSlug, getUniqueCourseSlug } from '@/utils/slugUtils';
+import { extractTabFromPathname } from '@/utils/tabUtils';
+
+// Components
 import { CourseGrid } from './CourseGrid';
 import CourseDetailView from './CourseDetailView';
 import CreateCourseDialog from '../space/dialogs/CreateCourseDialog';
 import EditCourseDialog from './dialogs/EditCourseDialog';
-import { getSupabaseClient } from '@/integrations/supabase/client';
-import { useOptimizedAuth } from '@/contexts/AuthContext';
-import { useSpace } from '@/contexts/SpaceContext';
-import { toast } from '@/hooks/use-toast';
-import { getCourseUrl, generateSlug, getUniqueCourseSlug } from '@/utils/slugUtils';
-import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
+
+// Types
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
-import { usePersistentTabs } from '@/hooks/usePersistentTabs';
-import { useCachedClassroom } from '@/hooks/useCachedClassroom';
 
 export const ClassroomTabRefactored = ({
   courses: propCourses = [],
@@ -37,9 +46,9 @@ export const ClassroomTabRefactored = ({
   const navigate = useNavigate();
   const location = useLocation();
   
-  // 🚀 REVOLUTIONARY: Use persistent tab system instead of URL checking
-  const { isTabActive } = usePersistentTabs();
-  const isActiveTab = isTabActive('classroom');
+  // ✅ FIXED: Use standard React Router navigation to determine tab state
+  const currentTab = extractTabFromPathname(location.pathname);
+  const isActiveTab = currentTab === 'classroom';
   
   // Use classroom cache system instead of Zustand store for proper progress synchronization
   const {
@@ -134,9 +143,20 @@ export const ClassroomTabRefactored = ({
     });
     
     // If we're on classroom page with no courses and not loading, trigger a refetch
+    // But only if we haven't already tried to refetch recently
     if (isOnClassroomPage && hasSpaceInfo && hasNoCourses && isNotLoading) {
-      log.debug('Component', '🔄 [ClassroomTab] Detected return to classroom without courses, triggering refetch');
-      refetch();
+      const lastRefetchKey = `classroom_refetch_${effectiveSpace.id}`;
+      const lastRefetch = sessionStorage.getItem(lastRefetchKey);
+      const now = Date.now();
+      
+      // Only refetch if we haven't refetched in the last 30 seconds
+      if (!lastRefetch || (now - parseInt(lastRefetch)) > 30000) {
+        log.debug('Component', '🔄 [ClassroomTab] Detected return to classroom without courses, triggering refetch');
+        sessionStorage.setItem(lastRefetchKey, now.toString());
+        refetch();
+      } else {
+        log.debug('Component', '🔄 [ClassroomTab] Skipping refetch - already tried recently');
+      }
     }
   }, [location.pathname, effectiveSpace?.id, courses.length, loading, isActiveTab, refetch]);
   
@@ -174,7 +194,7 @@ export const ClassroomTabRefactored = ({
     try {
       navigate(courseUrl, { replace: false });
     } catch (error) {
-      log.error('Component', `🎓 [ClassroomTab] Navigation error:`, error);
+      log.error('Component', `🎓 [ClassroomTab] Navigation error:`, error instanceof Error ? error : new Error(String(error)));
       // Fallback to window.location
       window.location.href = courseUrl;
     }
@@ -237,7 +257,12 @@ export const ClassroomTabRefactored = ({
       
       log.debug('Component', '🎓 [ClassroomTab] Generated slug for course:', { baseSlug, uniqueSlug });
       
-      const { data, error } = await supabase
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) {
+        throw new Error('Supabase client not available');
+      }
+      
+      const { data, error } = await supabaseClient
         .from('courses')
         .insert({
           title: courseData.title,
@@ -278,7 +303,7 @@ export const ClassroomTabRefactored = ({
       
       setIsCreateCourseDialogOpen(false);
     } catch (error) {
-      log.error('Component', 'Failed to create course:', error);
+      log.error('Component', 'Failed to create course:', error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "Error",
         description: "Failed to create course. Please try again.",
@@ -296,9 +321,12 @@ export const ClassroomTabRefactored = ({
     }
 
     try {
-      const supabase = getSupabaseClient();
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) {
+        throw new Error('Supabase client not available');
+      }
       
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('courses')
         .delete()
         .eq('id', course.id);
@@ -314,7 +342,7 @@ export const ClassroomTabRefactored = ({
         variant: "default"
       });
     } catch (error: unknown) {
-      log.error('Component', 'Error deleting course:', error);
+      log.error('Component', 'Error deleting course:', error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "Error Deleting Course",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
@@ -325,10 +353,9 @@ export const ClassroomTabRefactored = ({
 
 
 
-  // FIXED: Use persistent tab state instead of URL parsing to avoid race conditions
+  // ✅ FIXED: Use standard React Router navigation to determine tab state
   // Render course detail view only if we're on a course detail route AND classroom tab is active
-  const { isTabActive: isPersistentTabActive } = usePersistentTabs();
-  const isClassroomTabActive = isPersistentTabActive('classroom');
+  const isClassroomTabActive = currentTab === 'classroom';
   
   if (viewMode === 'detail' && selectedCourseId && isOnCourseDetailRoute && isClassroomTabActive) {
     return (
@@ -367,7 +394,7 @@ export const ClassroomTabRefactored = ({
         onDeleteCourse={handleDeleteCourse}
         onClearSearch={handleClearSearch}
         isProcessingEnrollment={null}
-        primaryColor={effectiveSpace?.primary_color ?? '#26A69A'}
+        primaryColor={'#26A69A'}
         searchTerm={searchTerm}
       />
 
@@ -377,8 +404,8 @@ export const ClassroomTabRefactored = ({
         onOpenChange={setIsCreateCourseDialogOpen}
         onCreateCourse={handleCourseCreate}
         isCreating={isCreatingCourse}
-        spacePricingType={effectiveSpace?.pricing_type}
-        primaryColor={effectiveSpace?.primary_color ?? '#26A69A'}
+        spacePricingType={'free'}
+        primaryColor={'#26A69A'}
       />
 
       {/* Course Edit Dialog */}
@@ -386,8 +413,8 @@ export const ClassroomTabRefactored = ({
         isOpen={isEditCourseDialogOpen}
         onOpenChange={setIsEditCourseDialogOpen}
         course={courseToEdit}
-        spacePricingType={effectiveSpace?.pricing_type}
-        primaryColor={effectiveSpace?.primary_color ?? '#26A69A'}
+        spacePricingType={'free'}
+        primaryColor={'#26A69A'}
         onCourseUpdated={handleCourseUpdated}
       />
     </>

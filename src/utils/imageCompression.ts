@@ -23,7 +23,7 @@ export const MAX_COVER_SIZE_BYTES = IMAGE_CONSTANTS.MAX_COVER_SIZE_MB * 1024 * 1
 export const compressImage = async (
   file: File, 
   maxWidthHeight: number, 
-  quality: number = 0.7
+  quality = 0.7
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
 export interface SpaceCategory {
@@ -17,7 +17,23 @@ export const useSpaceCategories = (spaceId: string) => {
   const [selectedCategory, setSelectedCategory] = useState<SpaceCategory | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const previousSpaceIdRef = useRef<string | null>(null);
   
+  // CRITICAL FIX: Detect space switches and clear categories immediately
+  useEffect(() => {
+    const isSpaceSwitch = previousSpaceIdRef.current !== null && previousSpaceIdRef.current !== spaceId;
+    
+    if (isSpaceSwitch) {
+      log.debug('Hook', `[useSpaceCategories] Space switch detected: ${previousSpaceIdRef.current} → ${spaceId}`);
+      // Clear categories immediately to prevent showing old space's categories
+      setCategories([]);
+      setSelectedCategory(null);
+      setError(null);
+    }
+    
+    previousSpaceIdRef.current = spaceId;
+  }, [spaceId]);
+
   useEffect(() => {
     if (spaceId) {
       fetchCategories();

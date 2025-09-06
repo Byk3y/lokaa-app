@@ -1,10 +1,7 @@
 import { log } from '@/utils/logger';
 import { devLogger } from '@/utils/developmentLogger';
-import React, { Suspense, useEffect, useMemo, memo } from 'react';
-import { Loader2 } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { useFeedLogic } from "@/hooks/useFeedLogic";
+import { useEffect, memo, lazy, useMemo } from 'react';
+import { useFeedLogicOptimized } from "@/hooks/useFeedLogicOptimized";
 
 
 
@@ -16,7 +13,8 @@ import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
 
 import SpaceInfoSidebar from "./SpaceInfoSidebar";
 import FeedHeader from "./FeedHeader";
-import SimpleSpaceSetup from "./SimpleSpaceSetup";
+// Lazy load SimpleSpaceSetup to avoid import conflict with RegularPostsList
+const SimpleSpaceSetup = lazy(() => import("./SimpleSpaceSetup"));
 
 // Extracted Feed Components
 import SearchResultsList from "./feed/SearchResultsList";
@@ -33,10 +31,14 @@ import { useSearchHook as useSearch } from '@/features/search/store/search-store
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSpaceDataFallback } from '@/hooks/useSpaceDataFallback';
 
+
+
 function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, postInputRef, hasInstantAccess }: FeedTabProps) {
   // ============================================================================
   // HOOKS MUST BE AT THE TOP - CRITICAL FIX FOR HOOK ORDER ERROR
   // ============================================================================
+
+
   
   // Add mobile detection FIRST - before any conditional logic
   const isDesktop = useMediaQuery('(min-width: 1024px)'); // lg breakpoint
@@ -75,16 +77,14 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     
     // Computed values
     filteredPinnedPosts,
-    filteredRegularPosts,
     postsToShow,
-    userNameForModal,
-    userAvatarForModal,
     
     // Pagination
     totalCount,
     currentPage,
     totalPages,
     hasNextPage,
+    isLoadingMore,
     
     // Action handlers
     handleTabSelect,
@@ -106,14 +106,13 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
     // Real-time handlers
     handleLoadNewPosts,
     handleDismissNotification,
-    clearNewPosts,
     
     // Utility functions
     mapPostToCardProps,
     refetchPosts,
     loadPage,
     refreshCategories,
-  } = useFeedLogic({ 
+  } = useFeedLogicOptimized({ 
     user: userProp, 
     isOwner: isOwnerProp, 
     isAdmin: isAdminProp, 
@@ -126,6 +125,72 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // ============================================================================
   
   const { searchIntegration, isSearchActive, setSpaceSearch } = useSearch();
+
+  // ============================================================================
+  // FEED STATE MANAGEMENT
+  // ============================================================================
+  
+  // Memoized feed state - includes actual data to prevent loading spinners
+  const feedState = useMemo(() => ({
+    // UI State
+    selectedTab,
+    currentPage,
+    
+    // Actual Data (prevents loading spinners)
+    posts: fetchedPosts,
+    pinnedPosts,
+    categories: spaceCategories,
+    
+    // Loading States (to prevent re-fetching)
+    postsLoading,
+    categoriesLoading,
+    postsError,
+    categoriesError,
+    
+    // Metadata
+    lastUpdated: Date.now(),
+    hasData: fetchedPosts.length > 0 || spaceCategories.length > 0 || pinnedPosts.length > 0
+  }), [
+    selectedTab, 
+    currentPage, 
+    fetchedPosts, 
+    pinnedPosts, 
+    spaceCategories, 
+    postsLoading, 
+    categoriesLoading, 
+    postsError, 
+    categoriesError
+  ]);
+
+
+
+  // Use direct state values
+  const effectiveSelectedTab = selectedTab;
+  const effectivePosts = fetchedPosts;
+  const effectivePinnedPosts = pinnedPosts;
+  const effectiveCategories = spaceCategories;
+  const effectiveCurrentPage = currentPage;
+  
+  // Use direct loading states
+  const effectivePostsLoading = postsLoading;
+  const effectiveCategoriesLoading = categoriesLoading;
+  
+
+  
+  // Compute filtered pinned posts using effective data
+  const effectiveFilteredPinnedPosts = useMemo(() => {
+    if (effectiveSelectedTab === "all") return effectivePinnedPosts;
+    return effectivePinnedPosts.filter(post => post.category?.id === effectiveSelectedTab);
+  }, [effectivePinnedPosts, effectiveSelectedTab]);
+
+
+
+  // Debug posts loading state
+  useEffect(() => {
+    console.log(`🔍 [FeedTab] Posts loading state - postsLoading: ${postsLoading}, postsError: ${postsError}, fetchedPosts: ${fetchedPosts.length}, pinnedPosts: ${pinnedPosts.length}`);
+  }, [postsLoading, postsError, fetchedPosts.length, pinnedPosts.length]);
+
+
   
   // Update search context when space changes
   useEffect(() => {
@@ -148,7 +213,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // SPACE DATA FALLBACK HOOK
   // ============================================================================
   
-  const { fallbackSpaceData, sidebarSpaceData, spaceIdForCounts } = useSpaceDataFallback(currentSpaceData);
+  const { sidebarSpaceData } = useSpaceDataFallback(currentSpaceData);
 
   // ============================================================================
   // LOADING STATE & ERRORS
@@ -156,14 +221,12 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
 
   // ENHANCED: Detect if space data is actually available through posts loading
   // If posts are successfully fetching, it means space ID is available even if currentSpaceData is null
-  const spaceDataAvailableViaPostsLoading = !postsError && (postsLoading || fetchedPosts.length > 0);
-  const categoriesDataAvailable = !categoriesError && (categoriesLoading || spaceCategories.length > 0);
-  const hasDataIndicators = spaceDataAvailableViaPostsLoading || categoriesDataAvailable;
+  const spaceDataAvailableViaPostsLoading = !postsError && (effectivePostsLoading || effectivePosts.length > 0);
+  const categoriesDataAvailable = !categoriesError && (effectiveCategoriesLoading || effectiveCategories.length > 0);
+  const pinnedPostsDataAvailable = effectivePinnedPosts.length > 0;
+  const hasDataIndicators = spaceDataAvailableViaPostsLoading || categoriesDataAvailable || pinnedPostsDataAvailable;
   
   // Note: Preserved space data functionality has been simplified
-  const pathname = window.location.pathname;
-  const subdomainMatch = pathname.match(/\/([^\/]+)\/space/);
-  const urlSubdomain = subdomainMatch?.[1];
   const hasPreservedData = false; // Simplified - no longer using preserved data
   
   // REDUCED: Only log critical state changes, not every render
@@ -205,6 +268,8 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // RENDER JSX - Pure presentation logic
   // ============================================================================
   
+
+
   return (
     <>
     <div className="flex flex-col lg:flex-row gap-x-8 gap-y-4">
@@ -220,12 +285,14 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
 
 
 
+
+
         {/* Category Tabs - Hide when searching */}
         {!isSearchActive && (
           <CategoryTabs
-            selectedTab={selectedTab}
-            spaceCategories={spaceCategories}
-            categoriesLoading={categoriesLoading}
+            selectedTab={effectiveSelectedTab}
+            spaceCategories={effectiveCategories}
+            categoriesLoading={effectiveCategoriesLoading}
             effectivePermissions={effectivePermissions}
             handleTabSelect={handleTabSelect}
             openCategoryModal={openCategoryModal}
@@ -245,23 +312,21 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
         {/* Render SimpleSpaceSetup here - only for admins/owners - Hide when searching */}
         {!isSearchActive && currentSpaceData && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
           <div className="mt-6 sm:px-0">
-            <Suspense fallback={<div className="p-4 text-center text-gray-500">Loading setup guide...</div>}>
-              <SimpleSpaceSetup 
-                spaceId={currentSpaceData.id}
-                spaceName={currentSpaceData.name}
-                spaceSubdomain={currentSpaceData.subdomain}
-                isOwner={effectivePermissions.effectiveIsOwner}
-                isAdmin={effectivePermissions.effectiveIsAdmin}
-                hasAnyPosts={fetchedPosts.length > 0 || pinnedPosts.length > 0}
-                onCreatePost={() => {
-                  if (postInputRef?.current) {
-                    postInputRef.current.focus();
-                  } else {
-                    openCreatePostModal();
-                  }
-                }} 
-              />
-            </Suspense>
+            <SimpleSpaceSetup 
+              spaceId={currentSpaceData.id}
+              spaceName={currentSpaceData.name}
+              spaceSubdomain={currentSpaceData.subdomain}
+              isOwner={effectivePermissions.effectiveIsOwner}
+              isAdmin={effectivePermissions.effectiveIsAdmin}
+              hasAnyPosts={effectivePosts.length > 0 || effectivePinnedPosts.length > 0}
+              onCreatePost={() => {
+                if (postInputRef?.current) {
+                  postInputRef.current.focus();
+                } else {
+                  openCreatePostModal();
+                }
+              }} 
+            />
           </div>
         )}
 
@@ -270,32 +335,34 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
           <>
             {/* Pinned Posts */}
             <PinnedPostsList
-              pinnedPosts={filteredPinnedPosts}
-              selectedTab={selectedTab}
+              pinnedPosts={effectiveFilteredPinnedPosts}
+              selectedTab={effectiveSelectedTab}
               effectivePermissions={effectivePermissions}
               mapPostToCardProps={mapPostToCardProps}
               handlePostCardClick={handlePostCardClick}
               handleLikeToggledInCard={handleLikeToggledInCard}
               handlePinToggled={handlePinToggled}
               handleCommentAddedInModal={handleCommentAddedInModal}
-              postsLoading={postsLoading}
+              postsLoading={effectivePostsLoading}
               postsError={postsError}
             />
 
             {/* Regular Posts List */}
             <RegularPostsList
-              fetchedPosts={fetchedPosts}
+              fetchedPosts={effectivePosts}
               pinnedPosts={pinnedPosts}
               postsToShow={postsToShow}
               currentSpaceData={currentSpaceData}
-              postsLoading={postsLoading}
+              postsLoading={effectivePostsLoading}
               postsError={postsError}
               hasInstantAccess={hasInstantAccess}
-              selectedTab={selectedTab}
+              isLoadingMore={isLoadingMore}
+              isBackgroundRefresh={false}
+              selectedTab={effectiveSelectedTab}
               effectivePermissions={effectivePermissions}
               realtimeState={realtimeState}
               totalCount={totalCount}
-                currentPage={currentPage}
+                currentPage={effectiveCurrentPage}
                 totalPages={totalPages}
               hasNextPage={hasNextPage}
               mapPostToCardProps={mapPostToCardProps}
@@ -351,9 +418,38 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
       handleLikeToggledInCard={handleLikeToggledInCard}
       refreshCategories={refreshCategories}
     />
+
+    {/* Hydration Indicator - DISABLED */}
+    {/* <HydrationIndicator
+      isSyncing={false} // This would be connected to background sync
+      lastSyncTime={Date.now()}
+    /> */}
     </>
   );
 }
 
-// 🚀 PERFORMANCE FIX: Wrap with React.memo to prevent unnecessary re-renders
-export default memo(FeedTab); 
+// 🚀 PERFORMANCE FIX: Enhanced React.memo with custom comparison to prevent unnecessary re-renders
+const FeedTabMemo = memo(FeedTab, (prevProps, nextProps) => {
+  // Only re-render if these critical props change
+  const criticalPropsChanged = (
+    prevProps.user?.id !== nextProps.user?.id ||
+    prevProps.isOwner !== nextProps.isOwner ||
+    prevProps.isAdmin !== nextProps.isAdmin ||
+    prevProps.hasInstantAccess !== nextProps.hasInstantAccess
+  );
+
+  // Log re-render causes in development
+  if (process.env.NODE_ENV === 'development' && criticalPropsChanged) {
+    const changedProps = [];
+    if (prevProps.user?.id !== nextProps.user?.id) changedProps.push('user.id');
+    if (prevProps.isOwner !== nextProps.isOwner) changedProps.push('isOwner');
+    if (prevProps.isAdmin !== nextProps.isAdmin) changedProps.push('isAdmin');
+    if (prevProps.hasInstantAccess !== nextProps.hasInstantAccess) changedProps.push('hasInstantAccess');
+    
+    log.debug('Component', `🔄 [FeedTab] Re-render caused by props: ${changedProps.join(', ')}`);
+  }
+
+  return !criticalPropsChanged; // Return true if props are equal (no re-render needed)
+});
+
+export default FeedTabMemo; 

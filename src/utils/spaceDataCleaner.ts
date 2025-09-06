@@ -117,7 +117,7 @@ export const clearHookStates = (): void => {
 export const clearAllSpaceData = async (
   currentSpaceId?: string, 
   targetSpaceId?: string,
-  clearAll: boolean = false
+  clearAll = false
 ): Promise<void> => {
   const timestamp = new Date().toISOString();
   

@@ -14,7 +14,7 @@ import { migrationAdapter } from '@/utils/indexeddb/migration/MigrationAdapter';
 import { navigateToProfileWithContext } from '@/utils/spaceContextUtils';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { setPendingChatNavigation } from '@/utils/scrollPositionManager';
-import { persistentTabManager } from '@/services/PersistentTabManager';
+// ✅ FIXED: Removed PersistentTabManager - using standard React Router navigation
 
 // Simple notification count badge component to avoid positioning issues
 function NotificationCountBadge() {
@@ -78,7 +78,7 @@ export default function BottomNav() {
           setUserProfileUrl(data.profile_url);
         }
       } catch (error) {
-        log.error('Component', 'Error fetching user profile URL:', error);
+        log.error('Component', 'Error fetching user profile URL:', error instanceof Error ? error : new Error(String(error)));
       } finally {
         setIsLoading(false);
       }
@@ -152,18 +152,12 @@ export default function BottomNav() {
       // 🚀 REVOLUTIONARY FIX: Use persistent tab manager for space navigation
       // This prevents component unmounting when navigating from chat to space
       if (fromRoute === '/app/chat') {
-        console.log('🔧 [BottomNav] Using persistent tab manager for chat->space navigation');
+        console.log('🔧 [BottomNav] Using standard React Router navigation for chat->space navigation');
         
-        // Initialize the persistent tab manager with the space subdomain if not already done
-        if (persistentTabManager.getSubdomain() !== space.subdomain) {
-          persistentTabManager.initialize(space.subdomain, 'feed');
-        }
-        
-        // Use React Router only to get to the space route, then let persistent manager handle tabs
-        navigate(targetRoute);
-        
-        // Switch to feed tab using persistent manager (prevents component remounting)
-        persistentTabManager.switchTab('feed', 'user');
+        // Use standard React Router navigation to space feed
+        navigate(`/${space.subdomain}/space`, {
+          state: { preserveSpace: true, activeTab: 'feed' }
+        });
       } else {
         // For other routes, use standard React Router navigation
         navigate(targetRoute);

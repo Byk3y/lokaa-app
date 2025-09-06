@@ -11,12 +11,30 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { globalRealtimeService } from '@/services/GlobalRealtimeService';
 import { MOBILE_SAFE_RELOAD_DELAY_MS, MAX_REFRESH_RETRIES } from '@/constants/mobile';
 
+// ✅ FIXED: Add configuration interface for better control
+interface BlockerConfig {
+  enabled: boolean;
+  developmentMode: boolean;
+  logBlockedErrors: boolean;
+  allowConsoleErrors: boolean;
+  strictMode: boolean;
+}
+
 class SupabaseLoadFailedBlocker {
   private static instance: SupabaseLoadFailedBlocker;
   private isInitialized = false;
   private backgroundStartTime = 0;
   private consecutiveFailedRefreshes = 0;
   private isRefreshing = false;
+  
+  // ✅ FIXED: Add configuration with sensible defaults
+  private config: BlockerConfig = {
+    enabled: true,
+    developmentMode: process.env.NODE_ENV === 'development',
+    logBlockedErrors: true,
+    allowConsoleErrors: process.env.NODE_ENV === 'development',
+    strictMode: false // When true, only blocks exact matches
+  };
   
   private constructor() {
     this.initializeErrorBlocking();
@@ -65,7 +83,11 @@ class SupabaseLoadFailedBlocker {
     try {
       log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Attempting session refresh...');
       
-      const { data, error } = await getSupabaseClient().auth.refreshSession();
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) {
+        throw new Error('Supabase client not available');
+      }
+      const { data, error } = await supabaseClient.auth.refreshSession();
       
       if (error) {
         throw error;
@@ -88,7 +110,7 @@ class SupabaseLoadFailedBlocker {
       this.consecutiveFailedRefreshes++;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      log.error('Utils', `❌ [SupabaseLoadFailedBlocker] Session refresh failed (attempt ${this.consecutiveFailedRefreshes}/${MAX_REFRESH_RETRIES}):`, errorMessage);
+      log.error('Utils', `❌ [SupabaseLoadFailedBlocker] Session refresh failed (attempt ${this.consecutiveFailedRefreshes}/${MAX_REFRESH_RETRIES}):`, new Error(errorMessage));
       
       if (this.consecutiveFailedRefreshes >= MAX_REFRESH_RETRIES) {
         // Show toast asking user to manually reload
@@ -117,24 +139,16 @@ class SupabaseLoadFailedBlocker {
   }
 
   private showManualReloadToast(): void {
-    // Dynamic import to avoid circular dependencies
-    import('@/hooks/use-toast').then(({ useToast }) => {
-      // Since we can't use hooks in a class, we'll dispatch a custom event
-      // that the app can listen for to show the toast
-      const event = new CustomEvent('supabase-manual-reload-needed', {
-        detail: {
-          title: 'Connection Issue',
-          description: 'Please refresh the page to restore connection.',
-          variant: 'destructive'
-        }
-      });
-      
-      window.dispatchEvent(event);
-    }).catch(() => {
-      // Fallback: show browser alert
-      log.error('Utils', '🛡️ [SupabaseLoadFailedBlocker] Failed to show toast, using alert fallback');
-      alert('Connection issue detected. Please refresh the page to restore connection.');
+    // Dispatch custom event for the app to handle (no dynamic import needed)
+    const event = new CustomEvent('supabase-manual-reload-needed', {
+      detail: {
+        title: 'Connection Issue',
+        description: 'Please refresh the page to restore connection.',
+        variant: 'destructive'
+      }
     });
+    
+    window.dispatchEvent(event);
   }
   
   private initializeErrorBlocking(): void {
@@ -142,19 +156,20 @@ class SupabaseLoadFailedBlocker {
     
     log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Initializing intelligent recovery protection...');
     
-    // 1. BLOCK GLOBAL ERROR EVENTS FROM SUPABASE
+    // ✅ FIXED: Type-safe error event handling
     const originalAddEventListener = window.addEventListener;
     window.addEventListener = function(type: string, listener: any, options?: any) {
       if (type === 'error') {
-        const wrappedListener = (event: ErrorEvent) => {
-          if (SupabaseLoadFailedBlocker.isSupabaseLoadError(event.error || event.message)) {
+        const wrappedListener = (event: Event) => {
+          const errorEvent = event as ErrorEvent;
+          if (SupabaseLoadFailedBlocker.isSupabaseLoadError(errorEvent.error || errorEvent.message)) {
             log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed error event');
             SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
-            event.preventDefault();
-            event.stopPropagation();
+            errorEvent.preventDefault();
+            errorEvent.stopPropagation();
             return false;
           }
-          return listener(event);
+          return (listener as EventListener)(event);
         };
         return originalAddEventListener.call(this, type, wrappedListener, options);
       }
@@ -171,26 +186,46 @@ class SupabaseLoadFailedBlocker {
       }
     }, true);
     
-    // 3. OVERRIDE CONSOLE.ERROR TO BLOCK SUPABASE ERRORS
+    // ✅ FIXED: Preserve developer experience with configuration respect
     const originalConsoleError = console.error;
     console.error = (...args: any[]) => {
       const errorMessage = args.join(' ');
+      const instance = SupabaseLoadFailedBlocker.getInstance();
       
-      if (SupabaseLoadFailedBlocker.isSupabaseLoadError(errorMessage)) {
-        log.warn('Utils', '🛡️ [SupabaseLoadFailedBlocker] Suppressed Supabase Load failed console error');
-        log.warn('Utils', '📱 [SupabaseLoadFailedBlocker] Triggering intelligent session recovery');
-        SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
+      if (instance.shouldBlockError(errorMessage)) {
+        // ✅ FIXED: Log the blocked error based on configuration
+        if (instance.config.logBlockedErrors) {
+          if (instance.config.developmentMode) {
+            log.warn('Utils', '🛡️ [SupabaseLoadFailedBlocker] BLOCKED Supabase Load failed error (dev mode):', ...args);
+            log.warn('Utils', '📱 [SupabaseLoadFailedBlocker] Triggering intelligent session recovery');
+          } else {
+            log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed error (prod mode)');
+          }
+        }
+        
+        instance.handleLoadFailed();
+        
+        // ✅ FIXED: Still call original console.error if configured to allow it
+        if (instance.config.allowConsoleErrors) {
+          return originalConsoleError.apply(console, args);
+        }
         return;
       }
       
       return originalConsoleError.apply(console, args);
     };
     
-    // 4. BLOCK WINDOW.ONERROR FOR SUPABASE ERRORS
+    // ✅ FIXED: Preserve developer experience in window.onerror handler
     const originalOnError = window.onerror;
     window.onerror = (message, source, lineno, colno, error) => {
       if (SupabaseLoadFailedBlocker.isSupabaseLoadError(error || message)) {
-        log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed window.onerror');
+        // ✅ FIXED: Log blocked error for developers
+        if (process.env.NODE_ENV === 'development') {
+          log.warn('Utils', '🛡️ [SupabaseLoadFailedBlocker] BLOCKED window.onerror (dev mode):', { message, source, lineno, colno, error });
+        } else {
+          log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocked Supabase Load failed window.onerror');
+        }
+        
         SupabaseLoadFailedBlocker.getInstance().handleLoadFailed();
         return true; // Prevent default handling
       }
@@ -214,29 +249,70 @@ class SupabaseLoadFailedBlocker {
     const errorString = typeof error === 'string' ? error : 
                        error.message || error.toString() || '';
     
+    // ✅ FIXED: More specific error detection - only block exact Supabase load failed errors
     return (
-      // Primary indicators
-      (errorString.includes('Load failed') && errorString.includes('supabase')) ||
+      // Primary: Exact TypeError: Load failed from Supabase library
+      (errorString === 'TypeError: Load failed' && 
+       this.isFromSupabaseLibrary(error)) ||
+      
+      // Secondary: Specific Supabase fetch failures with exact patterns
       (errorString.includes('TypeError: Load failed') && 
-       (errorString.includes('supabase-js') || errorString.includes('@supabase'))) ||
+       errorString.includes('supabase-js') &&
+       this.isFromSupabaseLibrary(error)) ||
       
-      // Secondary indicators
-      (errorString.includes('Failed to fetch') && errorString.includes('supabase.co')) ||
-      (errorString.includes('NetworkError') && errorString.includes('supabase')) ||
-      (errorString.includes('fetch request failed') && errorString.includes('supabase')) ||
-      
-      // Mobile-specific indicators
+      // Mobile-specific: Load failed errors on mobile devices from Supabase
       (errorString.includes('Load failed') && 
-       (/iPhone|iPad|iPod|Android|webOS|BlackBerry/i.test(navigator.userAgent)))
+       /iPhone|iPad|iPod|Android|webOS|BlackBerry/i.test(navigator.userAgent) &&
+       this.isFromSupabaseLibrary(error))
+    );
+  }
+
+  // ✅ FIXED: Add stack trace analysis to ensure error is from Supabase library
+  private static isFromSupabaseLibrary(error: any): boolean {
+    if (!error) return false;
+    
+    // Check stack trace for Supabase library indicators
+    const stack = error.stack || error.error?.stack || '';
+    const errorString = typeof error === 'string' ? error : 
+                       error.message || error.toString() || '';
+    
+    return (
+      // Stack trace indicators
+      stack.includes('supabase-js') ||
+      stack.includes('@supabase') ||
+      stack.includes('supabase.co') ||
+      
+      // Error message indicators (more specific)
+      (errorString.includes('supabase-js') && errorString.includes('Load failed')) ||
+      (errorString.includes('@supabase') && errorString.includes('Load failed')) ||
+      
+      // Network error indicators from Supabase
+      (errorString.includes('Failed to fetch') && 
+       errorString.includes('supabase.co') &&
+       errorString.includes('Load failed'))
+    );
+  }
+
+  // ✅ FIXED: Add strict mode error detection for exact matches only
+  private static isExactSupabaseLoadError(error: any): boolean {
+    if (!error) return false;
+    
+    const errorString = typeof error === 'string' ? error : 
+                       error.message || error.toString() || '';
+    
+    // Only block exact "TypeError: Load failed" from Supabase library
+    return (
+      errorString === 'TypeError: Load failed' && 
+      this.isFromSupabaseLibrary(error)
     );
   }
   
   private interceptReactErrorBoundaries(): void {
-    // Override componentDidCatch for all error boundaries
+    // ✅ FIXED: Type-safe React error boundary interception
     if (typeof window !== 'undefined') {
       const originalDefineProperty = Object.defineProperty;
       
-      Object.defineProperty = function(obj: any, prop: string, descriptor: PropertyDescriptor) {
+      Object.defineProperty = function<T>(obj: T, prop: string, descriptor: PropertyDescriptor & ThisType<any>): T {
         if (prop === 'componentDidCatch' && descriptor.value) {
           const originalComponentDidCatch = descriptor.value;
           
@@ -251,13 +327,22 @@ class SupabaseLoadFailedBlocker {
           };
         }
         
-        return originalDefineProperty.call(this, obj, prop, descriptor);
+        return originalDefineProperty.call(this, obj, prop, descriptor) as T;
       };
     }
   }
   
-  // Public method to check if an error should be blocked
+  // ✅ FIXED: Check if an error should be blocked with configuration respect
   public shouldBlockError(error: any): boolean {
+    if (!this.config.enabled) {
+      return false;
+    }
+    
+    if (this.config.strictMode) {
+      // In strict mode, only block exact matches
+      return SupabaseLoadFailedBlocker.isExactSupabaseLoadError(error);
+    }
+    
     return SupabaseLoadFailedBlocker.isSupabaseLoadError(error);
   }
   
@@ -285,14 +370,88 @@ class SupabaseLoadFailedBlocker {
   public getRetryCount(): number {
     return this.consecutiveFailedRefreshes;
   }
+
+  // ✅ FIXED: Add configuration control methods
+  public configure(newConfig: Partial<BlockerConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+    log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Configuration updated:', this.config);
+  }
+
+  public getConfig(): BlockerConfig {
+    return { ...this.config };
+  }
+
+  public isEnabled(): boolean {
+    return this.config.enabled;
+  }
+
+  public enable(): void {
+    this.config.enabled = true;
+    log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocker enabled');
+  }
+
+  public disable(): void {
+    this.config.enabled = false;
+    log.debug('Utils', '🛡️ [SupabaseLoadFailedBlocker] Blocker disabled');
+  }
+
+  public setStrictMode(strict: boolean): void {
+    this.config.strictMode = strict;
+    log.debug('Utils', `🛡️ [SupabaseLoadFailedBlocker] Strict mode ${strict ? 'enabled' : 'disabled'}`);
+  }
 }
 
 // Create and export singleton instance
 const supabaseLoadFailedBlocker = SupabaseLoadFailedBlocker.getInstance();
 
-// Global access for debugging and testing
+// ✅ FIXED: Enhanced global access for debugging and testing
 if (typeof window !== 'undefined') {
   (window as any).supabaseLoadFailedBlocker = supabaseLoadFailedBlocker;
+  
+  // ✅ FIXED: Add developer utilities for testing and debugging
+  (window as any).SupabaseBlockerUtils = {
+    // Test error blocking
+    testErrorBlocking: (error: any) => {
+      const result = supabaseLoadFailedBlocker.shouldBlockError(error);
+      console.log('🧪 [SupabaseBlockerUtils] Error blocking test:', { error, blocked: result });
+      return result;
+    },
+    
+    // Get current configuration
+    getConfig: () => {
+      const config = supabaseLoadFailedBlocker.getConfig();
+      console.log('⚙️ [SupabaseBlockerUtils] Current configuration:', config);
+      return config;
+    },
+    
+    // Update configuration
+    configure: (newConfig: Partial<BlockerConfig>) => {
+      supabaseLoadFailedBlocker.configure(newConfig);
+      console.log('⚙️ [SupabaseBlockerUtils] Configuration updated:', newConfig);
+    },
+    
+    // Enable/disable blocker
+    toggle: () => {
+      const isEnabled = supabaseLoadFailedBlocker.isEnabled();
+      if (isEnabled) {
+        supabaseLoadFailedBlocker.disable();
+        console.log('🛡️ [SupabaseBlockerUtils] Blocker disabled');
+      } else {
+        supabaseLoadFailedBlocker.enable();
+        console.log('🛡️ [SupabaseBlockerUtils] Blocker enabled');
+      }
+    },
+    
+    // Test strict mode
+    testStrictMode: (error: any) => {
+      const normal = supabaseLoadFailedBlocker.shouldBlockError(error);
+      supabaseLoadFailedBlocker.setStrictMode(true);
+      const strict = supabaseLoadFailedBlocker.shouldBlockError(error);
+      supabaseLoadFailedBlocker.setStrictMode(false);
+      console.log('🧪 [SupabaseBlockerUtils] Strict mode test:', { error, normal, strict });
+      return { normal, strict };
+    }
+  };
 }
 
 export { supabaseLoadFailedBlocker }; 

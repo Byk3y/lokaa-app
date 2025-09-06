@@ -42,7 +42,7 @@ export function preloadImages(urls: (string | null | undefined)[]): Promise<void
  * @param fallbackUrl Fallback URL if image can't be resolved
  * @returns Resolved image URL
  */
-export function resolveImageUrl(imageUrl: string | null | undefined, fallbackUrl: string = '/default-cover.jpg'): string {
+export function resolveImageUrl(imageUrl: string | null | undefined, fallbackUrl = '/default-cover.jpg'): string {
   if (!imageUrl) return fallbackUrl;
   
   // If the URL starts with 'local:', retrieve from localStorage

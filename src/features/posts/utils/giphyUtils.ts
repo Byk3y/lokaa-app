@@ -27,7 +27,7 @@ export const GIF_CATEGORIES = [
  * @param limit Number of GIFs to fetch (default: 10)
  * @returns Promise resolving to Giphy API response
  */
-export async function fetchGifs(searchTerm: string, offset: number = 0, limit: number = 10) {
+export async function fetchGifs(searchTerm: string, offset = 0, limit = 10) {
   try {
     if (searchTerm) {
       return await giphyFetch.search(searchTerm, { offset, limit });
@@ -48,7 +48,7 @@ export async function fetchGifs(searchTerm: string, offset: number = 0, limit: n
  * @param limit Number of GIFs to fetch (default: 10)
  * @returns Promise resolving to Giphy API response
  */
-export async function fetchGifsByCategory(category: string, offset: number = 0, limit: number = 10) {
+export async function fetchGifsByCategory(category: string, offset = 0, limit = 10) {
   try {
     // For "trending", use the trending endpoint instead of search
     if (category.toLowerCase() === 'trending') {

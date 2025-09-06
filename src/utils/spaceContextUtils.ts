@@ -1,8 +1,12 @@
 /**
- * Space Context Utilities - Skool-Style Profile URLs
+ * Space Context Utilities - Enhanced Content URL Support
  * 
- * This utility manages space context for profile URLs using query parameters,
- * similar to Skool's approach: /profile/username?space=space-subdomain
+ * This utility manages space context for all content URLs including:
+ * - Space routes: /:subdomain/space/*
+ * - Post routes: /:subdomain/post/:slug
+ * - Profile routes: /:subdomain/profile/:username
+ * - Course routes: /:subdomain/space/classroom/:courseSlug
+ * - Lesson routes: /:subdomain/space/classroom/:courseSlug/:lessonSlug
  */
 
 import { NavigateFunction } from 'react-router-dom';
@@ -11,6 +15,48 @@ export interface SpaceContext {
   id: string;
   name: string;
   subdomain: string;
+}
+
+/**
+ * Content URL parsing utilities for space context detection
+ */
+export function isContentUrl(pathname: string): boolean {
+  const pathParts = pathname.split('/').filter(Boolean);
+  if (pathParts.length < 2) return false;
+  
+  return (
+    pathParts[1] === 'post' ||           // /:subdomain/post/:slug
+    pathParts[1] === 'profile' ||        // /:subdomain/profile/:username
+    (pathParts[1] === 'space' && pathParts[2] === 'classroom') // /:subdomain/space/classroom/:courseSlug
+  );
+}
+
+export function isSpaceRelatedUrl(pathname: string): boolean {
+  const pathParts = pathname.split('/').filter(Boolean);
+  if (pathParts.length < 2) return false;
+  
+  return (
+    pathParts[1] === 'space' ||          // /:subdomain/space/*
+    pathParts[1] === 'post' ||           // /:subdomain/post/:slug
+    pathParts[1] === 'profile' ||        // /:subdomain/profile/:username
+    (pathParts[1] === 'space' && pathParts[2] === 'classroom') // /:subdomain/space/classroom/*
+  );
+}
+
+export function extractSpaceFromUrl(pathname: string): string | null {
+  const pathParts = pathname.split('/').filter(Boolean);
+  return pathParts[0] || null;
+}
+
+export function getContentTypeFromUrl(pathname: string): string | null {
+  const pathParts = pathname.split('/').filter(Boolean);
+  if (pathParts.length < 2) return null;
+  
+  if (pathParts[1] === 'space') {
+    return pathParts[2] === 'classroom' ? 'course/lesson' : 'space';
+  }
+  
+  return pathParts[1]; // 'post', 'profile', etc.
 }
 
 /**

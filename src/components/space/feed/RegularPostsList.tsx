@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React from 'react';
 import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PostCard from "@/components/space/PostCard";
@@ -8,8 +8,7 @@ import type { CachedPostType } from "@/features/posts/types/cachedPost";
 import type { PostCardProps } from "@/features/posts/types/postCard";
 import type { EffectivePermissions } from "@/types/feedTypes";
 
-// Lazy load SimpleSpaceSetup
-const SimpleSpaceSetup = lazy(() => import("@/components/space/SimpleSpaceSetup"));
+// SimpleSpaceSetup is now handled by parent FeedTab component
 
 interface RealtimeState {
   newPostIds: string[];
@@ -32,6 +31,8 @@ interface RegularPostsListProps {
   postsLoading: boolean;
   postsError: string | null;
   hasInstantAccess?: boolean;
+  isLoadingMore?: boolean; // New prop to distinguish pagination loading from space navigation loading
+  isBackgroundRefresh?: boolean; // New prop to distinguish background refresh from space navigation loading
   
   // UI State
   selectedTab: string;
@@ -70,6 +71,8 @@ export const RegularPostsList: React.FC<RegularPostsListProps> = ({
   postsLoading,
   postsError,
   hasInstantAccess,
+  isLoadingMore = false, // Default to false for backward compatibility
+  isBackgroundRefresh = false, // Default to false for backward compatibility
   selectedTab,
   effectivePermissions,
   realtimeState,
@@ -91,34 +94,21 @@ export const RegularPostsList: React.FC<RegularPostsListProps> = ({
 }) => {
   return (
     <>
-      {/* SimpleSpaceSetup - only for admins/owners */}
-      {currentSpaceData && (effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin) && (
-        <div className="mt-6 sm:px-0">
-          <Suspense fallback={<div className="p-4 text-center text-gray-500">Loading setup guide...</div>}>
-            <SimpleSpaceSetup 
-              spaceId={currentSpaceData.id}
-              spaceName={currentSpaceData.name}
-              spaceSubdomain={currentSpaceData.subdomain}
-              isOwner={effectivePermissions.effectiveIsOwner}
-              isAdmin={effectivePermissions.effectiveIsAdmin}
-              hasAnyPosts={fetchedPosts.length > 0 || pinnedPosts.length > 0}
-              onCreatePost={() => {
-                if (postInputRef?.current) {
-                  postInputRef.current.focus();
-                } else {
-                  openCreatePostModal();
-                }
-              }} 
-            />
-          </Suspense>
-        </div>
-      )}
+      {/* SimpleSpaceSetup is now rendered by parent FeedTab component */}
 
-      {/* Posts Loading State - Show skeletons during pagination loading, loading screen only when no data */}
+      {/* Posts Loading State - Show only when no cached data exists */}
       {(postsLoading && fetchedPosts.length === 0 && pinnedPosts.length === 0) && (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
           <p className="text-muted-foreground text-center">Loading posts...</p>
+        </div>
+      )}
+      
+      {/* Background Refresh Indicator - Show ONLY when actually doing background refresh */}
+      {isBackgroundRefresh && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
+        <div className="flex justify-center items-center py-2 mb-4">
+          <Loader2 className="h-4 w-4 animate-spin text-primary mr-2" />
+          <span className="text-sm text-muted-foreground">Updating posts...</span>
         </div>
       )}
       
@@ -201,8 +191,8 @@ export const RegularPostsList: React.FC<RegularPostsListProps> = ({
         </div>
       )}
 
-      {/* Show pagination loading indicator when loading more posts with existing posts visible */}
-      {postsLoading && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
+      {/* Show pagination loading indicator ONLY when actually loading more posts (pagination) */}
+      {isLoadingMore && (fetchedPosts.length > 0 || pinnedPosts.length > 0) && (
         <div className="flex justify-center items-center py-4 mt-6">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <span className="ml-2 text-sm text-gray-600">Loading more posts...</span>

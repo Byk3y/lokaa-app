@@ -4,6 +4,8 @@ import { log } from '@/utils/logger';
  * 
  * This store manages membership state using Zustand.
  * It will replace the React Context-based membership management system.
+ * 
+ * Enhanced membership state management with caching.
  */
 
 import { create } from 'zustand';
@@ -20,6 +22,7 @@ import {
 } from '../types/membership';
 import { debounce } from '@/utils/performanceOptimization';
 import { useUserSpacesStore } from '@/hooks/useUserSpacesStore';
+
 
 // FIXED: Increased cache TTL to 5 minutes for better performance
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes

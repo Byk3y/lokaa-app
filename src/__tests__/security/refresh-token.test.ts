@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getSupabaseClient } from '@/integrations/supabase/client';
 import { securityEvents } from './setup';
 
 describe('Refresh Token Handling', () => {

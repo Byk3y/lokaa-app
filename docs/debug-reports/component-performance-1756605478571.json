@@ -1,0 +1,139 @@
+{
+  "timestamp": "2025-08-31T01:57:58.559Z",
+  "summary": {
+    "totalComponentsAnalyzed": 7,
+    "slowComponents": 3,
+    "excessiveRerenders": 2,
+    "optimizationOpportunities": 8
+  },
+  "details": {
+    "slowComponents": [
+      {
+        "name": "FeedTab",
+        "averageTime": 23,
+        "maxTime": 45,
+        "renderCount": 156
+      },
+      {
+        "name": "SpaceSettingsModal",
+        "averageTime": 34,
+        "maxTime": 67,
+        "renderCount": 23
+      },
+      {
+        "name": "RichTextEditor",
+        "averageTime": 28,
+        "maxTime": 89,
+        "renderCount": 67
+      }
+    ],
+    "excessiveRerenders": [
+      {
+        "name": "FeedTab",
+        "rerendersPerMinute": 12,
+        "commonCauses": [
+          "props.posts",
+          "props.isLoading"
+        ]
+      },
+      {
+        "name": "RichTextEditor",
+        "rerendersPerMinute": 15,
+        "commonCauses": [
+          "props.content",
+          "internal state"
+        ]
+      }
+    ],
+    "memoryLeaks": [],
+    "optimizationOpportunities": [
+      {
+        "component": "FeedTab",
+        "opportunities": [
+          {
+            "type": "memoization",
+            "description": "Consider React.memo() or useMemo() for expensive calculations",
+            "impact": "high",
+            "effort": "medium"
+          },
+          {
+            "type": "prop-optimization",
+            "description": "Optimize prop passing to reduce unnecessary re-renders",
+            "impact": "high",
+            "effort": "low"
+          }
+        ]
+      },
+      {
+        "component": "SpaceSettingsModal",
+        "opportunities": [
+          {
+            "type": "memoization",
+            "description": "Consider React.memo() or useMemo() for expensive calculations",
+            "impact": "high",
+            "effort": "medium"
+          },
+          {
+            "type": "lazy-loading",
+            "description": "Consider lazy loading for heavy components",
+            "impact": "high",
+            "effort": "low"
+          }
+        ]
+      },
+      {
+        "component": "RichTextEditor",
+        "opportunities": [
+          {
+            "type": "memoization",
+            "description": "Consider React.memo() or useMemo() for expensive calculations",
+            "impact": "high",
+            "effort": "medium"
+          },
+          {
+            "type": "prop-optimization",
+            "description": "Optimize prop passing to reduce unnecessary re-renders",
+            "impact": "high",
+            "effort": "low"
+          },
+          {
+            "type": "state-management",
+            "description": "Consider moving state to parent or using useCallback/useMemo",
+            "impact": "medium",
+            "effort": "medium"
+          },
+          {
+            "type": "lazy-loading",
+            "description": "Consider lazy loading for heavy components",
+            "impact": "high",
+            "effort": "low"
+          }
+        ]
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "high",
+      "category": "performance",
+      "title": "Optimize Slow Components",
+      "description": "3 components are rendering slower than 16ms",
+      "actions": [
+        "Implement React.memo() for pure components",
+        "Use useMemo() for expensive calculations",
+        "Consider component splitting for large components"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "optimization",
+      "title": "Reduce Unnecessary Re-renders",
+      "description": "2 components are re-rendering excessively",
+      "actions": [
+        "Optimize prop passing patterns",
+        "Use useCallback for event handlers",
+        "Consider state management optimization"
+      ]
+    }
+  ]
+}

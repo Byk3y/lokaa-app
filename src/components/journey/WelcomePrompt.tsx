@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, MessageCircle, Users, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,14 +37,14 @@ export const WelcomePrompt: React.FC<WelcomePromptProps> = ({
       }, duration);
       return () => clearTimeout(timer);
     }
-  }, [duration]);
+  }, [duration, handleDismiss]);
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
       onDismiss?.();
     }, 300);
-  };
+  }, [onDismiss]);
 
   const handleAction = (action: string) => {
     onAction?.(action);

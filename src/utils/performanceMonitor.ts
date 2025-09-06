@@ -1,432 +1,500 @@
-import { log } from '@/utils/logger';
 /**
- * 🚀 Enhanced Performance Monitor (Phase 6 Unified)
+ * 🚀 Phase 3.2: Performance Monitoring Utility
  * 
- * Now consolidates functionality from:
- * - performanceMonitor.ts (this file)
- * - realtimePerformanceMonitor.ts  
- * - hmrMonitor.ts
- * 
- * Features:
- * - Unified monitoring with lazy loading
- * - Reduced memory footprint
- * - Intelligent metric collection
- * - Development-only overhead reduction
+ * This utility monitors Core Web Vitals and other performance metrics
+ * to ensure the optimizations are working effectively.
  */
 
-import { devLogger } from './developmentLogger';
-
-interface PerformanceMetrics {
-  memory: number[];
-  paint: number[];
-  navigation: number[];
-  longTasks: number[];
-  networkRequests: number[];
-  componentRenders: number[];
-  realtimeEvents: number[];
-  hmrUpdates: number[];
+export interface PerformanceMetrics {
+  /** Largest Contentful Paint (LCP) */
+  lcp: number | null;
+  /** First Input Delay (FID) */
+  fid: number | null;
+  /** Cumulative Layout Shift (CLS) */
+  cls: number | null;
+  /** First Contentful Paint (FCP) */
+  fcp: number | null;
+  /** Time to Interactive (TTI) */
+  tti: number | null;
+  /** Total Blocking Time (TBT) */
+  tbt: number | null;
+  /** Speed Index */
+  si: number | null;
+  /** Bundle size metrics */
+  bundleSize: {
+    totalSize: number;
+    gzippedSize: number;
+    chunkCount: number;
+    largestChunk: number;
+  };
+  /** Font loading metrics */
+  fontMetrics: {
+    fontsLoaded: number;
+    totalFonts: number;
+    loadTime: number;
+    fallbackUsed: boolean;
+  };
+  /** Critical CSS metrics */
+  criticalCSS: {
+    size: number;
+    totalSize: number;
+    ratio: number;
+  };
 }
 
-interface ComponentTiming {
-  startTime: number;
-  name: string;
+export interface PerformanceThresholds {
+  lcp: number; // Good: < 2.5s, Needs Improvement: 2.5s - 4s, Poor: > 4s
+  fid: number; // Good: < 100ms, Needs Improvement: 100ms - 300ms, Poor: > 300ms
+  cls: number; // Good: < 0.1, Needs Improvement: 0.1 - 0.25, Poor: > 0.25
+  fcp: number; // Good: < 1.8s, Needs Improvement: 1.8s - 3s, Poor: > 3s
+  tti: number; // Good: < 3.8s, Needs Improvement: 3.8s - 7.3s, Poor: > 7.3s
+  tbt: number; // Good: < 200ms, Needs Improvement: 200ms - 600ms, Poor: > 600ms
 }
 
-// Enhanced thresholds for better reporting
-const THRESHOLDS = {
-  longTask: process.env.NODE_ENV === 'development' ? 200 : 100, // ms - Higher threshold for dev to reduce false positives
-  memory: 200, // MB - Increased from 150MB to prevent normal usage alerts  
-  paint: 3000, // ms - Increased threshold
-  navigation: 5000, // ms - Increased threshold
-  networkRequest: 3000, // ms - Increased threshold
-  componentRender: 200, // ms - Increased threshold
-  realtimeLatency: 2000, // ms - Increased threshold
-  hmrUpdate: 2000 // ms - Increased threshold
+const DEFAULT_THRESHOLDS: PerformanceThresholds = {
+  lcp: 2500, // 2.5 seconds
+  fid: 100,  // 100 milliseconds
+  cls: 0.1,  // 0.1
+  fcp: 1800, // 1.8 seconds
+  tti: 3800, // 3.8 seconds
+  tbt: 200   // 200 milliseconds
 };
 
 class PerformanceMonitor {
-  private metrics: PerformanceMetrics;
-  private componentTimings: Map<string, ComponentTiming> = new Map();
-  private observers: Map<string, PerformanceObserver> = new Map();
-  private intervals: Set<NodeJS.Timeout> = new Set();
-  private isDevelopment: boolean;
-  private isInitialized = false;
-  private maxMetricsPerType = 100; // Prevent memory bloat
+  private metrics: PerformanceMetrics = {
+    lcp: null,
+    fid: null,
+    cls: null,
+    fcp: null,
+    tti: null,
+    tbt: null,
+    si: null,
+    bundleSize: {
+      totalSize: 0,
+      gzippedSize: 0,
+      chunkCount: 0,
+      largestChunk: 0
+    },
+    fontMetrics: {
+      fontsLoaded: 0,
+      totalFonts: 0,
+      loadTime: 0,
+      fallbackUsed: false
+    },
+    criticalCSS: {
+      size: 0,
+      totalSize: 0,
+      ratio: 0
+    }
+  };
 
-  constructor() {
-    this.isDevelopment = import.meta.env.DEV;
-    
-    // Reduced metrics collection in production
-    this.maxMetricsPerType = this.isDevelopment ? 100 : 20;
-    
-    this.metrics = {
-      memory: [],
-      paint: [],
-      navigation: [],
-      longTasks: [],
-      networkRequests: [],
-      componentRenders: [],
-      realtimeEvents: [],
-      hmrUpdates: []
-    };
+  private thresholds: PerformanceThresholds = DEFAULT_THRESHOLDS;
+  private observers: PerformanceObserver[] = [];
+  private isInitialized = false;
+
+  constructor(thresholds?: Partial<PerformanceThresholds>) {
+    if (thresholds) {
+      this.thresholds = { ...DEFAULT_THRESHOLDS, ...thresholds };
+    }
   }
 
   /**
-   * 🚀 PHASE 6: Lazy initialization - only initialize when first used
+   * Initialize performance monitoring
    */
-  private initialize(): void {
-    if (this.isInitialized) return;
-    
-    log.debug('Utils', '📊 [UnifiedPerformance] Lazy initialization starting...');
-    
-    this.setupLongTaskMonitoring();
-    this.setupPaintMonitoring();
-    this.setupMemoryMonitoring();
-    
-    // Phase 6: HMR monitoring integration
-    if (this.isDevelopment) {
-      this.setupHMRMonitoring();
+  public init(): void {
+    if (this.isInitialized || typeof window === 'undefined') {
+      return;
     }
+
+    this.setupCoreWebVitals();
+    this.setupBundleSizeMonitoring();
+    this.setupFontMonitoring();
+    this.setupCriticalCSSMonitoring();
     
     this.isInitialized = true;
-    log.debug('Utils', '✅ [UnifiedPerformance] Initialization complete');
   }
 
   /**
-   * 🚀 PHASE 6: Enhanced metric recording with automatic initialization
+   * Setup Core Web Vitals monitoring
    */
-  recordMetric(name: keyof PerformanceMetrics, value: number): void {
-    if (!this.isInitialized) {
-      this.initialize();
-    }
-
-    const metrics = this.metrics[name];
-    metrics.push(value);
-    
-    // Keep metrics array size manageable
-    if (metrics.length > this.maxMetricsPerType) {
-      metrics.shift();
-    }
-
-    // Enhanced logging with thresholds
-    if (this.isDevelopment && this.shouldLogMetric(name, value)) {
-      const unit = name === 'memory' ? 'MB' : 'ms';
-      log.debug('Utils', `📊 [Performance] ${name}: ${value.toFixed(2)}${unit}`);
-    }
-  }
-
-  /**
-   * 🚀 PHASE 6: Enhanced component timing with better tracking
-   */
-  startComponentTiming(componentName: string): string {
-    const timingId = `${componentName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    this.componentTimings.set(timingId, {
-      startTime: performance.now(),
-      name: componentName
-    });
-    return timingId;
-  }
-
-  endComponentTiming(timingId: string): number | null {
-    const timing = this.componentTimings.get(timingId);
-    if (!timing) return null;
-
-    const duration = performance.now() - timing.startTime;
-    this.componentTimings.delete(timingId);
-    
-    // Record component render metric
-    this.recordMetric('componentRenders', duration);
-
-    // Enhanced component performance logging
-    if (this.isDevelopment && duration > THRESHOLDS.componentRender) {
-      log.warn('Utils', `🐌 [Performance] Slow component: ${timing.name} (${duration.toFixed(0)}ms)`);
-    }
-
-    return duration;
-  }
-
-  /**
-   * 🚀 PHASE 6: New - Realtime event tracking
-   */
-  recordRealtimeEvent(eventType: string, latency: number = 0): void {
-    this.recordMetric('realtimeEvents', latency);
-    
-    if (this.isDevelopment && latency > THRESHOLDS.realtimeLatency) {
-      log.warn('Utils', `🐌 [Performance] Slow realtime event: ${eventType} (${latency.toFixed(0)}ms)`);
-    }
-  }
-
-  /**
-   * 🚀 PHASE 6: New - Network request tracking
-   */
-  recordNetworkRequest(url: string, duration: number): void {
-    this.recordMetric('networkRequests', duration);
-    
-    if (this.isDevelopment && duration > THRESHOLDS.networkRequest) {
-      log.warn('Utils', `🐌 [Performance] Slow network request: ${url} (${duration.toFixed(0)}ms)`);
-    }
-  }
-
-  /**
-   * 🚀 PHASE 6: Enhanced setup methods
-   */
-  private setupLongTaskMonitoring(): void {
-    try {
-      const longTaskObserver = new PerformanceObserver((list) => {
-        list.getEntries().forEach((entry) => {
-          this.recordMetric('longTasks', entry.duration);
-          
-          if (this.isDevelopment && entry.duration > THRESHOLDS.longTask) {
-            log.warn('Utils', `⏰ [Performance] Long task: ${entry.duration.toFixed(0)}ms`);
-          }
+  private setupCoreWebVitals(): void {
+    // LCP (Largest Contentful Paint)
+    if ('PerformanceObserver' in window) {
+      try {
+        const lcpObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          const lastEntry = entries[entries.length - 1] as any;
+          this.metrics.lcp = lastEntry.startTime;
         });
-      });
-
-      longTaskObserver.observe({ entryTypes: ['longtask'] });
-      this.observers.set('longtask', longTaskObserver);
-    } catch (error) {
-      if (this.isDevelopment) {
-        log.warn('Utils', '[Performance] Long task observer not supported:', error);
+        lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
+        this.observers.push(lcpObserver);
+      } catch (error) {
+        console.warn('LCP monitoring not supported:', error);
       }
-    }
-  }
 
-  private setupPaintMonitoring(): void {
-    try {
-      const paintObserver = new PerformanceObserver((list) => {
-        list.getEntries().forEach((entry) => {
-          if (entry.entryType === 'paint') {
-            this.recordMetric('paint', entry.startTime);
-          } else if (entry.entryType === 'navigation') {
-            this.recordMetric('navigation', entry.duration || 0);
-          }
+      // FID (First Input Delay)
+      try {
+        const fidObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          entries.forEach((entry: any) => {
+            this.metrics.fid = entry.processingStart - entry.startTime;
+          });
         });
-      });
+        fidObserver.observe({ entryTypes: ['first-input'] });
+        this.observers.push(fidObserver);
+      } catch (error) {
+        console.warn('FID monitoring not supported:', error);
+      }
 
-      paintObserver.observe({ entryTypes: ['paint', 'navigation'] });
-      this.observers.set('paint', paintObserver);
-    } catch (error) {
-      if (this.isDevelopment) {
-        log.warn('Utils', '[Performance] Paint observer not supported:', error);
+      // CLS (Cumulative Layout Shift)
+      try {
+        let clsValue = 0;
+        const clsObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          entries.forEach((entry: any) => {
+            if (!entry.hadRecentInput) {
+              clsValue += entry.value;
+            }
+          });
+          this.metrics.cls = clsValue;
+        });
+        clsObserver.observe({ entryTypes: ['layout-shift'] });
+        this.observers.push(clsObserver);
+      } catch (error) {
+        console.warn('CLS monitoring not supported:', error);
+      }
+
+      // FCP (First Contentful Paint)
+      try {
+        const fcpObserver = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          entries.forEach((entry: any) => {
+            if (entry.name === 'first-contentful-paint') {
+              this.metrics.fcp = entry.startTime;
+            }
+          });
+        });
+        fcpObserver.observe({ entryTypes: ['paint'] });
+        this.observers.push(fcpObserver);
+      } catch (error) {
+        console.warn('FCP monitoring not supported:', error);
       }
     }
   }
 
-  private setupMemoryMonitoring(): void {
-    if (!('memory' in performance)) return;
-    
-    // Reduced frequency in production
-    const interval = this.isDevelopment ? 30000 : 120000;
-    
-    const memoryInterval = setInterval(() => {
-      const memory = (performance as any).memory;
-      const usedJSHeapSize = memory.usedJSHeapSize || 0;
-      const totalJSHeapSize = memory.totalJSHeapSize || 0;
-      
-      // Convert to MB and validate measurements  
-      const usedMB = Math.round(usedJSHeapSize / 1024 / 1024);
-      const totalMB = Math.round(totalJSHeapSize / 1024 / 1024);
-      
-      // Validate measurements to prevent false alarms
-      if (usedMB > 0 && usedMB < 2000 && totalMB > 0 && totalMB < 4000) {
-        this.recordMetric('memory', usedMB);
-        
-        if (usedMB > THRESHOLDS.memory) {
-          this.reportCriticalMetric('memory', usedMB);
-        }
-      } else {
-        // Log invalid measurements but don't report as errors
-        if (this.isDevelopment) {
-          log.warn('Utils', `📊 [Performance] Invalid memory measurement detected: ${usedMB}MB used, ${totalMB}MB total`);
-        }
-      }
-    }, interval);
-    
-    this.intervals.add(memoryInterval);
-  }
-
   /**
-   * 🚀 PHASE 6: New - HMR monitoring integration
+   * Setup bundle size monitoring
    */
-  private setupHMRMonitoring(): void {
-    if (!import.meta.hot) return;
+  private setupBundleSizeMonitoring(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
 
-    let hmrStartTime = 0;
+    // Calculate bundle size from loaded resources
+    const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+    let totalSize = 0;
+    let gzippedSize = 0;
+    let chunkCount = 0;
+    let largestChunk = 0;
 
-    import.meta.hot.on('vite:beforeUpdate', () => {
-      hmrStartTime = performance.now();
-    });
-
-    import.meta.hot.on('vite:afterUpdate', () => {
-      if (hmrStartTime > 0) {
-        const duration = performance.now() - hmrStartTime;
-        this.recordMetric('hmrUpdates', duration);
+    resources.forEach(resource => {
+      if (resource.name.includes('.js') || resource.name.includes('.css')) {
+        const size = resource.transferSize || 0;
+        totalSize += size;
+        chunkCount++;
+        largestChunk = Math.max(largestChunk, size);
         
-        if (duration > THRESHOLDS.hmrUpdate) {
-          log.warn('Utils', `🔥 [Performance] Slow HMR update: ${duration.toFixed(0)}ms`);
-        }
-        
-        hmrStartTime = 0;
+        // Estimate gzipped size (roughly 30% of original)
+        gzippedSize += size * 0.3;
       }
     });
 
-    import.meta.hot.on('vite:error', (error) => {
-      log.warn('Utils', '🚨 [Performance] HMR Error:', error);
-    });
-  }
-
-  /**
-   * Enhanced utility methods
-   */
-  private shouldLogMetric(name: keyof PerformanceMetrics, value: number): boolean {
-    const thresholds = {
-      memory: THRESHOLDS.memory,
-      paint: THRESHOLDS.paint,
-      navigation: THRESHOLDS.navigation,
-      longTasks: THRESHOLDS.longTask,
-      networkRequests: THRESHOLDS.networkRequest,
-      componentRenders: THRESHOLDS.componentRender,
-      realtimeEvents: THRESHOLDS.realtimeLatency,
-      hmrUpdates: THRESHOLDS.hmrUpdate
+    this.metrics.bundleSize = {
+      totalSize,
+      gzippedSize: Math.round(gzippedSize),
+      chunkCount,
+      largestChunk
     };
-
-    return value > thresholds[name];
-  }
-
-  private reportCriticalMetric(name: string, value: number): void {
-    if (this.isDevelopment) {
-      const unit = name === 'memory' ? 'MB' : 'ms';
-      log.warn('Utils', `🚨 [Performance] Critical ${name}: ${value.toFixed(1)}${unit}`);
-    }
   }
 
   /**
-   * 🚀 PHASE 6: Enhanced performance summary
+   * Setup font monitoring
    */
-  getPerformanceSummary(): Record<string, any> {
-    const summary: Record<string, any> = {};
+  private setupFontMonitoring(): void {
+    if (typeof window === 'undefined' || !('fonts' in document)) {
+      return;
+    }
 
-    Object.entries(this.metrics).forEach(([type, values]) => {
-      if (values.length === 0) {
-        summary[type] = { count: 0 };
-        return;
+    const startTime = performance.now();
+    const fonts = Array.from(document.fonts);
+    
+    // Use Promise.allSettled to handle individual font load failures gracefully
+    Promise.allSettled(fonts.map(font => {
+      try {
+        return font.load();
+      } catch (error) {
+        // Handle individual font load errors gracefully
+        console.warn('Font load failed:', font.family, error);
+        return Promise.resolve();
       }
-
-      const avg = values.reduce((a, b) => a + b, 0) / values.length;
-      const max = Math.max(...values);
-      const min = Math.min(...values);
-
-      summary[type] = {
-        count: values.length,
-        avg: Math.round(avg * 100) / 100,
-        max: Math.round(max * 100) / 100,
-        min: Math.round(min * 100) / 100,
-        recent: values.slice(-5),
-        threshold: this.getThresholdForMetric(type as keyof PerformanceMetrics)
+    })).then(() => {
+      const loadTime = performance.now() - startTime;
+      const loadedFonts = fonts.filter(font => font.status === 'loaded');
+      
+      this.metrics.fontMetrics = {
+        fontsLoaded: loadedFonts.length,
+        totalFonts: fonts.length,
+        loadTime,
+        fallbackUsed: loadedFonts.length < fonts.length
+      };
+    }).catch(error => {
+      // Handle any remaining errors gracefully
+      console.warn('Font monitoring setup failed:', error);
+      
+      // Set fallback metrics
+      this.metrics.fontMetrics = {
+        fontsLoaded: 0,
+        totalFonts: fonts.length,
+        loadTime: 0,
+        fallbackUsed: true
       };
     });
-
-    return summary;
   }
 
-  private getThresholdForMetric(type: keyof PerformanceMetrics): number {
-    const thresholdMap = {
-      memory: THRESHOLDS.memory,
-      paint: THRESHOLDS.paint,
-      navigation: THRESHOLDS.navigation,
-      longTasks: THRESHOLDS.longTask,
-      networkRequests: THRESHOLDS.networkRequest,
-      componentRenders: THRESHOLDS.componentRender,
-      realtimeEvents: THRESHOLDS.realtimeLatency,
-      hmrUpdates: THRESHOLDS.hmrUpdate
-    };
+  /**
+   * Setup critical CSS monitoring
+   */
+  private setupCriticalCSSMonitoring(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const criticalStyle = document.querySelector('style[data-critical="true"]');
+    const criticalSize = criticalStyle ? criticalStyle.textContent?.length || 0 : 0;
     
-    return thresholdMap[type];
-  }
-
-  /**
-   * 🚀 PHASE 6: System health assessment
-   */
-  getSystemHealth(): 'excellent' | 'good' | 'fair' | 'poor' {
-    const summary = this.getPerformanceSummary();
-    let issues = 0;
-
-    // Check for performance issues
-    Object.entries(summary).forEach(([type, data]: [string, any]) => {
-      if (data.avg > data.threshold) issues++;
-      if (data.max > data.threshold * 2) issues++;
-    });
-
-    if (issues === 0) return 'excellent';
-    if (issues <= 2) return 'good';
-    if (issues <= 4) return 'fair';
-    return 'poor';
-  }
-
-  /**
-   * Cleanup resources
-   */
-  cleanup(): void {
-    this.observers.forEach(observer => {
-      try {
-        observer.disconnect();
-      } catch (error) {
-        log.warn('Utils', '[Performance] Error disconnecting observer:', error);
+    const allStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'));
+    const totalSize = allStyles.reduce((total, style) => {
+      if (style.tagName === 'STYLE') {
+        return total + (style.textContent?.length || 0);
       }
-    });
-    
-    this.intervals.forEach(interval => clearInterval(interval));
-    
-    this.observers.clear();
-    this.intervals.clear();
-    this.componentTimings.clear();
-    this.isInitialized = false;
-    
-    log.debug('Utils', '🧹 [Performance] Monitor cleaned up');
+      return total;
+    }, 0);
+
+    this.metrics.criticalCSS = {
+      size: criticalSize,
+      totalSize,
+      ratio: totalSize > 0 ? (criticalSize / totalSize) * 100 : 0
+    };
   }
 
   /**
-   * 🚀 PHASE 6: Enhanced debug information
+   * Get current performance metrics
    */
-  getDebugInfo(): Record<string, any> {
-    return {
-      isInitialized: this.isInitialized,
-      isDevelopment: this.isDevelopment,
-      maxMetricsPerType: this.maxMetricsPerType,
-      activeObservers: this.observers.size,
-      activeIntervals: this.intervals.size,
-      activeTimings: this.componentTimings.size,
-      systemHealth: this.getSystemHealth(),
-      thresholds: THRESHOLDS,
-      metricsCount: Object.entries(this.metrics).map(([type, values]) => ({
-        type,
-        count: values.length
-      }))
-    };
+  public getMetrics(): PerformanceMetrics {
+    return { ...this.metrics };
+  }
+
+  /**
+   * Get performance score (0-100)
+   */
+  public getPerformanceScore(): number {
+    const scores = [];
+    
+    // LCP Score
+    if (this.metrics.lcp !== null) {
+      if (this.metrics.lcp < this.thresholds.lcp) {
+        scores.push(100);
+      } else if (this.metrics.lcp < this.thresholds.lcp * 1.6) {
+        scores.push(50);
+      } else {
+        scores.push(0);
+      }
+    }
+
+    // FID Score
+    if (this.metrics.fid !== null) {
+      if (this.metrics.fid < this.thresholds.fid) {
+        scores.push(100);
+      } else if (this.metrics.fid < this.thresholds.fid * 3) {
+        scores.push(50);
+      } else {
+        scores.push(0);
+      }
+    }
+
+    // CLS Score
+    if (this.metrics.cls !== null) {
+      if (this.metrics.cls < this.thresholds.cls) {
+        scores.push(100);
+      } else if (this.metrics.cls < this.thresholds.cls * 2.5) {
+        scores.push(50);
+      } else {
+        scores.push(0);
+      }
+    }
+
+    return scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+  }
+
+  /**
+   * Get performance recommendations
+   */
+  public getRecommendations(): string[] {
+    const recommendations: string[] = [];
+    const metrics = this.metrics;
+
+    if (metrics.lcp && metrics.lcp > this.thresholds.lcp) {
+      recommendations.push(`LCP is ${metrics.lcp.toFixed(0)}ms (target: <${this.thresholds.lcp}ms). Consider optimizing images and critical CSS.`);
+    }
+
+    if (metrics.fid && metrics.fid > this.thresholds.fid) {
+      recommendations.push(`FID is ${metrics.fid.toFixed(0)}ms (target: <${this.thresholds.fid}ms). Consider reducing JavaScript execution time.`);
+    }
+
+    if (metrics.cls && metrics.cls > this.thresholds.cls) {
+      recommendations.push(`CLS is ${metrics.cls.toFixed(3)} (target: <${this.thresholds.cls}). Consider fixing layout shifts.`);
+    }
+
+    if (metrics.bundleSize.totalSize > 2000000) { // 2MB
+      recommendations.push(`Bundle size is ${(metrics.bundleSize.totalSize / 1024 / 1024).toFixed(1)}MB. Consider code splitting and tree shaking.`);
+    }
+
+    if (metrics.fontMetrics.fallbackUsed) {
+      recommendations.push('Font fallbacks are being used. Consider preloading critical fonts.');
+    }
+
+    if (metrics.criticalCSS.ratio < 20) {
+      recommendations.push('Critical CSS ratio is low. Consider inlining more critical styles.');
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * Generate performance report
+   */
+  public generateReport(): string {
+    const metrics = this.metrics;
+    const score = this.getPerformanceScore();
+    const recommendations = this.getRecommendations();
+
+    let report = `🚀 Performance Report\n`;
+    report += `==================\n\n`;
+    report += `Overall Score: ${score.toFixed(1)}/100\n\n`;
+    
+    report += `Core Web Vitals:\n`;
+    report += `- LCP: ${metrics.lcp ? `${metrics.lcp.toFixed(0)}ms` : 'N/A'} (target: <${this.thresholds.lcp}ms)\n`;
+    report += `- FID: ${metrics.fid ? `${metrics.fid.toFixed(0)}ms` : 'N/A'} (target: <${this.thresholds.fid}ms)\n`;
+    report += `- CLS: ${metrics.cls ? metrics.cls.toFixed(3) : 'N/A'} (target: <${this.thresholds.cls})\n`;
+    report += `- FCP: ${metrics.fcp ? `${metrics.fcp.toFixed(0)}ms` : 'N/A'} (target: <${this.thresholds.fcp}ms)\n\n`;
+    
+    report += `Bundle Metrics:\n`;
+    report += `- Total Size: ${(metrics.bundleSize.totalSize / 1024 / 1024).toFixed(2)}MB\n`;
+    report += `- Gzipped Size: ${(metrics.bundleSize.gzippedSize / 1024).toFixed(1)}KB\n`;
+    report += `- Chunk Count: ${metrics.bundleSize.chunkCount}\n`;
+    report += `- Largest Chunk: ${(metrics.bundleSize.largestChunk / 1024).toFixed(1)}KB\n\n`;
+    
+    report += `Font Metrics:\n`;
+    report += `- Fonts Loaded: ${metrics.fontMetrics.fontsLoaded}/${metrics.fontMetrics.totalFonts}\n`;
+    report += `- Load Time: ${metrics.fontMetrics.loadTime.toFixed(0)}ms\n`;
+    report += `- Fallback Used: ${metrics.fontMetrics.fallbackUsed ? 'Yes' : 'No'}\n\n`;
+    
+    report += `Critical CSS:\n`;
+    report += `- Size: ${(metrics.criticalCSS.size / 1024).toFixed(1)}KB\n`;
+    report += `- Ratio: ${metrics.criticalCSS.ratio.toFixed(1)}%\n\n`;
+    
+    if (recommendations.length > 0) {
+      report += `Recommendations:\n`;
+      recommendations.forEach((rec, index) => {
+        report += `${index + 1}. ${rec}\n`;
+      });
+    }
+
+    return report;
+  }
+
+  /**
+   * Start component timing (for compatibility with existing code)
+   */
+  public startComponentTiming(componentName: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    
+    // Simple performance mark for component timing
+    performance.mark(`${componentName}-start`);
+  }
+
+  /**
+   * End component timing (for compatibility with existing code)
+   */
+  public endComponentTiming(componentName: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    
+    // Simple performance mark for component timing
+    performance.mark(`${componentName}-end`);
+    
+    // Measure the duration
+    try {
+      performance.measure(componentName, `${componentName}-start`, `${componentName}-end`);
+    } catch (error) {
+      // Ignore if marks don't exist
+    }
+  }
+
+  /**
+   * Get component timing (for compatibility with existing code)
+   */
+  public getComponentTiming(componentName: string): number | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    
+    try {
+      const measures = performance.getEntriesByName(componentName, 'measure');
+      if (measures.length > 0) {
+        return measures[measures.length - 1].duration;
+      }
+    } catch (error) {
+      // Ignore if measures don't exist
+    }
+    
+    return null;
+  }
+
+  /**
+   * Clear component timing (for compatibility with existing code)
+   */
+  public clearComponentTiming(componentName: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    
+    try {
+      performance.clearMarks(`${componentName}-start`);
+      performance.clearMarks(`${componentName}-end`);
+      performance.clearMeasures(componentName);
+    } catch (error) {
+      // Ignore if marks/measures don't exist
+    }
+  }
+
+  /**
+   * Cleanup observers
+   */
+  public cleanup(): void {
+    this.observers.forEach(observer => observer.disconnect());
+    this.observers = [];
+    this.isInitialized = false;
   }
 }
 
 // Export singleton instance
-const performanceMonitor = new PerformanceMonitor();
+export const performanceMonitor = new PerformanceMonitor();
 
-// 🚀 PHASE 6: Enhanced window exposure for debugging
-if (typeof window !== 'undefined' && import.meta.env.DEV) {
-  (window as any).performanceMonitor = performanceMonitor;
-  (window as any).getPerformanceSummary = () => performanceMonitor.getPerformanceSummary();
-  (window as any).getSystemHealth = () => performanceMonitor.getSystemHealth();
-  (window as any).getPerformanceDebugInfo = () => performanceMonitor.getDebugInfo();
-  
-  // Phase 6: Consolidation indicators - use development logger
-  devLogger.startup('PerformanceMonitor', 'Unified Performance Monitor loaded');
-  (window as any).phase6PerformanceConsolidated = true;
+// Auto-initialize in production
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+  performanceMonitor.init();
 }
-
-// Cleanup on page unload
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
-    performanceMonitor.cleanup();
-  });
-}
-
-export { performanceMonitor };
-export default performanceMonitor; 

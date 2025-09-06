@@ -20,9 +20,9 @@ interface BackgroundActivity {
 class PageVisibilityManager {
   private static instance: PageVisibilityManager;
   private activities: Map<string, BackgroundActivity> = new Map();
-  private isVisible: boolean = true;
+  private isVisible = true;
   private listeners: Set<(visible: boolean) => void> = new Set();
-  private initialized: boolean = false;
+  private initialized = false;
   private boundVisibilityHandler: (() => void) | null = null;
   private boundFocusHandler: (() => void) | null = null;
   private boundBlurHandler: (() => void) | null = null;

@@ -1,23 +1,25 @@
 import { log } from '@/utils/logger';
-import { useState, useEffect, useRef } from "react";
-import { Outlet, useParams, useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import SpaceHeader from "@/components/layout/SpaceHeader";
 import SpaceNav from "@/components/layout/SpaceNav";
 import SpaceLayout from "@/components/layout/SpaceLayout";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
-import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
+const NewSpaceSettingsModal = lazy(() => import("@/components/modals/NewSpaceSettingsModal"));
 import { LocationState } from "@/views/Space"; // Import the existing LocationState type
 // Cache warming removed - using simplified cache system
-import { extractTabFromPathname, buildSpaceUrl, type SpaceTab, debugTabExtraction } from "@/utils/tabUtils";
+import { extractTabFromPathname } from "@/utils/tabUtils";
 // Removed setCurrentSpaceForPresence - new simple system doesn't need manual space tracking
 import { AvatarCacheService } from "@/services/AvatarCacheService"; // 🚀 NEW: Avatar cache service
 import { useAutoPresenceUpdater } from "@/hooks/useAutoPresenceUpdater"; // 🎯 NEW: Auto presence updater
 import { getSupabaseClient } from "@/integrations/supabase/client"; // Add for category verification
 import { devLogger } from "@/utils/developmentLogger";
 import { resetScrollForFeedNavigation } from "@/utils/scrollPositionManager";
-import SpaceTabContentOptimized from "@/components/space/SpaceTabContentOptimized";
-import { usePersistentTabs } from "@/hooks/usePersistentTabs";
+import { categoryVerificationCache } from "@/utils/categoryVerificationCache";
+import { useCategoriesCache } from "@/hooks/useCategoriesCache";
+import PersistentTabContent from "@/components/space/PersistentTabContent";
+// ✅ FIXED: Removed usePersistentTabs - using standard React Router navigation
 /**
  * SpaceShellLayout - A shell layout for space pages
  * 
@@ -31,11 +33,12 @@ import { usePersistentTabs } from "@/hooks/usePersistentTabs";
  * components from unmounting and remounting, eliminating the flicker
  * and maintaining scroll position.
  * 
+ * ✅ FIXED: Simplified to use standard React Router navigation
  * Key features:
  * 1. Persistent header and tab bar across tab changes
- * 2. Shared state maintained in this component that can be accessed by tab content
- * 3. Pass context data to child routes via Outlet context
- * 4. Robust tab detection that works during React Router initialization
+ * 2. Standard React Router navigation for tab switching
+ * 3. Simple tab state management via URL pathname
+ * 4. Clean separation of concerns with wrapper components
  */
 interface SpaceShellLayoutProps {
   showTabs?: boolean;
@@ -48,33 +51,16 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
   const navigate = useNavigate();
   const isInitialMount = useRef(true);
   
-  // **FIX**: Track which spaces have had categories verified to prevent multiple verifications
-  const verifiedSpacesRef = useRef<Set<string>>(new Set());
+  // **OPTIMIZED**: Use persistent verification cache instead of memory-only ref
+  const categoriesCache = useCategoriesCache();
   
   // State needed for the shell
   const [searchQuery, setSearchQuery] = useState("");
   
-  // 🚀 REVOLUTIONARY: Use URL-independent tab management
-  const { currentTab: activeTab, switchTab } = usePersistentTabs(subdomain);
+  // ✅ FIXED: Use standard React Router navigation instead of custom tab management
+  const activeTab = extractTabFromPathname(location.pathname);
   
-  // Debug logging for tab state (only when there's a mismatch)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      const extractedTab = extractTabFromPathname(location.pathname);
-      if (activeTab !== extractedTab) {
-        // **FIX**: Only log mismatch if it's not a temporary state during navigation
-        const isDuringNavigation = location.pathname.includes('/space/classroom') && activeTab === 'feed';
-        if (!isDuringNavigation) {
-          console.log('🔍 [SpaceShellLayout] Tab state mismatch detected:', {
-            activeTab,
-            pathname: location.pathname,
-            extractedTab,
-            subdomain
-          });
-        }
-      }
-    }
-  }, [activeTab, location.pathname, subdomain]);
+  // ✅ FIXED: Removed complex tab state debugging - React Router handles state consistency
   
   // Load the space from the store
   const { loadActiveSpace, space: storeSpace } = useSpaceSettingsStore();
@@ -123,8 +109,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
           state: { preserveSpace: true, activeTab: 'feed' } as LocationState
         });
         
-        // Set the active tab to feed
-        switchTab('feed');
+        // ✅ FIXED: Tab state is now managed by React Router
         
         // Reset scroll position for initial feed navigation
         resetScrollForFeedNavigation();
@@ -143,7 +128,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
       
       // 🚀 OPTIMIZED: Initialize avatar cache for instant display
       AvatarCacheService.preloadSpaceAvatars(storeSpace.id)
-        .then(result => {
+        .then(() => {
           if (process.env.NODE_ENV === 'development') {
             log.debug('Component', `🚀 [SpaceShellLayout] Avatar cache initialized for ${storeSpace.name}`);
           }
@@ -154,30 +139,46 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
           }
         });
       
-      // 🛡️ SAFEGUARD: Verify and create missing General Discussion category
+      // 🛡️ OPTIMIZED: Smart category verification with persistent cache
       const verifySpaceCategories = async () => {
-        // **FIX**: Only verify if we haven't already verified this space
-        if (verifiedSpacesRef.current.has(storeSpace.id)) {
-          devLogger.log('SpaceManagement', `[SpaceShellLayout] Categories already verified for space ${storeSpace.id}`);
+        // Check if verification is needed using smart cache
+        if (!categoryVerificationCache.shouldVerifyCategories(storeSpace.id)) {
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Skipping verification - cache hit for space ${storeSpace.id}`);
+          return;
+        }
+
+        // Check if we have recent category data from existing cache
+        if (categoryVerificationCache.hasRecentCategoryData(storeSpace.id, categoriesCache)) {
+          const spaceCache = categoriesCache.cache[storeSpace.id];
+          const hasGeneralDiscussion = spaceCache.categories.some((cat: any) => 
+            cat.name === 'General Discussion'
+          );
+          
+          // Update verification cache with existing data
+          categoryVerificationCache.updateVerification(storeSpace.id, {
+            hasCategories: spaceCache.categories.length > 0,
+            hasGeneralDiscussion,
+            categoriesCount: spaceCache.categories.length
+          });
+          
+          devLogger.log('SpaceManagement', `[SpaceShellLayout] Using cached categories for space ${storeSpace.id}`);
           return;
         }
         
         try {
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Verifying categories for space ${storeSpace.id}`);
           
-          // Mark this space as verified to prevent duplicate verifications
-          verifiedSpacesRef.current.add(storeSpace.id);
-          
-          // Simple cache invalidation to ensure fresh data
-          if ((window as any).useCategoriesCache) {
-            (window as any).useCategoriesCache.getState().invalidateCache(storeSpace.id);
+          // Check if space has any categories
+          const supabaseClient = getSupabaseClient();
+          if (!supabaseClient) {
+            devLogger.log('SpaceManagement', `[SpaceShellLayout] Supabase client not available`);
+            return;
           }
           
-          // Check if space has any categories
-          const { data: existingCategories, error: categoriesError } = await getSupabaseClient()
+          const { data: existingCategories, error: categoriesError } = await supabaseClient
             .from('space_categories')
             .select('*')
-            .eq('space_id', storeSpace.id)
+            .eq('space_id', storeSpace?.id || '')
             .eq('is_archived', false)
             .order('created_at', { ascending: true });
 
@@ -188,21 +189,39 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
 
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Found ${existingCategories?.length || 0} categories for space ${storeSpace.id}`);
 
+          const hasGeneralDiscussion = existingCategories?.some(cat => 
+            cat.name === 'General Discussion'
+          ) || false;
+
+          // Update verification cache
+          categoryVerificationCache.updateVerification(storeSpace.id, {
+            hasCategories: (existingCategories?.length || 0) > 0,
+            hasGeneralDiscussion,
+            categoriesCount: existingCategories?.length || 0
+          });
+
           // If no categories exist, create General Discussion
           if (!existingCategories || existingCategories.length === 0) {
-            const { error: insertError } = await getSupabaseClient()
+            const { error: insertError } = await supabaseClient
               .from('space_categories')
               .insert({
                 name: 'General Discussion',
                 icon: '💬',
-                space_id: storeSpace.id,
-                created_by: storeSpace.owner_id
+                space_id: storeSpace?.id || '',
+                created_by: storeSpace?.owner_id || ''
               });
 
             if (insertError) {
               devLogger.log('SpaceManagement', `[SpaceShellLayout] Error creating General Discussion category:`, insertError);
             } else {
               devLogger.log('SpaceManagement', `[SpaceShellLayout] Created General Discussion category for space ${storeSpace.id}`);
+              
+              // Update verification cache after creating category
+              categoryVerificationCache.updateVerification(storeSpace.id, {
+                hasCategories: true,
+                hasGeneralDiscussion: true,
+                categoriesCount: 1
+              });
             }
           }
         } catch (error) {
@@ -210,48 +229,23 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
         }
       };
       
-      // Run category verification after a short delay to ensure space is fully loaded
-      setTimeout(verifySpaceCategories, 1000);
+      // Run category verification immediately (no delay needed with smart cache)
+      verifySpaceCategories();
     }
-  }, [storeSpace, subdomain, user?.id]);
+  }, [storeSpace, subdomain, user?.id, categoriesCache]);
 
-  // 🚀 FIXED: Robust tab synchronization that prevents bounce effects
+  // ✅ FIXED: Simplified tab state management - React Router handles navigation
   useEffect(() => {
-    // Extract tab from current pathname
-    const extractedTab = extractTabFromPathname(location.pathname);
-    
-    // Debug logging for development
-    if (process.env.NODE_ENV === 'development') {
-      debugTabExtraction(location.pathname, undefined, activeTab);
-    }
-    
-    // Only update if there's a significant mismatch AND we're not in a navigation transition
-    if (extractedTab !== activeTab) {
-      // Prevent bouncing during navigation by adding a small delay check
-      const timeoutId = setTimeout(() => {
-        // Double-check the URL hasn't changed during the timeout
-        const currentExtractedTab = extractTabFromPathname(window.location.pathname);
-        if (currentExtractedTab !== activeTab) {
-          if (process.env.NODE_ENV === 'development') {
-            log.debug('Component', `🔄 [SpaceShellLayout] Syncing activeTab after navigation: ${activeTab} -> ${currentExtractedTab}`);
-          }
-          switchTab(currentExtractedTab);
-          
-          // Reset scroll position when feed tab becomes active
-          if (currentExtractedTab === 'feed') {
-            resetScrollForFeedNavigation();
-          }
-        }
-      }, 10); // Small delay to prevent race conditions
-      
-      return () => clearTimeout(timeoutId);
-    }
-    
     // Clear initial mount flag after first effect run
     if (isInitialMount.current) {
       isInitialMount.current = false;
     }
-  }, [location.pathname, activeTab]); // Removed 'tab' dependency to prevent conflicts
+    
+    // Reset scroll position when feed tab becomes active
+    if (activeTab === 'feed') {
+      resetScrollForFeedNavigation();
+    }
+  }, [location.pathname, activeTab]);
 
   // Handle /space/feed -> /space redirect (legacy URL support)
   useEffect(() => {
@@ -263,64 +257,43 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
     }
   }, [location.pathname, subdomain, navigate]);
 
-  // 🚀 REVOLUTIONARY: URL-independent tab switching with URL sync
+  // ✅ FIXED: Simple React Router navigation for tab changes
   const handleTabChange = (tabKey: string) => {
-    console.log('🔧 [SpaceShellLayout] handleTabChange called with:', { tabKey, subdomain, currentPath: location.pathname });
+    if (process.env.NODE_ENV === 'development') {
+      log.debug('Component', `🔄 [SpaceShellLayout] Tab change requested: ${activeTab} -> ${tabKey}`);
+    }
     
-    // Use persistent tab manager - no React Router navigation!
-    switchTab(tabKey as any);
-    
-    // CRITICAL FIX: Update URL to match the tab state
+    // Use standard React Router navigation
     if (subdomain) {
       const newUrl = tabKey === 'feed' 
         ? `/${subdomain}/space`
         : `/${subdomain}/space/${tabKey}`;
       
-      console.log('🔧 [SpaceShellLayout] About to update URL:', { from: location.pathname, to: newUrl });
-      
-      // Update URL without triggering navigation
-      window.history.replaceState(null, '', newUrl);
-      
-      console.log('🔧 [SpaceShellLayout] URL updated via replaceState');
-      
-      if (process.env.NODE_ENV === 'development') {
-        log.debug('Component', `🔄 [SpaceShellLayout] Tab switched and URL updated: ${tabKey} -> ${newUrl}`);
-      }
+      navigate(newUrl, { 
+        replace: true,
+        state: { preserveSpace: true, activeTab: tabKey } as LocationState
+      });
     }
     
     // Reset scroll position for feed navigation
     if (tabKey === 'feed') {
       resetScrollForFeedNavigation();
     }
-    
-    if (process.env.NODE_ENV === 'development') {
-      log.debug('Component', `🔄 [SpaceShellLayout] Tab switched via persistent manager: ${tabKey}`);
-    }
   };
 
-  // **FIX**: Listen for custom tab change events from bottom nav
+  // ✅ FIXED: Simplified custom event handling for bottom navigation
   useEffect(() => {
     const handleCustomTabChange = (event: CustomEvent) => {
       const { tabKey, subdomain: eventSubdomain, source } = event.detail;
       
       // Only handle events for the current space
       if (eventSubdomain === subdomain && source === 'bottom-nav') {
-        log.debug('Component', `🔄 [SpaceShellLayout] Handling custom tab change from ${source}: ${tabKey}`);
-        
-        // Use the same tab change logic but skip the navigation since bottom nav handles URL
-        switchTab(tabKey as any);
-        
-        // Reset scroll position for feed navigation
-        if (tabKey === 'feed') {
-          resetScrollForFeedNavigation();
+        if (process.env.NODE_ENV === 'development') {
+          log.debug('Component', `🔄 [SpaceShellLayout] Handling custom tab change from ${source}: ${tabKey}`);
         }
         
-        // Store in session storage for persistence
-        try {
-          sessionStorage.setItem(`active_tab_${subdomain}`, tabKey);
-        } catch (err) {
-          log.warn('Component', 'Failed to store active tab:', err);
-        }
+        // Use standard React Router navigation
+        handleTabChange(tabKey);
       }
     };
 
@@ -330,7 +303,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
     return () => {
       window.removeEventListener('spaceTabChange', handleCustomTabChange as EventListener);
     };
-  }, [subdomain]);
+  }, [subdomain, handleTabChange]);
 
   return (
     <SpaceLayout
@@ -364,13 +337,15 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
         </div>
       )}
       
-      {/* REVOLUTIONARY: Truly persistent component with URL-independent tab management */}
+      {/* ✅ FIXED: Use persistent tab content to prevent remounting */}
       <div className="px-0 sm:px-4 pt-0 sm:pt-6 pb-16 sm:pb-6">
-        <SpaceTabContentOptimized />
+        <PersistentTabContent />
       </div>
       
       {/* Common modals that should persist across tab changes */}
-      <NewSpaceSettingsModal />
+      <Suspense fallback={null}>
+        <NewSpaceSettingsModal />
+      </Suspense>
     </SpaceLayout>
   );
 } 

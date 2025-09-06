@@ -263,8 +263,8 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
       
       const supabase = getSupabaseClient(); // GET SINGLETON CLIENT
       
-      // POSTS PATTERN: Increased timeout to allow for complex member queries with profile joins
-      const TIMEOUT_MS = 12000; // Increased from 5s to 12s for member+profile queries
+      // POSTS PATTERN: Optimized timeout for member queries with profile joins
+      const TIMEOUT_MS = 8000; // Reduced from 12s to 8s for better UX
       
       let memberData: any[] | null = null;
       let memberError: any = null;
@@ -279,7 +279,7 @@ export const useMembersCache = create<MembersCacheState>((set, get) => ({
             .order('joined_at', { ascending: true }),
           new Promise<never>((_, reject) => {
             setTimeout(() => {
-              log.error('Hook', '[MembersCache] Query timeout for:', spaceId);
+              log.warn('Hook', '[MembersCache] Query timeout for:', spaceId);
               reject(new Error('Members query timeout'));
             }, TIMEOUT_MS);
           })

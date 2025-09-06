@@ -277,7 +277,7 @@ export function extractMentions(text: string): string[] {
 /**
  * Helper function to truncate content for notification previews
  */
-export function truncateContent(content: string, maxLength: number = 100): string {
+export function truncateContent(content: string, maxLength = 100): string {
   if (content.length <= maxLength) {
     return content;
   }

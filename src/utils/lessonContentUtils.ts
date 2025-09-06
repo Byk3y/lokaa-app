@@ -144,7 +144,7 @@ export const addVideoSpacing = (content: string): string => {
  * Extracts title from content if not provided
  * Used in inline creation flow
  */
-export const extractTitleFromContent = (content: string, providedTitle: string = ''): string => {
+export const extractTitleFromContent = (content: string, providedTitle = ''): string => {
   let finalTitle = providedTitle.trim();
   
   if (!finalTitle && content) {

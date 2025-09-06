@@ -23,7 +23,14 @@ export default function SmartRedirectWithPathRestoration() {
 
   // Show loading while auth is loading
   if (loading) {
-    return <RouteLoadingFallback />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50" style={{ minHeight: '100vh' }}>
+        <div className="flex flex-col items-center">
+          <div className="animate-spin h-6 w-6 rounded-full border-t-2 border-b-2 border-teal-500 mb-2"></div>
+          <p className="text-gray-500 text-sm">Authenticating...</p>
+        </div>
+      </div>
+    );
   }
 
   // If no user, redirect to landing (this shouldn't happen due to ProtectedRoute)
@@ -35,7 +42,12 @@ export default function SmartRedirectWithPathRestoration() {
   if (!restorationComplete) {
     return (
       <>
-        <RouteLoadingFallback />
+        <div className="min-h-screen flex items-center justify-center bg-gray-50" style={{ minHeight: '100vh' }}>
+          <div className="flex flex-col items-center">
+            <div className="animate-spin h-6 w-6 rounded-full border-t-2 border-b-2 border-teal-500 mb-2"></div>
+            <p className="text-gray-500 text-sm">Restoring your session...</p>
+          </div>
+        </div>
         <PathRestoration onRestorationComplete={handleRestorationComplete} />
       </>
     );
@@ -44,7 +56,7 @@ export default function SmartRedirectWithPathRestoration() {
   // If restoration was successful, don't render QuickSpaceRedirect
   // (the user has already been navigated to their restored path)
   if (restorationSuccessful) {
-    return <RouteLoadingFallback />;
+    return null; // Don't render anything - user is already on the correct page
   }
 
   // If restoration failed or was not applicable, use the normal QuickSpaceRedirect

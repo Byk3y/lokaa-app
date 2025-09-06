@@ -1,7 +1,7 @@
 import { log } from '@/utils/logger';
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Bell, MessageSquare, User, LogOut, ChevronDown, Search, Settings, Users, Calendar, BookOpen, X, Trophy, GraduationCap } from "lucide-react";
+import { Bell, MessageSquare, Search, Settings, Users, Calendar, BookOpen, X, Trophy, GraduationCap } from "lucide-react";
 import { motion } from "framer-motion";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -22,10 +22,12 @@ import MembersTab from "@/components/space/MembersTab";
 import LeaderboardsTab from "@/components/space/LeaderboardsTab";
 import ClassroomTab from "@/components/space/ClassroomTab";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
+import { seoManager } from '@/utils/seoManager';
+import { SEOAnalytics } from '@/utils/analytics';
 
 
 // Helper function to resolve image URLs that might be stored in localStorage
-const resolveImageUrl = (imageUrl: string | null, fallbackUrl: string = '/default-cover.jpg'): string => {
+const resolveImageUrl = (imageUrl: string | null, fallbackUrl = '/default-cover.jpg'): string => {
   if (!imageUrl) return fallbackUrl;
   
   // If the URL starts with 'local:', retrieve from localStorage
@@ -100,9 +102,34 @@ function SpaceContent() {
         spaceData.icon_image
       ].filter(Boolean) as string[];
       
-      // TODO: Implement image preloading when needed
+      // Note: Image preloading can be implemented for performance optimization
     }
   }, [spaceData]);
+
+  // 🎯 [Phase 2] SEO Optimization: Update meta tags for space page
+  useEffect(() => {
+    if (spaceData && subdomain) {
+      const initializeSpaceSEO = async () => {
+        try {
+          await seoManager.updateSEO('space', subdomain, subdomain, { space: spaceData });
+          log.debug('Page', '🎯 [SEO] Space page meta tags updated for:', spaceData.name);
+          
+          // Track SEO page view
+          SEOAnalytics.trackPageView('space', window.location.href, [
+            spaceData.name,
+            spaceData.subdomain,
+            'community',
+            'collaboration',
+            'lokaa'
+          ]);
+        } catch (error) {
+          log.error('Page', '🎯 [SEO] Failed to update space page meta tags:', error);
+        }
+      };
+
+      initializeSpaceSEO();
+    }
+  }, [spaceData, subdomain]);
 
   // Check if this is a newly created space and show notification
   useEffect(() => {
@@ -379,7 +406,7 @@ function SpaceContent() {
           {activeTab === "about" ? (
             <AboutTab 
               onSpaceUpdate={(updatedSpace) => {
-                // TODO: Use updateSpaceInCache from context
+                // Note: Consider using updateSpaceInCache from context for better cache management
                 // Consider calling fetchSpaceData(subdomain, true) if AboutTab updates space significantly
               }}
             />

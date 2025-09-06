@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Editor } from '@tiptap/react';
 import { formatAsTitle } from '@/utils/textUtils';
 
@@ -14,6 +14,11 @@ export interface EditorActionsProps {
 /**
  * Custom hook for managing editor actions and state
  * Handles title editing, published state, validation, and keyboard shortcuts
+ * 
+ * 🚀 PERFORMANCE OPTIMIZED:
+ * - Memoized callbacks to prevent unnecessary re-renders
+ * - Optimized state updates and validation
+ * - Efficient keyboard shortcut handling
  */
 export const useEditorActions = ({
   defaultTitle = '',
@@ -56,15 +61,20 @@ export const useEditorActions = ({
     }
   }, [onPublishedChange]);
 
+  // Memoize editor HTML content to prevent unnecessary re-computation
+  const editorContent = useMemo(() => {
+    return editor?.getHTML() || '';
+  }, [editor]);
+
   // Handle save action with validation
   const handleSave = useCallback(() => {
     // Only save if there's a title
     if (title.trim()) {
-      onSave(title.trim(), editor?.getHTML() || '', published);
+      onSave(title.trim(), editorContent, published);
     } else {
       setShowTitleError(true);
     }
-  }, [title, editor, published, onSave]);
+  }, [title, editorContent, published, onSave]);
 
   // Handle save with validation check
   const handleSaveWithValidation = useCallback(() => {
@@ -75,18 +85,19 @@ export const useEditorActions = ({
     handleSave();
   }, [title, handleSave]);
 
-  // Add keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-    };
+  // Memoize keyboard shortcut handler to prevent unnecessary re-registration
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      handleSave();
+    }
+  }, [handleSave]);
 
+  // Add keyboard shortcuts with memoized handler
+  useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleSave]);
+  }, [handleKeyDown]);
 
   return {
     title,

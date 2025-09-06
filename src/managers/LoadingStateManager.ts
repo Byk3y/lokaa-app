@@ -4,9 +4,12 @@ import { log } from '@/utils/logger';
  * 
  * This manager coordinates ALL loading states across the application to prevent conflicts.
  * It ensures only ONE loading experience is active at a time and provides instant feedback.
+ * 
+ * Enhanced loading state management with performance optimization.
  */
 
 import { NavigateFunction } from 'react-router-dom';
+
 
 // Loading state priorities (lower = higher priority)
 export enum LoadingPriority {
@@ -178,7 +181,7 @@ class LoadingStateManager {
   /**
    * 🏁 Complete a loading operation
    */
-  completeOperation(operation: LoadingOperation, success: boolean = true): void {
+  completeOperation(operation: LoadingOperation, success = true): void {
     const loadingState = this.activeOperations.get(operation);
     if (!loadingState) return;
 
@@ -441,6 +444,77 @@ class LoadingStateManager {
         });
       };
     }
+  }
+
+  /**
+   * Check if component should skip loading (legacy method)
+   * Note: Always returns false since hydration system was removed
+   */
+  shouldSkipLoadingForHydratedComponent(componentId: string, userId: string): boolean {
+    return false;
+  }
+
+  /**
+   * Start loading operation (legacy method)
+   */
+  startOperationWithHydration(
+    operation: LoadingOperation, 
+    componentId: string, 
+    userId: string,
+    priority: LoadingPriority = LoadingPriority.FALLBACK_LOADING
+  ): boolean {
+    // Check if component is hydrated
+    if (this.shouldSkipLoadingForHydratedComponent(componentId, userId)) {
+      log.debug('App', `✅ [LoadingStateManager] Component ${componentId} is hydrated, skipping loading operation ${operation}`);
+      return false; // Don't start loading
+    }
+
+    // Start normal loading operation
+    return this.startOperation(operation, priority);
+  }
+
+  /**
+   * Complete loading operation (legacy method)
+   */
+  completeOperationWithHydration(
+    operation: LoadingOperation, 
+    componentId: string, 
+    userId: string
+  ): void {
+    this.completeOperation(operation);
+  }
+
+  /**
+   * Get loading state (legacy method)
+   */
+  getHydrationAwareLoadingState(componentId: string, userId: string): {
+    shouldShowLoading: boolean;
+    isHydrated: boolean;
+    currentOperation: LoadingOperation | null;
+    loadingTime: number;
+  } {
+    const isHydrated = this.shouldSkipLoadingForHydratedComponent(componentId, userId);
+    const shouldShowLoading = !isHydrated && this.masterLoadingState !== null;
+    const currentOperation = this.masterLoadingState?.operation || null;
+    const loadingTime = this.masterLoadingState ? Date.now() - this.masterLoadingState.startTime : 0;
+
+    return {
+      shouldShowLoading,
+      isHydrated,
+      currentOperation,
+      loadingTime
+    };
+  }
+
+  /**
+   * Coordinate loading (legacy method)
+   * Note: Always show loading since hydration system was removed
+   */
+  async coordinateWithHydration(componentId: string, userId: string): Promise<{
+    shouldShowLoading: boolean;
+    hydrationTime?: number;
+  }> {
+    return { shouldShowLoading: true };
   }
 }
 

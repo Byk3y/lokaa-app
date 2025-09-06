@@ -255,7 +255,7 @@ export class SearchAPI {
   async getSearchSuggestions(
     spaceId: string,
     partialQuery: string,
-    limit: number = 10
+    limit = 10
   ): Promise<Array<{ suggestion: string; type: string; count: number }>> {
     const cacheKey = `suggestions:${spaceId}:${partialQuery}:${limit}`;
     
@@ -293,7 +293,7 @@ export class SearchAPI {
   // New method for search performance statistics
   async getSearchPerformanceStats(
     spaceId?: string,
-    daysBack: number = 7
+    daysBack = 7
   ): Promise<{
     totalSearches: number;
     avgResultsPerSearch: number;
@@ -470,8 +470,8 @@ export class SearchAPI {
   // Enhanced retry logic with exponential backoff
   private async retryOperation<T>(
     operation: () => Promise<T>,
-    maxRetries: number = 3,
-    baseDelay: number = 1000
+    maxRetries = 3,
+    baseDelay = 1000
   ): Promise<T> {
     let lastError: Error;
     
@@ -504,7 +504,7 @@ export class SearchAPI {
     query: string,
     type: 'posts' | 'spaces',
     spaceId?: string,
-    resultsCount: number = 0
+    resultsCount = 0
   ): Promise<void> {
     // Skip analytics tracking if query is too short or empty
     if (!query || query.length < 2) {

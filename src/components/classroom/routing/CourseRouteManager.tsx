@@ -171,8 +171,54 @@ export const CourseRouteManager: React.FC<CourseRouteManagerProps> = React.memo(
       return false;
     }
     
+    // Phase 3.1: Validate URL pattern for new structure
+    if (!validateUrlPattern(path)) {
+      const error: RouteError = {
+        type: 'validation',
+        message: 'Invalid URL pattern for new structure',
+        timestamp: Date.now(),
+        recoverable: true
+      };
+      
+      setRouteErrors(prev => [...prev.slice(-MAX_ERRORS + 1), error]);
+      onRouteError?.(error);
+      return false;
+    }
+    
     return true;
-  }, [onRouteError]);
+  }, [onRouteError, validateUrlPattern]);
+
+  // Phase 3.1: Validate URL pattern for new structure
+  const validateUrlPattern = useCallback((path: string): boolean => {
+    if (!path || path === '/') return true;
+    
+    // Remove leading slash for pattern matching
+    const urlPath = path.startsWith('/') ? path.slice(1) : path;
+    const segments = urlPath.split('/').filter(Boolean);
+    
+    // Valid patterns for course routes:
+    // - /:subdomain/courses/:slug (course detail)
+    // - /:subdomain/courses/:course-slug/lessons/:lesson-slug (lesson detail)
+    // - Legacy: /:subdomain/space/classroom/:courseId
+    
+    if (segments.length >= 3) {
+      const subdomain = segments[0];
+      const secondSegment = segments[1];
+      
+      // New course pattern
+      if (secondSegment === 'courses' && segments.length >= 3) {
+        // Course detail or lesson detail
+        return true;
+      }
+      
+      // Legacy classroom pattern
+      if (secondSegment === 'space' && segments[2] === 'classroom' && segments.length >= 4) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, []);
   
   // Unified navigation function
   const navigateToRoute = useCallback(async (
@@ -288,13 +334,31 @@ export const CourseRouteManager: React.FC<CourseRouteManagerProps> = React.memo(
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
       
-      // Generate human-readable labels
+      // Phase 3.1: Generate human-readable labels for new URL structure
       let label = segment;
+      
+      // Legacy patterns (backward compatibility)
       if (segment === 'space') label = 'Space';
       else if (segment === 'classroom') label = 'Classroom';
-      else if (segment === 'course') label = 'Course';
-      else if (segment === 'lesson') label = 'Lesson';
-      else if (segment === 'module') label = 'Module';
+      
+      // Phase 3.1: New URL structure patterns
+      else if (segment === 'courses') label = 'Courses';
+      else if (segment === 'posts') label = 'Posts';
+      else if (segment === 'lessons') label = 'Lessons';
+      else if (segment === 'members') label = 'Members';
+      else if (segment === 'about') label = 'About';
+      else if (segment === 'calendar') label = 'Calendar';
+      else if (segment === 'leaderboard') label = 'Leaderboard';
+      
+      // Course and lesson labels (for slug-based URLs)
+      else if (index === 2 && segments[1] === 'courses') label = 'Course';
+      else if (index === 4 && segments[3] === 'lessons') label = 'Lesson';
+      
+      // Space subdomain (first segment)
+      else if (index === 0) {
+        // Convert subdomain to readable name
+        label = segment.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      }
       
       breadcrumbs.push({ label, path: currentPath });
     });

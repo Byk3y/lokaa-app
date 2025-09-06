@@ -29,7 +29,7 @@ interface UseCommentAvatarsReturn {
  */
 export function useCommentAvatars(
   postId: string | undefined,
-  maxCommenters: number = 3
+  maxCommenters = 3
 ): UseCommentAvatarsReturn {
   const [localError, setLocalError] = useState<string | null>(null);
 

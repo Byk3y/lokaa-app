@@ -5,11 +5,14 @@ import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import CourseDetailView from '@/components/classroom/CourseDetailView';
 import { SpaceLoadingFallback } from '@/routes/LazyRoutes';
-import { usePersistentTabs } from '@/hooks/usePersistentTabs';
+// ✅ FIXED: Removed usePersistentTabs - using standard React Router navigation
+import { extractTabFromPathname } from '@/utils/tabUtils';
 
 /**
  * CourseDetailPage - Router-aware wrapper for CourseDetailView
  * Handles URL parameters and navigation for course slug routing
+ * 
+ * Phase 3.2: Updated for new slug-based URL pattern /:subdomain/space/classroom/:courseSlug
  * ✅ ENHANCED: Mobile views render outside SpaceLayout for clean standalone experience
  */
 const CourseDetailPage: React.FC = () => {
@@ -24,14 +27,15 @@ const CourseDetailPage: React.FC = () => {
   const { user, loading: authLoading } = useOptimizedAuth();
   const { space, loading: spaceLoading } = useSpace();
   
-  // Use persistent tabs to check if we should actually be showing course detail
-  const { currentTab, isTabActive } = usePersistentTabs(subdomain);
+  // ✅ FIXED: Use standard React Router navigation to determine tab state
+  const currentTab = extractTabFromPathname(location.pathname);
+  const isTabActive = (tab: string) => currentTab === tab;
   
-  // Extract course slug from URL pathname (new pattern only)
+  // Extract course slug from URL pathname (Phase 3.2 - new slug-based pattern)
   const extractCourseSlugFromPath = () => {
     // ✅ FIX: Use window.location.pathname directly to avoid stale React Router location
     const currentPathname = window.location.pathname;
-    // ✅ FIX: Only support new pattern: /:subdomain/space/classroom/:courseSlug
+    // ✅ Phase 3.2: Support new slug-based pattern: /:subdomain/space/classroom/:courseSlug
     const newMatch = currentPathname.match(/^\/[^\/]+\/space\/classroom\/([^\/]+)$/);
     if (newMatch) {
       return newMatch[1];
@@ -96,13 +100,14 @@ const CourseDetailPage: React.FC = () => {
     return null;
   }
   
-  log.debug('Page', '🎓 [CourseDetailPage] Rendering with params:', {
+  log.debug('Page', '🎓 [CourseDetailPage] Rendering with params (Phase 3.2 - New URL Pattern):', {
     courseSlug,
     lessonId,
     subdomain,
     moduleId,
     userId: user.id,
-    spaceId: space.id
+    spaceId: space.id,
+    urlPattern: `/:subdomain/space/classroom/:courseSlug`
   });
   
   // ✅ UPDATED: Render within persistent shell context - no SpaceLayout wrapper needed

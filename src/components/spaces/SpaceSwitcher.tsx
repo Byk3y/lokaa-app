@@ -2,7 +2,7 @@ import { log } from '@/utils/logger';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { ChevronDown, Plus, Globe, Search, Check } from 'lucide-react';
+import { Plus, Globe, Check } from 'lucide-react';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import ModernDropdownTrigger from '@/components/ModernDropdownTrigger';
 import {
@@ -68,7 +68,7 @@ export default function SpaceSwitcher({
   const [loading, setLoading] = useState<boolean>(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const navigate = useNavigate();
-  const { spaceData: contextSpace, clearCache } = useSpace();
+  const { space: contextSpace, clearCache } = useSpace();
   const { space: settingsSpace } = useSpaceSettingsStore();
   const { refreshSpacesTrigger } = useMembershipStore(); // Use the store hook
   
@@ -169,10 +169,10 @@ export default function SpaceSwitcher({
         const { data: ownedSpaces, error: ownedError } = await getSupabaseClient()
           .from('spaces')
           .select('id, name, subdomain, owner_id, icon_image')
-          .eq('owner_id', userId);
+          .eq('owner_id', userId as string);
 
         if (ownedError) {
-          log.error('Component', '[SpaceSwitcher] Error fetching owned spaces:', ownedError);
+          log.error('Component', '[SpaceSwitcher] Error fetching owned spaces:', ownedError instanceof Error ? ownedError : new Error(String(ownedError)));
         }
 
         // Fetch spaces the user has access to (but doesn't own) via space_members table
@@ -182,11 +182,11 @@ export default function SpaceSwitcher({
             space_id,
             spaces:space_id(id, name, subdomain, owner_id, icon_image)
           `)
-          .eq('user_id', userId)
+          .eq('user_id', userId as string)
           .returns<SpaceMemberRecord[]>();
 
         if (memberError) {
-          log.error('Component', '[SpaceSwitcher] Error fetching joined spaces from space_members:', memberError);
+          log.error('Component', '[SpaceSwitcher] Error fetching joined spaces from space_members:', memberError instanceof Error ? memberError : new Error(String(memberError)));
         }
 
         const ownedSpacesArray = ownedSpaces || [];
@@ -228,12 +228,12 @@ export default function SpaceSwitcher({
             log.debug('Component', '[SpaceSwitcher] Cached', allSpaces.length, 'spaces');
           }
         } catch (cacheError) {
-          log.warn('Component', '[SpaceSwitcher] Cache update failed:', cacheError);
+          log.warn('Component', '[SpaceSwitcher] Cache update failed:', cacheError instanceof Error ? cacheError : new Error(String(cacheError)));
         }
         
         setSpaces(allSpaces);
       } catch (error) {
-        log.error('Component', '[SpaceSwitcher] General error in fetchUserSpaces:', error);
+        log.error('Component', '[SpaceSwitcher] General error in fetchUserSpaces:', error instanceof Error ? error : new Error(String(error)));
         setSpaces([]);
       } finally {
         setLoading(false);
@@ -263,7 +263,7 @@ export default function SpaceSwitcher({
         
         log.debug('Component', `✅ [SpaceSwitcher] Cleanup completed for space switch`);
       } catch (error) {
-        log.error('Component', `❌ [SpaceSwitcher] Cleanup failed, proceeding anyway:`, error);
+        log.error('Component', `❌ [SpaceSwitcher] Cleanup failed, proceeding anyway:`, error instanceof Error ? error : new Error(String(error)));
       }
       
       // ENHANCED: Clear SpaceContext cache
@@ -298,7 +298,7 @@ export default function SpaceSwitcher({
           
           log.debug('Component', `[SpaceSwitcher] Pre-cached space data for ${subdomain}`);
         } catch (e) {
-          log.error('Component', 'Error pre-caching space context:', e);
+          log.error('Component', 'Error pre-caching space context:', e instanceof Error ? e : new Error(String(e)));
         }
       }
     }
@@ -325,7 +325,7 @@ export default function SpaceSwitcher({
         }
       }
     } catch (e) {
-      log.error('Component', 'Error retrieving space from navigation context in SpaceSwitcher:', e);
+      log.error('Component', 'Error retrieving space from navigation context in SpaceSwitcher:', e instanceof Error ? e : new Error(String(e)));
     }
     
     // Fallback to the passed subdomain
@@ -346,7 +346,7 @@ export default function SpaceSwitcher({
         log.debug('Component', 'Preserving space context before navigating to discover:', effectiveSelectedSubdomain);
         // Keep the existing navigatedFromSpace in case of return to profile
       } catch (e) {
-        log.error('Component', 'Error preserving space context:', e);
+        log.error('Component', 'Error preserving space context:', e instanceof Error ? e : new Error(String(e)));
       }
     }
     
@@ -439,17 +439,31 @@ export default function SpaceSwitcher({
                 data-space-name={space.name}
                 data-space-subdomain={space.subdomain}
               >
-                {space.icon_image ? (
-                  <img
-                    src={space.icon_image}
-                    alt={space.name}
-                    className="h-10 w-10 rounded-lg object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-lg bg-slate-700 dark:bg-slate-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-                    {space.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                {(() => {
+                  const spaceAssets = SpaceAssetsUtils.resolveSpaceAssets({
+                    name: space.name,
+                    icon_image: space.icon_image,
+                    subdomain: space.subdomain
+                  });
+                  
+                  return spaceAssets.hasIcon && spaceAssets.iconUrl ? (
+                    <img
+                      src={spaceAssets.iconUrl}
+                      alt={space.name}
+                      className="h-10 w-10 rounded-lg object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div 
+                      className="h-10 w-10 rounded-lg flex items-center justify-center font-bold text-base flex-shrink-0"
+                      style={{ 
+                        backgroundColor: spaceAssets.backgroundColor,
+                        color: spaceAssets.textColor 
+                      }}
+                    >
+                      {spaceAssets.initials}
+                    </div>
+                  );
+                })()}
                 <div className="flex-grow overflow-hidden">
                   <span className="block text-base truncate">{capitalizeWords(space.name)}</span>
                 </div>

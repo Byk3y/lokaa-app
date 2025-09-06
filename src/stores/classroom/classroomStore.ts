@@ -11,6 +11,7 @@ import type {
   FolderDialogState
 } from '@/types/classroom';
 
+
 // Core classroom state interface
 interface ClassroomStoreState {
   // Core state
@@ -376,6 +377,8 @@ export const useClassroomStore = create<ClassroomStore>()(
           const state = get();
           return state.courses.find(course => course.id === courseId);
         },
+
+
       })
     )
   )

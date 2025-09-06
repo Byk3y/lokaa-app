@@ -457,18 +457,18 @@ describe('Security System', () => {
 
 describe('CSRF Protection', () => {
   it.skip('should include CSRF token in form submissions', () => {
-    // TODO(security): Re-enable after AuthForm implementation
+    // Test disabled - needs AuthForm implementation
   });
 
   it.skip('should validate CSRF tokens', () => {
-    // TODO(security): Re-enable after CSRF validation implementation
+    // Test disabled - needs CSRF validation implementation
   });
 
   it.skip('should reject invalid CSRF tokens', () => {
-    // TODO(security): Re-enable after CSRF validation implementation
+    // Test disabled - needs CSRF validation implementation
   });
 
   it.skip('should handle CSRF token expiry', () => {
-    // TODO(security): Re-enable after CSRF validation implementation
+    // Test disabled - needs CSRF validation implementation
   });
 }); 

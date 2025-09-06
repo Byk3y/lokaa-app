@@ -185,17 +185,21 @@ serve(async (req: Request) => {
 
 function generateSEOMetadata(type: string, spaceData?: any): any {
   const baseUrl = 'https://lokaa.app';
-  const defaultDescription = 'Lokaa Connect - Create and manage collaborative spaces';
+  const defaultDescription = 'Transform Your Passion Into a Profitable Community - Build and join thriving communities on Lokaa';
   const defaultImage = `${baseUrl}/og-image.png`;
 
   switch (type) {
     case 'landing':
       return {
-        title: 'Lokaa Connect - Collaborative Spaces Platform',
-        description: defaultDescription,
+        title: 'Lokaa - Transform Your Passion Into a Profitable Community',
+        description: 'Build engaged communities around your passion, create valuable content, and monetize your expertise. Join thousands of creators building profitable communities on Lokaa.',
         ogImage: defaultImage,
         canonical: baseUrl,
-        type: 'website'
+        type: 'website',
+        keywords: ['community platform', 'turn passion into revenue', 'monetize your passion', 'build profitable community', 'online learning communities', 'passion communities', 'community building', 'find communities'],
+        author: 'Lokaa Team',
+        robots: 'index,follow',
+        language: 'en'
       };
 
     case 'space':
@@ -204,20 +208,83 @@ function generateSEOMetadata(type: string, spaceData?: any): any {
       }
 
       return {
-        title: `${spaceData.name} - Lokaa Connect Space`,
-        description: spaceData.description || defaultDescription,
+        title: `${spaceData.name} - Community on Lokaa`,
+        description: spaceData.description || `Join the ${spaceData.name} community on Lokaa. Connect with like-minded people and grow together.`,
         ogImage: spaceData.cover_image || defaultImage,
-        canonical: `${baseUrl}/space/${spaceData.subdomain}`,
-        type: 'website'
+        canonical: `${baseUrl}/${spaceData.subdomain}`,
+        type: 'website',
+        keywords: [spaceData.name, 'community', 'collaboration', 'lokaa', spaceData.subdomain],
+        author: spaceData.name,
+        robots: 'index,follow',
+        language: 'en'
+      };
+
+    case 'post':
+      if (!spaceData) {
+        throw new Error('Space data required for post SEO');
+      }
+
+      return {
+        title: `${spaceData.title || 'Post'} - ${spaceData.name}`,
+        description: spaceData.content ? spaceData.content.replace(/<[^>]*>/g, '').substring(0, 160) : `Read this post in the ${spaceData.name} community`,
+        ogImage: spaceData.media_urls?.[0]?.url || spaceData.cover_image || defaultImage,
+        canonical: `${baseUrl}/${spaceData.subdomain}/space/${spaceData.slug}`,
+        type: 'article',
+        keywords: [spaceData.title, spaceData.name, 'community post', 'lokaa'],
+        author: spaceData.author_name || spaceData.name,
+        robots: 'index,follow',
+        language: 'en',
+        publishedTime: spaceData.created_at,
+        modifiedTime: spaceData.updated_at
+      };
+
+    case 'course':
+      if (!spaceData) {
+        throw new Error('Space data required for course SEO');
+      }
+
+      return {
+        title: `${spaceData.title} - Course in ${spaceData.name}`,
+        description: spaceData.description || `Learn ${spaceData.title} in the ${spaceData.name} community on Lokaa`,
+        ogImage: spaceData.cover_image || spaceData.space_cover_image || defaultImage,
+        canonical: `${baseUrl}/${spaceData.subdomain}/courses/${spaceData.slug}`,
+        type: 'course',
+        keywords: [spaceData.title, 'course', 'learning', spaceData.name, 'lokaa'],
+        author: spaceData.instructor_name || spaceData.name,
+        robots: 'index,follow',
+        language: 'en',
+        publishedTime: spaceData.created_at,
+        modifiedTime: spaceData.updated_at
+      };
+
+    case 'user':
+      if (!spaceData) {
+        throw new Error('User data required for user SEO');
+      }
+
+      return {
+        title: `${spaceData.full_name || spaceData.profile_url} - Profile on Lokaa`,
+        description: spaceData.bio || `View ${spaceData.full_name || spaceData.profile_url}'s profile on Lokaa`,
+        ogImage: spaceData.avatar_url || defaultImage,
+        canonical: `${baseUrl}/@${spaceData.profile_url}`,
+        type: 'profile',
+        keywords: [spaceData.full_name, 'profile', 'community member', 'lokaa'],
+        author: spaceData.full_name || spaceData.profile_url,
+        robots: 'index,follow',
+        language: 'en'
       };
 
     default:
       return {
-        title: 'Lokaa Connect',
+        title: 'Lokaa - Community Platform',
         description: defaultDescription,
         ogImage: defaultImage,
         canonical: baseUrl,
-        type: 'website'
+        type: 'website',
+        keywords: ['community platform', 'collaborative spaces', 'lokaa'],
+        author: 'Lokaa Team',
+        robots: 'index,follow',
+        language: 'en'
       };
   }
 } 

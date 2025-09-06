@@ -72,8 +72,7 @@ export class DevelopmentTools {
     log.debug('Utils', '🔧 [DevelopmentTools] Setting up debug utilities...');
 
     try {
-      // Only load essential debug utilities
-      await import('@/utils/developmentLogger');
+      // developmentLogger is statically imported where needed - no dynamic import required
       await import('@/utils/consoleCleanup');
       await import('@/utils/mobileDetection');
       await import('@/utils/globalErrorInterceptor');

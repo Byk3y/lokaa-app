@@ -269,7 +269,7 @@ class ScrollPositionManager {
   /**
    * Check if page is scrolled down
    */
-  isScrolledDown(threshold: number = 100): boolean {
+  isScrolledDown(threshold = 100): boolean {
     const { y } = this.getCurrentScrollPosition();
     return y > threshold;
   }
@@ -297,7 +297,7 @@ export const scrollPositionManager = new ScrollPositionManager();
  * Set the global pending chat navigation flag
  * Call this when chat navigation is initiated (tab, button, modal, etc.)
  */
-export const setPendingChatNavigation = (pending: boolean = true): void => {
+export const setPendingChatNavigation = (pending = true): void => {
   if (typeof window !== 'undefined') {
     window.__pendingChatNavigation = pending;
     console.log('🔍 [ScrollManager] Set pending chat navigation:', pending);

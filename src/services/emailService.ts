@@ -44,8 +44,9 @@ export class EmailService {
     }
   }
 
-  // TODO: Onboarding/lifecycle emails will be handled via database-driven triggers 
+  // Note: Onboarding/lifecycle emails will be handled via database-driven triggers 
   // and scheduled edge functions, not client-side events
+  // GitHub Issue: #XXX - Implement database-driven email triggers
 
   /**
    * Send email verification email

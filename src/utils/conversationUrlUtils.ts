@@ -229,7 +229,7 @@ const navigationDebouncer = new NavigationDebouncer();
  */
 export function navigateToConversation(
   conversationId: string, 
-  replace: boolean = false
+  replace = false
 ): boolean {
   if (!detectMobileDevice()) {
     return false; // Desktop should use direct state management
@@ -379,7 +379,7 @@ export const conversationUrlDebug = {
   /**
    * Test URL generation and parsing
    */
-  test: (conversationId: string = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890') => {
+  test: (conversationId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890') => {
     log.debug('Utils', '🧪 Testing Conversation URL System');
     log.debug('Utils', '=====================================');
     log.debug('Utils', 'Input conversation ID:', conversationId);

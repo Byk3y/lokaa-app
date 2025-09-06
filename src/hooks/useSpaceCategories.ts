@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client'; // Assuming supabase client is exported from here
 import { PostgrestError } from '@supabase/supabase-js';
 
@@ -28,6 +28,7 @@ export const useSpaceCategories = (spaceId: string | undefined): UseSpaceCategor
   const [categories, setCategories] = useState<SpaceCategory[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<PostgrestError | null>(null);
+  const previousSpaceIdRef = useRef<string | undefined>(undefined);
 
   const fetchCategories = useCallback(async () => {
     if (!spaceId) {
@@ -97,6 +98,20 @@ export const useSpaceCategories = (spaceId: string | undefined): UseSpaceCategor
     } finally {
       setIsLoading(false);
     }
+  }, [spaceId]);
+
+  // CRITICAL FIX: Detect space switches and clear categories immediately
+  useEffect(() => {
+    const isSpaceSwitch = previousSpaceIdRef.current !== undefined && previousSpaceIdRef.current !== spaceId;
+    
+    if (isSpaceSwitch) {
+      log.debug('Hook', `[useSpaceCategories] Space switch detected: ${previousSpaceIdRef.current} → ${spaceId}`);
+      // Clear categories immediately to prevent showing old space's categories
+      setCategories([]);
+      setError(null);
+    }
+    
+    previousSpaceIdRef.current = spaceId;
   }, [spaceId]);
 
   useEffect(() => {

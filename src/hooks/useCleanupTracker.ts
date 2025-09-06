@@ -29,7 +29,7 @@ export function useCleanupTracker(componentName: string): CleanupTracker {
   }>>([]);
 
   // FIXED: Simplified logging - only in development and reduced noise
-  const log = useCallback((message: string) => {
+  const logMessage = useCallback((message: string) => {
     if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) {
       log.debug('Hook', `[CleanupTracker:${componentName}] ${message}`);
     }
@@ -37,18 +37,18 @@ export function useCleanupTracker(componentName: string): CleanupTracker {
 
   const addInterval = useCallback((id: number) => {
     intervalsRef.current.add(id);
-    log(`Added interval ${id}`);
-  }, [log]);
+    logMessage(`Added interval ${id}`);
+  }, [logMessage]);
 
   const addTimeout = useCallback((id: number) => {
     timeoutsRef.current.add(id);
-    log(`Added timeout ${id}`);
-  }, [log]);
+    logMessage(`Added timeout ${id}`);
+  }, [logMessage]);
 
   const addSubscription = useCallback((subscription: CleanupItem) => {
     subscriptionsRef.current.add(subscription);
-    log(`Added subscription`);
-  }, [log]);
+    logMessage(`Added subscription`);
+  }, [logMessage]);
 
   const addEventListener = useCallback((
     element: Element | Window | Document,
@@ -57,8 +57,8 @@ export function useCleanupTracker(componentName: string): CleanupTracker {
   ) => {
     element.addEventListener(event, handler);
     eventListenersRef.current.push({ element, event, handler });
-    log(`Added ${event} listener`);
-  }, [log]);
+    logMessage(`Added ${event} listener`);
+  }, [logMessage]);
 
   const cleanup = useCallback(() => {
     // FIXED: Simplified cleanup without excessive logging
@@ -112,12 +112,12 @@ export function useCleanupTracker(componentName: string): CleanupTracker {
 
   // FIXED: Simplified cleanup on unmount
   useEffect(() => {
-    log('Initialized');
+    logMessage('Initialized');
     
     return () => {
       cleanup();
     };
-  }, [cleanup, log]);
+  }, [cleanup, logMessage]);
 
   return {
     addInterval,

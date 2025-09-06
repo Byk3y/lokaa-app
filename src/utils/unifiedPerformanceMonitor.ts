@@ -160,7 +160,7 @@ class UnifiedPerformanceMonitor {
   /**
    * Record realtime event
    */
-  public recordRealtimeEvent(eventType: string, latency: number = 0): void {
+  public recordRealtimeEvent(eventType: string, latency = 0): void {
     if (!this.config.enableRealtimeTracking) return;
     
     this.recordMetric('realtimeEvents', latency);

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
+import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, TrendingUp, Users, Activity } from 'lucide-react';

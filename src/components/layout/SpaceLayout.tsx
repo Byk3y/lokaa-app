@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useLayoutEffect, ReactNode, useContext, useMemo } from "react";
+import { useEffect, useState, useRef, useLayoutEffect, ReactNode, useContext, useMemo, Suspense, lazy } from "react";
 import { Outlet, useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 
 
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
-import NewSpaceSettingsModal from "@/components/modals/NewSpaceSettingsModal";
+const NewSpaceSettingsModal = lazy(() => import("@/components/modals/NewSpaceSettingsModal"));
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
 import BottomNav from "@/components/mobile/BottomNav";

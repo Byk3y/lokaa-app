@@ -57,7 +57,7 @@ class SearchPerformanceMonitor {
   completeSearch(
     searchId: string, 
     resultsCount: number, 
-    cacheHit: boolean = false, 
+    cacheHit = false, 
     error?: string
   ): void {
     const metric = this.metrics.find(m => 
@@ -129,7 +129,7 @@ class SearchPerformanceMonitor {
   /**
    * Get recent search metrics
    */
-  getRecentMetrics(limit: number = 20): SearchMetrics[] {
+  getRecentMetrics(limit = 20): SearchMetrics[] {
     return this.metrics.slice(-limit).reverse();
   }
 

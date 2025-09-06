@@ -1,4 +1,3 @@
-import React from 'react';
 import clsx from 'clsx';
 
 export interface ToolbarDividerProps {
@@ -10,10 +9,10 @@ export interface ToolbarDividerProps {
  * Visual separator for toolbar sections
  * Supports both vertical (default) and horizontal orientations
  */
-export const ToolbarDivider: React.FC<ToolbarDividerProps> = ({ 
+export const ToolbarDivider = ({ 
   className, 
   orientation = 'vertical' 
-}) => (
+}: ToolbarDividerProps) => (
   <div 
     className={clsx(
       'bg-gray-300 flex-shrink-0',

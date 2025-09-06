@@ -25,7 +25,7 @@ class MobileConnectionManager {
   async executeQuery<T>(
     queryId: string,
     queryFn: () => Promise<T>,
-    priority: number = 5
+    priority = 5
   ): Promise<T> {
     // Check if we should use serialized execution
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 

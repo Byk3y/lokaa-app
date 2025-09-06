@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useOptimizedCachedCategories } from '@/hooks/useOptimizedCachedCategories';
 import type { SpaceCategory } from '@/hooks/useCategoriesCache';
@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { getSupabaseClient } from '@/integrations/supabase/client'; // For direct DB operations
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useSettingsValidation } from '@/hooks/useSettingsValidation';
+import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 
 const iconOptions = ['💬', '📢', '❓', '💡', '📚', '🔧', '🎯', '🎓', '🎨', '🎮', '💼', '🏆', '🎉', '💡', '⭐'];
 
@@ -20,7 +21,7 @@ interface CategoryEditState extends Partial<SpaceCategory> {
   originalIcon?: string;
 }
 
-export default function CategoriesSettingsTab() {
+function CategoriesSettingsTab() {
   const { space, permissions } = useSpaceSettingsStore();
   const { user } = useOptimizedAuth();
   const { 
@@ -328,4 +329,13 @@ export default function CategoriesSettingsTab() {
       </div>
     </div>
   );
-} 
+}
+
+// 🚀 PERFORMANCE FIX: Enhanced React.memo with custom comparison to prevent unnecessary re-renders
+const CategoriesSettingsTabMemo = memo(CategoriesSettingsTab, (prevProps, nextProps) => {
+  // Since this component has no props, we should never re-render unless the component itself changes
+  // This memoization is primarily for internal state optimization
+  return true; // Always return true to prevent re-renders based on props (since there are none)
+});
+
+export default withPerformanceMemo(CategoriesSettingsTabMemo, 'CategoriesSettingsTab');

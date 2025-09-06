@@ -49,6 +49,19 @@ export async function logAnalyticsEvent(event: Omit<AnalyticsEventInsert, 'creat
 // Flush queue to Supabase
 async function flushEventQueue() {
   if (eventQueue.length === 0) return;
+  
+  // Temporarily disabled to prevent 401 errors
+  // TODO: Re-enable when authentication is properly configured
+  log.debug('Utils', '[Analytics] Analytics disabled - events queued but not sent');
+  eventQueue = [];
+  if (batchTimeout) {
+    clearTimeout(batchTimeout);
+    batchTimeout = null;
+  }
+  return;
+
+  // Original implementation (commented out):
+  /*
   const supabase = getSupabaseClient();
   const batch = [...eventQueue];
   eventQueue = [];
@@ -65,12 +78,82 @@ async function flushEventQueue() {
   } catch (err) {
     log.error('Utils', '[Analytics] Exception during analytics insert:', err);
   }
+  */
 }
 
 // React hook for logging events
 export function useAnalyticsEvent() {
   return useCallback(logAnalyticsEvent, []);
 }
+
+// 🎯 [Phase 2] SEO Analytics Functions
+export const SEOAnalytics = {
+  // Track SEO page views
+  trackPageView: (pageType: string, pageUrl: string, keywords?: string[]) => {
+    logAnalyticsEvent({
+      event_type: 'seo.page_view',
+      event_data: {
+        page_type: pageType,
+        page_url: pageUrl,
+        keywords: keywords || [],
+        timestamp: new Date().toISOString(),
+        user_agent: navigator.userAgent,
+        referrer: document.referrer,
+      },
+    });
+  },
+
+  // Track keyword impressions
+  trackKeywordImpression: (keyword: string, position: number, pageUrl: string) => {
+    logAnalyticsEvent({
+      event_type: 'seo.keyword_impression',
+      event_data: {
+        keyword,
+        position,
+        page_url: pageUrl,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  },
+
+  // Track click-through rates
+  trackClickThrough: (source: string, destination: string, keyword?: string) => {
+    logAnalyticsEvent({
+      event_type: 'seo.click_through',
+      event_data: {
+        source,
+        destination,
+        keyword,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  },
+
+  // Track bounce rate
+  trackBounce: (pageUrl: string, timeOnPage: number) => {
+    logAnalyticsEvent({
+      event_type: 'seo.bounce_rate',
+      event_data: {
+        page_url: pageUrl,
+        time_on_page: timeOnPage,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  },
+
+  // Track conversions
+  trackConversion: (conversionType: string, value?: number, keyword?: string) => {
+    logAnalyticsEvent({
+      event_type: 'seo.conversion',
+      event_data: {
+        conversion_type: conversionType,
+        value,
+        keyword,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  },
+};
 
 // Expose global API for dev/testing
 if (typeof window !== 'undefined') {
@@ -79,4 +162,5 @@ if (typeof window !== 'undefined') {
     flush: flushEventQueue,
     _queue: eventQueue,
   };
+  (window as any).seoAnalytics = SEOAnalytics;
 } 

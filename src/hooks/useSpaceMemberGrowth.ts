@@ -24,7 +24,7 @@ interface CachedMemberGrowthData extends MemberGrowthData {
 const CACHE_TTL = 5 * 60 * 1000;
 const memberGrowthCache = new Map<string, CachedMemberGrowthData>();
 
-export const useSpaceMemberGrowth = (spaceId: string, days: number = 30): MemberGrowthData => {
+export const useSpaceMemberGrowth = (spaceId: string, days = 30): MemberGrowthData => {
   const [memberGrowthData, setMemberGrowthData] = useState<MemberGrowthData>({
     data: [],
     totalMembers: 0,

@@ -4,9 +4,12 @@ import { log } from '@/utils/logger';
  * 
  * Centralized state management for authentication flow progress.
  * Coordinates UI components to prevent loading state conflicts.
+ * 
+ * Enhanced authentication flow state management.
  */
 
 import { useState, useEffect } from 'react';
+
 
 type AuthFlowStage = 
   | 'initializing'
@@ -205,6 +208,65 @@ class AuthFlowStateManager {
   shouldUseFastPath(): boolean {
     return this.state.stage === 'checking-cache' || this.state.stage === 'initializing';
   }
+
+  /**
+   * Check if components should skip loading (legacy method)
+   * Note: Always returns false since hydration system was removed
+   */
+  shouldSkipLoadingForHydratedComponents(componentId: string, userId: string): boolean {
+    return false;
+  }
+
+  /**
+   * Coordinate with auth flow stages (legacy method)
+   */
+  async coordinateWithHydration(componentId: string, userId: string): Promise<boolean> {
+    try {
+      // If component is hydrated, skip loading states
+      if (this.shouldSkipLoadingForHydratedComponents(componentId, userId)) {
+        log.debug('Utils', `✅ [AuthFlowStateManager] Component ${componentId} is hydrated, skipping loading states`);
+        return true;
+      }
+
+      // If auth flow is in fast path, allow hydration to proceed
+      if (this.shouldUseFastPath()) {
+        log.debug('Utils', `🚀 [AuthFlowStateManager] Auth flow in fast path, allowing hydration for ${componentId}`);
+        return true;
+      }
+
+      // Otherwise, wait for auth flow to complete
+      log.debug('Utils', `⏳ [AuthFlowStateManager] Waiting for auth flow completion before hydrating ${componentId}`);
+      return false;
+    } catch (error) {
+      log.error('Utils', `🚨 [AuthFlowStateManager] Hydration coordination failed for ${componentId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Notify of auth flow completion (legacy method)
+   */
+  notifyHydrationOfAuthCompletion(): void {
+    // No-op since hydration system was removed
+  }
+
+  /**
+   * Get loading state for components (legacy method)
+   */
+  getHydrationAwareLoadingState(componentId: string, userId: string): {
+    shouldShowLoading: boolean;
+    isHydrated: boolean;
+    authStage: AuthFlowStage;
+  } {
+    const isHydrated = this.shouldSkipLoadingForHydratedComponents(componentId, userId);
+    const shouldShowLoading = !isHydrated && this.shouldComponentShowLoading(componentId);
+    
+    return {
+      shouldShowLoading,
+      isHydrated,
+      authStage: this.state.stage
+    };
+  }
 }
 
 // Export singleton instance
@@ -231,6 +293,18 @@ export const useComponentLoading = (componentName: string) => {
     authStage: state.stage,
     blockComponent: () => authFlowStateManager.blockComponent(componentName),
     unblockComponent: () => authFlowStateManager.unblockComponent(componentName)
+  };
+}
+
+// Legacy hook for loading state (hydration system removed)
+export const useHydrationAwareLoading = (componentId: string, userId: string) => {
+  const state = useAuthFlowState();
+  
+  return {
+    ...authFlowStateManager.getHydrationAwareLoadingState(componentId, userId),
+    blockComponent: () => authFlowStateManager.blockComponent(componentId),
+    unblockComponent: () => authFlowStateManager.unblockComponent(componentId),
+    coordinateWithHydration: () => authFlowStateManager.coordinateWithHydration(componentId, userId)
   };
 }
 

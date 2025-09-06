@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
+import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 import useSpaceSettingsStore, { type RuleItem } from '@/hooks/useSpaceSettingsStore';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

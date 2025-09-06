@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import useClassroomCache, { type CourseDisplayData } from './useClassroomCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { log } from '@/utils/logger';
@@ -86,10 +86,10 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
   const loading = spaceId ? isLoading(spaceId) : false;
   const error = spaceId ? getError(spaceId) : null;
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     if (!spaceId || !userId) return;
     await fetchCourses(spaceId, userId, ownerId);
-  };
+  }, [spaceId, userId, ownerId, fetchCourses]);
 
   const updateCourse = (courseId: string, updates: Partial<CourseDisplayData>) => {
     if (!spaceId) return;

@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🎣 Running pre-commit hooks..."
+
+# Run TypeScript type checking (most critical)
+echo "🔍 Running TypeScript type check..."
+npm run type-check
+
+echo "✅ Pre-commit TypeScript check passed!"
+
+# TODO: Once codebase is cleaned up, re-enable ESLint error checking:
+# npx eslint . --max-warnings 10000 --quiet

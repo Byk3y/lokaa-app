@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Editor } from '@tiptap/react';
 import { ToolbarButton, ToolbarDivider } from './index';
 import {
@@ -25,18 +25,28 @@ export interface DesktopToolbarProps {
 /**
  * Desktop toolbar for rich text editor
  * Single row layout with all formatting and media tools
+ * 
+ * 🚀 PERFORMANCE OPTIMIZED:
+ * - React.memo to prevent unnecessary re-renders
+ * - Memoized click handlers to prevent re-creation
  */
-export const DesktopToolbar: React.FC<DesktopToolbarProps> = ({
+export const DesktopToolbar: React.FC<DesktopToolbarProps> = React.memo(({
   editor,
   onImageUpload,
   onVideoUpload,
   onSetLink
 }) => {
+  // Memoize click handlers to prevent unnecessary re-creation
+  const handleHeading1 = useCallback(() => editor.chain().focus().toggleHeading({ level: 1 }).run(), [editor]);
+  const handleHeading2 = useCallback(() => editor.chain().focus().toggleHeading({ level: 2 }).run(), [editor]);
+  const handleHeading3 = useCallback(() => editor.chain().focus().toggleHeading({ level: 3 }).run(), [editor]);
+  const handleHeading4 = useCallback(() => editor.chain().focus().toggleHeading({ level: 4 }).run(), [editor]);
+
   return (
     <div className="hidden md:flex items-center justify-evenly px-3 py-2.5">
       {/* Heading Buttons */}
       <ToolbarButton 
-        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} 
+        onClick={handleHeading1} 
         isActive={editor.isActive('heading', { level: 1 })} 
         title="Heading 1"
         aria-pressed={editor.isActive('heading', { level: 1 })}
@@ -44,7 +54,7 @@ export const DesktopToolbar: React.FC<DesktopToolbarProps> = ({
         H₁
       </ToolbarButton>
       <ToolbarButton 
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} 
+        onClick={handleHeading2} 
         isActive={editor.isActive('heading', { level: 2 })} 
         title="Heading 2"
         aria-pressed={editor.isActive('heading', { level: 2 })}
@@ -52,7 +62,7 @@ export const DesktopToolbar: React.FC<DesktopToolbarProps> = ({
         H₂
       </ToolbarButton>
       <ToolbarButton 
-        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} 
+        onClick={handleHeading3} 
         isActive={editor.isActive('heading', { level: 3 })} 
         title="Heading 3"
         aria-pressed={editor.isActive('heading', { level: 3 })}
@@ -60,7 +70,7 @@ export const DesktopToolbar: React.FC<DesktopToolbarProps> = ({
         H₃
       </ToolbarButton>
       <ToolbarButton 
-        onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()} 
+        onClick={handleHeading4} 
         isActive={editor.isActive('heading', { level: 4 })} 
         title="Heading 4"
         aria-pressed={editor.isActive('heading', { level: 4 })}
@@ -150,6 +160,9 @@ export const DesktopToolbar: React.FC<DesktopToolbarProps> = ({
       />
     </div>
   );
-};
+});
+
+// Add display name for debugging
+DesktopToolbar.displayName = 'DesktopToolbar';
 
 export default DesktopToolbar;

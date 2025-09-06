@@ -12,6 +12,8 @@ interface SetupProgressState {
   loading: Record<string, boolean>;
   error: Record<string, string | null>;
   migrationCompleted: Record<string, boolean>;
+  // **CACHE FIX**: Add cache to prevent loading on every refresh
+  cacheTimestamps: Record<string, number>;
 
   // Actions
   loadSetupProgress: (userId: string, spaceId: string) => Promise<void>;
@@ -47,12 +49,26 @@ export const useSetupProgressStore = create<SetupProgressState>((set, get) => ({
   loading: {},
   error: {},
   migrationCompleted: {},
+  cacheTimestamps: {},
 
   // Load setup progress for a specific space
   loadSetupProgress: async (userId: string, spaceId: string) => {
     const spaceKey = spaceId;
+    const { cacheTimestamps, progressBySpace } = get();
+    const now = Date.now();
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
     
-    // Set loading state
+    // **CACHE FIX**: Check if we have recent cached data
+    const lastCacheTime = cacheTimestamps[spaceKey];
+    const hasRecentCache = lastCacheTime && (now - lastCacheTime) < CACHE_TTL;
+    const hasCachedData = progressBySpace[spaceKey];
+    
+    if (hasRecentCache && hasCachedData) {
+      // Use cached data, no loading state needed
+      return;
+    }
+    
+    // Set loading state only if no recent cache
     set((state) => ({
       loading: { ...state.loading, [spaceKey]: true },
       error: { ...state.error, [spaceKey]: null }
@@ -73,7 +89,9 @@ export const useSetupProgressStore = create<SetupProgressState>((set, get) => ({
       
       set((state) => ({
         progressBySpace: { ...state.progressBySpace, [spaceKey]: progress },
-        loading: { ...state.loading, [spaceKey]: false }
+        loading: { ...state.loading, [spaceKey]: false },
+        // **CACHE FIX**: Set cache timestamp
+        cacheTimestamps: { ...state.cacheTimestamps, [spaceKey]: now }
       }));
     } catch (error) {
       log.error('Store', '[SetupProgressStore] Error loading setup progress:', error);
@@ -251,7 +269,8 @@ export const useSetupProgressStore = create<SetupProgressState>((set, get) => ({
       progressBySpace: {},
       loading: {},
       error: {},
-      migrationCompleted: {}
+      migrationCompleted: {},
+      cacheTimestamps: {}
     });
   }
 }));

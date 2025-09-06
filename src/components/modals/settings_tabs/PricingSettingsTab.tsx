@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -9,8 +9,9 @@ import { Tag, XCircle, Edit3, CheckCircle, DollarSign, AlertCircle } from 'lucid
 import { Alert } from "@/components/ui/alert";
 import { toast } from '@/hooks/use-toast';
 import { useSettingsValidation } from '@/hooks/useSettingsValidation';
+import { withPerformanceMemo } from '@/components/performance/MemoizedComponents';
 
-export default function PricingSettingsTab() {
+function PricingSettingsTab() {
   const { formData, setFormDataField, permissions, space } = useSpaceSettingsStore();
   const [priceInput, setPriceInput] = useState<string>('');
   const [isEditingPrice, setIsEditingPrice] = useState(false);
@@ -280,4 +281,13 @@ export default function PricingSettingsTab() {
       )}
     </div>
   );
-} 
+}
+
+// 🚀 PERFORMANCE FIX: Enhanced React.memo with custom comparison to prevent unnecessary re-renders
+const PricingSettingsTabMemo = memo(PricingSettingsTab, (prevProps, nextProps) => {
+  // Since this component has no props, we should never re-render unless the component itself changes
+  // This memoization is primarily for internal state optimization
+  return true; // Always return true to prevent re-renders based on props (since there are none)
+});
+
+export default withPerformanceMemo(PricingSettingsTabMemo, 'PricingSettingsTab');

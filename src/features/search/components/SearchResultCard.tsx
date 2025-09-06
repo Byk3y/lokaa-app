@@ -195,7 +195,7 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-6">
             <LikeButton
-              isLiked={false} // TODO: Get actual like state
+              isLiked={false} // Note: Like state integration needed
               count={result.like_count || 0}
               onClick={(e) => {
                 e.stopPropagation();

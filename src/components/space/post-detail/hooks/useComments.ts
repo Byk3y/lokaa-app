@@ -97,7 +97,7 @@ export function useComments(
   });
 
   // 🚀 NAVIGATION-AWARE: Check if we should skip fetching due to recent navigation
-  const shouldSkipFetch = useCallback((isModalContext: boolean = false) => {
+  const shouldSkipFetch = useCallback((isModalContext = false) => {
     // 🎭 PHASE 1 FIX: Never skip fetch for PostDetailModal context
     if (isModalContext) {
       log.debug('Component', `🎭 [useComments] Modal context detected - allowing fetch for post ${post?.id}`);
@@ -189,7 +189,7 @@ export function useComments(
   }, [post?.id, post?.comments, shouldSkipFetch]);
 
   // 🚀 NAVIGATION-AWARE: Fetch comments for the post
-  const fetchComments = async (postId: string, forceRefresh: boolean = false, isModalContext: boolean = true) => {
+  const fetchComments = async (postId: string, forceRefresh = false, isModalContext = true) => {
     if (!postId) return;
     
     // Skip fetch if we're in a recent navigation scenario (unless forced or modal context)
