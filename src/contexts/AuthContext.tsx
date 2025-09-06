@@ -4,6 +4,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { conversationStore } from '@/features/chat/store/conversationStore';
 import { userConversationsCacheService } from '@/utils/indexeddb/core/CacheService';
+import { posthog } from '@/integrations/posthog';
 
 import { useUserSpacesStore } from '@/hooks/useUserSpacesStore';
 import { authMigrationHelper } from '@/utils/auth/authMigrationHelper';
@@ -106,6 +107,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         setSession(data.session);
         setUser(data.session?.user || null);
+        
+        // Identify user in PostHog
+        if (data.session?.user && posthog) {
+          posthog.identify(data.session.user.id, {
+            email: data.session.user.email,
+            created_at: data.session.user.created_at,
+            last_sign_in_at: data.session.user.last_sign_in_at
+          });
+          console.log('👤 [PostHog] User identified:', data.session.user.id);
+        }
+        
         setLoading(false);
         return;
         
@@ -165,6 +177,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // Handle auth state changes directly in AuthContext
             setSession(session);
             setUser(session?.user || null);
+            
+            // Identify user in PostHog
+            if (session?.user && posthog) {
+              posthog.identify(session.user.id, {
+                email: session.user.email,
+                created_at: session.user.created_at,
+                last_sign_in_at: session.user.last_sign_in_at
+              });
+              console.log('👤 [PostHog] User identified:', session.user.id);
+            }
             
             if (event === 'SIGNED_IN' && session?.user) {
               // Clear chat store and cache to prevent stale conversations from prior sessions
@@ -327,6 +349,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear auth state
       setSession(null);
       setUser(null);
+      
+      // Reset user in PostHog
+      if (posthog) {
+        posthog.reset();
+        console.log('👤 [PostHog] User reset');
+      }
       setLoading(false);
       setRoutingInProgress(false);
 
