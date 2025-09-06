@@ -22,7 +22,7 @@ export function initializePostHog() {
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
       person_profiles: 'identified_only', // Only create profiles for identified users
-      capture_pageview: false, // We'll handle page views manually
+      capture_pageview: true, // Enable automatic page view tracking
       capture_pageleave: true,
       loaded: (posthog) => {
         log.debug('PostHog', 'PostHog loaded successfully');
@@ -34,6 +34,13 @@ export function initializePostHog() {
           source: 'app_initialization'
         });
         console.log('📊 [PostHog] Test event sent');
+        
+        // Track initial page view
+        posthog.capture('$pageview', {
+          $current_url: window.location.href,
+          page_title: document.title
+        });
+        console.log('📄 [PostHog] Initial page view tracked');
       },
       // Enable in all environments for testing
       disabled: false,

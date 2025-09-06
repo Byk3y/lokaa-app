@@ -2,6 +2,7 @@ import { log } from '@/utils/logger';
 import { Routes, Route, Navigate, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useState, useEffect, Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import { posthog } from '@/integrations/posthog';
 
 // Import auth components and hooks
 import { useOptimizedAuth } from "@/contexts/AuthContext";
@@ -152,6 +153,19 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
     navigationCoordinator.initialize(navigate);
     log.debug('Component', '🚀 [NavigationCoordinator] Initialized with navigate function');
   }, [navigate]);
+
+  // Track page views for PostHog analytics
+  useEffect(() => {
+    if (posthog) {
+      posthog.capture('$pageview', {
+        $current_url: window.location.href,
+        page_title: document.title,
+        pathname: location.pathname,
+        search: location.search
+      });
+      console.log('📄 [PostHog] Page view tracked:', location.pathname);
+    }
+  }, [location]);
   
   // The complex redirection logic has been removed.
   // The AuthProvider now provides a simple `loading` and `user` state.
