@@ -21,14 +21,12 @@ export const CommunityAnalytics = {
   },
 
   trackSpaceCreated: (spaceId: string, spaceName: string, category: string) => {
-    console.log('📊 [CommunityAnalytics] Tracking space_created:', { spaceId, spaceName, category });
     posthog?.capture('space_created', {
       space_id: spaceId,
       space_name: spaceName,
       category,
       timestamp: new Date().toISOString(),
     });
-    console.log('✅ [CommunityAnalytics] space_created event sent');
   },
 
   trackSpaceLeft: (spaceId: string, spaceName: string) => {
