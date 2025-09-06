@@ -7,8 +7,14 @@ const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || 'https://us.posthog.co
 
 // Initialize PostHog
 export function initializePostHog() {
+  console.log('🔧 [PostHog] Initializing...', { 
+    key: POSTHOG_KEY ? 'Set' : 'Missing', 
+    host: POSTHOG_HOST 
+  });
+  
   if (!POSTHOG_KEY) {
     log.warn('PostHog', 'PostHog key not found - analytics disabled');
+    console.error('❌ [PostHog] API key missing!');
     return;
   }
 
@@ -20,9 +26,17 @@ export function initializePostHog() {
       capture_pageleave: true,
       loaded: (posthog) => {
         log.debug('PostHog', 'PostHog loaded successfully');
+        console.log('✅ [PostHog] Loaded successfully!');
+        
+        // Send a test event immediately
+        posthog.capture('posthog_initialized', {
+          timestamp: new Date().toISOString(),
+          source: 'app_initialization'
+        });
+        console.log('📊 [PostHog] Test event sent');
       },
-      // Disable in development to avoid noise
-      disabled: import.meta.env.DEV,
+      // Enable in all environments for testing
+      disabled: false,
     });
 
     log.info('PostHog', 'PostHog initialized successfully');
