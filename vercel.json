@@ -8,8 +8,7 @@
   "git": {
     "deploymentEnabled": {
       "main": true,
-      "staging": true,
-      "feature/seo-and-fixes": true
+      "staging": true
     }
   },
   "rewrites": [
