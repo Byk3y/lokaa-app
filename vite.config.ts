@@ -408,7 +408,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             // Explicitly define React in main bundle by NOT including it here
             // All other major dependencies get their own chunks
-            'vendor': ['lodash', 'uuid', 'date-fns', 'clsx', 'tailwind-merge'],
+            'vendor': ['lodash', 'uuid', 'date-fns', 'clsx', 'tailwind-merge', '@giphy/js-fetch-api', '@giphy/react-components'],
             'ui-vendor': [
               '@radix-ui/react-dialog', 
               '@radix-ui/react-dropdown-menu',
