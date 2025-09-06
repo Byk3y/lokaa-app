@@ -138,4 +138,10 @@ export const PostHogAnalytics = {
 if (typeof window !== 'undefined') {
   (window as any).posthog = posthog;
   (window as any).posthogAnalytics = PostHogAnalytics;
+  
+  // Import and expose community analytics
+  import('@/utils/communityAnalytics').then(({ CommunityAnalytics }) => {
+    (window as any).communityAnalytics = CommunityAnalytics;
+    console.log('📊 [PostHog] Community analytics loaded');
+  });
 }
