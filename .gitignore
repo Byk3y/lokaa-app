@@ -91,3 +91,4 @@ bun.lockb
 yarn.lock
 .pnpm-store/
 .mcp.json
+.vercel

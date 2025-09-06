@@ -12,6 +12,7 @@ import { supabaseHealthMonitor } from '@/utils/supabaseHealthCheck';
 // DISABLED: import { phase1Recovery } from '@/utils/phase1MobileRecovery';
 import { spaceMembersService } from '@/utils/indexeddb/services/SpaceMembersService';
 import { devLogger } from '@/utils/developmentLogger';
+import { initializePostHog } from '@/integrations/posthog';
 
 export interface AppInitializationOptions {
   isDevelopment?: boolean;
@@ -70,6 +71,9 @@ export class AppInitializationService {
 
       // Essential services initialization
       await this.initializeEssentialServices(result);
+
+      // Analytics initialization (PostHog)
+      await this.initializeAnalytics(result);
 
       // Cache systems initialization
       await this.initializeCacheSystems(result);
@@ -135,6 +139,21 @@ export class AppInitializationService {
       
     } catch (error) {
       const message = 'Essential services initialization failed';
+      result.warnings.push(message);
+      devLogger.warn('AppInit', message, error);
+    }
+  }
+
+  private async initializeAnalytics(result: AppInitializationResult): Promise<void> {
+    try {
+      devLogger.log('AppInit', 'Initializing analytics (PostHog)...');
+      
+      // Initialize PostHog
+      initializePostHog();
+      
+      devLogger.log('AppInit', 'Analytics initialization completed');
+    } catch (error) {
+      const message = 'Analytics initialization failed';
       result.warnings.push(message);
       devLogger.warn('AppInit', message, error);
     }

@@ -2,6 +2,7 @@ import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import type { Database } from '@/types/supabase';
 import { useCallback } from 'react';
+import { PostHogAnalytics } from '@/integrations/posthog';
 
 // Type for analytics event insert
 export type AnalyticsEventInsert = Database['public']['Tables']['analytics_events']['Insert'];
@@ -30,7 +31,7 @@ function getDefaultContext(): Partial<AnalyticsEventInsert> {
   };
 }
 
-// Core log function
+// Core log function - now uses PostHog
 export async function logAnalyticsEvent(event: Omit<AnalyticsEventInsert, 'created_at' | 'user_id' | 'session_id' | 'page_url'> & Partial<Pick<AnalyticsEventInsert, 'ab_experiment' | 'ab_variant' | 'event_data'>>) {
   const context = getDefaultContext();
   const eventRecord: AnalyticsEventInsert = {
@@ -38,6 +39,20 @@ export async function logAnalyticsEvent(event: Omit<AnalyticsEventInsert, 'creat
     ...event,
     created_at: context.created_at || new Date().toISOString(),
   };
+
+  // Send to PostHog
+  try {
+    PostHogAnalytics.trackEvent(event.event_type, {
+      ...event.event_data,
+      user_id: context.user_id,
+      session_id: context.session_id,
+      page_url: context.page_url,
+    });
+  } catch (error) {
+    log.warn('Utils', '[Analytics] PostHog tracking failed:', error);
+  }
+
+  // Keep queue for Supabase backup (optional)
   eventQueue.push(eventRecord);
   if (eventQueue.length >= BATCH_SIZE) {
     flushEventQueue();
@@ -46,39 +61,19 @@ export async function logAnalyticsEvent(event: Omit<AnalyticsEventInsert, 'creat
   }
 }
 
-// Flush queue to Supabase
+// Flush queue to Supabase (backup)
 async function flushEventQueue() {
   if (eventQueue.length === 0) return;
   
   // Temporarily disabled to prevent 401 errors
   // TODO: Re-enable when authentication is properly configured
-  log.debug('Utils', '[Analytics] Analytics disabled - events queued but not sent');
+  log.debug('Utils', '[Analytics] Supabase backup disabled - using PostHog only');
   eventQueue = [];
   if (batchTimeout) {
     clearTimeout(batchTimeout);
     batchTimeout = null;
   }
   return;
-
-  // Original implementation (commented out):
-  /*
-  const supabase = getSupabaseClient();
-  const batch = [...eventQueue];
-  eventQueue = [];
-  if (batchTimeout) {
-    clearTimeout(batchTimeout);
-    batchTimeout = null;
-  }
-  try {
-    const { error } = await supabase.from('analytics_events').insert(batch);
-    if (error) {
-      // Optionally: retry or log error
-      log.error('Utils', '[Analytics] Failed to insert analytics events:', error);
-    }
-  } catch (err) {
-    log.error('Utils', '[Analytics] Exception during analytics insert:', err);
-  }
-  */
 }
 
 // React hook for logging events
@@ -86,10 +81,19 @@ export function useAnalyticsEvent() {
   return useCallback(logAnalyticsEvent, []);
 }
 
-// 🎯 [Phase 2] SEO Analytics Functions
+// 🎯 Enhanced SEO Analytics Functions with PostHog
 export const SEOAnalytics = {
   // Track SEO page views
   trackPageView: (pageType: string, pageUrl: string, keywords?: string[]) => {
+    // PostHog page view
+    PostHogAnalytics.trackPageView(pageType, {
+      page_url: pageUrl,
+      keywords: keywords || [],
+      user_agent: navigator.userAgent,
+      referrer: document.referrer,
+    });
+
+    // Legacy Supabase tracking
     logAnalyticsEvent({
       event_type: 'seo.page_view',
       event_data: {
@@ -105,6 +109,12 @@ export const SEOAnalytics = {
 
   // Track keyword impressions
   trackKeywordImpression: (keyword: string, position: number, pageUrl: string) => {
+    PostHogAnalytics.trackEvent('seo.keyword_impression', {
+      keyword,
+      position,
+      page_url: pageUrl,
+    });
+
     logAnalyticsEvent({
       event_type: 'seo.keyword_impression',
       event_data: {
@@ -118,6 +128,12 @@ export const SEOAnalytics = {
 
   // Track click-through rates
   trackClickThrough: (source: string, destination: string, keyword?: string) => {
+    PostHogAnalytics.trackEvent('seo.click_through', {
+      source,
+      destination,
+      keyword,
+    });
+
     logAnalyticsEvent({
       event_type: 'seo.click_through',
       event_data: {
@@ -131,6 +147,11 @@ export const SEOAnalytics = {
 
   // Track bounce rate
   trackBounce: (pageUrl: string, timeOnPage: number) => {
+    PostHogAnalytics.trackEvent('seo.bounce_rate', {
+      page_url: pageUrl,
+      time_on_page: timeOnPage,
+    });
+
     logAnalyticsEvent({
       event_type: 'seo.bounce_rate',
       event_data: {
@@ -143,6 +164,10 @@ export const SEOAnalytics = {
 
   // Track conversions
   trackConversion: (conversionType: string, value?: number, keyword?: string) => {
+    PostHogAnalytics.trackConversion(conversionType, value, {
+      keyword,
+    });
+
     logAnalyticsEvent({
       event_type: 'seo.conversion',
       event_data: {
@@ -163,4 +188,5 @@ if (typeof window !== 'undefined') {
     _queue: eventQueue,
   };
   (window as any).seoAnalytics = SEOAnalytics;
-} 
+  (window as any).posthogAnalytics = PostHogAnalytics;
+}
