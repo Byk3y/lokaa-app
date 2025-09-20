@@ -17,8 +17,10 @@ export default function SmartRedirectWithPathRestoration() {
   const [restorationSuccessful, setRestorationSuccessful] = useState(false);
 
   const handleRestorationComplete = (restored: boolean) => {
+    console.log('🔍 [SmartRedirect] handleRestorationComplete called with:', restored);
     setRestorationSuccessful(restored);
     setRestorationComplete(true);
+    console.log('🔍 [SmartRedirect] State updated - restorationComplete: true, restorationSuccessful:', restored);
   };
 
   // Show loading while auth is loading
@@ -40,6 +42,7 @@ export default function SmartRedirectWithPathRestoration() {
 
   // If restoration is not yet complete, show PathRestoration component
   if (!restorationComplete) {
+    console.log('🔍 [SmartRedirect] Rendering PathRestoration - restorationComplete:', restorationComplete);
     return (
       <>
         <div className="min-h-screen flex items-center justify-center bg-gray-50" style={{ minHeight: '100vh' }}>

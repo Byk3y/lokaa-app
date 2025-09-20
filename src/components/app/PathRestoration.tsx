@@ -65,10 +65,13 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
     const lastPath = getLastVisitedPath();
     if (!lastPath) {
       log.debug('Component', '📍 [PathRestoration] No previous path found, skipping restoration for new user');
+      console.log('🔍 [PathRestoration] Calling onRestorationComplete(false) for new user');
       onRestorationComplete(false);
+      console.log('🔍 [PathRestoration] onRestorationComplete(false) called, should trigger state update');
       return;
     }
 
+    // Only proceed with restoration if we have a path to restore
     // Mark that we've attempted restoration
     restorationAttempted.current = true;
 
@@ -79,7 +82,8 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
       onRestorationComplete(false);
     }, 2000);
 
-    // Attempt path restoration
+    // CRITICAL FIX: Only define and schedule performRestoration if we have a path to restore
+    // This prevents the race condition where early exit and performRestoration both run
     const performRestoration = async () => {
       try {
         log.debug('Component', '📍 [PathRestoration] Attempting path restoration for user:', user.id);
@@ -128,7 +132,8 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
       }
     };
 
-    // Small delay to ensure component is settled
+    // CRITICAL FIX: Only schedule performRestoration if we have a path to restore
+    // This prevents the race condition where early exit and performRestoration both run
     const delayTimeout = setTimeout(performRestoration, 100);
 
     return () => {
