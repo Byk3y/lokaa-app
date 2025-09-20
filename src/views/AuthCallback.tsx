@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
+import { clearLastVisitedPath } from '@/utils/pathRestoration';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -41,6 +42,12 @@ export default function AuthCallback() {
           }
           
           log.debug('Auth', 'OAuth session set successfully, redirecting...');
+          
+          // CRITICAL FIX: Clear path restoration localStorage for new OAuth users
+          // This prevents the "Restoring your session..." hang for users with stale localStorage
+          log.debug('Auth', 'Clearing path restoration localStorage for OAuth user');
+          clearLastVisitedPath();
+          
           // Redirect to /app for smart space detection
           const redirectPath = sessionStorage.getItem('redirect_after_login') || '/app';
           sessionStorage.removeItem('redirect_after_login');
@@ -60,6 +67,12 @@ export default function AuthCallback() {
 
         if (data.session) {
           log.debug('Auth', 'OAuth callback successful, redirecting...');
+          
+          // CRITICAL FIX: Clear path restoration localStorage for new OAuth users
+          // This prevents the "Restoring your session..." hang for users with stale localStorage
+          log.debug('Auth', 'Clearing path restoration localStorage for OAuth user');
+          clearLastVisitedPath();
+          
           // Redirect to /app for smart space detection
           const redirectPath = sessionStorage.getItem('redirect_after_login') || '/app';
           sessionStorage.removeItem('redirect_after_login');

@@ -71,6 +71,16 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
       return;
     }
 
+    // ADDITIONAL SAFETY: Check if the stored path is from a different user session
+    // This prevents restoration of paths from previous user sessions
+    const lastUserId = localStorage.getItem('lastVisitedPath_userId');
+    if (lastUserId && lastUserId !== user.id) {
+      log.debug('Component', '📍 [PathRestoration] Stored path is from different user, clearing and skipping restoration');
+      clearLastVisitedPath();
+      onRestorationComplete(false);
+      return;
+    }
+
     // Only proceed with restoration if we have a path to restore
     // Mark that we've attempted restoration
     restorationAttempted.current = true;

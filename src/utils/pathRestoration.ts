@@ -9,6 +9,7 @@ import { log } from '@/utils/logger';
 // Constants
 const STORAGE_KEY = 'lastVisitedPath';
 const TIMESTAMP_KEY = 'lastVisitedPath_timestamp';
+const USER_ID_KEY = 'lastVisitedPath_userId';
 const PATH_EXPIRY_HOURS = 24; // 24 hours
 const PATH_EXPIRY_MS = PATH_EXPIRY_HOURS * 60 * 60 * 1000;
 
@@ -99,9 +100,9 @@ export function shouldRestorePath(path: string, userId?: string): boolean {
 }
 
 /**
- * Store the current path in localStorage with timestamp
+ * Store the current path in localStorage with timestamp and user ID
  */
-export function persistPath(path: string): void {
+export function persistPath(path: string, userId?: string): void {
   if (!shouldPersistPath(path)) {
     return;
   }
@@ -115,7 +116,12 @@ export function persistPath(path: string): void {
     localStorage.setItem(STORAGE_KEY, path);
     localStorage.setItem(TIMESTAMP_KEY, pathInfo.timestamp.toString());
     
-    log.debug('Utils', `💾 [PathRestoration] Persisted path: ${path}`);
+    // Store user ID if provided to prevent cross-user path restoration
+    if (userId) {
+      localStorage.setItem(USER_ID_KEY, userId);
+    }
+    
+    log.debug('Utils', `💾 [PathRestoration] Persisted path: ${path}${userId ? ` for user: ${userId}` : ''}`);
   } catch (error) {
     log.warn('Utils', 'Failed to persist path:', error);
   }
@@ -150,13 +156,14 @@ export function getLastVisitedPath(): string | null {
 }
 
 /**
- * Clear the stored path
+ * Clear the stored path and user ID
  */
 export function clearLastVisitedPath(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(TIMESTAMP_KEY);
-    log.debug('Utils', '🧹 [PathRestoration] Cleared stored path');
+    localStorage.removeItem(USER_ID_KEY);
+    log.debug('Utils', '🧹 [PathRestoration] Cleared stored path and user ID');
   } catch (error) {
     log.warn('Utils', 'Failed to clear last visited path:', error);
   }

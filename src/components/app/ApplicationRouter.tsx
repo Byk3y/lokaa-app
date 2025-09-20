@@ -47,17 +47,18 @@ function withAuthSafety<P extends object>(
 // Route logger component to track route changes and persist paths
 function RouteLogger() {
   const location = useLocation();
+  const { user } = useOptimizedAuth();
   
   useEffect(() => {
     log.debug('Component', 'Route changed to:', location.pathname);
     
     // Import and use path restoration utilities
     import('@/utils/pathRestoration').then(({ persistPath }) => {
-      persistPath(location.pathname);
+      persistPath(location.pathname, user?.id);
     }).catch(error => {
       log.warn('Component', 'Failed to import path restoration utilities:', error);
     });
-  }, [location]);
+  }, [location, user?.id]);
   
   return null;
 }
