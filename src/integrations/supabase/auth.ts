@@ -105,4 +105,23 @@ export async function refreshSession(): Promise<SessionResult> {
   return getSupabaseClient().auth.refreshSession();
 }
 
+/**
+ * Sign in with Google OAuth
+ */
+export async function signInWithGoogle(): Promise<AuthResult> {
+  return getSupabaseClient().auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`
+    }
+  });
+}
+
+/**
+ * Sign up with Google OAuth (same as sign in for OAuth)
+ */
+export async function signUpWithGoogle(): Promise<AuthResult> {
+  return signInWithGoogle();
+}
+
 log.debug('Supabase', '🔐 Auth module loaded');

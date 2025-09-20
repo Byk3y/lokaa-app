@@ -80,6 +80,7 @@ export const StorageDebugger = lazy(() => import('@/views/StorageDebugger'));
 export const SpaceDebugPage = lazy(() => import('@/views/SpaceDebugPage'));
 export const DebugPage = lazy(() => import('@/views/DebugPage'));
 export const AuthConfirmPage = lazy(() => import('@/views/AuthConfirmPage'));
+export const AuthCallback = lazy(() => import('@/views/AuthCallback'));
 export const ResetPasswordPage = lazy(() => import('@/views/ResetPasswordPage'));
 
 // Utility pages

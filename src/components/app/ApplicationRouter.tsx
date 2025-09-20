@@ -272,6 +272,13 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
           </Suspense>
         } />
         
+        {/* OAuth callback handler */}
+        <Route path="/auth/callback" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <LazyRoutes.AuthCallback />
+          </Suspense>
+        } />
+        
         {/* Create page with modal auth handling */}
         <Route path="/create" element={
           <Suspense fallback={<RouteLoadingFallback />}>
