@@ -12,7 +12,8 @@ import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { 
   attemptPathRestoration, 
   markPathRestorationActive, 
-  clearPathRestorationActive 
+  clearPathRestorationActive,
+  getLastVisitedPath
 } from '@/utils/pathRestoration';
 
 interface PathRestorationProps {
@@ -60,15 +61,23 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
       return;
     }
 
+    // CRITICAL FIX: Skip path restoration for new OAuth users (no previous path to restore)
+    const lastPath = getLastVisitedPath();
+    if (!lastPath) {
+      log.debug('Component', '📍 [PathRestoration] No previous path found, skipping restoration for new user');
+      onRestorationComplete(false);
+      return;
+    }
+
     // Mark that we've attempted restoration
     restorationAttempted.current = true;
 
-    // Set a timeout for restoration attempt (5 seconds max - increased for OAuth race conditions)
+    // Set a timeout for restoration attempt (2 seconds max - reduced for better UX)
     timeoutRef.current = setTimeout(() => {
       log.debug('Component', '⏱️ [PathRestoration] Restoration timeout, proceeding with default flow');
       clearPathRestorationActive();
       onRestorationComplete(false);
-    }, 5000);
+    }, 2000);
 
     // Attempt path restoration
     const performRestoration = async () => {
@@ -81,7 +90,7 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
         // CRITICAL FIX: Add timeout to attemptPathRestoration to prevent infinite hanging
         const restorationPromise = attemptPathRestoration(navigate, user.id);
         const timeoutPromise = new Promise<boolean>((_, reject) => 
-          setTimeout(() => reject(new Error('Path restoration timeout')), 4000)
+          setTimeout(() => reject(new Error('Path restoration timeout')), 1500)
         );
         
         const restored = await Promise.race([restorationPromise, timeoutPromise]);
