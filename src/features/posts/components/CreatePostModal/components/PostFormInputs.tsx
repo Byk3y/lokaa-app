@@ -39,7 +39,8 @@ export const PostFormInputs: React.FC<PostFormInputsProps> = ({
           ref={contentTextareaRef}
           spellCheck={true}
           autoCapitalize="sentences"
-          className="block w-full rounded-md py-2 px-3 text-sm sm:text-base font-normal font-sans normal-case leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white"
+          className="block w-full rounded-md py-2 px-3 text-sm sm:text-base font-normal font-sans normal-case leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white resize-none create-post-textarea"
+          style={{ minHeight: 'auto', overflowY: 'hidden' }}
         />
         <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
           Please keep posts respectful and relevant to the space.

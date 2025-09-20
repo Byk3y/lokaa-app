@@ -250,4 +250,78 @@ html {
 [class*="lesson"] iframe + *,
 [class*="course"] iframe + * {
   margin-top: 2rem !important;
+}
+
+/* Post Detail Modal - Dynamic Height Support */
+@media (min-width: 768px) {
+  .post-detail-modal-content {
+    /* Allow natural height expansion */
+    height: auto !important;
+    max-height: calc(95vh - 120px) !important;
+    /* Smooth transitions for height changes */
+    transition: height 0.3s ease-in-out, max-height 0.3s ease-in-out;
+  }
+  
+  /* Ensure prose content can expand naturally */
+  .post-detail-modal-content .prose {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+}
+
+/* Create Post Modal - Auto-resize Textarea Support */
+.create-post-textarea {
+  /* Smooth height transitions */
+  transition: height 0.2s ease-in-out;
+  /* Prevent manual resize */
+  resize: none !important;
+  /* Ensure proper overflow handling */
+  overflow-y: hidden !important;
+}
+
+/* Ensure modal can expand with content */
+.create-post-modal-content {
+  /* Allow natural height expansion */
+  height: auto !important;
+  /* Smooth transitions */
+  transition: height 0.3s ease-in-out, top 0.3s ease-in-out;
+  /* Ensure modal stays within viewport - dynamic height */
+  max-height: 80vh !important;
+  /* Compact initial height */
+  min-height: 200px !important;
+  /* Allow upward expansion */
+  position: fixed !important;
+  /* Ensure proper z-index */
+  z-index: 50 !important;
+  /* Ensure modal never goes below viewport */
+  bottom: 20px !important;
+}
+
+/* Ensure modal content area is scrollable when needed */
+.create-post-modal-content .flex-1 {
+  /* Allow content to scroll when it exceeds available space */
+  overflow-y: auto !important;
+  /* Ensure footer stays at bottom */
+  flex: 1 !important;
+  /* Ensure proper flex layout */
+  display: flex !important;
+  flex-direction: column !important;
+  /* Prevent flex items from growing beyond container */
+  min-height: 0 !important;
+}
+
+/* Sticky toolbar styling - improved stability */
+.create-post-modal-content .sticky {
+  /* Ensure sticky positioning works properly */
+  position: sticky !important;
+  bottom: 0 !important;
+  /* Add subtle shadow for visual separation */
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1) !important;
+  /* Ensure proper z-index */
+  z-index: 10 !important;
+  /* Prevent breaking when content changes */
+  flex-shrink: 0 !important;
+  /* Ensure stable positioning */
+  position: -webkit-sticky !important;
+  position: sticky !important;
 } 

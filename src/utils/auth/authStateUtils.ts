@@ -203,7 +203,7 @@ export const handleAuthStateChange = async (
             // Clear the flag immediately to prevent it from causing repeated issues
             sessionStorage.removeItem('userWantsDiscover');
             
-            // We'll navigate to /app to check for spaces, which will redirect back to /discover if none exist
+            // We'll navigate to /app to check for spaces, which will redirect back to /app if none exist
             // but will go to user's space if they have one
             log.debug('Utils', `[AuthContext] SIGNED_IN: Redirecting to /app to verify space access.`);
             setTimeout(() => navigate('/app', { replace: true }), 50);

@@ -89,18 +89,12 @@ export function usePostSubmission({
     }
     
     try {
-      // Prepare attachments data for storage
-      const preparedAttachments = attachments.map(att => ({
+      // Prepare attachments data for storage - simplified to avoid API issues
+      const preparedAttachments = attachments.length > 0 ? attachments.map(att => ({
         url: att.url,
         name: att.name,
-        type: att.type,
-        fileType: att.fileType,
-        fileSize: att.fileSize,
-        videoPlatform: att.videoPlatform,
-        videoId: att.videoId,
-        thumbnailUrl: att.thumbnailUrl,
-        storagePath: att.storagePath
-      }));
+        type: att.type
+      })) : [];
       
       if (editMode && post) {
         // Update existing post
@@ -110,9 +104,9 @@ export function usePostSubmission({
             title: title.trim() || null,
             content: content.trim(),
             category_id: categoryId,
-            media_urls: preparedAttachments as SimpleJson,
+            media_urls: preparedAttachments.length > 0 ? preparedAttachments as SimpleJson : null,
             edited_at: new Date().toISOString(),
-            poll_data: pollData,
+            poll_data: pollData && pollData.length > 0 ? pollData : null,
           })
           .eq('id', post.id)
           .select('*')
@@ -155,8 +149,8 @@ export function usePostSubmission({
             user_id: userId,
             space_id: spaceId,
             category_id: categoryId,
-            media_urls: preparedAttachments as SimpleJson,
-            poll_data: pollData,
+            media_urls: preparedAttachments.length > 0 ? preparedAttachments as SimpleJson : null,
+            poll_data: pollData && pollData.length > 0 ? pollData : null,
             // Explicitly setting slug to null to ensure the trigger fires
             slug: null
           })
@@ -164,6 +158,17 @@ export function usePostSubmission({
           .single();
 
         if (postError) {
+          console.error('Post insert error:', postError);
+          console.error('Post data being inserted:', {
+            title: title.trim() || null,
+            content: content.trim(),
+            user_id: userId,
+            space_id: spaceId,
+            category_id: categoryId,
+            media_urls: preparedAttachments.length > 0 ? preparedAttachments : null,
+            poll_data: pollData && pollData.length > 0 ? pollData : null,
+            slug: null
+          });
           throw postError;
         }
 

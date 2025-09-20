@@ -119,7 +119,8 @@ const getCSPConfig = (mode: 'development' | 'production') => {
       "'self'",
       isDev && "'unsafe-eval'", // Required for Vite HMR
       isDev && "'unsafe-inline'", // Required for React DevTools
-      'https://nmddvthcsyppyjncqfsk.supabase.co'
+      'https://nmddvthcsyppyjncqfsk.supabase.co',
+      'https://us-assets.i.posthog.com' // PostHog scripts
     ],
     'style-src': [
       "'self'",
@@ -151,7 +152,9 @@ const getCSPConfig = (mode: 'development' | 'production') => {
       isDev && 'ws:', // Required for Vite HMR WebSocket
       'https://api.giphy.com',
       'https://fonts.googleapis.com',
-      'https://fonts.gstatic.com'
+      'https://fonts.gstatic.com',
+      'https://us.i.posthog.com', // PostHog API calls
+      'https://us-assets.i.posthog.com' // PostHog assets
     ],
     'frame-src': [
       "'self'",

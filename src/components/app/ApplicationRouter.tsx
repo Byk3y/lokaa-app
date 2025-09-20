@@ -7,7 +7,6 @@ import { posthog } from '@/integrations/posthog';
 // Import auth components and hooks
 import { useOptimizedAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import AuthRedirect from "@/components/auth/AuthRedirect";
 
 // Import lazy routes and loading fallbacks
 import * as LazyRoutes from "@/routes/LazyRoutes";
@@ -65,7 +64,6 @@ function RouteLogger() {
 
 // Add special handling for the automation-jungle route
 const AutomationJungleRedirect = withAuthSafety(function AutomationJungleRedirect() {
-  const { user } = useOptimizedAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isRedirecting, setIsRedirecting] = useState(true);
@@ -144,7 +142,7 @@ function AppLoadingScreen() {
 
 // Main ApplicationRouter component - extracted from App.tsx AppRoutes
 const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
-  const { user, loading } = useOptimizedAuth();
+  const { loading } = useOptimizedAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -200,7 +198,6 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
             <LazyRoutes.LandingPageWrapper />
           </Suspense>
         } />
-        <Route path="/auth/callback" element={<AuthRedirect />} />
         <Route path="/auth/confirm" element={
           <Suspense fallback={<RouteLoadingFallback />}>
             <LazyRoutes.LandingPageWrapper />

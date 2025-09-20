@@ -249,24 +249,33 @@ export function useCreatePostModal({
       }
     }
     
-    const response = await submitPost({
-      title,
-      content: finalContent,
-      categoryId: getSubmissionCategoryId(),
-      attachments,
-      pollData: getPreparedPollData(),
-      categories,
-      content_gif_url: null
-    });
-    
-    if (response.success) {
-      onClose();
-      resetAttachments();
-      setSelectedContentGifUrls([]);
-      if (!editMode) {
-        setTitle('');
-        setContent('');
+    try {
+      const response = await submitPost({
+        title,
+        content: finalContent,
+        categoryId: getSubmissionCategoryId(),
+        attachments,
+        pollData: getPreparedPollData(),
+        categories,
+        content_gif_url: null
+      });
+      
+      if (response.success) {
+        onClose();
+        resetAttachments();
+        setSelectedContentGifUrls([]);
+        if (!editMode) {
+          setTitle('');
+          setContent('');
+        }
+      } else {
+        // Show error to user
+        console.error('Post submission failed:', response.error);
+        // You could add a toast notification here
       }
+    } catch (error) {
+      console.error('Post submission error:', error);
+      // You could add a toast notification here
     }
   };
 

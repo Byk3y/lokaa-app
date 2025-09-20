@@ -391,7 +391,7 @@ export const handlePostAuthenticationRouting = async (
 
         if (currentPath.includes('/space/') && !preferredSpaceAfterAttempt) {
           log.debug('Utils', '❌ (HPAR) On a space page, but no preferred space confirmed for user. Redirecting to /discover.');
-          navigate('/discover', { replace: true });
+          navigate('/app', { replace: true });
           setters.setHasRouted(true);
         } else {
           // Profile route handling logic
@@ -415,7 +415,7 @@ export const handlePostAuthenticationRouting = async (
               setters.setHasRouted(true);
             } else {
               log.debug('Utils', '🔀 (HPAR) Malformed old profile route, but no username found. Redirecting to /discover.');
-              navigate('/discover', { replace: true });
+              navigate('/app', { replace: true });
               setters.setHasRouted(true);
             }
           } else if (isNewProfileFormat) {
@@ -429,7 +429,7 @@ export const handlePostAuthenticationRouting = async (
                 setters.setHasRouted(true);
               } else {
                 log.debug('Utils', '🔀 (HPAR) Malformed new profile route, but no username found. Redirecting to /discover.');
-                navigate('/discover', { replace: true });
+                navigate('/app', { replace: true });
                 setters.setHasRouted(true);
               }
             } else {
@@ -438,7 +438,7 @@ export const handlePostAuthenticationRouting = async (
             }
           } else {
             log.debug('Utils', '🔀 (HPAR) No space routed by AESR, not on an invalid space page, and not a profile page. Redirecting to /discover.');
-            navigate('/discover', { replace: true });
+            navigate('/app', { replace: true });
             setters.setHasRouted(true);
           }
         }
@@ -450,7 +450,7 @@ export const handlePostAuthenticationRouting = async (
     log.error('Utils', '❌ (HPAR) Error in handlePostAuthenticationRouting:', error);
     if (!refs.hasRoutedRef.current) {
       log.debug('Utils', '🔀 (HPAR) Redirecting to /discover due to error in routing flow.');
-      navigate('/discover', { replace: true });
+      navigate('/app', { replace: true });
       setters.setHasRouted(true);
     }
   } finally {

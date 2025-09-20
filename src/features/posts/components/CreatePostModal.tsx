@@ -66,13 +66,38 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   // 📱 MOBILE DETECTION
   const isMobile = shouldEnableMobileFeatures();
   
-  // Calculate modal position based on composer element
+  // Calculate modal position based on composer element with smart positioning
   useEffect(() => {
     if (isOpen && !isMobile) {
       const composerElement = document.querySelector('[data-composer="true"]');
       if (composerElement) {
         const rect = composerElement.getBoundingClientRect();
-        setModalPosition({ top: rect.bottom + window.scrollY + 8 }); // 8px gap
+        const viewportHeight = window.innerHeight;
+        const modalMinHeight = 200; // Minimum modal height (very compact initial size)
+        const modalMaxHeight = viewportHeight * 0.7; // 70% of viewport height
+        const gap = 8;
+        
+        // Calculate initial position (at composer top)
+        let topPosition = rect.top + window.scrollY;
+        
+        // Check if modal would go off-screen and adjust position
+        const spaceBelow = viewportHeight - rect.top;
+        const spaceAbove = rect.top;
+        
+        // Calculate available space for modal expansion
+        const availableSpaceBelow = viewportHeight - rect.top - 20; // 20px margin from bottom
+        const availableSpaceAbove = rect.top - 20; // 20px margin from top
+        
+        // If there's not enough space below, position above composer
+        if (availableSpaceBelow < modalMinHeight && availableSpaceAbove > modalMinHeight) {
+          topPosition = rect.top + window.scrollY - modalMinHeight - gap;
+        }
+        // If there's not enough space in either direction, center the modal
+        else if (availableSpaceAbove < modalMinHeight && availableSpaceBelow < modalMinHeight) {
+          topPosition = (viewportHeight - modalMaxHeight) / 2 + window.scrollY;
+        }
+        
+        setModalPosition({ top: Math.max(20, topPosition) }); // Ensure at least 20px from top
       }
     }
   }, [isOpen, isMobile]);
@@ -284,29 +309,100 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
   }, [isOpen, isMobile]);
 
-  // Auto-growing textarea for mobile
+  // Auto-growing textarea for both mobile and desktop
   useEffect(() => {
-    if (isMobile && contentTextareaRef.current) {
+    if (contentTextareaRef.current) {
       const textarea = contentTextareaRef.current;
       
-      // Calculate max height (35% of viewport height)
-      const maxHeight = Math.floor(window.innerHeight * 0.35);
-      
-      // Reset height to auto to get accurate scrollHeight
-      textarea.style.height = 'auto';
-      
-      // Set height to scrollHeight but not exceeding maxHeight
-      const newHeight = Math.min(textarea.scrollHeight, maxHeight);
-      textarea.style.height = `${newHeight}px`;
-      
-      // Ensure overflow is handled properly
-      if (textarea.scrollHeight > maxHeight) {
-        textarea.style.overflowY = 'auto';
+      if (isMobile) {
+        // Mobile: Calculate max height (35% of viewport height)
+        const maxHeight = Math.floor(window.innerHeight * 0.35);
+        
+        // Reset height to auto to get accurate scrollHeight
+        textarea.style.height = 'auto';
+        
+        // Set height to scrollHeight but not exceeding maxHeight
+        const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+        textarea.style.height = `${newHeight}px`;
+        
+        // Ensure overflow is handled properly
+        if (textarea.scrollHeight > maxHeight) {
+          textarea.style.overflowY = 'auto';
+        } else {
+          textarea.style.overflowY = 'hidden';
+        }
       } else {
-        textarea.style.overflowY = 'hidden';
+        // Desktop: Only auto-resize if there's content, otherwise use compact initial height
+        if (content.trim().length > 0) {
+          // Auto-resize with reasonable max height (ensure footer stays in viewport)
+          const maxHeight = Math.floor(window.innerHeight * 0.4); // 40% of viewport height for better content display
+          
+          // Reset height to auto to get accurate scrollHeight
+          textarea.style.height = 'auto';
+          
+          // Set height to scrollHeight but not exceeding maxHeight
+          const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+          textarea.style.height = `${newHeight}px`;
+          
+          // Ensure overflow is handled properly
+          if (textarea.scrollHeight > maxHeight) {
+            textarea.style.overflowY = 'auto';
+          } else {
+            textarea.style.overflowY = 'hidden';
+          }
+        } else {
+          // Empty content: Use compact initial height based on rows
+          const lineHeight = 24; // Approximate line height
+          const padding = 16; // Top and bottom padding
+          const compactHeight = (5 * lineHeight) + padding; // 5 rows + padding
+          textarea.style.height = `${compactHeight}px`;
+          textarea.style.overflowY = 'hidden';
+        }
+        
+        // Note: Removed dynamic position recalculation to prevent toolbar breaking
+        // The modal will maintain its initial position and use sticky positioning for the toolbar
       }
     }
-  }, [content, isMobile]);
+  }, [content, isMobile, isOpen]);
+
+  // Handle window resize to reposition modal
+  useEffect(() => {
+    const handleResize = () => {
+      if (isOpen && !isMobile) {
+        const composerElement = document.querySelector('[data-composer="true"]');
+        if (composerElement) {
+          const rect = composerElement.getBoundingClientRect();
+          const viewportHeight = window.innerHeight;
+          const modalMinHeight = 200;
+          const modalMaxHeight = viewportHeight * 0.7;
+          const gap = 8;
+          
+          let topPosition = rect.top + window.scrollY;
+          
+          const spaceBelow = viewportHeight - rect.top;
+          const spaceAbove = rect.top;
+          
+          // Calculate available space for modal expansion
+          const availableSpaceBelow = viewportHeight - rect.top - 20; // 20px margin from bottom
+          const availableSpaceAbove = rect.top - 20; // 20px margin from top
+          
+          // If there's not enough space below, position above composer
+          if (availableSpaceBelow < modalMinHeight && availableSpaceAbove > modalMinHeight) {
+            topPosition = rect.top + window.scrollY - modalMinHeight - gap;
+          }
+          // If there's not enough space in either direction, center the modal
+          else if (availableSpaceAbove < modalMinHeight && availableSpaceBelow < modalMinHeight) {
+            topPosition = (viewportHeight - modalMaxHeight) / 2 + window.scrollY;
+          }
+          
+          setModalPosition({ top: Math.max(20, topPosition) });
+        }
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isOpen, isMobile]);
 
   return (
     <>
@@ -573,7 +669,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         <CategorySelector 
                           selectedCategoryId={categoryId} 
                           onCategoryChange={setCategoryId} 
-                          categories={categories || []} 
+                          categories={categories ?? []} 
                           loading={categoriesLoading} 
                           error={!!categoriesError} 
                           toolbarButtonClass="flex items-center px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors" 
@@ -601,17 +697,26 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             ) : (
               /* DESKTOP MODAL */
               <Dialog.Content 
-                className="fixed left-1/2 transform -translate-x-1/2 z-50 w-full max-w-sm sm:max-w-md md:max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white pt-3 md:pt-4 px-6 pb-6 shadow-xl focus:outline-none dark:bg-gray-800 dark:text-white data-[state=open]:animate-contentExpandFromTop"
+                className="fixed left-1/2 transform -translate-x-1/2 z-50 w-full max-w-sm sm:max-w-md md:max-w-2xl rounded-xl bg-white pt-3 md:pt-4 px-6 pb-4 shadow-xl focus:outline-none dark:bg-gray-800 dark:text-white data-[state=open]:animate-contentExpandFromTop create-post-modal-content"
                 style={{
-                  top: `${modalPosition.top}px`
+                  top: `${modalPosition.top}px`,
+                  height: 'auto',
+                  minHeight: '200px',
+                  maxHeight: '80vh',
+                  // Ensure modal stays within viewport
+                  transform: 'translateX(-50%)',
+                  // Allow upward expansion
+                  position: 'fixed',
+                  // Ensure modal doesn't go below viewport
+                  bottom: '20px'
                 }}
               >
                 <Dialog.Title className="sr-only">{editMode ? "Edit Post" : `Create Post in ${spaceName}`}</Dialog.Title>
                 <Dialog.Description className="sr-only">{editMode ? `Edit your post in ${spaceName}` : `Create a new post in ${spaceName}. Add a title, content, media attachments, and categorize your post.`}</Dialog.Description>
               
-                <div className="space-y-5">
-                  {/* User Header */}
-                  <div className="flex items-center">
+                <div className="flex flex-col h-full">
+                  {/* User Header - Fixed */}
+                  <div className="flex items-center mb-5 flex-shrink-0">
                     <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
                       {userAvatarUrl ? (
                         <img src={userAvatarUrl} alt={userName} className="h-full w-full object-cover" />
@@ -628,18 +733,29 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     </div>
                   </div>
                   
-                  {/* Form Inputs */}
-                  <div>
+                  {/* Form Inputs - Fixed */}
+                  <div className="mb-5 flex-shrink-0">
                     <input id="post-title" value={title} onChange={(e) => setTitle(formatAsTitle(e.target.value))} placeholder="Give your post a title" className="block w-full rounded-md py-2 sm:py-3 px-3 text-base font-semibold font-sans tracking-tight capitalize placeholder-gray-400 focus:outline-none focus:ring-0 border-b-2 border-gray-200 focus:border-teal-500 transition-colors dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:focus:border-teal-400" />
                   </div>
 
-                  <div>
-                    <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="What's on your mind?" rows={4} ref={contentTextareaRef} spellCheck={true} autoCapitalize="sentences" className="block w-full rounded-md py-2 px-3 text-sm sm:text-base font-normal font-sans normal-case leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white" />
-                    <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">Please keep posts respectful and relevant to the space.</p>
+                  <div className="mb-5 flex-shrink-0">
+                    <textarea 
+                      value={content} 
+                      onChange={(e) => setContent(e.target.value)} 
+                      placeholder="What's on your mind?" 
+                      rows={5} 
+                      ref={contentTextareaRef} 
+                      spellCheck={true} 
+                      autoCapitalize="sentences" 
+                      className="block w-full rounded-md py-2 px-3 text-sm sm:text-base font-normal font-sans normal-case leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white resize-none create-post-textarea" 
+                      style={{ minHeight: 'auto', overflowY: 'hidden' }}
+                    />
                   </div>
                   
-                  {/* Desktop Attachments Display */}
-                  {(attachments.length > 0 || selectedContentGifUrls.length > 0) && (
+                  {/* Scrollable Content Area - Flexible */}
+                  <div className="flex-1 overflow-y-auto min-h-0">
+                    {/* Desktop Attachments Display */}
+                    {(attachments.length > 0 || selectedContentGifUrls.length > 0) && (
                     <div>
                       {/* Content GIFs */}
                       {selectedContentGifUrls.length > 0 && (
@@ -770,9 +886,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       <PollCreatorSection pollOptions={pollOptions} onPollOptionChange={handlePollOptionChange} onRemovePollOption={removePollOption} onAddPollOption={addPollOption} onRemovePoll={togglePollCreator} />
                     </div>
                   )}
+                  </div>
 
-                  {/* Toolbar & Actions */}
-                  <div className="mt-4 flex justify-between items-center dark:border-gray-700">
+                  {/* Toolbar & Actions - Sticky at bottom */}
+                  <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 pt-4 pb-2 flex-shrink-0">
+                    {/* Guideline text */}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 text-center">Please keep posts respectful and relevant to the space.</p>
+                    
+                    <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                       <Tooltip><TooltipTrigger asChild><button className={toolbarButtonClass} onClick={triggerFileSelector}><Paperclip className="h-5 w-5" strokeWidth={2} /></button></TooltipTrigger><TooltipContent><p>Attach a file</p></TooltipContent></Tooltip>
                       <Tooltip><TooltipTrigger asChild><button className={toolbarButtonClass} onClick={handleAddLink}><LinkIcon className="h-5 w-5" strokeWidth={2} /></button></TooltipTrigger><TooltipContent><p>Add a link</p></TooltipContent></Tooltip>
@@ -786,6 +907,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       <CategorySelector selectedCategoryId={categoryId} onCategoryChange={setCategoryId} categories={categories || []} loading={categoriesLoading} error={!!categoriesError} toolbarButtonClass={toolbarButtonClass} activeToolbarButtonClass={activeToolbarButtonClass} />
                       <button type="button" onClick={handleCloseAttempt} className="rounded-md px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 transition-colors">Cancel</button>
                       <button onClick={handleSubmit} disabled={(!title.trim() && !content.trim()) || isSubmitting || uploadingFiles.size > 0} className={`rounded-md px-4 py-2.5 text-sm font-medium text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 transition-colors ${(!title.trim() && !content.trim()) || isSubmitting || uploadingFiles.size > 0 ? 'bg-teal-400 cursor-not-allowed opacity-70' : 'bg-teal-600 hover:bg-teal-700'}`}>{submitButtonText}</button>
+                    </div>
                     </div>
                   </div>
 

@@ -29,11 +29,11 @@ const getSupabaseClient = () => {
     throw new Error('Missing Supabase environment variables. Check your .env file.');
   }
 
-  supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false, // Recommended to be false for security reasons, handle manually if needed
+      detectSessionInUrl: true, // Enable automatic session detection from URL fragments for OAuth
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       storageKey: 'lokaa-auth-token',
     },
@@ -51,7 +51,7 @@ const getSupabaseClient = () => {
         'X-Client-Info': 'lokaa-web-app',
       },
       // Add fetch configuration for better network handling with circuit breaker
-      fetch: async (url: string, options: RequestInit = {}) => {
+      fetch: async (input: RequestInfo | URL, init: RequestInit = {}) => {
         // Check circuit breaker
         if (circuitBreakerOpen) {
           if (Date.now() < circuitBreakerResetTime) {
@@ -75,8 +75,8 @@ const getSupabaseClient = () => {
         }
         
         // Make the request with timeout
-        const originalFetch = fetch(url, {
-          ...options,
+        const originalFetch = fetch(input, {
+          ...init,
           signal: AbortSignal.timeout(30000), // 30 second timeout
         });
 

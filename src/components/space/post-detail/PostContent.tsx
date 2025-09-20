@@ -25,7 +25,7 @@ export default function PostContent({ post, postTitleRef }: PostContentProps) {
         </h1>
       )}
       <div 
-        className="prose max-w-none"
+        className="prose max-w-none min-h-0"
         dangerouslySetInnerHTML={{ __html: sanitizedContent }} 
       />
     </div>

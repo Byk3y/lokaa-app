@@ -349,10 +349,12 @@ export default function PostDetailModal({
           className="
             /* Mobile: Fullscreen like Skool */
             max-w-full w-full h-full max-h-full rounded-none
-            /* Desktop: Modal with constraints */  
-            md:max-w-3xl md:w-[90vw] md:max-h-[95vh] md:rounded-lg
+            /* Desktop: Dynamic height modal with reasonable constraints */  
+            md:max-w-3xl md:w-[90vw] md:max-h-[95vh] md:min-h-[400px] md:rounded-lg
             /* Common styles */
             p-0 flex flex-col
+            /* Smooth height transitions */
+            transition-all duration-300 ease-in-out
           "
           hideCloseButton={true}
         >
@@ -364,13 +366,20 @@ export default function PostDetailModal({
             {post.title ? `Post by ${post.author?.name || 'Unknown'}: ${post.content?.substring(0, 100)}${post.content && post.content.length > 100 ? '...' : ''}` : `Post content: ${post.content?.substring(0, 100)}${post.content && post.content.length > 100 ? '...' : ''}`}
           </DialogDescription>
 
-          {/* Scrollable Content Area - starts immediately */}
+          {/* Content Area - Dynamic height on desktop, scrollable on mobile */}
           <div 
             ref={contentRef}
-            className="flex-1 bg-white overflow-y-auto overflow-x-hidden relative pb-32 sm:pb-0"
+            className="
+              /* Mobile: Scrollable container */
+              flex-1 bg-white overflow-y-auto overflow-x-hidden relative pb-32
+              /* Desktop: Natural height expansion with scroll fallback */
+              md:flex-none md:max-h-[calc(95vh-120px)] md:overflow-y-auto md:pb-0
+              /* Apply dynamic height CSS class */
+              post-detail-modal-content
+            "
           >
             {/* Header Bar - Skool style */}
-            <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
+            <div className="sticky top-0 z-10 bg-white border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center px-3 py-2 h-12">
                 {/* Back Button */}
                 <Button

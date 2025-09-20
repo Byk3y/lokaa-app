@@ -13,7 +13,42 @@ export default function AuthCallback() {
       try {
         log.debug('Auth', 'Processing OAuth callback...');
         
-        // Get the session from the URL hash
+        // Check for URL fragments first (OAuth flow)
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const errorFromHash = hashParams.get('error');
+        
+        if (errorFromHash) {
+          log.error('Auth', 'OAuth error from URL hash:', errorFromHash);
+          setError(`Authentication failed: ${errorFromHash}`);
+          setIsProcessing(false);
+          return;
+        }
+        
+        if (accessToken && refreshToken) {
+          log.debug('Auth', 'Found OAuth tokens in URL hash, setting session...');
+          const { error } = await getSupabaseClient().auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          
+          if (error) {
+            log.error('Auth', 'Error setting session from OAuth tokens:', error.message);
+            setError('Failed to complete authentication. Please try again.');
+            setIsProcessing(false);
+            return;
+          }
+          
+          log.debug('Auth', 'OAuth session set successfully, redirecting...');
+          // Redirect to /app for smart space detection
+          const redirectPath = sessionStorage.getItem('redirect_after_login') || '/app';
+          sessionStorage.removeItem('redirect_after_login');
+          navigate(redirectPath, { replace: true });
+          return;
+        }
+        
+        // Fallback: Check for existing session
         const { data, error } = await getSupabaseClient().auth.getSession();
         
         if (error) {
@@ -25,8 +60,8 @@ export default function AuthCallback() {
 
         if (data.session) {
           log.debug('Auth', 'OAuth callback successful, redirecting...');
-          // Redirect to discover page or saved redirect
-          const redirectPath = sessionStorage.getItem('redirect_after_login') || '/discover';
+          // Redirect to /app for smart space detection
+          const redirectPath = sessionStorage.getItem('redirect_after_login') || '/app';
           sessionStorage.removeItem('redirect_after_login');
           navigate(redirectPath, { replace: true });
         } else {
