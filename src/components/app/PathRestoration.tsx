@@ -63,12 +63,12 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
     // Mark that we've attempted restoration
     restorationAttempted.current = true;
 
-    // Set a timeout for restoration attempt (3 seconds max)
+    // Set a timeout for restoration attempt (5 seconds max - increased for OAuth race conditions)
     timeoutRef.current = setTimeout(() => {
       log.debug('Component', '⏱️ [PathRestoration] Restoration timeout, proceeding with default flow');
       clearPathRestorationActive();
       onRestorationComplete(false);
-    }, 3000);
+    }, 5000);
 
     // Attempt path restoration
     const performRestoration = async () => {
@@ -78,7 +78,13 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
         // Mark path restoration as active to prevent mobile session manager interference
         markPathRestorationActive();
         
-        const restored = await attemptPathRestoration(navigate, user.id);
+        // CRITICAL FIX: Add timeout to attemptPathRestoration to prevent infinite hanging
+        const restorationPromise = attemptPathRestoration(navigate, user.id);
+        const timeoutPromise = new Promise<boolean>((_, reject) => 
+          setTimeout(() => reject(new Error('Path restoration timeout')), 4000)
+        );
+        
+        const restored = await Promise.race([restorationPromise, timeoutPromise]);
         
         // Clear timeout if restoration completed
         if (timeoutRef.current) {
@@ -108,6 +114,7 @@ export default function PathRestoration({ onRestorationComplete }: PathRestorati
         // Clear active flag on error
         clearPathRestorationActive();
         
+        // CRITICAL FIX: Always complete restoration on error to prevent infinite loading
         onRestorationComplete(false);
       }
     };

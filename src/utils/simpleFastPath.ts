@@ -47,16 +47,77 @@ export async function detectUserTypeSimple(userId: string): Promise<{
   try {
     log.debug('Utils', '⚡ [FastPath] Simple user type detection starting');
     
-    // Single, direct RPC call - no emergency recovery overhead
-    const { data: spaces, error } = await getSupabaseClient().rpc('get_user_spaces_simple', {
-      user_id_param: userId
-    });
+    // CRITICAL FIX: Validate session before making RPC call
+    const { data: sessionData, error: sessionError } = await getSupabaseClient().auth.getSession();
+    if (sessionError || !sessionData.session) {
+      log.warn('Utils', '⚡ [FastPath] No valid session found, skipping RPC call');
+      return { hasSpaces: false, isOwner: false, timing: Date.now() - startTime };
+    }
+    
+    // Additional validation: ensure session user matches the requested userId
+    if (sessionData.session.user.id !== userId) {
+      log.warn('Utils', '⚡ [FastPath] Session user ID mismatch, skipping RPC call');
+      return { hasSpaces: false, isOwner: false, timing: Date.now() - startTime };
+    }
+    
+    log.debug('Utils', '⚡ [FastPath] Session validated, proceeding with RPC call');
+    
+    // CRITICAL FIX: Add retry logic for RPC calls to handle race conditions
+    let spaces: any[] = [];
+    let error: any = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+    const baseDelay = 500; // 500ms base delay
+    
+    while (retryCount < maxRetries) {
+      try {
+        const rpcResult = await getSupabaseClient().rpc('get_user_spaces_simple', {
+          user_id_param: userId
+        });
+        
+        spaces = rpcResult.data || [];
+        error = rpcResult.error;
+        
+        if (!error) {
+          log.debug('Utils', `⚡ [FastPath] RPC call successful on attempt ${retryCount + 1}`);
+          break;
+        }
+        
+        // Check if it's a session-related error that might resolve with retry
+        if (error.message && (
+          error.message.includes('Unauthorized') || 
+          error.message.includes('auth.uid') ||
+          error.message.includes('session')
+        )) {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            const delay = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+            log.debug('Utils', `⚡ [FastPath] Session error on attempt ${retryCount}, retrying in ${delay}ms:`, error.message);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+        
+        // Non-retryable error, break out
+        break;
+        
+      } catch (rpcError) {
+        error = rpcError;
+        retryCount++;
+        if (retryCount < maxRetries) {
+          const delay = baseDelay * Math.pow(2, retryCount - 1);
+          log.debug('Utils', `⚡ [FastPath] RPC exception on attempt ${retryCount}, retrying in ${delay}ms:`, rpcError);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
     
     const timing = Date.now() - startTime;
     log.debug('Utils', `⚡ [FastPath] User type detection completed in ${timing}ms`);
     
     if (error) {
-      log.warn('Utils', '⚡ [FastPath] Error in user type detection:', error);
+      log.warn('Utils', '⚡ [FastPath] Error in user type detection after retries:', error);
+      // CRITICAL FIX: Always return false for hasSpaces on error to ensure user gets redirected to discover
       return { hasSpaces: false, isOwner: false, timing };
     }
     
