@@ -490,7 +490,7 @@
       z-index: 100; /* Above bottom nav (z-50) */
       padding-bottom: env(safe-area-inset-bottom, 0px);
       box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-      min-height: 60px; /* Ensure consistent height */
+      min-height: 52px; /* Better balance - smaller than original but more comfortable */
       /* ✅ CRITICAL: Prevent any layout shifts */
       transform: translateZ(0);
       will-change: transform;
@@ -923,7 +923,7 @@
   z-index: 100; /* Above bottom nav (z-50) */
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-  min-height: 60px; /* Ensure consistent height */
+  min-height: 52px; /* Better balance - smaller than original but more comfortable */
   /* ✅ CRITICAL: Prevent any layout shifts */
   transform: translateZ(0);
   will-change: transform;
@@ -937,6 +937,46 @@
   min-height: 100dvh;
   /* ✅ CRITICAL: Prevent any scroll on the main container */
   overflow: hidden;
+}
+
+/* Mobile PostDetail Modal - True fullscreen */
+@media (max-width: 640px) {
+  [data-radix-dialog-content],
+  [data-state="open"][data-radix-dialog-content],
+  .fixed.left-\\[50\\%\\].top-\\[50\\%\\],
+  .post-detail-modal-fullscreen {
+    /* Use inset-0 to cover all sides */
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    /* Use viewport units, not percentage */
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    /* Remove centering transforms */
+    transform: none !important;
+    translate: none !important;
+    /* Remove spacing and styling */
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    border: none !important;
+    /* Force flex layout */
+    display: flex !important;
+    flex-direction: column !important;
+    /* Ensure fixed positioning */
+    position: fixed !important;
+  }
+
+  /* Content area has px-3 (12px) padding from parent - allow child elements to inherit */
+  /* Only remove excessive padding from specific problematic elements */
+  .post-detail-modal-content > * {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 }
 
 /* ✅ MODERN 2025: Chat container that prevents any scroll issues */

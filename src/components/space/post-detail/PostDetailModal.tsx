@@ -39,6 +39,7 @@ import { usePostActionsEnhanced } from './hooks/usePostActionsEnhanced';
 // import { useCommentsEnhanced } from './hooks/useCommentsEnhanced';
 import { useComments } from './hooks/useComments';
 import { useHoverPrefetch } from '@/hooks/useHoverPrefetch';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -83,6 +84,7 @@ export default function PostDetailModal({
   const navigate = useNavigate();
   const location = useLocation();
   const { space } = useSpaceSettingsStore();
+  const isMobile = useMediaQuery("(max-width: 640px)");
   
   // State for video player
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
@@ -346,16 +348,42 @@ export default function PostDetailModal({
 
         
         <DialogContent 
-          className="
-            /* Mobile: Fullscreen like Skool */
-            max-w-full w-full h-full max-h-full rounded-none
-            /* Desktop: Dynamic height modal with reasonable constraints */  
-            md:max-w-3xl md:w-[90vw] md:max-h-[95vh] md:min-h-[400px] md:rounded-lg
-            /* Common styles */
-            p-0 flex flex-col
+          className={cn(
+            /* Mobile: True fullscreen - no centering, no padding, no gaps, no borders */
+            "max-w-full rounded-none",
+            /* Mobile: Use viewport units and inset-0 for true fullscreen */
+            "w-screen h-screen inset-0",
+            "translate-x-0 translate-y-0",
+            "p-0 m-0 gap-0 border-0",
+            /* Override default grid to flex on mobile */
+            "flex flex-col",
+            /* Desktop: Centered modal with constraints - reset inset on desktop */  
+            "md:left-[50%] md:top-[50%] md:right-auto md:bottom-auto md:translate-x-[-50%] md:translate-y-[-50%]",
+            "md:max-w-3xl md:w-[90vw] md:h-auto md:max-h-[95vh] md:min-h-[400px] md:rounded-lg",
+            "md:border md:gap-4",
             /* Smooth height transitions */
-            transition-all duration-300 ease-in-out
-          "
+            "transition-all duration-300 ease-in-out",
+            /* Custom class for targeting */
+            "post-detail-modal-fullscreen"
+          )}
+          style={{
+            /* Force full screen on mobile with inline styles - use inset-0 for all sides */
+            ...(isMobile ? {
+              left: 0,
+              top: 0,
+              right: 0,
+              bottom: 0,
+              transform: 'none',
+              width: '100vw',
+              height: '100vh',
+              maxWidth: '100vw',
+              maxHeight: '100vh',
+              margin: 0,
+              padding: 0,
+              gap: 0,
+              border: 'none',
+            } : {}),
+          }}
           hideCloseButton={true}
         >
           {/* Hidden accessibility elements - positioned absolutely to not take layout space */}
@@ -369,18 +397,22 @@ export default function PostDetailModal({
           {/* Content Area - Dynamic height on desktop, scrollable on mobile */}
           <div 
             ref={contentRef}
-            className="
-              /* Mobile: Scrollable container */
-              flex-1 bg-white overflow-y-auto overflow-x-hidden relative pb-32
+            className={cn(
+              /* Mobile: Full width scrollable container - small padding for readability */
+              "flex-1 bg-white overflow-y-auto overflow-x-hidden relative w-full",
+              "px-3 pb-32",
               /* Desktop: Natural height expansion with scroll fallback */
-              md:flex-none md:max-h-[calc(95vh-120px)] md:overflow-y-auto md:pb-0
+              "md:flex-none md:max-h-[calc(95vh-120px)] md:overflow-y-auto md:pb-0 md:px-3",
               /* Apply dynamic height CSS class */
-              post-detail-modal-content
-            "
+              "post-detail-modal-content"
+            )}
           >
             {/* Header Bar - Skool style */}
             <div className="sticky top-0 z-10 bg-white border-b border-gray-200 flex-shrink-0">
-              <div className="flex items-center px-3 py-2 h-12">
+              <div className={cn(
+                "flex items-center py-2 h-12",
+                "px-0 sm:px-3" // Header inherits padding from parent
+              )}>
                 {/* Back Button */}
                 <Button
                   onClick={() => handleDialogClose(false)}
@@ -392,7 +424,10 @@ export default function PostDetailModal({
                 </Button>
                 
                 {/* Space Info / Post Title - takes up remaining space */}
-                <div className="flex items-center space-x-2 flex-1 min-w-0 mx-2">
+                <div className={cn(
+                  "flex items-center space-x-2 flex-1 min-w-0",
+                  "mx-2" // Small margin for spacing between icon and text
+                )}>
                   {/* Icon stays visible always */}
                   <div className="h-7 w-7 rounded-lg bg-gray-900 flex items-center justify-center overflow-hidden flex-shrink-0">
                     {space?.icon_image && !spaceIconFailed ? (
@@ -473,7 +508,7 @@ export default function PostDetailModal({
             </div>
 
             {/* Post Author Info */}
-            <div className="flex items-center space-x-3 px-3 py-2">
+            <div className="flex items-center space-x-3 py-2">
               <Link 
                 to={`/profile/${post.author.id}`}
                 onMouseEnter={() => prefetchUser(post.author.id, 100)}
@@ -512,7 +547,7 @@ export default function PostDetailModal({
               </div>
             </div>
             {/* Post Content (title & text) */}
-            <div className="relative px-3">
+            <div className="relative">
               <PostContent 
                 post={post} 
                 postTitleRef={postTitleActualRef} 
@@ -520,7 +555,7 @@ export default function PostDetailModal({
             </div>
 
             {/* Media Gallery (videos, images, files) */}
-            <div className="px-3 my-3">
+            <div className="my-3">
             {(() => {
               // Ensure media_urls are in the correct Attachment[] format
               const convertedMedia: Attachment[] = (post.media_urls || []).map((mediaItem: any, index: number) => {
@@ -603,7 +638,7 @@ export default function PostDetailModal({
             ) : (
               <>
                 {/* Comments Section */}
-                <div className="px-3 pt-3 pb-4 border-t border-gray-200">
+                <div className="pt-3 pb-4 border-t border-gray-200">
                   {comments.length > 0 ? (
                 <div className="space-y-5">
                   {comments.map(comment => (
@@ -680,7 +715,10 @@ export default function PostDetailModal({
             </div>
 
           {/* Mobile Comment Input - Fixed above bottom nav */}
-          <div className="block sm:hidden fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-3 py-3 z-40">
+          <div className={cn(
+            "block sm:hidden fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 py-3 z-40",
+            "px-3" // Small padding for readability
+          )}>
             <CommentInput
               value={newComment}
               onChange={setNewComment}

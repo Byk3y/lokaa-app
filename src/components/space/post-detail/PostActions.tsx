@@ -24,7 +24,7 @@ export default function PostActions({
   onCommentClick
 }: PostActionsProps) {
   return (
-    <div className="flex items-center px-3 py-2 border-t border-gray-200">
+    <div className="flex items-center py-2 border-t border-gray-200">
       <div className="flex items-center space-x-1">
         <Button 
           variant="ghost"

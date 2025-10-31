@@ -3,6 +3,7 @@ import { InstantAvatar } from '@/components/ui/InstantAvatar';
 import { Paperclip, X } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { FetchedComment } from '../hooks/useComments';
+import { cn } from '@/lib/utils';
 
 interface CommentInputProps {
   value: string;
@@ -69,7 +70,10 @@ export default function CommentInput({
             className="h-8 w-8 flex-shrink-0"
           />
         )}
-        <div className="flex-1 flex items-center bg-gray-50 border border-gray-200 rounded-full px-4 py-2">
+        <div className={cn(
+          "flex-1 flex items-center bg-gray-50 border border-gray-200 rounded-full py-2",
+          "px-2 sm:px-4" // Less padding on mobile, more on desktop
+        )}>
           <input
             id="comment-input"
             type="text"
