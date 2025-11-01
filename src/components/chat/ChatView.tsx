@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useMessages } from '@/features/chat';
 import type { LegacyConversation } from '@/features/chat/types';
@@ -26,7 +26,7 @@ export default function ChatView({
   onExpand,
   isExpanded,
   isFullScreen = false,
-  isModal = false,
+  isModal: _isModal = false,
   onConversationUpdated
 }: ChatViewProps) {
   const { user } = useOptimizedAuth();
@@ -50,13 +50,27 @@ export default function ChatView({
     return hasOtherParticipant;
   });
   
+  // ✅ CRITICAL FIX: Track ConnectionContext loading state to prevent layout shift
+  const [isConnectionContextLoading, setIsConnectionContextLoading] = useState(() => {
+    // If we should show connection context, assume it's loading initially
+    const isDirectConversation = !initialConversation.is_group;
+    const hasOtherParticipant = isDirectConversation && initialConversation.other_participants?.length > 0;
+    return hasOtherParticipant;
+  });
+  
   // ✅ SCROLL PRESERVATION: Refs for scroll management
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const previousScrollHeight = useRef<number>(0);
   const isInitialLoad = useRef<boolean>(true);
   const previousMessagesLength = useRef<number>(0);
   const connectionContextLoaded = useRef<boolean>(false);
+  const hasScrolledToBottom = useRef<boolean>(false);
+  
+  // ✅ CRITICAL FIX: Handle ConnectionContext loading state changes
+  const handleConnectionContextLoadingChange = useCallback((isLoading: boolean) => {
+    log.debug('Component', '🗨️ [ChatView] ConnectionContext loading state changed:', isLoading);
+    setIsConnectionContextLoading(isLoading);
+  }, []);
   
   // ✅ DEBUG: Track container mounting and DOM changes
   useEffect(() => {
@@ -100,7 +114,6 @@ export default function ChatView({
 
 
   
-  const isDesktop = useMediaQuery("(min-width: 768px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
   
   // DEBUG: Log conversation data
@@ -156,6 +169,7 @@ export default function ChatView({
       isInitialLoad.current = true;
       connectionContextLoaded.current = false;
       previousMessagesLength.current = 0;
+      hasScrolledToBottom.current = false;
       
       refreshMessages();
       
@@ -172,42 +186,82 @@ export default function ChatView({
     }
   }, [currentConversation?.conversation_id, user?.id]); // ✅ INFINITE LOOP FIX: Removed refreshMessages from dependencies
 
-  // ✅ MODERN 2025 CHAT LAYOUT: Prevent any scroll repositioning
+  // ✅ INSTANT BOTTOM POSITIONING: Pre-calculate and set scroll position before rendering
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    // ✅ CRITICAL: Immediately scroll to bottom on mount with no animation
-    const scrollToBottomImmediately = () => {
-      if (container && messagesEndRef.current) {
-        // Use 'auto' behavior for immediate positioning without animation
-        messagesEndRef.current.scrollIntoView({ 
-          behavior: 'auto', 
-          block: 'end',
-          inline: 'nearest'
-        });
-        
-        console.log('🔍 [ChatView] Initial scroll to bottom completed:', {
-          scrollTop: container.scrollTop,
-          scrollHeight: container.scrollHeight,
-          clientHeight: container.clientHeight
-        });
-      }
-    };
-
-    // ✅ IMMEDIATE: No delay, scroll right away
-    scrollToBottomImmediately();
+    // ✅ CRITICAL: Only position when messages are actually rendered
+    // This means either no connection context needed, or connection context has finished loading
+    const shouldPosition = !shouldShowConnectionContext || !isConnectionContextLoading;
     
-    // ✅ FALLBACK: Also scroll after a micro-delay to ensure DOM is stable
-    const timeoutId = setTimeout(scrollToBottomImmediately, 10);
-    
-    return () => clearTimeout(timeoutId);
-  }, []); // Only run on mount
+    if (shouldPosition && messages.length > 0) {
+      // ✅ INSTANT BOTTOM: Pre-calculate total height needed for all messages
+      const estimatedMessageHeight = 80; // Average height per message in pixels
+      const connectionContextHeight = shouldShowConnectionContext ? 200 : 0; // Height of connection context
+      const paddingHeight = 32; // Account for container padding (p-4 = 16px top + 16px bottom)
+      const totalEstimatedHeight = (messages.length * estimatedMessageHeight) + connectionContextHeight + paddingHeight;
+      
+      // ✅ INSTANT BOTTOM: Set container height and scroll position BEFORE rendering
+      container.style.height = `${totalEstimatedHeight}px`;
+      container.scrollTop = container.scrollHeight;
+      
+      // ✅ INSTANT BOTTOM: Force immediate positioning without any animation
+      // Use multiple requestAnimationFrame calls to ensure positioning happens after DOM updates
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (container) {
+            // ✅ INSTANT BOTTOM: Force scroll to absolute bottom
+            container.scrollTop = container.scrollHeight;
+            
+            // ✅ CRITICAL FIX: Mark that we've positioned to bottom
+            hasScrolledToBottom.current = true;
+            isInitialLoad.current = false;
+            
+            console.log('🔍 [ChatView] Instant bottom positioning completed:', {
+              scrollTop: container.scrollTop,
+              scrollHeight: container.scrollHeight,
+              clientHeight: container.clientHeight,
+              messageCount: messages.length,
+              estimatedHeight: totalEstimatedHeight
+            });
+          }
+        });
+      });
+    }
+  }, [shouldShowConnectionContext, isConnectionContextLoading, messages.length]); // Depend on connection context loading state
 
-  // ✅ MODERN APPROACH: Handle message changes without aggressive scrolling
+  // ✅ INSTANT BOTTOM: Handle NEW messages with instant positioning (no animation)
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container || !messages.length) return;
+    
+    // ✅ CRITICAL FIX: Don't scroll if ConnectionContext is still loading
+    if (shouldShowConnectionContext && isConnectionContextLoading) {
+      log.debug('Component', '🗨️ [ChatView] Skipping scroll - ConnectionContext still loading');
+      return;
+    }
+    
+    // ✅ CRITICAL FIX: Don't scroll on initial load - Effect 1 handles that
+    if (isInitialLoad.current || !hasScrolledToBottom.current) {
+      log.debug('Component', '🗨️ [ChatView] Skipping scroll - Initial load handled by Effect 1');
+      return;
+    }
+    
+    // ✅ CRITICAL FIX: Only handle NEW messages, not initial load
+    const currentMessageCount = messages.length;
+    const previousCount = previousMessagesLength.current;
+    
+    if (currentMessageCount <= previousCount) {
+      log.debug('Component', '🗨️ [ChatView] Skipping scroll - No new messages', {
+        current: currentMessageCount,
+        previous: previousCount
+      });
+      return;
+    }
+    
+    // Update previous count
+    previousMessagesLength.current = currentMessageCount;
 
     const currentScrollHeight = container.scrollHeight;
     const currentScrollTop = container.scrollTop;
@@ -216,22 +270,18 @@ export default function ChatView({
     // ✅ CALCULATE: Are we near the bottom?
     const isNearBottom = (currentScrollHeight - currentScrollTop - currentClientHeight) < 100;
     
-    // ✅ ONLY SCROLL: If user was already near the bottom (they want to see new messages)
+    // ✅ INSTANT BOTTOM: Only scroll if user was near bottom, and use instant positioning
     if (isNearBottom) {
-      const scrollToBottom = () => {
-        if (container && messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'end',
-            inline: 'nearest'
-          });
-        }
-      };
-      
-      // ✅ MINIMAL DELAY: Just enough for DOM to settle
-      setTimeout(scrollToBottom, 50);
+      // ✅ INSTANT BOTTOM: Use immediate positioning, no animation
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: 'auto', // Changed from 'smooth' to 'auto' for instant positioning
+          block: 'end',
+          inline: 'nearest'
+        });
+      }
     }
-  }, [messages.length]); // Only depend on message count, not content
+  }, [messages.length, shouldShowConnectionContext, isConnectionContextLoading]); // Added ConnectionContext loading state
   
   const handleSendMessage = async (content: string) => {
     if (!user || !currentConversation?.conversation_id) return;
@@ -243,7 +293,7 @@ export default function ChatView({
         onConversationUpdated();
       }
     } catch (error) {
-      log.error('Component', "Error sending message:", error);
+      log.error('Component', "Error sending message:", error as Error);
     } finally {
       setSending(false);
     }
@@ -276,7 +326,11 @@ export default function ChatView({
         className={`flex-1 overflow-y-auto p-4 space-y-4 chat-messages-container ${
           isMobile ? 'mobile-chat-messages-simplified' : ''
         }`}
-        style={isMobile ? { paddingBottom: '10rem' } : {}}
+        style={{
+          ...(isMobile ? { paddingBottom: '10rem' } : {}),
+          // ✅ INSTANT BOTTOM: Ensure smooth positioning without scroll interference
+          scrollBehavior: 'auto'
+        }}
         data-chat-container="true"
       >
         {/* ✅ LAYOUT SHIFT FIX: Stable ConnectionContext rendering with reserved space */}
@@ -286,6 +340,7 @@ export default function ChatView({
               otherUserId={otherParticipant.user_id}
               otherUserName={otherParticipant.full_name || 'User'}
               otherUserAvatar={otherParticipant.avatar_url}
+              onLoadingStateChange={handleConnectionContextLoadingChange}
             />
           ) : (
             // ✅ RESERVED SPACE: Placeholder to prevent layout shift while loading participant data
@@ -295,7 +350,13 @@ export default function ChatView({
           )
         ) : null}
         
+        {/* ✅ CRITICAL FIX: Don't render messages until ConnectionContext is done loading */}
         {loading && messages.length === 0 ? (
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin h-6 w-6 border-t-2 border-blue-500 rounded-full"></div>
+          </div>
+        ) : shouldShowConnectionContext && isConnectionContextLoading ? (
+          // Show loading state while ConnectionContext is loading
           <div className="flex justify-center items-center h-32">
             <div className="animate-spin h-6 w-6 border-t-2 border-blue-500 rounded-full"></div>
           </div>

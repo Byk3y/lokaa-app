@@ -109,7 +109,6 @@ const ModalProvider = ({ children }: ModalProviderProps) => {
 
   const openSignupModal = useCallback((config?: Partial<ModalConfig>) => {
     openModal('auth-signup', null, {
-      title: 'Create your Lokaa account', 
       size: 'sm',
       ...config
     });

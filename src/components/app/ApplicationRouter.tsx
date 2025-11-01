@@ -22,9 +22,6 @@ const WhiteScreenFix = lazy(() => import("@/components/errors/WhiteScreenFix"));
 // Import navigation coordinator
 import { navigationCoordinator } from "@/utils/navigationCoordinator";
 
-// Import path restoration components
-import SmartRedirectWithPathRestoration from "./SmartRedirectWithPathRestoration";
-
 // Higher-order component for auth safety (imported from App.tsx)
 function withAuthSafety<P extends object>(
   Component: React.ComponentType<P>,
@@ -51,13 +48,6 @@ function RouteLogger() {
   
   useEffect(() => {
     log.debug('Component', 'Route changed to:', location.pathname);
-    
-    // Import and use path restoration utilities
-    import('@/utils/pathRestoration').then(({ persistPath }) => {
-      persistPath(location.pathname, user?.id);
-    }).catch(error => {
-      log.warn('Component', 'Failed to import path restoration utilities:', error);
-    });
   }, [location, user?.id]);
   
   return null;
@@ -389,8 +379,12 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
           <Route path="/messages/space/*" element={<Navigate to="/" replace />} />
           <Route path="/messages/:any" element={<Navigate to="/" replace />} />
           
-          {/* Smart landing with path restoration - attempts path restoration first, then redirects based on user's spaces */}
-          <Route path="/app" element={<SmartRedirectWithPathRestoration />} />
+          {/* Smart landing - redirects based on user's spaces */}
+          <Route path="/app" element={
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <LazyRoutes.QuickSpaceRedirect />
+            </Suspense>
+          } />
           
           {/* For testing, keep the original SmartLanding on a different path */}
           <Route path="/smart-landing" element={

@@ -83,7 +83,6 @@ export default function AuthModalRouter() {
         );
         config = {
           ...config,
-          title: 'Create your Lokaa account',
           size: 'sm'
         };
       } else if (id === 'auth-forgot') {
