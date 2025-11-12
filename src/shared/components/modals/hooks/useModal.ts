@@ -53,7 +53,7 @@ export const useModal = () => {
       if (typeof window !== 'undefined' && window.location.pathname !== '/signup') {
         window.history.pushState(null, '', '/signup');
       }
-      return openModal('auth-signup', null, { title: 'Create your Lokaa account', size: 'sm' });
+      return openModal('auth-signup', null, { size: 'sm' });
     },
     openForgotPasswordModal: () => {
       // Update URL to reflect modal state

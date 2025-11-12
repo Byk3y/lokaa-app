@@ -9,7 +9,7 @@ interface StickyNoteVisualProps {
  * A decorative component that emulates a sticky note with a push pin.
  */
 export default function StickyNoteVisual({ 
-  text = "Highlight key ideas, and bring your space to life.", 
+  text = "Make money doing what you love with your community.", 
   className = "" 
 }: StickyNoteVisualProps) {
   return (

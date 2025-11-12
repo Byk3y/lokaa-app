@@ -9,7 +9,6 @@ import { log } from '@/utils/logger';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useModal } from '@/shared/components/modals/hooks/useModal';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AuthModalProps } from '@/shared/components/modals/types/modal';
@@ -237,6 +236,11 @@ export default function SignupModal({
 
   return (
     <Form methods={form}>
+      {/* Logo */}
+      <div className="flex justify-center mb-6 -mt-8">
+        <h1 className="text-3xl font-bold text-teal-600">Lokaa</h1>
+      </div>
+      
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         {infoMessage && (
           <div className="rounded-md border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800">
@@ -284,7 +288,6 @@ export default function SignupModal({
             name="firstName"
             render={({ field }) => (
               <FormItem>
-                <Label htmlFor="signup-firstName">First name</Label>
                 <FormControl>
                   <Input
                     id="signup-firstName"
@@ -305,7 +308,6 @@ export default function SignupModal({
             name="lastName"
             render={({ field }) => (
               <FormItem>
-                <Label htmlFor="signup-lastName">Last name</Label>
                 <FormControl>
                   <Input
                     id="signup-lastName"
@@ -326,7 +328,6 @@ export default function SignupModal({
           name="email"
           render={({ field }) => (
             <FormItem>
-              <Label htmlFor="signup-email">Email</Label>
               <FormControl>
                 <Input
                   id="signup-email"
@@ -346,7 +347,6 @@ export default function SignupModal({
           name="password"
           render={({ field }) => (
             <FormItem>
-              <Label htmlFor="signup-password">Password</Label>
               <div className="relative flex items-center">
                 <FormControl>
                   <Input

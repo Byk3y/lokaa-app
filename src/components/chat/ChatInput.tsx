@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Paperclip, Send, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Send, Loader2, ArrowUp, ArrowRight, Zap } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface ChatInputProps {
@@ -16,7 +15,6 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { toast } = useToast();
   const isMobile = useMediaQuery("(max-width: 640px)");
   
   const handleSubmit = (e: React.FormEvent) => {
@@ -25,6 +23,10 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
     if (trimmedMessage && !sending) {
       onSendMessage(trimmedMessage);
       setMessage('');
+      // Reset textarea height after sending
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+      }
       // Keep focus on input after sending on mobile
       if (isMobile && inputRef.current) {
         setTimeout(() => {
@@ -36,8 +38,28 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
   
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit(e as React.FormEvent);
+      if (isMobile) {
+        // On mobile: Enter always creates new line, never sends
+        // Allow natural line break behavior (no preventDefault)
+      } else {
+        // On desktop: Enter sends, Shift+Enter creates new line
+        if (!e.shiftKey) {
+          e.preventDefault();
+          handleSubmit(e as React.FormEvent);
+        }
+        // Shift+Enter allows natural line breaks (no preventDefault)
+      }
+    }
+  };
+
+  const adjustTextareaHeight = () => {
+    if (inputRef.current) {
+      // Reset height to auto to get the correct scrollHeight
+      inputRef.current.style.height = 'auto';
+      // Set height to scrollHeight, but cap it at 120px (about 5-6 lines)
+      const maxHeight = 120;
+      const newHeight = Math.min(inputRef.current.scrollHeight, maxHeight);
+      inputRef.current.style.height = `${newHeight}px`;
     }
   };
 
@@ -51,25 +73,23 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
   const handleBlur = () => {
     setIsFocused(false);
   };
+
+  // Auto-resize textarea when message changes
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [message]);
   
-  const handleAttachmentClick = () => {
-    toast({
-      title: "Attachments",
-      description: "File attachments are not yet implemented.",
-      variant: "default",
-    });
-  };
   
   return (
     <form 
       onSubmit={handleSubmit} 
-      className={`px-2 py-2 bg-white dark:bg-gray-900 shadow-md flex items-center transition-all duration-200 ${
+      className={`px-2 py-1.5 bg-white dark:bg-gray-900 shadow-md flex items-center transition-all duration-200 ${
         isFocused && isMobile ? 'shadow-lg' : ''
       } ${isMobile ? 'mobile-chat-input-overlay' : 'rounded-t-none rounded-b-2xl'}`} 
       style={{
-        minHeight: isMobile ? 60 : 32, // Appropriate height for mobile
+        minHeight: isMobile ? 52 : 40, // Better balance - smaller than original but more comfortable
         touchAction: 'manipulation', // Allow touch but prevent unwanted scrolling
-        overflow: 'hidden',    // Ensure no overflow
+        overflow: 'visible',    // Allow content to expand
       }}
     >
       <div className="relative flex-1 flex items-center">
@@ -82,7 +102,7 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
           onBlur={handleBlur}
           placeholder={`Message ${recipientName}`}
           disabled={disabled || sending}
-          className={`w-full h-auto py-1.5 pl-3 pr-20 rounded-2xl bg-white dark:bg-gray-900 text-base placeholder-gray-400 focus:outline-none focus:ring-0 shadow-none border-none resize-none transition-all duration-200 overflow-y-hidden`}
+          className={`w-full h-auto py-1.5 pl-2 pr-12 rounded-2xl bg-white dark:bg-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-0 focus:ring-offset-0 shadow-none border-none resize-none transition-all duration-200 overflow-y-hidden !min-h-0`}
           autoComplete="off"
           rows={1}
           style={{
@@ -90,28 +110,24 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
             fontSize: isMobile ? '16px' : '14px',
             lineHeight: '1.25rem', // 20px
             touchAction: 'manipulation', // Prevent scrolling on textarea
+            minHeight: '28px', // Better height - comfortable but not too large
+            maxHeight: '120px', // Maximum height before scrolling
+            overflow: 'auto', // Allow scrolling when max height reached
+            outline: 'none', // Remove any outline
+            boxShadow: 'none', // Remove any box shadow
           }}
         />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-          <button 
-            type="button" 
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors" 
-            tabIndex={-1} 
-            disabled={disabled} 
-            onClick={handleAttachmentClick}
-          >
-            <Paperclip className="h-5 w-5 text-gray-500" />
-          </button>
+        <div className="absolute right-1 top-1/2 -translate-y-1/2">
           <Button 
             type="submit" 
             size="icon" 
-            className="h-7 w-7 rounded-full bg-teal-500 hover:bg-teal-600 transition-colors"
+            className="h-6 w-6 rounded-full bg-gray-600 hover:bg-gray-700 text-white transition-colors"
             disabled={disabled || sending || !message.trim()}
           >
             {sending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Send className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4" />
             )}
           </Button>
         </div>

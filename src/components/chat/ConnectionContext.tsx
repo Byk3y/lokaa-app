@@ -10,6 +10,7 @@ interface ConnectionContextProps {
   otherUserId: string;
   otherUserName: string;
   otherUserAvatar: string | null;
+  onLoadingStateChange?: (isLoading: boolean) => void;
 }
 
 interface ConnectionInfo {
@@ -38,7 +39,8 @@ const isCacheValid = (cacheEntry: { timestamp: number; expiresAt: number }): boo
 const ConnectionContext = React.memo<ConnectionContextProps>(({ 
   otherUserId,
   otherUserName,
-  otherUserAvatar
+  otherUserAvatar,
+  onLoadingStateChange
 }) => {
   // --- All hooks must be called unconditionally at the top ---
   const { user } = useOptimizedAuth();
@@ -97,6 +99,11 @@ const ConnectionContext = React.memo<ConnectionContextProps>(({
     }
     fetchConnectionInfo();
   }, [fetchConnectionInfo, user, otherUserId]);
+
+  // Notify parent component about loading state changes
+  useEffect(() => {
+    onLoadingStateChange?.(loading);
+  }, [loading, onLoadingStateChange]);
 
   const shouldRender = useMemo(() => {
     return !loading && !error && connectionInfo && connectionInfo.connection_type !== 'unknown';

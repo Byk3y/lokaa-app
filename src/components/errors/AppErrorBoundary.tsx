@@ -63,22 +63,30 @@ const initializeHMRErrorRecovery = () => {
 function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
   log.error('Component', '🚨 React Error Boundary caught error:', error);
   
+  const isProduction = import.meta.env.PROD;
+  const userFriendlyMessage = sanitizeErrorMessage(error, isProduction);
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-2xl w-full">
         <h2 className="text-2xl font-bold text-red-600 mb-4">Application Error</h2>
         <p className="text-gray-700 mb-4">
-          Something went wrong. This error has been logged for debugging.
+          {userFriendlyMessage}
         </p>
-        <details className="mb-4">
-          <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-            Show Error Details
-          </summary>
-          <div className="mt-2 p-4 bg-gray-100 rounded text-sm font-mono">
-            <div className="text-red-600 font-bold">Error: {error.message}</div>
-            <div className="mt-2 text-gray-600 whitespace-pre-wrap">{error.stack}</div>
-          </div>
-        </details>
+        
+        {/* Show technical details only in development */}
+        {!isProduction && (
+          <details className="mb-4">
+            <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
+              Show Error Details (Development Only)
+            </summary>
+            <div className="mt-2 p-4 bg-gray-100 rounded text-sm font-mono">
+              <div className="text-red-600 font-bold">Error: {error.message}</div>
+              <div className="mt-2 text-gray-600 whitespace-pre-wrap">{error.stack}</div>
+            </div>
+          </details>
+        )}
+        
         <div className="flex gap-4">
           <button 
             onClick={resetErrorBoundary}

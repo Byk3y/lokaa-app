@@ -9,6 +9,7 @@ import SettingsSidebar from './SettingsSidebar';
 import SettingsTabRouter from './SettingsTabRouter';
 import { useSettingsNavigation } from '../../hooks/useSettingsNavigation';
 import SpaceSwitcher from '@/components/spaces/SpaceSwitcher';
+import NewSpaceSettingsModal from '@/components/modals/NewSpaceSettingsModal';
 
 
 // Mobile tab configuration - all available tabs

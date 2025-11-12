@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useOptimizedAuth } from "@/contexts/AuthContext";
 import PublicRoute from "@/components/auth/PublicRoute";
-import { Search, Menu, Plus, Compass, Apple, Play, X } from "lucide-react";
+import { Search, Plus, Compass, Apple, Play, X } from "lucide-react";
 import CategoriesFilter from "@/components/spaces/CategoriesFilter";
 import SpaceCardGrid from "@/components/spaces/SpaceCardGrid";
 import useSpacesData from "@/hooks/useSpacesData";
@@ -180,42 +180,44 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      {/* Header/Navigation - simplified and more compact */}
-      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+      {/* Header/Navigation - glassmorphism liquid glass effect */}
+      <header 
+        className="bg-white/15 backdrop-blur-xl border-b border-white/20 shadow-lg sticky top-0 z-50"
+        style={{ WebkitBackdropFilter: 'blur(24px)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           {/* Mobile Navigation - restructured to match Skool */}
-          <div className="flex items-center justify-between md:hidden py-1">
-            {/* Left side: Hamburger and Logo */}
-            <div className="flex items-center gap-2">
-              {/* Mobile Hamburger Menu */}
-              <button 
-                className="text-gray-700 p-1"
-                onClick={toggleNavMenu}
-                aria-label="Open navigation menu"
-              >
-                <Menu size={24} strokeWidth={1.5} />
-              </button>
-              
-              {/* Logo - next to hamburger */}
+          <div className="flex items-center justify-between md:hidden py-4">
+            {/* Left side: Logo */}
+            <div className="flex items-center">
               <h1 className="text-4xl font-bold leading-none" style={{ color: '#00A389' }}>Lokaa</h1>
             </div>
             
-            {/* Sign In - right aligned */}
-            {user ? (
-              <Link 
-                to="/app" 
-                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-1.5 rounded-full font-medium transition-colors text-sm"
-              >
-                Go to My Spaces
-              </Link>
-            ) : (
+            {/* Right side: Two-stroke menu icon */}
+            <div className="flex items-center">
+              {/* Mobile Two-stroke Menu */}
               <button 
-                onClick={handleDirectSignIn}
-                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-1.5 rounded-full font-medium transition-colors text-sm"
+                className="text-gray-700 p-1 transition-colors duration-200 hover:text-gray-900"
+                onClick={toggleNavMenu}
+                aria-label={navMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               >
-                Sign In
+                <div className="relative w-5 h-5">
+                  {navMenuOpen ? (
+                    // X icon when menu is open
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-5 h-0.5 bg-gray-700 transform rotate-45 transition-all duration-300 ease-in-out"></div>
+                      <div className="w-5 h-0.5 bg-gray-700 transform -rotate-45 absolute transition-all duration-300 ease-in-out"></div>
+                    </div>
+                  ) : (
+                    // Two horizontal lines when menu is closed
+                    <div className="flex flex-col gap-2 transition-all duration-300 ease-in-out">
+                      <div className="w-5 h-0.5 bg-gray-700 transition-all duration-300 ease-in-out"></div>
+                      <div className="w-5 h-0.5 bg-gray-700 transition-all duration-300 ease-in-out"></div>
+                    </div>
+                  )}
+                </div>
               </button>
-            )}
+            </div>
           </div>
           
           {/* Desktop Navigation */}
@@ -238,14 +240,16 @@ export default function LandingPage() {
             {user ? (
               <Link 
                 to="/app" 
-                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-1.5 rounded-full font-medium transition-colors text-sm"
+                className="bg-teal-600/20 backdrop-blur-sm border border-teal-600/30 hover:bg-teal-600/30 text-teal-700 px-5 py-1.5 rounded-full font-medium transition-all duration-200 text-sm shadow-lg"
+                style={{ WebkitBackdropFilter: 'blur(8px)' }}
               >
                 Go to My Spaces
               </Link>
             ) : (
               <button 
                 onClick={handleDirectSignIn}
-                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-1.5 rounded-full font-medium transition-colors text-sm"
+                className="bg-teal-600/20 backdrop-blur-sm border border-teal-600/30 hover:bg-teal-600/30 text-teal-700 px-5 py-1.5 rounded-full font-medium transition-all duration-200 text-sm shadow-lg"
+                style={{ WebkitBackdropFilter: 'blur(8px)' }}
               >
                 Sign In
               </button>
@@ -258,41 +262,34 @@ export default function LandingPage() {
       {/* Overlay - only visible when menu is open */}
       {navMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/20 z-40 md:bg-black/10"
+          className="fixed inset-0 bg-black/20 z-40 md:bg-black/10 cursor-pointer"
           onClick={toggleNavMenu}
         />
       )}
       
       {/* Sidebar - slide in from left */}
       <div 
-        className={`fixed top-0 left-0 w-72 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${
+        className={`fixed top-0 left-0 w-80 h-full bg-white/95 backdrop-blur-xl border-r border-white/20 shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${
           navMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ WebkitBackdropFilter: 'blur(24px)' }}
       >
-        {/* Close button */}
-        <div className="flex justify-between items-center p-5 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800">Menu</h2>
+        {/* Header with Lokaa logo */}
+        <div className="flex items-center justify-between p-8 border-b border-gray-100/50">
+          <h1 className="text-4xl font-bold text-teal-600">Lokaa</h1>
+          {/* Desktop close button */}
           <button 
             onClick={toggleNavMenu}
-            className="text-gray-500 hover:text-gray-800 transition-colors"
+            className="hidden md:block text-gray-500 hover:text-gray-800 transition-colors p-1"
           >
             <X size={20} />
           </button>
-            </div>
+        </div>
             
         {/* Menu links */}
-        <nav className="py-4">
-          <ul>
-            <li className="px-5 py-2">
-            <Link 
-                to="/" 
-                className="flex items-center text-gray-700 hover:text-teal-600"
-                onClick={toggleNavMenu}
-            >
-                <span className="text-lg">Home</span>
-            </Link>
-            </li>
-            <li className="px-5 py-2">
+        <nav className="py-4 pl-2 pr-6">
+          <ul className="space-y-2">
+            <li>
               <button 
                 onClick={() => {
                   if (user) {
@@ -302,13 +299,12 @@ export default function LandingPage() {
                   }
                   toggleNavMenu();
                 }}
-                className="flex items-center text-gray-700 hover:text-teal-600 w-full text-left"
+                className="text-gray-700 hover:text-teal-600 hover:bg-teal-50 rounded-xl px-4 py-3 transition-all duration-200 w-full text-left"
               >
-                <Compass className="mr-2 h-5 w-5" />
-                <span className="text-lg">Discover</span>
+                <span className="text-base font-medium">Discover</span>
               </button>
             </li>
-            <li className="px-5 py-2">
+            <li>
               <button 
                 onClick={() => {
                   if (user) {
@@ -318,10 +314,9 @@ export default function LandingPage() {
                   }
                   toggleNavMenu();
                 }}
-                className="flex items-center text-gray-700 hover:text-teal-600 w-full text-left"
+                className="text-gray-700 hover:text-teal-600 hover:bg-teal-50 rounded-xl px-4 py-3 transition-all duration-200 w-full text-left"
               >
-                <Plus className="mr-2 h-5 w-5" />
-                <span className="text-lg">Create a Space</span>
+                <span className="text-base font-medium">Create a Space</span>
               </button>
             </li>
           </ul>
@@ -329,12 +324,12 @@ export default function LandingPage() {
       </div>
 
       <main>
-        <DottedBackground className="mt-6 mx-4 md:mx-8 lg:mx-12 mb-8">
-          {/* Hero section with reduced empty space */}
-          <section className="relative pt-8 pb-6 md:pt-12 md:pb-10">
+        <DottedBackground className="mt-0 md:mt-12 mx-0 md:mx-8 lg:mx-12 mb-8">
+          {/* Hero section with generous spacing like Framer */}
+          <section className="relative pt-16 pb-12 md:pt-20 md:pb-16">
             {/* Sticky Note Visual - Left Side */}
             <div className="hidden lg:block absolute left-4 top-8 z-10">
-              <StickyNoteVisual text="Highlight key ideas, and bring your space to life." />
+              <StickyNoteVisual text="Make money doing what you love with your community." />
             </div>
 
             {/* Upcoming Activity Card - Right Side */}
@@ -347,21 +342,21 @@ export default function LandingPage() {
               />
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-10 text-center">
-              <div className="mb-6">
+            <div className="max-w-sm md:max-w-7xl mx-auto px-4 md:px-6 lg:px-10 text-center">
+              <div className="mb-8">
                 <h1 className="text-5xl md:text-6xl lg:text-8xl font-bold text-black tracking-tight leading-none">
                   Create a space,
                 </h1>
-                <h1 className="text-5xl md:text-6xl lg:text-8xl font-medium text-gray-300 tracking-tight leading-tight">
+                <h1 className="text-5xl md:text-6xl lg:text-8xl font-medium text-gray-300 tracking-tight leading-none md:leading-tight">
                   find your place
             </h1>
               </div>
 
-              <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-600 mb-6">
+              <p className="max-w-xs md:max-w-2xl mx-auto text-lg md:text-xl text-gray-600 mb-8">
                 Launch a thriving online community in minutes. Engage, monetize, and grow with powerful tools.
             </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
             {user ? (
               <Link
                 to="/app"
@@ -370,17 +365,43 @@ export default function LandingPage() {
                 Go to My Spaces
               </Link>
             ) : (
+              <>
+                {/* Mobile: Two smaller buttons with glassmorphism */}
+                <div className="flex flex-row justify-center gap-3 w-full sm:hidden">
+                  <button
+                    onClick={handleDirectSignIn}
+                    className="px-6 py-2.5 bg-white/20 backdrop-blur-sm border border-white/30 hover:bg-white/30 text-gray-800 rounded-full font-medium text-base transition-all duration-200 shadow-lg"
+                    style={{ WebkitBackdropFilter: 'blur(8px)' }}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    onClick={handleDirectSignUp}
+                    className="px-6 py-2.5 bg-teal-600/20 backdrop-blur-sm border border-teal-600/30 hover:bg-teal-600/30 text-teal-700 rounded-full font-medium text-base transition-all duration-200 shadow-lg"
+                    style={{ WebkitBackdropFilter: 'blur(8px)' }}
+                  >
+                    Launch Space
+                  </button>
+                </div>
+                {/* Desktop: Single button */}
               <button
                 onClick={handleDirectSignUp}
-                className="px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-medium text-lg transition-colors w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                  className="hidden sm:block px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-full font-medium text-lg transition-colors w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
               >
                 Launch your own space
               </button>
+              </>
             )}
               </div>
             </div>
-          
-            {/* Search bar section inside the dotted background */}
+          </section>
+        </DottedBackground>
+
+        {/* Conditional Landing Page Content */}
+        {SHOW_SPACE_CARDS && hasSpaces ? (
+          // Show space cards when enabled and spaces exist
+          <>
+            {/* Search bar section - only shows when space cards are enabled */}
             <div className="max-w-2xl mx-auto px-4 md:px-6 lg:px-10 pb-4">
               <form onSubmit={handleSearch}>
                 <div className="relative">
@@ -394,14 +415,8 @@ export default function LandingPage() {
                   />
                 </div>
               </form>
-          </div>
-          </section>
-        </DottedBackground>
+            </div>
 
-        {/* Conditional Landing Page Content */}
-        {SHOW_SPACE_CARDS && hasSpaces ? (
-          // Show space cards when enabled and spaces exist
-          <>
             {/* Categories section with reduced top margin */}
             <CategoriesFilter 
               activeCategory={activeCategory} 
