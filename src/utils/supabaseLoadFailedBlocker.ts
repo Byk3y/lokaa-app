@@ -404,6 +404,27 @@ class SupabaseLoadFailedBlocker {
 // Create and export singleton instance
 const supabaseLoadFailedBlocker = SupabaseLoadFailedBlocker.getInstance();
 
+/**
+ * Check if an error should be intercepted as a Supabase load error
+ * Useful for handling errors in try-catch blocks before they reach global handlers
+ * 
+ * @param error - The error to check
+ * @returns True if the error should be intercepted
+ */
+export function shouldInterceptSupabaseError(error: any): boolean {
+  return SupabaseLoadFailedBlocker.isSupabaseLoadError(error);
+}
+
+/**
+ * Check if an error is from the Supabase library
+ * 
+ * @param error - The error to check
+ * @returns True if the error is from Supabase
+ */
+export function isSupabaseLibraryError(error: any): boolean {
+  return SupabaseLoadFailedBlocker['isFromSupabaseLibrary'](error);
+}
+
 // ✅ FIXED: Enhanced global access for debugging and testing
 if (typeof window !== 'undefined') {
   (window as any).supabaseLoadFailedBlocker = supabaseLoadFailedBlocker;

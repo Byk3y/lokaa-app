@@ -18,6 +18,7 @@ import { ErrorBoundary, FallbackProps } from "react-error-boundary";
 import BottomNav from "@/components/mobile/BottomNav";
 import { getSpaceTabIcon, FeedIcon } from "@/components/ui/nav-icons";
 import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
+import { sanitizeErrorMessage } from '@/utils/errorMessageSanitizer';
 
 // Types for Space and User data
 export interface SpaceData {
@@ -266,11 +267,40 @@ function LoadingScreen() {
 // Error component
 function ErrorScreen({ error, onRetry }: { error: Error; onRetry?: () => void }) {
   const navigate = useNavigate();
+  const isProduction = import.meta.env.PROD;
+  const [showDetails, setShowDetails] = useState(false);
+  
+  // Sanitize error message for production
+  const userFriendlyMessage = sanitizeErrorMessage(error, isProduction);
+  
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 border border-red-200">
-        <h1 className="text-2xl font-bold text-red-600 mb-4\">Error Loading Space</h1>
-        <p className="text-gray-700 mb-4">{error.message}</p>
+        <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Space</h1>
+        <p className="text-gray-700 mb-4">{userFriendlyMessage}</p>
+        
+        {/* Show technical details only in development */}
+        {!isProduction && error.message && (
+          <details className="mb-4 p-3 bg-gray-50 rounded border border-gray-200">
+            <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">
+              Technical Details (Development Only)
+            </summary>
+            <div className="mt-2 text-xs font-mono text-gray-600 break-all">
+              <div className="mb-2">
+                <span className="font-semibold">Message:</span> {error.message}
+              </div>
+              {error.stack && (
+                <div>
+                  <span className="font-semibold">Stack:</span>
+                  <pre className="mt-1 p-2 bg-gray-100 rounded overflow-auto max-h-32 text-xs">
+                    {error.stack}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </details>
+        )}
+        
         <div className="flex flex-col space-y-2">
           {onRetry && (
             <button
@@ -281,7 +311,7 @@ function ErrorScreen({ error, onRetry }: { error: Error; onRetry?: () => void })
             </button>
           )}
           <button
-            onClick={() => window.location.href = "/discover"} // Or navigate('/discover') if preferred
+            onClick={() => window.location.href = "/discover"}
             className="px-4 py-2 border border-[#1A8A7E] text-[#1A8A7E] rounded-md hover:bg-gray-50"
           >
             Go to Discover

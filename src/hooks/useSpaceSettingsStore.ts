@@ -4,6 +4,7 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { isEqual } from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
+import { sanitizeErrorMessage, sanitizeErrorForToast } from '@/utils/errorMessageSanitizer';
 
 export interface RuleItem {
   id: string;
@@ -315,9 +316,11 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         // PHASE 1 FIX: Enhanced error handling to preserve space data
         if (!existingSpace || (identifier.subdomain && existingSpace.subdomain !== identifier.subdomain)) {
           log.error('Hook', `Failed to load space: ${fetchError}`);
+          // Sanitize error message for users
+          const sanitizedError = sanitizeErrorMessage(fetchError, import.meta.env.PROD);
           set({ 
             loadingSpace: false, 
-            error: fetchError,
+            error: sanitizedError,
             space: null, // Only clear if we have no valid existing data
           });
         } else {
@@ -334,7 +337,9 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       log.error('Hook', 'Error in loadActiveSpace:', err);
       // PHASE 1 FIX: Enhanced catastrophic error handling to preserve space data
       if (!existingSpace || (identifier.subdomain && existingSpace.subdomain !== identifier.subdomain)) {
-        set({ loadingSpace: false, error: 'Failed to load space', space: null });
+        // Sanitize error message for users
+        const sanitizedError = sanitizeErrorMessage(err, import.meta.env.PROD);
+        set({ loadingSpace: false, error: sanitizedError, space: null });
       } else {
         // PHASE 1 FIX: Keep existing data on catastrophic error if it matches
         log.debug('Hook', `🔒 [Phase1] Catastrophic error but preserving existing space data for ${identifier.subdomain}`);
@@ -415,8 +420,11 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       set({ permissions: calculatedPermissions, loadingPermissions: false });
     } catch (error: any) {
       log.error('Hook', "[SpaceSettingsStore] Error fetching permissions:", error);
-      set({ error: error.message || "Failed to fetch permissions.", loadingPermissions: false, permissions: null });
-      toast({ title: "Permissions Error", description: error.message, variant: "destructive" });
+      // Sanitize error messages for users
+      const sanitizedError = sanitizeErrorMessage(error, import.meta.env.PROD);
+      const toastError = sanitizeErrorForToast(error, import.meta.env.PROD);
+      set({ error: sanitizedError, loadingPermissions: false, permissions: null });
+      toast({ title: toastError.title, description: toastError.description, variant: "destructive" });
     }
   },
 
@@ -609,10 +617,12 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
 
     } catch (error: any) {
       log.error('Hook', "Error in saveSpaceSettings:", error);
-      const errorMessage = error.message || "An unknown error occurred while saving.";
-      set({ isSubmitting: false, error: errorMessage });
-      toast({ title: "Save Error", description: errorMessage, variant: "destructive" });
-      return { success: false, error: errorMessage };
+      // Sanitize error messages for users
+      const toastError = sanitizeErrorForToast(error, import.meta.env.PROD);
+      const sanitizedError = sanitizeErrorMessage(error, import.meta.env.PROD);
+      set({ isSubmitting: false, error: sanitizedError });
+      toast({ title: toastError.title, description: toastError.description, variant: "destructive" });
+      return { success: false, error: sanitizedError };
     } 
   },
   
