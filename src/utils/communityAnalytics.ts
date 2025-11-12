@@ -20,15 +20,6 @@ export const CommunityAnalytics = {
     });
   },
 
-  trackSpaceCreated: (spaceId: string, spaceName: string, category: string) => {
-    posthog?.capture('space_created', {
-      space_id: spaceId,
-      space_name: spaceName,
-      category,
-      timestamp: new Date().toISOString(),
-    });
-  },
-
   trackSpaceLeft: (spaceId: string, spaceName: string) => {
     posthog?.capture('space_left', {
       space_id: spaceId,
