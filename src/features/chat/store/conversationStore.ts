@@ -119,10 +119,24 @@ export const useConversationStore = create<ConversationStore>()(
             throw result.error;
           }
           
+          const newConversations = result.data || [];
+          
+          // ✅ CRITICAL FIX: Preserve activeConversationId if it exists and conversation still exists
+          // This prevents losing activeConversationId when conversations are refreshed
+          const currentState = get();
+          let preservedActiveId = currentState.activeConversationId;
+          
+          // If activeConversationId exists but conversation not in new list, clear it
+          if (preservedActiveId && !newConversations.find(c => c.conversation_id === preservedActiveId)) {
+            log.debug('App', '[ConversationStore] Active conversation no longer exists, clearing activeConversationId');
+            preservedActiveId = null;
+          }
+          
           set({ 
-            conversations: result.data || [], 
+            conversations: newConversations, 
             loading: false, 
             hasInitialized: true,
+            activeConversationId: preservedActiveId, // Preserve or clear based on above check
             lastUpdate: Date.now()
           });
           

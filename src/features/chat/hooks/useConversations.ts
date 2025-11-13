@@ -14,12 +14,19 @@ import { log } from '@/utils/logger';
  * - Legacy compatibility
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useConversationStore } from '../store/conversationStore';
 import { useNavigationStore } from '../store/navigationStore';
 import { useRealtimeStore } from '../store/realtimeStore';
 import { transformConversationToLegacy, type LegacyConversation } from '../types';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { 
+  parseConversationUrlParams
+} from '@/utils/conversationUrlUtils';
+import { 
+  getActiveConversationIdFromStorage,
+  getConversationsFromStorage
+} from '@/utils/chatPersistenceRecovery';
 
 /**
  * Hook for conversation management with real-time synchronization
@@ -27,11 +34,21 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 export function useConversations() {
   const { user } = useOptimizedAuth();
   // Reset conversations when the authenticated user changes to avoid stale data flashes
+  // ✅ CRITICAL FIX: Don't reset if we're just rehydrating (user ID hasn't actually changed)
+  const previousUserIdRef = useRef<string | undefined>(user?.id);
+  
   useEffect(() => {
     if (!user?.id) return;
-    try {
-      useConversationStore.getState().reset();
-    } catch {}
+    
+    // Only reset if user ID actually changed (not just on mount/rehydration)
+    if (previousUserIdRef.current && previousUserIdRef.current !== user.id) {
+      log.debug('Hook', '[useConversations] User ID changed, resetting conversations');
+      try {
+        useConversationStore.getState().reset();
+      } catch {}
+    }
+    
+    previousUserIdRef.current = user.id;
   }, [user?.id]);
   
   // Store selectors
@@ -118,6 +135,87 @@ export function useConversations() {
       window.removeEventListener('resize', checkMobileDevice);
     };
   }, [setMobileDevice]);
+
+  // ✅ CRITICAL FIX: Visibility-aware restoration - restore activeConversationId when page becomes visible
+  const wasVisibleRef = useRef(!document.hidden);
+  
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      
+      // Only handle when page becomes visible (not when it becomes hidden)
+      if (isVisible && !wasVisibleRef.current) {
+        log.debug('Hook', '[useConversations] Page became visible - checking activeConversationId');
+        
+        const currentActiveId = activeConversationId;
+        
+        // If activeConversationId is null, try to restore it
+        if (!currentActiveId) {
+          // Try 1: Check URL params (mobile)
+          const { conversationId: urlId } = parseConversationUrlParams();
+          if (urlId) {
+            log.debug('Hook', '[useConversations] Restoring activeConversationId from URL:', urlId);
+            setActiveConversationId(urlId);
+            return;
+          }
+          
+          // Try 2: Check localStorage directly (persistence fallback)
+          const storedId = getActiveConversationIdFromStorage();
+          if (storedId) {
+            log.debug('Hook', '[useConversations] Restoring activeConversationId from localStorage:', storedId);
+            setActiveConversationId(storedId);
+            return;
+          }
+          
+          // Try 3: If conversations exist but activeConversationId is null, 
+          // check if we can restore from stored conversations
+          if (conversations.length > 0) {
+            const storedConversations = getConversationsFromStorage();
+            if (storedConversations.length > 0) {
+              // Use the first conversation as fallback (most recent)
+              const firstConversation = storedConversations[0];
+              if (firstConversation?.conversation_id) {
+                log.debug('Hook', '[useConversations] Restoring activeConversationId from stored conversations:', firstConversation.conversation_id);
+                setActiveConversationId(firstConversation.conversation_id);
+              }
+            }
+          }
+        }
+      }
+      
+      wasVisibleRef.current = isVisible;
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeConversationId, conversations.length, setActiveConversationId]);
+
+  // ✅ CRITICAL FIX: Restore activeConversationId when conversations are loaded but activeConversationId is null
+  useEffect(() => {
+    if (!hasInitialized || conversations.length === 0) return;
+    
+    // If we have conversations but no activeConversationId, try to restore it
+    if (!activeConversationId) {
+      // Try 1: Check URL params (mobile)
+      const { conversationId: urlId } = parseConversationUrlParams();
+      if (urlId && conversations.find(c => c.conversation_id === urlId)) {
+        log.debug('Hook', '[useConversations] Restoring activeConversationId from URL after conversations loaded:', urlId);
+        setActiveConversationId(urlId);
+        return;
+      }
+      
+      // Try 2: Check localStorage directly
+      const storedId = getActiveConversationIdFromStorage();
+      if (storedId && conversations.find(c => c.conversation_id === storedId)) {
+        log.debug('Hook', '[useConversations] Restoring activeConversationId from localStorage after conversations loaded:', storedId);
+        setActiveConversationId(storedId);
+        return;
+      }
+    }
+  }, [hasInitialized, conversations.length, activeConversationId, setActiveConversationId]);
 
   // ✅ CRITICAL FIX: Enhanced fallback mechanism to refresh stale conversation data
   useEffect(() => {

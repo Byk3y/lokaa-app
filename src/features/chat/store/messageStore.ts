@@ -48,7 +48,7 @@ interface MessageState {
  */
 interface MessageActions {
   // Core operations
-  fetchMessages: (conversationId: string) => Promise<void>;
+  fetchMessages: (conversationId: string, options?: { force?: boolean }) => Promise<void>;
   sendMessage: (conversationId: string, content: string, attachmentUrl?: string, attachmentType?: string) => Promise<void>;
   markAsRead: (conversationId: string) => Promise<void>;
   
@@ -77,6 +77,8 @@ interface MessageActions {
   setError: (error: string | null) => void;
   clearError: () => void;
   reset: () => void;
+  getLastFetchTime: (conversationId: string) => number;
+  isStale: (conversationId: string, staleTime?: number) => boolean;
 }
 
 type MessageStore = MessageState & MessageActions;
@@ -93,11 +95,13 @@ export const useMessageStore = create<MessageStore>()(
       retryQueue: [],
       error: null,
       lastUpdate: Date.now(),
+      lastFetchTimes: {},
 
       // Fetch messages for a conversation
-      fetchMessages: async (conversationId: string) => {
+      fetchMessages: async (conversationId: string, options: { force?: boolean } = {}) => {
         const { loadingMessages } = get();
-        if (loadingMessages[conversationId]) {
+        // Allow force refresh even if already loading
+        if (loadingMessages[conversationId] && !options.force) {
           log.debug('App', '[MessageStore] Already loading messages for conversation:', conversationId);
           return;
         }
@@ -122,6 +126,10 @@ export const useMessageStore = create<MessageStore>()(
             loadingMessages: {
               ...state.loadingMessages,
               [conversationId]: false
+            },
+            lastFetchTimes: {
+              ...state.lastFetchTimes,
+              [conversationId]: Date.now()
             },
             lastUpdate: Date.now()
           }));
@@ -578,15 +586,36 @@ export const useMessageStore = create<MessageStore>()(
           loadingMessages: {},
           retryQueue: [],
           error: null,
-          lastUpdate: Date.now()
+          lastUpdate: Date.now(),
+          lastFetchTimes: {}
         });
+      },
+
+      // Get last fetch time for a conversation
+      getLastFetchTime: (conversationId: string) => {
+        const { lastFetchTimes } = get();
+        return lastFetchTimes[conversationId] || 0;
+      },
+
+      // Check if messages are stale (older than 5 minutes)
+      isStale: (conversationId: string, staleTime: number = 5 * 60 * 1000) => {
+        const { lastFetchTimes, messages } = get();
+        const lastFetch = lastFetchTimes[conversationId] || 0;
+        const hasMessages = messages[conversationId] && messages[conversationId].length > 0;
+        
+        // If no messages, consider it stale
+        if (!hasMessages) return true;
+        
+        // If messages exist but are older than staleTime, consider stale
+        return Date.now() - lastFetch > staleTime;
       }
     }),
     {
       name: 'message-store',
       partialize: (state) => ({
         messages: state.messages,
-        retryQueue: state.retryQueue
+        retryQueue: state.retryQueue,
+        lastFetchTimes: state.lastFetchTimes
       })
     }
   )

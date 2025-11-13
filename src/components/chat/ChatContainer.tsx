@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useConversations, ChatListUnified } from '@/features/chat';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import ChatView from '@/components/chat/ChatView';
@@ -14,6 +14,10 @@ import {
   findConversationIdFromSlug,
   navigateToConversationList
 } from '@/utils/conversationUrlUtils';
+import { 
+  getActiveConversationIdFromStorage,
+  getConversationByIdFromStorage
+} from '@/utils/chatPersistenceRecovery';
 
 interface ChatContainerProps {
   initialConversationId?: string;
@@ -39,8 +43,7 @@ export default function ChatContainer({
     activeConversationId, 
     activeLegacyConversation,
     fetchConversations, 
-    selectConversation,
-    getLegacyConversationById
+    selectConversation
   } = useConversations();
   
   const isMobileDevice = useMediaQuery("(max-width: 640px)");
@@ -52,6 +55,20 @@ export default function ChatContainer({
     return initialConversationId ? 'chat' : 'list';
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
+  
+  // ✅ CRITICAL FIX: Cache the last valid conversation to prevent unmounting during rehydration
+  const cachedConversationRef = useRef<LegacyConversation | null>(null);
+  const lastInitialConversationIdRef = useRef<string | undefined>(initialConversationId);
+  
+  // Clear cache if initialConversationId changes
+  useEffect(() => {
+    if (lastInitialConversationIdRef.current !== initialConversationId) {
+      if (initialConversationId !== cachedConversationRef.current?.conversation_id) {
+        cachedConversationRef.current = null;
+      }
+      lastInitialConversationIdRef.current = initialConversationId;
+    }
+  }, [initialConversationId]);
 
   // DEBUG: Log container state
   log.debug('Component', '🗨️ [ChatContainer] Rendered with state:', {
@@ -62,6 +79,7 @@ export default function ChatContainer({
     conversationsLength: legacyConversations?.length || 0,
     userId: user?.id
   });
+  console.log('🚨 [CHAT_CONTAINER] render', { view, activeConversationId, conversations: legacyConversations?.length || 0 });
 
   // ✅ MODERN 2025: Prevent background scroll when chat is open
   useEffect(() => {
@@ -74,28 +92,82 @@ export default function ChatContainer({
     }
   }, [isModal, view]);
 
-  // Handle initial conversation ID and URL changes
+  // ✅ CRITICAL FIX: Primary source of truth - use initialConversationId prop
+  // This ensures we always have a conversation ID even if store hasn't rehydrated
   useEffect(() => {
     log.debug('Component', '🗨️ [ChatContainer] UseEffect - setup:', {
       initialConversationId,
+      activeConversationId,
       willSetView: initialConversationId ? 'chat' : 'list'
     });
     
-    // ✅ INFINITE LOOP FIX: Only depend on initialConversationId, not the function
+    // ✅ PRIMARY SOURCE: Use initialConversationId as source of truth
     if (initialConversationId) {
-      selectConversation(initialConversationId);
+      // Always sync store with prop (even if store already has it)
+      // This handles cases where store was cleared but prop still has value
+      if (activeConversationId !== initialConversationId) {
+        log.debug('Component', '🗨️ [ChatContainer] Syncing activeConversationId with initialConversationId:', initialConversationId);
+        selectConversation(initialConversationId);
+      }
       setView('chat');
     } else {
-      // Only show list view if no conversation is pre-selected AND not in modal
-      // For modals without a pre-selected conversation, close the modal instead
-      if (isModal) {
-        log.debug('Component', '🗨️ [ChatContainer] Modal opened without conversation - should not show selector');
-        onClose?.();
-        return;
+      // No initialConversationId - check if we have activeConversationId from store
+      if (activeConversationId) {
+        // Store has a conversation, use it
+        log.debug('Component', '🗨️ [ChatContainer] No initialConversationId but have activeConversationId, using store value');
+        setView('chat');
+      } else {
+        // No conversation anywhere - show list or close modal
+        if (isModal) {
+          log.debug('Component', '🗨️ [ChatContainer] Modal opened without conversation - closing');
+          onClose?.();
+          return;
+        }
+        setView('list');
       }
-      setView('list');
     }
   }, [initialConversationId, isModal]); // ✅ FIXED: Removed selectConversation and onClose from dependencies
+
+  // ✅ CRITICAL FIX: Visibility-aware restoration - restore activeConversationId when page becomes visible
+  useEffect(() => {
+    let wasVisible = !document.hidden;
+
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      
+      // Only handle when page becomes visible (not when it becomes hidden)
+      if (isVisible && !wasVisible) {
+        log.debug('Component', '🗨️ [ChatContainer] Page became visible - checking conversation state');
+        
+        // ✅ RESTORATION LOGIC: If activeConversationId is null but initialConversationId exists, restore it
+        if (!activeConversationId && initialConversationId) {
+          log.debug('Component', '🗨️ [ChatContainer] Restoring activeConversationId from initialConversationId:', initialConversationId);
+          selectConversation(initialConversationId);
+          setView('chat');
+        } else if (!activeConversationId && !initialConversationId) {
+          // Both are null - try to restore from localStorage directly
+          const storedId = getActiveConversationIdFromStorage();
+          if (storedId) {
+            log.debug('Component', '🗨️ [ChatContainer] Restoring activeConversationId from localStorage:', storedId);
+            selectConversation(storedId);
+            setView('chat');
+          }
+        } else if (activeConversationId && view !== 'chat') {
+          // Store has conversation but view is wrong - restore view
+          log.debug('Component', '🗨️ [ChatContainer] Restoring chat view from activeConversationId');
+          setView('chat');
+        }
+      }
+      
+      wasVisible = isVisible;
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeConversationId, initialConversationId, view, selectConversation]);
 
   // Mobile-only: Listen for URL changes (browser back/forward navigation)
   useEffect(() => {
@@ -220,8 +292,91 @@ export default function ChatContainer({
     }
   };
   
-  // ✅ FIXED: Use consistent legacy conversation from new store
-  const selectedConversation = activeLegacyConversation;
+  // ✅ CRITICAL FIX: Multi-source truth with caching to prevent unmounting during rehydration
+  // This ensures ChatView never unmounts when store temporarily resets
+  const selectedConversation = useMemo(() => {
+    // Helper function to get conversation from storage
+    const getConversationFromStorage = (conversationId: string): LegacyConversation | null => {
+      const storedConversation = getConversationByIdFromStorage(conversationId);
+      if (storedConversation && storedConversation.conversation_id) {
+        const conversation: LegacyConversation = {
+          conversation_id: storedConversation.conversation_id,
+          conversation_name: storedConversation.conversation_name || storedConversation.name || null,
+          is_group: storedConversation.is_group || false,
+          created_at: storedConversation.created_at || new Date().toISOString(),
+          last_message_at: storedConversation.last_message_at || null,
+          latest_message_content: storedConversation.latest_message_content || storedConversation.last_message || null,
+          latest_message_time: storedConversation.latest_message_time || storedConversation.last_message_at || null,
+          latest_message_sender: storedConversation.latest_message_sender || null,
+          unread_count: storedConversation.unread_count || 0,
+          other_participants: storedConversation.other_participants || storedConversation.participants?.filter((p: any) => p.user_id !== user?.id) || []
+        };
+        
+        // Only return if has proper participant data
+        if (conversation.other_participants && conversation.other_participants.length > 0) {
+          return conversation;
+        }
+      }
+      return null;
+    };
+    
+    // Primary: Use activeLegacyConversation from store if available
+    if (activeLegacyConversation && activeLegacyConversation.other_participants && activeLegacyConversation.other_participants.length > 0) {
+      cachedConversationRef.current = activeLegacyConversation;
+      return activeLegacyConversation;
+    }
+    
+    // ✅ CRITICAL FIX: If activeConversationId is null but we have initialConversationId,
+    // try to get conversation from store by ID (store might have conversations but activeConversationId not set yet)
+    if (initialConversationId) {
+      // ✅ FIX: Search legacyConversations directly instead of using function reference
+      // This avoids including function in dependency array
+      const conversation = legacyConversations.find(c => c.conversation_id === initialConversationId);
+      if (conversation && conversation.other_participants && conversation.other_participants.length > 0) {
+        log.debug('Component', '🗨️ [ChatContainer] Using conversation from store by initialConversationId:', initialConversationId);
+        cachedConversationRef.current = conversation;
+        return conversation;
+      }
+      
+      // Fallback: Try to get from localStorage directly (persistence hasn't rehydrated)
+      const storedConversation = getConversationFromStorage(initialConversationId);
+      if (storedConversation) {
+        log.debug('Component', '🗨️ [ChatContainer] Using conversation from localStorage:', initialConversationId);
+        cachedConversationRef.current = storedConversation;
+        return storedConversation;
+      }
+    }
+    
+    // Fallback: If activeConversationId exists but no conversation found, try storage
+    if (activeConversationId) {
+      // ✅ FIX: Search legacyConversations directly instead of using function reference
+      const conversation = legacyConversations.find(c => c.conversation_id === activeConversationId);
+      if (conversation && conversation.other_participants && conversation.other_participants.length > 0) {
+        log.debug('Component', '🗨️ [ChatContainer] Using conversation from store by activeConversationId:', activeConversationId);
+        cachedConversationRef.current = conversation;
+        return conversation;
+      }
+      
+      const storedConversation = getConversationFromStorage(activeConversationId);
+      if (storedConversation) {
+        log.debug('Component', '🗨️ [ChatContainer] Using conversation from localStorage (activeConversationId):', activeConversationId);
+        cachedConversationRef.current = storedConversation;
+        return storedConversation;
+      }
+    }
+    
+    // ✅ CRITICAL FIX: Return cached conversation if available (prevents unmounting during rehydration)
+    // This ensures ChatView stays mounted even when store temporarily resets
+    if (cachedConversationRef.current && 
+        cachedConversationRef.current.conversation_id === initialConversationId &&
+        cachedConversationRef.current.other_participants && 
+        cachedConversationRef.current.other_participants.length > 0) {
+      log.debug('Component', '🗨️ [ChatContainer] Using cached conversation during rehydration:', cachedConversationRef.current.conversation_id);
+      return cachedConversationRef.current;
+    }
+    
+    return null;
+  }, [activeLegacyConversation, initialConversationId, activeConversationId, legacyConversations, user?.id]);
 
   // DEBUG: Log conversation selection
   log.debug('Component', '🗨️ [ChatContainer] Conversation selection:', {
@@ -271,12 +426,9 @@ export default function ChatContainer({
           )}
         </>
       )}
-      {/* ✅ MODAL FIX: Removed redundant "Select a Conversation" modal view 
-           Modals should always have a pre-selected conversation or close themselves */}
+      {/* ✅ CRITICAL FIX: Only show chat view if we have selectedConversation with proper participant data
+           This prevents UI flashes from missing participant data */}
       {view === 'chat' && selectedConversation && (
-        (() => {
-          log.debug('Component', '🗨️ [ChatContainer] Rendering ChatView with conversation:', selectedConversation);
-          return (
         <ChatView
           conversation={selectedConversation}
           onBack={handleBack}
@@ -287,8 +439,6 @@ export default function ChatContainer({
           isModal={isModal}
           onConversationUpdated={fetchConversations}
         />
-          );
-        })()
       )}
       {view === 'new' && (
         <StartNewChatView onBack={handleBack} onConversationCreated={(id) => {

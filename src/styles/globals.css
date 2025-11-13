@@ -269,6 +269,25 @@ html {
   }
 }
 
+/* Post Detail Modal - Disable animations on mobile for instant appearance */
+@media (max-width: 767px) {
+  .post-detail-modal-fullscreen[data-state="open"] {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  
+  /* Override Radix UI Dialog animation classes on mobile */
+  .post-detail-modal-fullscreen[data-state="open"].animate-in,
+  .post-detail-modal-fullscreen[data-state="open"][class*="slide-in-from"],
+  .post-detail-modal-fullscreen[data-state="open"][class*="zoom-in"],
+  .post-detail-modal-fullscreen[data-state="open"][class*="fade-in"] {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+
 /* Create Post Modal - Auto-resize Textarea Support */
 .create-post-textarea {
   /* Smooth height transitions */

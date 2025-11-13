@@ -13,7 +13,7 @@ import { log } from '@/utils/logger';
  * - Read status management
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useMessageStore } from '../store/messageStore';
 import { useConversationStore } from '../store/conversationStore';
 import type { Message } from '../services/ChatApiService';
@@ -44,6 +44,9 @@ export function useMessages(conversationId?: string) {
     reorderConversations
   } = useConversationStore();
 
+  // Track visibility state
+  const wasVisibleRef = useRef(true);
+
   // Auto-fetch messages when conversationId changes
   useEffect(() => {
     if (conversationId) {
@@ -51,6 +54,91 @@ export function useMessages(conversationId?: string) {
       fetchMessages(conversationId);
     }
   }, [conversationId, fetchMessages]);
+
+  // ✅ CRITICAL FIX: Visibility-aware refresh - detect when page becomes visible again
+  // Wait for rehydration before checking if messages are empty
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      
+      // Only handle when page becomes visible (not when it becomes hidden)
+      if (isVisible && !wasVisibleRef.current) {
+        log.debug('Hook', '[useMessages] Page became visible - waiting for rehydration before checking');
+        
+        // ✅ CRITICAL FIX: Wait for persistence rehydration before checking messages
+        // This prevents false empty checks when messages exist but haven't loaded yet
+        setTimeout(() => {
+          // ✅ FIX: Access store directly inside handler to avoid function reference dependencies
+          const store = useMessageStore.getState();
+          
+          // Check localStorage first as fallback
+          import('@/utils/chatPersistenceRecovery').then(({ 
+            getMessagesFromStorage, 
+            getLastFetchTimeFromStorage,
+            hasMessagesInStorage 
+          }) => {
+            // Access store functions directly from store state
+            const storeMessages = store.getMessages(conversationId);
+            const storedMessages = getMessagesFromStorage(conversationId);
+            const hasStoredMessages = hasMessagesInStorage(conversationId);
+            
+            // Use store messages if available, otherwise check storage
+            const messages = storeMessages.length > 0 ? storeMessages : storedMessages;
+            const isEmpty = !messages || messages.length === 0;
+            
+            // Get fetch time from store or storage
+            const storeFetchTime = store.getLastFetchTime(conversationId);
+            const storedFetchTime = getLastFetchTimeFromStorage(conversationId);
+            const lastFetch = storeFetchTime || storedFetchTime;
+            
+            // Only check staleness if we have messages
+            const isStaleData = isEmpty ? true : store.isStale(conversationId, 0);
+            const timeSinceFetch = lastFetch > 0 ? Date.now() - lastFetch : Infinity;
+            
+            log.debug('Hook', '[useMessages] Visibility check after rehydration:', {
+              conversationId,
+              storeMessagesCount: storeMessages.length,
+              storedMessagesCount: storedMessages.length,
+              isEmpty,
+              hasStoredMessages,
+              lastFetch,
+              timeSinceFetch,
+              isStaleData
+            });
+            
+            if (isEmpty && !hasStoredMessages) {
+              // Truly empty - no cached data, fetch immediately
+              log.debug('Hook', '[useMessages] No messages found (store or storage), fetching:', conversationId);
+              store.fetchMessages(conversationId, { force: true });
+            } else if (!isEmpty && timeSinceFetch > 30000) {
+              // Messages exist but might be stale (>30 seconds) - refresh in background
+              log.debug('Hook', '[useMessages] Messages exist but stale, refreshing in background');
+              store.fetchMessages(conversationId, { force: true });
+            } else if (hasStoredMessages && storeMessages.length === 0) {
+              // Messages exist in storage but not in store yet - wait for rehydration
+              // Don't trigger fetch, let rehydration happen naturally
+              log.debug('Hook', '[useMessages] Messages exist in storage, waiting for rehydration');
+            } else {
+              log.debug('Hook', '[useMessages] Messages are fresh, no refresh needed');
+            }
+          });
+        }, 200); // Wait 200ms for rehydration to complete
+      }
+      
+      wasVisibleRef.current = isVisible;
+    };
+
+    // Set initial visibility state
+    wasVisibleRef.current = !document.hidden;
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [conversationId]); // ✅ FIX: Only depend on conversationId - access store directly inside handler
 
   /**
    * Get messages for the current conversation
@@ -190,9 +278,9 @@ export function useMessages(conversationId?: string) {
   /**
    * Refresh messages for current conversation
    */
-  const refreshMessages = useCallback(async () => {
+  const refreshMessages = useCallback(async (force: boolean = false) => {
     if (conversationId) {
-      await fetchMessages(conversationId);
+      await fetchMessages(conversationId, { force });
     }
   }, [conversationId, fetchMessages]);
 

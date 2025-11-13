@@ -39,6 +39,38 @@ export default function ChatView({
     refreshMessages
   } = useMessages(initialConversation.conversation_id);
   
+  // ✅ CRITICAL FIX: Check localStorage for cached messages before showing spinner
+  // This prevents showing spinner when messages exist but haven't rehydrated yet
+  const [hasCheckedStorage, setHasCheckedStorage] = useState(false);
+  const [cachedMessages, setCachedMessages] = useState<any[]>([]);
+  
+  useEffect(() => {
+    // Check localStorage immediately for cached messages
+    if (!hasCheckedStorage && initialConversation.conversation_id) {
+      import('@/utils/chatPersistenceRecovery').then(({ getMessagesFromStorage }) => {
+        const storedMessages = getMessagesFromStorage(initialConversation.conversation_id);
+        if (storedMessages.length > 0) {
+          log.debug('Component', '🗨️ [ChatView] Found cached messages in storage:', storedMessages.length);
+          setCachedMessages(storedMessages);
+        }
+        setHasCheckedStorage(true);
+      });
+    }
+  }, [hasCheckedStorage, initialConversation.conversation_id]);
+  
+  // ✅ CRITICAL FIX: Clear cached messages when store messages become available
+  // This ensures we use store messages (which are reactive) once they're loaded
+  useEffect(() => {
+    if (messages.length > 0 && cachedMessages.length > 0) {
+      log.debug('Component', '🗨️ [ChatView] Store messages loaded, clearing cached messages');
+      setCachedMessages([]);
+    }
+  }, [messages.length, cachedMessages.length]);
+  
+  // Use cached messages if store messages are empty but we have cached ones
+  const displayMessages = messages.length > 0 ? messages : (cachedMessages.length > 0 ? cachedMessages : []);
+  const shouldShowLoading = isLoading && messages.length === 0 && cachedMessages.length === 0;
+  
   const [sending, setSending] = useState(false);
   const [currentConversation, setCurrentConversation] = useState(initialConversation);
   
@@ -186,6 +218,28 @@ export default function ChatView({
     }
   }, [currentConversation?.conversation_id, user?.id]); // ✅ INFINITE LOOP FIX: Removed refreshMessages from dependencies
 
+  // ✅ CRITICAL FIX: Ensure messages are fetched if empty on mount (handles persistence rehydration delay)
+  useEffect(() => {
+    if (!currentConversation?.conversation_id) return;
+    
+    // Small delay to allow persistence to rehydrate first
+    const timeoutId = setTimeout(() => {
+      // Access messages directly from store to avoid stale closure
+      import('@/features/chat/store/messageStore').then(({ useMessageStore }) => {
+        const store = useMessageStore.getState();
+        const currentMessages = store.getMessages(currentConversation.conversation_id);
+        const isLoading = store.loadingMessages[currentConversation.conversation_id] || false;
+        
+        if (currentMessages.length === 0 && !isLoading) {
+          log.debug('Component', '🗨️ [ChatView] Messages still empty after delay, fetching:', currentConversation.conversation_id);
+          store.fetchMessages(currentConversation.conversation_id, { force: true });
+        }
+      });
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [currentConversation?.conversation_id]); // Only run when conversation changes
+
   // ✅ INSTANT BOTTOM POSITIONING: Pre-calculate and set scroll position before rendering
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -195,12 +249,12 @@ export default function ChatView({
     // This means either no connection context needed, or connection context has finished loading
     const shouldPosition = !shouldShowConnectionContext || !isConnectionContextLoading;
     
-    if (shouldPosition && messages.length > 0) {
+    if (shouldPosition && displayMessages.length > 0) {
       // ✅ INSTANT BOTTOM: Pre-calculate total height needed for all messages
       const estimatedMessageHeight = 80; // Average height per message in pixels
       const connectionContextHeight = shouldShowConnectionContext ? 200 : 0; // Height of connection context
       const paddingHeight = 32; // Account for container padding (p-4 = 16px top + 16px bottom)
-      const totalEstimatedHeight = (messages.length * estimatedMessageHeight) + connectionContextHeight + paddingHeight;
+      const totalEstimatedHeight = (displayMessages.length * estimatedMessageHeight) + connectionContextHeight + paddingHeight;
       
       // ✅ INSTANT BOTTOM: Set container height and scroll position BEFORE rendering
       container.style.height = `${totalEstimatedHeight}px`;
@@ -222,19 +276,19 @@ export default function ChatView({
               scrollTop: container.scrollTop,
               scrollHeight: container.scrollHeight,
               clientHeight: container.clientHeight,
-              messageCount: messages.length,
+              messageCount: displayMessages.length,
               estimatedHeight: totalEstimatedHeight
             });
           }
         });
       });
     }
-  }, [shouldShowConnectionContext, isConnectionContextLoading, messages.length]); // Depend on connection context loading state
+  }, [shouldShowConnectionContext, isConnectionContextLoading, displayMessages.length]); // Depend on connection context loading state and displayMessages
 
   // ✅ INSTANT BOTTOM: Handle NEW messages with instant positioning (no animation)
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (!container || !messages.length) return;
+    if (!container || !displayMessages.length) return;
     
     // ✅ CRITICAL FIX: Don't scroll if ConnectionContext is still loading
     if (shouldShowConnectionContext && isConnectionContextLoading) {
@@ -249,7 +303,7 @@ export default function ChatView({
     }
     
     // ✅ CRITICAL FIX: Only handle NEW messages, not initial load
-    const currentMessageCount = messages.length;
+    const currentMessageCount = displayMessages.length;
     const previousCount = previousMessagesLength.current;
     
     if (currentMessageCount <= previousCount) {
@@ -281,7 +335,7 @@ export default function ChatView({
         });
       }
     }
-  }, [messages.length, shouldShowConnectionContext, isConnectionContextLoading]); // Added ConnectionContext loading state
+  }, [displayMessages.length, shouldShowConnectionContext, isConnectionContextLoading]); // Use displayMessages for scroll tracking
   
   const handleSendMessage = async (content: string) => {
     if (!user || !currentConversation?.conversation_id) return;
@@ -350,29 +404,26 @@ export default function ChatView({
           )
         ) : null}
         
-        {/* ✅ CRITICAL FIX: Don't render messages until ConnectionContext is done loading */}
-        {loading && messages.length === 0 ? (
+        {/* ✅ CRITICAL FIX: Show cached messages immediately, only show spinner if truly no data */}
+        {shouldShowLoading ? (
+          // Only show spinner if we have NO cached messages AND we're loading
           <div className="flex justify-center items-center h-32">
             <div className="animate-spin h-6 w-6 border-t-2 border-blue-500 rounded-full"></div>
           </div>
-        ) : shouldShowConnectionContext && isConnectionContextLoading ? (
-          // Show loading state while ConnectionContext is loading
-          <div className="flex justify-center items-center h-32">
-            <div className="animate-spin h-6 w-6 border-t-2 border-blue-500 rounded-full"></div>
-          </div>
-        ) : (
-          messages.map((msg) => (
+        ) : displayMessages.length > 0 ? (
+          // Show messages (cached or from store) immediately
+          displayMessages.map((msg) => (
             <div key={msg.id} className={`flex items-end gap-2 ${msg.sender_id === user?.id ? 'justify-end' : ''}`}>
               {msg.sender_id !== user?.id && (
                 <img 
                   src={msg.sender?.avatar_url || '/default-avatar.png'} 
                   alt={msg.sender?.full_name || 'sender'} 
-                  className="h-8 w-8 rounded-full" 
+                  className="h-8 w-8 rounded-full"
                 />
               )}
               <div className={`max-w-xs md:max-w-md p-3 rounded-lg ${
-                msg.sender_id === user?.id 
-                  ? 'bg-teal-500 text-white' 
+                msg.sender_id === user?.id
+                  ? 'bg-teal-500 text-white'
                   : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
               }`}>
                 <p className="text-sm">{msg.content}</p>
@@ -385,7 +436,7 @@ export default function ChatView({
               </div>
             </div>
           ))
-        )}
+        ) : null}
         <div ref={messagesEndRef} />
       </div>
       

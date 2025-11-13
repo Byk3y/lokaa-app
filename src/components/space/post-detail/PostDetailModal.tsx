@@ -357,12 +357,18 @@ export default function PostDetailModal({
             "p-0 m-0 gap-0 border-0",
             /* Override default grid to flex on mobile */
             "flex flex-col",
+            /* Mobile: Disable animations by making duration 0 and overriding transforms */
+            "duration-0 data-[state=open]:duration-0",
+            /* Mobile: Disable transitions */
+            "transition-none md:transition-all",
             /* Desktop: Centered modal with constraints - reset inset on desktop */  
             "md:left-[50%] md:top-[50%] md:right-auto md:bottom-auto md:translate-x-[-50%] md:translate-y-[-50%]",
             "md:max-w-3xl md:w-[90vw] md:h-auto md:max-h-[95vh] md:min-h-[400px] md:rounded-lg",
             "md:border md:gap-4",
-            /* Smooth height transitions */
-            "transition-all duration-300 ease-in-out",
+            /* Desktop: Re-enable animations */
+            "md:duration-200 md:data-[state=open]:duration-200",
+            /* Desktop: Smooth height transitions */
+            "md:transition-all md:duration-300 md:ease-in-out",
             /* Custom class for targeting */
             "post-detail-modal-fullscreen"
           )}
@@ -382,6 +388,8 @@ export default function PostDetailModal({
               padding: 0,
               gap: 0,
               border: 'none',
+              animation: 'none',
+              transition: 'none',
             } : {}),
           }}
           hideCloseButton={true}
