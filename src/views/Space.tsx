@@ -248,7 +248,7 @@ export default function Space({ initialTab }: SpaceProps) {
   const canEditSpace = storePermissions?.canEditSpace ?? false;
   const canManageMembers = storePermissions?.canManageMembers ?? false;
   const canAccessSettings = storePermissions?.canAccessSettings ?? false;
-  // For canCreateContent, SpaceProtectedRoute already handles access.
+  // For canCreateContent, TrulyPersistentAppShell already handles access.
   // We assume if a user can view the space, they can create content.
   const canCreateContent = true; 
 
@@ -471,15 +471,15 @@ export default function Space({ initialTab }: SpaceProps) {
     };
   }, [storeSpace]);
 
-  // FIXED: Remove loading states since SpaceProtectedRoute + SpaceShellLayout handle loading
+  // FIXED: Remove loading states since TrulyPersistentAppShell + SpaceShellLayout handle loading
   // Space.tsx should not be rendered in current architecture, but if it is, don't show duplicate loading
   if (authLoading || (!user && !storeError)) {
-    return null; // Let SpaceProtectedRoute handle loading
+    return null; // Let TrulyPersistentAppShell handle loading
   }
   
   // FIXED: Remove loading states - trust the current architecture
   if ((!storeSpace && storeLoadingSpace && !storeError && user)) {
-    return null; // Let SpaceProtectedRoute handle loading
+    return null; // Let TrulyPersistentAppShell handle loading
   }
 
   if (storeError) {
@@ -533,7 +533,7 @@ export default function Space({ initialTab }: SpaceProps) {
   }
 
   const renderActiveTabContent = () => {
-    // FIXED: Remove loading states - trust that SpaceProtectedRoute has ensured space data is available
+    // FIXED: Remove loading states - trust that TrulyPersistentAppShell has ensured space data is available
     // If we're being rendered, the data should be ready
     
     // Fallback if storeSpace is somehow null here (should be caught by earlier checks)

@@ -27,21 +27,6 @@ export interface User {
 }
 
 /**
- * Authentication state
- */
-export interface AuthState {
-  user: User | null;
-  session: {
-    access_token: string;
-    refresh_token: string;
-    expires_at: number;
-  } | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  error: string | null;
-}
-
-/**
  * User profile update payload
  */
 export interface UpdateProfilePayload {
@@ -52,12 +37,4 @@ export interface UpdateProfilePayload {
   timezone?: string;
   hideFromSearch?: boolean;
   socialLinks?: Record<string, string>;
-}
-
-/**
- * Auth credentials
- */
-export interface AuthCredentials {
-  email: string;
-  password: string;
 } 

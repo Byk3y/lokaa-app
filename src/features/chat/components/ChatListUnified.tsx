@@ -34,6 +34,7 @@ import { useMessageStore } from '../store/messageStore';
 import { useChatNavigation } from '../hooks/useChatNavigation';
 import type { LegacyConversation } from '../types';
 import ChatListItem from '@/components/chat/ChatListItem';
+import { getConversationsFromStorage } from '@/utils/chatPersistenceRecovery';
 
 /**
  * Props interface for the unified component
@@ -88,18 +89,51 @@ export function ChatListUnified({
     loading, 
     error, 
     fetchConversations,
-    refreshConversations
+    refreshConversations,
+    hasInitialized
   } = useConversations();
   
   const { markAsRead } = useMessageStore();
   const { isNavigationActive } = useChatNavigation();
-
+  
   // State
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOptions, setShowOptions] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [isMarkingRead, setIsMarkingRead] = useState(false);
+  
+  // ✅ CRITICAL FIX: Check for cached conversations to prevent spinner flash
+  const [hasCheckedCache, setHasCheckedCache] = useState(false);
+  const [cachedConversations, setCachedConversations] = useState<LegacyConversation[]>([]);
+  
+  useEffect(() => {
+    // Check localStorage for cached conversations immediately
+    if (!hasCheckedCache && typeof window !== 'undefined') {
+      try {
+        const cached = getConversationsFromStorage();
+        if (cached && cached.length > 0) {
+          log.debug('Component', '[ChatListUnified] Found cached conversations:', cached.length);
+          setCachedConversations(cached);
+        }
+      } catch (error) {
+        // Ignore errors - cache check is optional
+      }
+      setHasCheckedCache(true);
+    }
+  }, [hasCheckedCache]);
+  
+  // Clear cached conversations when store conversations load
+  useEffect(() => {
+    if (legacyConversations.length > 0 && cachedConversations.length > 0) {
+      setCachedConversations([]);
+    }
+  }, [legacyConversations.length, cachedConversations.length]);
+  
+  // Use cached conversations if store conversations are empty but we have cached ones
+  const displayConversations = legacyConversations.length > 0 ? legacyConversations : cachedConversations;
+  // Only show spinner if loading AND no cached conversations AND not initialized yet
+  const shouldShowLoading = loading && cachedConversations.length === 0 && !hasInitialized;
   
   // Refs
   const popoverContentRef = useRef<HTMLDivElement>(null);
@@ -267,7 +301,8 @@ export function ChatListUnified({
     setShowOptions(false);
     
     try {
-      const unreadConversations = legacyConversations.filter(conv => conv.unread_count > 0);
+      // ✅ FIX: Use displayConversations instead of legacyConversations to match what's displayed
+      const unreadConversations = displayConversations.filter(conv => (conv.unread_count || 0) > 0);
       
       if (unreadConversations.length === 0) {
         toast({
@@ -313,7 +348,7 @@ export function ChatListUnified({
   /**
    * Filter conversations based on search and filter
    */
-  const filteredConversations = legacyConversations.filter(conv => {
+  const filteredConversations = displayConversations.filter(conv => {
     // Apply unread filter
     if (filter === 'unread' && conv.unread_count === 0) return false;
     
@@ -330,8 +365,9 @@ export function ChatListUnified({
     return participantsMatch || nameMatch || messageMatch;
   });
 
-  // Calculate total unread count
-  const totalUnreadCount = legacyConversations.reduce((total, conv) => total + conv.unread_count, 0);
+  // ✅ FIX: Calculate total unread count from displayConversations to match what's displayed
+  // This ensures consistency when cached conversations are shown while store is rehydrating
+  const totalUnreadCount = displayConversations.reduce((total, conv) => total + (conv.unread_count || 0), 0);
 
   /**
    * Render header section
@@ -492,7 +528,7 @@ export function ChatListUnified({
   const renderConversationList = () => (
     <div className={`flex-1 overflow-hidden ${variant === 'popover' ? 'px-1 pb-2' : ''}`}>
       <ScrollArea className={`h-full ${variant === 'popover' ? 'max-h-[calc(70vh-140px)]' : ''}`}>
-        {loading ? (
+        {shouldShowLoading ? (
           <div className="p-8 flex justify-center items-center h-full min-h-[200px]">
             <div className="animate-spin h-6 w-6 border-t-2 border-blue-500 rounded-full"></div>
           </div>
