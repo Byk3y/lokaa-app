@@ -51,7 +51,8 @@ export function useMessages(conversationId?: string) {
   useEffect(() => {
     if (conversationId) {
       log.debug('Hook', '[useMessages] Auto-fetching messages for conversation:', conversationId);
-      fetchMessages(conversationId);
+      // Force fresh fetch to ensure we see latest messages (including from real-time)
+      fetchMessages(conversationId, { force: true });
     }
   }, [conversationId, fetchMessages]);
 

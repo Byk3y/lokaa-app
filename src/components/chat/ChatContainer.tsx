@@ -10,15 +10,11 @@ import { type LegacyConversation } from '@/features/chat/types';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import MobileSpaceDrawer from '@/components/mobile/MobileSpaceDrawer';
 import { useSpace } from '@/hooks/useSpace';
-import { 
+import {
   parseConversationUrlParams,
   findConversationIdFromSlug,
   navigateToConversationList
 } from '@/utils/conversationUrlUtils';
-import { 
-  getActiveConversationIdFromStorage,
-  getConversationByIdFromStorage
-} from '@/utils/chatPersistenceRecovery';
 
 interface ChatContainerProps {
   initialConversationId?: string;
@@ -66,8 +62,6 @@ export default function ChatContainer({
   // ✅ CRITICAL FIX: Cache the last valid conversation to prevent unmounting during rehydration
   const cachedConversationRef = useRef<LegacyConversation | null>(null);
   const lastInitialConversationIdRef = useRef<string | undefined>(initialConversationId);
-  // ✅ FIX: Track timeout for visibility change effect cleanup
-  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // ✅ MOBILE FIX: Ref to detect if component is hidden (display: none)
   const containerRef = useRef<HTMLDivElement>(null);
   // ✅ MOBILE FIX: Ref to track current view to prevent effect from overwriting user actions
@@ -177,75 +171,28 @@ export default function ChatContainer({
     }
   }, [initialConversationId, activeConversationId, isModal, isVisible, selectConversation, onClose]); // ✅ MOBILE FIX: Removed view from dependencies to prevent infinite loops
 
-  // ✅ CRITICAL FIX: Visibility-aware restoration - restore activeConversationId when page becomes visible
+  // Simplified visibility restoration - trust Zustand persistence
   useEffect(() => {
-    let wasVisible = !document.hidden;
-
     const handleVisibilityChange = () => {
-      const isVisible = !document.hidden;
-      
-      // ✅ FIX: Clear any pending timeout when visibility changes
-      if (visibilityTimeoutRef.current !== null) {
-        clearTimeout(visibilityTimeoutRef.current);
-        visibilityTimeoutRef.current = null;
-      }
-      
-      // Only handle when page becomes visible (not when it becomes hidden)
-      if (isVisible && !wasVisible) {
-        log.debug('Component', '🗨️ [ChatContainer] Page became visible - checking conversation state', {
-          currentView: viewRef.current,
-          activeConversationId,
-          initialConversationId
-        });
-        
-        // ✅ MOBILE FIX: Don't restore if user was on list view (preserve user's navigation state)
-        // If user clicked back to list, we should respect that choice
-        if (viewRef.current === 'list' && !initialConversationId) {
-          log.debug('Component', '🗨️ [ChatContainer] User was on list view, skipping restoration');
-          return;
-        }
-        
-        // ✅ RESTORATION LOGIC: If activeConversationId is null but initialConversationId exists, restore it
-        if (!activeConversationId && initialConversationId) {
-          log.debug('Component', '🗨️ [ChatContainer] Restoring activeConversationId from initialConversationId:', initialConversationId);
-          selectConversation(initialConversationId);
-          // Only set view to chat if not already at list (preserve user's choice)
-          if (viewRef.current !== 'list') {
-            setView('chat');
-          }
-        } else if (!activeConversationId && !initialConversationId) {
-          // Both are null - try to restore from localStorage directly
-          // ✅ MOBILE FIX: Only restore if user wasn't on list view
-          if (viewRef.current !== 'list') {
-            const storedId = getActiveConversationIdFromStorage();
-            if (storedId) {
-              log.debug('Component', '🗨️ [ChatContainer] Restoring activeConversationId from localStorage:', storedId);
-              selectConversation(storedId);
-              setView('chat');
-            }
-          }
-        } else if (activeConversationId && viewRef.current !== 'chat' && viewRef.current !== 'list') {
-          // Store has conversation but view is wrong - restore view
-          // ✅ MOBILE FIX: Don't restore if user was on list view (preserve user's navigation state)
-          log.debug('Component', '🗨️ [ChatContainer] Restoring chat view from activeConversationId');
+      if (document.hidden || viewRef.current === 'list') return; // Skip if hidden or on list
+
+      // Only restore if we lost the active conversation (shouldn't happen with Zustand)
+      if (!activeConversationId && initialConversationId) {
+        log.debug('Component', '🗨️ [ChatContainer] Visibility change: Restoring from initialConversationId');
+        selectConversation(initialConversationId);
+        if (viewRef.current !== 'list') {
           setView('chat');
         }
       }
-      
-      wasVisible = isVisible;
+      // Zustand persistence handles the rest - no manual localStorage reads
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      // ✅ FIX: Clean up any pending timeout on unmount or effect re-run
-      if (visibilityTimeoutRef.current !== null) {
-        clearTimeout(visibilityTimeoutRef.current);
-        visibilityTimeoutRef.current = null;
-      }
     };
-  }, [activeConversationId, initialConversationId, view, selectConversation]);
+  }, [activeConversationId, initialConversationId, selectConversation]);
 
   // Mobile-only: Listen for URL changes (browser back/forward navigation)
   useEffect(() => {
@@ -379,94 +326,38 @@ export default function ChatContainer({
     }
   };
   
-  // ✅ MOBILE FIX: Skip expensive conversation computation when hidden
-  // ✅ CRITICAL FIX: Multi-source truth with caching to prevent unmounting during rehydration
-  // This ensures ChatView never unmounts when store temporarily resets
+  // Simplified conversation selection - trust Zustand persistence
   const selectedConversation = useMemo(() => {
     // Skip expensive computation when hidden (not modal)
     if (!isVisible && !isModal) return null;
-    // Helper function to get conversation from storage
-    const getConversationFromStorage = (conversationId: string): LegacyConversation | null => {
-      const storedConversation = getConversationByIdFromStorage(conversationId);
-      if (storedConversation && storedConversation.conversation_id) {
-        const conversation: LegacyConversation = {
-          conversation_id: storedConversation.conversation_id,
-          conversation_name: storedConversation.conversation_name || storedConversation.name || null,
-          is_group: storedConversation.is_group || false,
-          created_at: storedConversation.created_at || new Date().toISOString(),
-          last_message_at: storedConversation.last_message_at || null,
-          latest_message_content: storedConversation.latest_message_content || storedConversation.last_message || null,
-          latest_message_time: storedConversation.latest_message_time || storedConversation.last_message_at || null,
-          latest_message_sender: storedConversation.latest_message_sender || null,
-          unread_count: storedConversation.unread_count || 0,
-          other_participants: storedConversation.other_participants || storedConversation.participants?.filter((p: any) => p.user_id !== user?.id) || []
-        };
-        
-        // Only return if has proper participant data
-        if (conversation.other_participants && conversation.other_participants.length > 0) {
-          return conversation;
-        }
-      }
-      return null;
-    };
-    
-    // Primary: Use activeLegacyConversation from store if available
-    if (activeLegacyConversation && activeLegacyConversation.other_participants && activeLegacyConversation.other_participants.length > 0) {
+
+    // Primary: Use activeLegacyConversation from store (Zustand already rehydrated)
+    if (activeLegacyConversation?.other_participants?.length > 0) {
       cachedConversationRef.current = activeLegacyConversation;
       return activeLegacyConversation;
     }
-    
-    // ✅ CRITICAL FIX: If activeConversationId is null but we have initialConversationId,
-    // try to get conversation from store by ID (store might have conversations but activeConversationId not set yet)
-    if (initialConversationId) {
-      // ✅ FIX: Search legacyConversations directly instead of using function reference
-      // This avoids including function in dependency array
-      const conversation = legacyConversations.find(c => c.conversation_id === initialConversationId);
-      if (conversation && conversation.other_participants && conversation.other_participants.length > 0) {
-        log.debug('Component', '🗨️ [ChatContainer] Using conversation from store by initialConversationId:', initialConversationId);
+
+    // Secondary: Search by ID in legacyConversations (prefer initialConversationId)
+    const targetId = initialConversationId || activeConversationId;
+    if (targetId) {
+      const conversation = legacyConversations.find(c => c.conversation_id === targetId);
+      if (conversation?.other_participants?.length > 0) {
         cachedConversationRef.current = conversation;
         return conversation;
       }
-      
-      // Fallback: Try to get from localStorage directly (persistence hasn't rehydrated)
-      const storedConversation = getConversationFromStorage(initialConversationId);
-      if (storedConversation) {
-        log.debug('Component', '🗨️ [ChatContainer] Using conversation from localStorage:', initialConversationId);
-        cachedConversationRef.current = storedConversation;
-        return storedConversation;
-      }
     }
-    
-    // Fallback: If activeConversationId exists but no conversation found, try storage
-    if (activeConversationId) {
-      // ✅ FIX: Search legacyConversations directly instead of using function reference
-      const conversation = legacyConversations.find(c => c.conversation_id === activeConversationId);
-      if (conversation && conversation.other_participants && conversation.other_participants.length > 0) {
-        log.debug('Component', '🗨️ [ChatContainer] Using conversation from store by activeConversationId:', activeConversationId);
-        cachedConversationRef.current = conversation;
-        return conversation;
-      }
-      
-      const storedConversation = getConversationFromStorage(activeConversationId);
-      if (storedConversation) {
-        log.debug('Component', '🗨️ [ChatContainer] Using conversation from localStorage (activeConversationId):', activeConversationId);
-        cachedConversationRef.current = storedConversation;
-        return storedConversation;
-      }
-    }
-    
-    // ✅ CRITICAL FIX: Return cached conversation if available (prevents unmounting during rehydration)
-    // This ensures ChatView stays mounted even when store temporarily resets
-    if (cachedConversationRef.current && 
-        cachedConversationRef.current.conversation_id === initialConversationId &&
-        cachedConversationRef.current.other_participants && 
-        cachedConversationRef.current.other_participants.length > 0) {
-      log.debug('Component', '🗨️ [ChatContainer] Using cached conversation during rehydration:', cachedConversationRef.current.conversation_id);
+
+    // Tertiary: Return cached conversation only during brief rehydration window
+    // This prevents flashing but trusts Zustand to rehydrate quickly
+    if (cachedConversationRef.current?.conversation_id === targetId &&
+        cachedConversationRef.current?.other_participants?.length > 0) {
+      log.debug('Component', '🗨️ [ChatContainer] Using cached conversation briefly during rehydration');
       return cachedConversationRef.current;
     }
-    
+
+    // If we get here, Zustand hasn't rehydrated yet - return null and wait
     return null;
-  }, [activeLegacyConversation, initialConversationId, activeConversationId, legacyConversations, user?.id, isVisible, isModal]);
+  }, [activeLegacyConversation, initialConversationId, activeConversationId, legacyConversations, isVisible, isModal]);
 
   // DEBUG: Log conversation selection (only when visible)
   if (isVisible || process.env.NODE_ENV === 'development') {

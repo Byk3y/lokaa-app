@@ -20,13 +20,9 @@ import { useNavigationStore } from '../store/navigationStore';
 import { useRealtimeStore } from '../store/realtimeStore';
 import { transformConversationToLegacy, type LegacyConversation } from '../types';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
-import { 
+import {
   parseConversationUrlParams
 } from '@/utils/conversationUrlUtils';
-import { 
-  getActiveConversationIdFromStorage,
-  getConversationsFromStorage
-} from '@/utils/chatPersistenceRecovery';
 
 /**
  * Hook for conversation management with real-time synchronization
@@ -80,8 +76,7 @@ export function useConversations() {
 
   const {
     initialize,
-    cleanup,
-    connection
+    cleanup
   } = useRealtimeStore();
 
   // Auto-initialize conversations when hook is first used
@@ -136,149 +131,46 @@ export function useConversations() {
     };
   }, [setMobileDevice]);
 
-  // ✅ CRITICAL FIX: Visibility-aware restoration - restore activeConversationId when page becomes visible
-  const wasVisibleRef = useRef(!document.hidden);
-  
+  // Simplified visibility + initialization restoration
   useEffect(() => {
+    // Handle visibility changes for mobile tab switching
     const handleVisibilityChange = () => {
-      const isVisible = !document.hidden;
-      
-      // Only handle when page becomes visible (not when it becomes hidden)
-      if (isVisible && !wasVisibleRef.current) {
-        log.debug('Hook', '[useConversations] Page became visible - checking activeConversationId');
-        
-        const currentActiveId = activeConversationId;
-        
-        // If activeConversationId is null, try to restore it
-        if (!currentActiveId) {
-          // Try 1: Check URL params (mobile)
-          const { conversationId: urlId } = parseConversationUrlParams();
-          if (urlId) {
-            log.debug('Hook', '[useConversations] Restoring activeConversationId from URL:', urlId);
-            setActiveConversationId(urlId);
-            return;
-          }
-          
-          // Try 2: Check localStorage directly (persistence fallback)
-          const storedId = getActiveConversationIdFromStorage();
-          if (storedId) {
-            log.debug('Hook', '[useConversations] Restoring activeConversationId from localStorage:', storedId);
-            setActiveConversationId(storedId);
-            return;
-          }
-          
-          // Try 3: If conversations exist but activeConversationId is null, 
-          // check if we can restore from stored conversations
-          if (conversations.length > 0) {
-            const storedConversations = getConversationsFromStorage();
-            if (storedConversations.length > 0) {
-              // Use the first conversation as fallback (most recent)
-              const firstConversation = storedConversations[0];
-              if (firstConversation?.conversation_id) {
-                log.debug('Hook', '[useConversations] Restoring activeConversationId from stored conversations:', firstConversation.conversation_id);
-                setActiveConversationId(firstConversation.conversation_id);
-              }
-            }
-          }
-        }
+      if (document.hidden || activeConversationId) return; // Skip if already set
+
+      // Single source of truth: URL params (mobile) or Zustand persistence (automatic)
+      const { conversationId: urlId } = parseConversationUrlParams();
+      if (urlId && conversations.find(c => c.conversation_id === urlId)) {
+        log.debug('Hook', '[useConversations] Restoring from URL after visibility change:', urlId);
+        setActiveConversationId(urlId);
       }
-      
-      wasVisibleRef.current = isVisible;
+      // Zustand persistence handles the rest automatically - no manual localStorage needed
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
+    // Also run once on mount if conversations loaded but no active ID
+    if (hasInitialized && conversations.length > 0 && !activeConversationId) {
+      const { conversationId: urlId } = parseConversationUrlParams();
+      if (urlId && conversations.find(c => c.conversation_id === urlId)) {
+        log.debug('Hook', '[useConversations] Initial restoration from URL:', urlId);
+        setActiveConversationId(urlId);
+      }
+    }
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [activeConversationId, conversations.length, setActiveConversationId]);
+  }, [hasInitialized, conversations, activeConversationId, setActiveConversationId]);
 
-  // ✅ CRITICAL FIX: Restore activeConversationId when conversations are loaded but activeConversationId is null
-  useEffect(() => {
-    if (!hasInitialized || conversations.length === 0) return;
-    
-    // If we have conversations but no activeConversationId, try to restore it
-    if (!activeConversationId) {
-      // Try 1: Check URL params (mobile)
-      const { conversationId: urlId } = parseConversationUrlParams();
-      if (urlId && conversations.find(c => c.conversation_id === urlId)) {
-        log.debug('Hook', '[useConversations] Restoring activeConversationId from URL after conversations loaded:', urlId);
-        setActiveConversationId(urlId);
-        return;
-      }
-      
-      // Try 2: Check localStorage directly
-      const storedId = getActiveConversationIdFromStorage();
-      if (storedId && conversations.find(c => c.conversation_id === storedId)) {
-        log.debug('Hook', '[useConversations] Restoring activeConversationId from localStorage after conversations loaded:', storedId);
-        setActiveConversationId(storedId);
-        return;
-      }
-    }
-  }, [hasInitialized, conversations.length, activeConversationId, setActiveConversationId]);
-
-  // ✅ CRITICAL FIX: Enhanced fallback mechanism to refresh stale conversation data
+  // Handle real-time connection recovery
+  // Real-time auto-reconnects via useChatRealtime - no polling needed
+  // If data issues occur, they should be fixed at the API/database level
   useEffect(() => {
     if (!user?.id || !hasInitialized) return;
 
-    // Set up interval to check for stale conversation data
-    const staleDataCheckInterval = setInterval(() => {
-      // Check 1: Real-time connection is down
-      if (!connection.isConnected && conversations.length > 0) {
-        log.debug('Hook', '[useConversations] 🔄 Real-time disconnected, forcing conversation refresh...');
-        storeRefreshConversations(user.id, { forceNetwork: true });
-        return;
-      }
-      
-      // Check 2: Conversations with unread messages but missing message content (data corruption)
-      const corruptedConversations = conversations.filter(conv => 
-        conv.unread_count > 0 && (!conv.last_message || conv.last_message === 'undefined')
-      );
-      
-      if (corruptedConversations.length > 0) {
-        log.debug('Hook', '[useConversations] 🔄 Detected conversations with missing message data, auto-refreshing:', {
-          count: corruptedConversations.length,
-          conversationIds: corruptedConversations.map(c => c.conversation_id.substring(0, 8) + '...'),
-          issues: corruptedConversations.map(c => ({
-            id: c.conversation_id.substring(0, 8) + '...',
-            unreadCount: c.unread_count,
-            hasMessage: !!c.last_message,
-            messageValue: c.last_message
-          }))
-        });
-        storeRefreshConversations(user.id, { forceNetwork: true });
-      }
-    }, 30000); // Check every 30 seconds
-
-    // Also run an immediate check after 5 seconds to catch issues quickly
-    const immediateCheck = setTimeout(() => {
-      const legacyConvs = conversations.map(conv => transformConversationToLegacy(conv, user?.id));
-      const missingContentConvs = legacyConvs.filter(conv => 
-        conv.unread_count > 0 && (
-          !conv.latest_message_content || 
-          conv.latest_message_content === 'undefined' ||
-          conv.latest_message_content === null
-        )
-      );
-      
-      if (missingContentConvs.length > 0) {
-        log.debug('Hook', '[useConversations] 🚨 IMMEDIATE: Found conversations with missing content after transformation:', {
-          count: missingContentConvs.length,
-          details: missingContentConvs.map(c => ({
-            id: c.conversation_id.substring(0, 8) + '...',
-            content: c.latest_message_content,
-            unread: c.unread_count
-          }))
-        });
-        storeRefreshConversations(user.id, { forceNetwork: true });
-      }
-    }, 5000);
-
-    return () => {
-      clearInterval(staleDataCheckInterval);
-      clearTimeout(immediateCheck);
-    };
-  }, [user?.id, hasInitialized, connection.isConnected, conversations, storeRefreshConversations]);
+    // Real-time service handles reconnection automatically
+    // Trust that the system will recover without manual polling
+  }, [user?.id, hasInitialized]);
 
   /**
    * Enhanced conversation creation with URL navigation support
@@ -309,22 +201,18 @@ export function useConversations() {
   }, [createConversation, setActiveConversationId, navigateToConversationById, user?.id]);
 
   /**
-   * Enhanced conversation selection with URL navigation
+   * Conversation selection with URL navigation
    */
   const selectConversation = useCallback((conversationId: string | null) => {
     setActiveConversationId(conversationId);
-    
+
     if (conversationId) {
       // Mobile URL navigation
       navigateToConversationById(conversationId);
-      
-      // ✅ CRITICAL FIX: Refresh conversation data when selecting to ensure latest info
-      if (user?.id && (!connection.isConnected || !hasInitialized)) {
-        log.debug('Hook', '[useConversations] 🔄 Refreshing conversation data on selection due to connection issues');
-        storeRefreshConversations(user.id, { forceNetwork: true });
-      }
     }
-  }, [setActiveConversationId, navigateToConversationById, user?.id, connection.isConnected, hasInitialized, storeRefreshConversations]);
+    // Trust that conversations are up-to-date from real-time
+    // If there's an actual connection issue, handle it explicitly elsewhere
+  }, [setActiveConversationId, navigateToConversationById]);
 
   /**
    * Get conversation by slug (mobile URL support)
@@ -438,16 +326,7 @@ export function useConversations() {
       }
       return Promise.resolve();
     }, [storeRefreshConversations, user?.id]),
-    
-    // ✅ CRITICAL FIX: Emergency refresh function for immediate use
-    emergencyRefresh: useCallback(() => {
-      if (user?.id) {
-        log.debug('Hook', '[useConversations] 🚨 Emergency refresh triggered!');
-        return storeRefreshConversations(user.id, { forceNetwork: true });
-      }
-      return Promise.resolve();
-    }, [storeRefreshConversations, user?.id]),
-    
+
     createConversation: createConversationEnhanced,
     startDirectConversation,
 
