@@ -158,59 +158,6 @@ const handleRealtimeEvent = (event: RealtimeEvent) => {
         conversationsAfterUpdate: convStore.conversations.length
       });
       
-      // ✅ ENHANCED CRITICAL FIX: Multiple strategies for forcing receiver updates
-      if (event.isFromOtherUser) {
-        log.debug('App', '[RealtimeStore] 🔄 RECEIVER MESSAGE: Applying multiple update strategies...');
-        
-        // Strategy 1: Immediate urgent refresh
-        setTimeout(async () => {
-          try {
-            log.debug('App', '[RealtimeStore] Strategy 1: URGENT conversation refresh');
-            await convStore.refreshConversations(undefined, { forceNetwork: true, urgent: true });
-          } catch (error) {
-            log.error('App', '[RealtimeStore] Strategy 1 failed:', error);
-          }
-        }, 50); // Very quick
-        
-        // Strategy 2: Delayed secondary urgent refresh (in case first one didn't work)
-        setTimeout(async () => {
-          try {
-            log.debug('App', '[RealtimeStore] Strategy 2: URGENT secondary conversation refresh');
-            await convStore.refreshConversations(undefined, { forceNetwork: true, urgent: true });
-          } catch (error) {
-            log.error('App', '[RealtimeStore] Strategy 2 failed:', error);
-          }
-        }, 500); // Half second delay
-        
-        // Strategy 3: Update conversation state directly + urgent refresh
-        setTimeout(async () => {
-          try {
-            log.debug('App', '[RealtimeStore] Strategy 3: Direct state update + URGENT refresh');
-            convStore.reorderConversations();
-            
-            // Force a state update by updating the lastUpdate timestamp
-            const currentState = convStore;
-            currentState.lastUpdate = Date.now();
-            
-            // Final urgent refresh to ensure consistency
-            await convStore.refreshConversations(undefined, { forceNetwork: true, urgent: true });
-          } catch (error) {
-            log.error('App', '[RealtimeStore] Strategy 3 failed:', error);
-          }
-        }, 100);
-      }
-      
-      // Force a manual re-render trigger for chat list components
-      window.dispatchEvent(new CustomEvent('chat-conversations-updated', {
-        detail: { 
-          conversationId: event.conversationId,
-          lastMessage: event.payload.content,
-          timestamp: Date.now(),
-          isFromOtherUser: event.isFromOtherUser,
-          urgent: event.isFromOtherUser // Mark as urgent for receivers
-        }
-      }));
-      
       break;
       
     case 'message_update':

@@ -172,70 +172,13 @@ export function ChatListUnified({
     }
   }, [variant, isPopoverOpen, loading, fetchConversations, currentUserId]);
 
-  // Listen for real-time conversation updates
+  // Component subscribes to conversation updates automatically via useConversations() hook
+  // Zustand handles reactive updates - no manual event listeners needed
   useEffect(() => {
-    const handleConversationUpdate = (event: CustomEvent) => {
-      log.debug('Component', '[ChatListUnified] Real-time conversation update detected:', event.detail);
-      
-      // ✅ ENHANCED: More aggressive refresh for urgent updates (messages from other users)
-      if (event.detail?.urgent && event.detail?.isFromOtherUser) {
-        log.debug('Component', '[ChatListUnified] 🚨 URGENT: Message from other user - forcing immediate refresh');
-        
-        // Multiple refresh strategies for urgent updates - using urgent flag
-        if (!loading) {
-          // Immediate urgent refresh
-          refreshConversations(undefined, { urgent: true });
-          
-          // Secondary urgent refresh after short delay
-          setTimeout(() => {
-            if (!loading) {
-              log.debug('Component', '[ChatListUnified] 🔄 Secondary URGENT refresh');
-              refreshConversations(undefined, { urgent: true });
-            }
-          }, 200);
-          
-          // Final urgent refresh to ensure consistency
-          setTimeout(() => {
-            if (!loading) {
-              log.debug('Component', '[ChatListUnified] 🔄 Final URGENT refresh');
-              refreshConversations(undefined, { urgent: true });
-            }
-          }, 1000);
-        }
-      } else {
-        // Normal refresh for non-urgent updates
-        if (!loading) {
-          refreshConversations();
-        }
-      }
-    };
-
-    const handleConversationMarkedAsRead = (event: CustomEvent) => {
-      log.debug('Component', '[ChatListUnified] Conversation marked as read:', event.detail);
-      
-      // ✅ CRITICAL FIX: Force refresh when conversation is marked as read
-      if (!loading) {
-        refreshConversations();
-        
-        // Additional refresh after delay to ensure consistency
-        setTimeout(() => {
-          if (!loading) {
-            log.debug('Component', '[ChatListUnified] 🔄 Secondary read status refresh');
-            refreshConversations();
-          }
-        }, 500);
-      }
-    };
-
-    // Listen for real-time events
-    window.addEventListener('chat-conversations-updated', handleConversationUpdate as EventListener);
-    window.addEventListener('conversation-marked-as-read', handleConversationMarkedAsRead as EventListener);
-    
-    return () => {
-      window.removeEventListener('chat-conversations-updated', handleConversationUpdate as EventListener);
-      window.removeEventListener('conversation-marked-as-read', handleConversationMarkedAsRead as EventListener);
-    };
-  }, [loading, refreshConversations]);
+    log.debug('Component', '[ChatListUnified] Component mounted, subscribed to conversation store via Zustand');
+    // Note: Zustand subscription happens automatically through the useConversations() hook
+    // The store's updateConversation() and reorderConversations() methods trigger re-renders
+  }, []);
 
   /**
    * Handle popover open/close

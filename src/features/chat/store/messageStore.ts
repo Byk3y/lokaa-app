@@ -175,55 +175,24 @@ export const useMessageStore = create<MessageStore>()(
           get().confirmOptimisticMessage(tempId, result.data!);
           
           log.debug('App', '[MessageStore] Message sent successfully:', result.data?.id);
-          
-          // ✅ CRITICAL FIX: Update conversation list with the new latest message
+
+          // Update conversation list with the new latest message
           try {
             const conversationStore = useConversationStore.getState();
             const sentMessage = result.data!;
-            
+
             // Update the conversation with latest message info
             conversationStore.updateConversation(conversationId, {
               last_message: sentMessage.content,
               last_message_at: sentMessage.created_at,
               latest_message_sender: sentMessage.sender_id
             });
-            
+
             // Reorder conversations to show this one at the top
             conversationStore.reorderConversations();
-            
+
             log.debug('App', '[MessageStore] ✅ Updated conversation list with new message:', sentMessage.content?.substring(0, 50) + '...');
-            
-            // ✅ CRITICAL FIX: Force urgent refresh to ensure database sync
-            log.debug('App', '[MessageStore] 🚨 URGENT: Forcing conversation list refresh after sending message');
-            await conversationStore.fetchConversations(currentUser.id, { 
-              forceNetwork: true, 
-              urgent: true 
-            });
-            
-            // ✅ NUCLEAR OPTION: Force React re-render by manually triggering state change
-            setTimeout(() => {
-              log.debug('App', '[MessageStore] 🔄 Nuclear option: Forcing conversation store state update');
-              const currentState = useConversationStore.getState();
-              useConversationStore.setState({
-                ...currentState,
-                lastUpdate: Date.now(),
-                // Force new array reference to trigger React re-render
-                conversations: [...currentState.conversations]
-              });
-            }, 50);
-            
-            // ✅ CRITICAL FIX: Dispatch event to notify other components about conversation update
-            window.dispatchEvent(new CustomEvent('chat-conversations-updated', {
-              detail: { 
-                conversationId,
-                type: 'message_sent',
-                message: sentMessage,
-                urgent: true,
-                isFromOtherUser: false,
-                timestamp: Date.now()
-              }
-            }));
-            
+
           } catch (storeError) {
             log.warn('App', '[MessageStore] Failed to update conversation store after sending message:', storeError);
           }
@@ -263,29 +232,18 @@ export const useMessageStore = create<MessageStore>()(
           }
           
           log.debug('App', '[MessageStore] Marked conversation as read:', conversationId);
-          
-          // ✅ CRITICAL FIX: Update conversation store to reflect read status
+
+          // Update conversation store to reflect read status
           try {
             const conversationStore = useConversationStore.getState();
-            
+
             // Update the conversation's unread count to 0
             conversationStore.updateConversationUnreadCount(conversationId, 0);
-            
-            // ✅ CRITICAL FIX: Force refresh to get latest data from database
-            await conversationStore.refreshConversations(currentUser.id, { forceNetwork: true });
-            
+
             log.debug('App', '[MessageStore] ✅ Updated conversation list after marking as read:', conversationId);
           } catch (storeError) {
             log.warn('App', '[MessageStore] Failed to update conversation store:', storeError);
           }
-          
-          // ✅ CRITICAL FIX: Dispatch event to notify other components  
-          window.dispatchEvent(new CustomEvent('conversation-marked-as-read', {
-            detail: { 
-              conversationId,
-              timestamp: Date.now()
-            }
-          }));
           
         } catch (error) {
           log.error('App', '[MessageStore] Error marking as read:', error);
