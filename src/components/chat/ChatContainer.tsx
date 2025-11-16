@@ -531,8 +531,15 @@ export default function ChatContainer({
     return <div ref={containerRef} style={{ display: 'none' }} />;
   }
 
+  // ✅ FIX: Always use h-full to fill parent, and flex layout when showing chat view
+  // This ensures DesktopChatView's flex-1 works properly
+  const containerClasses = [
+    'h-full',
+    (isModal || view === 'chat') ? 'min-h-0 flex flex-col' : ''
+  ].filter(Boolean).join(' ');
+
   return (
-    <div ref={containerRef} className={isModal ? 'h-full min-h-0 flex flex-col' : ''}>
+    <div ref={containerRef} className={containerClasses}>
       {/* ✅ SAFARI FIX: For non-modals, show fullscreen list */}
       {view === 'list' && !isModal && (
         <>

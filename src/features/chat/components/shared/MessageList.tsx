@@ -237,23 +237,18 @@ export const MessageList: React.FC<MessageListProps> = ({
             otherUserAvatar={otherParticipant.avatar_url}
             onLoadingStateChange={onConnectionContextLoadingChange}
           />
-        ) : (
-          // Reserved space: Placeholder to prevent layout shift while loading participant data
-          <div className="connection-context-placeholder bg-gray-50 dark:bg-gray-700 rounded-lg animate-pulse">
-            <div className="text-sm text-gray-500 dark:text-gray-400">Loading connection info...</div>
-          </div>
-        )
+        ) : null
       ) : null}
 
-      {/* Loading spinner */}
+      {/* Loading spinner - handles both message loading and connection context loading */}
       {isLoading ? (
         <div className="flex justify-center items-center h-32">
-          <div className="animate-spin h-6 w-6 border-t-2 border-blue-500 rounded-full"></div>
+          <div className="animate-spin h-6 w-6 rounded-full border-t-2 border-b-2 border-teal-500"></div>
         </div>
-      ) : (shouldShowConnectionContext && isConnectionContextLoading) ? (
-        // Show placeholder while ConnectionContext is loading to maintain visual order
-        <div className="flex justify-center items-center h-32">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Loading connection context...</div>
+      ) : (shouldShowConnectionContext && (isConnectionContextLoading || !otherParticipant)) ? (
+        // Show spinner while ConnectionContext is loading or participant data is loading
+        <div className="flex justify-center items-center py-2">
+          <div className="animate-spin h-5 w-5 rounded-full border-t-2 border-b-2 border-teal-500"></div>
         </div>
       ) : messages.length > 0 ? (
         // Render messages using MessageBubble component

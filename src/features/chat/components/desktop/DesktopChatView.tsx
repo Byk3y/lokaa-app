@@ -12,7 +12,7 @@ import DesktopChatInput from './DesktopChatInput';
  * This component is DESKTOP-ONLY and contains NO mobile conditionals.
  *
  * Key Features:
- * - h-full min-h-0 container (NOT 100dvh)
+ * - flex-1 min-h-0 container (fills available space in flex parent, NOT 100dvh)
  * - Sticky header at top (desktop pattern)
  * - Messages container with standard padding (no mobile overlay padding)
  * - DesktopChatInput rendered in wrapper div with border-top
@@ -81,7 +81,7 @@ export default function DesktopChatView({
   });
 
   return (
-    <div className="flex flex-col bg-white dark:bg-gray-800 h-full min-h-0">
+    <div className="flex flex-col bg-white dark:bg-gray-800 flex-1 min-h-0">
       {/* Header - STICKY for desktop */}
       <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
         <ChatHeader

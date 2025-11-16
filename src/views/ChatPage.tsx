@@ -120,7 +120,7 @@ export default function ChatPage() {
   }, [user?.id, space?.subdomain, loadActiveSpace]);
 
   return (
-    <div className={`h-full w-full bg-white ${isMobile ? 'mobile-chat-page' : ''}`}>
+    <div className={`h-full w-full bg-white flex flex-col ${isMobile ? 'mobile-chat-page' : ''}`}>
       <ChatContainer initialConversationId={resolvedConversationId} />
     </div>
   );

@@ -119,20 +119,8 @@ const ConnectionContext = React.memo<ConnectionContextProps>(({
 
   // --- Only now do conditional returns ---
   if (loading) {
-    log.debug('ConnectionContext', 'Rendering: loading state - showing placeholder');
-    // ✅ FIX: Return placeholder while loading to reserve space and maintain visual order
-    return (
-      <div className="flex flex-col items-center justify-center py-8 px-2 text-center">
-        <div className="flex items-center justify-center mb-6">
-          <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
-          <span className="mx-4 flex items-center justify-center">
-            <RefreshCw className="h-7 w-7 text-gray-300 dark:text-gray-600 animate-spin" />
-          </span>
-          <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
-        </div>
-        <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-      </div>
-    );
+    log.debug('ConnectionContext', 'Rendering: loading state - returning null (spinner handled by MessageList)');
+    return null; // Spinner is handled by MessageList to avoid duplicates
   }
   if (error || !connectionInfo || connectionInfo.connection_type === 'unknown') {
     log.debug('ConnectionContext', 'Rendering: error or no connection', { error, connectionInfo });
