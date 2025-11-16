@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ChatAvatar } from '@/components/ui/OptimizedAvatar';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { getInitial } from '@/shared/utils/avatar-utils';
 import { RefreshCw } from 'lucide-react';
 import { log } from '@/utils/logger';
 
@@ -120,8 +119,8 @@ const ConnectionContext = React.memo<ConnectionContextProps>(({
 
   // --- Only now do conditional returns ---
   if (loading) {
-    log.debug('ConnectionContext', 'Rendering: loading state');
-    return null;
+    log.debug('ConnectionContext', 'Rendering: loading state - returning null (spinner handled by MessageList)');
+    return null; // Spinner is handled by MessageList to avoid duplicates
   }
   if (error || !connectionInfo || connectionInfo.connection_type === 'unknown') {
     log.debug('ConnectionContext', 'Rendering: error or no connection', { error, connectionInfo });
@@ -143,17 +142,23 @@ const ConnectionContext = React.memo<ConnectionContextProps>(({
       )}
       {/* Avatars and connector */}
       <div className="flex items-center justify-center mb-6">
-        <Avatar className="h-12 w-12">
-          <AvatarImage src={avatarData.currentUserAvatar || undefined} alt={avatarData.currentUserFullName} />
-          <AvatarFallback className="text-base">{getInitial(avatarData.currentUserFullName)}</AvatarFallback>
-        </Avatar>
+        <ChatAvatar
+          user={{
+            id: user?.id || '',
+            full_name: avatarData.currentUserFullName,
+            avatar_url: avatarData.currentUserAvatar
+          }}
+        />
         <span className="mx-4 flex items-center justify-center">
           <RefreshCw className="h-7 w-7 text-gray-400" />
         </span>
-        <Avatar className="h-12 w-12">
-          <AvatarImage src={avatarData.otherAvatar || undefined} alt={avatarData.otherName} />
-          <AvatarFallback className="text-base">{getInitial(avatarData.otherName)}</AvatarFallback>
-        </Avatar>
+        <ChatAvatar
+          user={{
+            id: otherUserId,
+            full_name: avatarData.otherName,
+            avatar_url: avatarData.otherAvatar
+          }}
+        />
       </div>
       {/* Text below */}
       <div className="text-gray-500 text-xs font-normal">

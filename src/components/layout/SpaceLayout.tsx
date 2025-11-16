@@ -370,8 +370,8 @@ export default function SpaceLayout({
     }
   }, [children]); // Recalculate if children change
 
-  // FIXED: Trust SpaceProtectedRoute - don't show loading screen since access and space data are already verified
-  // SpaceProtectedRoute ensures space data is available before rendering SpaceShellLayout -> SpaceLayout
+  // FIXED: Trust TrulyPersistentAppShell inline auth - don't show loading screen since access and space data are already verified
+  // TrulyPersistentAppShell ensures space data is available before rendering SpaceShellLayout -> SpaceLayout
   // Only show error state if there's an actual error
   if (storeError) {
     return <ErrorScreen error={new Error(storeError)} onRetry={() => {

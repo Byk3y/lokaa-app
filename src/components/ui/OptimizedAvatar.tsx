@@ -70,7 +70,7 @@ export function OptimizedAvatar({
   // Use unified avatar resolver
   const avatar = useAvatar(user);
 
-  // 🚀 ENHANCED: Instant cache checking with preload optimization
+  // 🚀 ENHANCED: Instant cache checking with preload optimization and deduplication
   useEffect(() => {
     if (enableCaching && user.id && avatar.hasImage) {
       // Check cache first
@@ -80,21 +80,55 @@ export function OptimizedAvatar({
         setImageStatus('loaded'); // 🎯 INSTANT: Mark as loaded if cached
         log.debug('Component', `🎯 [OptimizedAvatar] Cache hit for user ${user.id}`);
       } else if (avatar.url) {
-        // 🚀 PRELOAD: Start loading image immediately without waiting for intersection
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          // Cache the successful load
-          AvatarCacheService.setCachedAvatar(user.id, avatar.url!, size);
-          setCachedUrl(avatar.url!);
-          setImageStatus('loaded');
-          log.debug('Component', `🎯 [OptimizedAvatar] Preloaded and cached avatar for user ${user.id}`);
+        // ✅ CRITICAL FIX: Capture current URL to prevent race conditions
+        // If avatar.url changes while loading, we'll ignore the old promise's handlers
+        const currentUrl = avatar.url;
+        const currentUserId = user.id;
+        
+        // 🚀 PRELOAD with deduplication: Use shared load promise to prevent duplicate requests
+        // Multiple components requesting the same URL will share the same Promise
+        // The Promise ensures only ONE HTTP request is made (via Image object in AvatarCacheService)
+        // We do NOT create a separate Image object here to avoid duplicate HTTP requests
+        const loadPromise = AvatarCacheService.loadImageWithDeduplication(currentUrl);
+        
+        // ✅ CRITICAL FIX: Track if this effect is still valid (hasn't been cleaned up)
+        let isEffectValid = true;
+        
+        // Track Promise for status updates
+        loadPromise
+          .then(() => {
+            // ✅ CRITICAL FIX: Only update state if this effect is still valid
+            // When avatar.url changes, the effect re-runs and cleanup sets isEffectValid = false
+            // This prevents race conditions where old promise handlers update state with stale URLs
+            if (!isEffectValid) {
+              log.debug('Component', `🎯 [OptimizedAvatar] Ignoring stale promise resolution for user ${currentUserId} - effect cleaned up`);
+              return;
+            }
+            
+            // Cache the successful load
+            AvatarCacheService.setCachedAvatar(currentUserId, currentUrl, size);
+            setCachedUrl(currentUrl);
+            setImageStatus('loaded');
+            // Mark as preloaded so intersection observer skips
+            setPreloadImage({ complete: true } as HTMLImageElement);
+            log.debug('Component', `🎯 [OptimizedAvatar] Preloaded and cached avatar for user ${currentUserId}`);
+          })
+          .catch(() => {
+            // ✅ CRITICAL FIX: Only update state if this effect is still valid
+            if (!isEffectValid) {
+              return;
+            }
+            setImageStatus('error');
+          });
+
+        // Set URL immediately for rendering - browser cache will serve deduplicated response
+        // The actual <img> tag will load from browser cache (no duplicate HTTP request)
+        setCachedUrl(currentUrl);
+        
+        // ✅ CRITICAL FIX: Cleanup function to mark effect as invalid when URL changes
+        return () => {
+          isEffectValid = false;
         };
-        img.onerror = () => {
-          setImageStatus('error');
-        };
-        img.src = avatar.url;
-        setPreloadImage(img);
       }
     }
   }, [enableCaching, user.id, avatar.hasImage, avatar.url, size]);
@@ -302,7 +336,7 @@ export function ChatAvatar({ user, onClick }: {
       placeholderType="initials"
       loadingTransition="fade"
       onClick={onClick}
-      className="h-12 w-12 flex-shrink-0" // 🚀 FIXED: Proper sizing to match original layout
+      className="flex-shrink-0" // ✅ FIXED: Removed redundant h-12 w-12 (already set by size="lg")
     />
   );
 } 

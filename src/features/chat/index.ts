@@ -128,7 +128,7 @@ if (typeof window !== 'undefined') {
       }
 
       // Method 2: Try global stores
-      const authStores = ['useOptimizedAuth', 'useAuthStore', 'authStore'];
+      const authStores = ['useOptimizedAuth', 'authStore'];
       for (const storeName of authStores) {
         const store = (window as any)[storeName];
         if (store?.getState) {
@@ -141,7 +141,7 @@ if (typeof window !== 'undefined') {
       }
 
       // Method 3: Try localStorage
-      const localStorageKeys = ['auth-store', 'user-store', 'optimized-auth'];
+      const localStorageKeys = ['user-store', 'optimized-auth'];
       for (const key of localStorageKeys) {
         try {
           const stored = localStorage.getItem(key);

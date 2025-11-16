@@ -1,6 +1,5 @@
-import { log } from '@/utils/logger';
-import React, { useEffect, useState, Suspense, useMemo } from 'react';
-import { useLocation, useParams, Outlet, Navigate } from 'react-router-dom';
+import React, { useEffect, useState, Suspense, useMemo, useRef } from 'react';
+import { useLocation, Outlet, Navigate } from 'react-router-dom';
 import BottomNav from '@/components/mobile/BottomNav';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { getStableMobileDetection } from '@/utils/mobileDetection';
@@ -25,7 +24,6 @@ import * as LazyRoutes from '@/routes/LazyRoutes';
 export const TrulyPersistentAppShell: React.FC = () => {
   const location = useLocation();
   const { user, loading: authLoading } = useOptimizedAuth();
-  const { subdomain } = useParams<{ subdomain: string }>();
   
   // ✅ STABLE: Use stable mobile detection to prevent hook order issues
   const isOnMobile = useMemo(() => getStableMobileDetection(), []);
@@ -54,6 +52,8 @@ export const TrulyPersistentAppShell: React.FC = () => {
   // Track which components should be visible
   const [currentRoute, setCurrentRoute] = useState<'chat' | 'notifications' | 'space' | 'discover' | 'other'>('other');
   const [showTabs, setShowTabs] = useState(true); // Control tab visibility for mobile course views
+  // ✅ MOBILE FIX: Use ref to track previous route to avoid dependency loop
+  const previousRouteRef = useRef<'chat' | 'notifications' | 'space' | 'discover' | 'other'>('other');
 
   // Debug logging to track persistent shell lifecycle (only in development)
   useEffect(() => {
@@ -115,18 +115,22 @@ export const TrulyPersistentAppShell: React.FC = () => {
       }
     }
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔧 [TrulyPersistentAppShell] Route change detected:', {
-        pathname: location.pathname,
-        oldRoute: currentRoute,
-        newRoute: routeType,
-        spaceVisible: routeType === 'space',
-        discoverVisible: routeType === 'discover'
-      });
+    // ✅ MOBILE FIX: Only update state if route type actually changed to prevent re-render loops
+    if (routeType !== previousRouteRef.current) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔧 [TrulyPersistentAppShell] Route change detected:', {
+          pathname: location.pathname,
+          oldRoute: previousRouteRef.current,
+          newRoute: routeType,
+          spaceVisible: routeType === 'space',
+          discoverVisible: routeType === 'discover'
+        });
+      }
+      
+      setCurrentRoute(routeType);
+      previousRouteRef.current = routeType;
     }
-    
-    setCurrentRoute(routeType);
-  }, [location.pathname, currentRoute]);
+  }, [location.pathname]); // ✅ MOBILE FIX: Removed currentRoute from dependencies - only depend on pathname
 
   // Helper function to determine visibility
   const isRouteVisible = (routeType: string) => currentRoute === routeType;

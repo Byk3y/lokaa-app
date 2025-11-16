@@ -242,7 +242,7 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   }
   
   // MOBILE OPTIMIZATION: Much more aggressive about showing content
-  // Trust that SpaceProtectedRoute has verified access and wouldn't render us otherwise
+  // Trust that TrulyPersistentAppShell has verified access and wouldn't render us otherwise
   // This prevents loading flashes on mobile
   // **CRITICAL FIX**: Also check for preserved data to prevent loading flash during external navigation
   const shouldShowLoadingState = (!currentSpaceData && !hasDataIndicators && !hasInstantAccess && !hasPreservedData && (authLoading || storeLoadingSpace));

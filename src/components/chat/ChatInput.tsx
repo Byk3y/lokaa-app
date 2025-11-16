@@ -1,7 +1,17 @@
+/**
+ * @deprecated This unified ChatInput component is deprecated.
+ * Use platform-specific components instead:
+ * - Mobile: @/features/chat/components/mobile/MobileChatInput
+ * - Desktop: @/features/chat/components/desktop/DesktopChatInput
+ *
+ * This file is kept for backward compatibility during transition.
+ * New code should use the platform-specific components directly.
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Loader2, ArrowUp, ArrowRight, Zap } from 'lucide-react';
+import { Loader2, ArrowUp } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface ChatInputProps {
@@ -11,6 +21,9 @@ interface ChatInputProps {
   disabled?: boolean;
 }
 
+/**
+ * @deprecated Use MobileChatInput or DesktopChatInput instead
+ */
 export default function ChatInput({ onSendMessage, sending, recipientName, disabled }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -81,11 +94,11 @@ export default function ChatInput({ onSendMessage, sending, recipientName, disab
   
   
   return (
-    <form 
-      onSubmit={handleSubmit} 
+    <form
+      onSubmit={handleSubmit}
       className={`px-2 py-1.5 bg-white dark:bg-gray-900 shadow-md flex items-center transition-all duration-200 ${
         isFocused && isMobile ? 'shadow-lg' : ''
-      } ${isMobile ? 'mobile-chat-input-overlay' : 'rounded-t-none rounded-b-2xl'}`} 
+      } ${isMobile ? 'mobile-chat-input-overlay' : ''}`}
       style={{
         minHeight: isMobile ? 52 : 40, // Better balance - smaller than original but more comfortable
         touchAction: 'manipulation', // Allow touch but prevent unwanted scrolling

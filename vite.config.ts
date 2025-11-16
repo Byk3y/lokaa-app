@@ -138,7 +138,8 @@ const getCSPConfig = (mode: 'development' | 'production') => {
       'https://giphy.com',
       'https://media.giphy.com',
       'https://i.imgur.com',
-      'https://lovable.dev'
+      'https://lovable.dev',
+      'https://lh3.googleusercontent.com' // Allow Google OAuth profile images
     ],
     'media-src': [
       "'self'",
@@ -363,6 +364,7 @@ export default defineConfig(({ mode }) => {
         "@radix-ui/react-dialog",
         "@radix-ui/react-dropdown-menu",
         "lucide-react",
+        "@phosphor-icons/react",
         "styled-components",
         "shallowequal",
         "@giphy/js-fetch-api",

@@ -11,6 +11,10 @@ import {
   parseConversationUrlParams, 
   findConversationIdFromSlug
 } from '@/utils/conversationUrlUtils';
+import {
+  wasConversationExplicitlyCleared,
+  resetExplicitClearing
+} from '@/utils/conversationClearingTracker';
 
 export default function ChatPage() {
   const location = useLocation();
@@ -29,20 +33,34 @@ export default function ChatPage() {
       const { slug, conversationId: cachedId } = parseConversationUrlParams();
       
       if (slug) {
+        let resolvedId: string | null = null;
+        
         if (cachedId) {
           // Found in cache immediately
-          log.debug('Page', '📱 [ChatPage] Mobile: Using cached conversation ID:', cachedId);
-          setResolvedConversationId(cachedId);
+          resolvedId = cachedId;
         } else if (conversations.length > 0) {
           // Try reverse lookup with available conversations
-          const foundId = findConversationIdFromSlug(slug, conversations);
-          if (foundId) {
-            log.debug('Page', '📱 [ChatPage] Mobile: Found conversation via reverse lookup:', foundId);
-            setResolvedConversationId(foundId);
+          resolvedId = findConversationIdFromSlug(slug, conversations);
+        }
+        
+        // ✅ CONVERSATION PERSISTENCE FIX: Check if this conversation was explicitly cleared
+        if (resolvedId && wasConversationExplicitlyCleared(resolvedId)) {
+          log.debug('Page', '📱 [ChatPage] Mobile: Conversation in URL was explicitly cleared, ignoring:', resolvedId);
+          setResolvedConversationId(undefined);
+          return;
+        }
+        
+        if (resolvedId) {
+          if (cachedId) {
+            log.debug('Page', '📱 [ChatPage] Mobile: Using cached conversation ID:', cachedId);
           } else {
-            log.warn('Page', '📱 [ChatPage] Mobile: Conversation not found for slug:', slug);
-            setResolvedConversationId(undefined);
+            log.debug('Page', '📱 [ChatPage] Mobile: Found conversation via reverse lookup:', resolvedId);
           }
+          setResolvedConversationId(resolvedId);
+        } else if (conversations.length > 0) {
+          // Conversations loaded but not found
+          log.warn('Page', '📱 [ChatPage] Mobile: Conversation not found for slug:', slug);
+          setResolvedConversationId(undefined);
         } else {
           // Conversations not loaded yet, wait for them
           log.debug('Page', '📱 [ChatPage] Mobile: Waiting for conversations to load for slug:', slug);
@@ -55,6 +73,14 @@ export default function ChatPage() {
     } else {
       // Desktop: Fall back to legacy 'id' parameter for compatibility
       const legacyId = searchParams.get('id');
+      
+      // ✅ CONVERSATION PERSISTENCE FIX: Check if this conversation was explicitly cleared
+      if (legacyId && wasConversationExplicitlyCleared(legacyId)) {
+        log.debug('Page', '🖥️ [ChatPage] Desktop: Conversation in URL was explicitly cleared, ignoring:', legacyId);
+        setResolvedConversationId(undefined);
+        return;
+      }
+      
       log.debug('Page', '🖥️ [ChatPage] Desktop: Using legacy ID parameter:', legacyId);
       setResolvedConversationId(legacyId || undefined);
     }
@@ -67,6 +93,12 @@ export default function ChatPage() {
       if (slug) {
         const foundId = findConversationIdFromSlug(slug, conversations);
         if (foundId) {
+          // ✅ CONVERSATION PERSISTENCE FIX: Check if this conversation was explicitly cleared
+          if (wasConversationExplicitlyCleared(foundId)) {
+            log.debug('Page', '📱 [ChatPage] Mobile: Retry found conversation but it was explicitly cleared, ignoring:', foundId);
+            return;
+          }
+          
           log.debug('Page', '📱 [ChatPage] Mobile: Retry reverse lookup successful:', foundId);
           setResolvedConversationId(foundId);
         }
@@ -88,7 +120,7 @@ export default function ChatPage() {
   }, [user?.id, space?.subdomain, loadActiveSpace]);
 
   return (
-    <div className={`h-full w-full bg-white ${isMobile ? 'mobile-chat-page' : ''}`}>
+    <div className={`h-full w-full bg-white flex flex-col ${isMobile ? 'mobile-chat-page' : ''}`}>
       <ChatContainer initialConversationId={resolvedConversationId} />
     </div>
   );

@@ -44,6 +44,9 @@ export class AvatarCacheService {
   private static readonly MAX_ENTRIES = 1000; // Increased for better performance
   private static readonly PRELOAD_BATCH_SIZE = 10;
   
+  // 🚀 NEW: Pending load tracking to prevent duplicate requests
+  private static pendingLoads = new Map<string, Promise<void>>();
+  
   // Performance tracking
   private static stats: CacheStats = {
     totalEntries: 0,
@@ -333,15 +336,67 @@ export class AvatarCacheService {
   }
 
   /**
-   * 🖼️ Preload individual image
+   * 🖼️ Preload individual image with deduplication
+   * Prevents multiple simultaneous requests for the same URL
+   * ✅ FIXED: Fully atomic check-and-set using placeholder Promise pattern
    */
   private static preloadImage(url: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-      img.src = url;
+    // ✅ ATOMIC CHECK: Check if this image is already being loaded
+    let existingLoad = this.pendingLoads.get(url);
+    if (existingLoad) {
+      return existingLoad;
+    }
+
+    // ✅ CRITICAL FIX: Create placeholder Promise with deferred resolution
+    // Store it IMMEDIATELY to ensure atomic check-and-set
+    // This prevents race conditions where multiple calls pass the check before any Promise is stored
+    let resolvePromise: () => void;
+    let rejectPromise: (error: Error) => void;
+    
+    const loadPromise = new Promise<void>((resolve, reject) => {
+      resolvePromise = resolve;
+      rejectPromise = reject;
     });
+
+    // ✅ ATOMIC SET: Store Promise IMMEDIATELY before creating Image object
+    // This ensures that if another call happens now, it will find this Promise
+    this.pendingLoads.set(url, loadPromise);
+
+    // ✅ NOW create Image object and set up handlers
+    // By this point, the Promise is already stored, so concurrent calls will find it
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      this.pendingLoads.delete(url); // Remove from pending when complete
+      resolvePromise!();
+    };
+    
+    img.onerror = () => {
+      this.pendingLoads.delete(url); // Remove from pending on error
+      rejectPromise!(new Error(`Failed to load image: ${url}`));
+    };
+    
+    // ✅ NOW set src - this triggers the actual HTTP request
+    // The Promise is already stored, so deduplication is guaranteed
+    img.src = url;
+    
+    return loadPromise;
+  }
+
+  /**
+   * 🚀 Load image with deduplication (public API for components)
+   * Returns a Promise that resolves when image is loaded
+   * Multiple components requesting the same URL will share the same Promise
+   */
+  static loadImageWithDeduplication(url: string): Promise<void> {
+    if (!url) {
+      return Promise.reject(new Error('Image URL is required'));
+    }
+
+    // Check if already cached in browser (quick check)
+    // Note: Browser cache will still help, but we deduplicate requests
+    return this.preloadImage(url);
   }
 
   /**
