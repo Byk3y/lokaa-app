@@ -18,6 +18,8 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   userDetails: Database['public']['Tables']['users']['Row'] | null;
+  userDetailsLoading: boolean;
+  userDetailsError: Error | null;
   loading: boolean;
   routingInProgress: boolean;
   signOut: (path?: string) => Promise<void>;
@@ -37,6 +39,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userDetails, setUserDetails] = useState<Database['public']['Tables']['users']['Row'] | null>(null);
+  const [userDetailsLoading, setUserDetailsLoading] = useState(false);
+  const [userDetailsError, setUserDetailsError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
   const [routingInProgress, setRoutingInProgress] = useState(false);
   const preloadSpaces = useUserSpacesStore(state => state.preloadSpaces);
@@ -143,20 +147,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               setRoutingInProgress(false);
               
               // Fetch user details from database (non-blocking - fire and forget)
+              setUserDetailsLoading(true);
+              setUserDetailsError(null);
               fetchUserDetails(session.user.id)
                 .then((details) => {
                   if (isMounted) {
                     setUserDetails(details);
+                    setUserDetailsLoading(false);
+                    setUserDetailsError(null);
                   }
                 })
                 .catch((error) => {
                   log.warn('Context', '[AuthProvider] Failed to fetch user details on sign in:', error);
+                  if (isMounted) {
+                    setUserDetailsLoading(false);
+                    setUserDetailsError(error instanceof Error ? error : new Error(String(error)));
+                  }
                 });
             } else if (event === 'SIGNED_OUT') {
               // Clear chat store and cache on sign out
               try { conversationStore.getState().reset(); } catch {}
               try { await userConversationsCacheService.clear(); } catch {}
               setUserDetails(null);
+              setUserDetailsLoading(false);
+              setUserDetailsError(null);
               setLoading(false);
               setRoutingInProgress(false);
             }
@@ -205,14 +219,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Fetch user details if user is authenticated (non-blocking - fire and forget)
         if (data.session?.user && isMounted) {
           // Don't await - let it load in background
+          setUserDetailsLoading(true);
+          setUserDetailsError(null);
           fetchUserDetails(data.session.user.id)
             .then((details) => {
               if (isMounted) {
                 setUserDetails(details);
+                setUserDetailsLoading(false);
+                setUserDetailsError(null);
               }
             })
             .catch((error) => {
               log.warn('Context', '[AuthProvider] Failed to fetch user details on initial load:', error);
+              if (isMounted) {
+                setUserDetailsLoading(false);
+                setUserDetailsError(error instanceof Error ? error : new Error(String(error)));
+              }
             });
         }
         
@@ -281,12 +303,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Fetch user details after session refresh (non-blocking)
         if (data.session.user) {
+          setUserDetailsLoading(true);
+          setUserDetailsError(null);
           fetchUserDetails(data.session.user.id)
             .then((details) => {
               setUserDetails(details);
+              setUserDetailsLoading(false);
+              setUserDetailsError(null);
             })
             .catch((error) => {
               log.warn('Context', '[AuthProvider] Failed to fetch user details on session refresh:', error);
+              setUserDetailsLoading(false);
+              setUserDetailsError(error instanceof Error ? error : new Error(String(error)));
             });
         }
         
@@ -319,12 +347,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Fetch user details after session validation (non-blocking)
         if (validation.session?.user) {
+          setUserDetailsLoading(true);
+          setUserDetailsError(null);
           fetchUserDetails(validation.session.user.id)
             .then((details) => {
               setUserDetails(details);
+              setUserDetailsLoading(false);
+              setUserDetailsError(null);
             })
             .catch((error) => {
               log.warn('Context', '[AuthProvider] Failed to fetch user details on session validation:', error);
+              setUserDetailsLoading(false);
+              setUserDetailsError(error instanceof Error ? error : new Error(String(error)));
             });
         }
         
@@ -427,12 +461,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Fetch user details after signup (non-blocking)
         if (result.data.session.user) {
+          setUserDetailsLoading(true);
+          setUserDetailsError(null);
           fetchUserDetails(result.data.session.user.id)
             .then((details) => {
               setUserDetails(details);
+              setUserDetailsLoading(false);
+              setUserDetailsError(null);
             })
             .catch((error) => {
               log.warn('Context', '[AuthProvider] Failed to fetch user details on signup:', error);
+              setUserDetailsLoading(false);
+              setUserDetailsError(error instanceof Error ? error : new Error(String(error)));
             });
         }
         
@@ -457,6 +497,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     session,
     user,
     userDetails,
+    userDetailsLoading,
+    userDetailsError,
     loading,
     routingInProgress,
     signOut,
@@ -464,7 +506,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Enhanced authentication utilities
     refreshSession,
     validateSession
-  }), [session, user, userDetails, loading, routingInProgress, signOut, signUp, refreshSession, validateSession]);
+  }), [session, user, userDetails, userDetailsLoading, userDetailsError, loading, routingInProgress, signOut, signUp, refreshSession, validateSession]);
 
   return (
     <AuthContext.Provider value={contextValue}>
