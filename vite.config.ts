@@ -364,6 +364,7 @@ export default defineConfig(({ mode }) => {
         "@radix-ui/react-dialog",
         "@radix-ui/react-dropdown-menu",
         "lucide-react",
+        "@phosphor-icons/react",
         "styled-components",
         "shallowequal",
         "@giphy/js-fetch-api",

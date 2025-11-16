@@ -23,6 +23,9 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import {
   parseConversationUrlParams
 } from '@/utils/conversationUrlUtils';
+import {
+  wasConversationExplicitlyCleared
+} from '@/utils/conversationClearingTracker';
 
 /**
  * Hook for conversation management with real-time synchronization
@@ -140,6 +143,12 @@ export function useConversations() {
       // Single source of truth: URL params (mobile) or Zustand persistence (automatic)
       const { conversationId: urlId } = parseConversationUrlParams();
       if (urlId && conversations.find(c => c.conversation_id === urlId)) {
+        // ✅ CONVERSATION PERSISTENCE FIX: Check if this conversation was explicitly cleared
+        if (wasConversationExplicitlyCleared(urlId)) {
+          log.debug('Hook', '[useConversations] Conversation in URL was explicitly cleared, not restoring:', urlId);
+          return;
+        }
+        
         log.debug('Hook', '[useConversations] Restoring from URL after visibility change:', urlId);
         setActiveConversationId(urlId);
       }
@@ -152,6 +161,12 @@ export function useConversations() {
     if (hasInitialized && conversations.length > 0 && !activeConversationId) {
       const { conversationId: urlId } = parseConversationUrlParams();
       if (urlId && conversations.find(c => c.conversation_id === urlId)) {
+        // ✅ CONVERSATION PERSISTENCE FIX: Check if this conversation was explicitly cleared
+        if (wasConversationExplicitlyCleared(urlId)) {
+          log.debug('Hook', '[useConversations] Conversation in URL was explicitly cleared, not restoring on mount:', urlId);
+          return;
+        }
+        
         log.debug('Hook', '[useConversations] Initial restoration from URL:', urlId);
         setActiveConversationId(urlId);
       }
@@ -195,7 +210,7 @@ export function useConversations() {
       
       return conversationId;
     } catch (error) {
-      log.error('Hook', '[useConversations] Failed to create conversation:', error);
+      log.error('Hook', '[useConversations] Failed to create conversation:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }, [createConversation, setActiveConversationId, navigateToConversationById, user?.id]);

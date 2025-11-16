@@ -336,7 +336,7 @@ export function ChatAvatar({ user, onClick }: {
       placeholderType="initials"
       loadingTransition="fade"
       onClick={onClick}
-      className="h-12 w-12 flex-shrink-0" // 🚀 FIXED: Proper sizing to match original layout
+      className="flex-shrink-0" // ✅ FIXED: Removed redundant h-12 w-12 (already set by size="lg")
     />
   );
 } 
