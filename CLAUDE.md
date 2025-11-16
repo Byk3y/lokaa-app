@@ -66,8 +66,55 @@ src/
 ### Key Architectural Decisions
 - **ADR-001**: Feature-first organization for better scalability
 - **ADR-002**: Zustand for state management over Context API
+- **ADR-003**: Platform-specific chat components for better maintainability
 - **Space-first routing**: `/space/:subdomain/...` for user-friendly URLs
 - **Slug-based posts**: SEO-friendly post URLs with automatic redirection
+
+### Chat Architecture (Mobile/Desktop Split)
+The chat system uses a platform-specific architecture to prevent cross-platform bugs and improve maintainability.
+
+**Router Pattern:**
+- `ChatView` acts as a conditional renderer based on screen size (≤640px = mobile, >640px = desktop)
+- Uses `useMediaQuery` hook for responsive platform detection
+- Maintains backward compatibility with unified API
+
+**Shared Components:**
+- `useChatLogic` hook: Centralizes all business logic (message fetching, sending, state management)
+- `MessageList` component: Platform-agnostic message rendering with scroll management
+- `MessageBubble` component: Individual message display with status indicators
+
+**Platform-Specific Components:**
+- **Mobile** (`src/features/chat/components/mobile/`):
+  - `MobileChatView`: 100dvh layout, fixed input overlay above bottom nav
+  - `MobileChatInput`: Enter key creates newlines, send button only, 16px font (prevents iOS zoom)
+- **Desktop** (`src/features/chat/components/desktop/`):
+  - `DesktopChatView`: Flexible height, sticky header, static input wrapper
+  - `DesktopChatInput`: Enter sends message, Shift+Enter creates newlines, 14px font
+
+**File Structure:**
+```
+src/features/chat/
+├── components/
+│   ├── mobile/          # Mobile-specific (100dvh, fixed overlay)
+│   │   ├── MobileChatView.tsx
+│   │   └── MobileChatInput.tsx
+│   ├── desktop/         # Desktop-specific (flex, sticky header)
+│   │   ├── DesktopChatView.tsx
+│   │   └── DesktopChatInput.tsx
+│   └── shared/          # Platform-agnostic
+│       ├── MessageList.tsx
+│       └── MessageBubble.tsx
+├── hooks/
+│   └── useChatLogic.ts  # Shared business logic
+└── store/               # Zustand stores
+```
+
+**Benefits:**
+- **Zero cross-platform bugs**: Mobile changes don't affect desktop (and vice versa)
+- **Cleaner code**: No platform conditionals within components
+- **Better performance**: Tree-shaking eliminates unused platform code
+- **Easier maintenance**: Clear separation of concerns, focused components
+- **Improved DX**: Easier to reason about and extend platform-specific features
 
 ## Development Workflow
 
