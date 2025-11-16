@@ -186,11 +186,13 @@ export default function ChatView({
     const newHasOtherParticipant = newIsDirectConversation && initialConversation.other_participants?.length > 0;
     
     // Only update if this represents a significant change (prevent late loading issues)
+    // ✅ INFINITE LOOP FIX: Removed shouldShowConnectionContext from dependencies to prevent infinite updates
+    // We check it in the condition, so we don't need it as a dependency
     if (newHasOtherParticipant !== shouldShowConnectionContext && initialConversation.other_participants?.length > 0) {
       log.debug('Component', '🗨️ [ChatView] 🔄 Connection context visibility updated:', newHasOtherParticipant);
       setShouldShowConnectionContext(newHasOtherParticipant);
     }
-  }, [initialConversation, shouldShowConnectionContext]);
+  }, [initialConversation]); // ✅ FIX: Removed shouldShowConnectionContext to prevent infinite loop
 
   // ✅ FIXED: Auto-refresh messages when conversation changes
   useEffect(() => {
@@ -357,13 +359,13 @@ export default function ChatView({
   // Input overlay handles its own positioning
 
   return (
-    <div 
+    <div
       className={`flex flex-col bg-white dark:bg-gray-800 ${
-        isMobile ? 'mobile-chat-view-simplified' : ''
+        isMobile ? 'mobile-chat-view-simplified' : 'h-full min-h-0'
       }`}
-      style={isMobile ? { height: '100dvh' } : { height: '100%' }}
+      style={isMobile ? { height: '100dvh' } : undefined}
     >
-      <div className={`${isMobile ? '' : 'sticky top-0'} z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700`}>
+      <div className={`${isMobile ? '' : 'sticky top-0'} z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0`}>
         <ChatHeader 
           conversation={currentConversation}
           onBack={onBack}
@@ -377,7 +379,7 @@ export default function ChatView({
       
       <div 
         ref={messagesContainerRef}
-        className={`flex-1 overflow-y-auto p-4 space-y-4 chat-messages-container ${
+        className={`flex-1 overflow-y-auto p-4 space-y-4 chat-messages-container min-h-0 ${
           isMobile ? 'mobile-chat-messages-simplified' : ''
         }`}
         style={{
@@ -405,13 +407,20 @@ export default function ChatView({
         ) : null}
         
         {/* ✅ CRITICAL FIX: Show cached messages immediately, only show spinner if truly no data */}
+        {/* ✅ RENDER ORDER FIX: Delay message rendering until ConnectionContext finishes loading (if it should be shown) */}
         {shouldShowLoading ? (
           // Only show spinner if we have NO cached messages AND we're loading
           <div className="flex justify-center items-center h-32">
             <div className="animate-spin h-6 w-6 border-t-2 border-blue-500 rounded-full"></div>
           </div>
+        ) : (shouldShowConnectionContext && isConnectionContextLoading) ? (
+          // ✅ FIX: Show placeholder while ConnectionContext is loading to maintain visual order
+          // This ensures ConnectionContext appears before messages
+          <div className="flex justify-center items-center h-32">
+            <div className="text-sm text-gray-500 dark:text-gray-400">Loading connection context...</div>
+          </div>
         ) : displayMessages.length > 0 ? (
-          // Show messages (cached or from store) immediately
+          // Show messages (cached or from store) - only after ConnectionContext has finished loading
           displayMessages.map((msg) => (
             <div key={msg.id} className={`flex items-end gap-2 ${msg.sender_id === user?.id ? 'justify-end' : ''}`}>
               {msg.sender_id !== user?.id && (
@@ -442,7 +451,7 @@ export default function ChatView({
       
       {/* ✅ SKOOL-STYLE: Input overlay - only render wrapper on desktop, mobile input handles its own positioning */}
       {!isMobile && (
-        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
           <ChatInput 
             onSendMessage={handleSendMessage}
             sending={sending}

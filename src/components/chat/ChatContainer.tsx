@@ -15,6 +15,11 @@ import {
   findConversationIdFromSlug,
   navigateToConversationList
 } from '@/utils/conversationUrlUtils';
+import {
+  markConversationAsExplicitlyCleared,
+  resetExplicitClearing,
+  wasConversationExplicitlyCleared
+} from '@/utils/conversationClearingTracker';
 
 interface ChatContainerProps {
   initialConversationId?: string;
@@ -66,6 +71,11 @@ export default function ChatContainer({
   const containerRef = useRef<HTMLDivElement>(null);
   // ✅ MOBILE FIX: Ref to track current view to prevent effect from overwriting user actions
   const viewRef = useRef<'list' | 'chat' | 'new'>(view);
+  // ✅ INFINITE LOOP FIX: Track previous isModal state to detect when modal is closing
+  const prevIsModalRef = useRef(isModal);
+  // ✅ CONVERSATION PERSISTENCE FIX: Track when we explicitly cleared the conversation
+  // This prevents Zustand persistence from restoring it when we don't want it
+  const explicitlyClearedRef = useRef<boolean>(false);
   // ✅ MOBILE FIX: Determine visibility based on route (more reliable than DOM checks)
   // ChatContainer is visible when on /app/chat route, hidden otherwise (unless modal)
   const isVisible = useMemo(() => {
@@ -76,16 +86,45 @@ export default function ChatContainer({
     // ChatContainer is visible when pathname starts with /app/chat
     return location.pathname.startsWith('/app/chat');
   }, [isModal, location.pathname]);
+  
+  // ✅ INFINITE LOOP FIX: Track previous isModal value (updated synchronously before effects run)
+  // This is updated in render, not in effect, to ensure it's available when effects run
 
-  // Clear cache if initialConversationId changes
+  // ✅ CONVERSATION PERSISTENCE FIX: Clear cache when initialConversationId changes or becomes null/undefined
   useEffect(() => {
     if (lastInitialConversationIdRef.current !== initialConversationId) {
-      if (initialConversationId !== cachedConversationRef.current?.conversation_id) {
+      // Clear cache if:
+      // 1. initialConversationId becomes undefined/null (modal closed)
+      // 2. initialConversationId changes to a different conversation ID
+      if (!initialConversationId || initialConversationId !== cachedConversationRef.current?.conversation_id) {
+        log.debug('Component', '🗨️ [ChatContainer] Clearing cached conversation:', {
+          reason: !initialConversationId ? 'initialConversationId is null/undefined' : 'conversation ID changed',
+          oldCachedId: cachedConversationRef.current?.conversation_id,
+          newInitialId: initialConversationId
+        });
         cachedConversationRef.current = null;
       }
       lastInitialConversationIdRef.current = initialConversationId;
     }
   }, [initialConversationId]);
+
+  // ✅ CONVERSATION PERSISTENCE FIX: Clear cache when activeConversationId is cleared
+  useEffect(() => {
+    if (!activeConversationId) {
+      // If activeConversationId is cleared, clear the cache to prevent stale data
+      if (cachedConversationRef.current) {
+        log.debug('Component', '🗨️ [ChatContainer] Clearing cached conversation - activeConversationId cleared');
+        cachedConversationRef.current = null;
+      }
+    } else if (cachedConversationRef.current && cachedConversationRef.current.conversation_id !== activeConversationId) {
+      // If activeConversationId changes to a different conversation, clear the old cache
+      log.debug('Component', '🗨️ [ChatContainer] Clearing cached conversation - activeConversationId changed', {
+        oldCachedId: cachedConversationRef.current.conversation_id,
+        newActiveId: activeConversationId
+      });
+      cachedConversationRef.current = null;
+    }
+  }, [activeConversationId]);
 
   // DEBUG: Log container state (only when visible or in dev mode)
   if (isVisible || process.env.NODE_ENV === 'development') {
@@ -115,17 +154,38 @@ export default function ChatContainer({
   // ✅ CRITICAL FIX: Primary source of truth - use initialConversationId prop
   // This ensures we always have a conversation ID even if store hasn't rehydrated
   useEffect(() => {
+    // ✅ INFINITE LOOP FIX: Update prevIsModalRef synchronously at start of effect
+    const wasModal = prevIsModalRef.current;
+    prevIsModalRef.current = isModal;
+    
     log.debug('Component', '🗨️ [ChatContainer] UseEffect - setup:', {
       initialConversationId,
       activeConversationId,
       currentView: viewRef.current,
-      willSetView: initialConversationId ? 'chat' : 'list'
+      willSetView: initialConversationId ? 'chat' : 'list',
+      wasModal,
+      isModal,
+      isModalClosing: wasModal && !isModal
     });
+    
+    // ✅ INFINITE LOOP FIX: Skip effect if modal is closing (isModal changed from true to false)
+    // This prevents the effect from running during modal close, which causes infinite loops
+    if (wasModal && !isModal) {
+      // Modal is closing - don't update state to prevent infinite loops
+      log.debug('Component', '🗨️ [ChatContainer] Modal is closing, skipping effect update to prevent infinite loop');
+      return;
+    }
+    
+    // Also skip if not visible and not a modal (component is hidden/unmounted)
+    if (!isModal && !isVisible) {
+      log.debug('Component', '🗨️ [ChatContainer] Not visible and not modal, skipping effect update');
+      return;
+    }
     
     // ✅ MOBILE FIX: Don't override view if user explicitly navigated to list (handleBack)
     // Check ref to get current view value (not stale closure)
     // If user was on list view and URL doesn't have conversation ID, preserve list view
-    if (viewRef.current === 'list' && !initialConversationId) {
+    if (viewRef.current === 'list' && !initialConversationId && !activeConversationId) {
       // User was on list view - only restore chat if there's a conversation ID in URL
       // Don't restore from store if user explicitly navigated back to list
       log.debug('Component', '🗨️ [ChatContainer] View already set to list by user action, skipping effect update');
@@ -134,6 +194,20 @@ export default function ChatContainer({
     
     // ✅ PRIMARY SOURCE: Use initialConversationId as source of truth
     if (initialConversationId) {
+      // ✅ CONVERSATION PERSISTENCE FIX: Check if this conversation was explicitly cleared
+      if (wasConversationExplicitlyCleared(initialConversationId)) {
+        log.debug('Component', '🗨️ [ChatContainer] Initial conversation was explicitly cleared, ignoring:', initialConversationId);
+        // Don't restore - user explicitly cleared it
+        if (viewRef.current !== 'list') {
+          setView('list');
+        }
+        return;
+      }
+      
+      // ✅ CONVERSATION PERSISTENCE FIX: Reset explicitly cleared flag when new conversation is selected
+      explicitlyClearedRef.current = false;
+      resetExplicitClearing();
+      
       // Always sync store with prop (even if store already has it)
       // This handles cases where store was cleared but prop still has value
       if (activeConversationId !== initialConversationId) {
@@ -145,31 +219,54 @@ export default function ChatContainer({
         setView('chat');
       }
     } else {
-      // No initialConversationId - check if we have activeConversationId from store
-      if (activeConversationId) {
-        // Store has a conversation, use it
+      // No initialConversationId - this means modal was closed or no conversation selected
+      // ✅ CONVERSATION PERSISTENCE FIX: If modal is open but no initialConversationId, clear activeConversationId
+      // This prevents Zustand persistence from restoring the old conversation when modal closes
+      if (isModal && activeConversationId) {
+        log.debug('Component', '🗨️ [ChatContainer] Modal open but no initialConversationId - clearing activeConversationId to prevent persistence restore');
+        selectConversation(null);
+        // Don't close modal here - let the parent handle it via onClose
+        return;
+      }
+      
+      // ✅ CONVERSATION PERSISTENCE FIX: Only restore from store if NOT in a modal AND not explicitly cleared
+      // Modals should only show conversations passed via initialConversationId prop
+      // If user explicitly cleared the conversation (via handleBack), don't restore from persistence
+      if (!isModal && activeConversationId && !explicitlyClearedRef.current) {
+        // Not a modal and not explicitly cleared - check if we have activeConversationId from store (for fullscreen chat route)
         log.debug('Component', '🗨️ [ChatContainer] No initialConversationId but have activeConversationId, using store value');
         // ✅ MOBILE FIX: Only set view to chat if not already at list (prevent overwriting back button)
         if (viewRef.current !== 'list') {
           setView('chat');
         }
+      } else if (!isModal && activeConversationId && explicitlyClearedRef.current) {
+        // ✅ CONVERSATION PERSISTENCE FIX: Conversation was explicitly cleared, but persistence restored it
+        // Clear it again to prevent it from showing
+        log.debug('Component', '🗨️ [ChatContainer] Conversation was explicitly cleared but persistence restored it - clearing again');
+        selectConversation(null);
+        if (viewRef.current !== 'list') {
+          setView('list');
+        }
       } else {
         // No conversation anywhere - show list or close modal
-        // ✅ MOBILE FIX: Only update view if we're visible or modal (prevent state updates when hidden)
-        if (isVisible || isModal) {
-          if (isModal) {
-            log.debug('Component', '🗨️ [ChatContainer] Modal opened without conversation - closing');
-            onClose?.();
-            return;
-          }
+        // ✅ INFINITE LOOP FIX: Only update if we're actually visible AND it's a modal, or if we're on the chat route
+        // Don't update view when modal is closing (isModal becomes false but isVisible might still be true briefly)
+        if (isModal) {
+          // Modal: close if no conversation
+          log.debug('Component', '🗨️ [ChatContainer] Modal opened without conversation - closing');
+          onClose?.();
+          return;
+        } else if (isVisible) {
+          // Not a modal and visible (on chat route) - set to list
           // Only set to list if not already there (prevents unnecessary updates)
           if (viewRef.current !== 'list') {
             setView('list');
           }
         }
+        // If not visible and not modal, don't update (component is hidden/unmounted)
       }
     }
-  }, [initialConversationId, activeConversationId, isModal, isVisible, selectConversation, onClose]); // ✅ MOBILE FIX: Removed view from dependencies to prevent infinite loops
+  }, [initialConversationId, activeConversationId, isModal, isVisible, selectConversation]); // ✅ INFINITE LOOP FIX: Removed onClose from dependencies (only used for calling, not comparison)
 
   // Simplified visibility restoration - trust Zustand persistence
   useEffect(() => {
@@ -180,7 +277,7 @@ export default function ChatContainer({
       if (!activeConversationId && initialConversationId) {
         log.debug('Component', '🗨️ [ChatContainer] Visibility change: Restoring from initialConversationId');
         selectConversation(initialConversationId);
-        if (viewRef.current !== 'list') {
+        if (viewRef.current === 'chat' || viewRef.current === 'new') {
           setView('chat');
         }
       }
@@ -217,8 +314,17 @@ export default function ChatContainer({
           resolvedId = findConversationIdFromSlug(slug, legacyConversations);
         }
         
+        // ✅ CONVERSATION PERSISTENCE FIX: Check if this conversation was explicitly cleared
+        if (resolvedId && wasConversationExplicitlyCleared(resolvedId)) {
+          log.debug('Component', '📱 [ChatContainer] Browser navigation to explicitly cleared conversation, ignoring:', resolvedId);
+          setView('list');
+          selectConversation(null);
+          return;
+        }
+        
         if (resolvedId) {
           log.debug('Component', '📱 [ChatContainer] Browser navigation to conversation:', resolvedId);
+          resetExplicitClearing(); // Reset clearing flag when navigating to a new conversation
           selectConversation(resolvedId);
           setView('chat');
         } else {
@@ -247,8 +353,15 @@ export default function ChatContainer({
         return;
       }
       
+      // ✅ CONVERSATION PERSISTENCE FIX: Check if this conversation was explicitly cleared
+      if (conversationId && wasConversationExplicitlyCleared(conversationId)) {
+        log.debug('Component', '📱 [ChatContainer] Custom URL change to explicitly cleared conversation, ignoring:', conversationId);
+        return;
+      }
+      
       if (conversationId) {
         log.debug('Component', '📱 [ChatContainer] Custom URL change to conversation:', conversationId);
+        resetExplicitClearing(); // Reset clearing flag when navigating to a new conversation
         selectConversation(conversationId);
         setView('chat');
       } else {
@@ -296,12 +409,22 @@ export default function ChatContainer({
   }, [view, activeConversationId, isVisible, isModal]);
 
   const handleSelectConversation = (conversation: LegacyConversation) => {
+    // ✅ CONVERSATION PERSISTENCE FIX: Reset explicitly cleared flag when new conversation is selected
+    explicitlyClearedRef.current = false;
+    resetExplicitClearing();
+    
     // This is called by ChatListItem for state consistency
     selectConversation(conversation.conversation_id);
     setView('chat');
   };
   
   const handleBack = () => {
+    // ✅ CONVERSATION PERSISTENCE FIX: Mark conversation as explicitly cleared
+    // This prevents Zustand persistence and URL-based restoration from restoring it
+    const currentConversationId = activeConversationId;
+    explicitlyClearedRef.current = true;
+    markConversationAsExplicitlyCleared(currentConversationId);
+    
     if (isModal) {
       // Modal: Close the modal when back is pressed
       log.debug('Component', '🗨️ [ChatContainer] Modal back button pressed - closing modal');
@@ -314,10 +437,12 @@ export default function ChatContainer({
       setView('list');
       selectConversation(null);
       
-      // Also update URL for browser history (but don't wait for it)
+      // ✅ CRITICAL FIX: Clear URL parameter to prevent restoration when returning to chat
       const success = navigateToConversationList();
       if (success) {
-        log.debug('Component', '📱 [ChatContainer] Mobile: Navigated to conversation list URL');
+        log.debug('Component', '📱 [ChatContainer] Mobile: Navigated to conversation list URL and cleared conversation parameter');
+      } else {
+        log.warn('Component', '📱 [ChatContainer] Mobile: Failed to navigate to conversation list URL');
       }
     } else {
       // Desktop: Direct state management
@@ -332,7 +457,7 @@ export default function ChatContainer({
     if (!isVisible && !isModal) return null;
 
     // Primary: Use activeLegacyConversation from store (Zustand already rehydrated)
-    if (activeLegacyConversation?.other_participants?.length > 0) {
+    if (activeLegacyConversation && activeLegacyConversation.other_participants && activeLegacyConversation.other_participants.length > 0) {
       cachedConversationRef.current = activeLegacyConversation;
       return activeLegacyConversation;
     }
@@ -341,18 +466,32 @@ export default function ChatContainer({
     const targetId = initialConversationId || activeConversationId;
     if (targetId) {
       const conversation = legacyConversations.find(c => c.conversation_id === targetId);
-      if (conversation?.other_participants?.length > 0) {
+      if (conversation && conversation.other_participants && conversation.other_participants.length > 0) {
         cachedConversationRef.current = conversation;
         return conversation;
       }
     }
 
     // Tertiary: Return cached conversation only during brief rehydration window
-    // This prevents flashing but trusts Zustand to rehydrate quickly
-    if (cachedConversationRef.current?.conversation_id === targetId &&
+    // ✅ CONVERSATION PERSISTENCE FIX: Only use cache if it matches current target ID
+    // This prevents returning stale cached data when switching conversations
+    if (targetId && 
+        cachedConversationRef.current?.conversation_id === targetId &&
         cachedConversationRef.current?.other_participants?.length > 0) {
-      log.debug('Component', '🗨️ [ChatContainer] Using cached conversation briefly during rehydration');
+      log.debug('Component', '🗨️ [ChatContainer] Using cached conversation briefly during rehydration', {
+        cachedId: cachedConversationRef.current.conversation_id,
+        targetId
+      });
       return cachedConversationRef.current;
+    }
+    
+    // ✅ CONVERSATION PERSISTENCE FIX: Clear cache if it doesn't match target ID
+    if (cachedConversationRef.current && targetId && cachedConversationRef.current.conversation_id !== targetId) {
+      log.debug('Component', '🗨️ [ChatContainer] Clearing stale cached conversation - ID mismatch', {
+        cachedId: cachedConversationRef.current.conversation_id,
+        targetId
+      });
+      cachedConversationRef.current = null;
     }
 
     // If we get here, Zustand hasn't rehydrated yet - return null and wait
@@ -393,7 +532,7 @@ export default function ChatContainer({
   }
 
   return (
-    <div ref={containerRef}>
+    <div ref={containerRef} className={isModal ? 'h-full min-h-0 flex flex-col' : ''}>
       {/* ✅ SAFARI FIX: For non-modals, show fullscreen list */}
       {view === 'list' && !isModal && (
         <>
