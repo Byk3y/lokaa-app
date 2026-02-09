@@ -90,37 +90,37 @@ export class ChatApiService {
    * @returns Promise with conversations data
    */
   async getUserConversations(
-    userId: string, 
+    userId: string,
     options: { forceNetwork?: boolean } = {}
   ): Promise<ApiResponse<Conversation[]>> {
     try {
       log.debug('Service', '[ChatApiService] 📱 Using V2 adapter for user:', userId);
-      
+
       // Use the adapter to get data through V2 system with proper format transformation
       const result = await chatApiServiceAdapter.getUserConversations(userId, {
         forceNetwork: options.forceNetwork
       });
-        
+
       if (result.error) {
         log.error('Service', '[ChatApiService] V2 adapter error:', result.error);
         throw result.error;
       }
-      
+
       log.debug('Service', '[ChatApiService] Data received from V2 adapter:', result.data?.length || 0, 'conversations');
       log.debug('Service', '[ChatApiService] Source:', result.fromCache ? 'cache' : 'network', result.reason ? `(${result.reason})` : '');
-      
-      const transformedData: Conversation[] = (result.data || []).map((record: any) => 
+
+      const transformedData: Conversation[] = (result.data || []).map((record: any) =>
         this.transformConversationRecord(record)
       );
-      
+
       log.debug('Service', '[ChatApiService] Transformed data:', transformedData.length, 'conversations');
-      
+
       return { data: transformedData, error: null };
-      
+
     } catch (error) {
       log.error('Service', '[ChatApiService] Error fetching conversations via V2:', error);
-      return { 
-        data: null, 
+      return {
+        data: null,
         error: error instanceof Error ? error : new Error('Failed to fetch conversations')
       };
     }
@@ -137,32 +137,32 @@ export class ChatApiService {
   ): Promise<ApiResponse<Conversation[]>> {
     try {
       log.debug('Service', '[ChatApiService] 🖥️ Direct network call for user:', userId);
-      
+
       const result = await getSupabaseClient()
         .from('user_conversations_secure')
         .select('*')
         .eq('user_id', userId)
         .order('last_message_at', { ascending: false });
-        
+
       if (result.error) {
         log.error('Service', '[ChatApiService] Database error:', result.error);
         throw result.error;
       }
-      
+
       log.debug('Service', '[ChatApiService] Raw data received:', result.data?.length || 0, 'conversations');
-      
-      const transformedData: Conversation[] = (result.data || []).map((record: any) => 
+
+      const transformedData: Conversation[] = (result.data || []).map((record: any) =>
         this.transformConversationRecord(record)
       );
-      
+
       log.debug('Service', '[ChatApiService] Transformed data:', transformedData.length, 'conversations');
-      
+
       return { data: transformedData, error: null };
-      
+
     } catch (error) {
       log.error('Service', '[ChatApiService] Error fetching conversations:', error);
-      return { 
-        data: null, 
+      return {
+        data: null,
         error: error instanceof Error ? error : new Error('Failed to fetch conversations')
       };
     }
@@ -196,21 +196,21 @@ export class ChatApiService {
         .eq('conversation_id', conversationId)
         .eq('is_deleted', false)
         .order('created_at', { ascending: true });
-        
+
       if (error) throw error;
-      
+
       // Transform to match Message interface
       const transformedMessages: Message[] = (data || []).map((msg: any) => ({
         ...msg,
         read_by_ids: msg.read_by_ids || []
       }));
-      
+
       return { data: transformedMessages, error: null };
-      
+
     } catch (error) {
       log.error('Service', '[ChatApiService] Error fetching messages:', error);
-      return { 
-        data: null, 
+      return {
+        data: null,
         error: error instanceof Error ? error : new Error('Failed to fetch messages')
       };
     }
@@ -307,8 +307,8 @@ export class ChatApiService {
    * @returns Promise with created conversation ID
    */
   async createConversation(
-    userIds: string[], 
-    isGroup: boolean, 
+    userIds: string[],
+    isGroup: boolean,
     creatorId: string,
     name?: string
   ): Promise<ApiResponse<string>> {
@@ -324,7 +324,7 @@ export class ChatApiService {
             user1: creatorId,
             user2: userIds[0]
           });
-          
+
         if (error) throw error;
         return { data, error: null };
       }
@@ -339,11 +339,11 @@ export class ChatApiService {
         })
         .select('id')
         .single();
-        
+
       if (error) throw error;
-      
+
       const conversationId = data.id;
-      
+
       // Add all participants including the creator
       const participants = [creatorId, ...userIds].map(userId => ({
         conversation_id: conversationId,
@@ -351,18 +351,18 @@ export class ChatApiService {
         joined_at: new Date().toISOString(),
         is_admin: userId === creatorId
       }));
-      
+
       const { error: participantsError } = await getSupabaseClient()
         .from('chat_participants')
         .insert(participants);
-        
+
       if (participantsError) throw participantsError;
-      
+
       return { data: conversationId, error: null };
     } catch (error) {
       log.error('Service', '[ChatApiService] Error creating conversation:', error);
-      return { 
-        data: null, 
+      return {
+        data: null,
         error: error instanceof Error ? error : new Error('Failed to create conversation')
       };
     }
@@ -376,7 +376,7 @@ export class ChatApiService {
    * @returns Promise with conversation data or null
    */
   async getConversationBySlug(
-    slug: string, 
+    slug: string,
     conversations: Conversation[]
   ): Promise<ApiResponse<Conversation>> {
     try {
@@ -386,23 +386,23 @@ export class ChatApiService {
 
       // Use conversation URL utilities to find the conversation
       const conversationId = findConversationIdFromSlug(slug, conversations);
-      
+
       if (!conversationId) {
         return { data: null, error: new Error('Conversation not found for slug') };
       }
 
       const conversation = conversations.find(conv => conv.conversation_id === conversationId);
-      
+
       if (!conversation) {
         return { data: null, error: new Error('Conversation not found in provided list') };
       }
 
       return { data: conversation, error: null };
-      
+
     } catch (error) {
       log.error('Service', '[ChatApiService] Error finding conversation by slug:', error);
-      return { 
-        data: null, 
+      return {
+        data: null,
         error: error instanceof Error ? error : new Error('Failed to find conversation by slug')
       };
     }
@@ -419,16 +419,19 @@ export class ChatApiService {
     let participants = [];
     try {
       // The new view structure puts other participants in 'other_participants' field
-      if (record.other_participants) {
-        participants = Array.isArray(record.other_participants) ? record.other_participants : [record.other_participants];
-      } else if (record.participants) {
+      if (record.other_participants && Array.isArray(record.other_participants)) {
+        participants = record.other_participants;
+      } else if (record.participants && Array.isArray(record.participants)) {
         // Fallback to 'participants' field for compatibility
-        participants = Array.isArray(record.participants) ? record.participants : [record.participants];
+        participants = record.participants;
       }
     } catch (err) {
       log.error('Service', '[ChatApiService] Error parsing participants:', err);
       participants = [];
     }
+
+    // Filter out any non-object or malformed participants
+    participants = participants.filter(p => p && typeof p === 'object' && p.user_id);
 
     return {
       conversation_id: record.conversation_id || record.id,
