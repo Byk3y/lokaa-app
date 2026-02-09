@@ -8,17 +8,17 @@ import type { CachedPostType } from "@/features/posts/types/cachedPost";
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { PostService } from '@/services/PostService';
 import type { PostCardProps } from "@/features/posts/types/postCard";
-import type { 
-  FetchedPostType, 
-  FeedTabProps, 
+import type {
+  FetchedPostType,
+  FeedTabProps,
   OwnerDetails,
-  EffectivePermissions 
+  EffectivePermissions
 } from "@/types/feedTypes";
-import { 
+import {
   updatePinPositions,
   filterPinnedPostsByCategory,
   getCategoryDisplayName,
-  getPostsToShow 
+  getPostsToShow
 } from "@/utils/feedUtils";
 
 // Import the new focused hooks
@@ -38,7 +38,7 @@ interface UseFeedLogicOptimizedReturn {
   fetchedPosts: CachedPostType[];
   pinnedPosts: CachedPostType[];
   spaceCategories: any[];
-  
+
   // Loading states
   authLoading: boolean;
   storeLoadingSpace: boolean;
@@ -46,13 +46,13 @@ interface UseFeedLogicOptimizedReturn {
   categoriesLoading: boolean;
   postsError: string | null;
   categoriesError: any;
-  
+
   // Permissions
   effectivePermissions: EffectivePermissions;
-  
+
   // UI State
   selectedTab: string;
-  
+
   // Modal states
   modalStates: {
     isCreatePostOpen: boolean;
@@ -62,7 +62,7 @@ interface UseFeedLogicOptimizedReturn {
     isLoadingUrlPost: boolean;
     urlPostError: string | null;
   };
-  
+
   // Real-time state
   realtimeState: {
     newPostIds: string[];
@@ -73,21 +73,21 @@ interface UseFeedLogicOptimizedReturn {
     loadError: any;
     retryCount: number;
   };
-  
+
   // Computed values
   filteredPinnedPosts: CachedPostType[];
   filteredRegularPosts: CachedPostType[];
   postsToShow: CachedPostType[];
   userNameForModal: string;
   userAvatarForModal: string;
-  
+
   // Pagination
   totalCount: number;
   currentPage: number;
   totalPages: number;
   hasNextPage: boolean;
   isLoadingMore: boolean;
-  
+
   // Action handlers
   handleTabSelect: (tab: string) => void;
   handlePostCardClick: (post: PostCardProps) => void;
@@ -97,25 +97,25 @@ interface UseFeedLogicOptimizedReturn {
   handlePostUpdated: (updatedPost: PostCardProps) => void;
   handlePostDeleted: (postId: string) => void;
   handlePostCreated: () => void;
-  
+
   // Modal handlers
   handleClosePostModal: () => void;
   openCreatePostModal: () => void;
   closeCreatePostModal: () => void;
   openCategoryModal: () => void;
   closeCategoryModal: () => void;
-  
+
   // Real-time handlers
   handleLoadNewPosts: (postIds: string[]) => Promise<void>;
   handleDismissNotification: () => void;
   clearNewPosts: () => void;
-  
+
   // Utility functions
   mapPostToCardProps: (post: CachedPostType) => PostCardProps;
   refetchPosts: (forceRefresh?: boolean) => Promise<void>;
   loadPage: (page: number) => Promise<void>;
   refreshCategories: () => Promise<void>;
-  
+
   // Enhanced mobile refresh
   refreshOnTabSwitch: () => Promise<void>;
 }
@@ -124,34 +124,34 @@ interface UseFeedLogicOptimizedReturn {
  * Optimized business logic hook for FeedTab
  * Uses focused sub-hooks to reduce complexity and improve performance
  */
-export function useFeedLogicOptimized({ 
-  user: userProp, 
-  isOwner: isOwnerProp, 
-  isAdmin: isAdminProp, 
+export function useFeedLogicOptimized({
+  user: userProp,
+  isOwner: isOwnerProp,
+  isAdmin: isAdminProp,
   postInputRef,
   hasInstantAccess,
   disableVisibilityTracking
 }: FeedTabProps): UseFeedLogicOptimizedReturn {
-  
+
   // ============================================================================
   // SETUP & INITIALIZATION  
   // ============================================================================
-  
+
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // Current user - prioritize prop, fallback to context
   const { user: contextUser, loading: authLoading } = useOptimizedAuth();
   const currentUser = userProp || contextUser;
-  
+
   const { space: contextSpaceData } = useSpace();
   const { space: storeSpace, loadingSpace: storeLoadingSpace } = useSpaceSettingsStore();
   const { subdomain } = useParams();
-  
+
   // ============================================================================
   // SPACE DATA RESOLUTION
   // ============================================================================
-  
+
   // PHASE 1.5 FIX: Enhanced space data selection - only use storeSpace if it has valid name
   const currentSpaceData = useMemo(() => {
     // Use store space ONLY if it matches the current URL subdomain
@@ -171,10 +171,10 @@ export function useFeedLogicOptimized({
   // ============================================================================
   // FOCUSED HOOKS
   // ============================================================================
-  
+
   // Get space ID for data fetching
   const spaceId = currentSpaceData?.id;
-  
+
   // Core data hook
   const {
     fetchedPosts,
@@ -232,35 +232,37 @@ export function useFeedLogicOptimized({
   } = useFeedRealtime(
     spaceId,
     currentUser?.id,
-    handleCachedPostCreated
+    handleCachedPostCreated,
+    handleCachedPostUpdated,
+    handleCachedPostDeleted
   );
 
   // ============================================================================
   // UI STATE MANAGEMENT (SIMPLIFIED)
   // ============================================================================
-  
+
   const [selectedTab, setSelectedTab] = useState("all");
-  
+
   // ============================================================================
   // OWNER DETAILS & SETUP GUIDE
   // ============================================================================
-  
+
   const [ownerDetails, setOwnerDetails] = useState<OwnerDetails | null>(null);
   const isAdminOrOwner = effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin;
 
   // ============================================================================
   // COMPUTED VALUES (OPTIMIZED MEMOIZATION)
   // ============================================================================
-  
+
   // Split complex computed values into separate useMemo hooks for better performance
   const filteredPinnedPosts = useMemo(() => {
     // Convert CachedPostType to FetchedPostType for compatibility with utility functions
     const convertedPinnedPosts: FetchedPostType[] = pinnedPosts.map(post => ({
       ...post,
-      media_urls: post.media_urls?.map((url, index) => ({ 
-        id: `${post.id}-media-${index}`, 
-        url, 
-        type: 'file' as const 
+      media_urls: post.media_urls?.map((url, index) => ({
+        id: `${post.id}-media-${index}`,
+        url,
+        type: 'file' as const
       })) || null
     }));
     const filtered = filterPinnedPostsByCategory(convertedPinnedPosts, selectedTab);
@@ -272,8 +274,8 @@ export function useFeedLogicOptimized({
   }, [pinnedPosts, selectedTab]);
 
   const filteredRegularPosts = useMemo(() => {
-    return fetchedPosts.filter(post => 
-      selectedTab === "all" || 
+    return fetchedPosts.filter(post =>
+      selectedTab === "all" ||
       post.category?.id === selectedTab
     );
   }, [fetchedPosts, selectedTab]);
@@ -282,23 +284,23 @@ export function useFeedLogicOptimized({
     // Convert CachedPostType to FetchedPostType for compatibility with utility functions
     const convertedPinnedPosts: FetchedPostType[] = pinnedPosts.map(post => ({
       ...post,
-      media_urls: post.media_urls?.map((url, index) => ({ 
-        id: `${post.id}-media-${index}`, 
-        url, 
-        type: 'file' as const 
+      media_urls: post.media_urls?.map((url, index) => ({
+        id: `${post.id}-media-${index}`,
+        url,
+        type: 'file' as const
       })) || null
     }));
     const convertedFetchedPosts: FetchedPostType[] = fetchedPosts.map(post => ({
       ...post,
-      media_urls: post.media_urls?.map((url, index) => ({ 
-        id: `${post.id}-media-${index}`, 
-        url, 
-        type: 'file' as const 
+      media_urls: post.media_urls?.map((url, index) => ({
+        id: `${post.id}-media-${index}`,
+        url,
+        type: 'file' as const
       })) || null
     }));
     const result = getPostsToShow(
-      convertedPinnedPosts, 
-      convertedFetchedPosts, 
+      convertedPinnedPosts,
+      convertedFetchedPosts,
       effectivePermissions.effectiveIsOwner || effectivePermissions.effectiveIsAdmin
     );
     // Convert back to CachedPostType for return
@@ -308,46 +310,46 @@ export function useFeedLogicOptimized({
     })) as CachedPostType[];
   }, [pinnedPosts, fetchedPosts, effectivePermissions]);
 
-  const userNameForModal = useMemo(() => 
-    currentUser?.email?.split('@')[0] || "Anonymous User", 
+  const userNameForModal = useMemo(() =>
+    currentUser?.email?.split('@')[0] || "Anonymous User",
     [currentUser?.email]
   );
-  
-  const userAvatarForModal = useMemo(() => 
-    currentUser?.user_metadata?.avatar_url, 
+
+  const userAvatarForModal = useMemo(() =>
+    currentUser?.user_metadata?.avatar_url,
     [currentUser?.user_metadata?.avatar_url]
   );
 
   // ============================================================================
   // ACTION HANDLERS (STABLE)
   // ============================================================================
-  
+
   const handleTabSelect = useCallback((tab: string) => {
     setSelectedTab(tab);
   }, []);
 
   const handlePostCardClick = useCallback((post: PostCardProps) => {
     log.debug('Hook', '[FeedLogicOptimized] Post card clicked:', post.title || post.id);
-    
+
     // Check if we're in search mode (URL contains /search)
     const isInSearchMode = location.pathname.includes('/search');
-    
+
     if (isInSearchMode && post.slug) {
       // In search mode, navigate to the actual post URL instead of adding search params
       const currentPath = location.pathname;
       const pathSegments = currentPath.split('/');
       const subdomain = pathSegments[1]; // Extract subdomain from current path
-      
+
       const postUrl = `/${subdomain}/space/${post.slug}`;
       log.debug('Hook', '[FeedLogicOptimized] In search mode, navigating to post URL:', postUrl);
       navigate(postUrl, { replace: false });
       return;
     }
-    
+
     // Normal feed mode - open modal and add search params
     setSelectedPost(post);
     setPostModalOpen(true);
-    
+
     // Update URL using search params to avoid route conflicts
     // This keeps us in the FeedTab while showing the post modal
     if (post.slug) {
@@ -372,13 +374,13 @@ export function useFeedLogicOptimized({
 
   const handlePinToggled = useCallback(async (postId: string, isPinned: boolean, category?: string | null) => {
     const currentPinnedCount = pinnedPosts.length;
-    
+
     if (isPinned && currentPinnedCount >= 4) {
       await refetchPosts(true);
     } else {
       handleCachedPinToggled(postId, isPinned);
     }
-    
+
     // Update selected post in modal if it's the same post
     if (modalStates.selectedPostForModal?.id === postId) {
       setSelectedPost({ ...modalStates.selectedPostForModal, isPinned, pinCategory: category });
@@ -392,7 +394,7 @@ export function useFeedLogicOptimized({
       edited_at: updatedPost.editedAt,
       media_urls: updatedPost.media_urls?.map(media => media.url) || null  // CRITICAL FIX: Include media_urls
     });
-    
+
     setSelectedPost(updatedPost);
   }, [handleCachedPostUpdated, setSelectedPost]);
 
@@ -409,7 +411,7 @@ export function useFeedLogicOptimized({
   // ============================================================================
   // UTILITY FUNCTIONS (STABLE)
   // ============================================================================
-  
+
   const mapPostToCardProps = useCallback((post: CachedPostType): PostCardProps => {
     const mapped = mapCachedPostToCardProps(post);
     return {
@@ -422,7 +424,7 @@ export function useFeedLogicOptimized({
   // ============================================================================
   // RETURN INTERFACE
   // ============================================================================
-  
+
   return {
     // Core data
     currentUser,
@@ -430,7 +432,7 @@ export function useFeedLogicOptimized({
     fetchedPosts,
     pinnedPosts,
     spaceCategories,
-    
+
     // Loading states
     authLoading,
     storeLoadingSpace,
@@ -438,33 +440,33 @@ export function useFeedLogicOptimized({
     categoriesLoading,
     postsError,
     categoriesError,
-    
+
     // Permissions
     effectivePermissions,
-    
+
     // UI State
     selectedTab,
-    
+
     // Modal states
     modalStates,
-    
+
     // Real-time state
     realtimeState,
-    
+
     // Computed values
     filteredPinnedPosts,
     filteredRegularPosts,
     postsToShow,
     userNameForModal,
     userAvatarForModal,
-    
+
     // Pagination
     totalCount,
     currentPage,
     totalPages,
     hasNextPage,
     isLoadingMore,
-    
+
     // Action handlers
     handleTabSelect,
     handlePostCardClick,
@@ -474,25 +476,25 @@ export function useFeedLogicOptimized({
     handlePostUpdated,
     handlePostDeleted,
     handlePostCreated,
-    
+
     // Modal handlers
     handleClosePostModal,
     openCreatePostModal,
     closeCreatePostModal,
     openCategoryModal,
     closeCategoryModal,
-    
+
     // Real-time handlers
     handleLoadNewPosts,
     handleDismissNotification,
     clearNewPosts,
-    
+
     // Utility functions
     mapPostToCardProps,
     refetchPosts,
     loadPage,
     refreshCategories,
-    
+
     // Enhanced mobile refresh
     refreshOnTabSwitch: refreshOnTabSwitchInternal,
   };

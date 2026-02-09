@@ -5,7 +5,9 @@ import { Toaster } from '@/components/ui/toaster';
 // Core components and hooks
 import { AppLoadingScreen, UnifiedPresenceInitializer } from '@/components/app/AppComponents';
 import { useAppInitialization } from '@/hooks/useAppInitialization';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
+import { useSessionLongevity } from '@/hooks/useSessionLongevity';
+import { useAppStore } from '@/stores/useAppStore';
 import { useToast } from '@/hooks/use-toast';
 
 // Services and providers
@@ -28,29 +30,17 @@ import { initCriticalCSS } from '@/utils/criticalCSS';
 import { initFontOptimization } from '@/utils/fontOptimizer';
 import { performanceMonitor } from '@/utils/performanceMonitor';
 
-// Dev-only console helpers
-if (import.meta.env.DEV) {
-  import('@/devtools/exposeForConsole').then(({ exposeForConsole }) => {
-    exposeForConsole().catch(err => log.error('App', 'Failed to expose console helpers:', err));
-  });
-}
-
-// Core services and Mobile Event Coordinator
-import { globalRealtimeService } from '@/services/GlobalRealtimeService';
-import { mobileEventCoordinator } from '@/utils/MobileEventCoordinator';
-import { LegacySystemDisabler } from '@/utils/MobileEventMigration';
-import { getSupabaseClient } from '@/integrations/supabase/client';
+// Core services
 import { preventScrollRestoration } from '@/utils/scrollPositionManager';
 
 export default function App() {
   const { appReady } = useAppInitialization();
-  const { isOffline, justCameOnline } = useNetworkStatus();
+  const isOnline = useAppStore((state: any) => state.isOnline);
   const { toast } = useToast();
 
-  // Ensure app initialization is complete (appReady is always true, but hook handles background initialization)
-  if (!appReady) {
-    return null; // This should never happen, but provides safety
-  }
+  // Root Lifecycle & Session management
+  useAppLifecycle();
+  useSessionLongevity();
 
   // Prevent browser scroll restoration to avoid mobile scroll issues
   useEffect(() => {
@@ -59,45 +49,31 @@ export default function App() {
 
   // Handle network status changes
   useEffect(() => {
-    if (isOffline) {
+    if (!isOnline) {
       toast({
         variant: 'destructive',
         title: "🔌 You're offline",
         description: "Changes will sync when you're back.",
       });
     }
-  }, [isOffline, toast]);
-
-  useEffect(() => {
-    if (justCameOnline) {
-      toast({
-        title: "✅ Back online",
-        description: "Syncing data…",
-        duration: 3000,
-      });
-    }
-  }, [justCameOnline, toast]);
+  }, [isOnline, toast]);
 
   // Phase 3.2: Initialize performance optimizations
   useEffect(() => {
-    // Initialize critical CSS optimization
     initCriticalCSS({
-      enabled: process.env.NODE_ENV === 'production',
-      maxSize: 14000, // 14KB limit
+      enabled: import.meta.env.PROD,
+      maxSize: 14000,
     });
 
-    // Initialize font optimization
     initFontOptimization({
-      enabled: process.env.NODE_ENV === 'production',
+      enabled: import.meta.env.PROD,
       displayStrategy: 'swap',
       useSwap: true,
     });
 
-    // Initialize performance monitoring
     performanceMonitor.init();
 
-    // Log performance metrics in development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       setTimeout(() => {
         const metrics = performanceMonitor.getMetrics();
         const score = performanceMonitor.getPerformanceScore();
@@ -107,9 +83,9 @@ export default function App() {
     }
   }, []);
 
-  // Listen for manual reload requests from supabaseLoadFailedBlocker
+  // Listen for manual reload requests
   useEffect(() => {
-    const handleManualReloadNeeded = (event: CustomEvent) => {
+    const handleManualReloadNeeded = (event: any) => {
       toast({
         variant: event.detail.variant || 'destructive',
         title: event.detail.title,
@@ -118,7 +94,7 @@ export default function App() {
     };
 
     window.addEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
-    
+
     return () => {
       window.removeEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
     };
@@ -126,148 +102,14 @@ export default function App() {
 
   useEffect(() => {
     // CRITICAL: Initialize Supabase error protection
-    void supabaseLoadFailedBlocker; // Trigger singleton initialization
+    void supabaseLoadFailedBlocker;
     log.debug('App', '🛡️ [App] Supabase Load Failed Blocker loaded and active');
-    
-    // Session management functions for Mobile Event Coordinator integration
-    const handleProactiveSessionRefresh = async (): Promise<void> => {
-      try {
-        const client = getSupabaseClient();
-        if (!client) return;
-        const { data, error } = await client.auth.getSession();
-        
-        if (error || !data?.session) return;
-        
-        const session = data!.session;
-        const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
-        const now = Date.now();
-        
-        // Check if session expires within 15 minutes (proactive refresh)
-        if (expiresAt - now < 900000) {
-          log.debug('App', '🛡️ [SessionLongevity] Proactively refreshing session before background');
-          const { error: refreshError } = await client.auth.refreshSession();
-          
-          if (refreshError) {
-            log.warn('App', '🛡️ [SessionLongevity] Proactive refresh failed:', refreshError);
-          } else {
-            log.debug('App', '✅ [SessionLongevity] Proactive refresh successful');
-          }
-        }
-      } catch (error) {
-        log.warn('App', '🛡️ [SessionLongevity] Proactive refresh check failed:', error);
-      }
-    };
-
-    const handleSessionValidation = async (reason: string, backgroundDuration: number): Promise<void> => {
-      try {
-        const client = getSupabaseClient();
-        if (!client) return;
-        const { data, error } = await client.auth.getSession();
-        
-        if (error || !data?.session) {
-          log.debug('App', `🛡️ [SessionLongevity] No valid session found (${reason})`);
-          return;
-        }
-        
-        const session = data!.session;
-        const expiresAt = session?.expires_at ? session.expires_at * 1000 : 0;
-        const now = Date.now();
-        
-        // Check if session expired or expires soon
-        if (expiresAt <= now || expiresAt - now < 300000) { // 5 minutes buffer
-          log.debug('App', `🛡️ [SessionLongevity] Session needs refresh after ${Math.round(backgroundDuration/1000)}s background (${reason})`);
-          
-          const { error: refreshError } = await client.auth.refreshSession();
-          
-          if (refreshError) {
-            log.warn('App', `🛡️ [SessionLongevity] Session refresh failed (${reason}):`, refreshError);
-          } else {
-            log.debug('App', `✅ [SessionLongevity] Session refresh successful (${reason})`);
-          }
-        } else {
-          log.debug('App', `🛡️ [SessionLongevity] Session valid for ${Math.round((expiresAt - now)/60000)} minutes`);
-        }
-      } catch (error) {
-        log.warn('App', `🛡️ [SessionLongevity] Session validation failed (${reason}):`, error);
-      }
-    };
-
-    // Initialize GlobalRealtimeService - this ensures it's ready when components need it
-    log.debug('App', '🔔 [App] GlobalRealtimeService initialized');
-    
-    // 🏗️ MOBILE EVENT COORDINATOR - 2025 Industry Standard Solution
-    log.debug('App', '🏗️ [App] Initializing Mobile Event Coordinator...');
-    
-    // Disable all competing legacy mobile systems first
-    LegacySystemDisabler.disableAllLegacySystems();
-    
-    // Initialize the centralized coordinator (replaces 6+ competing systems)
-    mobileEventCoordinator.initialize();
-    
-    // Register essential mobile systems with coordinator
-    const unsubscribeGlobalRealtime = mobileEventCoordinator.subscribe({
-      name: 'GlobalRealtimeService',
-      priority: 10, // High priority for real-time features
-      handler: async (eventData) => {
-        if (eventData.isBackground) {
-          log.debug('App', '📱 [GlobalRealtime] App backgrounded - optimizing connections');
-          // Optimize real-time connections when backgrounded
-        } else {
-          log.debug('App', '📱 [GlobalRealtime] App foregrounded - restoring connections');
-          // Restore optimal real-time behavior when foregrounded
-        }
-      }
-    });
-    
-    // Register session longevity manager with coordinator
-    const unsubscribeSessionLongevity = mobileEventCoordinator.subscribe({
-      name: 'SessionLongevityManager',
-      priority: 8, // High priority for session management
-      handler: async (eventData) => {
-        if (eventData.isBackground) {
-          log.debug('App', '🛡️ [SessionLongevity] App backgrounded - preparing session protection');
-          // Proactively refresh session if it expires soon
-          await handleProactiveSessionRefresh();
-        } else {
-          // Access background duration from the event data
-          const backgroundDuration = eventData.duration || 0;
-          log.debug('App', `🛡️ [SessionLongevity] App returned after ${Math.round(backgroundDuration/1000)}s`);
-          // Validate session if background was longer than 30 seconds
-          if (backgroundDuration > 30000) {
-            await handleSessionValidation('background_return', backgroundDuration);
-          }
-        }
-      }
-    });
-      
-    // Register bfcache optimization with coordinator
-    const unsubscribeBfcache = mobileEventCoordinator.subscribe({
-      name: 'BfcacheOptimizer',
-      priority: 5, // Highest priority for page lifecycle
-      handler: async (eventData) => {
-        if (eventData.eventType === 'pageshow' && eventData.isBfcacheRestore) {
-          log.debug('App', '🎉 [BfcacheOptimizer] App restored from bfcache - instant load!');
-          // App state preserved, no reload needed
-        } else if (eventData.eventType === 'pagehide') {
-          log.debug('App', '🌙 [BfcacheOptimizer] Preparing for bfcache storage');
-          // Optimize for bfcache eligibility
-        }
-      }
-    });
-    
-    log.debug('App', '✅ [App] Mobile Event Coordinator active - 6+ systems replaced with 1 coordinator');
-    log.debug('App', '🚀 [App] Observer Pattern Anti-Pattern eliminated');
-
-    return () => {
-      // Cleanup on app unmount (rarely happens)
-      log.debug('App', '🧹 [App] Cleaning up Mobile Event Coordinator...');
-      unsubscribeGlobalRealtime();
-      unsubscribeSessionLongevity();
-      unsubscribeBfcache();
-      globalRealtimeService.destroy();
-      mobileEventCoordinator.cleanup();
-    };
   }, []);
+
+  // Ensure app initialization is complete
+  if (!appReady) {
+    return null;
+  }
 
   return (
     <AppErrorBoundary>

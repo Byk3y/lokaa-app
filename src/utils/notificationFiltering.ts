@@ -1,5 +1,4 @@
-import { getCurrentSpaceContext } from '@/utils/spaceContextUtils';
-import { spaceEventCoordinator } from '@/utils/spaceEventCoordinator';
+import { useSpaceStore } from '@/stores/useSpaceStore';
 import { log } from '@/utils/logger';
 import type { NotificationWithActor } from '@/types/notification';
 
@@ -8,42 +7,42 @@ import type { NotificationWithActor } from '@/types/notification';
  * Prevents notification spam by filtering out notifications for the current space
  */
 export class NotificationFiltering {
-  
+
   /**
    * Get the current space subdomain the user is viewing
    */
   static getCurrentSpaceSubdomain(): string | null {
     try {
       const pathname = window.location.pathname;
-      
+
       // Debug current page context
       log.debug('NotificationFiltering', 'Getting current space context:', {
         pathname,
         isOnNotificationsPage: this.isOnNotificationsPage(),
         isActivelyInSpace: this.isActivelyInSpace()
       });
-      
+
       // First try URL-based detection (most reliable)
       const spaceContext = getCurrentSpaceContext();
       if (spaceContext?.subdomain) {
         log.debug('NotificationFiltering', 'Found space from context:', spaceContext.subdomain);
         return spaceContext.subdomain;
       }
-      
-      // Fallback to event coordinator
-      const currentSpace = spaceEventCoordinator.getCurrentSpace();
+
+      // Fallback to space store
+      const currentSpace = useSpaceStore.getState().currentSpaceId;
       if (currentSpace) {
-        log.debug('NotificationFiltering', 'Found space from event coordinator:', currentSpace);
+        log.debug('NotificationFiltering', 'Found space from space store:', currentSpace);
         return currentSpace;
       }
-      
+
       // Last resort: try to extract from current URL
       const match = pathname.match(/\/([^\/]+)\/space/);
       if (match?.[1]) {
         log.debug('NotificationFiltering', 'Found space from URL pattern:', match[1]);
         return match[1];
       }
-      
+
       log.debug('NotificationFiltering', 'No current space detected');
       return null;
     } catch (error) {
@@ -93,32 +92,32 @@ export class NotificationFiltering {
       }
 
       const currentSpace = currentSpaceSubdomain ?? this.getCurrentSpaceSubdomain();
-      
+
       // If we can't determine current space, don't filter
       if (!currentSpace) {
         return false;
       }
-      
+
       // If notification doesn't have a space, don't filter
       if (!notification.space?.subdomain) {
         return false;
       }
-      
+
       // Check if notification is from the current space
       const isFromCurrentSpace = notification.space.subdomain === currentSpace;
-      
+
       // Always show mentions even if from current space
       if (notification.type === 'mention' && isFromCurrentSpace) {
         log.debug('NotificationFiltering', 'Keeping mention notification despite current space');
         return false;
       }
-      
+
       // Always show comment replies on your posts even if from current space
       if (notification.type === 'comment_reply' && isFromCurrentSpace) {
         log.debug('NotificationFiltering', 'Keeping comment reply notification despite current space');
         return false;
       }
-      
+
       // Filter out other notifications from current space only when actively browsing that space
       if (isFromCurrentSpace) {
         log.debug('NotificationFiltering', `Filtering notification from current space: ${currentSpace}`, {
@@ -127,7 +126,7 @@ export class NotificationFiltering {
         });
         return true;
       }
-      
+
       return false;
     } catch (error) {
       log.warn('NotificationFiltering', 'Error checking notification filter:', error);
@@ -149,12 +148,12 @@ export class NotificationFiltering {
       const filteredNotifications = notifications.filter(
         notification => !this.shouldFilterNotification(notification, currentSpaceSubdomain)
       );
-      
+
       const filteredCount = notifications.length - filteredNotifications.length;
       if (filteredCount > 0) {
         log.debug('NotificationFiltering', `Filtered ${filteredCount} notifications from current space`);
       }
-      
+
       return filteredNotifications;
     } catch (error) {
       log.warn('NotificationFiltering', 'Error filtering notifications:', error);
@@ -187,15 +186,15 @@ export class NotificationFiltering {
     currentSpace?: string | null
   ): string {
     const hiddenCount = originalCount - filteredCount;
-    
+
     if (hiddenCount === 0) {
       return 'No notifications filtered';
     }
-    
+
     if (hiddenCount === 1) {
       return `1 notification hidden from current space${currentSpace ? ` (${currentSpace})` : ''}`;
     }
-    
+
     return `${hiddenCount} notifications hidden from current space${currentSpace ? ` (${currentSpace})` : ''}`;
   }
 }
@@ -205,14 +204,14 @@ export class NotificationFiltering {
  */
 export function useNotificationFiltering() {
   const currentSpaceSubdomain = NotificationFiltering.getCurrentSpaceSubdomain();
-  
+
   return {
     currentSpaceSubdomain,
-    shouldFilterNotification: (notification: NotificationWithActor) => 
+    shouldFilterNotification: (notification: NotificationWithActor) =>
       NotificationFiltering.shouldFilterNotification(notification, currentSpaceSubdomain),
-    filterNotifications: (notifications: NotificationWithActor[]) => 
+    filterNotifications: (notifications: NotificationWithActor[]) =>
       NotificationFiltering.filterNotifications(notifications, currentSpaceSubdomain),
-    getFilteredUnreadCount: (unreadNotifications: NotificationWithActor[]) => 
+    getFilteredUnreadCount: (unreadNotifications: NotificationWithActor[]) =>
       NotificationFiltering.getFilteredUnreadCount(unreadNotifications, currentSpaceSubdomain)
   };
 }

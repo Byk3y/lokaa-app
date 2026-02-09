@@ -3,16 +3,16 @@ import { log } from '@/utils/logger';
 // Handles all app initialization logic in a centralized service
 
 import { supabase } from '@/integrations/supabase/client';
-import { performanceMonitor } from '@/utils/performanceMonitor';
+import { devLogger } from '@/utils/developmentLogger';
 // DISABLED: PageVisibilityManager causes reload conflicts with comprehensive fix
 // import { pageVisibilityManager } from '@/utils/pageVisibilityManager';
 // persistentCache removed - using simplified course cache
-import { supabaseHealthMonitor } from '@/utils/supabaseHealthCheck';
 // Cache warming removed - using simpler cache system
 // DISABLED: import { phase1Recovery } from '@/utils/phase1MobileRecovery';
-import { spaceMembersService } from '@/utils/indexeddb/services/SpaceMembersService';
-import { devLogger } from '@/utils/developmentLogger';
 import { initializePostHog } from '@/integrations/posthog';
+import { useAppStore } from '@/stores/useAppStore';
+import { realtimeManager } from '@/services/RealtimeManager';
+import { useSpaceStore } from '@/stores/useSpaceStore';
 
 export interface AppInitializationOptions {
   isDevelopment?: boolean;
@@ -57,8 +57,8 @@ export class AppInitializationService {
       debugInterfaces: {}
     };
 
+    const isDevelopment = import.meta.env.DEV;
     const {
-      isDevelopment = import.meta.env?.DEV,
       enableDebugInterfaces = isDevelopment,
       enableMobileRecovery = true
     } = options;
@@ -78,11 +78,11 @@ export class AppInitializationService {
       // Cache systems initialization
       await this.initializeCacheSystems(result);
 
-      // Supabase bridge and mobile protection
-      await this.initializeSupabaseBridge(result, isDevelopment);
+      // Supabase bridge - removing V2 legacy in favor of clean stores
+      // await this.initializeSupabaseBridge(result, isDevelopment);
 
-      // Space coordinator initialization
-      await this.initializeSpaceCoordinator(result, enableDebugInterfaces);
+      // New reactive systems initialization
+      await this.initializeUnifiedSystems(result, enableDebugInterfaces);
 
       // Mobile recovery systems
       if (enableMobileRecovery) {
@@ -103,8 +103,8 @@ export class AppInitializationService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
       result.errors.push(errorMessage);
       result.success = false;
-      if (process.env.NODE_ENV === 'development') {
-        log.error('Service', '❌ [AppInitialization] Initialization failed:', error);
+      if (import.meta.env.DEV) {
+        log.error('Service', '❌ [AppInitialization] Initialization failed:', error as Error);
       }
     }
 
@@ -123,8 +123,8 @@ export class AppInitializationService {
     } catch (error) {
       const message = 'Supabase initialization failed';
       result.errors.push(message);
-      if (process.env.NODE_ENV === 'development') {
-        log.error('Service', '❌ [AppInitialization]', message, error);
+      if (import.meta.env.DEV) {
+        log.error('Service', '❌ [AppInitialization]', message, error as Error);
       }
     }
   }
@@ -132,11 +132,11 @@ export class AppInitializationService {
   private async initializeEssentialServices(result: AppInitializationResult): Promise<void> {
     try {
       devLogger.log('AppInit', 'Initializing essential services...');
-      
+
       // DISABLED: Health monitor causes page reloads - mobile protection handled by comprehensive fix in index.html
       // supabaseHealthMonitor.startMonitoring();
       devLogger.log('AppInit', 'Health monitor disabled - mobile protection handled by comprehensive fix');
-      
+
     } catch (error) {
       const message = 'Essential services initialization failed';
       result.warnings.push(message);
@@ -147,10 +147,10 @@ export class AppInitializationService {
   private async initializeAnalytics(result: AppInitializationResult): Promise<void> {
     try {
       devLogger.log('AppInit', 'Initializing analytics (PostHog)...');
-      
+
       // Initialize PostHog
       initializePostHog();
-      
+
       devLogger.log('AppInit', 'Analytics initialization completed');
     } catch (error) {
       const message = 'Analytics initialization failed';
@@ -162,11 +162,11 @@ export class AppInitializationService {
   private async initializeCacheSystems(result: AppInitializationResult): Promise<void> {
     try {
       devLogger.log('AppInit', 'Initializing cache systems...');
-      
+
       // persistentCache.init() removed - using simplified courseCache.ts
-      
+
       // Cache warming removed - using simplified courseCache.ts
-      
+
     } catch (error) {
       const message = 'Cache systems initialization failed';
       result.warnings.push(message);
@@ -174,157 +174,25 @@ export class AppInitializationService {
     }
   }
 
-  private async initializeSupabaseBridge(result: AppInitializationResult, isDevelopment: boolean): Promise<void> {
+  private async initializeUnifiedSystems(result: AppInitializationResult, enableDebugInterfaces: boolean): Promise<void> {
     try {
-      devLogger.log('AppInit', 'Initializing V2 IndexedDB Bridge System...');
-      
-      // Import and initialize V2 system
-      const { indexedDBBridgeV2 } = await import('@/utils/indexeddb/IndexedDBBridgeV2');
-      await indexedDBBridgeV2.initialize();
-      
-      // Import migration adapter for unified interface
-      const { migrationAdapter } = await import('@/utils/indexeddb/migration/MigrationAdapter');
-      
-      devLogger.log('AppInit', 'V2 IndexedDB Bridge System initialized with mobile browser protection');
-      
-      if (isDevelopment) {
-        await import('@/utils/indexedDBDebugger');
-        devLogger.log('AppInit', 'IndexedDB debugger loaded for development');
-      }
-      
-      if (isDevelopment) {
-        // DESKTOP GUARD: Only load mobile protection test suite on mobile devices
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (isMobile) {
-          devLogger.log('AppInit', 'Mobile device detected - V2 system includes mobile browser protection');
-        } else {
-          devLogger.log('AppInit', 'Desktop detected - V2 system with standard caching');
-        }
-      }
-      
-      if (isDevelopment) {
-        this.debugInterfaces.debugSupabaseBridge = {
-          getMetrics: () => migrationAdapter.getMetrics(),
-          testMobileBlocking: () => migrationAdapter.testMobileBlockingDetection(),
-          clearCache: () => migrationAdapter.clearCache(),
-          getSystemStatus: () => migrationAdapter.getSystemStatus(),
-          getCurrentSystem: () => migrationAdapter.getCurrentSystem(),
-          testSpaceMembers: (spaceId: string) => migrationAdapter.getSpaceMembers(spaceId),
-          testUserProfile: (userId: string) => migrationAdapter.getUserProfile(userId),
-          testCurrentUser: () => migrationAdapter.getCurrentUser(),
-          testPresenceUpdate: (userId: string, isOnline: boolean) => 
-            migrationAdapter.updateGlobalPresence(userId, isOnline)
-        };
+      devLogger.log('AppInit', 'Initializing Unified Foundation Systems...');
 
-        // V2-specific debugging interfaces
-        this.debugInterfaces.debugV2Bridge = {
-          checkHealth: () => indexedDBBridgeV2.checkHealth(),
-          getServiceMetrics: () => indexedDBBridgeV2.getMetrics(),
-          testAllServices: async () => {
-            const health = await indexedDBBridgeV2.checkHealth();
-            return {
-              overall: health.status,
-              services: health.services,
-              metrics: await indexedDBBridgeV2.getMetrics()
-            };
-          }
-        };
-      }
-      
-      setTimeout(() => {
-        const currentPath = window.location.pathname;
-        const pathSegments = currentPath.split('/').filter(Boolean);
-        if (pathSegments.length > 0 && pathSegments[0] !== 'spaces' && pathSegments[0] !== 'chat') {
-          const spaceSubdomain = pathSegments[0];
-          devLogger.log('AppInit', `V2 system active for subdomain: ${spaceSubdomain}`);
-        }
-      }, 3000);
-      
-    } catch (error) {
-      const message = 'V2 IndexedDB Bridge initialization failed';
-      result.warnings.push(message);
-      devLogger.warn('AppInit', message, error);
-    }
-  }
-
-  private async initializeSpaceCoordinator(result: AppInitializationResult, enableDebugInterfaces: boolean): Promise<void> {
-    try {
-      devLogger.log('AppInit', 'Initializing Event-Driven Space Coordinator...');
-      
-      const { spaceEventCoordinator } = await import('@/utils/spaceEventCoordinator');
-      devLogger.log('AppInit', 'Space Event Coordinator initialized');
-      
       if (enableDebugInterfaces) {
-        this.debugInterfaces.spaceEventCoordinator = spaceEventCoordinator;
-        this.debugInterfaces.debugSpaceEvents = {
-          getState: () => spaceEventCoordinator.getState(),
-          getDebugInfo: () => spaceEventCoordinator.getDebugInfo(),
-          dispatchTestEvent: (type = 'space:data-updated') => {
-            return spaceEventCoordinator.dispatchEvent(type as any, {
-              spaceId: 'debug-test-space',
-              subdomain: 'debug-test',
-              source: 'system',
-              timestamp: Date.now()
-            });
-          },
-          switchToTestSpace: () => {
-            return spaceEventCoordinator.switchSpace('test-space-id', 'test-space', 'user-action');
-          }
-        };
-      }
-      
-    } catch (error) {
-      const message = 'Space Event Coordinator initialization failed';
-      result.warnings.push(message);
-      devLogger.warn('AppInit', message, error);
-    }
-  }
+        this.debugInterfaces.appStore = useAppStore.getState();
+        this.debugInterfaces.realtimeManager = realtimeManager;
+        this.debugInterfaces.spaceStore = useSpaceStore.getState();
 
-  private async initializeMobileRecovery(result: AppInitializationResult, enableDebugInterfaces: boolean): Promise<void> {
-    try {
-      devLogger.log('AppInit', 'Initializing Enhanced Mobile Session Recovery...');
-      
-      // Note: phase1MobileRecovery was removed as part of Phase 1 cleanup
-      // Mobile recovery functionality is now handled by the V2 IndexedDB Bridge system
-      devLogger.log('AppInit', 'Mobile recovery system cleaned up - using V2 IndexedDB Bridge');
-      
-      if (enableDebugInterfaces) {
-        this.debugInterfaces.testPhase1 = {
-          status: () => {
-            devLogger.log('AppInit', 'Phase 1 Status Check:');
-            devLogger.log('AppInit', 'Available:', typeof (window as any).phase1Recovery !== 'undefined');
-            devLogger.log('AppInit', 'Mobile Features Enabled:', typeof (window as any).mobileSessionManager !== 'undefined');
-            devLogger.log('AppInit', 'Mobile Lifecycle Debug:', typeof (window as any).mobileLifecycleDebug !== 'undefined');
-            devLogger.log('AppInit', 'Phase 1 Component:', typeof (window as any).phase1Component !== 'undefined');
-            
-            if ((window as any).phase1Recovery) {
-              devLogger.log('AppInit', 'Phase 1 Stats:', (window as any).phase1Recovery.getStats());
-              devLogger.log('AppInit', 'Phase 1 State:', (window as any).phase1Recovery.getState());
-            }
-          },
-          enableForTesting: () => {
-            (window as any).phase1Recovery?.overrideMobileDetection(true);
-            (window as any).phase1Recovery?.forceEnable();
-            devLogger.log('AppInit', 'Phase 1 force enabled for testing');
-          },
-          triggerRecovery: () => {
-            return (window as any).phase1Recovery?.triggerRecovery();
-          },
-          validateSession: () => {
-            return (window as any).phase1Recovery?.validateSession();
-          },
-          simulateBackground: () => {
-            (window as any).mobileLifecycleDebug?.forceBackground();
-            setTimeout(() => {
-              (window as any).mobileLifecycleDebug?.forceReturn();
-            }, 2000);
-            devLogger.log('AppInit', 'Simulated 2-second background session');
-          }
+        this.debugInterfaces.debugUnified = {
+          getAppState: () => useAppStore.getState(),
+          getSpaceState: () => useSpaceStore.getState(),
+          getRealtimeStats: () => realtimeManager, // Can add getStats if needed
         };
       }
-      
+
+      devLogger.log('AppInit', 'Unified Foundation Systems initialized');
     } catch (error) {
-      const message = 'Mobile recovery initialization failed';
+      const message = 'Unified systems initialization failed';
       result.warnings.push(message);
       devLogger.warn('AppInit', message, error);
     }
@@ -333,15 +201,15 @@ export class AppInitializationService {
   private async setupDebugInterfaces(result: AppInitializationResult): Promise<void> {
     try {
       devLogger.log('AppInit', 'Setting up debug interfaces...');
-      
+
       if (typeof window !== 'undefined') {
         Object.entries(this.debugInterfaces).forEach(([key, value]) => {
           (window as any)[key] = value;
         });
-        
+
         devLogger.log('AppInit', 'Debug interfaces available on window:', Object.keys(this.debugInterfaces));
       }
-      
+
     } catch (error) {
       const message = 'Debug interfaces setup failed';
       result.warnings.push(message);

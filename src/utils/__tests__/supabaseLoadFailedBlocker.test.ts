@@ -15,8 +15,8 @@ vi.mock('@/integrations/supabase/client', () => ({
   }))
 }));
 
-vi.mock('@/services/GlobalRealtimeService', () => ({
-  globalRealtimeService: {
+vi.mock('@/services/RealtimeManager', () => ({
+  realtimeManager: {
     reconnectAll: vi.fn()
   }
 }));
@@ -37,7 +37,7 @@ describe('SupabaseLoadFailedBlocker', () => {
   beforeEach(() => {
     // Reset all mocks
     vi.clearAllMocks();
-    
+
     // Mock Supabase client
     const { getSupabaseClient } = require('@/integrations/supabase/client');
     mockRefreshSession = vi.fn();
@@ -47,15 +47,15 @@ describe('SupabaseLoadFailedBlocker', () => {
       }
     });
 
-    // Mock GlobalRealtimeService
-    const { globalRealtimeService } = require('@/services/GlobalRealtimeService');
+    // Mock RealtimeManager
+    const { realtimeManager } = require('@/services/RealtimeManager');
     mockReconnectAll = vi.fn();
-    globalRealtimeService.reconnectAll = mockReconnectAll;
+    realtimeManager.reconnectAll = mockReconnectAll;
 
     // Mock document and addEventListener
     originalDocument = global.document;
     originalAddEventListener = global.addEventListener;
-    
+
     global.document = {
       hidden: false,
       addEventListener: vi.fn((event, callback) => {
@@ -68,7 +68,7 @@ describe('SupabaseLoadFailedBlocker', () => {
 
     global.addEventListener = vi.fn();
     global.window = global.window || {};
-    
+
     // Reset the blocker instance
     (supabaseLoadFailedBlocker as any).consecutiveFailedRefreshes = 0;
     (supabaseLoadFailedBlocker as any).isRefreshing = false;
@@ -85,26 +85,26 @@ describe('SupabaseLoadFailedBlocker', () => {
     it('should track background timing on visibilitychange', () => {
       const mockTime = 1000000;
       vi.spyOn(Date, 'now').mockReturnValue(mockTime);
-      
+
       // Simulate app going to background
       (global.document as any).hidden = true;
       visibilityChangeCallback();
-      
+
       expect((supabaseLoadFailedBlocker as any).backgroundStartTime).toBe(mockTime);
     });
 
     it('should not trigger recovery if backgrounded for less than MOBILE_SAFE_RELOAD_DELAY_MS', async () => {
       const startTime = 1000000;
       const currentTime = startTime + (MOBILE_SAFE_RELOAD_DELAY_MS - 1000); // 1 second less than threshold
-      
+
       // Set background start time
       (supabaseLoadFailedBlocker as any).backgroundStartTime = startTime;
-      
+
       vi.spyOn(Date, 'now').mockReturnValue(currentTime);
-      
+
       // Trigger recovery
       await (supabaseLoadFailedBlocker as any).handleLoadFailed();
-      
+
       // Should not call refreshSession
       expect(mockRefreshSession).not.toHaveBeenCalled();
       expect(mockReconnectAll).not.toHaveBeenCalled();
@@ -113,21 +113,21 @@ describe('SupabaseLoadFailedBlocker', () => {
     it('should trigger recovery if backgrounded for more than MOBILE_SAFE_RELOAD_DELAY_MS', async () => {
       const startTime = 1000000;
       const currentTime = startTime + MOBILE_SAFE_RELOAD_DELAY_MS + 1000; // 1 second more than threshold
-      
+
       // Set background start time
       (supabaseLoadFailedBlocker as any).backgroundStartTime = startTime;
-      
+
       vi.spyOn(Date, 'now').mockReturnValue(currentTime);
-      
+
       // Mock successful refresh
       mockRefreshSession.mockResolvedValue({
         data: { session: { access_token: 'test-token' } },
         error: null
       });
-      
+
       // Trigger recovery
       await (supabaseLoadFailedBlocker as any).handleLoadFailed();
-      
+
       // Should call refreshSession and reconnectAll
       expect(mockRefreshSession).toHaveBeenCalledOnce();
       expect(mockReconnectAll).toHaveBeenCalledOnce();
@@ -146,15 +146,15 @@ describe('SupabaseLoadFailedBlocker', () => {
     it('should reset retry counter on successful refresh', async () => {
       // Set some failed attempts
       (supabaseLoadFailedBlocker as any).consecutiveFailedRefreshes = 2;
-      
+
       // Mock successful refresh
       mockRefreshSession.mockResolvedValue({
         data: { session: { access_token: 'test-token' } },
         error: null
       });
-      
+
       await (supabaseLoadFailedBlocker as any).handleLoadFailed();
-      
+
       expect((supabaseLoadFailedBlocker as any).consecutiveFailedRefreshes).toBe(0);
       expect(mockReconnectAll).toHaveBeenCalledOnce();
     });
@@ -164,9 +164,9 @@ describe('SupabaseLoadFailedBlocker', () => {
         data: null,
         error: new Error('Refresh failed')
       });
-      
+
       await (supabaseLoadFailedBlocker as any).handleLoadFailed();
-      
+
       expect((supabaseLoadFailedBlocker as any).consecutiveFailedRefreshes).toBe(1);
       expect(mockReconnectAll).not.toHaveBeenCalled();
     });
@@ -174,18 +174,18 @@ describe('SupabaseLoadFailedBlocker', () => {
     it('should show manual reload toast after max retries', async () => {
       // Set retry count to max - 1
       (supabaseLoadFailedBlocker as any).consecutiveFailedRefreshes = MAX_REFRESH_RETRIES - 1;
-      
+
       // Mock custom event dispatch
       const mockDispatchEvent = vi.fn();
       global.window.dispatchEvent = mockDispatchEvent;
-      
+
       mockRefreshSession.mockResolvedValue({
         data: null,
         error: new Error('Refresh failed')
       });
-      
+
       await (supabaseLoadFailedBlocker as any).handleLoadFailed();
-      
+
       expect((supabaseLoadFailedBlocker as any).consecutiveFailedRefreshes).toBe(0); // Reset after max retries
       expect(mockDispatchEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -202,9 +202,9 @@ describe('SupabaseLoadFailedBlocker', () => {
     it('should prevent concurrent refresh attempts', async () => {
       // Set isRefreshing to true
       (supabaseLoadFailedBlocker as any).isRefreshing = true;
-      
+
       await (supabaseLoadFailedBlocker as any).handleLoadFailed();
-      
+
       // Should not call refreshSession when already refreshing
       expect(mockRefreshSession).not.toHaveBeenCalled();
     });
@@ -216,31 +216,31 @@ describe('SupabaseLoadFailedBlocker', () => {
       const currentTime = startTime + MOBILE_SAFE_RELOAD_DELAY_MS + 1000;
       (supabaseLoadFailedBlocker as any).backgroundStartTime = startTime;
       vi.spyOn(Date, 'now').mockReturnValue(currentTime);
-      
+
       mockRefreshSession.mockResolvedValue({
         data: { session: { access_token: 'test-token' } },
         error: null
       });
-      
+
       supabaseLoadFailedBlocker.triggerRecovery();
-      
+
       // Wait for async operation
       await new Promise(resolve => setTimeout(resolve, 0));
-      
+
       expect(mockRefreshSession).toHaveBeenCalledOnce();
     });
 
     it('should reset retry counter', () => {
       (supabaseLoadFailedBlocker as any).consecutiveFailedRefreshes = 3;
-      
+
       supabaseLoadFailedBlocker.resetRetryCounter();
-      
+
       expect(supabaseLoadFailedBlocker.getRetryCount()).toBe(0);
     });
 
     it('should return current retry count', () => {
       (supabaseLoadFailedBlocker as any).consecutiveFailedRefreshes = 2;
-      
+
       expect(supabaseLoadFailedBlocker.getRetryCount()).toBe(2);
     });
   });

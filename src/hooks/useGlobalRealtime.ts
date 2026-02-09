@@ -1,6 +1,5 @@
-import { log } from '@/utils/logger';
-import { useEffect, useRef, useState } from 'react';
-import { globalRealtimeService } from '@/services/GlobalRealtimeService';
+import { useEffect, useState } from 'react';
+import { useRealtime } from '@/hooks/useRealtime';
 
 interface UseGlobalRealtimeOptions {
   event?: string;
@@ -9,10 +8,7 @@ interface UseGlobalRealtimeOptions {
 }
 
 /**
- * Hook to use GlobalRealtimeService
- * 
- * Drop-in replacement for direct Supabase real-time subscriptions
- * that automatically handles subscription pooling and reuse.
+ * useGlobalRealtime - Compatibility wrapper for the new unified useRealtime hook
  */
 export const useGlobalRealtime = (
   spaceId: string | null,
@@ -21,59 +17,29 @@ export const useGlobalRealtime = (
   options: UseGlobalRealtimeOptions = {}
 ) => {
   const { event = '*', filter, enabled = true } = options;
-  
   const [isConnected, setIsConnected] = useState(false);
-  const subscriptionIdRef = useRef<string | null>(null);
-  const callbackRef = useRef(callback);
 
-  // Update callback ref when callback changes
-  useEffect(() => {
-    callbackRef.current = callback;
-  }, [callback]);
-
-  // Create a stable callback that uses the ref
-  const stableCallback = useRef((payload: any) => {
-    callbackRef.current(payload);
-  });
-
-  useEffect(() => {
-    if (!enabled || !spaceId || !table) {
-      setIsConnected(false);
-      return;
+  useRealtime(
+    (enabled && spaceId) ? spaceId : undefined,
+    table,
+    callback,
+    {
+      event: event as 'INSERT' | 'UPDATE' | 'DELETE' | '*',
+      filter,
+      protectOnNavigation: true
     }
+  );
 
-    log.debug('Hook', `🔔 [useGlobalRealtime] Subscribing to ${table} for space ${spaceId}`);
-
-    // Subscribe using global service
-    subscriptionIdRef.current = globalRealtimeService.subscribe(
-      spaceId,
-      table,
-      stableCallback.current,
-      { event, filter }
-    );
-
-    setIsConnected(true);
-
-    // Cleanup function
-    return () => {
-      if (subscriptionIdRef.current) {
-        log.debug('Hook', `🔔 [useGlobalRealtime] Unsubscribing from ${table} for space ${spaceId}`);
-        globalRealtimeService.unsubscribe(subscriptionIdRef.current);
-        subscriptionIdRef.current = null;
-      }
-      setIsConnected(false);
-    };
-  }, [spaceId, table, event, filter, enabled]);
+  useEffect(() => {
+    setIsConnected(enabled && !!spaceId);
+  }, [enabled, spaceId]);
 
   return {
     isConnected,
-    subscriptionId: subscriptionIdRef.current
+    subscriptionId: `compat:${spaceId}:${table}`
   };
 };
 
-/**
- * Hook specifically for posts real-time subscriptions
- */
 export const useGlobalRealtimePosts = (
   spaceId: string | null,
   callback: (payload: any) => void,
@@ -91,9 +57,6 @@ export const useGlobalRealtimePosts = (
   );
 };
 
-/**
- * Hook specifically for comments real-time subscriptions
- */
 export const useGlobalRealtimeComments = (
   spaceId: string | null,
   callback: (payload: any) => void,
@@ -111,16 +74,11 @@ export const useGlobalRealtimeComments = (
   );
 };
 
-/**
- * Hook specifically for individual post comments
- */
 export const useGlobalRealtimePostComments = (
   postId: string | null,
   callback: (payload: any) => void,
   enabled = true
 ) => {
-  // We still need spaceId for the global service, but we can extract it from the post
-  // For now, we'll use a special marker to indicate this is a post-specific subscription
   return useGlobalRealtime(
     postId ? `post:${postId}` : null,
     'post_comments',
@@ -131,4 +89,4 @@ export const useGlobalRealtimePostComments = (
       enabled
     }
   );
-}; 
+};

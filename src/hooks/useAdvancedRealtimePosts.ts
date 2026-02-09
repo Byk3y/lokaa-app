@@ -9,6 +9,8 @@ interface AdvancedRealtimePostsProps {
   isEnabled?: boolean;
   performanceMode?: 'standard' | 'performance' | 'battery';
   maxReconnectAttempts?: number;
+  onPostUpdated?: (postId: string, updates: any) => void;
+  onPostDeleted?: (postId: string) => void;
 }
 
 interface NewPostData {
@@ -39,9 +41,11 @@ export const useAdvancedRealtimePosts = ({
   isEnabled = true,
   performanceMode = 'standard',
   maxReconnectAttempts = 5,
+  onPostUpdated,
+  onPostDeleted,
 }: AdvancedRealtimePostsProps) => {
   const config = PERFORMANCE_CONFIGS[performanceMode];
-  
+
   const [newPostIds, setNewPostIds] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>({
@@ -83,13 +87,13 @@ export const useAdvancedRealtimePosts = ({
     if (postData.user_id === userId) return;
 
     batchQueue.current.push(postData);
-    
+
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
 
     const delay = batchQueue.current.length >= config.maxBatch ? 500 : config.debounceMs;
-    
+
     debounceTimer.current = setTimeout(processBatch, delay);
   }, [userId, config, processBatch]);
 
@@ -98,43 +102,55 @@ export const useAdvancedRealtimePosts = ({
     if (!isEnabled || !spaceId) return;
 
     const startTime = Date.now();
-    
+
     const channel = getSupabaseClient()
       .channel(`posts_${spaceId}_advanced`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'posts',
           filter: `space_id=eq.${spaceId}`,
         },
         (payload) => {
           const latency = Date.now() - startTime;
-          
+
           setConnectionHealth(prev => ({
             ...prev,
             latency: (prev.latency + latency) / 2,
             packetsReceived: prev.packetsReceived + 1,
           }));
 
-          if (payload.new && typeof payload.new === 'object') {
+          const eventType = payload.eventType;
+
+          if (eventType === 'INSERT' && payload.new) {
             queuePost(payload.new as NewPostData);
+          } else if (eventType === 'UPDATE' && payload.new) {
+            log.debug('Hook', '📝 [AdvancedRealtime] Post update:', payload.new.id);
+            if (onPostUpdated) {
+              onPostUpdated(payload.new.id, payload.new);
+            }
+          } else if (eventType === 'DELETE' && payload.old) {
+            log.debug('Hook', '🗑️ [AdvancedRealtime] Post deletion:', payload.old.id);
+            if (onPostDeleted) {
+              onPostDeleted(payload.old.id);
+            }
           }
         }
       )
       .subscribe((status) => {
         log.debug('Hook', `🔔 [AdvancedRealtime] Status: ${status}`);
-        
+
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
           reconnectAttempts.current = 0;
-          
+
           // Start heartbeat
           heartbeatTimer.current = setInterval(() => {
             log.debug('Hook', '💓 [AdvancedRealtime] Heartbeat');
           }, config.heartbeat);
-          
+
         } else if (status === 'CHANNEL_ERROR') {
           setIsConnected(false);
           setConnectionHealth(prev => ({
@@ -142,7 +158,7 @@ export const useAdvancedRealtimePosts = ({
             reconnectCount: prev.reconnectCount + 1,
             status: prev.reconnectCount > 2 ? 'poor' : 'fair',
           }));
-          
+
           // Auto-reconnect with exponential backoff
           if (reconnectAttempts.current < maxReconnectAttempts) {
             const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);

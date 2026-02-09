@@ -51,26 +51,27 @@ interface MessageActions {
   fetchMessages: (conversationId: string, options?: { force?: boolean }) => Promise<void>;
   sendMessage: (conversationId: string, content: string, attachmentUrl?: string, attachmentType?: string) => Promise<void>;
   markAsRead: (conversationId: string) => Promise<void>;
-  
+
   // Message queries
   getMessages: (conversationId: string) => Message[];
   getLatestMessage: (conversationId: string) => Message | undefined;
-  
+
   // Optimistic updates
   addOptimisticMessage: (conversationId: string, content: string, attachmentUrl?: string, attachmentType?: string) => Promise<string>;
   addOptimisticMessageWithUser: (conversationId: string, user: any, content: string, attachmentUrl?: string, attachmentType?: string) => string;
   confirmOptimisticMessage: (tempId: string, realMessage: Message) => void;
   markOptimisticMessageFailed: (tempId: string) => void;
-  
+
   // Real-time updates
   addRealTimeMessage: (conversationId: string, message: Message) => void;
   updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => void;
-  
+  removeMessage: (conversationId: string, messageId: string) => void;
+
   // Retry mechanism
   addToRetryQueue: (item: RetryQueueItem) => void;
   retryFailedMessages: () => Promise<void>;
   removeFromRetryQueue: (tempId: string) => void;
-  
+
   // State management
   setLoading: (conversationId: string, loading: boolean) => void;
   clearMessages: (conversationId: string) => void;
@@ -113,7 +114,7 @@ export const useMessageStore = create<MessageStore>()(
 
         try {
           const result = await chatApiService.getMessages(conversationId);
-          
+
           if (result.error) {
             throw result.error;
           }
@@ -166,40 +167,40 @@ export const useMessageStore = create<MessageStore>()(
             attachmentUrl,
             attachmentType
           });
-          
+
           if (result.error) {
             throw result.error;
           }
 
           // Replace optimistic message with real message
           get().confirmOptimisticMessage(tempId, result.data!);
-          
+
           log.debug('App', '[MessageStore] Message sent successfully:', result.data?.id);
-          
+
           // ✅ CRITICAL FIX: Update conversation list with the new latest message
           try {
             const conversationStore = useConversationStore.getState();
             const sentMessage = result.data!;
-            
+
             // Update the conversation with latest message info
             conversationStore.updateConversation(conversationId, {
               last_message: sentMessage.content,
               last_message_at: sentMessage.created_at,
               latest_message_sender: sentMessage.sender_id
             });
-            
+
             // Reorder conversations to show this one at the top
             conversationStore.reorderConversations();
-            
+
             log.debug('App', '[MessageStore] ✅ Updated conversation list with new message:', sentMessage.content?.substring(0, 50) + '...');
-            
+
             // ✅ CRITICAL FIX: Force urgent refresh to ensure database sync
             log.debug('App', '[MessageStore] 🚨 URGENT: Forcing conversation list refresh after sending message');
-            await conversationStore.fetchConversations(currentUser.id, { 
-              forceNetwork: true, 
-              urgent: true 
+            await conversationStore.fetchConversations(currentUser.id, {
+              forceNetwork: true,
+              urgent: true
             });
-            
+
             // ✅ NUCLEAR OPTION: Force React re-render by manually triggering state change
             setTimeout(() => {
               log.debug('App', '[MessageStore] 🔄 Nuclear option: Forcing conversation store state update');
@@ -211,10 +212,10 @@ export const useMessageStore = create<MessageStore>()(
                 conversations: [...currentState.conversations]
               });
             }, 50);
-            
+
             // ✅ CRITICAL FIX: Dispatch event to notify other components about conversation update
             window.dispatchEvent(new CustomEvent('chat-conversations-updated', {
-              detail: { 
+              detail: {
                 conversationId,
                 type: 'message_sent',
                 message: sentMessage,
@@ -223,16 +224,16 @@ export const useMessageStore = create<MessageStore>()(
                 timestamp: Date.now()
               }
             }));
-            
+
           } catch (storeError) {
             log.warn('App', '[MessageStore] Failed to update conversation store after sending message:', storeError);
           }
         } catch (error) {
           log.error('App', '[MessageStore] Failed to send message:', error);
-          
+
           // Mark optimistic message as failed
           get().markOptimisticMessageFailed(tempId);
-          
+
           // Add to retry queue
           get().addToRetryQueue({
             tempId,
@@ -243,7 +244,7 @@ export const useMessageStore = create<MessageStore>()(
             attempts: 0,
             lastAttempt: Date.now()
           });
-          
+
           set({ error: error instanceof Error ? error.message : 'Failed to send message' });
         }
       },
@@ -257,36 +258,36 @@ export const useMessageStore = create<MessageStore>()(
           }
 
           const result = await chatApiService.markConversationAsRead(conversationId, currentUser.id);
-          
+
           if (result.error) {
             throw result.error;
           }
-          
+
           log.debug('App', '[MessageStore] Marked conversation as read:', conversationId);
-          
+
           // ✅ CRITICAL FIX: Update conversation store to reflect read status
           try {
             const conversationStore = useConversationStore.getState();
-            
+
             // Update the conversation's unread count to 0
             conversationStore.updateConversationUnreadCount(conversationId, 0);
-            
+
             // ✅ CRITICAL FIX: Force refresh to get latest data from database
             await conversationStore.refreshConversations(currentUser.id, { forceNetwork: true });
-            
+
             log.debug('App', '[MessageStore] ✅ Updated conversation list after marking as read:', conversationId);
           } catch (storeError) {
             log.warn('App', '[MessageStore] Failed to update conversation store:', storeError);
           }
-          
+
           // ✅ CRITICAL FIX: Dispatch event to notify other components  
           window.dispatchEvent(new CustomEvent('conversation-marked-as-read', {
-            detail: { 
+            detail: {
               conversationId,
               timestamp: Date.now()
             }
           }));
-          
+
         } catch (error) {
           log.error('App', '[MessageStore] Error marking as read:', error);
           set({ error: error instanceof Error ? error.message : 'Failed to mark as read' });
@@ -342,10 +343,10 @@ export const useMessageStore = create<MessageStore>()(
       // Legacy optimistic updates (deprecated - use addOptimisticMessageWithUser)
       addOptimisticMessage: async (conversationId: string, content: string, attachmentUrl?: string, attachmentType?: string) => {
         const tempId = `temp-${uuidv4()}`;
-        
+
         try {
           const currentUser = await chatApiService.getCurrentUser();
-          
+
           if (!currentUser) {
             log.warn('App', '[MessageStore] No current user found for optimistic message');
             return tempId;
@@ -389,12 +390,12 @@ export const useMessageStore = create<MessageStore>()(
       confirmOptimisticMessage: (tempId: string, realMessage: Message) => {
         set(state => {
           const newMessages = { ...state.messages };
-          
+
           // Find and replace the optimistic message
           Object.keys(newMessages).forEach(conversationId => {
             const messages = newMessages[conversationId];
             const index = messages.findIndex(msg => msg.id === tempId);
-            
+
             if (index !== -1) {
               newMessages[conversationId] = [
                 ...messages.slice(0, index),
@@ -403,7 +404,7 @@ export const useMessageStore = create<MessageStore>()(
               ];
             }
           });
-          
+
           return {
             messages: newMessages,
             lastUpdate: Date.now()
@@ -414,12 +415,12 @@ export const useMessageStore = create<MessageStore>()(
       markOptimisticMessageFailed: (tempId: string) => {
         set(state => {
           const newMessages = { ...state.messages };
-          
+
           // Mark the optimistic message as failed
           Object.keys(newMessages).forEach(conversationId => {
             const messages = newMessages[conversationId];
             const index = messages.findIndex(msg => msg.id === tempId);
-            
+
             if (index !== -1) {
               newMessages[conversationId] = [
                 ...messages.slice(0, index),
@@ -428,7 +429,7 @@ export const useMessageStore = create<MessageStore>()(
               ];
             }
           });
-          
+
           return {
             messages: newMessages,
             lastUpdate: Date.now()
@@ -440,13 +441,13 @@ export const useMessageStore = create<MessageStore>()(
       addRealTimeMessage: (conversationId: string, message: Message) => {
         set(state => {
           const existingMessages = state.messages[conversationId] || [];
-          
+
           // Check if message already exists (prevent duplicates)
           const exists = existingMessages.some(msg => msg.id === message.id);
           if (exists) {
             return state;
           }
-          
+
           return {
             messages: {
               ...state.messages,
@@ -464,6 +465,16 @@ export const useMessageStore = create<MessageStore>()(
             [conversationId]: (state.messages[conversationId] || []).map(msg =>
               msg.id === messageId ? { ...msg, ...updates } : msg
             )
+          },
+          lastUpdate: Date.now()
+        }));
+      },
+
+      removeMessage: (conversationId: string, messageId: string) => {
+        set(state => ({
+          messages: {
+            ...state.messages,
+            [conversationId]: (state.messages[conversationId] || []).filter(msg => msg.id !== messageId)
           },
           lastUpdate: Date.now()
         }));
@@ -495,13 +506,13 @@ export const useMessageStore = create<MessageStore>()(
 
           try {
             log.debug('App', '[MessageStore] Retrying failed message:', item.tempId, `attempt ${item.attempts + 1}`);
-            
+
             // Get current user for retry
             const currentUser = await chatApiService.getCurrentUser();
             if (!currentUser) {
               throw new Error('No authenticated user found for retry');
             }
-            
+
             const result = await chatApiService.sendMessage(
               item.conversationId,
               currentUser.id,
@@ -519,20 +530,20 @@ export const useMessageStore = create<MessageStore>()(
             // Success - remove from queue and update message
             get().removeFromRetryQueue(item.tempId);
             get().confirmOptimisticMessage(item.tempId, result.data!);
-            
+
             log.debug('App', '[MessageStore] Retry successful for message:', item.tempId);
           } catch (error) {
             log.error('App', '[MessageStore] Retry failed for message:', item.tempId, error);
-            
+
             // Update retry count and last attempt time
             set(state => ({
               retryQueue: state.retryQueue.map(queueItem =>
                 queueItem.tempId === item.tempId
                   ? {
-                      ...queueItem,
-                      attempts: queueItem.attempts + 1,
-                      lastAttempt: Date.now()
-                    }
+                    ...queueItem,
+                    attempts: queueItem.attempts + 1,
+                    lastAttempt: Date.now()
+                  }
                   : queueItem
               )
             }));
@@ -560,10 +571,10 @@ export const useMessageStore = create<MessageStore>()(
         set(state => {
           const newMessages = { ...state.messages };
           delete newMessages[conversationId];
-          
+
           const newLoadingMessages = { ...state.loadingMessages };
           delete newLoadingMessages[conversationId];
-          
+
           return {
             messages: newMessages,
             loadingMessages: newLoadingMessages,
@@ -602,10 +613,10 @@ export const useMessageStore = create<MessageStore>()(
         const { lastFetchTimes, messages } = get();
         const lastFetch = lastFetchTimes[conversationId] || 0;
         const hasMessages = messages[conversationId] && messages[conversationId].length > 0;
-        
+
         // If no messages, consider it stale
         if (!hasMessages) return true;
-        
+
         // If messages exist but are older than staleTime, consider stale
         return Date.now() - lastFetch > staleTime;
       }

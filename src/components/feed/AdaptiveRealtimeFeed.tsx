@@ -13,6 +13,8 @@ interface AdaptiveRealtimeFeedProps {
   onLoadNewPosts: (postIds: string[]) => Promise<void>;
   enableAdvancedFeatures?: boolean;
   adaptiveMode?: boolean;
+  onPostUpdated?: (postId: string, updates: any) => void;
+  onPostDeleted?: (postId: string) => void;
 }
 
 export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
@@ -21,7 +23,9 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
   onLoadNewPosts,
   enableAdvancedFeatures = false,
   adaptiveMode = true,
-}) => {
+  onPostUpdated,
+  onPostDeleted,
+}: AdaptiveRealtimeFeedProps) => {
   const [useAdvanced, setUseAdvanced] = useState(enableAdvancedFeatures);
   const [performanceMode, setPerformanceMode] = useState<'standard' | 'performance' | 'battery'>('standard');
 
@@ -32,12 +36,12 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
     const checkPerformance = () => {
       const metrics = performanceMonitor.getMetrics();
       const quality = performanceMonitor.getConnectionQuality();
-      
+
       // Auto-switch to advanced mode if performance is good
       if (quality === 'excellent' && metrics.memoryUsage < 0.5) {
         setUseAdvanced(true);
         setPerformanceMode('performance');
-      } 
+      }
       // Switch to battery mode if performance is poor
       else if (quality === 'poor' || metrics.memoryUsage > 0.8) {
         setUseAdvanced(false);
@@ -57,13 +61,15 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
     return () => clearInterval(interval);
   }, [adaptiveMode, performanceMode, useAdvanced]);
 
-  // Standard real-time hook (now optimized with GlobalRealtimeService)
+  // Standard real-time hook (optimized with pooling)
   const standardRealtime = useRealtimePostsOptimized({
     spaceId,
     userId,
     isEnabled: !useAdvanced,
     debounceMs: performanceMode === 'battery' ? 5000 : 2000,
     maxBatchSize: performanceMode === 'battery' ? 5 : 10,
+    onPostUpdated,
+    onPostDeleted,
   });
 
   // Advanced real-time hook
@@ -72,6 +78,8 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
     userId,
     isEnabled: useAdvanced,
     performanceMode,
+    onPostUpdated,
+    onPostDeleted,
   });
 
   // Determine which data to use
@@ -106,21 +114,21 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
     updateLastNotificationTime,
   } = useNewPostsState({
     onLoadNewPosts: async (postIds: string[]) => {
-      
-      
+
+
       // Performance monitoring
       const startTime = performance.now();
-      
+
       try {
         await onLoadNewPosts(postIds);
-        
+
         const processingTime = performance.now() - startTime;
         performanceMonitor.recordProcessingTime(processingTime);
         performanceMonitor.recordBatchProcessing(postIds.length, processingTime);
-        
+
         realtimeData.clearNewPosts();
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        
+
       } catch (error) {
         performanceMonitor.recordError();
         throw error;
@@ -158,15 +166,15 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
           autoHideDelay={performanceMode === 'battery' ? 60000 : 30000}
           enableAnalytics={true}
         />
-        
+
         {/* Advanced debug info */}
-        {process.env.NODE_ENV === 'development' && (
+        {typeof process !== 'undefined' && process.env?.NODE_ENV === 'development' && (
           <div className="text-xs text-gray-500 mb-2 space-y-1">
             <div>🚀 Advanced Mode | Performance: {performanceMode}</div>
             {realtimeData.connectionHealth && (
               <div>
-                📡 Connection: {realtimeData.connectionHealth.status} | 
-                ⏱️ {Math.round(realtimeData.connectionHealth.latency)}ms | 
+                📡 Connection: {realtimeData.connectionHealth.status} |
+                ⏱️ {Math.round(realtimeData.connectionHealth.latency)}ms |
                 📦 {realtimeData.connectionHealth.packetsReceived} packets
               </div>
             )}
@@ -188,9 +196,9 @@ export const AdaptiveRealtimeFeed: React.FC<AdaptiveRealtimeFeedProps> = ({
         onDismiss={handleDismissNotification}
         autoHideDelay={performanceMode === 'battery' ? 60000 : 30000}
       />
-      
+
       {/* Standard debug info */}
-      {process.env.NODE_ENV === 'development' && (
+      {typeof process !== 'undefined' && process.env?.NODE_ENV === 'development' && (
         <div className="text-xs text-gray-500 mb-2 space-y-1">
           <div>⚡ Standard Mode | Performance: {performanceMode}</div>
           <div>🔔 Connected: {realtimeData.isConnected ? '✅' : '❌'}</div>

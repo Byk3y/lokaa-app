@@ -11,12 +11,14 @@ import { log } from '@/utils/logger';
 export function useFeedRealtime(
   spaceId: string | undefined,
   userId: string | undefined,
-  handleCachedPostCreated: (post: any) => void
+  onPostCreated: (post: any) => void,
+  onPostUpdated: (postId: string, updates: any) => void,
+  onPostDeleted: (postId: string) => void
 ) {
   // ============================================================================
   // REAL-TIME POSTS
   // ============================================================================
-  
+
   const {
     newPostIds,
     newPostCount,
@@ -26,12 +28,14 @@ export function useFeedRealtime(
     spaceId: spaceId || '',
     userId: userId || '',
     isEnabled: !!spaceId && !!userId,
+    onPostUpdated,
+    onPostDeleted,
   });
 
   // ============================================================================
   // NEW POSTS STATE MANAGEMENT
   // ============================================================================
-  
+
   const {
     isLoadingNewPosts,
     isDismissed,
@@ -43,9 +47,9 @@ export function useFeedRealtime(
   } = useNewPostsState({
     onLoadNewPosts: useCallback(async (postIds: string[]) => {
       log.debug('Hook', `🔄 [FeedRealtime] Loading new posts: ${postIds.join(', ')}`);
-      
+
       if (!postIds.length || !spaceId) return;
-      
+
       try {
         // Fetch only the new posts by their IDs from Supabase
         const { data: newPosts, error } = await getSupabaseClient()
@@ -86,13 +90,13 @@ export function useFeedRealtime(
           // Fetch authors for the new posts
           const userIds = Array.from(new Set(newPosts.map((post: any) => post.user_id).filter(id => !!id)));
           const authorsMap = new Map();
-          
+
           if (userIds.length > 0) {
             const { data: authorsData } = await getSupabaseClient()
               .from('users')
               .select('id, full_name, avatar_url, profile_url, activity_score')
               .in('id', userIds);
-              
+
             if (authorsData) {
               authorsData.forEach(author => {
                 if (author && author.id) {
@@ -114,9 +118,9 @@ export function useFeedRealtime(
               ...post,
               author: authorsMap.get(post.user_id) || null,
             };
-            handleCachedPostCreated(transformedPost);
+            onPostCreated(transformedPost);
           });
-          
+
           log.debug('Hook', `✅ [FeedRealtime] Successfully loaded ${newPosts.length} new posts`);
           clearNewPostsInternal();
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -125,7 +129,7 @@ export function useFeedRealtime(
         log.error('Hook', '❌ [FeedRealtime] Failed to load new posts:', error);
         throw error;
       }
-    }, [spaceId, handleCachedPostCreated, clearNewPostsInternal]),
+    }, [spaceId, onPostCreated, clearNewPostsInternal]),
     maxRetries: 2,
     retryDelay: 3000,
   });
@@ -133,7 +137,7 @@ export function useFeedRealtime(
   // ============================================================================
   // REAL-TIME STATE OBJECT
   // ============================================================================
-  
+
   const realtimeState = {
     newPostIds,
     newPostCount,
@@ -147,11 +151,11 @@ export function useFeedRealtime(
   // ============================================================================
   // RETURN INTERFACE
   // ============================================================================
-  
+
   return {
     // Real-time state
     realtimeState,
-    
+
     // Individual state getters
     newPostIds,
     newPostCount,
@@ -160,7 +164,7 @@ export function useFeedRealtime(
     isDismissed,
     loadError,
     retryCount,
-    
+
     // Real-time handlers
     handleLoadNewPosts,
     handleDismissNotification,

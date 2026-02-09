@@ -1,7 +1,5 @@
-import { log } from '@/utils/logger';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { navigationAwareRealtimeService } from '@/services/NavigationAwareRealtimeService';
-import { getSupabaseClient } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
+import { useRealtime } from '@/hooks/useRealtime';
 
 interface UseRealtimeSpaceCommentsProps {
   spaceId: string;
@@ -17,7 +15,7 @@ interface UseRealtimeSpaceCommentsReturn {
 }
 
 /**
- * 🚀 NAVIGATION-AWARE useRealtimeSpaceComments using NavigationAwareRealtimeService
+ * 🚀 NAVIGATION-AWARE useRealtimeSpaceComments using pooled RealtimeManager
  * 
  * ✅ BENEFITS:
  * - Subscriptions survive component unmounting AND navigation
@@ -34,16 +32,15 @@ export const useRealtimeSpaceCommentsOptimized = ({
   onCommentUpdate,
 }: UseRealtimeSpaceCommentsProps): UseRealtimeSpaceCommentsReturn => {
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-  const subscriptionIdRef = useRef<string | null>(null);
+  const [connectionError] = useState<string | null>(null);
 
   // Handle comment events
   const handleCommentEvent = (payload: any) => {
     log.debug('Hook', '🔔 [RealtimeSpaceCommentsOptimized] Comment event:', payload);
-    
+
     if (payload.eventType === 'INSERT' && payload.new) {
       const newComment = payload.new;
-      
+
       // Don't process our own comments
       if (newComment.user_id === userId) {
         log.debug('Hook', '🚫 [RealtimeSpaceCommentsOptimized] Ignoring own comment');
@@ -68,7 +65,7 @@ export const useRealtimeSpaceCommentsOptimized = ({
       }
     } else if (payload.eventType === 'UPDATE' && payload.new) {
       const updatedComment = payload.new;
-      
+
       log.debug('Hook', '📝 [RealtimeSpaceCommentsOptimized] Processing comment update:', {
         commentId: updatedComment.id,
         postId: updatedComment.post_id
@@ -81,39 +78,20 @@ export const useRealtimeSpaceCommentsOptimized = ({
     }
   };
 
-  // 🚀 NAVIGATION-AWARE: Use NavigationAwareRealtimeService instead of GlobalRealtimeService
-  useEffect(() => {
-    if (!isEnabled || !spaceId) {
-      setIsConnected(false);
-      return;
+  useRealtime(
+    isEnabled ? spaceId : undefined,
+    'post_comments',
+    handleCommentEvent,
+    {
+      event: 'INSERT',
+      filter: `space_id=eq.${spaceId}`,
+      protectOnNavigation: true
     }
+  );
 
-    log.debug('Hook', `🔔 [RealtimeSpaceCommentsOptimized] Setting up subscription for space: ${spaceId}`);
-
-    const subscriptionId = navigationAwareRealtimeService.subscribe(
-      spaceId,
-      'post_comments',
-      handleCommentEvent,
-      {
-        event: 'INSERT',
-        filter: `space_id=eq.${spaceId}`
-      }
-    );
-
-    subscriptionIdRef.current = subscriptionId;
-    setIsConnected(true);
-    setConnectionError(null);
-
-    return () => {
-      log.debug('Hook', '🔔 [RealtimeSpaceCommentsOptimized] Cleaning up subscription');
-      if (subscriptionIdRef.current) {
-        // 🛡️ NAVIGATION-AWARE: This will now check if cleanup should be prevented during navigation
-        navigationAwareRealtimeService.unsubscribe(subscriptionIdRef.current);
-        subscriptionIdRef.current = null;
-      }
-      setIsConnected(false);
-    };
-  }, [spaceId, userId, isEnabled]);
+  useEffect(() => {
+    setIsConnected(isEnabled && !!spaceId);
+  }, [isEnabled, spaceId]);
 
   return {
     isConnected,
