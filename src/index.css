@@ -12,21 +12,21 @@
 /* 🧪 HMR TEST: CSS optimization test (Test 3B) */
 /* Grid background styles (previously imported from grid-background.css) */
 .grid-bg {
-  background-image: 
+  background-image:
     linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
 .grid-bg-large {
-  background-image: 
+  background-image:
     linear-gradient(rgba(0, 0, 0, 0.03) 2px, transparent 2px),
     linear-gradient(90deg, rgba(0, 0, 0, 0.03) 2px, transparent 2px);
   background-size: 40px 40px;
 }
 
 .grid-bg-dark {
-  background-image: 
+  background-image:
     linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -54,14 +54,14 @@
     --input: 240 5.9% 90%;
     --ring: 180 100% 25%;
     --radius: 0.5rem;
-    
+
     /* ✅ MOBILE INPUT FIX: Safe area CSS custom properties */
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --safe-area-inset-right: env(safe-area-inset-right, 0px);
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-inset-left: env(safe-area-inset-left, 0px);
   }
- 
+
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
@@ -89,7 +89,7 @@
   * {
     @apply border-border;
   }
-  
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1, "kern" 1;
@@ -100,142 +100,164 @@
     font-variant-numeric: tabular-nums;
     padding-top: env(safe-area-inset-top);
   }
-  
+
   /* Typography Hierarchy */
-  h1 { @apply text-heading-xl font-bold text-gray-900; }
-  h2 { @apply text-heading-lg font-semibold text-gray-900; }
-  h3 { @apply text-heading-md font-semibold text-gray-900; }
-  h4 { @apply text-heading-sm font-medium text-gray-900; }
-  h5 { @apply text-heading-xs font-medium text-gray-900; }
-  h6 { @apply text-body-lg font-medium text-gray-900; }
-  
-  p { @apply text-body-md text-gray-700; }
-  
+  h1 {
+    @apply text-heading-xl font-bold text-gray-900;
+  }
+
+  h2 {
+    @apply text-heading-lg font-semibold text-gray-900;
+  }
+
+  h3 {
+    @apply text-heading-md font-semibold text-gray-900;
+  }
+
+  h4 {
+    @apply text-heading-sm font-medium text-gray-900;
+  }
+
+  h5 {
+    @apply text-heading-xs font-medium text-gray-900;
+  }
+
+  h6 {
+    @apply text-body-lg font-medium text-gray-900;
+  }
+
+  p {
+    @apply text-body-md text-gray-700;
+  }
+
   /* Consistent link styling */
-  a { 
+  a {
     @apply text-primary hover:text-primary/80 transition-colors duration-200;
     text-decoration: none;
   }
-  
+
   a:hover {
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 2px;
   }
-  
+
   /* Form elements */
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     font-feature-settings: "tnum" 1;
   }
 }
 
 @layer components {
+
   /* Typography Components */
   .typography-display {
     @apply text-display-lg font-bold text-gray-900;
   }
-  
+
   .typography-hero {
     @apply text-display-md font-bold text-gray-900;
   }
-  
+
   .typography-page-title {
     @apply text-heading-xl font-bold text-gray-900;
   }
-  
+
   .typography-section-title {
     @apply text-heading-lg font-semibold text-gray-900;
   }
-  
+
   .typography-card-title {
     @apply text-heading-sm font-semibold text-gray-900;
   }
-  
+
   .typography-body {
     @apply text-body-md text-gray-700 leading-relaxed;
   }
-  
+
   .typography-body-large {
     @apply text-body-lg text-gray-700 leading-relaxed;
   }
-  
+
   .typography-small {
     @apply text-body-sm text-gray-600;
   }
-  
+
   .typography-caption {
     @apply text-caption-lg text-gray-500;
   }
-  
+
   /* Post-specific typography */
   .post-title {
     @apply text-heading-sm font-semibold text-gray-900 tracking-tight leading-tight capitalize;
   }
-  
+
   .post-content {
     @apply text-body-md text-gray-700 leading-relaxed;
   }
-  
+
   .post-meta {
     @apply text-body-sm text-gray-500 font-medium;
   }
-  
+
   .post-author {
     @apply text-body-sm font-medium text-gray-900;
   }
-  
+
   .post-time {
     @apply text-body-sm text-gray-500;
   }
-  
+
   /* Button typography */
   .btn-text-lg {
     @apply text-body-md font-medium;
   }
-  
+
   .btn-text-md {
     @apply text-body-sm font-medium;
   }
-  
+
   .btn-text-sm {
     @apply text-caption-lg font-medium;
   }
-  
+
   /* Navigation typography */
   .nav-link {
     @apply text-body-sm font-medium text-gray-700 hover:text-gray-900 transition-colors;
   }
-  
+
   .nav-link-active {
     @apply text-body-sm font-semibold text-primary;
   }
-  
+
   /* Form typography */
   .form-label {
     @apply text-body-sm font-medium text-gray-900;
   }
-  
+
   .form-help {
     @apply text-caption-lg text-gray-500;
   }
-  
+
   .form-error {
     @apply text-caption-lg text-red-600 font-medium;
   }
-  
+
   /* Existing button styles with more subtle focus rings */
   .btn-primary {
     @apply bg-gradient-to-r from-teal-600 to-teal-700 text-white font-medium py-3 px-6 rounded-full hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:ring-opacity-30;
   }
-  
+
   .btn-secondary {
     @apply bg-white text-teal-700 border border-teal-200 font-medium py-3 px-6 rounded-full hover:bg-teal-50 transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:ring-opacity-30;
   }
-  
+
   .input-primary {
     @apply bg-white border border-gray-300 rounded-lg px-4 py-3 w-full focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-transparent transition duration-200;
   }
-  
+
   .card-hoverable {
     @apply bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden;
   }
@@ -243,23 +265,31 @@
 
 /* Add this custom utility for hiding scrollbars while maintaining scrollability */
 .hide-scrollbar {
-  -ms-overflow-style: none;  /* For Internet Explorer and Edge */
-  scrollbar-width: none;     /* For Firefox */
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  -ms-overflow-style: none;
+  /* For Internet Explorer and Edge */
+  scrollbar-width: none;
+  /* For Firefox */
+  -webkit-overflow-scrolling: touch;
+  /* Smooth scrolling on iOS */
 }
 
 .hide-scrollbar::-webkit-scrollbar {
-  display: none;             /* For Chrome, Safari, and Opera */
+  display: none;
+  /* For Chrome, Safari, and Opera */
 }
 
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* For Internet Explorer and Edge */
-  scrollbar-width: none;     /* For Firefox */
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  -ms-overflow-style: none;
+  /* For Internet Explorer and Edge */
+  scrollbar-width: none;
+  /* For Firefox */
+  -webkit-overflow-scrolling: touch;
+  /* Smooth scrolling on iOS */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;             /* For Chrome, Safari, and Opera */
+  display: none;
+  /* For Chrome, Safari, and Opera */
 }
 
 /* Enhanced touch handling for horizontal scrolling containers */
@@ -272,13 +302,13 @@
     will-change: scroll-position;
     overscroll-behavior-x: contain;
   }
-  
+
   /* ✅ CHAT POPOVER FIX: Prevent transition flicker on popover close */
   .chat-popover-immediate-close {
     transition: none !important;
     animation: none !important;
   }
-  
+
   /* ✅ DESKTOP CHAT POPOVER IMPROVEMENTS: Better scrollability and responsive design */
   .chat-popover-scrollable {
     /* Ensure proper scrolling container */
@@ -286,7 +316,7 @@
     min-height: 400px;
     overflow: hidden;
   }
-  
+
   .chat-popover-content {
     /* Responsive width with max viewport constraint */
     width: min(380px, 90vw);
@@ -294,15 +324,16 @@
     display: flex;
     flex-direction: column;
   }
-  
+
   .chat-conversation-list {
     /* Optimized scroll area for conversation list */
-    max-height: calc(70vh - 140px); /* Account for header + search */
+    max-height: calc(70vh - 140px);
+    /* Account for header + search */
     overflow-y: auto;
     scroll-behavior: smooth;
     flex: 1;
   }
-  
+
   /* Improve scroll performance and visual feedback */
   .chat-popover-scrollable [data-radix-scroll-area-viewport] {
     scroll-behavior: smooth;
@@ -311,94 +342,95 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
   }
-  
+
   .chat-popover-scrollable [data-radix-scroll-area-viewport]::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   .chat-popover-scrollable [data-radix-scroll-area-viewport]::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   .chat-popover-scrollable [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
     background-color: rgba(156, 163, 175, 0.5);
     border-radius: 3px;
   }
-  
+
   .chat-popover-scrollable [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb:hover {
     background-color: rgba(156, 163, 175, 0.7);
   }
-  
+
   /* Responsive breakpoints for chat popover */
   @media (max-height: 600px) {
     .chat-popover-scrollable {
       max-height: 80vh;
       min-height: 300px;
     }
-    
+
     .chat-conversation-list {
       max-height: calc(80vh - 120px);
     }
   }
-  
+
   @media (max-height: 500px) {
     .chat-popover-scrollable {
       max-height: 90vh;
       min-height: 250px;
     }
-    
+
     .chat-conversation-list {
       max-height: calc(90vh - 100px);
     }
   }
-  
+
   /* Mobile-specific chat popover adjustments */
   @media (max-width: 480px) {
     .chat-popover-content {
       width: min(95vw, 380px);
       max-height: 85vh;
     }
-    
+
     .chat-conversation-list {
       max-height: calc(85vh - 120px);
     }
   }
-  
+
   /* ✅ CHAT MODAL FIX: Ensure modal appears instantly */
   .chat-modal-instant {
     animation-duration: 0ms !important;
     transition-duration: 0ms !important;
   }
-  
+
   /* ✅ SAFARI-SPECIFIC CHAT FIXES: Handle Safari transition quirks */
   @media not all and (min-resolution:.001dpcm) {
     @supports (-webkit-appearance:none) {
+
       /* Safari-only styles */
       [data-state="open"][data-radix-popper-content-wrapper] {
         transition: opacity 0ms !important;
         animation: none !important;
       }
-      
+
       [data-state="closed"][data-radix-popper-content-wrapper] {
         transition: opacity 0ms !important;
         animation: none !important;
         opacity: 0 !important;
         pointer-events: none !important;
       }
-      
+
       /* Force immediate hiding for Safari chat modals */
       .chat-modal-safari-fix {
         transition: none !important;
         animation: none !important;
       }
-      
+
       /* Safari popover container fixes */
       [data-radix-popover-content] {
         transition: transform 0ms, opacity 0ms !important;
       }
     }
   }
-  
+
   /* ✅ CHAT VIEW FIX: Prevent layout shifts during ConnectionContext loading */
   .chat-messages-container {
     /* ✅ SCROLL FIX: Optimized for stable scroll positioning */
@@ -407,48 +439,49 @@
     /* Only contain layout to prevent shifts, not style which can interfere */
     contain: layout;
   }
-  
+
   .connection-context-placeholder {
-    min-height: 64px; /* Reserve minimum space for ConnectionContext */
+    min-height: 64px;
+    /* Reserve minimum space for ConnectionContext */
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  
+
   /* Custom shadow utility for top shadow */
   .shadow-t-lg {
     box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
   }
-  
+
   /* Custom height utility for 60px height */
   .h-15 {
     height: 60px;
   }
-  
+
   /* ✅ MOBILE INPUT FIX: Chat container utilities for mobile */
   .mobile-chat-container {
     position: relative;
     overflow: hidden;
   }
-  
+
   .mobile-chat-messages {
     flex: 1;
     overflow-y: auto;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  
+
   /* ✅ PERSISTENT APP SHELL: Layout for consistent bottom nav */
   .persistent-app-shell {
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
   }
-  
+
   .persistent-content {
     flex: 1;
     min-height: 0;
   }
-  
+
   .persistent-bottom-nav {
     flex-shrink: 0;
     position: fixed;
@@ -460,6 +493,7 @@
 
   /* ✅ SKOOL-STYLE: Simplified mobile chat layout with overlay input */
   @media (max-width: 640px) {
+
     /* Simplified mobile chat view - no complex height calculations */
     .mobile-chat-view-simplified {
       display: flex;
@@ -467,35 +501,39 @@
       background: white;
       overflow: hidden;
     }
-    
+
     /* Messages container with bottom padding for overlay input */
     .mobile-chat-messages-simplified {
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
       scroll-behavior: smooth;
-      padding-bottom: 10rem !important; /* Ensure sufficient space for input + nav */
+      padding-bottom: 10rem !important;
+      /* Ensure sufficient space for input + nav */
       /* ✅ CRITICAL: Prevent any unwanted scroll behavior */
       scroll-snap-type: y proximity;
       scroll-snap-align: end;
     }
-    
+
     /* ✅ OVERLAY INPUT: Fixed positioning above bottom nav */
     .mobile-chat-input-overlay {
       position: fixed !important;
-      bottom: 4rem; /* Above 64px bottom nav */
+      bottom: 4rem;
+      /* Above 64px bottom nav */
       left: 0;
       right: 0;
       background: white;
       border-top: 1px solid #e5e7eb;
-      z-index: 100; /* Above bottom nav (z-50) */
+      z-index: 100;
+      /* Above bottom nav (z-50) */
       padding-bottom: env(safe-area-inset-bottom, 0px);
       box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-      min-height: 52px; /* Better balance - smaller than original but more comfortable */
+      min-height: 52px;
+      /* Better balance - smaller than original but more comfortable */
       /* ✅ CRITICAL: Prevent any layout shifts */
       transform: translateZ(0);
       will-change: transform;
     }
-    
+
     /* Prevent input zoom on iOS */
     .mobile-chat-input-overlay input,
     .mobile-chat-input-overlay textarea {
@@ -504,13 +542,13 @@
       -webkit-appearance: none;
       border-radius: 0;
     }
-    
+
     /* Mobile chat page simplified */
     .mobile-chat-page {
       height: 100dvh;
       overflow: hidden;
     }
-    
+
     /* Enhanced mobile chat layout with better safe area handling */
     .mobile-chat-view-simplified {
       padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -521,12 +559,12 @@
       overflow: hidden;
     }
   }
-  
+
   /* Typography utilities */
   .text-balance {
     text-wrap: balance;
   }
-  
+
   .text-pretty {
     text-wrap: pretty;
   }
@@ -542,12 +580,15 @@
 }
 
 .course-detail-sidebar .selected-lesson {
-  background-color: #FEF3C7; /* Yellow-100 for selected state like Skool */
-  border-right: 2px solid #F59E0B; /* Yellow-500 border */
+  background-color: #FEF3C7;
+  /* Yellow-100 for selected state like Skool */
+  border-right: 2px solid #F59E0B;
+  /* Yellow-500 border */
 }
 
 .course-detail-sidebar .lesson-item:hover {
-  background-color: #F9FAFB; /* Gray-50 for hover */
+  background-color: #F9FAFB;
+  /* Gray-50 for hover */
 }
 
 .course-detail-content iframe {
@@ -560,7 +601,8 @@
   position: relative;
   width: 100%;
   height: 0;
-  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  padding-bottom: 56.25%;
+  /* 16:9 aspect ratio */
 }
 
 .video-container iframe {
@@ -573,13 +615,15 @@
 
 /* Progress bar styling to match Skool */
 .course-progress-bar {
-  background-color: #E5E7EB; /* Gray-200 */
+  background-color: #E5E7EB;
+  /* Gray-200 */
   border-radius: 9999px;
   height: 4px;
 }
 
 .course-progress-fill {
-  background-color: #10B981; /* Green-500 like Skool */
+  background-color: #10B981;
+  /* Green-500 like Skool */
   border-radius: 9999px;
   height: 100%;
   transition: width 0.3s ease;
@@ -587,26 +631,30 @@
 
 /* Module header styling */
 .module-header {
-  background-color: #F9FAFB; /* Very light gray like Skool */
+  background-color: #F9FAFB;
+  /* Very light gray like Skool */
   border-bottom: 1px solid #E5E7EB;
 }
 
 /* Clean typography matching Skool */
 .course-title {
   font-weight: 600;
-  color: #111827; /* Gray-900 */
+  color: #111827;
+  /* Gray-900 */
   line-height: 1.25;
 }
 
 .lesson-title {
   font-weight: 500;
-  color: #374151; /* Gray-700 */
+  color: #374151;
+  /* Gray-700 */
   line-height: 1.5;
 }
 
 .lesson-title.selected {
   font-weight: 600;
-  color: #111827; /* Gray-900 for selected */
+  color: #111827;
+  /* Gray-900 for selected */
 }
 
 /* Sidebar scroll styling */
@@ -665,9 +713,11 @@
   0% {
     @apply ring-opacity-0 bg-opacity-0;
   }
+
   50% {
     @apply ring-opacity-75 bg-opacity-100;
   }
+
   100% {
     @apply ring-opacity-50 bg-opacity-50;
   }
@@ -712,7 +762,8 @@
   width: 20px;
   height: 20px;
   background: white;
-  border-radius: 4px; /* Rounded square like Skool */
+  border-radius: 4px;
+  /* Rounded square like Skool */
   border: 2px solid white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
   z-index: 2;
@@ -720,7 +771,8 @@
 }
 
 .notification-space-icon img {
-  border-radius: 2px; /* Slightly less rounded for the image */
+  border-radius: 2px;
+  /* Slightly less rounded for the image */
 }
 
 /* Admin badge styling */
@@ -743,11 +795,15 @@
 /* Notification settings modal - Skool style */
 .notification-settings-modal {
   position: fixed;
-  top: 4rem; /* 64px from top */
-  right: 1rem; /* 16px from right */
-  width: 12rem; /* 192px width */
+  top: 4rem;
+  /* 64px from top */
+  right: 1rem;
+  /* 16px from right */
+  width: 12rem;
+  /* 192px width */
   background: white;
-  border-radius: 0.5rem; /* 8px rounded corners */
+  border-radius: 0.5rem;
+  /* 8px rounded corners */
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   border: 1px solid #e5e7eb;
   z-index: 50;
@@ -757,7 +813,8 @@
 .notification-settings-modal button {
   width: 100%;
   text-align: left;
-  padding: 0.75rem 1rem; /* 12px 16px */
+  padding: 0.75rem 1rem;
+  /* 12px 16px */
   transition: background-color 0.2s ease;
   border: none;
   background: none;
@@ -774,7 +831,8 @@
 }
 
 .notification-settings-modal button.selected {
-  background-color: #fef3c7; /* yellow-50 */
+  background-color: #fef3c7;
+  /* yellow-50 */
 }
 
 .notification-settings-modal button:not(:last-child) {
@@ -816,14 +874,14 @@
     width: 48px;
     height: 48px;
   }
-  
+
   .notification-space-icon {
     width: 20px;
     height: 20px;
     bottom: -2px;
     right: -2px;
   }
-  
+
   .notification-admin-badge {
     width: 20px;
     height: 20px;
@@ -882,7 +940,7 @@
   display: block !important;
   margin: 16px auto !important;
   border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Video container styling for rich text content */
@@ -892,7 +950,7 @@
   max-width: 100% !important;
   margin: 16px auto !important;
   border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
 }
 
 .lesson-content-images .video-container {
@@ -906,7 +964,8 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scroll-behavior: smooth;
-  padding-bottom: 10rem !important; /* Ensure sufficient space for input + nav */
+  padding-bottom: 10rem !important;
+  /* Ensure sufficient space for input + nav */
   /* ✅ CRITICAL: Prevent any unwanted scroll behavior */
   scroll-snap-type: y proximity;
   scroll-snap-align: end;
@@ -915,15 +974,18 @@
 /* ✅ OVERLAY INPUT: Fixed positioning above bottom nav */
 .mobile-chat-input-overlay {
   position: fixed !important;
-  bottom: 4rem; /* Above 64px bottom nav */
+  bottom: 4rem;
+  /* Above 64px bottom nav */
   left: 0;
   right: 0;
   background: white;
   border-top: 1px solid #e5e7eb;
-  z-index: 100; /* Above bottom nav (z-50) */
+  z-index: 100;
+  /* Above bottom nav (z-50) */
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-  min-height: 52px; /* Better balance - smaller than original but more comfortable */
+  min-height: 52px;
+  /* Better balance - smaller than original but more comfortable */
   /* ✅ CRITICAL: Prevent any layout shifts */
   transform: translateZ(0);
   will-change: transform;
@@ -941,6 +1003,7 @@
 
 /* Mobile PostDetail Modal - True fullscreen */
 @media (max-width: 640px) {
+
   [data-radix-dialog-content],
   [data-state="open"][data-radix-dialog-content],
   .fixed.left-\\[50\\%\\].top-\\[50\\%\\],
@@ -973,7 +1036,7 @@
 
   /* Content area has px-3 (12px) padding from parent - allow child elements to inherit */
   /* Only remove excessive padding from specific problematic elements */
-  .post-detail-modal-content > * {
+  .post-detail-modal-content>* {
     padding-left: 0 !important;
     padding-right: 0 !important;
   }

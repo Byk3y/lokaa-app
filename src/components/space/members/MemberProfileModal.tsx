@@ -118,9 +118,9 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
   if (!member) return null;
 
   const isCurrentUserViewingSelf = member.user_id === currentUserId;
-  const canTakeAction = (currentUserRoleInSpace === 'owner' || currentUserRoleInSpace === 'admin') && 
-                       !isCurrentUserViewingSelf && 
-                       member.role !== 'owner';
+  const canTakeAction = (currentUserRoleInSpace === 'owner' || currentUserRoleInSpace === 'admin') &&
+    !isCurrentUserViewingSelf &&
+    member.role !== 'owner';
   const canDemoteAdmin = currentUserRoleInSpace === 'owner' && member.role === 'admin';
   const canPromoteToAdmin = currentUserRoleInSpace === 'owner' && member.role === 'member';
   const canDemoteToMember = currentUserRoleInSpace === 'owner' && member.role === 'admin';
@@ -158,7 +158,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
             View profile information for {member?.full_name || 'this member'} including their role, activity, and available actions.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           {/* Profile Header */}
           <div className="flex items-center space-x-4">
@@ -206,7 +206,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
             <div className="flex gap-2">
               {/* Profile Button */}
               {member.profile_url && (
-                <Button 
+                <Button
                   onClick={handleViewProfile}
                   variant="outline"
                   className="flex-1"
@@ -215,11 +215,11 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                   Profile
                 </Button>
               )}
-              
+
               {/* Follow Button - Only for non-self, using the existing FollowButton component */}
               {!isCurrentUserViewingSelf && (
                 <div className="flex-1">
-                  <FollowButton 
+                  <FollowButton
                     userId={member.user_id}
                     variant="outline"
                     className="w-full"
@@ -231,7 +231,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
 
             {/* Self Actions */}
             {isCurrentUserViewingSelf && currentUserRoleInSpace !== 'owner' && onLeaveSpace && (
-              <Button 
+              <Button
                 onClick={handleLeaveSpace}
                 variant="outline"
                 className="w-full text-red-600 border-red-200 hover:bg-red-50"
@@ -253,7 +253,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="center">
                     <DropdownMenuLabel>Manage Member</DropdownMenuLabel>
-                    
+
                     {/* Role Change Actions */}
                     {canPromoteToAdmin && (
                       <DropdownMenuItem onClick={() => onChangeRole(member, 'admin')}>
@@ -261,7 +261,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                         Promote to Admin
                       </DropdownMenuItem>
                     )}
-                    
+
                     {canDemoteToMember && (
                       <DropdownMenuItem onClick={() => onChangeRole(member, 'member')}>
                         Demote to Member
@@ -272,7 +272,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                     {member.user_id !== spaceOwnerId && (
                       <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           className="text-red-600 hover:!text-red-700 focus:!bg-red-50 focus:!text-red-700"
                           onClick={() => onRemoveMember(member)}
                         >

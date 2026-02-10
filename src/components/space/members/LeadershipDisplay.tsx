@@ -1,6 +1,6 @@
 import { log } from '@/utils/logger';
 import React, { useState } from 'react';
-import { DisplayMember } from '@/components/space/MembersTab'; 
+import { DisplayMember } from '@/components/space/MembersTab';
 import { MemberRole } from '@/types/members';
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, ChevronLeft, ChevronRight, MessageSquare, Loader2 } from 'lucide-react';
@@ -32,12 +32,12 @@ const ownerShapeStyle = {
   clipPath: 'url(#roundedBlobClipPath)', // Updated ID for clarity
   width: '180px',
   height: '170px',
-  backgroundColor: 'hsl(var(--muted))', 
-  overflow: 'hidden', 
+  backgroundColor: 'hsl(var(--muted))',
+  overflow: 'hidden',
 };
 
 const AdminOwnerCard: React.FC<{
-  member: DisplayMember; 
+  member: DisplayMember;
   currentUserId?: string;
   currentUserRoleInSpace: MemberRole;
   spaceOwnerId?: string;
@@ -47,7 +47,7 @@ const AdminOwnerCard: React.FC<{
   onChatClick?: (member: DisplayMember) => void;
 }> = ({ member, currentUserId, currentUserRoleInSpace, spaceOwnerId, onChangeRole, onRemoveMember, onClick, onChatClick }) => {
   const [isStartingChat, setIsStartingChat] = useState(false);
-  
+
   const canPerformActions = currentUserRoleInSpace === 'owner' || (currentUserRoleInSpace === 'admin' && member.role !== 'owner');
   const isSelf = member.user_id === currentUserId;
   const isOwner = member.user_id === spaceOwnerId; // Determine if this card is for the owner
@@ -55,17 +55,17 @@ const AdminOwnerCard: React.FC<{
   const handleChatClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     log.debug('Component', `🗨️ [LeadershipDisplay] Chat button clicked for member:`, member.user_id, member.full_name);
-    
+
     if (!onChatClick) {
       log.warn('Component', '🗨️ [LeadershipDisplay] No onChatClick function provided');
       return;
     }
-    
+
     if (isStartingChat) {
       log.debug('Component', '🗨️ [LeadershipDisplay] Chat already starting, ignoring click');
       return;
     }
-    
+
     setIsStartingChat(true);
     try {
       log.debug('Component', '🗨️ [LeadershipDisplay] Calling onChatClick function...');
@@ -87,12 +87,12 @@ const AdminOwnerCard: React.FC<{
           avatar_url: member.avatar_url
         }}
       />
-      
+
       <div className="text-center">
         <h4 className="font-semibold text-xl text-foreground truncate w-full">{member.full_name || 'N/A'}</h4>
         <p className="text-sm text-muted-foreground capitalize">{member.role}</p>
       </div>
-      
+
       {/* Chat button for non-self members */}
       {!isSelf && onChatClick && (
         <Button
@@ -108,20 +108,20 @@ const AdminOwnerCard: React.FC<{
             </>
           ) : (
             <>
-          <MessageSquare size={16} />
-          <span>Chat</span>
+              <MessageSquare size={16} />
+              <span>Chat</span>
             </>
           )}
         </Button>
       )}
-      
+
       {canPerformActions && member.user_id !== spaceOwnerId && !isSelf && (
         <div className="pt-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="text-muted-foreground hover:text-foreground"
                 onClick={(e) => e.stopPropagation()} // Prevent triggering card click
               >
@@ -139,7 +139,7 @@ const AdminOwnerCard: React.FC<{
                  <DropdownMenuItem onClick={() => onChangeRole(member, 'admin')}>
                   Promote to Admin
                 </DropdownMenuItem>
-              )} */} 
+              )} */}
               {(currentUserRoleInSpace === 'owner') && member.role === 'admin' && <DropdownMenuSeparator />}
               {currentUserRoleInSpace === 'owner' && member.role === 'admin' && (
                 <DropdownMenuItem onClick={() => onRemoveMember(member)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
@@ -152,7 +152,7 @@ const AdminOwnerCard: React.FC<{
       )}
       {isSelf && <p className="text-xs text-muted-foreground">(This is you)</p>}
       {/* If no actions and not self, ensure card maintains some height or add a placeholder for alignment */}
-      {!(canPerformActions && member.user_id !== spaceOwnerId && !isSelf) && !isSelf && <div className="h-[36px]"></div>} 
+      {!(canPerformActions && member.user_id !== spaceOwnerId && !isSelf) && !isSelf && <div className="h-[36px]"></div>}
     </>
   );
 
@@ -220,8 +220,8 @@ export const LeadershipDisplay: React.FC<LeadershipDisplayProps> = ({
       {/* <h3 className="text-xl font-medium mb-6 text-center">Key Members</h3> */}
       <div className="flex flex-wrap justify-center gap-6 md:gap-8">
         {allLeaders.map(leader => (
-          <AdminOwnerCard 
-            key={leader.id} 
+          <AdminOwnerCard
+            key={leader.id}
             member={leader}
             currentUserId={currentUserId}
             currentUserRoleInSpace={currentUserRoleInSpace}

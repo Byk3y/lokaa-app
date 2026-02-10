@@ -15,12 +15,12 @@ export interface VideoRendererProps {
  */
 const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '', isSaving = false }) => {
   log.debug('Component', '🎥 [VideoRenderer] renderVideoContent called');
-  
+
   // Use VideoContentExtractor to detect videos in both content_url and embedded HTML
   const videoInfo = VideoContentExtractor.extractVideoInfo(lesson);
-  
+
   log.debug('Component', '🎥 [VideoRenderer] videoInfo:', videoInfo);
-  
+
   if (!videoInfo) {
     log.debug('Component', '🎥 [VideoRenderer] No videoInfo, returning null');
     return null;
@@ -30,7 +30,7 @@ const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '', i
   if (isSaving) {
     log.debug('Component', '🎥 [VideoRenderer] Showing loading state during save');
     return (
-      <div 
+      <div
         className={`lesson-view-video-container ${className}`}
         style={{
           position: 'relative',
@@ -59,12 +59,12 @@ const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '', i
   // Generate embed URL with proper parameters
   const embedUrl = VideoContentExtractor.generateEmbedUrl(videoInfo, window.location.origin);
   log.debug('Component', '🎥 [VideoRenderer] Generated embedUrl:', embedUrl);
-  
+
   if (videoInfo.platform === 'youtube') {
     log.debug('Component', '🎥 [VideoRenderer] Rendering YouTube video with embedUrl:', embedUrl);
     log.debug('Component', '🎥 [VideoRenderer] DEBUG: About to render video container with lesson-view-video-container class');
     return (
-      <div 
+      <div
         className={`lesson-view-video-container ${className}`}
         style={{
           /* Video sizing - much larger and properly styled */
@@ -112,14 +112,14 @@ const VideoRenderer: React.FC<VideoRendererProps> = ({ lesson, className = '', i
       <div className="w-12 h-12 text-gray-400 mx-auto mb-4" />
       <p className="text-gray-600 mb-4">External video content</p>
       <a
-        href={videoInfo.embedUrl || lesson.content_url}
+        href={videoInfo.embedUrl || lesson.content_url || undefined}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
       >
         <span>Open Video</span>
       </a>
-    </div>
+    </div >
   );
 };
 

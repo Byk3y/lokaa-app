@@ -6,24 +6,25 @@ import { CourseCard } from './CourseCard';
 import { CreateCourseCard } from './CreateCourseCard';
 import { CourseCardSkeleton } from './CourseCardSkeleton';
 import { EmptyState } from './EmptyState';
+import { useMobile } from '@/hooks/useMobile';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 
 interface CourseGridProps {
   // Data
   courses: CourseDisplayData[];
   searchTerm: string;
-  
+
   // State
   isLoading: boolean;
   authLoading: boolean;
   hasSpaceOwnerInfo: boolean;
-  
+
   // User context
   hasValidAuth: boolean;
   isOwner: boolean;
   isAdmin?: boolean;
   user: { id: string; email?: string } | null;
-  
+
   // Handlers
   onCreateCourse: () => void;
   onViewCourse: (course: CourseDisplayData) => void;
@@ -32,7 +33,7 @@ interface CourseGridProps {
   onEnroll: (course: CourseDisplayData) => void;
   onUnenroll: (courseId: string) => void;
   onClearSearch?: () => void;
-  
+
   // UI State
   isProcessingEnrollment: string | null;
   primaryColor: string;
@@ -58,6 +59,7 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
   isProcessingEnrollment,
   primaryColor,
 }) {
+  const isMobile = useMobile();
   // ✅ OPTIMIZED: Reduced debug logging frequency
   // Only log when courses actually change, not on every render
   const prevCoursesLength = React.useRef(courses?.length || 0);
@@ -66,7 +68,7 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
       prevCoursesLength.current = courses?.length || 0;
     }
   }, [courses?.length]);
-  
+
   // Component rendered
   // Memoize search filtering for better performance
   const searchedCourses = useMemo(() => {
@@ -74,17 +76,17 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
     if (!courses || !Array.isArray(courses)) {
       return [];
     }
-    
+
     if (!searchTerm) {
       return courses;
     }
-    
+
     const lowerSearchTerm = searchTerm.toLowerCase();
-    const filtered = courses.filter(course => 
+    const filtered = courses.filter(course =>
       course.title.toLowerCase().includes(lowerSearchTerm) ||
       (course.description && course.description.toLowerCase().includes(lowerSearchTerm))
     );
-    
+
     return filtered;
   }, [courses, searchTerm]);
 
@@ -105,9 +107,6 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
 
   // MOBILE OPTIMIZATION: Show skeleton loading immediately for better perceived performance
   if (isLoadingState) {
-    // Check if mobile for optimized loading experience
-    const isMobile = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
     if (isMobile) {
       // Mobile: Show fewer skeletons and add mobile-specific styling
       return (
@@ -118,7 +117,7 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
         </div>
       );
     }
-    
+
     // Desktop: Show more skeletons
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -156,12 +155,12 @@ export const CourseGrid = React.memo<CourseGridProps>(function CourseGrid({
           hasExistingCourses={searchedCourses.length > 0}
         />
       )}
-      
+
       {/* Empty State */}
       {shouldShowEmptyState && (
         <EmptyState
           searchTerm={searchTerm}
-          onClearSearch={onClearSearch || (() => {})}
+          onClearSearch={onClearSearch || (() => { })}
         />
       )}
     </div>

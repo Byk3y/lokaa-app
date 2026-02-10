@@ -1,26 +1,24 @@
 import { log } from '@/utils/logger';
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import { useClassroomStore } from '@/stores/classroom/classroomStore';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 import useClassroomCache from '@/hooks/useClassroomCache';
-import { useCourseDetail } from '@/hooks/classroom';
-import { useCourseProgress } from '@/hooks/classroom/useCourseProgress';
+import { useCourse } from '@/hooks/classroom/useCourse';
 import { useCourseOwnership } from '@/hooks/classroom/useCourseOwnership';
 import { useCourseNavigation } from '@/hooks/classroom/useCourseNavigation';
 import { useCourseDialogs } from '@/hooks/classroom/useCourseDialogs';
 import { useLessonManagement } from '@/hooks/classroom/useLessonManagement';
-import { 
+import {
   MobileStateManager,
   CourseDialogManager,
   CourseContentDisplay,
   CourseErrorHandler
 } from './components';
-import type { 
-  CourseDetailData, 
-  CourseDetailViewProps 
+import type {
+  CourseDetailViewProps
 } from '@/types/classroom/courseDetail';
 
 // Internal component that uses the route manager
@@ -32,56 +30,33 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
 }) => {
   const { user } = useAuth();
   const { space, loading: spaceLoading } = useSpace();
-  
+
   // Get classroom store for dialog management
   const openCourseDialog = useClassroomStore(state => state.openCourseDialog);
   const openFolderDialog = useClassroomStore(state => state.openFolderDialog);
-  
+
   // Use the new course detail hook
   const {
     course,
     loading,
     error,
-    fetchCourseDetails,
     refetch,
-    invalidateCache,
+    markLessonAsDone,
+    isMobile,
     applyOptimisticUpdate,
     clearOptimisticUpdate,
-    clearAllOptimisticUpdates,
-    hasOptimisticUpdates
-  } = useCourseDetail({
-    enableMobileOptimizations: true,
-    enableOfflineSupport: true,
-    retryOnError: true
-  });
-  
-  // Note: Optimistic updates now handled directly in useCourseDetail hook
-
-  // Use the new progress management hook
-  const { markLessonAsDone } = useCourseProgress({
-    enableLogging: true,
-    enableCaching: true,
-    userId: user?.id || null,
-    onProgressUpdate: () => {
-      // Refresh course data to update UI with new completion status
-      if (process.env.NODE_ENV === 'development') {
-        // Development logging placeholder
-      }
-      refetch();
-    },
-    onOptimisticUpdate: (updatedCourse) => {
-      // Update classroom cache with new progress for course cards
-      if (updatedCourse && space?.id) {
-        const classroomCache = useClassroomCache.getState();
-        classroomCache.updateCourseProgress(space.id, updatedCourse.id, updatedCourse.progress || 0);
-      }
-    }
+    // clearAllOptimisticUpdates,
+    // hasOptimisticUpdates,
+    // updateCourseProgress,
+    invalidateCache
+  } = useCourse({
+    courseId
   });
 
   // Use the new ownership management hook
   const { isOwner, ownershipDetails } = useCourseOwnership({
     course,
-    onOwnershipChange: (isOwner) => {
+    onOwnershipChange: (ownerStatus) => {
       if (process.env.NODE_ENV === 'development') {
         // Development logging placeholder
       }
@@ -94,7 +69,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   // Use the new navigation management hook
   const {
     selectedLesson,
-    isMobile,
+    // isMobile is now comes from useCourse
     showCourseOverview,
     showLessonView,
     setSelectedLesson
@@ -192,13 +167,13 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
       if (process.env.NODE_ENV === 'development') {
         // Lesson updated - optimistic updates handled via useCourseDetail hook
       }
-      
+
       // Update selectedLesson with fresh data to ensure edit mode shows current content
       if (selectedLesson && selectedLesson.id === lessonId && course) {
         // Find the updated lesson in the fresh course data
         const allLessons = course.modules.flatMap(m => m.lessons);
         const updatedLesson = allLessons.find(l => l.id === lessonId);
-        
+
         if (updatedLesson) {
           // Update selectedLesson with the fresh lesson data
           setSelectedLesson(updatedLesson);
@@ -210,28 +185,20 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
           });
         }
       }
-      
+
       // Note: Optimistic updates now handled in useCourseDetail hook for consistency
       // This callback serves for logging and future component-level side effects
     },
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,
     onSelectedLessonChange: setSelectedLesson,
-    
+
     // PHASE 1.2: Pass optimistic update functions to lesson management
     applyOptimisticUpdate,
     clearOptimisticUpdate
   });
 
   log.debug('Component', '🎓 [CourseDetailView] Component rendered with courseId:', courseId);
-  
-
-  // Fetch course data when courseId changes
-  useEffect(() => {
-    if (courseId) {
-      fetchCourseDetails(courseId, moduleId);
-    }
-  }, [courseId, moduleId, fetchCourseDetails]);
 
   // Note: Removed problematic useEffect that was overwriting optimistic updates
   // Optimistic updates are now handled directly in useCourseDetail hook
@@ -254,9 +221,15 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
     }
 
     try {
-      await markLessonAsDone(selectedLesson, displayCourse);
-    } catch (error) {
-      log.error('Component', '🎓 [CourseDetailView] Error in handleMarkAsDone:', error);
+      await markLessonAsDone(selectedLesson);
+
+      // Update classroom cache for course cards
+      if (displayCourse && space?.id) {
+        const classroomCache = useClassroomCache.getState();
+        classroomCache.updateCourseProgress(space.id, displayCourse.id, displayCourse.progress || 0);
+      }
+    } catch (err: any) {
+      log.error('Component', '🎓 [CourseDetailView] Error in handleMarkAsDone:', err);
       toast({
         title: "Error",
         description: "Failed to update lesson completion status.",
@@ -268,7 +241,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
   // Course management handlers
   const handleEditCourse = () => {
     log.debug('Component', '📝 [CourseDetailView] Edit course clicked');
-    
+
     if (!displayCourse) {
       toast({
         title: "Error",
@@ -365,7 +338,7 @@ const CourseDetailViewInternal: React.FC<CourseDetailViewProps> = React.memo(({
         openRevertToDraftDialog={openRevertToDraftDialog}
         openChangeFolderDialog={openChangeFolderDialog}
       />
-      
+
       <CourseDialogManager
         course={displayCourse}
         selectedLesson={selectedLesson}

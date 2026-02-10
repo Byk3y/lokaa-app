@@ -12,11 +12,11 @@ const createOptimizedChunks = () => ({
   // 🔹 Core Framework (Critical)
   'react-core': ['react', 'react-dom', 'react/jsx-runtime'],
   'react-router': ['react-router-dom'],
-  
+
   // 🔹 UI System (Cacheable)
   'ui-core': [
     'lucide-react',
-    '@radix-ui/react-dialog', 
+    '@radix-ui/react-dialog',
     '@radix-ui/react-dropdown-menu',
     '@radix-ui/react-avatar',
     '@radix-ui/react-tooltip',
@@ -24,15 +24,15 @@ const createOptimizedChunks = () => ({
     '@radix-ui/react-select',
     '@radix-ui/react-slot'
   ],
-  
+
   // 🔹 Backend & Data (Stable)
   'supabase-core': ['@supabase/supabase-js'],
   'query-core': ['@tanstack/react-query'],
-  
+
   // 🔹 Utilities (Highly Cacheable)
   'utils-core': ['date-fns', 'clsx', 'tailwind-merge'],
   'helmet-vendor': ['react-helmet-async'],
-  
+
   // 🔹 Feature Modules (On-demand)
   'chat-module': [], // Will be populated dynamically
   'space-module': [], // Will be populated dynamically
@@ -43,21 +43,21 @@ const createOptimizedChunks = () => ({
 const createDynamicChunks = (id: string) => {
   // Performance optimizations go to performance chunk
   if (id.includes('src/hooks/useCleanupTracker') ||
-      id.includes('src/utils/performanceMonitor') ||
-      id.includes('src/utils/persistentCache') ||
-      id.includes('src/components/performance')) {
+    id.includes('src/utils/performanceMonitor') ||
+    id.includes('src/utils/persistentCache') ||
+    id.includes('src/components/performance')) {
     return 'performance-core';
   }
-  
+
   // Chat features
   if (id.includes('src/features/chat') || id.includes('Chat')) {
     return 'chat-module';
   }
-  
+
   // Space features - split into smaller chunks
-  if (id.includes('src/features/spaces') || 
-      id.includes('src/pages/Space') ||
-      id.includes('src/components/space')) {
+  if (id.includes('src/features/spaces') ||
+    id.includes('src/pages/Space') ||
+    id.includes('src/components/space')) {
     // Split space components by type
     if (id.includes('FeedTab') || id.includes('PostCard') || id.includes('CreatePostModal')) {
       return 'space-feed';
@@ -80,38 +80,38 @@ const createDynamicChunks = (id: string) => {
     // Default space chunk
     return 'space-module';
   }
-  
+
   // Auth features
-  if (id.includes('src/features/auth') || 
-      id.includes('src/contexts/Auth') ||
-      id.includes('auth')) {
+  if (id.includes('src/features/auth') ||
+    id.includes('src/contexts/Auth') ||
+    id.includes('auth')) {
     return 'auth-module';
   }
-  
+
   // Settings and profile
   if (id.includes('src/pages/Profile') ||
-      id.includes('src/pages/UserSettings') ||
-      id.includes('settings')) {
+    id.includes('src/pages/UserSettings') ||
+    id.includes('settings')) {
     return 'settings-module';
   }
-  
+
   // Provider optimizations
   if (id.includes('src/providers/OptimizedProviders')) {
     return 'provider-core';
   }
-  
+
   // Keep node_modules in vendor chunks
   if (id.includes('node_modules')) {
     return null; // Let manual chunks handle this
   }
-  
+
   return null;
 };
 
 // CSP Configuration
 const getCSPConfig = (mode: 'development' | 'production') => {
   const isDev = mode === 'development';
-  
+
   // Base CSP directives
   const directives = {
     'default-src': ["'self'"],
@@ -194,7 +194,7 @@ const getCSPReportOnlyConfig = (mode: 'development' | 'production') => {
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isProd = mode === "production";
-  
+
   return {
     server: {
       host: "::",
@@ -257,9 +257,9 @@ export default defineConfig(({ mode }) => {
             },
             {
               urlPattern: ({ url }) => {
-                return url.href.match(/^https:\/\/.*\.supabase\.co\/rest\/v1\//) && 
-                       !url.pathname.includes('/auth/') && 
-                       !url.searchParams.has('apikey');
+                return url.href.match(/^https:\/\/.*\.supabase\.co\/rest\/v1\//) &&
+                  !url.pathname.includes('/auth/') &&
+                  !url.searchParams.has('apikey');
               },
               handler: 'NetworkFirst',
               options: {
@@ -356,7 +356,7 @@ export default defineConfig(({ mode }) => {
       include: [
         "react",
         "react-dom",
-        "react/jsx-runtime", 
+        "react/jsx-runtime",
         "react/jsx-dev-runtime",
         "@supabase/supabase-js",
         "@radix-ui/react-icons",
@@ -413,7 +413,7 @@ export default defineConfig(({ mode }) => {
             // All other major dependencies get their own chunks
             'vendor': ['lodash', 'uuid', 'date-fns', 'clsx', 'tailwind-merge', '@giphy/js-fetch-api', '@giphy/react-components'],
             'ui-vendor': [
-              '@radix-ui/react-dialog', 
+              '@radix-ui/react-dialog',
               '@radix-ui/react-dropdown-menu',
               '@radix-ui/react-avatar',
               '@radix-ui/react-tooltip',

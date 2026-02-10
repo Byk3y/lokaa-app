@@ -23,7 +23,7 @@ export class VideoContentExtractor {
       contentText: lesson.content_text?.substring(0, 200) + '...',
       educationalContentText: lesson.educational_content?.text_content?.substring(0, 200) + '...'
     });
-    
+
     // ✅ PRIORITY 1: Single source of truth - course_lessons.content_url
     if (lesson.content_url) {
       const videoId = this.getYouTubeVideoId(lesson.content_url);
@@ -68,7 +68,7 @@ export class VideoContentExtractor {
             };
           }
         }
-        
+
         // Look for TipTap YouTube extension data attributes
         const tiptapMatch = htmlContent.match(/data-youtube-video="([^"]+)"/);
         if (tiptapMatch && tiptapMatch[1]) {
@@ -117,41 +117,46 @@ export class VideoContentExtractor {
    */
   private static getYouTubeVideoId(url: string): string | null {
     console.log('🎥 [VideoExtractor] getYouTubeVideoId called with URL:', url);
-    
+
     // Handle direct embed URLs with parameters
     const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
     if (embedMatch) {
       console.log('🎥 [VideoExtractor] Found embed match:', embedMatch[1]);
       return embedMatch[1];
     }
-    
+
     // Handle watch URLs
     const watchMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/);
     if (watchMatch) {
       console.log('🎥 [VideoExtractor] Found watch match:', watchMatch[1]);
       return watchMatch[1];
     }
-    
+
     // Handle youtu.be URLs
     const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
     if (shortMatch) {
       console.log('🎥 [VideoExtractor] Found short match:', shortMatch[1]);
       return shortMatch[1];
     }
-    
+
     console.log('🎥 [VideoExtractor] No video ID found in URL:', url);
     return null;
   }
 
   /**
-   * Generate embed URL for a video
+   * Generates a standardized embed URL for a video.
+   * restored to the "gold standard" logic that worked before the refactor
    */
   static generateEmbedUrl(videoInfo: VideoInfo, origin?: string): string {
     const baseUrl = videoInfo.embedUrl;
     if (origin) {
-      const url = new URL(baseUrl);
-      url.searchParams.set('origin', origin);
-      return url.toString();
+      try {
+        const url = new URL(baseUrl);
+        url.searchParams.set('origin', origin);
+        return url.toString();
+      } catch (e) {
+        return baseUrl;
+      }
     }
     return baseUrl;
   }

@@ -7,8 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
 import { useClassroomStore } from '@/stores/classroom/classroomStore';
 import { useCachedClassroom } from '@/hooks/useCachedClassroom';
-import { useCourseDetail } from '@/hooks/classroom';
-import { useCourseProgress } from '@/hooks/classroom/useCourseProgress';
+import { useCourse } from '@/hooks/classroom/useCourse';
 import { useCourseOwnership } from '@/hooks/classroom/useCourseOwnership';
 import { useCourseNavigation } from '@/hooks/classroom/useCourseNavigation';
 import { useMobileGestures } from '@/hooks/classroom/useMobileGestures';
@@ -20,11 +19,11 @@ import CourseOverviewMobile from './CourseOverviewMobile';
 import LessonViewMobile from './LessonViewMobile';
 import MobileLoadingSkeleton from './MobileLoadingSkeleton';
 import MobileErrorState from './MobileErrorState';
-import type { 
-  CourseModule, 
-  CourseLesson, 
-  CourseDetailData, 
-  CourseDetailViewProps 
+import type {
+  CourseModule,
+  CourseLesson,
+  CourseDetailData,
+  CourseDetailViewProps
 } from '@/types/classroom/courseDetail';
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 
@@ -54,62 +53,41 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
   const navigate = useNavigate();
   const { user } = useAuth();
   const { space } = useSpace();
-  
+
   // Refs for mobile interactions
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Mobile detection
   const isMobileDevice = useMediaQuery('(max-width: 768px)');
-  
+
   // Get classroom store for dialog management
   const openCourseDialog = useClassroomStore(state => state.openCourseDialog);
   const openFolderDialog = useClassroomStore(state => state.openFolderDialog);
-  
+
   // Get classroom cache for progress updates
   const { updateCourseProgress: updateCachedProgress } = useCachedClassroom(space?.id, user?.id, space?.owner_id);
-  
-  // Use the course detail hook with mobile optimizations
+
+  // Use the new unified course detail hook
   const {
     course,
     loading,
-    loadingPhase,
     error,
-    fetchCourseDetails,
     refetch,
-    silentRefetch,
-    invalidateCache,
-    retryCount,
-    isOffline,
-    
-    // PHASE 1.3: Extract optimistic update functions for mobile integration
+    markLessonAsDone,
     applyOptimisticUpdate,
     clearOptimisticUpdate,
-    clearAllOptimisticUpdates,
-    hasOptimisticUpdates
-  } = useCourseDetail({
-    enableMobileOptimizations: true,
-    enableOfflineSupport: true,
-    retryOnError: true
+    invalidateCache
+  } = useCourse({
+    courseId
   });
-  
-  // PHASE 1.3: Remove dual state anti-pattern - course data now comes from useCourseDetail hook with optimistic updates
 
-  // Use the progress management hook with optimistic updates
-  const { markLessonAsDone, progressLoading, progressError } = useCourseProgress({
-    enableLogging: true,
-    enableCaching: true,
-    userId: user?.id || null,
-    onOptimisticUpdate: (updatedCourse) => {
-      
-      // PHASE 1.3: No longer using local optimistic state - progress updates go to useCourseDetail hook
-      // Also update the cached progress
-      updateCachedProgress?.(updatedCourse.id, updatedCourse.progress || 0);
-    },
-    onProgressUpdate: () => {
-      // Refresh course data after database update is complete
-      refetch();
-    }
-  });
+  // Extract isOffline if we want to keep it, but useCourse doesn't have it yet.
+  // We can add it to useCourse if needed, but the old useCourseDetail had it.
+  const isOffline = false; // Placeholder for now
+
+  // Progress management is now integrated into markLessonAsDone from useCourse
+  const progressLoading = false;
+  const progressError = null;
 
 
   // Use the ownership management hook
@@ -204,13 +182,13 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     },
     onLessonUpdated: (lessonId, updates) => {
       log.debug('Mobile', '🎓 [CourseDetailMobile] Lesson updated:', lessonId, updates);
-      
+
       // Update selectedLesson with fresh data to ensure edit mode shows current content
       if (selectedLesson && selectedLesson.id === lessonId && course) {
         // Find the updated lesson in the fresh course data
         const allLessons = course.modules.flatMap(m => m.lessons);
         const updatedLesson = allLessons.find(l => l.id === lessonId);
-        
+
         if (updatedLesson) {
           // Update selectedLesson with the fresh lesson data
           setSelectedLesson(updatedLesson);
@@ -226,7 +204,7 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     onRefetch: refetch,
     onInvalidateCache: invalidateCache,
     onSelectedLessonChange: setSelectedLesson,
-    
+
     // PHASE 1.3: Pass optimistic update functions to lesson management
     applyOptimisticUpdate,
     clearOptimisticUpdate
@@ -264,7 +242,7 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
   // Course management handlers
   const handleEditCourse = useCallback(() => {
     log.debug('Mobile', '📝 [CourseDetailMobile] Edit course clicked');
-    
+
     if (!course) {
       toast({
         title: "Error",
@@ -316,15 +294,20 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
       return;
     }
 
-    await markLessonAsDone(selectedLesson, course);
-  }, [selectedLesson, course, markLessonAsDone]);
+    try {
+      await markLessonAsDone(selectedLesson);
 
-  // Effects for mobile-specific functionality
-  useEffect(() => {
-    if (courseId) {
-      fetchCourseDetails(courseId, moduleId);
+      // Update cached progress for grid
+      if (course && space?.id) {
+        updateCachedProgress?.(course.id, course.progress || 0);
+      }
+    } catch (err: any) {
+      log.error('Mobile', '🎓 [CourseDetailMobile] Error marking as done:', err);
     }
-  }, [courseId, moduleId, fetchCourseDetails]);
+  }, [selectedLesson, course, markLessonAsDone, space?.id, updateCachedProgress]);
+
+  // Course data is now handled automatically by useCourse
+  // No explicit fetch needed in useEffect unless we want to force it
 
   // PHASE 1.3: Removed setOptimisticCourse useEffect - no longer needed with unified optimistic updates in useCourseDetail hook
 
@@ -410,11 +393,11 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
     const allLessons = courseData.modules.flatMap(m => m.lessons);
     const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
     const hasNextLesson = currentIndex < allLessons.length - 1;
-    
+
     const currentLesson = allLessons.find(l => l.id === selectedLesson.id);
 
     return (
-      <div 
+      <div
         ref={containerRef}
         className="h-full min-h-screen"
         role="main"
@@ -426,7 +409,7 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
           lesson={(() => {
             if (!selectedLesson || !courseData) return selectedLesson;
             // Find the lesson in the current course state to get the most up-to-date completion status
-            const moduleWithLesson = courseData.modules.find(m => 
+            const moduleWithLesson = courseData.modules.find(m =>
               m.lessons.some(l => l.id === selectedLesson.id)
             );
             const currentLesson = moduleWithLesson?.lessons.find(l => l.id === selectedLesson.id);
@@ -443,22 +426,22 @@ const CourseDetailMobile: React.FC<CourseDetailMobileProps> = React.memo(({
           onEditLesson={async (updatedData) => {
             try {
               const updates: { title?: string; content_text?: string; is_published?: boolean } = {};
-              
+
               if (updatedData.title) {
                 updates.title = updatedData.title;
               }
-              
+
               if (updatedData.content_text || updatedData.educational_content?.text_content) {
                 const newContent = updatedData.educational_content?.text_content || updatedData.content_text;
                 updates.content_text = newContent;
               }
-              
+
               if (updatedData.is_published !== undefined) {
                 updates.is_published = updatedData.is_published;
               }
-              
+
               await handleUpdateLesson(selectedLesson.id, updates);
-              
+
               // Note: Removed explicit cache invalidation and refetching
               // The optimistic updates and lesson management hook handle UI updates properly
               // This prevents race conditions that were causing edits to not persist

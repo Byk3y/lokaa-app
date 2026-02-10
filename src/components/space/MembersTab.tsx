@@ -36,23 +36,23 @@ export type DisplayMember = CachedMemberType;
 export default function MembersTab() {
   const { user } = useOptimizedAuth();
   const { space: spaceData } = useSpace();
-  const { 
-    space: storeSpace, 
-    permissions: storePermissions 
+  const {
+    space: storeSpace,
+    permissions: storePermissions
   } = useSpaceSettingsStore();
   const { toast } = useToast();
   const { startDirectConversation } = useConversations();
-  
+
   // Use same fallback pattern as AboutTab and FeedTab with enhanced fallback  
   const currentSpaceData = storeSpace || (spaceData as any) || null;
-  
+
   // CRITICAL FIX: Type-safe and comprehensive effectiveSpaceData logic
   const effectiveSpaceData = useMemo(() => {
     // PRIORITY 1: Use storeSpace if available
     if (storeSpace && storeSpace.id) {
       return storeSpace;
     }
-    
+
     // PRIORITY 2: Use spaceData with explicit type casting
     if (spaceData && typeof spaceData === 'object') {
       const typedSpaceData = spaceData as any;
@@ -60,16 +60,16 @@ export default function MembersTab() {
         return typedSpaceData;
       }
     }
-    
+
     // PRIORITY 3: Use currentSpaceData (fallback from storeSpace || spaceData)
     if (currentSpaceData && currentSpaceData.id) {
       return currentSpaceData;
     }
-    
+
     // EMERGENCY FALLBACK: Use space fallback data based on current subdomain
     const currentSubdomain = window.location.pathname.split('/')[1] || 'nextpath-ai';
     const fallbackData = getSpaceFallbackData(currentSubdomain);
-    
+
     if (fallbackData) {
       return {
         id: fallbackData.id,
@@ -86,20 +86,20 @@ export default function MembersTab() {
         secondary_color: '#3b82f6'
       };
     }
-    
+
     // Final fallback if no space data available
     return null;
   }, [storeSpace, spaceData, currentSpaceData]);
-  
+
   // Removed debug logging to prevent console spam
-  
-  const { 
-    refreshMembership, 
-    changeMemberRole, 
-    removeMember, 
-    leaveSpace, 
+
+  const {
+    refreshMembership,
+    changeMemberRole,
+    removeMember,
+    leaveSpace,
   } = useMembership();
-  
+
   // Use cached members instead of local state
   const {
     members,
@@ -112,20 +112,20 @@ export default function MembersTab() {
     getRegularMembers,
     getSpaceOwner,
   } = useCachedMembers(effectiveSpaceData?.id);
-  
+
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState<boolean>(false);
   const [selectedMember, setSelectedMember] = useState<DisplayMember | null>(null);
   const [isMemberModalOpen, setIsMemberModalOpen] = useState<boolean>(false);
-  
+
   // Chat modal state
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isStartingChat, setIsStartingChat] = useState(false);
-  
+
   // Simple debounce for search
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -145,11 +145,11 @@ export default function MembersTab() {
 
   const handleMemberChatClick = useCallback(async (member: DisplayMember) => {
     if (!member.user_id || isStartingChat) return;
-    
+
     // ✅ CRITICAL FIX: Set pending chat navigation to prevent scroll resets
     setPendingChatNavigation(true);
     console.log('🔍 [MembersTab] Set pending chat navigation - member chat clicked');
-    
+
     setIsStartingChat(true);
     try {
       const conversationId = await startDirectConversation(member.user_id);
@@ -171,49 +171,49 @@ export default function MembersTab() {
     setIsChatModalOpen(false);
     setSelectedConversationId(null);
   }, []);
-  
+
   const handleChangeRole = useCallback(async (memberToUpdate: DisplayMember, newRole: MemberRole) => {
     if (!currentSpaceData?.id) return;
     try {
       if (memberToUpdate.user_id === currentSpaceData.owner_id) {
-        toast({title: "Action Not Allowed", description: "The space owner's role cannot be changed.", variant: "destructive"});
+        toast({ title: "Action Not Allowed", description: "The space owner's role cannot be changed.", variant: "destructive" });
         return;
       }
-      
+
       // Optimistic update
       handleMemberRoleChanged(memberToUpdate.user_id, newRole);
-      
+
       const success = await changeMemberRole(currentSpaceData.id, memberToUpdate.user_id, newRole);
       if (success) {
-        toast({title: "Success", description: `${memberToUpdate.full_name || 'Member'}'s role updated to ${newRole}.`});
-        
-        if(refreshMembership) {
+        toast({ title: "Success", description: `${memberToUpdate.full_name || 'Member'}'s role updated to ${newRole}.` });
+
+        if (refreshMembership) {
           refreshMembership();
         }
       } else {
         // Revert optimistic update on failure
         handleMemberRoleChanged(memberToUpdate.user_id, memberToUpdate.role);
-        toast({title: "Error", description: "Failed to update member role.", variant: "destructive"});
+        toast({ title: "Error", description: "Failed to update member role.", variant: "destructive" });
       }
     } catch (err) {
       // Revert optimistic update on error
       handleMemberRoleChanged(memberToUpdate.user_id, memberToUpdate.role);
       log.error('Component', "Error changing member role:", err);
-      toast({title: "Error", description: "An unexpected error occurred while changing role.", variant: "destructive"});
+      toast({ title: "Error", description: "An unexpected error occurred while changing role.", variant: "destructive" });
     }
   }, [currentSpaceData, changeMemberRole, handleMemberRoleChanged, refreshMembership, toast]);
 
   const handleRemoveMemberAction = useCallback(async (memberToRemove: DisplayMember) => {
     if (!currentSpaceData?.id || !user || !removeMember) return;
     if (memberToRemove.user_id === currentSpaceData.owner_id) {
-        toast({ title: "Action Not Allowed", description: "The space owner cannot be removed.", variant: "destructive" });
-        return;
+      toast({ title: "Action Not Allowed", description: "The space owner cannot be removed.", variant: "destructive" });
+      return;
     }
     if (memberToRemove.user_id === user.id) {
-        toast({ title: "Action Not Allowed", description: "You cannot remove yourself using this action. Use 'Leave Space'.", variant: "destructive" });
-        return;
+      toast({ title: "Action Not Allowed", description: "You cannot remove yourself using this action. Use 'Leave Space'.", variant: "destructive" });
+      return;
     }
-    
+
     log.debug('Component', `🗑️ [MembersTab] Removing member from cache: ${memberToRemove.user_id}`);
     log.debug('Component', `🗑️ [MembersTab] Member details:`, {
       id: memberToRemove.id,
@@ -221,16 +221,16 @@ export default function MembersTab() {
       full_name: memberToRemove.full_name,
       role: memberToRemove.role
     });
-    
+
     try {
       // Optimistic update
       handleMemberRemoved(memberToRemove.id);
-      
+
       log.debug('Component', `🔄 [MembersTab] Calling removeMember for space: ${currentSpaceData.id}`);
       const success = await removeMember(currentSpaceData.id, memberToRemove.user_id);
-      
+
       log.debug('Component', `📊 [MembersTab] Remove member result: ${success ? 'SUCCESS' : 'FAILED'}`);
-      
+
       if (success) {
         toast({ title: "Member Removed", description: `${memberToRemove.full_name || 'Member'} has been removed.` });
         if (refreshMembership) {
@@ -256,25 +256,25 @@ export default function MembersTab() {
   }, [currentSpaceData, user, removeMember, handleMemberRemoved, refetch, refreshMembership, toast, selectedMember, handleCloseMemberModal]);
 
   const handleLeaveSpaceAction = useCallback(async () => {
-    if(!currentSpaceData?.id || !user) return;
-    if(user.id === currentSpaceData.owner_id){
-        toast({title: "Action Not Allowed", description: "Space owner cannot leave. Transfer ownership first.", variant: "destructive"});
-        return;
+    if (!currentSpaceData?.id || !user) return;
+    if (user.id === currentSpaceData.owner_id) {
+      toast({ title: "Action Not Allowed", description: "Space owner cannot leave. Transfer ownership first.", variant: "destructive" });
+      return;
     }
     try {
-        const success = await leaveSpace(currentSpaceData.id);
-        if (success) {
-            toast({title: "Success", description: "You have left the space.",});
-            if(refreshMembership) refreshMembership();
-            // Close modal after leaving
-            handleCloseMemberModal();
-            // Potentially redirect or update UI further after leaving
-        } else {
-            toast({title: "Error", description: "Failed to leave space.", variant: "destructive"});
-        }
+      const success = await leaveSpace(currentSpaceData.id);
+      if (success) {
+        toast({ title: "Success", description: "You have left the space.", });
+        if (refreshMembership) refreshMembership();
+        // Close modal after leaving
+        handleCloseMemberModal();
+        // Potentially redirect or update UI further after leaving
+      } else {
+        toast({ title: "Error", description: "Failed to leave space.", variant: "destructive" });
+      }
     } catch (err) {
-        log.error('Component', "Error leaving space:", err);
-        toast({title: "Error", description: "An unexpected error occurred while trying to leave.", variant: "destructive"});
+      log.error('Component', "Error leaving space:", err);
+      toast({ title: "Error", description: "An unexpected error occurred while trying to leave.", variant: "destructive" });
     }
   }, [currentSpaceData, user, leaveSpace, refreshMembership, toast, handleCloseMemberModal]);
 
@@ -308,9 +308,9 @@ export default function MembersTab() {
       member.full_name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
     );
   }, [getRegularMembers, debouncedSearchQuery]);
-  
+
   const currentUserRoleInSpace: MemberRole = useMemo(() => {
-    if (!user || !effectiveSpaceData) return 'member'; 
+    if (!user || !effectiveSpaceData) return 'member';
     if (effectiveSpaceData.owner_id === user.id) return 'owner';
     const currentUserMemberInfo = members.find(m => m.user_id === user.id);
     return currentUserMemberInfo?.role || 'member';
@@ -343,9 +343,9 @@ export default function MembersTab() {
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
           {error}
-          <Button onClick={() => { 
-            if(refreshMembership) refreshMembership(); 
-            else refetch(true); 
+          <Button onClick={() => {
+            if (refreshMembership) refreshMembership();
+            else refetch(true);
           }} variant="link" className="ml-2 p-0 h-auto text-destructive-foreground hover:text-destructive-foreground/80">
             Try reloading.
           </Button>
@@ -363,12 +363,12 @@ export default function MembersTab() {
       </div>
 
       {(spaceOwner || otherAdmins.length > 0) && (
-        <LeadershipDisplay 
+        <LeadershipDisplay
           owner={spaceOwner}
           admins={otherAdmins}
           currentUserId={user?.id}
-                  currentUserRoleInSpace={currentUserRoleInSpace}
-        spaceOwnerId={effectiveSpaceData?.owner_id}
+          currentUserRoleInSpace={currentUserRoleInSpace}
+          spaceOwnerId={effectiveSpaceData?.owner_id}
           onChangeRole={handleChangeRole}
           onRemoveMember={handleRemoveMemberAction}
           onMemberClick={handleMemberCardClick}
@@ -387,7 +387,7 @@ export default function MembersTab() {
             className="pl-10 w-full"
           />
         </div>
-        { (currentUserRoleInSpace === 'owner' || currentUserRoleInSpace === 'admin') && (
+        {(currentUserRoleInSpace === 'owner' || currentUserRoleInSpace === 'admin') && (
           <Button onClick={() => setIsInviteModalOpen(true)} className="w-full md:w-auto">
             <UserPlus className="mr-2 h-4 w-4" /> Invite Member
           </Button>
@@ -424,9 +424,9 @@ export default function MembersTab() {
           <p className="mt-1 text-sm text-muted-foreground">
             {searchQuery ? "Try adjusting your search." : "This space doesn\'t have any members yet, or they couldn\'t be loaded."}
           </p>
-          { (currentUserRoleInSpace === 'owner' || currentUserRoleInSpace === 'admin') && !searchQuery && (
+          {(currentUserRoleInSpace === 'owner' || currentUserRoleInSpace === 'admin') && !searchQuery && (
             <Button onClick={() => setIsInviteModalOpen(true)} className="mt-4">
-                <UserPlus className="mr-2 h-4 w-4" /> Invite Member
+              <UserPlus className="mr-2 h-4 w-4" /> Invite Member
             </Button>
           )}
         </div>
@@ -466,10 +466,10 @@ export default function MembersTab() {
             <h3 className="text-lg font-semibold mb-1">Invite Members to {spaceData?.name || 'this space'}</h3>
             <p className="text-sm text-muted-foreground mb-4">Share this link with anyone you want to invite to this space.</p>
             <div className="flex items-center space-x-2 mb-4">
-              <Input 
-                id="invite-link" 
-                readOnly 
-                value={inviteLink} 
+              <Input
+                id="invite-link"
+                readOnly
+                value={inviteLink}
                 className="flex-1"
                 aria-label="Invite link"
               />

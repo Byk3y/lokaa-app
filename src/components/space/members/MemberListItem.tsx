@@ -50,7 +50,7 @@ const MemberListItem: React.FC<MemberListItemProps> = ({
   const isCurrentUser = currentUserId === userId;
 
   return (
-    <div 
+    <div
       className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:bg-gray-50 transition-all duration-200 cursor-pointer"
       onClick={onClick}
     >
@@ -67,7 +67,7 @@ const MemberListItem: React.FC<MemberListItemProps> = ({
             isOnline={is_online}
             onClick={onClick}
           />
-          
+
           {/* Content */}
           <div className="flex-1 min-w-0 space-y-1">
             <div>
@@ -76,10 +76,10 @@ const MemberListItem: React.FC<MemberListItemProps> = ({
                 {isCurrentUser && <span className="ml-2 text-xs text-teal-600 font-medium">(You)</span>}
               </h3>
               {profile_url && (
-                <a 
-                  href={profile_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={profile_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-sm text-teal-600 hover:text-teal-700 inline-flex items-center hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >

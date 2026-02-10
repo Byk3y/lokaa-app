@@ -26,9 +26,9 @@ interface CourseDialogManagerProps {
   closeChangeFolderDialog: () => void;
   handleConfirmDeletePage: () => Promise<void>;
   handleConfirmRevertToDraft: () => Promise<void>;
-  handleConfirmChangeFolder: () => Promise<void>;
+  handleConfirmChangeFolder: (folderId: string | null) => Promise<void>;
   // Actions
-  refetch: () => Promise<void>;
+  refetch: () => Promise<any>;
   setSelectedLesson: (lesson: CourseLesson | null) => void;
 }
 
@@ -60,7 +60,7 @@ export const CourseDialogManager: React.FC<CourseDialogManagerProps> = ({
   return (
     <>
       {/* Dialog Manager for Edit Course Dialog */}
-      <ClassroomDialogManager 
+      <ClassroomDialogManager
         space={{
           id: course.space_id,
           owner_id: course.creator_id,
@@ -70,7 +70,7 @@ export const CourseDialogManager: React.FC<CourseDialogManagerProps> = ({
         onDeletePage={async (pageId: string) => {
           try {
             const supabase = getSupabaseClient();
-            
+
             // Get the lesson to find its content_id
             const { data: lesson, error: lessonError } = await supabase
               .from('course_lessons')
@@ -128,7 +128,7 @@ export const CourseDialogManager: React.FC<CourseDialogManagerProps> = ({
         onDuplicatePage={async (pageId: string) => {
           try {
             const supabase = getSupabaseClient();
-            
+
             // Get the original lesson and its content
             const { data: originalLesson, error: lessonError } = await supabase
               .from('course_lessons')

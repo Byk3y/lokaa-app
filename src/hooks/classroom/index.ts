@@ -1,18 +1,13 @@
 // Authentication and permissions
-export { 
-  useClassroomAuth, 
-  useClassroomPermissions, 
-  useClassroomActions 
+export {
+  useClassroomAuth,
+  useClassroomPermissions,
+  useClassroomActions
 } from './useClassroomAuth';
 
 // Course management
 export { useCourseManagement } from './useCourseManagement';
-export { useCourseDetail } from './useCourseDetail';
-
-// NEW: Refactored hooks from useCourseDetail.ts
-export { useCourseCaching } from './useCourseCaching';
-export { useCourseProgress } from './useCourseProgress';
-export { useCourseFetching } from './useCourseFetching';
+export { useCourse } from './useCourse';
 
 // Mobile navigation hooks (replaces MobileNavigationManager component)
 export { useMobileGestures } from './useMobileGestures';
@@ -20,7 +15,7 @@ export { useMobileKeyboard } from './useMobileKeyboard';
 export { useMobileNavigation } from './useMobileNavigation';
 
 // Search and filtering
-export { 
+export {
   useClassroomSearch,
   useCoursesForOwner,
   useEnrolledCourses,
