@@ -50,26 +50,33 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
   const location = useLocation();
   const navigate = useNavigate();
   const isInitialMount = useRef(true);
-  
+
   // **OPTIMIZED**: Use persistent verification cache instead of memory-only ref
   const categoriesCache = useCategoriesCache();
-  
+
   // State needed for the shell
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // ✅ FIXED: Use standard React Router navigation instead of custom tab management
   const activeTab = extractTabFromPathname(location.pathname);
-  
+
   // ✅ FIXED: Removed complex tab state debugging - React Router handles state consistency
-  
+
   // Load the space from the store
-  const { loadActiveSpace, space: storeSpace } = useSpaceSettingsStore();
+  const { loadActiveSpace, space: storeSpace, loadingSpace, error: storeError } = useSpaceSettingsStore();
 
   // 🎯 AUTO PRESENCE UPDATER: Automatically update presence when user returns from minimizing
   useAutoPresenceUpdater(storeSpace?.id);
 
-  // PHASE 1.5 FIX: Prevent race condition with SpaceContext
+  // PHASE 1.5 FIX: Prevent race condition with SpaceContext + PHASE 0 Guard
   useEffect(() => {
+    const needsNewData = !storeSpace || storeSpace.subdomain !== subdomain;
+
+    // GUARD: Avoid infinite loops if we are already loading or if there's an error for the SAME subdomain
+    if (loadingSpace || (storeError && !needsNewData)) {
+      return;
+    }
+
     if (subdomain && user?.id) {
       // Only consider it a match if the store space belongs to the current subdomain
       const hasMatchingSpaceData = !!storeSpace && storeSpace.subdomain === subdomain;
@@ -81,7 +88,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
         log.debug('Component', `🔒 [Phase1.5] [SpaceShellLayout] Skipping loadActiveSpace - already have matching data for ${subdomain}`);
       }
     }
-  }, [subdomain, user?.id, loadActiveSpace, storeSpace?.subdomain]);
+  }, [subdomain, user?.id, loadActiveSpace, storeSpace?.subdomain, loadingSpace, storeError]);
 
   // Effect to handle initial navigation and ensure Feed tab is the default
   useEffect(() => {
@@ -89,28 +96,28 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
     if (isInitialMount.current && subdomain) {
       const currentPath = location.pathname;
       const currentTab = extractTabFromPathname(currentPath);
-      
+
       // Handle cases where we should redirect to default feed tab:
       // 1. Direct access to root space page (e.g., /subdomain)
       // 2. Accessing a URL with trailing slash
       // 3. Initial empty or invalid tab value
       if (
-        currentPath.endsWith(`/${subdomain}`) || 
+        currentPath.endsWith(`/${subdomain}`) ||
         currentPath.endsWith(`/${subdomain}/`) ||
         (currentTab !== 'feed' && !currentPath.includes('/space/'))
       ) {
         if (process.env.NODE_ENV === 'development') {
           log.debug('Component', '🔄 [SpaceShellLayout] Redirecting to Feed tab on initial load');
         }
-        
+
         // Navigate to the feed tab (default tab)
         navigate(`/${subdomain}/space`, {
           replace: true,
           state: { preserveSpace: true, activeTab: 'feed' } as LocationState
         });
-        
+
         // ✅ FIXED: Tab state is now managed by React Router
-        
+
         // Reset scroll position for initial feed navigation
         resetScrollForFeedNavigation();
       }
@@ -122,10 +129,10 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
     // Run only when the loaded storeSpace matches the current URL subdomain
     if (storeSpace && storeSpace.subdomain === subdomain && user?.id) {
       // Cache warming removed - using simplified cache system
-      
+
       // New simple presence system automatically handles space-specific presence
       log.debug('Component', `🌐 [SpaceShellLayout] Space loaded for simplified presence: ${storeSpace.id}`);
-      
+
       // 🚀 OPTIMIZED: Initialize avatar cache for instant display
       AvatarCacheService.preloadSpaceAvatars(storeSpace.id)
         .then(() => {
@@ -138,7 +145,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
             log.warn('Component', '⚠️ [SpaceShellLayout] Avatar cache initialization failed:', error);
           }
         });
-      
+
       // 🛡️ OPTIMIZED: Smart category verification with persistent cache
       const verifySpaceCategories = async () => {
         // Check if verification is needed using smart cache
@@ -150,31 +157,31 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
         // Check if we have recent category data from existing cache
         if (categoryVerificationCache.hasRecentCategoryData(storeSpace.id, categoriesCache)) {
           const spaceCache = categoriesCache.cache[storeSpace.id];
-          const hasGeneralDiscussion = spaceCache.categories.some((cat: any) => 
+          const hasGeneralDiscussion = spaceCache.categories.some((cat: any) =>
             cat.name === 'General Discussion'
           );
-          
+
           // Update verification cache with existing data
           categoryVerificationCache.updateVerification(storeSpace.id, {
             hasCategories: spaceCache.categories.length > 0,
             hasGeneralDiscussion,
             categoriesCount: spaceCache.categories.length
           });
-          
+
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Using cached categories for space ${storeSpace.id}`);
           return;
         }
-        
+
         try {
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Verifying categories for space ${storeSpace.id}`);
-          
+
           // Check if space has any categories
           const supabaseClient = getSupabaseClient();
           if (!supabaseClient) {
             devLogger.log('SpaceManagement', `[SpaceShellLayout] Supabase client not available`);
             return;
           }
-          
+
           const { data: existingCategories, error: categoriesError } = await supabaseClient
             .from('space_categories')
             .select('*')
@@ -189,7 +196,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
 
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Found ${existingCategories?.length || 0} categories for space ${storeSpace.id}`);
 
-          const hasGeneralDiscussion = existingCategories?.some(cat => 
+          const hasGeneralDiscussion = existingCategories?.some(cat =>
             cat.name === 'General Discussion'
           ) || false;
 
@@ -215,7 +222,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
               devLogger.log('SpaceManagement', `[SpaceShellLayout] Error creating General Discussion category:`, insertError);
             } else {
               devLogger.log('SpaceManagement', `[SpaceShellLayout] Created General Discussion category for space ${storeSpace.id}`);
-              
+
               // Update verification cache after creating category
               categoryVerificationCache.updateVerification(storeSpace.id, {
                 hasCategories: true,
@@ -228,7 +235,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
           devLogger.log('SpaceManagement', `[SpaceShellLayout] Error in verifySpaceCategories:`, error);
         }
       };
-      
+
       // Run category verification immediately (no delay needed with smart cache)
       verifySpaceCategories();
     }
@@ -240,7 +247,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
     if (isInitialMount.current) {
       isInitialMount.current = false;
     }
-    
+
     // Reset scroll position when feed tab becomes active
     if (activeTab === 'feed') {
       resetScrollForFeedNavigation();
@@ -262,19 +269,19 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
     if (process.env.NODE_ENV === 'development') {
       log.debug('Component', `🔄 [SpaceShellLayout] Tab change requested: ${activeTab} -> ${tabKey}`);
     }
-    
+
     // Use standard React Router navigation
     if (subdomain) {
-      const newUrl = tabKey === 'feed' 
+      const newUrl = tabKey === 'feed'
         ? `/${subdomain}/space`
         : `/${subdomain}/space/${tabKey}`;
-      
-      navigate(newUrl, { 
+
+      navigate(newUrl, {
         replace: true,
         state: { preserveSpace: true, activeTab: tabKey } as LocationState
       });
     }
-    
+
     // Reset scroll position for feed navigation
     if (tabKey === 'feed') {
       resetScrollForFeedNavigation();
@@ -285,13 +292,13 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
   useEffect(() => {
     const handleCustomTabChange = (event: CustomEvent) => {
       const { tabKey, subdomain: eventSubdomain, source } = event.detail;
-      
+
       // Only handle events for the current space
       if (eventSubdomain === subdomain && source === 'bottom-nav') {
         if (process.env.NODE_ENV === 'development') {
           log.debug('Component', `🔄 [SpaceShellLayout] Handling custom tab change from ${source}: ${tabKey}`);
         }
-        
+
         // Use standard React Router navigation
         handleTabChange(tabKey);
       }
@@ -299,7 +306,7 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
 
     // Add event listener for custom tab changes
     window.addEventListener('spaceTabChange', handleCustomTabChange as EventListener);
-    
+
     return () => {
       window.removeEventListener('spaceTabChange', handleCustomTabChange as EventListener);
     };
@@ -308,19 +315,19 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
   return (
     <SpaceLayout
       header={(
-          <SpaceHeader 
-            subdomain={subdomain}
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-          />
+        <SpaceHeader
+          subdomain={subdomain}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+        />
       )}
       nav={(
         showTabs && (
           <div className="hidden lg:block">
-            <SpaceNav 
+            <SpaceNav
               subdomain={subdomain}
               activeTab={activeTab}
-              onTabChange={handleTabChange} 
+              onTabChange={handleTabChange}
             />
           </div>
         )
@@ -329,19 +336,19 @@ export default function SpaceShellLayout({ showTabs = true }: SpaceShellLayoutPr
       {/* On mobile, SpaceNav is part of the scrollable body */}
       {showTabs && (
         <div className="block lg:hidden">
-            <SpaceNav 
-              subdomain={subdomain}
-              activeTab={activeTab}
-              onTabChange={handleTabChange} 
-            />
+          <SpaceNav
+            subdomain={subdomain}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+          />
         </div>
       )}
-      
+
       {/* ✅ FIXED: Use persistent tab content to prevent remounting */}
       <div className="px-0 sm:px-4 pt-0 sm:pt-6 pb-16 sm:pb-6">
         <PersistentTabContent />
       </div>
-      
+
       {/* Common modals that should persist across tab changes */}
       <Suspense fallback={null}>
         <NewSpaceSettingsModal />

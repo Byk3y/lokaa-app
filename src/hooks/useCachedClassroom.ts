@@ -1,90 +1,66 @@
 import { useEffect, useCallback } from 'react';
-import useClassroomCache, { type CourseDisplayData } from './useClassroomCache';
-import { useAuth } from '@/contexts/AuthContext';
 import { log } from '@/utils/logger';
+import useClassroomCache, { type CourseDisplayData } from './useClassroomCache';
 
 interface UseCachedClassroomReturn {
   courses: CourseDisplayData[];
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
-  
+
   // Course management actions with optimistic updates
   updateCourse: (courseId: string, updates: Partial<CourseDisplayData>) => void;
   removeCourse: (courseId: string) => void;
   addCourse: (course: CourseDisplayData) => void;
-  
+
   // Enrollment actions with optimistic updates
   handleEnrollment: (courseId: string, enrolled: boolean) => void;
-  
+
   // Progress management
   updateCourseProgress: (courseId: string, progress: number) => void;
 }
 
 export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: string): UseCachedClassroomReturn {
+  // ✅ REACTIVE SELECTOR: Subscribe to cache changes for this specific space
+  // This is the core fix for the "double refresh" issue.
+  const cacheEntry = useClassroomCache(
+    state => spaceId ? state.spaceCache.get(spaceId) : undefined
+  );
+
   const {
-    getCourses,
-    isLoading,
-    getError,
     fetchCourses,
     updateCourseInCache,
     removeCourseFromCache,
     addCourseToCache,
     updateCourseProgress: updateCourseProgressInCache,
-    forceRefreshCache,
   } = useClassroomCache();
 
-  const { user } = useAuth();
+  const courses = cacheEntry?.courses || [];
+  const loading = cacheEntry?.loading || false;
+  const error = cacheEntry?.error || null;
 
   // Auto-fetch when dependencies change
   useEffect(() => {
-    if (!spaceId || !userId) return;
-
-    const cachedCourses = getCourses(spaceId);
-    const loading = isLoading(spaceId);
-    
-    // ✅ OPTIMIZED: Only fetch if no cache exists and not already loading
-    if (cachedCourses === null && !loading) {
-      fetchCourses(spaceId, userId, ownerId);
-    }
-  }, [spaceId, userId, ownerId, getCourses, isLoading, fetchCourses]);
-
-  // ✅ OPTIMIZED: Reduced frequency of ownership checks
-  // Only check ownership/admin when user ID changes, not on every render
-  useEffect(() => {
-    if (!spaceId || !userId || !user?.id) return;
-
-    // Check if we have cached data that might be stale
-    const cachedCourses = getCourses(spaceId);
-    if (cachedCourses && cachedCourses.length > 0) {
-      // Check if any draft courses are missing (indicating stale ownership data)
-      const hasDraftCourses = cachedCourses.some(course => !course.is_published);
-      
-      // ✅ FIXED: Add delay to prevent flickering and only refresh once per session
-      // This prevents the disappearing draft courses issue
-      // Trigger for space owner (ownerId === userId) OR space admin (checked server-side in fetch)
-      if (!hasDraftCourses && (ownerId === userId)) {
-        const sessionKey = `classroom_refresh_${spaceId}_${userId}`;
-        const lastRefresh = sessionStorage.getItem(sessionKey);
-        const now = Date.now();
-        
-        // Only refresh once every 5 minutes to prevent constant flickering
-        if (!lastRefresh || (now - parseInt(lastRefresh)) > 300000) {
-          log.debug('Hook', '🔄 [useCachedClassroom] Scheduling delayed cache refresh for ownership data');
-          
-          // Add delay to prevent immediate flickering
-          setTimeout(() => {
-            sessionStorage.setItem(sessionKey, now.toString());
-            forceRefreshCache(spaceId, userId, ownerId);
-          }, 1000);
-        }
+    if (!spaceId) {
+      if (process.env.NODE_ENV === 'development' && !loading && courses.length === 0) {
+        log.debug('SpaceManagement', `⏳ [useCachedClassroom] Skipping fetch - no spaceId provided (userId: ${userId || 'guest'})`);
       }
+      return;
     }
-  }, [user?.id, spaceId, userId, ownerId, getCourses, forceRefreshCache]);
 
-  const courses = spaceId ? getCourses(spaceId) || [] : [];
-  const loading = spaceId ? isLoading(spaceId) : false;
-  const error = spaceId ? getError(spaceId) : null;
+    // SWR Strategy: Fetch if cache is null or we want to revalidate
+    // Fix: Only trigger auto-fetch if we haven't fetched recently (within 10s) 
+    // to prevent infinite loops on empty spaces.
+    const lastFetched = cacheEntry?.lastFetched || 0;
+    const isStale = Date.now() - lastFetched > 10000; // 10s grace period for auto-fetch
+
+    if (!loading && (courses.length === 0 || isStale)) {
+      if (process.env.NODE_ENV === 'development') {
+        log.debug('SpaceManagement', `🔄 [useCachedClassroom] Triggering fetch for space ${spaceId} (userId: ${userId || 'guest'}, count: ${courses.length})`);
+      }
+      fetchCourses(spaceId, userId || '', ownerId);
+    }
+  }, [spaceId, userId, ownerId, fetchCourses, loading, courses.length, cacheEntry?.lastFetched]);
 
   const refetch = useCallback(async () => {
     if (!spaceId || !userId) return;
@@ -108,14 +84,14 @@ export function useCachedClassroom(spaceId?: string, userId?: string, ownerId?: 
 
   const handleEnrollment = (courseId: string, enrolled: boolean) => {
     if (!spaceId) return;
-    
+
     // Optimistic update
     const course = courses.find(c => c.id === courseId);
     if (course) {
-      const studentCount = enrolled 
-        ? (course.students || 0) + 1 
+      const studentCount = enrolled
+        ? (course.students || 0) + 1
         : Math.max((course.students || 0) - 1, 0);
-      
+
       updateCourseInCache(spaceId, courseId, {
         enrolled,
         students: studentCount,

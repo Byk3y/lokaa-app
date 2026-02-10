@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { isEqual } from 'lodash';
-import { v4 as uuidv4 } from 'uuid';
 import { sanitizeErrorMessage, sanitizeErrorForToast } from '@/utils/errorMessageSanitizer';
 
 export interface RuleItem {
@@ -40,6 +39,7 @@ export interface SpaceSettingsData {
 interface SpacePermissions {
   isOwner: boolean;
   isAdmin: boolean;
+  isMember: boolean;
   canEditSpace: boolean;
   canManageMembers: boolean;
   canCreateContent: boolean;
@@ -57,33 +57,25 @@ interface SpaceSettingsState {
   isSubmitting: boolean;
   isDirty: boolean;
   initialTab: string | null;
-  
+
   openModal: () => void;
   openModalToTab: (tab: string) => void;
   closeModal: () => void;
-  
+
   loadActiveSpace: (
-    identifier: { subdomain?: string; spaceId?: string }, 
-    userId: string, 
+    identifier: { subdomain?: string; spaceId?: string },
+    userId: string,
     force?: boolean
   ) => Promise<void>;
 
   fetchPermissionsForSpace: (spaceId: string, userId: string) => Promise<void>;
-  
+
   setFormDataField: <K extends keyof Partial<SpaceSettingsData>>(
-    field: K, 
+    field: K,
     value: Partial<SpaceSettingsData>[K]
   ) => void;
   saveSpaceSettings: () => Promise<{ success: boolean; error?: string }>;
   resetStore: () => void;
-}
-
-interface SpaceAccessRow {
-  id: string;
-  space_id: string;
-  user_id: string;
-  role: 'owner' | 'admin' | 'member' | string;
-  is_active: boolean;
 }
 
 interface SpaceMemberRow {
@@ -119,9 +111,12 @@ const navigationState: NavigationState = {
   lastActiveSpace: null
 };
 
+// CRITICAL: Request deduplication map to prevent "Fetch Storms"
+const pendingSpaceRequests = new Map<string, Promise<SpaceSettingsData | null>>();
+
 // Enhanced cache with route-aware persistence
-export const enhancedSpaceCache = new Map<string, { 
-  data: SpaceSettingsData, 
+export const enhancedSpaceCache = new Map<string, {
+  data: SpaceSettingsData,
   timestamp: number,
   routeTransitionData?: { fromRoute: string; toRoute: string; preserveUntil: number; }
 }>();
@@ -133,7 +128,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
   openModalToTab: (tab: string) => set({ isOpen: true, initialTab: tab }),
   closeModal: () => set({ isOpen: false, formData: get().space ? { ...get().space } : {}, isDirty: false, initialTab: null }),
 
-  loadActiveSpace: async (identifier, userId, force = false) => {
+  loadActiveSpace: async (identifier: { subdomain?: string; spaceId?: string }, userId: string, force = false) => {
     if (!userId) {
       set({ error: "User ID is required to load space.", loadingSpace: false, loadingPermissions: false });
       return;
@@ -144,214 +139,162 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
     }
 
     const cacheKey = identifier.subdomain || identifier.spaceId!;
-    
+
     // MOBILE OPTIMIZATION: Always check cache first and use it immediately
     if (!force) {
       const cached = enhancedSpaceCache.get(cacheKey);
       const now = Date.now();
-      
+
       if (cached) {
         const cacheAge = now - cached.timestamp;
         const isRecentCache = cacheAge < CACHE_TTL;
         const isReasonablyFresh = cacheAge < 15 * 60 * 1000; // 15 minutes
-        
-        // MOBILE FIX: Use cached data more aggressively to prevent loading states
-        if (isRecentCache || isReasonablyFresh) {
+
+        if ((isRecentCache || isReasonablyFresh) && cached.data.id) {
           log.debug('Hook', `🚀 [Mobile Optimized] Using cached space data for ${cacheKey} (age: ${Math.round(cacheAge / 1000)}s)`);
-          
-          // CRITICAL: Set data immediately WITHOUT triggering loading state
+
           const originalSpaceData = cached.data;
-          set({ 
-            space: originalSpaceData, 
-            loadingSpace: false, 
+          set({
+            space: originalSpaceData,
+            loadingSpace: false,
             error: null,
             formData: { ...originalSpaceData },
             isDirty: false
           });
-          
-          // Load permissions in background if needed
+
           if (!get().permissions || get().permissions === null) {
             get().fetchPermissionsForSpace(originalSpaceData.id, userId);
           }
-          
-          // Background refresh only if cache is older than 2 minutes
+
           if (cacheAge > 2 * 60 * 1000) {
             log.debug('Hook', `🔄 [Mobile] Background refresh for ${cacheKey}`);
             setTimeout(() => {
               get().loadActiveSpace(identifier, userId, true);
-            }, 500); // Slightly longer delay for mobile
+            }, 500);
           }
-          
+
           return;
+        } else if (cached && !cached.data.id) {
+          log.warn('Hook', `🛡️ [SpaceSettings] Cache hit for ${cacheKey} but missing ID, skipping cache and fetching...`);
         }
       }
     }
 
-    // CRITICAL FIX: NEVER clear existing space data while loading - keep existing data visible!
     const existingSpace = get().space;
     const existingPermissions = get().permissions;
-    
-    // PHASE 1 FIX: Only set loading state if we don't have matching space data
-    const shouldPreserveSpace = existingSpace && 
-                               identifier.subdomain && 
-                               existingSpace.subdomain === identifier.subdomain;
-    
-    // FIXED: Don't show loading state if we already have the correct space data
+
+    const shouldPreserveSpace = existingSpace &&
+      identifier.subdomain &&
+      existingSpace.subdomain === identifier.subdomain;
+
     if (shouldPreserveSpace) {
       log.debug('Hook', `🔒 [SpaceSettings] Already have space data for ${identifier.subdomain}, skipping loading state`);
-      // Don't set loading state if we already have the correct data
-      // Only load permissions if missing
       if (!existingPermissions) {
         set({ loadingPermissions: true, error: null });
       }
     } else {
-      // Only set loading state when we don't have matching data
       log.debug('Hook', `🔄 [SpaceSettings] Loading new space data for ${cacheKey}`);
-      set({ 
-        loadingSpace: true, 
-        loadingPermissions: !existingPermissions, 
-        error: null 
-        // CRITICAL: Don't set space: null here as it causes loading flashes
+      set({
+        loadingSpace: true,
+        loadingPermissions: !existingPermissions,
+        error: null
       });
     }
 
-    // Track that we're starting a fresh load
     navigationState.lastActiveSpace = cacheKey;
 
     let spaceData: SpaceSettingsData | null = null;
-    let fetchError: string | null = null;
 
     try {
-      // If we have a subdomain, query by that
-      if (identifier.subdomain) {
-        const { data, error } = await getSupabaseClient()
-          .from('spaces')
-          .select('*')
-          .eq('subdomain', identifier.subdomain)
-          .single();
+      // 🛡️ DEDUPLICATION: Check if there's already a request in flight for this space
+      if (pendingSpaceRequests.has(cacheKey)) {
+        log.debug('Hook', `🛡️ [Deduplication] Joining existing fetch for ${cacheKey}`);
+        spaceData = await pendingSpaceRequests.get(cacheKey)!;
+      } else {
+        const fetchPromise = (async () => {
+          const supabase = getSupabaseClient();
 
-        if (error) {
-          log.error('Hook', 'Error fetching space by subdomain:', error);
-          fetchError = error.message;
-        } else {
-          spaceData = data as SpaceSettingsData;
-        }
-      } 
-      // If we have a space ID, query by that
-      else if (identifier.spaceId) {
-        const { data, error } = await getSupabaseClient()
-          .from('spaces')
-          .select('*')
-          .eq('id', identifier.spaceId)
-          .single();
+          if (identifier.subdomain) {
+            const { data, error } = await supabase
+              .from('spaces')
+              .select('*')
+              .eq('subdomain', identifier.subdomain)
+              .single();
 
-        if (error) {
-          log.error('Hook', 'Error fetching space by ID:', error);
-          fetchError = error.message;
-        } else {
-          spaceData = data as SpaceSettingsData;
+            if (error) throw error;
+            return data as SpaceSettingsData;
+          } else if (identifier.spaceId) {
+            const { data, error } = await supabase
+              .from('spaces')
+              .select('*')
+              .eq('id', identifier.spaceId)
+              .single();
+
+            if (error) throw error;
+            return data as SpaceSettingsData;
+          }
+          return null;
+        })();
+
+        pendingSpaceRequests.set(cacheKey, fetchPromise);
+
+        try {
+          spaceData = await fetchPromise;
+        } finally {
+          pendingSpaceRequests.delete(cacheKey);
         }
       }
 
-      // CRITICAL FIX: Only update if we got valid data!
-      if (spaceData) {
-        // Update the store with the fetched data
-        set({ 
-          space: spaceData, 
-          loadingSpace: false, 
+      if (spaceData && spaceData.id) {
+        set({
+          space: spaceData,
+          loadingSpace: false,
           error: null,
           formData: { ...spaceData },
           isDirty: false
         });
-        
-        // Update the cache
-        enhancedSpaceCache.set(cacheKey, { 
-          data: spaceData, 
+
+        enhancedSpaceCache.set(cacheKey, {
+          data: spaceData,
           timestamp: Date.now(),
         });
-        
-        // Also check if there's a previous route transition
-        const now = Date.now();
-        const routeEntries = Object.values(enhancedSpaceCache).filter(entry => 
-          entry.routeTransitionData && entry.routeTransitionData.preserveUntil > now
-        );
-        
-        if (routeEntries.length > 3) {
-          // Clean up excess route transitions to prevent memory leaks
-          routeEntries.sort((a, b) => 
-            (a.routeTransitionData?.preserveUntil || 0) - (b.routeTransitionData?.preserveUntil || 0)
-          );
-          
-          routeEntries.slice(0, routeEntries.length - 3).forEach(entry => {
-            if (entry.routeTransitionData) {
-              entry.routeTransitionData = undefined;
-            }
-          });
-        }
-        
-        // Save enhanced space details for quick access and fallback sidebar data
+
+        // Save for quick access and fallback
         try {
           localStorage.setItem('lastActiveSpace', JSON.stringify({
-            id: spaceData.id,
-            name: spaceData.name,
-            subdomain: spaceData.subdomain,
-            description: spaceData.description,
-            icon_image: spaceData.icon_image,
-            cover_image: spaceData.cover_image,
-            is_private: spaceData.is_private,
+            ...spaceData,
             timestamp: Date.now()
           }));
-          
-          // Set owner flag for ultra-fast ownership checking
+
           if (spaceData.owner_id === userId) {
             localStorage.setItem(`user_owns_space_${spaceData.subdomain}`, 'true');
           }
         } catch (e) {
           // Ignore storage errors
         }
-        
-        // Load permissions after space data is loaded
+
         get().fetchPermissionsForSpace(spaceData.id, userId);
-      } else if (fetchError) {
-        // PHASE 1 FIX: Enhanced error handling to preserve space data
-        if (!existingSpace || (identifier.subdomain && existingSpace.subdomain !== identifier.subdomain)) {
-          log.error('Hook', `Failed to load space: ${fetchError}`);
-          // Sanitize error message for users
-          const sanitizedError = sanitizeErrorMessage(fetchError, import.meta.env.PROD);
-          set({ 
-            loadingSpace: false, 
-            error: sanitizedError,
-            space: null, // Only clear if we have no valid existing data
-          });
-        } else {
-          // PHASE 1 FIX: Keep existing data on error if it matches what we're trying to load
-          log.debug('Hook', `🔒 [Phase1] Failed to refresh space: ${fetchError}, but preserving existing space data for ${identifier.subdomain}`);
-          set({ 
-            loadingSpace: false, 
-            error: null, // Clear error since we have valid existing data
-            // Keeping existing space data intact
-          });
-        }
+      } else {
+        throw new Error("Space not found or unauthorized");
       }
-    } catch (err) {
-      log.error('Hook', 'Error in loadActiveSpace:', err);
+    } catch (error: any) {
+      log.error('Hook', `❌ [SpaceSettings] Fetch failed for ${cacheKey}:`, error);
+
       // PHASE 1 FIX: Enhanced catastrophic error handling to preserve space data
       if (!existingSpace || (identifier.subdomain && existingSpace.subdomain !== identifier.subdomain)) {
-        // Sanitize error message for users
-        const sanitizedError = sanitizeErrorMessage(err, import.meta.env.PROD);
+        const sanitizedError = sanitizeErrorMessage(error, import.meta.env.PROD);
         set({ loadingSpace: false, error: sanitizedError, space: null });
       } else {
-        // PHASE 1 FIX: Keep existing data on catastrophic error if it matches
-        log.debug('Hook', `🔒 [Phase1] Catastrophic error but preserving existing space data for ${identifier.subdomain}`);
-        set({ loadingSpace: false, error: null }); // Clear error since we have valid data
+        log.debug('Hook', `🔒 [Phase1] Error but preserving existing space data for ${identifier.subdomain}`);
+        set({ loadingSpace: false, error: null });
       }
     }
   },
-  
+
   fetchPermissionsForSpace: async (spaceId: string, userId: string) => {
-    if(!spaceId || !userId) {
-        set({ loadingPermissions: false });
-        return;
+    if (!spaceId || !userId) {
+      set({ loadingPermissions: false });
+      return;
     }
 
     set({ loadingPermissions: true, error: null });
@@ -388,17 +331,18 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         if (accessError && accessError.code !== 'PGRST116') {
           throw accessError;
         }
-        
+
         if (accessData) {
           const typedAccessData = accessData as unknown as Pick<SpaceMemberRow, 'role' | 'status'>;
           userIsAdmin = typedAccessData.role === 'admin';
           userIsMember = true;
         }
       }
-      
+
       const calculatedPermissions: SpacePermissions = {
         isOwner: userIsOwner,
         isAdmin: userIsAdmin,
+        isMember: userIsMember,
         canEditSpace: userIsOwner || userIsAdmin,
         canManageMembers: userIsOwner || userIsAdmin,
         canCreateContent: userIsOwner || userIsAdmin || userIsMember,
@@ -428,7 +372,10 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
     }
   },
 
-  setFormDataField: (field, value) => {
+  setFormDataField: <K extends keyof Partial<SpaceSettingsData>>(
+    field: K,
+    value: Partial<SpaceSettingsData>[K]
+  ) => {
     set(state => {
       let processedValue = value;
       // Coerce empty string for pricing_type to undefined for consistent comparison
@@ -445,44 +392,44 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
           if (Object.prototype.hasOwnProperty.call(state.space, key)) {
             const originalValue = state.space[key as keyof SpaceSettingsData];
             const formValue = newFormData[key as keyof SpaceSettingsData];
-            
+
             // Handle cases where formValue might be undefined if not yet set in formData
             // but originalValue exists. They are different if formValue is not explicitly set to originalValue.
             if (!isEqual(formValue, originalValue)) {
-                // Exception: if formValue is undefined (field not touched in form yet or cleared)
-                // and originalValue is null, consider them equal for dirtiness check.
-                // Or if formValue is empty string and original is null for certain text fields.
-                if (formValue === undefined && originalValue === null) {
-                    // treat as same for dirtiness for optional fields
-                } else if (typeof formValue === 'string' && formValue.trim() === '' && originalValue === null && 
-                           ['description', 'about_description', 'cover_image', 'icon_image'].includes(key)) {
-                    // treat empty string and null as same for these specific optional string fields
-                } else {
-                    trulyDirty = true;
-                    break;
-                }
+              // Exception: if formValue is undefined (field not touched in form yet or cleared)
+              // and originalValue is null, consider them equal for dirtiness check.
+              // Or if formValue is empty string and original is null for certain text fields.
+              if (formValue === undefined && originalValue === null) {
+                // treat as same for dirtiness for optional fields
+              } else if (typeof formValue === 'string' && formValue.trim() === '' && originalValue === null &&
+                ['description', 'about_description', 'cover_image', 'icon_image'].includes(key)) {
+                // treat empty string and null as same for these specific optional string fields
+              } else {
+                trulyDirty = true;
+                break;
+              }
             }
           }
         }
         // Also check if formData has keys not in original space data (newly added, though less common for settings)
         if (!trulyDirty) {
-            for (const key in newFormData) {
-                if (Object.prototype.hasOwnProperty.call(newFormData, key) && !Object.prototype.hasOwnProperty.call(state.space, key)) {
-                    if (newFormData[key as keyof SpaceSettingsData] !== undefined && newFormData[key as keyof SpaceSettingsData] !== null) { // If new key has a meaningful value
-                        trulyDirty = true;
-                        break;
-                    }
-                }
+          for (const key in newFormData) {
+            if (Object.prototype.hasOwnProperty.call(newFormData, key) && !Object.prototype.hasOwnProperty.call(state.space, key)) {
+              if (newFormData[key as keyof SpaceSettingsData] !== undefined && newFormData[key as keyof SpaceSettingsData] !== null) { // If new key has a meaningful value
+                trulyDirty = true;
+                break;
+              }
             }
+          }
         }
 
       } else {
         // If there's no original space, any field in formData with a non-undefined/non-null value makes it dirty.
         for (const key in newFormData) {
-            if (newFormData[key as keyof SpaceSettingsData] !== undefined && newFormData[key as keyof SpaceSettingsData] !== null) {
-                trulyDirty = true;
-                break;
-            }
+          if (newFormData[key as keyof SpaceSettingsData] !== undefined && newFormData[key as keyof SpaceSettingsData] !== null) {
+            trulyDirty = true;
+            break;
+          }
         }
       }
       return { formData: newFormData, isDirty: trulyDirty };
@@ -512,7 +459,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
             (changedFields as any)[key] = currentFormData[key];
           } else if (!currentFormData.rules_list && originalSpaceData.rules_list) {
             // If current is empty/null but original was not, this is a change (clearing rules)
-             (changedFields as any)[key] = []; // or null, depending on DB constraints
+            (changedFields as any)[key] = []; // or null, depending on DB constraints
           }
         } else {
           // Use 'as any' to bypass the 'never' type error, assuming the logic correctly maps types.
@@ -524,11 +471,11 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
     // If rules_list was initially null/undefined and became an empty array, isEqual might consider it unchanged.
     // Explicitly check if rules_list was touched to become an empty array from a non-empty state or vice-versa.
     if (originalSpaceData.rules_list && currentFormData.rules_list?.length === 0 && originalSpaceData.rules_list.length > 0) {
-        if (!changedFields.rules_list) changedFields.rules_list = [];
+      if (!changedFields.rules_list) changedFields.rules_list = [];
     }
     // if currentFormData.rules_list is null and original was not, it might be missed by isEqual if original was empty array
-    if (currentFormData.rules_list === null && originalSpaceData.rules_list ) {
-        if(!changedFields.rules_list) changedFields.rules_list = null as any;
+    if (currentFormData.rules_list === null && originalSpaceData.rules_list) {
+      if (!changedFields.rules_list) changedFields.rules_list = null as any;
     }
 
 
@@ -541,14 +488,14 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
     // Ensure all necessary fields are present if they are not optional in DB but optional in type
     // For example, if 'name' cannot be null in DB
     if (changedFields.name === null || changedFields.name === '') {
-        set({ isSubmitting: false, error: "Space name cannot be empty." });
-        toast({ title: "Validation Error", description: "Space name cannot be empty.", variant: "destructive" });
-        return { success: false, error: "Space name cannot be empty." };
+      set({ isSubmitting: false, error: "Space name cannot be empty." });
+      toast({ title: "Validation Error", description: "Space name cannot be empty.", variant: "destructive" });
+      return { success: false, error: "Space name cannot be empty." };
     }
-     if (changedFields.subdomain === null || changedFields.subdomain === '') {
-        set({ isSubmitting: false, error: "Subdomain cannot be empty." });
-        toast({ title: "Validation Error", description: "Subdomain cannot be empty.", variant: "destructive" });
-        return { success: false, error: "Subdomain cannot be empty." };
+    if (changedFields.subdomain === null || changedFields.subdomain === '') {
+      set({ isSubmitting: false, error: "Subdomain cannot be empty." });
+      toast({ title: "Validation Error", description: "Subdomain cannot be empty.", variant: "destructive" });
+      return { success: false, error: "Subdomain cannot be empty." };
     }
 
     // Prepare a payload with stricter typing for Supabase
@@ -558,16 +505,16 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       const pt = updatePayload.pricing_type;
       if (pt !== 'free' && pt !== 'paid') {
         updatePayload.pricing_type = null;
-      } 
+      }
       if (updatePayload.pricing_type === 'free' || updatePayload.pricing_type === null) {
-        updatePayload.price_per_month = null;
+        updatePayload.price_per_month = null as any;
       } else if (updatePayload.pricing_type === 'paid') {
         const ppmForm = currentFormData.price_per_month;
         const ppmNum = typeof ppmForm === 'string' ? parseFloat(ppmForm) : ppmForm;
         if (typeof ppmNum === 'number' && !isNaN(ppmNum) && ppmNum > 0) {
           updatePayload.price_per_month = ppmNum;
         } else {
-          updatePayload.price_per_month = null; // Or handle as an error if price is required for 'paid'
+          updatePayload.price_per_month = null as any; // Or handle as an error if price is required for 'paid'
         }
       }
     }
@@ -590,7 +537,7 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
         .from('spaces')
         .update(updatePayload as any) // Use 'as any' if TS still complains about the dynamic payload
         .eq('id', space.id)
-        .select('id, name, description, about_description, cover_image, icon_image, subdomain, owner_id, is_private, pricing_type, price_per_month, member_count, created_at, updated_at, feature_classroom_enabled, feature_calendar_enabled, feature_map_enabled, feature_7_day_trial_enabled, rules_list, support_email, intro_media_type, intro_media_url, intro_media_thumbnail_url') 
+        .select('id, name, description, about_description, cover_image, icon_image, subdomain, owner_id, is_private, pricing_type, price_per_month, member_count, created_at, updated_at, feature_classroom_enabled, feature_calendar_enabled, feature_map_enabled, feature_7_day_trial_enabled, rules_list, support_email, intro_media_type, intro_media_url, intro_media_thumbnail_url')
         .single();
 
       if (error) {
@@ -623,9 +570,9 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
       set({ isSubmitting: false, error: sanitizedError });
       toast({ title: toastError.title, description: toastError.description, variant: "destructive" });
       return { success: false, error: sanitizedError };
-    } 
+    }
   },
-  
+
   resetStore: () => {
     set(initialState);
   },
@@ -635,9 +582,9 @@ const useSpaceSettingsStore = create<SpaceSettingsState>((set, get) => ({
 export const trackRouteChange = (fromRoute: string, toRoute: string) => {
   navigationState.lastRouteChange = Date.now();
   navigationState.isNavigatingBetweenRoutes = true;
-  
+
   log.debug('Hook', `🧭 Route change tracked: ${fromRoute} → ${toRoute}`);
-  
+
   // Reset navigation flag after a short delay
   setTimeout(() => {
     navigationState.isNavigatingBetweenRoutes = false;
@@ -648,7 +595,7 @@ export const trackRouteChange = (fromRoute: string, toRoute: string) => {
 export const cleanupSpaceCache = () => {
   const now = Date.now();
   const maxAge = 30 * 60 * 1000; // 30 minutes
-  
+
   for (const [key, entry] of enhancedSpaceCache.entries()) {
     if (now - entry.timestamp > maxAge) {
       enhancedSpaceCache.delete(key);
@@ -660,80 +607,4 @@ export const cleanupSpaceCache = () => {
 // Auto cleanup every 5 minutes
 setInterval(cleanupSpaceCache, 5 * 60 * 1000);
 
-export default useSpaceSettingsStore; 
-
-// Helper function to determine which fields have changed
-function getChangedFields(
-  original: Partial<SpaceSettingsData>, 
-  current: Partial<SpaceSettingsData>
-): Partial<SpaceSettingsData> {
-  const changed: Partial<SpaceSettingsData> = {};
-  const booleanFieldKeys: (keyof SpaceSettingsData)[] = ['is_private', 'feature_classroom_enabled', 'feature_calendar_enabled', 'feature_map_enabled', 'feature_7_day_trial_enabled'];
-
-  (Object.keys(current) as Array<keyof SpaceSettingsData>).forEach(key => {
-    const originalValue = original[key];
-    const currentValue = current[key];
-
-    if (booleanFieldKeys.includes(key)) {
-      const currentBoolValue = currentValue === undefined || currentValue === null ? false : !!currentValue;
-      const originalBoolValue = originalValue === undefined || originalValue === null ? false : !!originalValue;
-      if (originalBoolValue !== currentBoolValue) {
-        (changed as any)[key] = currentBoolValue;
-      }
-    } else if (key === 'rules_list') {
-      const currentRules = Array.isArray(currentValue) ? currentValue : [];
-      const originalRules = Array.isArray(originalValue) ? originalValue : [];
-      if (!isEqual(currentRules, originalRules)) {
-        (changed as any)[key] = currentRules;
-      }
-    } else if (!isEqual(originalValue, currentValue)) {
-      if (key === 'pricing_type' && currentValue === '' && (originalValue === null || originalValue === undefined)) {
-        // Explicitly do nothing
-      } else {
-        (changed as any)[key] = currentValue;
-      }
-    }
-  });
-
-  // Sanitize pricing_type: convert empty string to null
-  if (changed.pricing_type === '') {
-    changed.pricing_type = null;
-  }
-
-  // If price_per_month is included and pricing_type is 'free' or null, set price_per_month to null
-  if (changed.pricing_type === 'free' || changed.pricing_type === null) {
-    if (original.price_per_month !== null || (current.price_per_month !== null && current.price_per_month !== undefined)) {
-       if (current.price_per_month !== null) (changed as any).price_per_month = null;
-    } else if (changed.hasOwnProperty('price_per_month') && current.price_per_month !== null){
-       (changed as any).price_per_month = null;
-    }
-  } else if (changed.pricing_type === 'paid') {
-    const ppm = Number(current.price_per_month);
-    if (isNaN(ppm) || ppm <= 0) {
-      if (current.price_per_month !== null && current.price_per_month !== undefined) {
-         (changed as any).price_per_month = isNaN(ppm) || ppm <=0 ? null : ppm;
-      }
-    } else {
-      if (current.price_per_month !== original.price_per_month) {
-        (changed as any).price_per_month = ppm;
-      }
-    }
-  }
-  
-  // Sanitize boolean fields: ensure they are true or false, not undefined
-  // This loop might be redundant if the first loop correctly handles booleans,
-  // but it serves as a final correctness check.
-  booleanFieldKeys.forEach(field => {
-    if (changed.hasOwnProperty(field)) {
-      (changed as any)[field] = !!changed[field]; // Coerce to boolean
-    } else if (current.hasOwnProperty(field) && typeof current[field] === 'boolean' && current[field] !== original[field]) {
-      // If not in `changed` yet but different from original and is a boolean
-      (changed as any)[field] = !!current[field]; // Corrected: changed[field]
-    }
-  });
-
-  log.debug('Hook', "Original for changedFields:", original);
-  log.debug('Hook', "Current for changedFields:", current);
-  log.debug('Hook', "Determined changed fields:", changed);
-  return changed;
-} 
+export default useSpaceSettingsStore;

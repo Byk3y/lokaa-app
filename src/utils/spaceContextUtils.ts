@@ -23,23 +23,36 @@ export interface SpaceContext {
 export function isContentUrl(pathname: string): boolean {
   const pathParts = pathname.split('/').filter(Boolean);
   if (pathParts.length < 2) return false;
-  
+
+  // Phase 3.1: Support both /:subdomain/space/* and /:subdomain/:tab
   return (
     pathParts[1] === 'post' ||           // /:subdomain/post/:slug
     pathParts[1] === 'profile' ||        // /:subdomain/profile/:username
-    (pathParts[1] === 'space' && pathParts[2] === 'classroom') // /:subdomain/space/classroom/:courseSlug
+    (pathParts[1] === 'space' && pathParts[2] === 'classroom') || // Legacy course detail
+    (pathParts[1] === 'courses')         // New course detail: /:subdomain/courses/:slug
   );
 }
 
 export function isSpaceRelatedUrl(pathname: string): boolean {
   const pathParts = pathname.split('/').filter(Boolean);
-  if (pathParts.length < 2) return false;
-  
+  if (pathParts.length === 0) return false;
+
+  // Root level /:subdomain is now the space root (Feed)
+  if (pathParts.length === 1) {
+    const subdomain = pathParts[0];
+    // Exclude reserved app-level names
+    const reservedNames = ['app', 'discover', 'create-space', 'profile', 'admin', 'login', 'signup', 'settings'];
+    return !reservedNames.includes(subdomain);
+  }
+
+  // Phase 3.1: Support both /:subdomain/space/* and /:subdomain/:tab
+  const VALID_TABS = ['feed', 'about', 'members', 'classroom', 'calendar', 'leaderboard', 'courses'];
+
   return (
-    pathParts[1] === 'space' ||          // /:subdomain/space/*
+    pathParts[1] === 'space' ||          // Legacy /:subdomain/space/*
     pathParts[1] === 'post' ||           // /:subdomain/post/:slug
     pathParts[1] === 'profile' ||        // /:subdomain/profile/:username
-    (pathParts[1] === 'space' && pathParts[2] === 'classroom') // /:subdomain/space/classroom/*
+    VALID_TABS.includes(pathParts[1])    // New /:subdomain/:tab
   );
 }
 
@@ -51,11 +64,11 @@ export function extractSpaceFromUrl(pathname: string): string | null {
 export function getContentTypeFromUrl(pathname: string): string | null {
   const pathParts = pathname.split('/').filter(Boolean);
   if (pathParts.length < 2) return null;
-  
+
   if (pathParts[1] === 'space') {
     return pathParts[2] === 'classroom' ? 'course/lesson' : 'space';
   }
-  
+
   return pathParts[1]; // 'post', 'profile', etc.
 }
 
@@ -64,11 +77,11 @@ export function getContentTypeFromUrl(pathname: string): string | null {
  */
 export function generateProfileUrl(profileSlug: string, spaceContext?: SpaceContext | null): string {
   const baseUrl = `/profile/${profileSlug}`;
-  
+
   if (spaceContext && spaceContext.subdomain) {
     return `${baseUrl}?space=${spaceContext.subdomain}`;
   }
-  
+
   return baseUrl;
 }
 
@@ -99,7 +112,7 @@ export function getCurrentSpaceContext(): SpaceContext | null {
     } catch (e) {
       // Silent fallback
     }
-    
+
     // Fallback: return minimal context from URL
     return {
       id: '',
@@ -107,13 +120,13 @@ export function getCurrentSpaceContext(): SpaceContext | null {
       subdomain: spaceFromUrl
     };
   }
-  
+
   // Try to get from current URL path if we're in a space
   const pathname = window.location.pathname;
   const spaceMatch = pathname.match(/\/([^\/]+)\/space/);
   if (spaceMatch && spaceMatch[1]) {
     const subdomain = spaceMatch[1];
-    
+
     // Try to get full details from localStorage
     try {
       const storedSpaces = localStorage.getItem('lastVisitedSpace');
@@ -126,7 +139,7 @@ export function getCurrentSpaceContext(): SpaceContext | null {
     } catch (e) {
       // Silent fallback
     }
-    
+
     // Fallback: create minimal context from URL
     return {
       id: '',
@@ -134,7 +147,7 @@ export function getCurrentSpaceContext(): SpaceContext | null {
       subdomain: subdomain
     };
   }
-  
+
   // Last resort: check if there's any space data in localStorage that might be relevant
   try {
     const storedSpaces = localStorage.getItem('lastVisitedSpace');
@@ -147,7 +160,7 @@ export function getCurrentSpaceContext(): SpaceContext | null {
   } catch (e) {
     // Silent fallback
   }
-  
+
   return null;
 }
 
@@ -160,7 +173,7 @@ export function getDisplaySpaceContext(): SpaceContext | null {
   if (urlContext) {
     return urlContext;
   }
-  
+
   // Legacy: check sessionStorage for backward compatibility
   try {
     const legacyContext = sessionStorage.getItem('navigatedFromSpace');
@@ -173,7 +186,7 @@ export function getDisplaySpaceContext(): SpaceContext | null {
   } catch (e) {
     // Silent fallback
   }
-  
+
   return null;
 }
 
@@ -185,7 +198,7 @@ export function clearSpaceContext(): void {
   const url = new URL(window.location.href);
   url.searchParams.delete('space');
   window.history.replaceState({}, '', url.toString());
-  
+
   // Clear legacy sessionStorage
   try {
     sessionStorage.removeItem('navigatedFromSpace');
@@ -198,23 +211,23 @@ export function clearSpaceContext(): void {
  * Navigate to profile with space context (Skool-style)
  */
 export function navigateToProfileWithContext(
-  profileSlug: string, 
+  profileSlug: string,
   navigate: NavigateFunction,
   customSpaceContext?: SpaceContext
 ): void {
   // Use custom context or get current context
   const spaceContext = customSpaceContext || getCurrentSpaceContext();
-  
+
   // Generate URL with space context
   const profileUrl = generateProfileUrl(profileSlug, spaceContext);
-  
+
   // Clear legacy sessionStorage to avoid conflicts
   try {
     sessionStorage.removeItem('navigatedFromSpace');
   } catch (e) {
     // Silent fallback
   }
-  
+
   // Navigate using React Router
   navigate(profileUrl);
 }

@@ -1,13 +1,13 @@
 // React and routing
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Contexts and hooks
-import { useOptimizedAuth } from '@/contexts/AuthContext';
 import { useSpace } from '@/contexts/SpaceContext';
-import { toast } from '@/hooks/use-toast';
-import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { useCachedClassroom } from '@/hooks/useCachedClassroom';
+import { useClassroomAuth } from '@/hooks/classroom/useClassroomAuth';
+import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
+import { useToast } from '@/hooks/use-toast';
 
 // Utils and services
 import { log } from '@/utils/logger';
@@ -24,32 +24,32 @@ import EditCourseDialog from './dialogs/EditCourseDialog';
 // Types
 import type { CourseDisplayData } from '@/hooks/useClassroomCache';
 
-export const ClassroomTabRefactored = ({
-  courses: propCourses = [],
-  loading: propLoading = false,
-  auth: propAuth = null,
-  space: propSpace = null,
-  permissions: propPermissions = { isOwner: false, isAdmin: false, canCreateContent: false },
-  handleCreateCourse = () => {},
-  handleViewCourse = () => {},
-  handleEditCourse = () => {},
-  handleEnroll = () => {},
-  handleUnenroll = () => {},
-  handleClearSearch = () => {},
-  searchTerm: propSearchTerm = "",
-  setSearchTerm = () => {},
-} = {}) => {
-  // Get auth and space context
-  const { user, loading: authLoading } = useOptimizedAuth();
-  const { space: currentSpace } = useSpace();
-  const { permissions: spacePermissions } = useSpaceSettingsStore();
+interface ClassroomTabRefactoredProps {
+  space?: {
+    id: string;
+    subdomain: string;
+    owner_id: string;
+    name: string;
+  };
+}
+
+export const ClassroomTabRefactored = ({ space: propSpace }: ClassroomTabRefactoredProps = {}) => {
+  const { space: contextSpace } = useSpace();
+  const { toast } = useToast();
+
+  // Use prop space as fallback for context space
+  const currentSpace = contextSpace || propSpace;
+
+  // ✅ Unified permission layer - using the refactored hook
+  const { user, authLoading, isAuthenticated, permissions: effectivePermissions } = useClassroomAuth(currentSpace as any);
+
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // ✅ FIXED: Use standard React Router navigation to determine tab state
   const currentTab = extractTabFromPathname(location.pathname);
   const isActiveTab = currentTab === 'classroom';
-  
+
   // Use classroom cache system instead of Zustand store for proper progress synchronization
   const {
     courses,
@@ -61,109 +61,92 @@ export const ClassroomTabRefactored = ({
     addCourse,
     handleEnrollment,
     updateCourseProgress
-  } = useCachedClassroom(currentSpace?.id, user?.id, currentSpace?.owner_id);
-  
+  } = useCachedClassroom(
+    currentSpace?.id && currentSpace.id !== '' ? currentSpace.id : undefined,
+    user?.id,
+    currentSpace?.owner_id
+  );
+
   // Local state for view management only
-  const [searchTerm, setSearchTermLocal] = useState(propSearchTerm);
+  const [searchTerm, setSearchTermLocal] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'detail'>('grid');
-  
+
   // Create course dialog state
   const [isCreateCourseDialogOpen, setIsCreateCourseDialogOpen] = useState(false);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
-  
+
   // Edit course dialog state
   const [isEditCourseDialogOpen, setIsEditCourseDialogOpen] = useState(false);
   const [courseToEdit, setCourseToEdit] = useState<CourseDisplayData | null>(null);
-  
-  
-  // Use context data if props aren't provided
-  const effectiveSpace = propSpace || currentSpace;
-  const effectiveAuth = propAuth || { user, isAuthenticated: !!user, authLoading };
-  
-  // Fix permissions logic with stable loading state to prevent flashing
-  // Don't show/hide admin buttons until permissions are definitively loaded
-  const effectivePermissions = React.useMemo(() => {
-    // If spacePermissions is explicitly null (still loading), keep stable state
-    if (spacePermissions === null) {
-      // During loading, use propPermissions if available, otherwise remain stable
-      return propPermissions || {
-        isOwner: false,
-        isAdmin: false,
-        canCreateContent: false
-      };
-    }
-    
-    // Once spacePermissions has loaded (not null), use it as authoritative
-    return spacePermissions || {
-      isOwner: false,
-      isAdmin: false,
-      canCreateContent: false
-    };
-  }, [spacePermissions, propPermissions]);
 
-  
+
+  // Use context data
+  const effectiveSpace = currentSpace;
+
+
   // Track previous active tab state for cache management
-  const prevActiveTab = useRef(isActiveTab);
-  
-  // Effect to handle tab activation and cache management
+  // Effect  // Track activation for debugging
+  const prevActiveTab = useRef(false);
   useEffect(() => {
-    const wasInactive = !prevActiveTab.current;
     const isNowActive = isActiveTab;
-    
+    const wasInactive = !prevActiveTab.current;
+
     if (wasInactive && isNowActive) {
-      log.debug('Component', '🔄 [ClassroomTab] Component activated, checking course data');
-      // The classroom cache system will automatically handle data fetching
+      if (effectiveSpace?.id) {
+        log.debug('SpaceManagement', `🎓 [ClassroomTab] Tab activated for space ${effectiveSpace.id}, checking course data`);
+      } else {
+        log.debug('SpaceManagement', '🎓 [ClassroomTab] COMPONENT ACTIVATED - NO_ID state detected');
+      }
     }
-    
-    prevActiveTab.current = isActiveTab;
+    prevActiveTab.current = isNowActive;
   }, [isActiveTab, effectiveSpace?.id]);
 
   // Effect to handle returning from course detail view to classroom
   useEffect(() => {
     // Only run this effect if this tab is currently active
     if (!isActiveTab) {
-      log.debug('Component', '🔄 [ClassroomTab] Skipping return check - not active tab');
+      log.debug('SpaceManagement', '🔄 [ClassroomTab] Skipping return check - not active tab');
       return;
     }
-    
+
     // Dynamic pathname check - works for any subdomain
-    const isOnClassroomPage = location.pathname.endsWith('/space/classroom');
-    const hasSpaceInfo = !!effectiveSpace?.id;
+    const isOnClassroomPage = location.pathname.endsWith('/classroom') || location.pathname.includes('/courses/');
+
+    // GUARD: Explicitly treat empty string ID as missing
+    const hasSpaceInfo = !!effectiveSpace?.id && effectiveSpace.id !== '';
     const hasNoCourses = courses.length === 0;
     const isNotLoading = !loading;
-    
-    log.debug('Component', '🔄 [ClassroomTab] Return check:', {
-      isOnClassroomPage,
-      hasSpaceInfo,
-      hasNoCourses,
-      isNotLoading,
-      pathname: location.pathname,
-      isActiveTab
-    });
-    
-    // If we're on classroom page with no courses and not loading, trigger a refetch
-    // But only if we haven't already tried to refetch recently
-    if (isOnClassroomPage && hasSpaceInfo && hasNoCourses && isNotLoading) {
-      const lastRefetchKey = `classroom_refetch_${effectiveSpace.id}`;
-      const lastRefetch = sessionStorage.getItem(lastRefetchKey);
-      const now = Date.now();
-      
-      // Only refetch if we haven't refetched in the last 30 seconds
-      if (!lastRefetch || (now - parseInt(lastRefetch)) > 30000) {
-        log.debug('Component', '🔄 [ClassroomTab] Detected return to classroom without courses, triggering refetch');
-        sessionStorage.setItem(lastRefetchKey, now.toString());
-        refetch();
-      } else {
-        log.debug('Component', '🔄 [ClassroomTab] Skipping refetch - already tried recently');
-      }
+
+    if (isActiveTab && process.env.NODE_ENV === 'development') {
+      log.debug('SpaceManagement', '🎓 [ClassroomTab] Render State:', {
+        id: hasSpaceInfo ? effectiveSpace?.id : `MISSING (${effectiveSpace?.id === '' ? 'EMPTY_STRING' : 'UNDEFINED'})`,
+        subdomain: effectiveSpace?.subdomain,
+        courses: courses.length,
+        loading,
+        hasAuth: !!user?.id
+      });
     }
-  }, [location.pathname, effectiveSpace?.id, courses.length, loading, isActiveTab, refetch]);
-  
+
+    // RECOVERY: If we're active but missing space ID, try to force a reload from the store
+    const { loadActiveSpace } = useSpaceSettingsStore.getState();
+    if (isActiveTab && !hasSpaceInfo && effectiveSpace?.subdomain && user?.id) {
+      log.warn('SpaceManagement', `🛡️ [ClassroomTab] Missing Space ID for ${effectiveSpace.subdomain}, triggering recovery load`);
+      loadActiveSpace({ subdomain: effectiveSpace.subdomain }, user.id, true);
+    }
+
+    // If we're on classroom page with no courses and not loading, trigger a refetch
+    // ✅ PHASE 3.2 FIX: Don't trigger refetch while auth is still loading to prevent guest fetches
+    if (isOnClassroomPage && hasSpaceInfo && hasNoCourses && isNotLoading && !authLoading) {
+      log.debug('SpaceManagement', '🎓 [ClassroomTab] Triggering forced refetch - empty state detected while active');
+      refetch();
+    }
+  }, [location.pathname, effectiveSpace?.id, courses.length, loading, isActiveTab, refetch, authLoading]);
+
   // Track courses updates
   useEffect(() => {
-    if (courses.length > 0) {
-      log.debug('Component', '🔄 [ClassroomTab] Courses loaded:', courses.length);
+    if (courses.length > 0 && loading) {
+      log.debug('SpaceManagement', '🔄 [ClassroomTab] Displaying stale courses while revalidating...');
     }
   }, [courses]);
 
@@ -176,25 +159,29 @@ export const ClassroomTabRefactored = ({
   // Handle course selection (view course)
   const handleCourseView = (course: CourseDisplayData) => {
     if (process.env.NODE_ENV === 'development') {
-      log.debug('Component', `🎓 [ClassroomTab] Opening course detail view for course: ${course.id}`);
+      log.debug('SpaceManagement', `🎓 [ClassroomTab] Opening course detail view for course: ${course.id}`);
     }
-    
+
     // Get subdomain from current URL path as fallback
     const currentPath = window.location.pathname;
     const pathSegments = currentPath.split('/').filter(Boolean);
     const subdomainFromPath = pathSegments[0]; // First segment should be subdomain
-    
+
     const subdomain = effectiveSpace?.subdomain || subdomainFromPath;
-    
+
     // ✅ FIX: Use new URL pattern consistently - use short_id for cleaner URLs (Skool-style)
     const courseIdentifier = course.short_id || course.slug || course.id;
     const courseUrl = `/${subdomain}/space/classroom/${courseIdentifier}`;
-    
+
+    // Update local state for immediate feedback if needed, although routing handles it
+    setSelectedCourseId(course.id);
+    setViewMode('detail');
+
     // Try navigation with replace: false to ensure proper history handling
     try {
       navigate(courseUrl, { replace: false });
     } catch (error) {
-      log.error('Component', `🎓 [ClassroomTab] Navigation error:`, error instanceof Error ? error : new Error(String(error)));
+      log.error('SpaceManagement', `🎓 [ClassroomTab] Navigation error:`, error instanceof Error ? error : new Error(String(error)));
       // Fallback to window.location
       window.location.href = courseUrl;
     }
@@ -249,19 +236,19 @@ export const ClassroomTabRefactored = ({
 
     setIsCreatingCourse(true);
     try {
-      const supabase = getSupabaseClient();
-      
+      if (!effectiveSpace?.id) throw new Error('No space ID available');
+
       // Generate unique slug for the course
       const baseSlug = generateSlug(courseData.title);
       const uniqueSlug = await getUniqueCourseSlug(baseSlug, effectiveSpace.id);
-      
+
       log.debug('Component', '🎓 [ClassroomTab] Generated slug for course:', { baseSlug, uniqueSlug });
-      
+
       const supabaseClient = getSupabaseClient();
       if (!supabaseClient) {
         throw new Error('Supabase client not available');
       }
-      
+
       const { data, error } = await supabaseClient
         .from('courses')
         .insert({
@@ -292,15 +279,15 @@ export const ClassroomTabRefactored = ({
         enrolled: false,
         progress: undefined // Let the cache system calculate progress
       } as CourseDisplayData;
-      
+
       addCourse(newCourse);
-      
+
       toast({
         title: "Course Created",
         description: `"${courseData.title}" has been created successfully.`,
         variant: "default"
       });
-      
+
       setIsCreateCourseDialogOpen(false);
     } catch (error) {
       log.error('Component', 'Failed to create course:', error instanceof Error ? error : new Error(String(error)));
@@ -316,7 +303,7 @@ export const ClassroomTabRefactored = ({
 
   // Handle course deletion
   const handleDeleteCourse = async (course: CourseDisplayData) => {
-    if (!confirm(`Are you sure you want to delete "${course.title}"? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete "${course.title}" ? This action cannot be undone.`)) {
       return;
     }
 
@@ -325,7 +312,7 @@ export const ClassroomTabRefactored = ({
       if (!supabaseClient) {
         throw new Error('Supabase client not available');
       }
-      
+
       const { error } = await supabaseClient
         .from('courses')
         .delete()
@@ -335,7 +322,7 @@ export const ClassroomTabRefactored = ({
 
       // Remove from courses list
       removeCourse(course.id);
-      
+
       toast({
         title: "Course Deleted",
         description: `"${course.title}" has been deleted successfully.`,
@@ -356,7 +343,7 @@ export const ClassroomTabRefactored = ({
   // ✅ FIXED: Use standard React Router navigation to determine tab state
   // Render course detail view only if we're on a course detail route AND classroom tab is active
   const isClassroomTabActive = currentTab === 'classroom';
-  
+
   if (viewMode === 'detail' && selectedCourseId && isOnCourseDetailRoute && isClassroomTabActive) {
     return (
       <>
@@ -367,12 +354,20 @@ export const ClassroomTabRefactored = ({
       </>
     );
   }
-  
+
   // FIXED: Reset view mode if we're not on a course detail route OR classroom tab is not active
   if (viewMode === 'detail' && (!isOnCourseDetailRoute || !isClassroomTabActive)) {
     setViewMode('grid');
     setSelectedCourseId(null);
   }
+
+  // Enrollment handlers
+  const handleEnroll = (course: CourseDisplayData) => handleEnrollment(course.id, true);
+  const handleUnenroll = (courseIdOrCourse: string | CourseDisplayData) => {
+    const id = typeof courseIdOrCourse === 'string' ? courseIdOrCourse : courseIdOrCourse.id;
+    handleEnrollment(id, false);
+  };
+  const handleClearSearch = () => setSearchTermLocal("");
 
   return (
     <>
@@ -380,12 +375,12 @@ export const ClassroomTabRefactored = ({
         key={`course-grid-${effectiveSpace?.id}-${isActiveTab}`}
         courses={courses}
         isLoading={loading}
-        authLoading={effectiveAuth?.authLoading ?? false}
+        authLoading={authLoading}
         hasSpaceOwnerInfo={!!(effectiveSpace && effectiveSpace.id && user)}
-        hasValidAuth={effectiveAuth?.isAuthenticated ?? true}
+        hasValidAuth={isAuthenticated}
         isOwner={effectivePermissions?.isOwner ?? false}
         isAdmin={effectivePermissions?.isAdmin ?? false}
-        user={effectiveAuth?.user}
+        user={user}
         onCreateCourse={handleCreateCourseInternal}
         onViewCourse={handleCourseView}
         onEditCourse={handleEditCourseInternal}

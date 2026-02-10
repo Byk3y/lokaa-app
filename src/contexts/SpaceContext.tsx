@@ -48,11 +48,11 @@ export interface SpaceContextValue {
 
 const SpaceContext = createContext<SpaceContextValue>({
   space: null,
-  setSpace: () => {},
+  setSpace: () => { },
   loading: false,
   error: null,
   fetchSpaceData: async () => null,
-  clearCache: () => {}
+  clearCache: () => { }
 })
 
 /**
@@ -61,16 +61,26 @@ const SpaceContext = createContext<SpaceContextValue>({
 export function SpaceProvider({ children }: { children: ReactNode }) {
   const { user: authUser, loading: authLoading } = useOptimizedAuth()
   const location = useLocation()
-  
+
   // FIXED: Simplified state management
-  const [space, setSpace] = useState<Space | null>(null)
+  const [space, setSpaceInternal] = useState<Space | null>(null)
+
+  // WRAPPER: Safety guard for space updates
+  const setSpace = useCallback((newSpace: Space | null) => {
+    if (newSpace && !newSpace.id) {
+      log.warn('Context', '🛡️ [SpaceContext] Rejected attempt to set space with empty ID', newSpace);
+      return;
+    }
+    setSpaceInternal(newSpace);
+  }, []);
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
-  
+
   // Simple cache for basic performance
   const spaceCache = useRef<Map<string, SpaceData>>(new Map())
   const activeFetches = useRef<Map<string, Promise<SpaceData | null>>>(new Map())
-  
+
   // ENHANCED: Add debouncing for navigation-triggered fetches
   const fetchDebounceTimer = useRef<NodeJS.Timeout | null>(null)
   const lastFetchSubdomain = useRef<string | null>(null)
@@ -85,7 +95,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
       if (!supabase) {
         throw new Error('Supabase client not available');
       }
-      
+
       const { data, error } = await supabase
         .from('spaces')
         .select('*')
@@ -93,7 +103,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) throw error;
-      
+
       setSpace(data);
       setError(null);
       if (process.env.NODE_ENV === 'development') {
@@ -136,41 +146,41 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
 
     // Extract subdomain from current path using utility function
     const currentSubdomain = extractSpaceFromUrl(location.pathname);
-    
+
     // Check if this is any space-related content URL using utility function
     const isSpaceRelatedUrlCheck = isSpaceRelatedUrl(location.pathname);
-    
+
     // Only auto-fetch if:
     // 1. We have a valid subdomain from URL
     // 2. It's not the special :subdomain placeholder
     // 3. It looks like a space-related route pattern (space, post, profile, course)
     // 4. We don't already have this space data loaded
-    const isValidSubdomain = currentSubdomain && 
-                            currentSubdomain !== ':subdomain' && 
-                            currentSubdomain !== 'app' && 
-                            currentSubdomain !== 'discover' &&
-                            currentSubdomain !== 'create-space' &&
-                            currentSubdomain !== 'profile';
-    
+    const isValidSubdomain = currentSubdomain &&
+      currentSubdomain !== ':subdomain' &&
+      currentSubdomain !== 'app' &&
+      currentSubdomain !== 'discover' &&
+      currentSubdomain !== 'create-space' &&
+      currentSubdomain !== 'profile';
+
     if (isSpaceRelatedUrlCheck && isValidSubdomain) {
       // ENHANCED: Log the type of content URL detected
       const urlType = getContentTypeFromUrl(location.pathname) || 'unknown';
-      
+
       log.debug('SpaceManagement', `[SpaceContext] Detected ${urlType} URL: ${location.pathname} → space: ${currentSubdomain}`);
       if (process.env.NODE_ENV === 'development') {
         console.log(`🧪 [Phase 3.2] SpaceContext: Detected content URL: ${urlType} at ${location.pathname}`);
       }
-      
+
       // ENHANCED: More sophisticated check to prevent unnecessary fetches during navigation
       const needsNewData = !space || space.subdomain !== currentSubdomain;
       const hasActiveRequest = activeFetches.current.has(currentSubdomain);
       const hasCachedData = spaceCache.current.has(currentSubdomain);
-      
+
       // CRITICAL FIX: Check for space data from fast path or localStorage before fetching
       if (needsNewData && !hasActiveRequest && !hasCachedData) {
         // Check multiple cache sources first to prevent unnecessary database calls
         let foundCachedData = null;
-        
+
         // Strategy 1: Check persistent localStorage cache
         try {
           const persistentCacheKey = `space_fallback_${currentSubdomain}`;
@@ -179,7 +189,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
             const parsed = JSON.parse(cachedData);
             const cacheAge = Date.now() - parsed.timestamp;
             const maxFallbackAge = 24 * 60 * 60 * 1000; // 24 hours
-            
+
             if (cacheAge < maxFallbackAge && parsed.data) {
               foundCachedData = parsed.data;
               log.debug('Context', `⚡ [SpaceContext] Using persistent cache to avoid fetch (${Math.round(cacheAge / 60000)} minutes old)`);
@@ -188,7 +198,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
         } catch (e) {
           log.warn('Context', '[SpaceContext] Failed to read persistent cache:', e);
         }
-        
+
         // Strategy 2: Check lastActiveSpace cache
         if (!foundCachedData) {
           try {
@@ -204,9 +214,9 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
             log.warn('Context', '[SpaceContext] Failed to read lastActiveSpace:', e);
           }
         }
-        
+
         // If we found cached data, use it immediately and skip database fetch
-        if (foundCachedData) {
+        if (foundCachedData && (foundCachedData as any).id) {
           log.debug('SpaceManagement', `🚀 [SpaceContext] LOGIN OPTIMIZATION: Using cached data instead of database fetch for ${currentSubdomain}`);
           if (process.env.NODE_ENV === 'development') {
             console.log(`🧪 [Phase 3.2] SpaceContext: Using cached space data for: ${currentSubdomain}`);
@@ -216,12 +226,14 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
           // Update memory cache for future use
           spaceCache.current.set(currentSubdomain, foundCachedData as SpaceData);
           return; // Skip database fetch entirely
+        } else if (foundCachedData) {
+          log.warn('Context', `🛡️ [SpaceContext] Cached data for ${currentSubdomain} is missing ID, forcing fetch`);
         }
-        
+
         // Only proceed with database fetch if no cached data was found
         log.debug('Context', `⚠️ [SpaceContext] No cached data found for ${currentSubdomain}, proceeding with database fetch`);
       }
-      
+
       // IMPROVED: Only fetch if we actually need new data and don't have it cached
       if (needsNewData && !hasActiveRequest) {
         // If we have cached data, use it immediately to prevent loading states
@@ -235,20 +247,20 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
           setError(null);
           return; // Don't fetch again if we have valid cache
         }
-        
+
         // ENHANCED: Debounce rapid navigation changes
         if (fetchDebounceTimer.current) {
           clearTimeout(fetchDebounceTimer.current);
         }
-        
+
         if (lastFetchSubdomain.current === currentSubdomain) {
           log.debug('Context', `🔄 [SpaceContext] Debouncing duplicate fetch for ${currentSubdomain}`);
           return;
         }
-        
+
         fetchDebounceTimer.current = setTimeout(() => {
           log.debug('Context', `[SpaceContext] Auto-fetching space data for URL subdomain: ${currentSubdomain}`);
-          
+
           log.debug('Context', `[SpaceContext] Auto-fetch debug for ${currentSubdomain}:`, {
             hasExistingData: !!space,
             existingSubdomain: space?.subdomain,
@@ -260,18 +272,18 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
             hasActiveRequest,
             hasCachedData
           });
-          
+
           lastFetchSubdomain.current = currentSubdomain;
           fetchSpaceData(currentSubdomain);
         }, 100); // 100ms debounce for navigation
-        
+
       } else if (needsNewData && hasActiveRequest) {
         log.debug('Context', `⏳ [SpaceContext] Fetch already in progress for ${currentSubdomain}, waiting...`);
       } else if (!needsNewData) {
         log.debug('Context', `✅ [SpaceContext] Current space data already matches ${currentSubdomain}, no fetch needed`);
       }
     }
-    
+
     // Cleanup function
     return () => {
       if (fetchDebounceTimer.current) {

@@ -360,3 +360,33 @@ export interface ClassroomEventData {
     completion_date: string;
   };
 }
+
+export interface ClassroomPermissions {
+  isOwner: boolean;
+  isAdmin: boolean;
+  isMember: boolean;
+  canCreateCourse: boolean;
+  canEditCourse: boolean;
+  canDeleteCourse: boolean;
+  canManageModules: boolean;
+  canManageLessons: boolean;
+  canViewAnalytics: boolean;
+}
+
+export interface UseClassroomAuthReturn {
+  user: any;
+  authLoading: boolean;
+  isAuthenticated: boolean;
+  permissions: ClassroomPermissions;
+  stableSpaceId?: string;
+  stableOwnerId?: string;
+}
+
+export interface ClassroomTabProps {
+  space: {
+    id: string;
+    owner_id: string;
+    subdomain: string;
+    [key: string]: any;
+  };
+}

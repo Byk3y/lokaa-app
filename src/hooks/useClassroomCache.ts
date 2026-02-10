@@ -25,16 +25,17 @@ interface CourseCache {
   courses: CourseDisplayData[];
   lastFetched: number;
   loading: boolean;
+  loadingForUserId?: string | null; // Track who we are currently fetching for
   error: string | null;
 }
 
 interface ClassroomCacheState {
   // Map of spaceId -> course cache
   spaceCache: Map<string, CourseCache>;
-  
+
   // Cache duration: 3 minutes
   CACHE_DURATION: number;
-  
+
   // Actions
   getCourses: (spaceId: string) => CourseDisplayData[] | null;
   isLoading: (spaceId: string) => boolean;
@@ -70,53 +71,51 @@ const loadFallbackCache = (spaceId: string): CourseDisplayData[] | null => {
     if (directData) {
       const courses = JSON.parse(directData);
       if (Array.isArray(courses) && courses.length > 0) {
+        log.debug('Hook', `📋 [ClassroomCache] Found ${courses.length} courses in direct cache`);
         return courses;
       }
     }
   } catch (error) {
     log.warn('Hook', 'Failed to load direct courses cache:', error);
   }
-  
-  // PRIORITY 2: Try fallback cache format - but check if it has progress data
+
+  // PRIORITY 2: Try fallback cache format
   try {
     const cached = localStorage.getItem(`classroom_fallback_${spaceId}`);
     if (!cached) return null;
-    
+
     const data = JSON.parse(cached);
     const age = Date.now() - data.timestamp;
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-    
+
     if (age > maxAge) {
       localStorage.removeItem(`classroom_fallback_${spaceId}`);
       return null;
     }
-    
+
     const courses = data.courses || [];
-    
+
+    // ✅ EMPTY CACHE FIX: If empty, return null to force a fresh fetch
+    if (courses.length === 0) {
+      return null;
+    }
+
     // ✅ PROGRESS FIX: Check if cache has progress data - if not, invalidate it
-    const hasAnyProgress = courses.some((course: CourseDisplayData) => 
+    const hasAnyProgress = courses.some((course: CourseDisplayData) =>
       course.progress !== undefined && course.progress !== null
     );
-    
+
     if (!hasAnyProgress && courses.length > 0) {
       localStorage.removeItem(`classroom_fallback_${spaceId}`);
       return null; // Force fresh fetch
     }
-    
+
+    log.debug('Hook', `📋 [ClassroomCache] Found ${courses.length} courses in fallback cache`);
     return courses;
   } catch (error) {
     log.warn('Hook', 'Failed to load classroom fallback cache:', error);
     return null;
   }
-};
-
-// POSTS PATTERN: Timeout protection
-const createTimeoutPromise = (timeoutMs: number, operation: string) => {
-  return new Promise((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`${operation} timeout`));
-    }, timeoutMs);
-  });
 };
 
 const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
@@ -126,7 +125,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
   getCourses: (spaceId) => {
     const { spaceCache, CACHE_DURATION } = get();
     const cache = spaceCache.get(spaceId);
-    
+
     if (!cache) {
       // Try fallback cache
       const fallbackCourses = loadFallbackCache(spaceId);
@@ -135,12 +134,12 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
       }
       return null;
     }
-    
+
     const cacheAge = Date.now() - cache.lastFetched;
     if (cacheAge > CACHE_DURATION) {
       return null;
     }
-    
+
     return cache.courses;
   },
 
@@ -155,334 +154,168 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
   },
 
   fetchCourses: async (spaceId, userId, ownerId) => {
-    
     const { spaceCache } = get();
-    
-    // ✅ OPTIMIZED: Check if already loading to prevent duplicate requests
     const currentCache = spaceCache.get(spaceId);
-    if (currentCache?.loading) {
+
+    // Prevent redundant fetches for the same user/space combo
+    // IMPORTANT: Re-get state to avoid stale check if multiple calls happen in same tick
+    const latestCache = get().spaceCache.get(spaceId);
+    if (latestCache?.loading && latestCache?.loadingForUserId === userId) {
+      log.debug('SpaceManagement', `⏳ [ClassroomCache] Already fetching for space ${spaceId} and user ${userId || 'guest'}, skipping`);
       return;
     }
-    
-          // POSTS PATTERN: Check localStorage cache FIRST before setting loading state
-    
-    // Set loading state only if we need to fetch from database
+
+    // SWR Pattern: Set loading state but PRESERVE existing courses
     const newCache = new Map(spaceCache);
-    newCache.set(spaceId, { 
-      courses: currentCache?.courses || [],
+    newCache.set(spaceId, {
+      courses: currentCache?.courses || loadFallbackCache(spaceId) || [],
       lastFetched: currentCache?.lastFetched || 0,
-      loading: true, 
-      error: null 
+      loading: true,
+      loadingForUserId: userId || null,
+      error: null
     });
     set({ spaceCache: newCache });
-    
 
-    // ✅ SAFETY: Add timeout to ensure loading state is always cleared
+    // Non-destructive timeout
     const timeoutId = setTimeout(() => {
-      log.warn('Hook', `⏰ [ClassroomCache] Fetch timeout for space ${spaceId}, clearing loading state`);
+      log.warn('SpaceManagement', `⏰ [ClassroomCache] Revalidation timeout for space ${spaceId}`);
+      const state = get().spaceCache.get(spaceId);
       const timeoutCache = new Map(get().spaceCache);
       timeoutCache.set(spaceId, {
-        courses: [],
-        lastFetched: Date.now(),
+        courses: state?.courses || [],
+        lastFetched: state?.lastFetched || Date.now(),
         loading: false,
-        error: 'Fetch timeout - please try again'
+        error: 'Update slowed down - showing cached data'
       });
       set({ spaceCache: timeoutCache });
-    }, 20000); // 20 second timeout
+    }, 15000);
 
     try {
-      // POSTS PATTERN: Increased timeout to match working queries
-      const TIMEOUT_MS = 15000; // Increased from 4000 to match working queries
-      
-      // Comprehensive ownership/admin check
-      // Determine space owner relationship if ownerId is available
+      const supabase = getSupabaseClient();
+
+      // Ownership/Admin check for visibility
       const isOwner = !!(userId && ownerId && userId === ownerId);
-      
-      // Determine space admin via membership, independent of ownerId readiness
-      let isSpaceAdmin = false;
-      if (userId) {
-        try {
-          const { data: spaceMembership } = await (getSupabaseClient() as any)
-            .from('space_members')
-            .select('role, status')
-            .eq('space_id', spaceId)
-            .eq('user_id', userId)
-            .maybeSingle();
-          
-          isSpaceAdmin = spaceMembership?.role === 'admin' && spaceMembership?.status === 'active';
-        } catch (error) {
-          // Ignore errors for membership check - user might not be a member
-        }
-      }
-      
-      // User can see draft courses if they're owner or space admin
-      const canSeeDrafts = isOwner || isSpaceAdmin;
-      
-      
-      let coursesQuery = (getSupabaseClient() as any)
-        .from('courses')
-        .select(
-          'id, title, description, image_url, cover_image_url, access_type, price, is_published, creator_id, space_id, currency, slug, short_id'
-        )
-        .eq('space_id', spaceId);
-      
-      // Only filter by is_published if user cannot see drafts
-      if (!canSeeDrafts) {
-        coursesQuery = coursesQuery.eq('is_published', true);
-      }
-      
-      coursesQuery = coursesQuery.order('created_at', { ascending: false });
 
-      const { data: coursesData, error: coursesError } = await Promise.race([
-        coursesQuery,
-        createTimeoutPromise(TIMEOUT_MS, 'Courses query')
-      ]);
-
-      if (coursesError) {
-        throw new Error(coursesError.message);
-      }
-
-      if (!coursesData || coursesData.length === 0) {
-        clearTimeout(timeoutId); // Clear the timeout
-        const emptyCache = new Map(get().spaceCache);
-        emptyCache.set(spaceId, {
-          courses: [],
-          lastFetched: Date.now(),
-          loading: false,
-          error: null,
-        });
-        set({ spaceCache: emptyCache });
-        
-        
-        // Save empty state to fallback cache
-        saveFallbackCache(spaceId, []);
-        return;
-      }
-
-      const courseIds = coursesData.map((c: any) => c.id);
-
-      // Calculate progress for courses the user has access to
-      // Updated model: Calculate progress for ALL users who have access to courses
-      const courseProgressMap = new Map<string, number>();
-      
-      // Enhanced membership and access detection
-      let hasProgressAccess = false;
-      
-      // Check if user is the space owner (always has access)
-      if (userId === ownerId) {
-        hasProgressAccess = true;
-      }
-      
-      // Check if user is a general admin
-      if (!hasProgressAccess && isOwner) {
-        hasProgressAccess = true;
-      }
-      
-      // Check if user is a space member or admin
-      if (!hasProgressAccess) {
-        try {
-          const { data: spaceMemberData, error: memberError } = await (getSupabaseClient() as any)
-            .from('space_members')
-            .select('id, role, status')
-            .eq('space_id', spaceId)
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .maybeSingle();
-          
-          if (!memberError && spaceMemberData) {
-            hasProgressAccess = true;
-          }
-        } catch (error) {
-        }
-      }
-      
-      // Calculate progress - now more inclusive with fallback logic
-      
-      
-      if (courseIds.length > 0) {
-        try {
-          // Get all lesson IDs for these courses through modules
-          // First get modules for these courses
-          const { data: modules, error: moduleError } = await (getSupabaseClient() as any)
-            .from('course_modules')
-            .select('id, course_id')
-            .in('course_id', courseIds);
-
-          if (moduleError) {
-            log.warn('Hook', '📊 [ClassroomCache] Error fetching course modules:', moduleError);
-            // Continue without progress calculation
-          } else if (modules && modules.length > 0) {
-            const moduleIds = modules.map((m: any) => m.id);
-            
-            // Now get lessons for these modules
-            const { data: lessonIds, error: lessonError } = await (getSupabaseClient() as any)
-              .from('course_lessons')
-              .select('id, module_id')
-              .in('module_id', moduleIds)
-              .eq('is_published', true); // Only count published lessons for progress
-            
-            // Map lessons back to courses through modules
-            const lessonToCourseMap = new Map();
-            if (lessonIds) {
-              lessonIds.forEach((lesson: any) => {
-                const module = modules.find((m: any) => m.id === lesson.module_id);
-                if (module) {
-                  lessonToCourseMap.set(lesson.id, {
-                    lessonId: lesson.id,
-                    courseId: module.course_id
-                  });
-                }
-              });
-            }
-
-            if (lessonError) {
-              log.warn('Hook', '📊 [ClassroomCache] Error fetching lesson IDs:', lessonError);
-            } else if (lessonIds && lessonIds.length > 0) {
-              const allLessonIds = lessonIds.map((l: any) => l.id);
-              
-              // Get completed lessons for this user - try even if not a space member
-              // This allows progress tracking for users who might have accessed courses through other means
-              const { data: completions, error: completionError } = await (getSupabaseClient() as any)
-                .from('lesson_completions')
-                .select('lesson_id, course_id')
-                .eq('user_id', userId)
-                .in('lesson_id', allLessonIds);
-
-              if (completionError) {
-                log.warn('Hook', '📊 [ClassroomCache] Error fetching completions:', completionError);
-                // Continue without completions - will show 0% progress
-              }
-              
-              // Group completions by course (even if completions is null/undefined)
-              const courseCompletions = new Map<string, string[]>();
-              if (completions && completions.length > 0) {
-                completions.forEach((completion: any) => {
-                  const courseId = completion.course_id;
-                  if (!courseCompletions.has(courseId)) {
-                    courseCompletions.set(courseId, []);
-                  }
-                  courseCompletions.get(courseId)!.push(completion.lesson_id);
-                });
-              }
-
-              // Calculate progress for each course using the lessonToCourseMap
-              courseIds.forEach((courseId: any) => {
-                // Get lessons for this course through the lessonToCourseMap
-                const courseLessons = Array.from(lessonToCourseMap.values())
-                  .filter((item: any) => item.courseId === courseId);
-                
-                const completedLessons = courseCompletions.get(courseId) || [];
-                const progress = courseLessons.length > 0 
-                  ? Math.round((completedLessons.length / courseLessons.length) * 100)
-                  : 0;
-                
-                courseProgressMap.set(courseId, progress);
-                
-              });
-
-              
-            }
-          }
-        } catch (error) {
-          log.warn('Hook', '📊 [ClassroomCache] Error calculating progress:', error);
-          // Don't fail the entire request - just log the error
-        }
-      }
-
-      const displayData: CourseDisplayData[] = coursesData.map((course: any) => {
-        const progress = courseProgressMap.get(course.id) || 0;
-        
-        
-        
-        return {
-          id: course.id,
-          title: course.title,
-          description: course.description,
-          image_url: course.cover_image_url || course.image_url, // Use cover_image_url first, fallback to image_url
-          slug: course.slug, // Include slug for URL routing (legacy)
-          short_id: course.short_id, // ✅ FIX: Include short_id for new URL pattern (Skool-style)
-          access_type: course.access_type as 'open' | 'paid',
-          price: course.price,
-          is_published: course.is_published,
-          currency: course.currency || 'NGN',
-          creator_id: course.creator_id,
-          space_id: course.space_id,
-          enrolled: false, // No longer based on enrollment
-          students: 0, // No longer based on enrollment
-          weeks: 0,
-          progress: progress, // ✅ FIXED: Show progress for all users
-        };
+      log.debug('SpaceManagement', `🎓 [ClassroomCache] Fetching courses for space: ${spaceId}`, {
+        userId,
+        ownerId,
+        isOwner,
+        env: process.env.NODE_ENV
       });
 
-      // ✅ FIXED: Remove redundant filtering since we already filter at database level
-      // Only apply filtering if database query included drafts for owners
-      const filteredCourses = displayData; // Use all data since DB query already filtered correctly
-      
+      let isSpaceAdmin = false;
+      if (userId && !isOwner) {
+        const { data: membership } = await supabase
+          .from('space_members')
+          .select('role, status')
+          .eq('space_id', spaceId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        isSpaceAdmin = membership?.role === 'admin' && membership?.status === 'active';
+      }
 
-      // Update cache with successful data
-      clearTimeout(timeoutId); // Clear the timeout
+      const canSeeDrafts = isOwner || isSpaceAdmin;
+
+      // OPTIMIZED: Use the aggregated view
+      let query = supabase
+        .from('view_course_details')
+        .select('*')
+        .eq('space_id', spaceId);
+
+      if (!canSeeDrafts) {
+        query = query.eq('is_published', true);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      log.debug('SpaceManagement', `✅ [ClassroomCache] Sucessfully fetched ${data?.length || 0} courses from DB`);
+
+      // Map view data to Display format
+      const courses: CourseDisplayData[] = (data || []).map(row => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        image_url: row.cover_image_url || row.image_url,
+        slug: row.slug,
+        short_id: row.short_id,
+        access_type: row.access_type,
+        price: row.price,
+        is_published: row.is_published,
+        currency: row.currency || 'NGN',
+        students: row.students_count || 0,
+        enrolled: row.is_enrolled || false,
+        creator_id: row.creator_id,
+        space_id: row.space_id,
+        progress: row.progress_percentage || 0
+      }));
+
+      clearTimeout(timeoutId);
+
+      // GUEST OVERWRITE PROTECTION (ENHANCED):
+      // On fresh refresh, currentCache might be empty but we might have loaded from fallback.
+      // We check if we're overwriting a state that had MORE courses (like owner drafts).
+      let finalCourses = courses;
+
+      // Get the current source of truth for the comparison:
+      // Either precisely what's in memory, or what we just fetched.
+      const existingCourses = currentCache?.courses || [];
+
+      if (!userId && existingCourses.length > courses.length) {
+        // If this is a guest fetch and it has FEWER results than we already have...
+        // Check if the existing data had drafts (which guests won't see)
+        const hadDrafts = existingCourses.some(c => !c.is_published);
+
+        if (hadDrafts || existingCourses.length > 0) {
+          log.debug('SpaceManagement', `🛡️ [ClassroomCache] Guest fetch (empty/limited) received for space ${spaceId} while existing courses (${existingCourses.length}) are present. PRESERVING cache.`);
+          finalCourses = existingCourses;
+        }
+      }
+
       const successCache = new Map(get().spaceCache);
       successCache.set(spaceId, {
-        courses: filteredCourses,
+        courses: finalCourses,
         lastFetched: Date.now(),
         loading: false,
+        loadingForUserId: null,
         error: null,
       });
       set({ spaceCache: successCache });
 
+      saveFallbackCache(spaceId, finalCourses);
 
-      // POSTS PATTERN: Save to persistent fallback cache
-      saveFallbackCache(spaceId, filteredCourses);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      log.error('SpaceManagement', `❌ [ClassroomCache] Revalidation failed for ${spaceId}:`, error);
 
-    } catch (error) {
-      clearTimeout(timeoutId); // Clear the timeout
-      log.error('Hook', `❌ Error fetching courses for space ${spaceId}:`, error instanceof Error ? error : new Error(String(error)));
-      
-      // POSTS PATTERN: Attempt fallback cache recovery
-      const fallbackCourses = loadFallbackCache(spaceId);
-      
-      if (fallbackCourses && fallbackCourses.length > 0) {
-        
-        const fallbackCache = new Map(get().spaceCache);
-        fallbackCache.set(spaceId, {
-          courses: fallbackCourses,
-          lastFetched: Date.now(),
-          loading: false,
-          error: null,
-        });
-        set({ spaceCache: fallbackCache });
-        return;
-      }
-
-      // Final fallback: empty state with error
-      const errorMessage = error instanceof Error ? error.message : "Failed to fetch courses";
-      
+      // SWR Pattern: Keep old data on error
+      const state = get().spaceCache.get(spaceId);
       const errorCache = new Map(get().spaceCache);
       errorCache.set(spaceId, {
-        courses: [],
-        lastFetched: Date.now(),
+        courses: state?.courses || [],
+        lastFetched: state?.lastFetched || Date.now(),
         loading: false,
-        error: errorMessage,
+        error: error.message || 'Failed to update courses'
       });
       set({ spaceCache: errorCache });
-      
     }
   },
 
   updateCourseInCache: (spaceId, courseId, updates) => {
     const { spaceCache } = get();
     const cache = spaceCache.get(spaceId);
-    
+
     if (!cache) return;
-    
+
     const updatedCourses = cache.courses.map(course =>
       course.id === courseId ? { ...course, ...updates } : course
     );
-    
+
     const newCache = new Map(spaceCache);
     newCache.set(spaceId, { ...cache, courses: updatedCourses });
     set({ spaceCache: newCache });
-    
+
     // Update fallback cache
     saveFallbackCache(spaceId, updatedCourses);
   },
@@ -490,15 +323,15 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
   removeCourseFromCache: (spaceId, courseId) => {
     const { spaceCache } = get();
     const cache = spaceCache.get(spaceId);
-    
+
     if (!cache) return;
-    
+
     const filteredCourses = cache.courses.filter(course => course.id !== courseId);
-    
+
     const newCache = new Map(spaceCache);
     newCache.set(spaceId, { ...cache, courses: filteredCourses });
     set({ spaceCache: newCache });
-    
+
     // Update fallback cache
     saveFallbackCache(spaceId, filteredCourses);
   },
@@ -506,28 +339,28 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
   addCourseToCache: (spaceId, course) => {
     const { spaceCache } = get();
     const cache = spaceCache.get(spaceId);
-    
+
     if (!cache) return;
-    
+
     const newCourses = [course, ...cache.courses];
-    
+
     const newCache = new Map(spaceCache);
     newCache.set(spaceId, { ...cache, courses: newCourses });
     set({ spaceCache: newCache });
-    
+
     // Update fallback cache
     saveFallbackCache(spaceId, newCourses);
   },
 
   invalidateCache: (spaceId) => {
     const { spaceCache } = get();
-    
+
     if (spaceId) {
       // Invalidate specific space cache
       const newCache = new Map(spaceCache);
       newCache.delete(spaceId);
       set({ spaceCache: newCache });
-      
+
       // Clear fallback cache
       try {
         localStorage.removeItem(`classroom_fallback_${spaceId}`);
@@ -537,7 +370,7 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
     } else {
       // Clear all cache
       set({ spaceCache: new Map() });
-      
+
       // Clear all fallback caches
       try {
         const keys = Object.keys(localStorage);
@@ -555,33 +388,33 @@ const useClassroomCache = create<ClassroomCacheState>((set, get) => ({
   updateCourseProgress: (spaceId, courseId, progress) => {
     const { spaceCache } = get();
     const cache = spaceCache.get(spaceId);
-    
+
     if (cache) {
-      const updatedCourses = cache.courses.map(course => 
-        course.id === courseId 
+      const updatedCourses = cache.courses.map(course =>
+        course.id === courseId
           ? { ...course, progress }
           : course
       );
-      
+
       const newCache = new Map(spaceCache);
       newCache.set(spaceId, {
         ...cache,
         courses: updatedCourses,
       });
       set({ spaceCache: newCache });
-      
+
       // Update fallback cache as well
       saveFallbackCache(spaceId, updatedCourses);
-      
+
     }
   },
 
   forceRefreshCache: async (spaceId, userId, ownerId) => {
-    
+
     // ✅ IMPROVED: Don't clear cache immediately to prevent flickering
     // Instead, keep existing data visible during refresh
     const { fetchCourses } = get();
-    
+
     try {
       // Fetch fresh data with new ownership context without clearing cache
       await fetchCourses(spaceId, userId, ownerId);
@@ -599,7 +432,7 @@ export default useClassroomCache;
 if (typeof window !== 'undefined') {
   (window as any).classroomCache = {
     clearAllCache: () => {
-      const spaceKeys = Object.keys(localStorage).filter(key => 
+      const spaceKeys = Object.keys(localStorage).filter(key =>
         key.startsWith('classroom_fallback_') || key.startsWith('courses_cache_')
       );
       spaceKeys.forEach(key => localStorage.removeItem(key));
@@ -623,5 +456,5 @@ if (typeof window !== 'undefined') {
       return info;
     }
   };
-  
+
 }

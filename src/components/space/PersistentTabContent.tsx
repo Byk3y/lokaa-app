@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
@@ -35,10 +35,10 @@ export default function PersistentTabContent() {
 
   // ✅ FIXED: Get current tab from URL using React Router's useLocation hook
   const currentTab = extractTabFromPathname(location.pathname);
-  
+
   // ✅ FIXED: Check if we're on a course detail route using React Router's useLocation hook
   const currentPathname = location.pathname;
-  const isCourseDetailRoute = currentPathname.match(/^\/[^\/]+\/space\/classroom\/[^\/]+$/);
+  const isCourseDetailRoute = currentPathname.match(/^\/[^\/]+\/(space\/classroom|courses)\/[^\/]+$/);
   const shouldShowCourseDetail = !!(isCourseDetailRoute && currentTab === 'classroom');
 
   // Basic access check
@@ -61,21 +61,12 @@ export default function PersistentTabContent() {
     disableVisibilityTracking: true, // Disable aggressive visibility tracking for persistent tabs
   };
 
-  // Space-specific props
-  const spaceProps = storeSpace ? {
-    space: {
-      id: storeSpace.id,
-      name: storeSpace.name,
-      owner_id: storeSpace.owner_id,
-    }
-  } : {};
-
   return (
     <div className="flex-1 overflow-auto">
       {/* Feed Tab - Always mounted, visibility controlled */}
       <div
-        style={{ 
-          display: currentTab === 'feed' ? 'block' : 'none' 
+        style={{
+          display: currentTab === 'feed' ? 'block' : 'none'
         }}
         className="w-full"
         data-tab="feed"
@@ -87,8 +78,8 @@ export default function PersistentTabContent() {
 
       {/* About Tab - Always mounted, visibility controlled */}
       <div
-        style={{ 
-          display: currentTab === 'about' ? 'block' : 'none' 
+        style={{
+          display: currentTab === 'about' ? 'block' : 'none'
         }}
         className="w-full"
         data-tab="about"
@@ -101,8 +92,8 @@ export default function PersistentTabContent() {
       {/* Calendar Tab - Always mounted, visibility controlled */}
       {storeSpace && (
         <div
-          style={{ 
-            display: currentTab === 'calendar' ? 'block' : 'none' 
+          style={{
+            display: currentTab === 'calendar' ? 'block' : 'none'
           }}
           className="w-full"
           data-tab="calendar"
@@ -115,8 +106,8 @@ export default function PersistentTabContent() {
 
       {/* Members Tab - Always mounted, visibility controlled */}
       <div
-        style={{ 
-          display: currentTab === 'members' ? 'block' : 'none' 
+        style={{
+          display: currentTab === 'members' ? 'block' : 'none'
         }}
         className="w-full"
         data-tab="members"
@@ -129,8 +120,8 @@ export default function PersistentTabContent() {
       {/* Classroom Tab - Always mounted, visibility controlled */}
       {storeSpace && (
         <div
-          style={{ 
-            display: currentTab === 'classroom' ? 'block' : 'none' 
+          style={{
+            display: currentTab === 'classroom' ? 'block' : 'none'
           }}
           className="w-full"
           data-tab="classroom"
@@ -140,7 +131,16 @@ export default function PersistentTabContent() {
             <CourseDetailPage key={`course-${currentPathname}`} />
           ) : (
             <Suspense fallback={<TabLoadingFallback />}>
-              <LazyClassroomTab key={`classroom-${currentPathname}`} />
+              <LazyClassroomTab
+                key="classroom-tab"
+                {...tabProps}
+                space={storeSpace ? {
+                  id: storeSpace.id,
+                  subdomain: storeSpace.subdomain,
+                  owner_id: storeSpace.owner_id,
+                  name: storeSpace.name
+                } : undefined}
+              />
             </Suspense>
           )}
         </div>
@@ -149,14 +149,14 @@ export default function PersistentTabContent() {
       {/* Leaderboard Tab - Always mounted, visibility controlled */}
       {storeSpace && (
         <div
-          style={{ 
-            display: currentTab === 'leaderboard' ? 'block' : 'none' 
+          style={{
+            display: currentTab === 'leaderboard' ? 'block' : 'none'
           }}
           className="w-full"
           data-tab="leaderboard"
         >
           <Suspense fallback={<TabLoadingFallback />}>
-            <LazyLeaderboardsTab 
+            <LazyLeaderboardsTab
               spaceId={storeSpace.id}
               spaceName={storeSpace.name}
             />
