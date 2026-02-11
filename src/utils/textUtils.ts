@@ -9,27 +9,27 @@
  */
 export const autoCapitalizeTitle = (text: string): string => {
   if (!text) return text;
-  
+
   // Split into words
   const words = text.trim().split(/\s+/);
-  
+
   // Words that should remain lowercase (unless they're the first or last word)
   const lowercaseWords = new Set([
     'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in', 'is', 'it', 'of', 'on', 'or', 'so', 'the', 'to', 'up', 'yet'
   ]);
-  
+
   return words.map((word, index) => {
     // Always capitalize first and last word
     if (index === 0 || index === words.length - 1) {
       return capitalizeWord(word);
     }
-    
+
     // Check if word should remain lowercase
     const lowerWord = word.toLowerCase();
     if (lowercaseWords.has(lowerWord)) {
       return lowerWord;
     }
-    
+
     // Capitalize other words
     return capitalizeWord(word);
   }).join(' ');
@@ -42,17 +42,17 @@ export const autoCapitalizeTitle = (text: string): string => {
  */
 const capitalizeWord = (word: string): string => {
   if (!word) return word;
-  
+
   // Handle words with hyphens (e.g., "self-driving")
   if (word.includes('-')) {
     return word.split('-').map(part => capitalizeWord(part)).join('-');
   }
-  
+
   // Handle words with apostrophes (e.g., "don't")
   if (word.includes("'")) {
     return word.split("'").map(part => capitalizeWord(part)).join("'");
   }
-  
+
   // Handle words with periods (e.g., "e.g.", "i.e.")
   if (word.includes('.')) {
     const parts = word.split('.');
@@ -61,7 +61,7 @@ const capitalizeWord = (word: string): string => {
       return word.toUpperCase();
     }
   }
-  
+
   // Regular capitalization
   return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 };
@@ -73,10 +73,8 @@ const capitalizeWord = (word: string): string => {
  */
 export const formatAsTitle = (text: string): string => {
   if (!text) return text;
-  
-  // Remove extra whitespace
-  const cleaned = text.trim().replace(/\s+/g, ' ');
-  
-  // Apply title case
-  return autoCapitalizeTitle(cleaned);
+
+  // Capitalize first letter of each word boundary, but preserve
+  // trailing spaces so the user can keep typing naturally.
+  return text.replace(/(^|\s)(\S)/g, (_match, space, char) => space + char.toUpperCase());
 }; 

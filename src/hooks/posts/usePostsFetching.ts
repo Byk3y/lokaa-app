@@ -5,7 +5,7 @@
  * retry mechanisms, and error handling for posts.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { globalCache } from '@/utils/globalCacheCoordinator';
 import { devLogger } from '@/utils/developmentLogger';
@@ -32,6 +32,16 @@ export function usePostsFetching(params: FetchingParams) {
     setIsLoadingMore
   } = params;
 
+  // Track whether we already have posts on screen to avoid flashing
+  const hasExistingPostsRef = useRef(false);
+  const lastSpaceIdRef = useRef(spaceId);
+
+  // Reset when space changes so new spaces show a loading spinner on first load
+  if (spaceId !== lastSpaceIdRef.current) {
+    hasExistingPostsRef.current = false;
+    lastSpaceIdRef.current = spaceId;
+  }
+
   // Silent fetch (doesn't affect loading state)
   const fetchPostsSilently = useCallback(async (page = 1, forceRefresh = false) => {
     if (!spaceId) return;
@@ -44,7 +54,7 @@ export function usePostsFetching(params: FetchingParams) {
       });
 
       const offset = (page - 1) * 25;
-      
+
       // Fetch regular posts
       const { data: regularPosts, error: regularError } = await getSupabaseClient()!
         .from('posts')
@@ -107,7 +117,7 @@ export function usePostsFetching(params: FetchingParams) {
 
     const attemptFetch = async () => {
       const offset = (page - 1) * 25;
-      
+
       // Fetch regular posts
       const { data: regularPosts, error: regularError } = await getSupabaseClient()!
         .from('posts')
@@ -144,11 +154,16 @@ export function usePostsFetching(params: FetchingParams) {
     // Retry loop with exponential backoff
     while (retryCount < maxRetries) {
       try {
-        setLoading(true);
+        // Only show loading spinner on initial load (no existing posts).
+        // On subsequent refetches (e.g., after creating a post), keep
+        // existing posts visible to prevent the jarring flash.
+        if (!hasExistingPostsRef.current) {
+          setLoading(true);
+        }
         setError(null);
 
         const { regularPosts, pinnedPosts } = await attemptFetch();
-        
+
         // Enrich posts with metadata
         const enrichedPosts = await enrichPostsWithMetadata(regularPosts || [], spaceId, subscriberId);
         const enrichedPinnedPosts = await enrichPostsWithMetadata(pinnedPosts || [], spaceId, subscriberId);
@@ -159,13 +174,16 @@ export function usePostsFetching(params: FetchingParams) {
         setTotalCount((enrichedPosts.length + enrichedPinnedPosts.length));
         setLoading(false);
 
+        // Mark that we now have posts on screen
+        hasExistingPostsRef.current = enrichedPosts.length > 0 || enrichedPinnedPosts.length > 0;
+
         // Cache the fetched data
         const regularKey = `posts:${spaceId}:${page}:25`;
         const pinnedKey = `posts:${spaceId}:pinned`;
-        
+
         globalCache.set(regularKey, enrichedPosts);
         globalCache.set(pinnedKey, enrichedPinnedPosts);
-        
+
         devLogger.log('CacheDebug', `Posts loaded and cached successfully`, {
           regular: enrichedPosts.length,
           pinned: enrichedPinnedPosts.length,
@@ -179,7 +197,7 @@ export function usePostsFetching(params: FetchingParams) {
       } catch (error) {
         retryCount++;
         lastError = error;
-        
+
         devLogger.warn('CacheDebug', `Fetch attempt ${retryCount} failed for space ${spaceId}`, {
           error: error instanceof Error ? error.message : String(error),
           retryCount,
@@ -199,7 +217,7 @@ export function usePostsFetching(params: FetchingParams) {
     const errorMessage = lastError instanceof Error ? lastError.message : 'Failed to fetch posts';
     setError(errorMessage);
     setLoading(false);
-    
+
     devLogger.error('CacheDebug', `All fetch attempts failed for space ${spaceId}`, {
       error: errorMessage,
       retryCount,
@@ -213,9 +231,9 @@ export function usePostsFetching(params: FetchingParams) {
 
     try {
       setIsLoadingMore(true);
-      
+
       const offset = (page - 1) * 25;
-      
+
       const { data: regularPosts, error: regularError } = await getSupabaseClient()!
         .from('posts')
         .select(`
@@ -232,7 +250,7 @@ export function usePostsFetching(params: FetchingParams) {
       if (regularError) throw regularError;
 
       const enrichedPosts = await enrichPostsWithMetadata(regularPosts || [], spaceId, subscriberId);
-      
+
       setPosts(prevPosts => [...prevPosts, ...enrichedPosts]);
       setCurrentPage(page);
       setIsLoadingMore(false);

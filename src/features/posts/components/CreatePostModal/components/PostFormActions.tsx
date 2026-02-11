@@ -3,7 +3,7 @@ import { CategorySelector } from '../../CategorySelector';
 import type { PostFormActionsProps } from '../types';
 
 /**
- * Actions component with category selector and submit/cancel buttons
+ * Actions — category selector + cancel + submit, compact inline layout
  */
 export const PostFormActions: React.FC<PostFormActionsProps> = ({
   categoryId,
@@ -20,16 +20,16 @@ export const PostFormActions: React.FC<PostFormActionsProps> = ({
   hasContent,
   editMode = false
 }) => {
-  const submitButtonText = isSubmitting 
-    ? (editMode ? "Updating..." : "Posting...") 
+  const submitLabel = isSubmitting
+    ? (editMode ? 'Saving…' : 'Posting…')
     : uploadingFiles.size > 0
-    ? "Uploading files..."
-    : (editMode ? "Update Post" : "Post");
+      ? 'Uploading…'
+      : (editMode ? 'Save' : 'Post');
 
-  const isSubmitDisabled = !hasContent || isSubmitting || uploadingFiles.size > 0;
+  const isDisabled = !hasContent || isSubmitting || uploadingFiles.size > 0;
 
   return (
-    <div className="flex items-center space-x-3">
+    <div className="flex items-center gap-2">
       <CategorySelector
         selectedCategoryId={categoryId}
         onCategoryChange={setCategoryId}
@@ -39,27 +39,25 @@ export const PostFormActions: React.FC<PostFormActionsProps> = ({
         toolbarButtonClass={toolbarButtonClass}
         activeToolbarButtonClass={activeToolbarButtonClass}
       />
-      
-      <div className="ml-auto flex items-center space-x-3">
-        <button
-          type="button" 
-          onClick={onCancel} 
-          className="rounded-md px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onSubmit}
-          disabled={isSubmitDisabled}
-          className={`rounded-md px-4 py-2.5 text-sm font-medium text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 transition-colors ${
-            isSubmitDisabled
-            ? 'bg-teal-400 cursor-not-allowed opacity-70' 
-            : 'bg-teal-600 hover:bg-teal-700'
+
+      <button
+        type="button"
+        onClick={onCancel}
+        className="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      >
+        Cancel
+      </button>
+
+      <button
+        onClick={onSubmit}
+        disabled={isDisabled}
+        className={`px-5 py-1.5 text-sm font-semibold rounded-lg text-white shadow-sm transition-all duration-150 ${isDisabled
+            ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+            : 'bg-teal-600 hover:bg-teal-700 hover:shadow-md active:scale-[0.98]'
           }`}
-        >
-          {submitButtonText}
-        </button>
-      </div>
+      >
+        {submitLabel}
+      </button>
     </div>
   );
-}; 
+};

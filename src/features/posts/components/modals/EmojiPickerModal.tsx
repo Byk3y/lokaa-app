@@ -35,7 +35,7 @@ export const EmojiPickerModal = React.forwardRef<HTMLDivElement, EmojiPickerModa
           position: 'fixed',
           left,
           top,
-          zIndex: 9999,
+          zIndex: 10001,
           backgroundColor: '#fff',
           borderRadius: '8px',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
@@ -96,7 +96,7 @@ export const EmojiPickerModal = React.forwardRef<HTMLDivElement, EmojiPickerModa
           top: 0,
           width: '100vw',
           height: '100vh',
-          zIndex: 9998,
+          zIndex: 10000,
           background: 'transparent',
           pointerEvents: 'auto',
         }}
@@ -104,7 +104,7 @@ export const EmojiPickerModal = React.forwardRef<HTMLDivElement, EmojiPickerModa
     );
 
     const picker = (
-      <div ref={pickerRef} style={{ ...style, pointerEvents: 'auto', zIndex: 9999 }}>
+      <div ref={pickerRef} style={{ ...style, pointerEvents: 'auto', zIndex: 10001 }}>
         <Picker
           data={data}
           onEmojiSelect={onEmojiSelect}

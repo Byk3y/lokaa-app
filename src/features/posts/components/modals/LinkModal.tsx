@@ -6,14 +6,14 @@ import { LinkModalProps } from '../../types';
 /**
  * Modal for adding web links to posts
  */
-export const LinkModal: React.FC<LinkModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onSubmit 
+export const LinkModal: React.FC<LinkModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit
 }) => {
   const [url, setUrl] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  
+
   useEffect(() => {
     // Focus the input when the modal opens
     if (isOpen && inputRef.current) {
@@ -36,15 +36,15 @@ export const LinkModal: React.FC<LinkModalProps> = ({
   return (
     <Dialog.Root open={isOpen} onOpenChange={onClose}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-overlayShow z-50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg data-[state=open]:animate-contentShow focus:outline-none">
+        <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-overlayShow z-[10000]" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[10000] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg data-[state=open]:animate-contentShow focus:outline-none">
           <Dialog.Title className="text-lg font-medium text-gray-900 mb-4">
             Add Link
           </Dialog.Title>
           <Dialog.Description className="sr-only">
             Enter the URL of the link you want to add to your post.
           </Dialog.Description>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="link-url" className="block text-sm font-medium text-gray-700 mb-1">
@@ -64,7 +64,7 @@ export const LinkModal: React.FC<LinkModalProps> = ({
                 Add a link to an article, website, or other online resource
               </p>
             </div>
-            
+
             <div className="flex justify-end space-x-2 pt-2">
               <button
                 type="button"
@@ -81,7 +81,7 @@ export const LinkModal: React.FC<LinkModalProps> = ({
               </button>
             </div>
           </form>
-          
+
           <Dialog.Close asChild>
             <button
               className="absolute right-4 top-4 inline-flex h-6 w-6 appearance-none items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 focus:outline-none"

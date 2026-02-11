@@ -69,9 +69,9 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
   return (
     <Dialog.Root open={isOpen} onOpenChange={onClose}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/80 data-[state=open]:animate-overlayShow z-50" />
-        <Dialog.Content 
-          className="fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-3xl h-[70vh] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black shadow-lg data-[state=open]:animate-contentShow focus:outline-none"
+        <Dialog.Overlay className="fixed inset-0 bg-black/80 data-[state=open]:animate-overlayShow z-[10000]" />
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-[10000] w-[90vw] max-w-3xl h-[70vh] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black shadow-lg data-[state=open]:animate-contentShow focus:outline-none"
           aria-describedby="video-player-description"
         >
           <Dialog.Title>
@@ -87,7 +87,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
           <div className="w-full h-full flex items-center justify-center">
             {renderVideoEmbed()}
           </div>
-          
+
           <Dialog.Close asChild>
             <button
               className="absolute right-4 top-4 inline-flex h-8 w-8 appearance-none items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 focus:outline-none"

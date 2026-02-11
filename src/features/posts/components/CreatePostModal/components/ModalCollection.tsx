@@ -13,7 +13,7 @@ interface ModalCollectionProps {
   showEmojiPicker: boolean;
   emojiPickerRef: React.RefObject<HTMLDivElement>;
   onEmojiSelect: (emoji: any) => void;
-  
+
   // Giphy search
   showGiphySearch: boolean;
   setShowGiphySearch: (show: boolean) => void;
@@ -24,22 +24,22 @@ interface ModalCollectionProps {
   fetchGifsForSearch: (offset: number) => Promise<any>;
   fetchGifsForCategory: (category: string) => Promise<any>;
   onGifSelected: (gifUrl: string) => void;
-  
+
   // Video link modal
   isVideoLinkModalOpen: boolean;
   setIsVideoLinkModalOpen: (open: boolean) => void;
   onVideoUrlSubmit: (url: string) => void;
-  
+
   // Link modal
   isLinkModalOpen: boolean;
   setIsLinkModalOpen: (open: boolean) => void;
   onLinkSubmit: (url: string) => void;
-  
+
   // Video player modal
   isVideoPlayerModalOpen: boolean;
   setIsVideoPlayerModalOpen: (open: boolean) => void;
   selectedVideo: { url: string; videoId?: string | null; platform?: string };
-  
+
   // Close confirmation modal
   showCloseConfirmation: boolean;
   setShowCloseConfirmation: (show: boolean) => void;
@@ -55,7 +55,7 @@ export const ModalCollection: React.FC<ModalCollectionProps> = ({
   showEmojiPicker,
   emojiPickerRef,
   onEmojiSelect,
-  
+
   // Giphy search props
   showGiphySearch,
   setShowGiphySearch,
@@ -66,22 +66,22 @@ export const ModalCollection: React.FC<ModalCollectionProps> = ({
   fetchGifsForSearch,
   fetchGifsForCategory,
   onGifSelected,
-  
+
   // Video link modal props
   isVideoLinkModalOpen,
   setIsVideoLinkModalOpen,
   onVideoUrlSubmit,
-  
+
   // Link modal props
   isLinkModalOpen,
   setIsLinkModalOpen,
   onLinkSubmit,
-  
+
   // Video player modal props
   isVideoPlayerModalOpen,
   setIsVideoPlayerModalOpen,
   selectedVideo,
-  
+
   // Close confirmation modal props
   showCloseConfirmation,
   setShowCloseConfirmation,
@@ -92,20 +92,20 @@ export const ModalCollection: React.FC<ModalCollectionProps> = ({
     <>
       {/* Emoji Picker Modal - Lazy loaded */}
       {showEmojiPicker && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading emoji picker...</div></div>}>
-          <EmojiPickerModal 
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"><div className="text-white">Loading emoji picker...</div></div>}>
+          <EmojiPickerModal
             ref={emojiPickerRef}
             visible={showEmojiPicker}
             onEmojiSelect={onEmojiSelect}
           />
         </Suspense>
       )}
-      
+
       {/* Giphy Search Modal - Lazy loaded */}
       {showGiphySearch && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading GIF search...</div></div>}>
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"><div className="text-white">Loading GIF search...</div></div>}>
           <GiphySearchModal
-            ref={giphyContainerRef} 
+            ref={giphyContainerRef}
             searchTerm={giphySearchTerm}
             onSearchChange={setGiphySearchTerm}
             fetchGifs={fetchGifsForSearch}
@@ -121,8 +121,8 @@ export const ModalCollection: React.FC<ModalCollectionProps> = ({
 
       {/* Video Link Modal - Lazy loaded */}
       {isVideoLinkModalOpen && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading video modal...</div></div>}>
-          <VideoLinkModal 
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"><div className="text-white">Loading video modal...</div></div>}>
+          <VideoLinkModal
             isOpen={isVideoLinkModalOpen}
             onClose={() => setIsVideoLinkModalOpen(false)}
             onSubmit={onVideoUrlSubmit}
@@ -132,19 +132,19 @@ export const ModalCollection: React.FC<ModalCollectionProps> = ({
 
       {/* Link Modal - Lazy loaded */}
       {isLinkModalOpen && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading link modal...</div></div>}>
-          <LinkModal 
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"><div className="text-white">Loading link modal...</div></div>}>
+          <LinkModal
             isOpen={isLinkModalOpen}
             onClose={() => setIsLinkModalOpen(false)}
             onSubmit={onLinkSubmit}
           />
         </Suspense>
       )}
-      
+
       {/* Video Player Modal - Lazy loaded */}
       {isVideoPlayerModalOpen && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><div className="text-white">Loading video player...</div></div>}>
-          <VideoPlayerModal 
+        <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"><div className="text-white">Loading video player...</div></div>}>
+          <VideoPlayerModal
             isOpen={isVideoPlayerModalOpen}
             onClose={() => setIsVideoPlayerModalOpen(false)}
             videoUrl={selectedVideo.url}
@@ -157,15 +157,15 @@ export const ModalCollection: React.FC<ModalCollectionProps> = ({
       {/* Close Confirmation Dialog */}
       <Dialog.Root open={showCloseConfirmation} onOpenChange={setShowCloseConfirmation}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-overlayShow z-[100]" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] w-full max-w-md rounded-xl bg-white p-6 shadow-xl focus:outline-none dark:bg-gray-800 dark:text-white">
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-overlayShow z-[10000]" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[10000] w-full max-w-md rounded-xl bg-white p-6 shadow-2xl focus:outline-none dark:bg-gray-800 dark:text-white">
             <Dialog.Title className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Discard post?
             </Dialog.Title>
             <Dialog.Description className="text-sm text-gray-600 dark:text-gray-300 mb-6">
               You have unsaved changes. Are you sure you want to discard your post?
             </Dialog.Description>
-            
+
             <div className="flex items-center justify-end space-x-3">
               <button
                 type="button"

@@ -2,7 +2,7 @@ import React from 'react';
 import type { PostFormHeaderProps } from '../types';
 
 /**
- * Header component showing user info and space context
+ * Header component — avatar + user/space context
  */
 export const PostFormHeader: React.FC<PostFormHeaderProps> = ({
   userName,
@@ -11,25 +11,27 @@ export const PostFormHeader: React.FC<PostFormHeaderProps> = ({
   editMode = false
 }) => {
   return (
-    <div className="flex items-center">
-      <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-200">
+    <div className="flex items-center gap-3 pb-3">
+      <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full ring-2 ring-gray-100 dark:ring-gray-700">
         {userAvatarUrl ? (
           <img src={userAvatarUrl} alt={userName} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-teal-600 text-white">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-teal-500 to-teal-700 text-white font-semibold text-sm">
             {userName?.charAt(0).toUpperCase()}
           </div>
         )}
       </div>
-      <div className="ml-3">
-        <span className="text-base font-medium text-gray-800 dark:text-white">
-          {userName} <span className="text-gray-600">
-            {editMode ? 'editing post in' : 'posting in'}
-          </span> <span className="font-bold text-teal-600 text-lg">
-            {spaceName.charAt(0).toUpperCase() + spaceName.slice(1)}
+      <div className="flex flex-col">
+        <span className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">
+          {userName}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {editMode ? 'Editing in' : 'Posting in'}{' '}
+          <span className="font-semibold text-teal-600 dark:text-teal-400">
+            {spaceName}
           </span>
         </span>
       </div>
     </div>
   );
-}; 
+};

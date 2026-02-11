@@ -4,7 +4,7 @@ import type { PostFormInputsProps } from '../types';
 import { formatAsTitle } from '@/utils/textUtils';
 
 /**
- * Form inputs component for title and content
+ * Title + content inputs — clean, minimal styling
  */
 export const PostFormInputs: React.FC<PostFormInputsProps> = ({
   title,
@@ -17,46 +17,39 @@ export const PostFormInputs: React.FC<PostFormInputsProps> = ({
   applyPostTemplate
 }) => {
   return (
-    <>
+    <div className="space-y-1">
       {/* Title Input */}
-      <div>
-        <input
-          id="post-title"
-          value={title}
-          onChange={(e) => setTitle(formatAsTitle(e.target.value))}
-          placeholder="Give your post a title"
-          className="block w-full rounded-md py-2 sm:py-3 px-3 text-base font-semibold font-sans tracking-tight capitalize placeholder-gray-400 focus:outline-none focus:ring-0 border-b-2 border-gray-200 focus:border-teal-500 transition-colors dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:focus:border-teal-400"
-        />
-      </div>
+      <input
+        id="post-title"
+        value={title}
+        onChange={(e) => setTitle(formatAsTitle(e.target.value))}
+        placeholder="Post title"
+        className="block w-full py-2 text-lg font-semibold tracking-tight placeholder-gray-300 text-gray-900 dark:text-white bg-transparent border-0 border-b border-gray-100 dark:border-gray-700 focus:border-teal-500 dark:focus:border-teal-400 focus:outline-none focus:ring-0 transition-colors capitalize"
+      />
 
       {/* Content Textarea */}
-      <div>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="What's on your mind?"
-          rows={4}
-          ref={contentTextareaRef}
-          spellCheck={true}
-          autoCapitalize="sentences"
-          className="block w-full rounded-md py-2 px-3 text-sm sm:text-base font-normal font-sans normal-case leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-white resize-none create-post-textarea"
-          style={{ minHeight: 'auto', overflowY: 'hidden' }}
-        />
-        <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
-          Please keep posts respectful and relevant to the space.
-        </p>
-      </div>
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="What's on your mind?"
+        rows={5}
+        ref={contentTextareaRef}
+        spellCheck={true}
+        autoCapitalize="sentences"
+        className="block w-full py-3 text-sm leading-relaxed placeholder-gray-300 text-gray-700 dark:text-gray-200 bg-transparent border-0 focus:outline-none focus:ring-0 resize-none create-post-textarea"
+        style={{ minHeight: '120px' }}
+      />
 
       {/* Post Template Selector */}
       {showFunPostIdeas && (
-        <div className="my-5">
+        <div className="pt-2">
           <PostTemplateSelector
             visible={showFunPostIdeas}
             onClose={() => setShowFunPostIdeas(false)}
-            onTemplateSelect={applyPostTemplate} 
+            onTemplateSelect={applyPostTemplate}
           />
         </div>
       )}
-    </>
+    </div>
   );
-}; 
+};

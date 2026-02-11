@@ -1,10 +1,19 @@
 import React from 'react';
 import { Paperclip, Link as LinkIcon, Video as VideoIcon, Smile, BarChart } from 'lucide-react';
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import type { PostFormToolbarProps } from '../types';
 
+const TOOLS = [
+  { key: 'attach', icon: Paperclip, label: 'Attach file' },
+  { key: 'link', icon: LinkIcon, label: 'Add link' },
+  { key: 'video', icon: VideoIcon, label: 'Embed video' },
+  { key: 'gif', icon: null, label: 'Add GIF' },
+  { key: 'poll', icon: BarChart, label: 'Create poll' },
+  { key: 'emoji', icon: Smile, label: 'Add emoji' },
+] as const;
+
 /**
- * Toolbar component with all attachment and formatting options
+ * Compact toolbar — icons only, horizontal row
  */
 export const PostFormToolbar: React.FC<PostFormToolbarProps> = ({
   onAttachFile,
@@ -14,98 +23,46 @@ export const PostFormToolbar: React.FC<PostFormToolbarProps> = ({
   onTogglePoll,
   onToggleEmoji,
   showPollCreator,
-  toolbarButtonClass,
-  activeToolbarButtonClass
 }) => {
-  return (
-    <TooltipProvider>
-      <div className="mt-4 flex justify-between items-center dark:border-gray-700">
-        <div className="flex items-center space-x-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className={toolbarButtonClass}
-                onClick={onAttachFile}
-              >
-                <Paperclip className="h-5 w-5" strokeWidth={2} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Attach a file</p>
-            </TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className={toolbarButtonClass}
-                onClick={onAddLink}
-              >
-                <LinkIcon className="h-5 w-5" strokeWidth={2} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Add a link</p>
-            </TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className={toolbarButtonClass}
-                onClick={onAddVideo}
-              >
-                <VideoIcon className="h-5 w-5" strokeWidth={2} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Embed a video</p>
-            </TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className={toolbarButtonClass}
-                onClick={onAddGif}
-              >
-                <span className="font-semibold text-gray-500 text-sm tracking-wider">GIF</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Add GIF as attachment</p>
-            </TooltipContent>
-          </Tooltip>
+  const handlers: Record<string, () => void> = {
+    attach: onAttachFile,
+    link: onAddLink,
+    video: onAddVideo,
+    gif: onAddGif,
+    poll: onTogglePoll,
+    emoji: onToggleEmoji,
+  };
 
-          <Tooltip>
+  const btnBase =
+    'inline-flex items-center justify-center h-9 w-9 rounded-lg text-gray-600 hover:text-teal-600 hover:bg-teal-50 dark:text-gray-300 dark:hover:text-teal-400 dark:hover:bg-teal-900/30 transition-all duration-150';
+  const btnActive =
+    'inline-flex items-center justify-center h-9 w-9 rounded-lg text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-teal-900/30';
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {TOOLS.map(({ key, icon: Icon, label }) => {
+        const isActive = key === 'poll' && showPollCreator;
+        return (
+          <Tooltip key={key}>
             <TooltipTrigger asChild>
               <button
-                className={showPollCreator ? activeToolbarButtonClass : toolbarButtonClass}
-                onClick={onTogglePoll}
+                className={isActive ? btnActive : btnBase}
+                onClick={handlers[key]}
+                aria-label={label}
               >
-                <BarChart className="h-5 w-5" strokeWidth={2} />
+                {Icon ? (
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                ) : (
+                  <span className="text-xs font-bold tracking-wide">GIF</span>
+                )}
               </button>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>Create a poll</p>
+            <TooltipContent side="bottom" className="text-xs">
+              {label}
             </TooltipContent>
           </Tooltip>
-        
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className={toolbarButtonClass}
-                onClick={onToggleEmoji}
-              >
-                <Smile className="h-5 w-5" strokeWidth={2} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Add emoji</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-    </TooltipProvider>
+        );
+      })}
+    </div>
   );
-}; 
+};
