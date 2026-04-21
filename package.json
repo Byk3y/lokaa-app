@@ -23,6 +23,7 @@
     "test:security": "vitest run src/__tests__/security",
     "test:security:watch": "vitest src/__tests__/security",
     "test:security:coverage": "vitest run --coverage src/__tests__/security",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "ci:security": "vitest run --coverage --coverage.thresholds.lines=90 --coverage.thresholds.functions=90 --coverage.thresholds.branches=90 --coverage.thresholds.statements=90 src/__tests__/security",
     "check:coverage": "node scripts/checkCoverage.js",
     "check:validation": "vitest run --dir tests/validation",
