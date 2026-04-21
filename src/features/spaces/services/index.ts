@@ -61,46 +61,6 @@ export {
   type SubdomainSuggestion
 } from './subdomain-validation';
 
-// User-facing recovery services
-export {
-  recoverSpaceAccess,
-  checkSpaceAccessWithRecovery,
-  getAccessErrorMessage,
-  getRecoveryAction,
-  type SpaceRecoveryResult
-} from './space-recovery';
-
-/**
- * Space Services Architecture
- * 
- * This module provides feature-specific space operations built on top of
- * the shared database services. The architecture follows these principles:
- * 
- * 1. **Layered Design**: Feature services build on shared database services
- * 2. **User-Centric**: Focus on user-facing functionality and UX
- * 3. **Caching**: Intelligent caching for performance
- * 4. **Recovery**: Robust error handling and recovery mechanisms
- * 5. **Validation**: Enhanced validation with suggestions and feedback
- * 
- * Service Categories:
- * - **Core Services**: Basic space operations (cache, access, navigation)
- * - **User Services**: User-specific operations (spaces, membership)
- * - **Enhanced Services**: Advanced features (validation, recovery)
- * 
- * Usage Examples:
- * 
- * ```typescript
- * // Basic space access
- * import { verifySpaceAccess } from '@/features/spaces/services';
- * 
- * // Enhanced subdomain validation
- * import { validateAndSuggestSubdomain } from '@/features/spaces/services';
- * 
- * // User-friendly recovery
- * import { recoverSpaceAccess } from '@/features/spaces/services';
- * ```
- */
-
 // Space media operations (localStorage)
 export * from './space-media';
 

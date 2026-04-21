@@ -68,12 +68,6 @@ export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
       }
       
       lastUpdateRef.current = now;
-      
-      // Dispatch event to refresh UI
-      window.dispatchEvent(new CustomEvent('presence-updated', {
-        detail: { spaceId, userId: user.id, isOnline: true, reason }
-      }));
-      
     } catch (error) {
       log.warn('Hook', `⚠️ [AutoPresence] Failed to update presence (${reason}):`, error);
     }

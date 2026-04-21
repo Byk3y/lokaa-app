@@ -312,16 +312,6 @@ class SupabaseHealthMonitor {
       try {
         await existingClient.auth.signOut({ scope: 'local' });
         log.debug('Utils', '🔄 [HealthMonitor] Cleared corrupted session, user will need to re-authenticate');
-        
-        // Dispatch event for app to handle re-authentication
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('supabase-auth-required', {
-            detail: { 
-              reason: 'client-recovery-failed',
-              timestamp: Date.now() 
-            }
-          }));
-        }
       } catch (signOutError) {
         log.error('Utils', '❌ [HealthMonitor] Failed to clear session:', signOutError);
         throw error;
@@ -333,13 +323,6 @@ class SupabaseHealthMonitor {
    * Notify the application that recovery was successful
    */
   private notifyRecoverySuccess(): void {
-    // Dispatch a custom event that components can listen to
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('supabase-client-recovered', {
-        detail: { timestamp: Date.now() }
-      }));
-    }
-
     // Clear any cache that might be stale
     this.clearStaleCache();
   }

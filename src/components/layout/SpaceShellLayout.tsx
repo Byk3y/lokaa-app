@@ -7,7 +7,7 @@ import SpaceNav from "@/components/layout/SpaceNav";
 import SpaceLayout from "@/components/layout/SpaceLayout";
 import useSpaceSettingsStore from "@/hooks/useSpaceSettingsStore";
 const NewSpaceSettingsModal = lazy(() => import("@/components/modals/NewSpaceSettingsModal"));
-import { LocationState } from "@/views/Space"; // Import the existing LocationState type
+import { LocationState } from "@/shared/types/space-navigation";
 // Cache warming removed - using simplified cache system
 import { extractTabFromPathname } from "@/utils/tabUtils";
 // Removed setCurrentSpaceForPresence - new simple system doesn't need manual space tracking

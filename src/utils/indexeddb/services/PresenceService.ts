@@ -512,13 +512,6 @@ export class PresenceService {
         }
       }
       
-      // Trigger a custom event to notify UI components to refresh
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('presence-updated', {
-          detail: { spaceId, timestamp: Date.now() }
-        }));
-      }
-      
       log.debug('Utils', '[PresenceService] Invalidated member counts cache for space:', spaceId);
     } catch (error) {
       log.warn('Utils', '[PresenceService] Failed to invalidate member counts cache:', error);
