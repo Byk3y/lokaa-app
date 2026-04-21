@@ -114,30 +114,7 @@ later decide to expose a public profile shell for SEO / invite links:
 Full design in `docs/guides/space-load-consolidation.md`. Week of focused
 work. Don't start until #2 is live.
 
-### 8. Fix the `create_post_notifications` trigger crash on titleless posts
-
-Discovered during the recursion-canary live run. `posts.title` is
-nullable, but `notifications.title` is NOT NULL, and the
-`create_post_notifications` trigger copies post.title straight into
-notifications.title. A post without a title therefore fails to save
-with a 23502 constraint violation — and takes the whole INSERT with it.
-
-Right now the app always sets a title, so production has not hit this.
-But as soon as any UI flow allows a titleless post (short-form "status"
-updates, quick replies, etc.), the entire post creation silently breaks.
-
-Fix options, in preference order:
-
-1. Make `notifications.title` nullable, and have consumers fall back to
-   a content excerpt.
-2. Change the trigger to use a generated title
-   (`COALESCE(NEW.title, left(NEW.content, 60))`).
-3. Change the posts schema to require a title (harder, UX concern).
-
-Add a unit test in `tests/integration/` that INSERTs a titleless post
-and confirms it survives.
-
-### 9. Re-run advisors monthly until they stay at green
+### 8. Re-run advisors monthly until they stay at green
 
 Remaining intentional findings (known, documented):
 
