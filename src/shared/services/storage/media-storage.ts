@@ -7,28 +7,19 @@ import { getSupabaseClient } from '@/integrations/supabase/client';
 import { STORAGE_CONFIG } from '@/shared/config/storage';
 import type { UploadProgressCallback, StorageUploadResult } from '@/shared/types/media';
 
-/**
- * Check if Supabase storage is available
- */
+// Storage is available if the user has a session. The previous version
+// additionally did a `.list()` probe against the bucket, but that required a
+// broad public SELECT policy on storage.objects (advisor warning
+// public_bucket_allows_listing). Probing gave no useful signal beyond what
+// the session check already gives — the actual upload failure surfaces with
+// a clearer error anyway.
 export const checkStorageAvailability = async (): Promise<boolean> => {
   try {
-    // Check session first
     const { data: session } = await getSupabaseClient().auth.getSession();
     if (!session.session) {
       log.debug('Service', 'User not logged in - storage unavailable');
       return false;
     }
-
-    // Test storage access
-    const { data, error } = await getSupabaseClient().storage
-      .from(STORAGE_CONFIG.BUCKET_NAME)
-      .list('', { limit: 1 });
-    
-    if (error) {
-      log.error('Service', 'Storage bucket not accessible:', error);
-      return false;
-    }
-
     return true;
   } catch (err) {
     log.error('Service', 'Failed to check storage availability:', err);

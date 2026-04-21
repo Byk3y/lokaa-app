@@ -96,39 +96,31 @@ export const SpaceMediaGallery = memo(function SpaceMediaGallery({
   const dragOverItem = useRef<number | null>(null);
   const dragNode = useRef<HTMLDivElement | null>(null);
 
-  // Check if storage bucket exists
+  // Surface a warning if the user isn't signed in. Upload-specific errors
+  // (bucket misconfig, network) now bubble up on the actual upload attempt
+  // instead of being probed with a .list() call that required a broad
+  // public SELECT policy on storage.objects.
   useEffect(() => {
-    const checkStorageBucket = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        // First check if user is logged in
         const { data: session } = await getSupabaseClient().auth.getSession();
-        const isLoggedIn = !!session.session;
-        
-        if (!isLoggedIn) {
-          setStorageError('Sign in required for permanent storage. Using local storage only.');
-          return;
-        }
-
-        // Simplified bucket check - just try to list files
-        const { data, error } = await getSupabaseClient().storage
-          .from(STORAGE_BUCKET_NAME)
-          .list('');
-        
-        if (error) {
-          log.error('Component', 'Cannot list files in storage bucket:', error);
-          setStorageError('Storage bucket not accessible. Using local storage only.');
-          return;
-        }
-        
-        setStorageError(null);
-        
+        if (cancelled) return;
+        setStorageError(
+          session.session
+            ? null
+            : 'Sign in required for permanent storage. Using local storage only.'
+        );
       } catch (err) {
-        log.error('Component', 'Failed to check storage bucket:', err);
-        setStorageError('Unable to connect to storage service. Using local storage only.');
+        if (!cancelled) {
+          log.error('Component', 'Failed to check session:', err);
+          setStorageError('Unable to connect to storage service. Using local storage only.');
+        }
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    
-    checkStorageBucket();
   }, []);
 
   // Handle modal close
