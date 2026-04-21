@@ -49,9 +49,19 @@ export async function seedPrivateSpaceWithPosts(
   if (postsErr) throw postsErr;
 
   const cleanup = async () => {
-    await admin.from('posts').delete().eq('space_id', spaceId);
-    await admin.from('space_members').delete().eq('space_id', spaceId);
-    await admin.from('spaces').delete().eq('id', spaceId);
+    // Ordered to satisfy FK constraints. Triggers on `spaces` INSERT
+    // auto-populate space_members, space_setup, space_categories, and
+    // space_user_points for the owner; spaces DELETE leaves those
+    // behind, so wipe them first.
+    await admin.from('posts').delete().eq('space_id', spaceId).catch(() => {});
+    await admin.from('space_access').delete().eq('space_id', spaceId).catch(() => {});
+    await admin.from('space_user_points').delete().eq('space_id', spaceId).catch(() => {});
+    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).catch(() => {});
+    await admin.from('membership_history').delete().eq('space_id', spaceId).catch(() => {});
+    await admin.from('space_members').delete().eq('space_id', spaceId).catch(() => {});
+    await admin.from('space_categories').delete().eq('space_id', spaceId).catch(() => {});
+    await admin.from('space_setup').delete().eq('space_id', spaceId).catch(() => {});
+    await admin.from('spaces').delete().eq('id', spaceId).catch(() => {});
   };
 
   return {

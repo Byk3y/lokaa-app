@@ -50,3 +50,31 @@ Each scenario from `docs/guides/integration-test-plan.md` maps to a test
 file: classroom paywall, space-load RPC path, presence write, enrollment
 bypass attempt, etc. Add them one file at a time so failures are easy to
 localize.
+
+## Live verification status
+
+The private-space posts assertion has been verified against the live
+production database via SQL simulation (`SET LOCAL role = 'authenticated';
+SET LOCAL request.jwt.claim.sub = ...`). Confirmed:
+
+- A user who IS an active member of a private space sees posts in it.
+- A user who ISN'T an active member sees zero rows.
+
+Matches what `rls-posts.test.ts` asserts via the signed-in client path.
+The full npm-run-able harness still needs the three env vars above before
+it can execute end-to-end; the SQL simulation is what gave us the live
+proof without them.
+
+## Cleanup gotchas (already handled in setup.ts / seed.ts)
+
+- `handle_new_user` + downstream triggers on auth.users INSERT populate
+  public.users, global_user_points, notification_preferences,
+  space_user_points (via space join triggers), presence_logs, and
+  user_activity_log. None of those tables' FKs use ON DELETE CASCADE to
+  auth.users. The `cleanup` function in setup.ts deletes them in the
+  right order before calling `admin.auth.admin.deleteUser` — if you see
+  "still referenced from table X" errors during teardown, add table X to
+  that list.
+- `spaces` INSERT triggers auto-create space_members, space_setup,
+  space_categories, and space_user_points rows for the owner. seed.ts
+  wipes those before deleting the space.

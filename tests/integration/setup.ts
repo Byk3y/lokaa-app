@@ -98,8 +98,43 @@ export async function createTestUsers(prefix: string): Promise<TestUsers> {
   );
 
   const cleanup = async () => {
+    // The handle_new_user trigger + downstream triggers populate several
+    // public-schema tables (users, global_user_points, notification_prefs,
+    // presence_logs, user_activity_log, space_user_points, etc.) whose FKs
+    // point at auth.users WITHOUT ON DELETE CASCADE. admin.auth.admin
+    // .deleteUser() therefore fails with "still referenced" errors until
+    // those rows are removed. Clean them up first, then delete the user.
+    const ids = createdIds;
+    if (ids.length === 0) return;
+
+    const tables = [
+      'notification_preferences',
+      'space_notification_preferences',
+      'global_user_points',
+      'space_user_points',
+      'user_badges',
+      'user_activity_log',
+      'presence_logs',
+      'presence_state',
+      'presence',
+      'space_access',
+      'user_follows', // by follower_id / following_id, handled below
+      'membership_history',
+    ] as const;
+
+    for (const table of tables) {
+      if (table === 'user_follows') {
+        await admin.from(table).delete().in('follower_id', ids).catch(() => {});
+        await admin.from(table).delete().in('following_id', ids).catch(() => {});
+        continue;
+      }
+      await admin.from(table).delete().in('user_id', ids).catch(() => {});
+    }
+    // public.users.id has a FK to auth.users; delete public.users first.
+    await admin.from('users').delete().in('id', ids).catch(() => {});
+
     await Promise.all(
-      createdIds.map((id) =>
+      ids.map((id) =>
         admin.auth.admin.deleteUser(id).catch(() => {
           // best-effort; don't fail tests on cleanup
         })
