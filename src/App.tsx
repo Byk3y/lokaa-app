@@ -15,8 +15,6 @@ import AppErrorBoundary from '@/components/errors/AppErrorBoundary';
 import ApplicationRouter from '@/components/app/ApplicationRouter';
 import { OptimizedProviderTree } from '@/providers/OptimizedProviders';
 
-// PWA and core components
-// import PWAInitializer from '@/components/pwa/PWAInitializer';
 import { AuthModalRouter } from '@/features/auth/components/modals';
 
 // CRITICAL: Load Supabase error protection FIRST
@@ -35,7 +33,7 @@ import { preventScrollRestoration } from '@/utils/scrollPositionManager';
 
 export default function App() {
   const { appReady } = useAppInitialization();
-  const isOnline = useAppStore((state: any) => state.isOnline);
+  const isOnline = useAppStore((state) => state.isOnline);
   const { toast } = useToast();
 
   // Root Lifecycle & Session management
@@ -85,19 +83,17 @@ export default function App() {
 
   // Listen for manual reload requests
   useEffect(() => {
-    const handleManualReloadNeeded = (event: any) => {
+    const handleManualReloadNeeded = (event: Event) => {
+      const detail = (event as CustomEvent<{ variant?: 'default' | 'destructive'; title: string; description: string }>).detail;
       toast({
-        variant: event.detail.variant || 'destructive',
-        title: event.detail.title,
-        description: event.detail.description,
+        variant: detail.variant || 'destructive',
+        title: detail.title,
+        description: detail.description,
       });
     };
 
     window.addEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
-
-    return () => {
-      window.removeEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
-    };
+    return () => window.removeEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
   }, [toast]);
 
   useEffect(() => {
@@ -118,7 +114,6 @@ export default function App() {
           <ApplicationRouter />
         </Suspense>
         <UnifiedPresenceInitializer />
-        {/* <PWAInitializer /> */}
         <AuthModalRouter />
         <Toaster />
       </OptimizedProviderTree>

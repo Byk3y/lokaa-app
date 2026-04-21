@@ -1,7 +1,7 @@
 import { log } from '@/utils/logger';
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Edit, Image as ImageIcon, Plus } from "lucide-react";
+import { Edit, Image as ImageIcon, Plus, X as Cross2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PostCard from "./PostCard";
 import { useNavigate } from "react-router-dom";
@@ -10,7 +10,6 @@ import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useOptimizedCachedCategories } from "@/hooks/useOptimizedCachedCategories";
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Cross2Icon } from '@radix-ui/react-icons';
 import type { Attachment } from "@/features/posts/types";
 
 // Category creation modal component

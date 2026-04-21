@@ -1,7 +1,7 @@
 import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Cross2Icon } from '@radix-ui/react-icons';
+import { X as Cross2Icon } from 'lucide-react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
 interface CreateCategoryModalProps {

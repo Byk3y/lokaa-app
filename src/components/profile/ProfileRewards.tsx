@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy } from "lucide-react";
+import { Trophy, Medal, Star, Award } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { Medal, Star, Trophy as PhTrophy, Certificate } from '@phosphor-icons/react';
 
 interface ProfileRewardsProps {
   userId: string;
@@ -24,8 +23,8 @@ interface UserBadge {
 const badgeIcons = [
   Medal,
   Star,
-  PhTrophy,
-  Certificate
+  Trophy,
+  Award,
 ];
 
 const ProfileRewards: React.FC<ProfileRewardsProps> = ({ userId, activityScore }) => {

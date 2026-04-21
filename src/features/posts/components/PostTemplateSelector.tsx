@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cross2Icon } from '@radix-ui/react-icons';
+import { X as Cross2Icon } from 'lucide-react';
 
 interface PostTemplateSelectorProps {
   visible: boolean;

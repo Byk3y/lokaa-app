@@ -1,6 +1,5 @@
 import React from 'react';
-import { HandThumbUpIcon as HandThumbUpIconOutline, ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
-import { HandThumbUpIcon as HandThumbUpIconSolid } from "@heroicons/react/24/solid";
+import { ThumbsUp, MessageCircle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface PostIconProps {
@@ -15,15 +14,15 @@ interface LikeIconProps extends PostIconProps {
 
 export const LikeIcon: React.FC<LikeIconProps> = ({ isLiked, className, strokeWidth = 2 }) => {
   return isLiked ? (
-    <HandThumbUpIconSolid className={cn("w-5 h-5", className)} />
+    <ThumbsUp className={cn("w-5 h-5", className)} fill="currentColor" strokeWidth={0} />
   ) : (
-    <HandThumbUpIconOutline className={cn("w-5 h-5", className)} strokeWidth={strokeWidth} />
+    <ThumbsUp className={cn("w-5 h-5", className)} strokeWidth={strokeWidth} />
   );
 };
 
 // Comment Icon
 export const CommentIcon: React.FC<PostIconProps> = ({ className, strokeWidth = 2 }) => {
-  return <ChatBubbleLeftIcon className={cn("w-5 h-5", className)} strokeWidth={strokeWidth} />;
+  return <MessageCircle className={cn("w-5 h-5", className)} strokeWidth={strokeWidth} />;
 };
 
 // Like Button Component

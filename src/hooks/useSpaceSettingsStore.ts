@@ -2,7 +2,7 @@ import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash-es/isEqual';
 import { sanitizeErrorMessage, sanitizeErrorForToast } from '@/utils/errorMessageSanitizer';
 
 export interface RuleItem {
