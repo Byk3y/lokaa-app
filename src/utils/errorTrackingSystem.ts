@@ -614,19 +614,10 @@ class ErrorTrackingSystem {
   /**
    * Send real-time notifications for critical errors
    */
-  private sendRealTimeNotifications(criticalErrors: ErrorReport[]): void {
-    criticalErrors.forEach(error => {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('critical-error-detected', {
-          detail: {
-            errorId: error.id,
-            message: error.message,
-            severity: error.severity,
-            timestamp: error.lastSeen
-          }
-        }));
-      }
-    });
+  private sendRealTimeNotifications(_criticalErrors: ErrorReport[]): void {
+    // No-op: previously dispatched `critical-error-detected` window events,
+    // but no listener ever consumed them.
+    return;
   }
 
   /**

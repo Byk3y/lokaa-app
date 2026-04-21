@@ -81,21 +81,6 @@ export default function App() {
     }
   }, []);
 
-  // Listen for manual reload requests
-  useEffect(() => {
-    const handleManualReloadNeeded = (event: Event) => {
-      const detail = (event as CustomEvent<{ variant?: 'default' | 'destructive'; title: string; description: string }>).detail;
-      toast({
-        variant: detail.variant || 'destructive',
-        title: detail.title,
-        description: detail.description,
-      });
-    };
-
-    window.addEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
-    return () => window.removeEventListener('supabase-manual-reload-needed', handleManualReloadNeeded as EventListener);
-  }, [toast]);
-
   useEffect(() => {
     // CRITICAL: Initialize Supabase error protection
     void supabaseLoadFailedBlocker;

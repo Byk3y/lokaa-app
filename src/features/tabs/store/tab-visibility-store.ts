@@ -171,17 +171,6 @@ export const useTabVisibilityStore = create<TabVisibilityState>()((set, get) => 
       },
     }));
 
-// Setup global event listener for tab cache events (mimicking the useEffect from context)
-if (typeof window !== 'undefined') {
-  window.addEventListener('tabCacheEvent', (event: CustomEvent) => {
-    const { tabKey, spaceId, cached } = event.detail;
-    
-    if (cached) {
-      useTabVisibilityStore.getState().markTabAsCached(tabKey, spaceId);
-    }
-  });
-}
-
 // Convenience hook that matches the original useTabVisibility interface
 export function useTabVisibilityHook() {
   const store = useTabVisibilityStore();
