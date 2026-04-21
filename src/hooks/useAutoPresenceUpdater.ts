@@ -1,141 +1,70 @@
 import { log } from '@/utils/logger';
-/**
- * 🎯 AUTO PRESENCE UPDATER HOOK
- * 
- * Automatically updates user presence when they:
- * 1. Return from minimizing the browser
- * 2. Become active in a space
- * 3. Load a space page
- * 
- * This fixes the issue where users return from minimizing and stay at 0 online
- * because their presence isn't automatically updated back to online.
- */
-
 import { useEffect, useRef } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 
-/**
- * Hook to automatically update user presence in a space
- */
+// Update the user's presence in the current space on mount, on return from
+// background, and after sustained activity. All writes go through the
+// update_space_presence RPC, which is SECURITY DEFINER, validates active
+// membership, and flips is_online off in every other space for this user.
+
 export const useAutoPresenceUpdater = (spaceId: string | undefined) => {
   const { user } = useOptimizedAuth();
   const lastUpdateRef = useRef<number>(0);
   const isInitializedRef = useRef(false);
-  
-  // Throttle updates to prevent spam (minimum 30 seconds between updates)
-  const THROTTLE_DELAY = 30 * 1000;
-  
+
+  const THROTTLE_MS = 30_000;
+
   const updatePresence = async (reason: string) => {
     if (!user?.id || !spaceId) return;
-    
+
     const now = Date.now();
-    if (now - lastUpdateRef.current < THROTTLE_DELAY) {
-      log.debug('Hook', `🔄 [AutoPresence] Throttled presence update (${reason})`);
-      return;
-    }
-    
+    if (now - lastUpdateRef.current < THROTTLE_MS) return;
+
     try {
-      log.debug('Hook', `🔄 [AutoPresence] Updating presence for space ${spaceId} (${reason})`);
-      
-      // Try to use Bridge V2 first
-      if ((window as any).indexedDBBridgeV2?.updateGlobalPresence) {
-        await (window as any).indexedDBBridgeV2.updateGlobalPresence(user.id, true, {
-          spaceId: spaceId,
-          forceNetwork: true
-        });
-        log.debug('Hook', `✅ [AutoPresence] Successfully updated via Bridge V2`);
-      } else {
-        // Fallback to direct Supabase call using the shared singleton client
-        const supabase = getSupabaseClient();
-        
-        // Update current space to online, all others to offline
-        await supabase
-          .from('space_members')
-          .update({ is_online: false, last_active_at: new Date().toISOString() })
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .neq('space_id', spaceId);
-          
-        await supabase
-          .from('space_members')
-          .update({ is_online: true, last_active_at: new Date().toISOString() })
-          .eq('user_id', user.id)
-          .eq('space_id', spaceId)
-          .eq('status', 'active');
-        
-        log.debug('Hook', `✅ [AutoPresence] Successfully updated via fallback`);
-      }
-      
+      const { error } = await getSupabaseClient()
+        .rpc('update_space_presence', { p_user_id: user.id, p_space_id: spaceId });
+
+      if (error) throw error;
       lastUpdateRef.current = now;
     } catch (error) {
-      log.warn('Hook', `⚠️ [AutoPresence] Failed to update presence (${reason}):`, error);
+      log.warn('Hook', `[AutoPresence] Failed to update presence (${reason}):`, error);
     }
   };
-  
-  // Update presence on space load (initial)
+
   useEffect(() => {
     if (!isInitializedRef.current && spaceId && user?.id) {
       isInitializedRef.current = true;
       updatePresence('space_load');
     }
   }, [spaceId, user?.id]);
-  
-  // Update presence on visibility change (return from minimize)
+
   useEffect(() => {
     if (!spaceId || !user?.id) return;
-    
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // User returned from background/minimize
-        log.debug('Hook', '👁️ [AutoPresence] User returned from background, updating presence');
-        updatePresence('visibility_return');
-      }
+      if (!document.hidden) updatePresence('visibility_return');
     };
-    
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [spaceId, user?.id]);
-  
-  // Update presence on user activity (optional - for very active monitoring)
+
   useEffect(() => {
     if (!spaceId || !user?.id) return;
-    
-    let activityTimeout: NodeJS.Timeout;
-    
+    let activityTimeout: ReturnType<typeof setTimeout> | undefined;
+
     const handleActivity = () => {
-      // Clear previous timeout
-      if (activityTimeout) {
-        clearTimeout(activityTimeout);
-      }
-      
-      // Set new timeout for presence update (debounced)
-      activityTimeout = setTimeout(() => {
-        updatePresence('user_activity');
-      }, 5 * 60 * 1000); // Update after 5 minutes of activity
+      if (activityTimeout) clearTimeout(activityTimeout);
+      activityTimeout = setTimeout(() => updatePresence('user_activity'), 5 * 60 * 1000);
     };
-    
-    // Listen for user interactions
-    const events = ['click', 'keydown', 'scroll', 'mousemove'];
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity, { passive: true });
-    });
-    
+
+    const events = ['click', 'keydown', 'scroll', 'mousemove'] as const;
+    events.forEach((event) => document.addEventListener(event, handleActivity, { passive: true }));
+
     return () => {
-      if (activityTimeout) {
-        clearTimeout(activityTimeout);
-      }
-      events.forEach(event => {
-        document.removeEventListener(event, handleActivity);
-      });
+      if (activityTimeout) clearTimeout(activityTimeout);
+      events.forEach((event) => document.removeEventListener(event, handleActivity));
     };
   }, [spaceId, user?.id]);
-  
-  // Manual update function for external use
-  const manualUpdate = () => updatePresence('manual');
-  
-  return { updatePresence: manualUpdate };
-}; 
+
+  return { updatePresence: () => updatePresence('manual') };
+};
