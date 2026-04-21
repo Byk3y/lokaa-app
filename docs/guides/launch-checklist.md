@@ -57,22 +57,26 @@ Pre-launch smoke test, manually in the browser:
 
 ### 4. Wire up payments before enabling paid courses in the UI
 
-Today, `course_enrollments` has `FOR INSERT WITH CHECK (user_id =
-auth.uid() AND check_is_course_member(course_id, auth.uid()))` — which
-means any authenticated space member can self-insert an enrollment row,
-paid or not. That's fine pre-launch (no real payments) but becomes the
-paywall's defeat device the moment you ship a "Pay" button.
+The paywall INSERT gate is already closed: migration
+`20260421161545_block_self_enrollment_in_paid_courses.sql` restricts
+self-enroll to `access_type = 'open'`, and
+`tests/integration/rls-enrollment.test.ts` asserts the four cases
+(member+open allowed, member+paid blocked, outsider+paid blocked,
+service_role+paid allowed).
 
-Before shipping payments:
+What's still missing:
 
-1. Implement a payment-completion Edge Function that runs with
-   `service_role` (bypasses RLS) and inserts the enrollment row only after
-   Stripe/whoever confirms.
-2. Replace the current `course_enrollments_insert_v2` policy with one that
-   either forbids client-side inserts for paid courses (check the
-   `courses.access_type`) or restricts insert to the edge function's role.
-3. Add an integration test asserting that a non-payment client insert is
-   rejected for paid courses.
+1. A payment-completion Edge Function (Stripe/Paystack webhook) that
+   authenticates the payment, verifies the signature, and inserts the
+   `course_enrollments` row as `service_role`.
+2. A UI "Enroll" / "Pay" button that calls that Edge Function instead
+   of writing to the DB directly.
+3. An integration test covering the full payment path
+   (webhook → enrollment → lesson visibility). The RLS half of this
+   is already proven; the new test just exercises the edge function.
+
+If anyone accidentally writes a client-side `.insert()` into
+`course_enrollments` for a paid course, RLS will reject it with a 42501.
 
 ## Should do shortly after launch
 
