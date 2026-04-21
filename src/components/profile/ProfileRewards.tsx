@@ -95,7 +95,7 @@ const ProfileRewards: React.FC<ProfileRewardsProps> = ({ userId, activityScore }
             {activityScore} points
           </span>
           <span className="flex items-center">
-            <PhTrophy size={16} weight="fill" className="text-amber-500 mr-1.5" />
+            <Trophy size={16} className="text-amber-500 mr-1.5" />
             {badgesCount} Badges Earned
           </span>
         </div>
@@ -137,7 +137,7 @@ const ProfileRewards: React.FC<ProfileRewardsProps> = ({ userId, activityScore }
               </div>
             ) : badgesCount === 0 ? (
               <div className="text-gray-400 bg-gray-50 p-6 rounded-xl text-center h-40 flex flex-col items-center justify-center">
-                <PhTrophy size={32} weight="light" className="text-gray-300 mb-3" />
+                <Trophy size={32} className="text-gray-300 mb-3" />
                 <span>No badges earned yet.</span>
                 <span className="text-sm mt-2 text-gray-400">Keep engaging to earn your first badge!</span>
               </div>

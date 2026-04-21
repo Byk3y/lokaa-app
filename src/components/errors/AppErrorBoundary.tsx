@@ -1,6 +1,7 @@
 import { log } from '@/utils/logger';
 import React, { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { sanitizeErrorMessage } from '@/utils/errorMessageSanitizer';
 
 // Mobile detection utility - centralized
 export const isMobileBrowser = () => {
