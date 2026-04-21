@@ -517,8 +517,8 @@ export default function PostDetailModal({
 
             {/* Post Author Info */}
             <div className="flex items-center space-x-3 py-2">
-              <Link 
-                to={`/profile/${post.author.id}`}
+              <Link
+                to={`/profile/${post.author.profile_url || post.author.id}`}
                 onMouseEnter={() => prefetchUser(post.author.id, 100)}
               >
                 <OptimizedAvatar
@@ -536,8 +536,8 @@ export default function PostDetailModal({
                 />
               </Link>
               <div>
-                <Link 
-                  to={`/profile/${post.author.id}`} 
+                <Link
+                  to={`/profile/${post.author.profile_url || post.author.id}`}
                   className="font-semibold text-gray-900 hover:underline"
                   onMouseEnter={() => prefetchUser(post.author.id, 100)}
                 >
