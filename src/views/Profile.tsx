@@ -20,7 +20,6 @@ import ProfileDropdown from "@/components/common/ProfileDropdown";
 import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
 import SpaceContextBanner from '@/components/profile/SpaceContextBanner';
 
-import MobileProfileModal from '@/components/profile/MobileProfileModal';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { Space } from "@/types/space";
 import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
@@ -284,8 +283,6 @@ export default function Profile() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [spaceDrawerOpen, setSpaceDrawerOpen] = useState(false);
 
-  const [showMobileProfileModal, setShowMobileProfileModal] = useState(false);
-  
   // Detect mobile vs desktop for different layouts - use same detection as BottomNav
   const isMobile = shouldEnableMobileFeatures();
   
@@ -478,12 +475,6 @@ export default function Profile() {
               <button className="p-2 text-gray-600 hover:bg-gray-100" onClick={() => navigate('/search')}>
                 <Search className="h-5 w-5" />
               </button>
-              <button 
-                className="p-2 text-gray-600 hover:bg-gray-100" 
-                onClick={() => setShowMobileProfileModal(true)}
-              >
-                <MoreHorizontal className="h-5 w-5" />
-              </button>
             </div>
           </div>
         </div>
@@ -626,15 +617,6 @@ export default function Profile() {
           onClose={() => setShowFollowingModal(false)} 
           type="following" 
           userId={profile.id} 
-        />
-        
-
-        
-        {/* Mobile Profile Modal */}
-        <MobileProfileModal
-          isOpen={showMobileProfileModal}
-          onClose={() => setShowMobileProfileModal(false)}
-          profileUrl={profile.profile_url}
         />
       </div>
     );

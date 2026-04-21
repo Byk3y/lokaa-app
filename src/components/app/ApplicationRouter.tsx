@@ -202,9 +202,8 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
           </Suspense>
         } />
         
-        {/* Fix for incorrect profile routes */}
+        {/* Redirect bare /profile to settings — canonical user profiles are /profile/:slug */}
         <Route path="/profile" element={<Navigate to="/settings/profile" replace />} />
-        <Route path="/profile/space/feed" element={<Navigate to="/settings/profile" replace />} />
         
         {/* Public space about page - no auth required */}
         <Route path="/:subdomain/about" element={
@@ -317,8 +316,7 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
             {/* NEW: Slug-based content routes (member-only) */}
             <Route path="/:subdomain/space/classroom/:courseSlug" element={<div />} />
             <Route path="/:subdomain/space/classroom/:courseSlug/:lessonSlug" element={<div />} />
-            <Route path="/:subdomain/profile/:username" element={<div />} />
-            
+
             {/* Discover page - moved inside persistent shell to prevent unmounting during navigation */}
             <Route path="/discover" element={<div />} />
           </Route>
@@ -365,12 +363,6 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
               </Suspense>
             } />
             
-            {/* Profile redirects (global to space-specific) */}
-            <Route path="/profile/:uuid" element={
-              <Suspense fallback={<SpaceLoadingFallback />}>
-                <LazyRoutes.ProfileLegacyRedirect />
-              </Suspense>
-            } />
           </Route>
 
           {/* Messages route - redirect to homepage since we use modals for messaging */}
@@ -446,13 +438,6 @@ const ApplicationRouter = withAuthSafety(function ApplicationRouter() {
           <Route path="/:subdomain/leaderboard" element={<Navigate to="/:subdomain/space/leaderboard" replace />} />
         </Route>
         
-        {/* Profile Routes - Handled by ProfileRouteHandler */}
-        <Route path="/@:username/*" element={
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <ProfileRouteHandler />
-          </Suspense>
-        } />
-
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

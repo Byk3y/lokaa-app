@@ -4,11 +4,13 @@ import { Home, Users, Plus, Search } from "lucide-react";
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useCurrentUserProfileUrl } from '@/hooks/useCurrentUserProfileUrl';
 import { getInitials } from '@/shared/utils/avatar-utils';
 
 export default function BaseLayout() {
   const navigate = useNavigate();
   const { user: authUser } = useOptimizedAuth();
+  const profileSlug = useCurrentUserProfileUrl();
 
   const displayName = authUser?.user_metadata?.full_name || authUser?.email || 'User';
   const avatarUrl = authUser?.user_metadata?.avatar_url;
@@ -47,7 +49,7 @@ export default function BaseLayout() {
           </button>
           
           <button 
-            onClick={() => navigate(authUser ? `/profile/${authUser.id}` : '/settings/profile')}
+            onClick={() => navigate(profileSlug ? `/profile/${profileSlug}` : '/settings/profile')}
             className="flex flex-col items-center justify-center flex-1 py-1 h-full min-w-[44px] text-gray-600 hover:text-lokaa-500 transition-colors"
             aria-label="Profile"
           >

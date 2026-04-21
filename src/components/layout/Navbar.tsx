@@ -3,11 +3,13 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User } from "lucide-react";
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useCurrentUserProfileUrl } from '@/hooks/useCurrentUserProfileUrl';
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, signOut } = useOptimizedAuth();
+  const profileSlug = useCurrentUserProfileUrl();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -138,12 +140,9 @@ export default function Navbar() {
                         Dashboard
                       </Link>
                       <Link
-                        to="/profile"
+                        to={profileSlug ? `/profile/${profileSlug}` : '/settings/profile'}
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
-                        onClick={() => {
-                          navigate(`/profile/${user?.id || ''}`);
-                          setMobileMenuOpen(false);
-                        }}
+                        onClick={() => setMobileMenuOpen(false)}
                       >
                         <User className="mr-2 h-4 w-4" />
                         <span>My Profile</span>
