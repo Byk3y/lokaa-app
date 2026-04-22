@@ -16,6 +16,14 @@ import { log } from '@/utils/logger';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { getProtectedCurrentUser } from '@/utils/protectedAuth';
 import type { Message } from './ChatApiService';
+import type {
+  RealtimeChannel,
+  RealtimePostgresChangesPayload,
+} from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
+
+type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
+type ChatConversationRow = Database['public']['Tables']['chat_conversations']['Row'];
 
 /**
  * Real-time event types
@@ -26,12 +34,25 @@ export type RealtimeEventType =
   | 'message_update'
   | 'connection_change';
 
+// Custom event this service emits when the current user sends a message.
+// Distinguished from a postgres change by its `type` discriminator so
+// downstream listeners can tell the two apart without checking shape.
+export interface OwnMessageSentPayload {
+  type: 'own_message_sent';
+  conversationId: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastMessageSender: string;
+}
+
 /**
  * Event payload interfaces
  */
 export interface ConversationChangeEvent {
   type: 'conversation_change';
-  payload: any;
+  // Either a raw postgres_changes payload on chat_conversations or the
+  // service's own synthetic "I just sent a message" event.
+  payload: RealtimePostgresChangesPayload<ChatConversationRow> | OwnMessageSentPayload;
 }
 
 export interface NewMessageEvent {
@@ -43,7 +64,7 @@ export interface NewMessageEvent {
 
 export interface MessageUpdateEvent {
   type: 'message_update';
-  payload: any;
+  payload: RealtimePostgresChangesPayload<ChatMessageRow>;
 }
 
 export interface ConnectionChangeEvent {
@@ -69,8 +90,8 @@ export type RealtimeEventListener = (event: RealtimeEvent) => void;
  * Global subscription manager to prevent multiple connections
  */
 interface SubscriptionManager {
-  global?: any;
-  conversations: Record<string, any>;
+  global?: RealtimeChannel;
+  conversations: Record<string, RealtimeChannel>;
   validationTimer?: NodeJS.Timeout;
 }
 
@@ -148,10 +169,15 @@ export class ChatRealtimeService {
   /**
    * Handle new message from real-time subscription
    */
-  private async handleNewMessage(payload: any): Promise<void> {
+  private async handleNewMessage(
+    payload: RealtimePostgresChangesPayload<ChatMessageRow>
+  ): Promise<void> {
     try {
       log.debug('Service', '[ChatRealtimeService] New message detected:', payload);
-      const newMessage = payload.new as any;
+      // `payload.new` is the row on INSERT; on DELETE it's an empty object.
+      // This handler is only wired to INSERT events, but narrow defensively
+      // so a future caller can't silently slip a DELETE through.
+      const newMessage = payload.new as ChatMessageRow | null;
 
       if (!newMessage?.sender_id || !newMessage?.conversation_id) {
         log.warn('Service', '[ChatRealtimeService] Invalid message payload, skipping');

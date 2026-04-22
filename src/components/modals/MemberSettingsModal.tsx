@@ -1,11 +1,24 @@
 import { log } from '@/utils/logger';
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogPortal, DialogOverlay } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
 import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { useSpaceNotificationPreferences } from '@/hooks/useSpaceNotificationPreferences';
 import { DigestEmailFrequency, NotificationsEmailFrequency } from '@/types/notification';
+import { leaveSpace } from '@/features/spaces/services';
+import { toast } from '@/hooks/use-toast';
 
 export type MemberSettingsTabKey = "membership" | "notifications" | "chat" | "invite";
 
@@ -26,17 +39,56 @@ interface MemberSettingsModalProps {
 
 export default function MemberSettingsModal({ isOpen, onClose, space, user }: MemberSettingsModalProps) {
   const [activeTab, setActiveTab] = useState<MemberSettingsTabKey>("membership");
-  const [chatEnabled, setChatEnabled] = useState(true); // Default to enabled, will be loaded from user preferences
   const [isMobile, setIsMobile] = useState(false);
 
-  // Space notification preferences
-  const { 
-    preferences, 
+  // Space notification preferences (also covers the chat_enabled toggle).
+  const {
     effectivePreferences,
-    isLoading: notificationLoading, 
-    updatePreference, 
-    updateMultiplePreferences 
+    isLoading: notificationLoading,
+    updatePreference,
   } = useSpaceNotificationPreferences(space?.id || '');
+
+  // chat_enabled defaults TRUE until effective preferences load.
+  const chatEnabled = effectivePreferences?.chat_enabled ?? true;
+
+  const navigate = useNavigate();
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const isOwner = space?.userRole === 'owner';
+
+  const handleLeaveConfirm = async () => {
+    if (!space?.id || !user?.id || isOwner) return;
+    setIsLeaving(true);
+    try {
+      const ok = await leaveSpace(space.id, user.id);
+      if (!ok) {
+        toast({
+          title: "Couldn't leave this group",
+          description: "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "Left group",
+        description: `You've left ${space.name}.`,
+      });
+      setLeaveConfirmOpen(false);
+      onClose();
+      // Route home — if they were viewing the space they just left, the
+      // space shell would reject them on the next render anyway.
+      navigate('/', { replace: true });
+    } catch (err) {
+      log.error('Component', 'Leave group failed:', err);
+      toast({
+        title: "Couldn't leave this group",
+        description: err instanceof Error ? err.message : 'Unexpected error.',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLeaving(false);
+    }
+  };
 
   useEffect(() => {
     setIsMobile(shouldEnableMobileFeatures());
@@ -65,18 +117,23 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
                 You've been a member of {space?.name} since <span className="font-semibold text-gray-900">03/16/2025</span>.
               </p>
               <div className={`${isMobile ? 'mt-8' : 'mt-6'}`}>
-                <Button 
-                  variant="destructive" 
-                  className={`bg-red-500 hover:bg-red-600 text-white font-semibold ${
-                    isMobile ? 'w-full py-4 text-base' : ''
-                  }`}
-                  onClick={() => {
-                    // TODO: Implement leave group functionality
-                    log.debug('Component', 'Leave group clicked');
-                  }}
-                >
-                  LEAVE THIS GROUP
-                </Button>
+                {isOwner ? (
+                  <p className={`${isMobile ? 'text-base' : 'text-sm'} text-gray-500 italic`}>
+                    As the owner of this group, you can't leave. Transfer
+                    ownership first if you want to step away.
+                  </p>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    className={`bg-red-500 hover:bg-red-600 text-white font-semibold ${
+                      isMobile ? 'w-full py-4 text-base' : ''
+                    }`}
+                    onClick={() => setLeaveConfirmOpen(true)}
+                    disabled={isLeaving}
+                  >
+                    {isLeaving ? 'LEAVING...' : 'LEAVE THIS GROUP'}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -218,16 +275,15 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
                 <span className={`text-sm ${!chatEnabled ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
                   OFF
                 </span>
-                <button 
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 ${
-                    chatEnabled 
-                      ? 'bg-teal-500 hover:bg-teal-600' 
+                <button
+                  disabled={notificationLoading}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-60 ${
+                    chatEnabled
+                      ? 'bg-teal-500 hover:bg-teal-600'
                       : 'bg-gray-200 hover:bg-gray-300'
                   }`}
                   onClick={() => {
-                    setChatEnabled(!chatEnabled);
-                    // TODO: Save preference to backend
-                    log.debug('Component', 'Chat permissions toggled:', !chatEnabled);
+                    void updatePreference('chat_enabled', !chatEnabled);
                   }}
                   aria-label={`${chatEnabled ? 'Disable' : 'Enable'} chat messages from ${space?.name} members`}
                 >
@@ -310,9 +366,37 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
     { key: "invite" as MemberSettingsTabKey, label: "Invite" },
   ];
 
+  const leaveConfirmDialog = (
+    <AlertDialog open={leaveConfirmOpen} onOpenChange={setLeaveConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Leave {space?.name || 'this group'}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You'll lose access to posts, members, and content in this group.
+            You can rejoin later if the group is still open to you.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              void handleLeaveConfirm();
+            }}
+            disabled={isLeaving}
+            className="bg-red-500 hover:bg-red-600"
+          >
+            {isLeaving ? 'Leaving…' : 'Leave group'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   // Mobile: Full-screen layout, Desktop: Modal layout
   if (isMobile) {
     return (
+      <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogPortal>
           <div className="fixed inset-0 z-[200] h-screen w-screen flex flex-col bg-white overflow-hidden" style={{ zIndex: 200 }}>
@@ -372,11 +456,14 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
           </div>
         </DialogPortal>
       </Dialog>
+      {leaveConfirmDialog}
+      </>
     );
   }
 
   // Desktop layout (unchanged)
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[700px] flex flex-col p-0 gap-0 [&>button]:hidden">
         <DialogHeader className="px-6 py-4 border-b flex-row items-center justify-between">
@@ -438,5 +525,7 @@ export default function MemberSettingsModal({ isOpen, onClose, space, user }: Me
         </div>
       </DialogContent>
     </Dialog>
+    {leaveConfirmDialog}
+    </>
   );
 }

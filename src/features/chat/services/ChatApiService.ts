@@ -325,7 +325,14 @@ export class ChatApiService {
             user2: userIds[0]
           });
 
-        if (error) throw error;
+        if (error) {
+          // Recipient has disabled DMs via MemberSettingsModal → Chat toggle.
+          // Surface a user-friendly error the UI can pattern-match on.
+          if (typeof error.message === 'string' && error.message.includes('chat_blocked_by_recipient_preference')) {
+            throw new Error("This member isn't accepting direct messages right now.");
+          }
+          throw error;
+        }
         return { data, error: null };
       }
 

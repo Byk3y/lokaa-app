@@ -57,7 +57,6 @@ export class SEOManager {
   private currentMeta: Map<string, HTMLMetaElement> = new Map();
   private baseUrl = 'https://lokaa.app';
   private defaultImage = 'https://lokaa.app/og-default.png';
-  private edgeFunctionUrl = 'https://nmddvthcsyppyjncqfsk.supabase.co/functions/v1/seo-metadata-generator';
 
   private constructor() {
     this.initializeDefaults();
@@ -70,85 +69,28 @@ export class SEOManager {
     return SEOManager.instance;
   }
 
-  /**
-   * Update SEO metadata for current page
-   */
+  // Update SEO metadata for the current page. Client-side only: this
+  // mutates <head> AFTER hydration, so it's useful for the tab title /
+  // in-app SEO status, but crawlers and social unfurlers won't see it.
+  // For real per-page social cards we'd need SSR, build-time prerender,
+  // or a CDN edge worker that intercepts bot user-agents — see the
+  // launch checklist for the post-launch plan.
   async updateSEO(
     type: 'space' | 'post' | 'user' | 'landing' | 'course',
     identifier?: string,
-    spaceSubdomain?: string,
+    _spaceSubdomain?: string,
     additionalData?: any
   ): Promise<void> {
     try {
       log.debug('Utils', `[SEO] Updating metadata for ${type}:`, identifier);
-
-      // Fetch metadata from Edge Function
-      const metadata = await this.fetchMetadata(type, identifier, spaceSubdomain);
-      
-      if (metadata) {
-        this.applySEOData(metadata);
-        this.applyStructuredData(type, additionalData);
-        this.trackPageView(type, identifier);
-      } else {
-        log.warn('Utils', '[SEO] No metadata received, using fallback');
-        this.applyFallbackSEO(type);
-        this.applyStructuredData(type, additionalData);
-      }
-
+      this.applyFallbackSEO(type);
+      this.applyStructuredData(type, additionalData);
+      this.trackPageView(type, identifier);
     } catch (error) {
       log.error('Utils', '[SEO] Failed to update metadata:', error);
       this.applyFallbackSEO(type);
       this.applyStructuredData(type, additionalData);
     }
-  }
-
-  /**
-   * Fetch metadata from Edge Function
-   * DISABLED: Edge Function requires authentication - using fallback instead
-   */
-  private async fetchMetadata(
-    type: string,
-    identifier?: string,
-    spaceSubdomain?: string
-  ): Promise<SEOData | null> {
-    // Temporarily disabled to prevent 401 errors
-    // TODO: Re-enable when Edge Function authentication is properly configured
-    log.debug('Utils', '[SEO] Edge Function disabled - using fallback metadata');
-    return null;
-
-    // Original implementation (commented out):
-    /*
-    try {
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type,
-          identifier,
-          space_subdomain: spaceSubdomain
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const { success, metadata } = await response.json();
-      
-      if (success && metadata) {
-        log.debug('Utils', '[SEO] Metadata fetched successfully');
-        return metadata;
-      }
-
-      return null;
-
-    } catch (error) {
-      log.error('Utils', '[SEO] Edge Function request failed:', error);
-      return null;
-    }
-    */
   }
 
   /**

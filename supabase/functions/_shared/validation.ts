@@ -1,4 +1,6 @@
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkEdgeRateLimit } from './ratelimit.ts';
 
 // Centralized UUID validation for Edge Functions
 export const UUIDSchema = z.string().uuid('Invalid UUID format');
@@ -158,21 +160,64 @@ export class APIValidation {
 
   /**
    * Check rate limit
+   *
+   * Backed by the edge_rate_limit_check RPC (see
+   * supabase/migrations/20260422030949_edge_function_rate_limits.sql).
+   * Fails open if SUPABASE_URL / SERVICE_ROLE_KEY env vars are missing
+   * (e.g. local test runs) or if the RPC call errors — a broken
+   * limiter shouldn't lock real users out.
+   *
+   * Defaults: 30 requests per 15-minute window per (endpoint, user).
+   * Callers that want different values should call `checkEdgeRateLimit`
+   * directly with explicit limits.
    */
   async checkRateLimit(
     endpoint: string,
-    userId: string
+    userId: string,
+    opts: { limit?: number; windowSeconds?: number } = {}
   ): Promise<{
     allowed: boolean;
     remaining: number;
     resetAt: number;
   }> {
-    // TODO: Implement rate limiting with Redis or similar
-    // For now, return basic allowance
+    const limit = opts.limit ?? 30;
+    const windowSeconds = opts.windowSeconds ?? 15 * 60;
+
+    const admin = getRateLimitAdminClient();
+    if (!admin) {
+      return { allowed: true, remaining: limit, resetAt: Date.now() + windowSeconds * 1000 };
+    }
+
+    const result = await checkEdgeRateLimit(admin, {
+      endpoint,
+      bucketKey: `user:${userId}`,
+      limit,
+      windowSeconds,
+    });
+
     return {
-      allowed: true,
-      remaining: 100,
-      resetAt: Date.now() + 3600000
+      allowed: result.allowed,
+      remaining: result.remaining,
+      resetAt: Date.now() + result.retryAfterSeconds * 1000,
     };
   }
+}
+
+// Singleton used by edge functions (e.g. `create-post/index.ts` imports
+// `apiValidation`). Exported here rather than as a named const on the
+// class to keep the class definition tidy.
+export const apiValidation = APIValidation.getInstance();
+
+// Lazy-initialized service_role client for rate limiting. Kept at module
+// scope so we don't rebuild it on every call. Null if env vars are
+// missing (test environments).
+let _rateLimitAdmin: SupabaseClient | null | undefined;
+function getRateLimitAdminClient(): SupabaseClient | null {
+  if (_rateLimitAdmin !== undefined) return _rateLimitAdmin;
+  const url = Deno.env.get('SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  _rateLimitAdmin = (url && key)
+    ? createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+    : null;
+  return _rateLimitAdmin;
 } 

@@ -99,7 +99,10 @@ export interface SpaceNotificationPreferences {
   quiet_hours_enabled?: boolean | null;
   quiet_hours_start?: string | null;
   quiet_hours_end?: string | null;
-  
+
+  // Allow DMs from members of this space (enforced in get_or_create_conversation).
+  chat_enabled?: boolean | null;
+
   created_at?: string;
   updated_at?: string;
 }
@@ -123,6 +126,7 @@ export interface EffectiveNotificationPreferences {
   quiet_hours_enabled: boolean;
   quiet_hours_start?: string | null;
   quiet_hours_end?: string | null;
+  chat_enabled: boolean;
 }
 
 // Space with user's notification preferences
