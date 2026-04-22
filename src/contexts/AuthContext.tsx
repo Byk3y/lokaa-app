@@ -173,11 +173,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const { data: { subscription: authSubscription } } = onAuthStateChange(
           async (event, session) => {
             if (!isMounted) return;
-            
+
             // Handle auth state changes directly in AuthContext
             setSession(session);
             setUser(session?.user || null);
-            
+
             // Identify user in PostHog
             if (session?.user && posthog) {
               posthog.identify(session.user.id, {
@@ -187,7 +187,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               });
               console.log('👤 [PostHog] User identified:', session.user.id);
             }
-            
+
+            // Scope errors to the current user in Sentry (no-op if DSN unset).
+            try {
+              const { setSentryUser } = await import('@/integrations/sentry');
+              setSentryUser(session?.user ? { id: session.user.id, email: session.user.email ?? undefined } : null);
+            } catch {
+              // never let telemetry wiring break auth
+            }
+
             if (event === 'SIGNED_IN' && session?.user) {
               // Clear chat store and cache to prevent stale conversations from prior sessions
               try { conversationStore.getState().reset(); } catch {}

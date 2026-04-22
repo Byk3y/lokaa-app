@@ -65,16 +65,16 @@ describe.skipIf(!hasIntegrationEnv)('RLS: recursion canary', () => {
 
   afterAll(async () => {
     const admin = users.admin;
-    await admin.from('posts').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('notifications').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_access').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_user_points').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('membership_history').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_members').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_categories').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_setup').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('spaces').delete().eq('id', spaceId).catch(() => {});
+    await admin.from('posts').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('notifications').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_access').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_user_points').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('membership_history').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_members').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_categories').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_setup').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('spaces').delete().eq('id', spaceId).then(() => {}, () => {});
 
     // Wipe the extra top-up users' cross-schema rows, then the users.
     if (extraUserIds.length) {
@@ -91,10 +91,10 @@ describe.skipIf(!hasIntegrationEnv)('RLS: recursion canary', () => {
         'space_access',
       ];
       for (const table of tables) {
-        await admin.from(table).delete().in('user_id', extraUserIds).catch(() => {});
+        await admin.from(table).delete().in('user_id', extraUserIds).then(() => {}, () => {});
       }
-      await admin.from('users').delete().in('id', extraUserIds).catch(() => {});
-      await Promise.all(extraUserIds.map((id) => admin.auth.admin.deleteUser(id).catch(() => {})));
+      await admin.from('users').delete().in('id', extraUserIds).then(() => {}, () => {});
+      await Promise.all(extraUserIds.map((id) => admin.auth.admin.deleteUser(id).then(() => {}, () => {})));
     }
     await users.cleanup();
   });

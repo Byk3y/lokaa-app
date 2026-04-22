@@ -124,14 +124,14 @@ export async function createTestUsers(prefix: string): Promise<TestUsers> {
 
     for (const table of tables) {
       if (table === 'user_follows') {
-        await admin.from(table).delete().in('follower_id', ids).catch(() => {});
-        await admin.from(table).delete().in('following_id', ids).catch(() => {});
+        await admin.from(table).delete().in('follower_id', ids).then(() => {}, () => {});
+        await admin.from(table).delete().in('following_id', ids).then(() => {}, () => {});
         continue;
       }
-      await admin.from(table).delete().in('user_id', ids).catch(() => {});
+      await admin.from(table).delete().in('user_id', ids).then(() => {}, () => {});
     }
     // public.users.id has a FK to auth.users; delete public.users first.
-    await admin.from('users').delete().in('id', ids).catch(() => {});
+    await admin.from('users').delete().in('id', ids).then(() => {}, () => {});
 
     await Promise.all(
       ids.map((id) =>

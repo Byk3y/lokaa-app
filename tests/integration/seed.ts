@@ -32,8 +32,14 @@ export async function seedPrivateSpaceWithPosts(
 
   const spaceId = space.id as string;
 
+  // The owner is auto-added by triggers on spaces INSERT
+  // (auto_add_space_owner_as_admin + on_space_created_add_owner_to_members).
+  // Re-inserting them here triggers a unique-constraint violation that
+  // fails the ENTIRE batch — including the member rows — so member1 and
+  // member2 never become active members. That silently flipped
+  // "member sees all 3 posts" into "member sees only their own post".
+  // Insert only the non-owner rows.
   await admin.from('space_members').insert([
-    { space_id: spaceId, user_id: users.owner.id, role: 'admin', status: 'active' },
     { space_id: spaceId, user_id: users.member1.id, role: 'member', status: 'active' },
     { space_id: spaceId, user_id: users.member2.id, role: 'member', status: 'active' },
   ]);
@@ -53,15 +59,15 @@ export async function seedPrivateSpaceWithPosts(
     // auto-populate space_members, space_setup, space_categories, and
     // space_user_points for the owner; spaces DELETE leaves those
     // behind, so wipe them first.
-    await admin.from('posts').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_access').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_user_points').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('membership_history').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_members').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_categories').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_setup').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('spaces').delete().eq('id', spaceId).catch(() => {});
+    await admin.from('posts').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_access').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_user_points').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('membership_history').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_members').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_categories').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_setup').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('spaces').delete().eq('id', spaceId).then(() => {}, () => {});
   };
 
   return {
@@ -171,20 +177,20 @@ export async function seedClassroomWithPaywall(
   if (enrollErr) throw enrollErr;
 
   const cleanup = async () => {
-    await admin.from('course_enrollments').delete().in('course_id', [openCourseId, paidCourseId]).catch(() => {});
-    await admin.from('lesson_completions').delete().in('course_id', [openCourseId, paidCourseId]).catch(() => {});
-    await admin.from('course_lessons').delete().in('id', [openLessonId, paidLessonId]).catch(() => {});
-    await admin.from('course_modules').delete().in('id', [openModuleId, paidModuleId]).catch(() => {});
-    await admin.from('courses').delete().in('id', [openCourseId, paidCourseId]).catch(() => {});
-    await admin.from('posts').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_access').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_user_points').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('membership_history').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_members').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_categories').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_setup').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('spaces').delete().eq('id', spaceId).catch(() => {});
+    await admin.from('course_enrollments').delete().in('course_id', [openCourseId, paidCourseId]).then(() => {}, () => {});
+    await admin.from('lesson_completions').delete().in('course_id', [openCourseId, paidCourseId]).then(() => {}, () => {});
+    await admin.from('course_lessons').delete().in('id', [openLessonId, paidLessonId]).then(() => {}, () => {});
+    await admin.from('course_modules').delete().in('id', [openModuleId, paidModuleId]).then(() => {}, () => {});
+    await admin.from('courses').delete().in('id', [openCourseId, paidCourseId]).then(() => {}, () => {});
+    await admin.from('posts').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_access').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_user_points').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('membership_history').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_members').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_categories').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_setup').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('spaces').delete().eq('id', spaceId).then(() => {}, () => {});
   };
 
   return {

@@ -26,6 +26,65 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run test:security:coverage` - Security tests with coverage
 - `npm run ci:security` - Security tests for CI (90% coverage required)
 
+### Integration tests (RLS + edge-function logic against live Supabase)
+
+- `npm run test:integration` - Vitest suite in `tests/integration/`. Exercises
+  RLS policies end-to-end by signing four test users in through the anon
+  key and asserting what each one can SELECT, INSERT, UPDATE. Also
+  verifies the `get_or_create_conversation` RPC, titleless-post trigger,
+  recursion canary, classroom paywall, chat partner-name resolution,
+  and the `chat_enabled` preference gate.
+
+**When to run them:**
+- After any migration in `supabase/migrations/` that touches RLS
+  policies, SECURITY DEFINER functions, or views
+  (`user_conversations_secure`, etc.). Most regressions in this
+  codebase's history have been silent RLS policy breakages — this
+  suite is the safety net.
+- After changing `get_or_create_conversation`, `check_is_space_member`,
+  `check_user_can_*_course`, or any similar helper used by a policy.
+- After changing the chat or enrollment edge logic in the client
+  service layer — several tests assert the RPC contract the client
+  relies on.
+- Before tightening any existing RLS policy — run first to confirm
+  the suite is green, then re-run to verify the tightening didn't
+  break a legitimate access path.
+
+**How it's wired:**
+- Config: `vitest.integration.config.ts`. Node environment, 120s timeout.
+- Requires three env vars: `SUPABASE_INT_URL`, `SUPABASE_INT_ANON_KEY`,
+  `SUPABASE_INT_SERVICE_ROLE_KEY`. Without them, every describe-block
+  skips via `describe.skipIf(!hasIntegrationEnv)`.
+- One-liner to run locally (reads from `.env`, env inline for the command):
+  ```
+  export SUPABASE_INT_URL="$(grep -E '^VITE_SUPABASE_URL=' .env | head -1 | cut -d'=' -f2-)"
+  export SUPABASE_INT_ANON_KEY="$(grep -E '^VITE_SUPABASE_ANON_KEY=' .env | head -1 | cut -d'=' -f2-)"
+  export SUPABASE_INT_SERVICE_ROLE_KEY="$(grep -E '^SUPABASE_SERVICE_ROLE_KEY=' .env | head -1 | cut -d'=' -f2-)"
+  npm run test:integration
+  ```
+
+**Permissions warning — ALWAYS ask before running:**
+- These tests use the Supabase `service_role` key, which bypasses
+  RLS. They create ~4 real auth.users rows per test file, seed
+  spaces/posts/courses/conversations, then tear everything down.
+- They run against whatever project `VITE_SUPABASE_URL` points at —
+  typically prod. On Free tier there's no branch option, so prod IS
+  the target.
+- If teardown fails (has happened when Supabase-JS updates change the
+  builder's Promise semantics), test rows can linger. The naming
+  prefixes are distinctive (`@integration-test.invalid`,
+  `@integration.invalid`, subdomains starting with `rls-`, `chat-pref-`,
+  `chat-partner-`, `notif-trigger-`) so you can always clean up via
+  SQL, but don't assume teardown always works.
+- **Claude must request explicit confirmation before running this
+  suite.** One-time "yes, run the integration tests" per session is
+  enough; auto mode alone is not sufficient authorization because
+  service_role + prod is the combination.
+
+**Known gotcha:** triggers on `spaces` INSERT auto-add the owner to
+`space_members`. Don't re-insert the owner row in seed code — batch
+insert will fail the whole batch on the unique-constraint violation.
+
 ## Architecture Overview
 
 ### Organization Pattern

@@ -73,19 +73,19 @@ describe.skipIf(!hasIntegrationEnv)('chat_enabled preference + DM enforcement', 
       .in('user_id', allUserIds);
     const convIds = Array.from(new Set((parts ?? []).map((p) => p.conversation_id as string)));
     if (convIds.length) {
-      await admin.from('chat_messages').delete().in('conversation_id', convIds).catch(() => {});
-      await admin.from('chat_participants').delete().in('conversation_id', convIds).catch(() => {});
-      await admin.from('chat_conversations').delete().in('id', convIds).catch(() => {});
+      await admin.from('chat_messages').delete().in('conversation_id', convIds).then(() => {}, () => {});
+      await admin.from('chat_participants').delete().in('conversation_id', convIds).then(() => {}, () => {});
+      await admin.from('chat_conversations').delete().in('id', convIds).then(() => {}, () => {});
     }
 
-    await admin.from('space_notification_preferences').delete().in('space_id', spaceIds).catch(() => {});
-    await admin.from('space_access').delete().in('space_id', spaceIds).catch(() => {});
-    await admin.from('space_user_points').delete().in('space_id', spaceIds).catch(() => {});
-    await admin.from('membership_history').delete().in('space_id', spaceIds).catch(() => {});
-    await admin.from('space_members').delete().in('space_id', spaceIds).catch(() => {});
-    await admin.from('space_categories').delete().in('space_id', spaceIds).catch(() => {});
-    await admin.from('space_setup').delete().in('space_id', spaceIds).catch(() => {});
-    await admin.from('spaces').delete().in('id', spaceIds).catch(() => {});
+    await admin.from('space_notification_preferences').delete().in('space_id', spaceIds).then(() => {}, () => {});
+    await admin.from('space_access').delete().in('space_id', spaceIds).then(() => {}, () => {});
+    await admin.from('space_user_points').delete().in('space_id', spaceIds).then(() => {}, () => {});
+    await admin.from('membership_history').delete().in('space_id', spaceIds).then(() => {}, () => {});
+    await admin.from('space_members').delete().in('space_id', spaceIds).then(() => {}, () => {});
+    await admin.from('space_categories').delete().in('space_id', spaceIds).then(() => {}, () => {});
+    await admin.from('space_setup').delete().in('space_id', spaceIds).then(() => {}, () => {});
+    await admin.from('spaces').delete().in('id', spaceIds).then(() => {}, () => {});
     await users.cleanup();
   });
 

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 
@@ -86,6 +87,30 @@ export default defineConfig(({ mode }) => ({
       globals: { global: true, process: true, Buffer: true },
       overrides: { fs: 'memfs' },
     }),
+    // Sentry source-map upload. Fully inert unless SENTRY_AUTH_TOKEN
+    // is set on the build host (prod deploy), so local dev and
+    // open-source forks don't trip over missing Sentry credentials.
+    // Must come AFTER all other JS-transforming plugins so it sees
+    // the final output bundle.
+    ...(process.env.SENTRY_AUTH_TOKEN
+      ? [
+          sentryVitePlugin({
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            org: process.env.SENTRY_ORG || 'lokaa',
+            project: process.env.SENTRY_PROJECT || 'lokaa-app',
+            release: {
+              name: process.env.VITE_APP_VERSION,
+            },
+            // Upload + delete source maps after upload so they don't
+            // ship to users (avoids exposing original source on the CDN).
+            sourcemaps: {
+              filesToDeleteAfterUpload: ['./dist/**/*.map'],
+            },
+            // Silent unless something goes wrong.
+            silent: !process.env.SENTRY_DEBUG,
+          }),
+        ]
+      : []),
   ],
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
@@ -118,7 +143,11 @@ export default defineConfig(({ mode }) => ({
     minify: 'esbuild',
     cssCodeSplit: true,
     chunkSizeWarningLimit: 500,
-    sourcemap: false,
+    // Generate source maps only when Sentry is configured — the plugin
+    // above uploads them and then deletes them, so they never ship.
+    // Keeping this false for local prod builds avoids a ~30% build-time
+    // and disk-size cost.
+    sourcemap: !!process.env.SENTRY_AUTH_TOKEN,
     assetsDir: 'assets',
     rollupOptions: {
       output: {

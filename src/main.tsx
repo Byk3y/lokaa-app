@@ -2,6 +2,12 @@ import { log } from '@/utils/logger';
 // Load polyfills first
 import './polyfills'
 
+// Initialize Sentry as early as possible so setup-time errors are caught.
+// No-op if VITE_SENTRY_DSN isn't set or we're not in prod; safe to call
+// unconditionally.
+import { initSentry } from '@/integrations/sentry'
+initSentry()
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 

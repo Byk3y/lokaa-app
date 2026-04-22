@@ -53,16 +53,16 @@ describe.skipIf(!hasIntegrationEnv)('RLS: course_enrollments INSERT gate', () =>
 
   afterAll(async () => {
     const admin = users.admin;
-    await admin.from('course_enrollments').delete().in('course_id', [openCourseId, paidCourseId]).catch(() => {});
-    await admin.from('courses').delete().in('id', [openCourseId, paidCourseId]).catch(() => {});
-    await admin.from('space_access').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_user_points').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('membership_history').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_members').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_categories').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('space_setup').delete().eq('space_id', spaceId).catch(() => {});
-    await admin.from('spaces').delete().eq('id', spaceId).catch(() => {});
+    await admin.from('course_enrollments').delete().in('course_id', [openCourseId, paidCourseId]).then(() => {}, () => {});
+    await admin.from('courses').delete().in('id', [openCourseId, paidCourseId]).then(() => {}, () => {});
+    await admin.from('space_access').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_user_points').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_notification_preferences').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('membership_history').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_members').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_categories').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('space_setup').delete().eq('space_id', spaceId).then(() => {}, () => {});
+    await admin.from('spaces').delete().eq('id', spaceId).then(() => {}, () => {});
     await users.cleanup();
   });
 

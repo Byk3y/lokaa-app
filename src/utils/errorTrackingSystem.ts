@@ -14,6 +14,7 @@ import { devLogger } from './developmentLogger';
 import { performanceMonitor } from './performanceMonitor';
 // import { getSupabaseClient } from './supabase';
 import { unifiedRealtimeSystem } from './unifiedRealtimeSystem';
+import { captureException as sentryCapture } from '@/integrations/sentry';
 
 export interface ErrorSeverity {
   level: 'low' | 'medium' | 'high' | 'critical';
@@ -249,6 +250,25 @@ class ErrorTrackingSystem {
     // Add to report queue if auto-reporting is enabled
     if (errorData.severity.autoReport) {
       this.queueErrorReport(errorReport);
+    }
+
+    // Mirror to Sentry for remote visibility. No-op in dev / when DSN
+    // isn't set. Wrapped in try/catch so a broken reporter never
+    // cascades back into the local tracker.
+    try {
+      const err = errorData.stack
+        ? Object.assign(new Error(errorData.message), { stack: errorData.stack })
+        : new Error(errorData.message);
+      sentryCapture(err, {
+        type: errorData.type,
+        severity: errorData.severity.level,
+        fingerprint,
+        errorBoundary: errorData.errorBoundary,
+        componentStack: errorData.componentStack,
+        spaceId: errorData.spaceId,
+      });
+    } catch {
+      // intentional: never let the reporter break the tracker
     }
 
     // Log error appropriately
