@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { Attachment, VideoInfo } from '../types';
+import { uploadOptimizedImage } from '@/utils/optimizedImageUpload';
 import { 
   generateStoragePath,
   isImageUrl
@@ -86,28 +87,44 @@ export function useAttachments({
         // Generate storage path
         const storagePath = generateStoragePath(spaceId, userId, file.name);
         
-        // Upload to Supabase storage first
-        const { error: uploadError, data } = await getSupabaseClient().storage
-          .from('post-attachments')
-          .upload(storagePath, file, {
-            cacheControl: '3600',
+        let publicUrl: string;
+
+        if (file.type.startsWith('image/')) {
+          setUploadingFiles(prev => new Map(prev).set(fileId, 35));
+          const result = await uploadOptimizedImage({
+            file,
+            bucket: 'post-attachments',
+            path: storagePath,
+            intent: 'postImage',
             upsert: false,
-            // @ts-ignore - onUploadProgress is not in the official types yet
-            onUploadProgress: (progress) => {
-              const percentage = Math.round((progress.loaded / progress.total) * 100);
-              setUploadingFiles(prev => new Map(prev).set(fileId, percentage));
-            }
+            cacheControl: '3600'
           });
-          
-        if (uploadError) {
-          log.error('Hook', 'Upload error:', uploadError);
-          throw uploadError;
+          publicUrl = result.publicUrl;
+          setUploadingFiles(prev => new Map(prev).set(fileId, 85));
+        } else {
+          // Upload non-image files to Supabase storage as-is
+          const { error: uploadError } = await getSupabaseClient().storage
+            .from('post-attachments')
+            .upload(storagePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+              // @ts-ignore - onUploadProgress is not in the official types yet
+              onUploadProgress: (progress) => {
+                const percentage = Math.round((progress.loaded / progress.total) * 100);
+                setUploadingFiles(prev => new Map(prev).set(fileId, percentage));
+              }
+            });
+
+          if (uploadError) {
+            log.error('Hook', 'Upload error:', uploadError);
+            throw uploadError;
+          }
+
+          const { data: { publicUrl: uploadedPublicUrl } } = getSupabaseClient().storage
+            .from('post-attachments')
+            .getPublicUrl(storagePath);
+          publicUrl = uploadedPublicUrl;
         }
-        
-        // Get public URL
-        const { data: { publicUrl } } = getSupabaseClient().storage
-          .from('post-attachments')
-          .getPublicUrl(storagePath);
           
         log.debug('Hook', `Upload successful for ${file.name}. Public URL: ${publicUrl}`);
         

@@ -1,5 +1,6 @@
 import { log } from '@/utils/logger';
 import { getSupabaseClient } from "@/integrations/supabase/client";
+import { uploadOptimizedImage } from "@/utils/optimizedImageUpload";
 
 /**
  * Uploads a profile image to Supabase Storage and updates the user's metadata
@@ -19,24 +20,16 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     const fileName = `${Date.now()}.jpg`;
     const filePath = `profiles/${user.id}/${fileName}`;
     
-    // Upload the file to Supabase Storage
-    const { error } = await getSupabaseClient().storage
-      .from('avatars')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true, // Overwrite if file exists
-        contentType: file instanceof File ? file.type : 'image/jpeg',
-      });
-    
-    if (error) {
-      log.error('Utils', 'Error uploading image:', error);
-      return null;
-    }
-    
-    // Get the public URL for the uploaded image
-    const { data: { publicUrl } } = getSupabaseClient().storage
-      .from('avatars')
-      .getPublicUrl(filePath);
+    const uploadableFile = file instanceof File ? file : new File([file], fileName, { type: 'image/jpeg' });
+
+    const { publicUrl } = await uploadOptimizedImage({
+      file: uploadableFile,
+      bucket: 'avatars',
+      path: filePath,
+      intent: 'avatar',
+      upsert: true,
+      cacheControl: '3600'
+    });
     
     if (!publicUrl) {
       log.error('Utils', 'Failed to get public URL for uploaded image');
@@ -44,7 +37,7 @@ export const uploadProfileImage = async (file: File | Blob): Promise<string | nu
     }
     
     // Update user metadata with the new avatar URL
-    const { error } = await getSupabaseClient().auth.updateUser({
+    await getSupabaseClient().auth.updateUser({
       data: { 
         avatar_url: publicUrl,
         avatar_path: filePath,
