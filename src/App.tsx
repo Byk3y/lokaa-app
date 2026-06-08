@@ -59,7 +59,7 @@ export default function App() {
   // Phase 3.2: Initialize performance optimizations
   useEffect(() => {
     initCriticalCSS({
-      enabled: import.meta.env.PROD,
+      enabled: false,
       maxSize: 14000,
     });
 
