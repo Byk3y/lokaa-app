@@ -283,7 +283,7 @@ export class FileValidationService {
         errors: []
       };
 
-    } catch (error) {
+    } catch {
       return {
         isValid: false,
         errors: ['Failed to validate document content']

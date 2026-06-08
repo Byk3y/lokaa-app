@@ -1006,7 +1006,7 @@
 
   [data-radix-dialog-content],
   [data-state="open"][data-radix-dialog-content],
-  .fixed.left-\\[50\\%\\].top-\\[50\\%\\],
+  .fixed.left-\[50\%\].top-\[50\%\],
   .post-detail-modal-fullscreen {
     /* Use inset-0 to cover all sides */
     left: 0 !important;

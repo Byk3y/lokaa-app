@@ -1,6 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { generateSlug, getUniqueSlug } from '../slugUtils';
-import { getSupabaseClient } from '@/integrations/supabase/client';
 
 describe('slugUtils', () => {
   describe('generateSlug', () => {

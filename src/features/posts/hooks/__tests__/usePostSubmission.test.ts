@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { usePostSubmission } from '../usePostSubmission';
 import { generateSlug } from '@/utils/slugUtils';
 import type { PostCardProps } from '@/features/posts/types/postCard';
+import { getSupabaseClient } from '@/integrations/supabase/client';
 
 // Mock react-router-dom's useNavigate
 const mockNavigate = vi.fn();
@@ -10,19 +11,68 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate
 }));
 
-// Mock Supabase client
+const createSupabaseMock = (overrides?: {
+  postError?: Error;
+  postData?: Record<string, unknown>;
+}) => {
+  const postData = {
+    id: 'test-id',
+    title: 'Test Post',
+    content: 'Test content',
+    slug: 'test-slug',
+    created_at: '2026-01-01T00:00:00.000Z',
+    ...overrides?.postData,
+  };
+
+  const createBuilder = (table: string) => {
+    const builder: any = {
+      insert: vi.fn(() => builder),
+      update: vi.fn(() => builder),
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      single: vi.fn(() => {
+        if (table === 'posts') {
+          return Promise.resolve({
+            data: overrides?.postError ? null : postData,
+            error: overrides?.postError ?? null,
+          });
+        }
+
+        if (table === 'users') {
+          return Promise.resolve({
+            data: {
+              id: 'user-123',
+              full_name: 'Test User',
+              avatar_url: null,
+              profile_url: 'test-user',
+              activity_score: 0,
+            },
+            error: null,
+          });
+        }
+
+        if (table === 'spaces') {
+          return Promise.resolve({
+            data: { id: 'space-123', subdomain: 'test-space' },
+            error: null,
+          });
+        }
+
+        return Promise.resolve({ data: null, error: null });
+      }),
+    };
+
+    return builder;
+  };
+
+  return {
+    from: vi.fn((table: string) => createBuilder(table)),
+    rpc: vi.fn(() => Promise.resolve({ data: 'test-slug', error: null })),
+  };
+};
+
 vi.mock('@/integrations/supabase/client', () => ({
-  getSupabaseClient: () => ({
-    from: vi.fn(() => ({
-      insert: vi.fn(() => Promise.resolve({ data: { id: 'test-id', slug: 'test-slug' }, error: null })),
-      update: vi.fn(() => Promise.resolve({ data: { id: 'test-id', slug: 'test-slug' }, error: null })),
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn(() => Promise.resolve({ data: { id: 'test-id', slug: 'test-slug' }, error: null }))
-        }))
-      }))
-    }))
-  })
+  getSupabaseClient: vi.fn(),
 }));
 
 // Mock useSpaceSettingsStore
@@ -41,6 +91,7 @@ const mockHistoryPushState = vi.fn();
 describe('usePostSubmission', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getSupabaseClient).mockReturnValue(createSupabaseMock() as any);
     // Mock window.history.pushState
     window.history.pushState = mockHistoryPushState;
     // Mock window.innerWidth to test mobile vs desktop behavior
@@ -58,7 +109,7 @@ describe('usePostSubmission', () => {
     expect(slug).toBe('make-it-happen');
   });
 
-  it('navigates to slug URL after creating a post on mobile', async () => {
+  it('creates a post on mobile without direct navigation', async () => {
     // Simulate mobile device
     window.innerWidth = 480;
 
@@ -71,21 +122,22 @@ describe('usePostSubmission', () => {
     
     const { result } = renderHook(() => usePostSubmission(mockProps));
     
-    await result.current.submitPost({
-      title: 'Test Post',
-      content: 'Test content',
-      attachments: []
+    let response: Awaited<ReturnType<typeof result.current.submitPost>>;
+    await act(async () => {
+      response = await result.current.submitPost({
+        title: 'Test Post',
+        content: 'Test content',
+        attachments: []
+      });
     });
     
-    // On mobile, it should navigate to the post URL
-    expect(mockNavigate).toHaveBeenCalledWith('/test-space/space/test-post');
-    // Modal should not be opened on mobile
+    expect(response!.success).toBe(true);
+    expect(mockNavigate).not.toHaveBeenCalled();
     expect(mockProps.openPostModal).not.toHaveBeenCalled();
-    // onPostCreated should be called
     expect(mockProps.onPostCreated).toHaveBeenCalled();
   });
 
-  it('pushes slug URL to history without navigation on desktop', async () => {
+  it('creates a post on desktop without direct history mutation', async () => {
     // Simulate desktop device
     window.innerWidth = 1024;
 
@@ -98,24 +150,23 @@ describe('usePostSubmission', () => {
     
     const { result } = renderHook(() => usePostSubmission(mockProps));
     
-    await result.current.submitPost({
-      title: 'Test Post',
-      content: 'Test content',
-      attachments: []
+    let response: Awaited<ReturnType<typeof result.current.submitPost>>;
+    await act(async () => {
+      response = await result.current.submitPost({
+        title: 'Test Post',
+        content: 'Test content',
+        attachments: []
+      });
     });
     
-    // On desktop, it should update the URL without navigation
-    expect(mockHistoryPushState).toHaveBeenCalled();
-    const [state, title, url] = mockHistoryPushState.mock.calls[0];
-    expect(url).toBe('/test-space/space/test-post');
-    
-    // Modal should be opened on desktop
-    expect(mockProps.openPostModal).toHaveBeenCalled();
-    // onPostCreated should be called
+    expect(response!.success).toBe(true);
+    expect(mockHistoryPushState).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockProps.openPostModal).not.toHaveBeenCalled();
     expect(mockProps.onPostCreated).toHaveBeenCalled();
   });
 
-  it('updates URL when slug changes after editing a post', async () => {
+  it('updates a post without direct history mutation', async () => {
     // Simulate desktop device
     window.innerWidth = 1024;
 
@@ -143,18 +194,17 @@ describe('usePostSubmission', () => {
     
     const { result } = renderHook(() => usePostSubmission(mockProps));
     
-    await result.current.submitPost({
-      title: 'Updated Post',
-      content: 'Updated content',
-      attachments: []
+    let response: Awaited<ReturnType<typeof result.current.submitPost>>;
+    await act(async () => {
+      response = await result.current.submitPost({
+        title: 'Updated Post',
+        content: 'Updated content',
+        attachments: []
+      });
     });
     
-    // URL should be updated since slug changed
-    expect(mockHistoryPushState).toHaveBeenCalled();
-    const [state, title, url] = mockHistoryPushState.mock.calls[0];
-    expect(url).toBe('/test-space/space/updated-post');
-    
-    // onPostUpdated should be called
+    expect(response!.success).toBe(true);
+    expect(mockHistoryPushState).not.toHaveBeenCalled();
     expect(mockProps.onPostUpdated).toHaveBeenCalled();
   });
 
@@ -173,26 +223,21 @@ describe('usePostSubmission', () => {
       attachments: [],
     };
 
-    const response = await result.current.submitPost(post);
+    let response: Awaited<ReturnType<typeof result.current.submitPost>>;
+    await act(async () => {
+      response = await result.current.submitPost(post);
+    });
 
-    expect(response.success).toBe(true);
-    expect(response.postId).toBe('test-id');
-    expect(response.slug).toBe('test-slug');
+    expect(response!.success).toBe(true);
+    expect(response!.postId).toBe('test-id');
+    expect(response!.slug).toBe('test-slug');
     expect(mockProps.onPostCreated).toHaveBeenCalled();
   });
 
   it('should handle submission errors', async () => {
-    vi.mocked(getSupabaseClient).mockImplementationOnce(() => ({
-      from: vi.fn(() => ({
-        insert: vi.fn(() => Promise.resolve({ data: null, error: new Error('Submission failed') })),
-        update: vi.fn(() => Promise.resolve({ data: null, error: new Error('Submission failed') })),
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() => Promise.resolve({ data: null, error: new Error('Submission failed') }))
-          }))
-        }))
-      }))
-    }));
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      createSupabaseMock({ postError: new Error('Submission failed') }) as any
+    );
 
     const mockProps = {
       spaceId: 'test-space',
@@ -208,10 +253,13 @@ describe('usePostSubmission', () => {
       attachments: [],
     };
 
-    const response = await result.current.submitPost(post);
+    let response: Awaited<ReturnType<typeof result.current.submitPost>>;
+    await act(async () => {
+      response = await result.current.submitPost(post);
+    });
 
-    expect(response.success).toBe(false);
-    expect(response.error).toBe('Submission failed');
+    expect(response!.success).toBe(false);
+    expect(response!.error).toBe('Submission failed');
     expect(mockProps.onPostCreated).not.toHaveBeenCalled();
   });
-}); 
+});

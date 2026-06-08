@@ -1,12 +1,8 @@
 import { log } from '@/utils/logger';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { getSupabaseClient } from '@/integrations/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
 import type { PostCardProps } from '../types/postCard';
 import type { Attachment } from '../types';
-import { devLogger } from '@/utils/developmentLogger';
-import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 
 // Simple category type to avoid import issues
 interface SpaceCategory {
@@ -54,12 +50,10 @@ export function usePostSubmission({
   editMode = false,
   post,
   onPostCreated,
-  onPostUpdated,
-  openPostModal
+  onPostUpdated
 }: UsePostSubmissionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   /**
    * Submit a post (create new or update existing)
@@ -70,8 +64,7 @@ export function usePostSubmission({
     categoryId,
     attachments,
     pollData,
-    categories = [],
-    content_gif_url
+    categories = []
   }: SubmitPostParams): Promise<PostApiResponse> => {
     setIsSubmitting(true);
     setSubmitError(null);
@@ -158,8 +151,8 @@ export function usePostSubmission({
           .single();
 
         if (postError) {
-          console.error('Post insert error:', postError);
-          console.error('Post data being inserted:', {
+          log.error('Hook', 'Post insert error:', postError);
+          log.error('Hook', 'Post data being inserted:', {
             title: title.trim() || null,
             content: content.trim(),
             user_id: userId,
@@ -274,68 +267,7 @@ export function usePostSubmission({
           }
         }
         
-        // Fetch author data separately instead of using a join
-        let authorData = null;
         if (finalPostData) {
-          const { data: userData, error: userError } = await getSupabaseClient()
-            .from('users')
-            .select('id, full_name, avatar_url, profile_url, activity_score')
-            .eq('id', userId)
-            .single();
-            
-          if (!userError && userData) {
-            authorData = userData;
-          }
-          
-          // Fetch space data separately
-          const { data: spaceData, error: spaceError } = await getSupabaseClient()
-            .from('spaces')
-            .select('id, subdomain')
-            .eq('id', spaceId)
-            .single();
-            
-          if (!spaceError && spaceData) {
-            // Add space data to the post object
-            (finalPostData as any).space = spaceData;
-            log.debug('Hook', "Space data:", spaceData);
-          } else {
-            log.error('Hook', "Error fetching space data:", spaceError);
-          }
-        }
-
-        // Find the category from the provided categories array
-        const category = categoryId 
-          ? categories.find(cat => cat.id === categoryId) || null 
-          : null;
-        
-        // Create a post object for opening the modal
-        if (finalPostData) {
-          const newPost: PostCardProps = {
-            id: finalPostData.id,
-            spaceId: spaceId,
-            currentUserId: userId,
-            author: authorData ? {
-              id: authorData.id,
-              name: authorData.full_name || 'Unknown User',
-              avatar: authorData.avatar_url,
-              profile_url: authorData.profile_url,
-              activity_score: authorData.activity_score || 0,
-            } : { id: userId, name: 'Unknown User', avatar: null },
-            title: finalPostData.title,
-            content: finalPostData.content,
-            createdAt: finalPostData.created_at || new Date().toISOString(),
-            category: category,
-            likes: 0,
-            comments: 0,
-            media_urls: preparedAttachments as Attachment[],
-            isPinned: false,
-            isAdmin: false,
-            poll_data: pollData,
-            slug: finalPostData.slug,
-          };
-          
-          // REMOVED: URL navigation behavior for strict modal mode
-          // Simply call onPostCreated callback to refresh the feed
           if (onPostCreated) {
             onPostCreated();
           }

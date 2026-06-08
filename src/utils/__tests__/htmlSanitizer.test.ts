@@ -1,18 +1,10 @@
-import { 
-  sanitizeHtml, 
+import {
   sanitizePostContent, 
   sanitizeLessonContent, 
   sanitizeSimpleText,
   stripHtml,
   containsDangerousHtml
 } from '../htmlSanitizer';
-
-// Mock DOMPurify for testing
-vi.mock('dompurify', () => ({
-  default: {
-    sanitize: vi.fn((content) => content),
-  }
-}));
 
 describe('htmlSanitizer', () => {
   describe('sanitizePostContent', () => {
