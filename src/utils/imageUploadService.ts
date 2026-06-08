@@ -1,4 +1,4 @@
-import { getSupabaseClient } from '@/integrations/supabase/client';
+import { uploadOptimizedImage } from '@/utils/optimizedImageUpload';
 
 export interface ImageUploadResult {
   url: string;
@@ -25,12 +25,9 @@ export async function uploadEducationalContentImage(
   file: File,
   options: ImageUploadOptions
 ): Promise<ImageUploadResult> {
-  const supabase = getSupabaseClient();
-  
   // Generate unique filename
   const timestamp = Date.now();
   const randomId = Math.random().toString(36).substring(2, 8);
-  const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   const fileName = `${timestamp}-${randomId}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
   
   // Create storage path
@@ -45,35 +42,23 @@ export async function uploadEducationalContentImage(
   ].filter(Boolean).join('/');
 
   try {
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('space-media')
-      .upload(storagePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) {
-      throw new Error(`Upload failed: ${error.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('space-media')
-      .getPublicUrl(storagePath);
-
-    if (!urlData?.publicUrl) {
-      throw new Error('Failed to get public URL for uploaded image');
-    }
+    const { publicUrl, optimizedSize } = await uploadOptimizedImage({
+      file,
+      bucket: 'space-media',
+      path: storagePath,
+      intent: 'educationalImage',
+      upsert: false,
+      cacheControl: '3600'
+    });
 
     // Get image dimensions (optional)
     const dimensions = await getImageDimensions(file);
 
     return {
-      url: urlData.publicUrl,
+      url: publicUrl,
       path: storagePath,
       metadata: {
-        size: file.size,
+        size: optimizedSize,
         type: file.type,
         width: dimensions.width,
         height: dimensions.height,
