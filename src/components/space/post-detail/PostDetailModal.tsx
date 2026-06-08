@@ -362,7 +362,7 @@ export default function PostDetailModal({
             /* Mobile: Disable transitions */
             "transition-none md:transition-all",
             /* Desktop: Centered modal with constraints - reset inset on desktop */  
-            "md:left-[50%] md:top-[50%] md:right-auto md:bottom-auto md:translate-x-[-50%] md:translate-y-[-50%]",
+            "md:left-1/2 md:top-1/2 md:right-auto md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2",
             "md:max-w-3xl md:w-[90vw] md:h-auto md:max-h-[95vh] md:min-h-[400px] md:rounded-lg",
             "md:border md:gap-4",
             /* Desktop: Re-enable animations */

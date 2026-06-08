@@ -235,6 +235,9 @@ export default function BottomNav() {
 
   // ✅ SKOOL-STYLE: Keep bottom nav always visible - no hiding when keyboard opens
   // Input will overlay on top of nav instead of nav disappearing
+  if (!isMobile) {
+    return null;
+  }
   
   return (
     <div 

@@ -176,7 +176,8 @@ export function OptimizedAvatar({
       {shouldShowImage && (
         <img
           src={imageUrl}
-          alt={accessibleLabel}
+          alt=""
+          aria-hidden="true"
           className={cn(
             'w-full h-full object-cover transition-all duration-200 ease-out',
             {
