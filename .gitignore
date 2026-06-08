@@ -27,6 +27,10 @@ dev-dist
 # MCP Configuration (contains tokens)
 .mcp.json
 
+# Local agent tooling
+.codex/
+AGENTS.md
+
 # Debug files
 debug-*.js
 
