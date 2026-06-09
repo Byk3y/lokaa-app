@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useFeedLogicOptimized } from '../useFeedLogicOptimized';
 import type { FeedTabProps } from '@/types/feedTypes';
+import type { PostCardProps } from '@/features/posts/types/postCard';
 
 const mocks = vi.hoisted(() => ({
   refetchPosts: vi.fn(),
@@ -168,5 +169,35 @@ describe('useFeedLogicOptimized', () => {
 
     expect(mocks.refetchPosts).toHaveBeenCalledTimes(1);
     expect(mocks.refetchPosts).toHaveBeenCalledWith(true);
+  });
+
+  it('updates cached feed state after a post is edited', () => {
+    const updatedPost: PostCardProps = {
+      id: 'post-123',
+      spaceId: 'space-123',
+      title: 'Launch Plan Revised',
+      content: 'Updated milestone notes.',
+      editedAt: '2026-06-09T12:00:00.000Z',
+      author: {
+        id: 'user-123',
+        name: 'Ada',
+        avatar: null,
+      },
+      createdAt: '2026-06-09T10:00:00.000Z',
+      media_urls: null,
+    };
+    const { result } = renderHook(() => useFeedLogicOptimized(feedProps));
+
+    act(() => {
+      result.current.handlePostUpdated(updatedPost);
+    });
+
+    expect(mocks.handleCachedPostUpdated).toHaveBeenCalledWith('post-123', {
+      content: 'Updated milestone notes.',
+      title: 'Launch Plan Revised',
+      edited_at: '2026-06-09T12:00:00.000Z',
+      media_urls: null,
+    });
+    expect(mocks.setSelectedPost).toHaveBeenCalledWith(updatedPost);
   });
 });
