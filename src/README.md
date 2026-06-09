@@ -1,57 +1,46 @@
-# Lokaa Connect Spaces Source Code
+# Source Code
 
-This directory contains the source code for the Lokaa Connect Spaces application. The codebase follows a feature-first organization pattern as documented in [ADR-001](../docs/adr/001-feature-first-organization.md).
+`src/` contains the Vite React application. The repo is organized around a
+feature-first direction, with some legacy app-level components still under
+`src/components`.
 
-## Directory Structure
+## Current Shape
 
-```
+```text
 src/
-├── core/               # Core application code
-│   ├── auth/           # Authentication module
-│   ├── config/         # Configuration
-│   ├── layouts/        # Layout components
-│   └── router/         # Routing configuration
-├── features/           # Feature modules
-│   ├── spaces/         # Spaces feature
-│   ├── posts/          # Posts feature
-│   └── users/          # User management feature
-└── shared/             # Shared code
-    ├── components/     # Shared UI components
-    ├── utils/          # Shared utilities
-    └── services/       # Shared services
+  components/     App-level and legacy UI components
+  features/       Feature modules: posts, spaces, chat, users, search, auth
+  shared/         Cross-feature components, utilities, services, and types
+  hooks/          Shared React hooks
+  services/       Application service layer
+  integrations/   Supabase, Sentry, PostHog clients
+  stores/         Zustand stores
+  contexts/       Remaining React context providers
+  routes/         Lazy route wrappers and loading fallbacks
+  views/          Route-level page components
+  utils/          Shared runtime helpers
+  schemas/        Zod validation schemas
+  types/          Generated and hand-written app types
+  migrations/     Historical SQL files kept with source
 ```
 
-## Guidelines
+## Import Rules
 
-### Core
+- Use the `@/` alias for imports from `src`.
+- Prefer public feature exports from each feature's `index.ts`.
+- Keep shared utilities in `src/shared` when multiple features depend on them.
+- Keep feature-only implementation details inside the owning feature folder.
 
-The `core` directory contains fundamental application infrastructure that is not specific to any feature but required for the application to function.
+## State And Data
 
-### Features
+- Client state: Zustand.
+- Server/cache state: TanStack Query where appropriate.
+- Realtime and backend data: Supabase.
+- Legacy contexts remain in `src/contexts`; do not add new context providers
+  unless Zustand or a local hook is a poor fit.
 
-Each feature is a self-contained module with its own components, hooks, and utilities. Features should:
+## Related Docs
 
-1. Export a clear public API via an `index.ts` file
-2. Keep implementation details internal to the feature
-3. Minimize dependencies on other features
-4. Use shared components and utilities when appropriate
-
-### Shared
-
-The `shared` directory contains code that is used across multiple features. This includes:
-
-1. UI components with no feature-specific logic
-2. Utility functions and helpers
-3. Service interfaces for external APIs
-
-## State Management
-
-State management follows the pattern documented in [ADR-002](../docs/adr/002-zustand-for-state-management.md):
-
-1. Feature-specific state is managed within the feature using Zustand
-2. Cross-feature state is managed in dedicated stores
-3. Server state is managed with React Query
-
-## Migration
-
-The codebase is currently being migrated to this structure. See the [refactoring log](../docs/refactoring/2025-05-28-feature-first-restructuring.md) for progress updates. 
+- [ADR-001: Feature-first organization](../docs/adr/001-feature-first-organization.md)
+- [ADR-002: Zustand for state management](../docs/adr/002-zustand-for-state-management.md)
+- [docs/README.md](../docs/README.md)

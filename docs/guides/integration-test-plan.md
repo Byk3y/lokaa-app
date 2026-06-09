@@ -8,12 +8,11 @@ to verify a policy change didn't blank a feed, hide a lesson, or re-introduce a
 recursion loop. This document is the plan for the first real integration test
 harness that drives the database as a client user, not as the service role.
 
-Not yet implemented. Blocks:
-
-* A couple of hours of scaffolding work (Supabase branch, signed-in clients,
-  seed routine, vitest integration config).
-* Deciding whether the harness lives in `src/__tests__/integration/` or a
-  top-level `tests/` folder — pick one when we start.
+Status as of 2026-06-09: the harness exists under `tests/integration/` with
+signed-in Supabase clients, shared seed/setup helpers, and a dedicated
+`vitest.integration.config.ts`. This document now tracks coverage goals and
+remaining gaps. For run instructions, see
+[`tests/integration/README.md`](../../tests/integration/README.md).
 
 ## What the harness must prove
 
@@ -21,6 +20,8 @@ The goal is not coverage. It is a small set of end-to-end checks that would
 have caught every RLS regression we've shipped.
 
 ### 1. Posts — private-space visibility
+
+Status: implemented in `tests/integration/rls-posts.test.ts`.
 
 Seed: one private space, owner A, members B and C, and outsider D. Each member
 writes one post.
@@ -37,16 +38,23 @@ migration `20260421081852` and anything similar in the future.
 
 ### 2. Posts — public-space visibility
 
+Status: still needed. `tests/integration/rls-posts.test.ts` currently covers
+private-space visibility only.
+
 Same as above but `is_private = false`. Assert: D (non-member) can SELECT all
 four posts. B/C can still SELECT all four.
 
 ### 3. Space members — no recursion
+
+Status: implemented in `tests/integration/rls-recursion.test.ts`.
 
 Seed: 20 members in one space. SELECT all from `space_members` as a member.
 Assert: returns in <200ms, not a recursion error. This is the canary for the
 RLS recursion cycle that bit us five times in 2025.
 
 ### 4. Classroom paywall — open course
+
+Status: implemented in `tests/integration/rls-classroom.test.ts`.
 
 Seed: open course with one published module and one published lesson, two
 paragraphs in `lesson_content_blocks`. Members B and C of the space.
@@ -59,6 +67,9 @@ Assertions:
   lesson that B/C cannot see.
 
 ### 5. Classroom paywall — paid course, no enrollment
+
+Status: implemented in `tests/integration/rls-classroom.test.ts` and
+`tests/integration/rls-enrollment.test.ts`.
 
 Seed: same as above but `access_type = 'paid'`. B is enrolled (row in
 `course_enrollments`), C is not.
@@ -77,11 +88,15 @@ without it green.
 
 ### 6. Space-load RPC path
 
+Status: still needed unless covered by a newer test not listed here.
+
 Drive `get_space_by_subdomain`, `get_user_spaces_with_memberships`, and
 `get_public_spaces` as A/B/C/D. Assert each returns the expected shape and
 cannot leak private spaces to D.
 
 ### 7. Presence write
+
+Status: still needed unless covered by a newer test not listed here.
 
 Call `update_space_presence(user_id, space_id)` as B. Assert:
 
@@ -90,6 +105,8 @@ Call `update_space_presence(user_id, space_id)` as B. Assert:
 * Calling with someone else's user_id raises `Unauthorized`.
 
 ### 8. Paywall enrollment bypass attempt
+
+Status: implemented in `tests/integration/rls-enrollment.test.ts`.
 
 As D (not a space member), attempt to INSERT into `course_enrollments`
 directly. Assert: RLS denies the insert. This closes the "client sends an
@@ -104,8 +121,12 @@ tests/integration/
   rls-posts.test.ts     # #1, #2
   rls-recursion.test.ts # #3
   rls-classroom.test.ts # #4, #5, #8
-  rls-space-load.test.ts # #6
-  rls-presence.test.ts  # #7
+  rls-enrollment.test.ts # paid enrollment/bypass behavior
+  chat-enabled-preference.test.ts
+  chat-partner-names.test.ts
+  notifications-trigger.test.ts
+  rls-space-load.test.ts # #6, planned
+  rls-presence.test.ts  # #7, planned
 ```
 
 ### Setup skeleton
@@ -155,9 +176,10 @@ SUPABASE_INT_SERVICE_ROLE_KEY=<service role> \
 supabase-mcp delete_branch "$branch"
 ```
 
-A single `vitest` config file with a `integration` project entry keeps these
-tests out of `npm run test` by default. Only CI and the pre-ship check run
-them.
+`vitest.integration.config.ts` keeps these tests out of `npm run test` by
+default. Run them with `npm run test:integration` after setting
+`SUPABASE_INT_URL`, `SUPABASE_INT_ANON_KEY`, and
+`SUPABASE_INT_SERVICE_ROLE_KEY`.
 
 ## Success criteria
 

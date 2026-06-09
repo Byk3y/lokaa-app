@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Lokaa Connect Spaces! This docume
 
 ## Code Organization
 
-This project follows a feature-first code organization as documented in [ADR-001](./docs/adr/001-feature-first-organization.md). Please familiarize yourself with this pattern before contributing.
+This project follows a feature-first code organization as documented in [ADR-001](../adr/001-feature-first-organization.md). Please familiarize yourself with this pattern before contributing.
 
 ## Development Workflow
 
@@ -69,7 +69,7 @@ When adding a new feature:
 
 ## State Management
 
-Follow the Zustand state management pattern as documented in [ADR-002](./docs/adr/002-zustand-for-state-management.md) for any state-related changes.
+Follow the Zustand state management pattern as documented in [ADR-002](../adr/002-zustand-for-state-management.md) for any state-related changes.
 
 ## Questions and Support
 

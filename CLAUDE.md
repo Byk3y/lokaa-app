@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run test` - Run all Vitest tests
 - `npm run test:watch` - Run tests in watch mode
 - `npm run test:coverage` - Run tests with coverage report
-- `npm run test:security` - Run security-focused Jest tests
+- `npm run test:security` - Run security-focused Vitest tests
 - `npm run test:indexeddb` - Run IndexedDB-specific tests
 - `npm run check:coverage` - Validate test coverage meets requirements
 
@@ -120,7 +120,7 @@ src/
 - **Backend**: Supabase (PostgreSQL + Auth + Realtime + Storage)
 - **Routing**: React Router DOM v6
 - **Forms**: React Hook Form + Zod validation
-- **Testing**: Vitest + Jest (security) + Testing Library
+- **Testing**: Vitest + Testing Library
 
 ### Key Architectural Decisions
 - **ADR-001**: Feature-first organization for better scalability
@@ -140,7 +140,7 @@ Use `@/` for all src imports: `import { utils } from '@/lib/utils'`
 
 ### Testing Strategy
 - **Unit Tests**: Vitest for component and utility testing
-- **Security Tests**: Jest for security validation (90% coverage required)
+- **Security Tests**: Vitest security suite (90% coverage required for `ci:security`)
 - **Integration Tests**: IndexedDB and Supabase integration testing
 - **E2E Testing**: Manual testing protocols documented in TESTING_GUIDE.md
 
@@ -202,7 +202,7 @@ All security tests must pass with 90% coverage. Run `npm run test:security` befo
 - Use React.memo() for expensive components
 - Implement proper key props for lists
 - Leverage Vite's code splitting features
-- Monitor bundle size with rollup visualizer
+- Monitor bundle size through Vite build output and chunk warnings
 
 ## Troubleshooting
 
