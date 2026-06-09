@@ -19,6 +19,8 @@ import ChatButton from '@/components/chat/ChatButton';
 import ProfileDropdown from "@/components/common/ProfileDropdown";
 import ModernDropdownTrigger from "@/components/ModernDropdownTrigger";
 import SpaceContextBanner from '@/components/profile/SpaceContextBanner';
+import { MobileSearchOverlay } from '@/features/search';
+import { useSearchHook as useSearch } from '@/features/search/store/search-store';
 
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { Space } from "@/types/space";
@@ -282,6 +284,8 @@ export default function Profile() {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [spaceDrawerOpen, setSpaceDrawerOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const { setGlobalSearch, setSpaceSearch } = useSearch();
 
   // Detect mobile vs desktop for different layouts - use same detection as BottomNav
   const isMobile = shouldEnableMobileFeatures();
@@ -472,12 +476,32 @@ export default function Profile() {
             
             {/* Right: Search and Menu */}
             <div className="flex items-center gap-2">
-              <button className="p-2 text-gray-600 hover:bg-gray-100" onClick={() => navigate('/search')}>
+              <button className="p-2 text-gray-600 hover:bg-gray-100" onClick={() => setMobileSearchOpen(true)}>
                 <Search className="h-5 w-5" />
               </button>
             </div>
           </div>
         </div>
+
+        <MobileSearchOverlay
+          isOpen={mobileSearchOpen}
+          onClose={() => setMobileSearchOpen(false)}
+          spaceId={storeSpace?.id || spaceContext?.id}
+          onSearch={(query) => {
+            setMobileSearchOpen(false);
+            const targetSubdomain = currentSpaceSubdomain || storeSpace?.subdomain || spaceContext?.subdomain;
+
+            if (storeSpace?.id) {
+              setSpaceSearch(storeSpace.id, query);
+            } else {
+              setGlobalSearch(query);
+            }
+
+            if (targetSubdomain) {
+              navigate(`/${targetSubdomain}/space`);
+            }
+          }}
+        />
 
         {/* Mobile Profile Content */}
         <div className="flex-1 bg-gray-50">

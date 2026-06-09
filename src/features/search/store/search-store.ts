@@ -36,12 +36,13 @@ export const useSearchStore = create<SearchState>()((set, get) => ({
         devLogger.log('SearchStore', 'setGlobalSearch called:', { query, currentSpaceId: state.currentSpaceId });
         
         set((state) => {
+          const trimmedQuery = query.trim();
           const newState = {
             ...state,
             globalSearchQuery: query,
             spaceSearchQuery: state.currentSpaceId ? query : state.spaceSearchQuery,
             lastQuery: query,
-            isSearchActive: query.length > 0 || state.spaceSearchQuery.length > 0,
+            isSearchActive: trimmedQuery.length > 0,
           };
           return newState;
         });
@@ -69,7 +70,7 @@ export const useSearchStore = create<SearchState>()((set, get) => ({
             spaceSearchQuery: query,
             lastSpaceId: spaceId,
             lastQuery: query,
-            isSearchActive: query.length > 0,
+            isSearchActive: query.trim().length > 0,
           };
         });
       },
@@ -104,6 +105,7 @@ export function useSearchHook() {
     spaceSearchQuery: store.spaceSearchQuery,
     setGlobalSearch: store.setGlobalSearch,
     setSpaceSearch: store.setSpaceSearch,
+    updateSpaceId: store.updateSpaceId,
     clearSearch: store.clearSearch,
     // Note: searchIntegration will need to be handled separately in components
     // that need it, as Zustand stores should not directly use hooks

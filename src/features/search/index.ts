@@ -14,6 +14,7 @@ export { searchPerformanceMonitor } from '@/features/search/utils/searchPerforma
 // Components
 export { SearchPerformanceDashboard } from '@/features/search/components/SearchPerformanceDashboard';
 export { SearchFilters as SearchFiltersComponent } from '@/features/search/components/SearchFilters';
+export { MobileSearchOverlay } from '@/features/search/components/MobileSearchOverlay';
 
 // Types
 export type {
@@ -331,6 +332,41 @@ export class SearchAPI {
         searchResponseTimeMs: 0,
         cacheHitRate: 0
       };
+    }
+  }
+
+  async getPopularSearchTerms(
+    type: 'posts' | 'spaces' = 'posts',
+    limit = 5
+  ): Promise<string[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from('search_analytics')
+        .select('search_query')
+        .eq('search_type', type)
+        .order('created_at', { ascending: false })
+        .limit(Math.max(limit * 5, limit));
+
+      if (error || !data) {
+        return [];
+      }
+
+      const counts = new Map<string, number>();
+      data.forEach((row: { search_query?: string | null }) => {
+        const term = row.search_query?.trim();
+        if (!term) return;
+        counts.set(term, (counts.get(term) || 0) + 1);
+      });
+
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([term]) => term);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('🔍 [SearchAPI] Failed to load popular search terms:', error);
+      }
+      return [];
     }
   }
 

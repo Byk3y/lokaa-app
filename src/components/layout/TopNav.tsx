@@ -203,9 +203,12 @@ export default function TopNav() {
         isOpen={isMobileSearchOpen}
         onClose={() => setIsMobileSearchOpen(false)}
         spaceId={spaceData?.id}
-        onPostClick={(postId) => {
+        onSearch={(query) => {
           setIsMobileSearchOpen(false);
-          navigate(`/${spaceData?.subdomain}/space/post/${postId}`);
+          handleSearchChange(query);
+          if (spaceData?.subdomain && !location.pathname.startsWith(`/${spaceData.subdomain}/space`)) {
+            navigate(`/${spaceData.subdomain}/space`);
+          }
         }}
       />
     </header>

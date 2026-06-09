@@ -8,7 +8,7 @@ import { searchAPI } from '@/features/search';
 interface MobileSearchOverlayProps {
   isOpen: boolean;
   onClose: () => void;
-  spaceId: string;
+  spaceId?: string | null;
   onSearch: (query: string) => void;
   initialQuery?: string;
 }
@@ -45,6 +45,11 @@ export function MobileSearchOverlay({
   }, [isOpen]);
 
   const loadPopularSearches = async () => {
+    if (!spaceId) {
+      setPopularSearches([]);
+      return;
+    }
+
     try {
       const popular = await searchAPI.getPopularSearchTerms('posts', 5);
       setPopularSearches(popular);

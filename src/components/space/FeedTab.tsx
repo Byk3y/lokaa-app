@@ -25,6 +25,7 @@ import FeedModals from "./feed/FeedModals";
 
 // Search functionality imports
 import { useSearchHook as useSearch } from '@/features/search/store/search-store';
+import { useSearchIntegration } from '@/features/search/hooks/useSearchIntegration';
 
 
 
@@ -124,7 +125,25 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // SEARCH INTEGRATION
   // ============================================================================
   
-  const { searchIntegration, isSearchActive, setSpaceSearch } = useSearch();
+  const {
+    globalSearchQuery,
+    isSearchActive,
+    updateSpaceId,
+  } = useSearch();
+  const searchIntegration = useSearchIntegration({
+    spaceId: currentSpaceData?.id || null,
+    initialQuery: globalSearchQuery,
+    enableURLSync: false,
+    enableSuggestions: false,
+  });
+  const searchQuery = searchIntegration.query;
+  const setSearchQuery = searchIntegration.setQuery;
+
+  useEffect(() => {
+    if (searchQuery !== globalSearchQuery) {
+      setSearchQuery(globalSearchQuery);
+    }
+  }, [globalSearchQuery, searchQuery, setSearchQuery]);
 
   // ============================================================================
   // FEED STATE MANAGEMENT
@@ -195,19 +214,14 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
   // Update search context when space changes
   useEffect(() => {
     if (currentSpaceData?.id) {
-      // Get current search query from URL to preserve it
-      const urlParams = new URLSearchParams(window.location.search);
-      const currentQuery = urlParams.get('q') || '';
-      
-      // Inform search context about current space and preserve any existing query
-      setSpaceSearch(currentSpaceData.id, currentQuery);
+      updateSpaceId(currentSpaceData.id);
       
       if (searchIntegration) {
         // Search integration is ready
         devLogger.log('FeedTab', 'Search integration ready for space:', currentSpaceData.id);
       }
     }
-  }, [currentSpaceData?.id, searchIntegration, setSpaceSearch]);
+  }, [currentSpaceData?.id, updateSpaceId]);
 
   // ============================================================================
   // SPACE DATA FALLBACK HOOK
