@@ -5,6 +5,19 @@ import { generateSlug } from '@/utils/slugUtils';
 import type { PostCardProps } from '@/features/posts/types/postCard';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
+type QueryResult = {
+  data: Record<string, unknown> | null;
+  error: Error | null;
+};
+
+type QueryBuilder = {
+  insert: () => QueryBuilder;
+  update: () => QueryBuilder;
+  select: () => QueryBuilder;
+  eq: () => QueryBuilder;
+  single: () => Promise<QueryResult>;
+};
+
 // Mock react-router-dom's useNavigate
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
@@ -25,7 +38,7 @@ const createSupabaseMock = (overrides?: {
   };
 
   const createBuilder = (table: string) => {
-    const builder: any = {
+    const builder: QueryBuilder = {
       insert: vi.fn(() => builder),
       update: vi.fn(() => builder),
       select: vi.fn(() => builder),
@@ -91,7 +104,9 @@ const mockHistoryPushState = vi.fn();
 describe('usePostSubmission', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getSupabaseClient).mockReturnValue(createSupabaseMock() as any);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      createSupabaseMock() as unknown as ReturnType<typeof getSupabaseClient>
+    );
     // Mock window.history.pushState
     window.history.pushState = mockHistoryPushState;
     // Mock window.innerWidth to test mobile vs desktop behavior
@@ -236,7 +251,7 @@ describe('usePostSubmission', () => {
 
   it('should handle submission errors', async () => {
     vi.mocked(getSupabaseClient).mockReturnValue(
-      createSupabaseMock({ postError: new Error('Submission failed') }) as any
+      createSupabaseMock({ postError: new Error('Submission failed') }) as unknown as ReturnType<typeof getSupabaseClient>
     );
 
     const mockProps = {

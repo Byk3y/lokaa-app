@@ -12,7 +12,7 @@ interface SpaceCategory {
 }
 
 // Define a simplified Json type to avoid excessive depth error
-type SimpleJson = any;
+type SimpleJson = unknown;
 
 export type SubmitPostParams = {
   title: string;

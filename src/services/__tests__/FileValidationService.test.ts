@@ -47,7 +47,7 @@ describe('FileValidationService', () => {
         }
       }
 
-      window.Image = MockImage as any;
+      window.Image = MockImage as unknown as typeof window.Image;
       window.URL.createObjectURL = vi.fn(() => 'mock-url');
       window.URL.revokeObjectURL = vi.fn();
 
@@ -77,7 +77,7 @@ describe('FileValidationService', () => {
         }
       }
 
-      window.Image = MockImage as any;
+      window.Image = MockImage as unknown as typeof window.Image;
       window.URL.createObjectURL = vi.fn(() => 'mock-url');
       window.URL.revokeObjectURL = vi.fn();
 
@@ -105,7 +105,7 @@ describe('FileValidationService', () => {
         src: ''
       };
 
-      document.createElement = vi.fn(() => mockVideo) as any;
+      document.createElement = vi.fn(() => mockVideo) as unknown as typeof document.createElement;
       window.URL.createObjectURL = vi.fn(() => 'mock-url');
       window.URL.revokeObjectURL = vi.fn();
 
@@ -138,7 +138,7 @@ describe('FileValidationService', () => {
         src: ''
       };
 
-      document.createElement = vi.fn(() => mockVideo) as any;
+      document.createElement = vi.fn(() => mockVideo) as unknown as typeof document.createElement;
       window.URL.createObjectURL = vi.fn(() => 'mock-url');
       window.URL.revokeObjectURL = vi.fn();
 
@@ -185,7 +185,7 @@ describe('FileValidationService', () => {
           setTimeout(() => this.onload(), 0);
         }
       }
-      window.Image = MockImage as any;
+      window.Image = MockImage as unknown as typeof window.Image;
 
       const file = new File([Uint8Array.of(0x89, 0x50, 0x4e, 0x47)], 'test.jpg', { type: 'image/jpeg' });
       const result = await service.validateFile(file, 'image');
