@@ -41,7 +41,7 @@ export default function SpaceAboutPage() {
     onlineMembers, 
     adminMembers, 
     loading: countsLoading 
-  } = useSimpleMemberCounts(spaceAboutData?.id);
+  } = useSimpleMemberCounts(user && spaceAboutData?.id ? spaceAboutData.id : '');
   
   // Keep these for backward compatibility
   const [adminCount, setAdminCount] = useState<number>(0);
@@ -50,12 +50,21 @@ export default function SpaceAboutPage() {
   
   // Update state from our hook values
   useEffect(() => {
-    if (!countsLoading) {
+    if (!spaceAboutData) return;
+
+    if (user && !countsLoading) {
       setAdminCount(adminMembers);
       setOnlineCount(onlineMembers);
       setActiveMemberCount(totalMembers);
+      return;
     }
-  }, [adminMembers, onlineMembers, totalMembers, countsLoading]);
+
+    if (!user) {
+      setAdminCount(spaceAboutData.admin_count || 0);
+      setOnlineCount(spaceAboutData.online_count || 0);
+      setActiveMemberCount(spaceAboutData.member_count || 0);
+    }
+  }, [adminMembers, onlineMembers, totalMembers, countsLoading, spaceAboutData, user]);
 
   // Fetch space data when subdomain changes
   useEffect(() => {
@@ -68,12 +77,20 @@ export default function SpaceAboutPage() {
   useEffect(() => {
     const loadMedia = async () => {
       if (spaceAboutData?.id) {
+        if (spaceAboutData.media_items) {
+          setMediaItems(spaceAboutData.media_items);
+        }
+
+        if (!user) {
+          return;
+        }
+
         const items = await fetchSpaceMediaFromSupabase(spaceAboutData.id);
         setMediaItems(items);
       }
     };
     loadMedia();
-  }, [spaceAboutData?.id]);
+  }, [spaceAboutData?.id, spaceAboutData?.media_items, user]);
 
   // Check if the user is a member of this space
   useEffect(() => {

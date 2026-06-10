@@ -9,6 +9,7 @@ import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
+import type { MediaItem } from '@/shared/types/media';
 
 /**
  * Space about data interface
@@ -34,6 +35,7 @@ export interface SpaceAboutData {
   member_count: number;
   online_count?: number;
   admin_count?: number;
+  media_items?: MediaItem[];
   owner?: {
     id: string;
     full_name: string;
@@ -132,6 +134,14 @@ const toSpaceAboutData = (data: any, memberCount: number, onlineCount = 0, admin
   member_count: memberCount,
   online_count: onlineCount,
   admin_count: adminCount,
+  media_items: (data.media_items || []).map((item: any) => ({
+    id: item.id,
+    type: item.type,
+    url: item.url,
+    thumbnail: item.thumbnail || undefined,
+    videoId: item.video_id || item.videoId || undefined,
+    storagePath: item.storage_path || item.storagePath || undefined,
+  })),
   owner: data.owner,
   features: {
     chat_enabled: true,
@@ -251,10 +261,11 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
         throw new Error('Space not found');
       }
       
-      // Use cached member_count first, only fetch real-time if explicitly needed
+      // Use counts provided by the public RPC when available. Authenticated
+      // direct table loads fall back to the cached member_count.
       let memberCount = data?.member_count || 0;
-      const onlineCount = 0;
-      let adminCount = 0;
+      let onlineCount = data?.online_count || 0;
+      let adminCount = data?.admin_count || 0;
       
       // OPTIMIZATION: Skip additional queries by default to reduce resource usage
       // Only fetch real-time counts if specifically requested

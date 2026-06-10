@@ -69,8 +69,10 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  // Use only useSimpleMemberCounts for all counts
-  const { totalMembers, adminMembers, onlineMembers, loading: countsLoading } = useSimpleMemberCounts(spaceId || '');
+  const shouldFetchCounts = memberCount == null || adminCount == null || onlineCount == null;
+  const { totalMembers, adminMembers, onlineMembers, loading: countsLoading } = useSimpleMemberCounts(
+    shouldFetchCounts ? spaceId || '' : ''
+  );
 
   const resolvedCoverUrl = coverImage ? resolveImageUrl(coverImage, spaceName) : null;
   const spaceUrl = subdomain ? `lokaa.app/${subdomain}/about` : "lokaa.app/your-space/about";
