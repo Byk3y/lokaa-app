@@ -26,11 +26,9 @@ import './utils/hmrOptimizer'
 // MOBILE OPTIMIZATION: Initialize mobile component preloader
 import { MobileComponentPreloader } from './utils/mobileComponentPreloader'
 
-// Service worker temporarily disabled to fix preload errors
-// Initialize service worker manager
-// import { ServiceWorkerManager } from './utils/serviceWorkerManager';
-
-// Clear any existing service workers in all environments
+// The app does not use a service worker. This kill-switch unregisters any
+// stale service workers left registered on returning users' browsers from
+// older deploys. Keep it until we're confident none remain in the wild.
 if ('serviceWorker' in navigator && navigator.serviceWorker) {
   navigator.serviceWorker
     .getRegistrations()

@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useRealtimePostLikes } from '@/hooks/useRealtimePostLikes';
-import { NotificationTriggers } from '@/utils/notificationTriggers';
 
 interface UsePostLikesProps {
   postId: string;
@@ -33,8 +32,6 @@ export const usePostLikes = ({
   userId,
   initialLikes = 0,
   onLikeToggled,
-  postTitle,
-  postAuthorId,
 }: UsePostLikesProps): UsePostLikesReturn => {
   const [hasLikedPost, setHasLikedPost] = useState(false);
   const [optimisticLikeCount, setOptimisticLikeCount] = useState(initialLikes);
@@ -203,50 +200,15 @@ export const usePostLikes = ({
         }
       } else {
         // Like
-        const { data, error } = await getSupabaseClient()
+        const { error } = await getSupabaseClient()
           .from('post_likes')
-          .insert({ post_id: postId, user_id: userId })
-          .select('id')
-          .single();
+          .insert({ post_id: postId, user_id: userId });
 
         if (error) throw error;
 
-        // 🚀 Trigger post like notification
-        log.debug('Hook', '🔍 [usePostLikes] Checking notification trigger conditions:', {
-          postTitle: !!postTitle,
-          hasPostAuthorId: !!postAuthorId,
-          userId,
-          postAuthorId,
-          willTrigger: !!(postTitle && postAuthorId && postAuthorId !== userId)
-        });
-        
-        if (postTitle && postAuthorId && postAuthorId !== userId) {
-          try {
-            log.debug('Hook', '🚀 [usePostLikes] Triggering notification with data:', {
-              postId,
-              postTitle,
-              postAuthorId,
-              likerId: userId,
-              spaceId,
-            });
-            
-            await NotificationTriggers.onPostLiked({
-              postId,
-              postTitle,
-              postAuthorId,
-              likerId: userId,
-              spaceId,
-            });
-            log.debug('Hook', '✅ [usePostLikes] Post like notification triggered successfully');
-          } catch (notificationError) {
-            log.warn('Hook', '⚠️ [usePostLikes] Failed to trigger notification:', notificationError);
-            // Don't fail the like operation if notification fails
-          }
-        } else {
-          log.debug('Hook', '⏭️ [usePostLikes] Skipping notification trigger:', {
-            reason: !postTitle ? 'No post title' : !postAuthorId ? 'No post author ID' : 'Self-like (author === liker)'
-          });
-        }
+        // Post-like notifications are created server-side by the
+        // post_like_notification_trigger on post_likes (self-like skip,
+        // title fallback, and dedup are all handled in the DB).
       }
       // Notify parent of like count change
       if (typeof onLikeToggled === 'function') {
@@ -266,7 +228,7 @@ export const usePostLikes = ({
     } finally {
       setIsLikingInProgress(false);
     }
-  }, [userId, postId, spaceId, isLikingInProgress, hasLikedPost, optimisticLikeCount, onLikeToggled]);
+  }, [userId, postId, isLikingInProgress, hasLikedPost, optimisticLikeCount, onLikeToggled]);
 
   return {
     hasLikedPost,

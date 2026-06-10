@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useNotificationNavigate } from '@/hooks/useNotificationNavigate';
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { log } from '@/utils/logger';
 import NotificationList from './NotificationList';
-import type { NotificationType } from '@/types/notification';
+import type { NotificationWithActor } from '@/types/notification';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -33,6 +34,19 @@ export default function NotificationCenter({ isOpen, onClose, className = '', tr
     markAllAsRead,
     refresh
   } = useNotifications();
+
+  const navigateToNotification = useNotificationNavigate();
+
+  // Mark a single notification as read (NotificationItem hands us one id).
+  const handleMarkAsRead = (notificationId: string) => {
+    markAsRead([notificationId]);
+  };
+
+  // Navigate, then close the dropdown.
+  const handleNotificationNavigate = async (notification: NotificationWithActor) => {
+    onClose();
+    await navigateToNotification(notification);
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -167,7 +181,8 @@ export default function NotificationCenter({ isOpen, onClose, className = '', tr
           isLoading={isLoading}
           hasMore={hasMore}
           onLoadMore={loadMore}
-          onMarkAsRead={markAsRead}
+          onMarkAsRead={handleMarkAsRead}
+          onNavigate={handleNotificationNavigate}
           error={error}
         />
 

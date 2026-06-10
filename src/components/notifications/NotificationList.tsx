@@ -8,7 +8,8 @@ interface NotificationListProps {
   isLoading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
-  onMarkAsRead?: (notificationIds: string[]) => void;
+  onMarkAsRead: (notificationId: string) => void;
+  onNavigate: (notification: NotificationWithActor) => void;
   error?: string | null;
 }
 
@@ -18,6 +19,7 @@ export default function NotificationList({
   hasMore,
   onLoadMore,
   onMarkAsRead,
+  onNavigate,
   error
 }: NotificationListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -118,6 +120,7 @@ export default function NotificationList({
             key={notification.id}
             notification={notification}
             onMarkAsRead={onMarkAsRead}
+            onNavigate={onNavigate}
           />
         ))}
       </div>

@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Menu, MoreHorizontal } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useNotificationNavigate } from '@/hooks/useNotificationNavigate';
 import NotificationItem from '@/components/notifications/NotificationItem';
 import MobileSpaceDrawer from '@/components/mobile/MobileSpaceDrawer';
 import NotificationSettingsModal from '@/components/notifications/NotificationSettingsModal';
 import { Button } from '@/components/ui/button';
 import { log } from '@/utils/logger';
-import type { NotificationWithActor } from '@/types/notification';
-import { getSupabaseClient } from '@/integrations/supabase/client';
 
 export default function NotificationsPage() {
-  const navigate = useNavigate();
   const { user } = useOptimizedAuth();
   const {
     notifications,
@@ -59,64 +56,8 @@ export default function NotificationsPage() {
     markAsRead([notificationId]);
   };
 
-  // Handle navigation to post when notification is clicked
-  const handleNotificationNavigate = async (notification: NotificationWithActor) => {
-    log.debug('NotificationsPage', 'Navigating to notification:', notification);
-    
-    // For post-related notifications, fetch the post slug and navigate
-    if (['post_like', 'comment_reply', 'mention', 'new_post'].includes(notification.type) && notification.target_id) {
-      try {
-        // Get the post details to get the slug
-        const { data: postData, error: postError } = await getSupabaseClient()
-          .from('posts')
-          .select(`
-            id,
-            slug,
-            space_id
-          `)
-          .eq('id', notification.target_id)
-          .single();
-
-        if (postError || !postData) {
-          log.error('NotificationsPage', 'Failed to fetch post for navigation:', postError);
-          return;
-        }
-
-        // Get the space subdomain
-        const { data: spaceData, error: spaceError } = await getSupabaseClient()
-          .from('spaces')
-          .select('subdomain')
-          .eq('id', postData.space_id)
-          .single();
-
-        if (spaceError || !spaceData) {
-          log.error('NotificationsPage', 'Failed to fetch space for navigation:', spaceError);
-          return;
-        }
-
-        // Build the correct URL using the post slug
-        const spaceSubdomain = spaceData.subdomain || notification.space?.subdomain;
-        if (spaceSubdomain && postData.slug) {
-          const postUrl = `/${spaceSubdomain}/space/${postData.slug}`;
-          log.debug('NotificationsPage', 'Navigating to post URL:', postUrl);
-          // Use push navigation to add to history stack so back button works correctly
-          navigate(postUrl, { replace: false });
-        } else {
-          log.error('NotificationsPage', 'Missing space subdomain or post slug');
-        }
-      } catch (error) {
-        log.error('NotificationsPage', 'Error navigating to post:', error);
-      }
-    }
-    // For space_join notifications, navigate to the space
-    else if (notification.type === 'space_join' && notification.space?.subdomain) {
-      navigate(`/${notification.space.subdomain}/space`, { replace: false });
-    }
-    else {
-      // For other notification types, just log for now
-      log.debug('NotificationsPage', 'Unhandled notification type:', notification.type);
-    }
-  };
+  // Navigate to a notification's destination (shared with the desktop bell dropdown).
+  const handleNotificationNavigate = useNotificationNavigate();
 
   // Auto-refresh on mount - force refresh to ensure filtering works correctly on notifications page
   useEffect(() => {
