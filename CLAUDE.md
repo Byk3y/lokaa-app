@@ -17,6 +17,16 @@ This file provides context and behavior rules for Claude Code (`claude` / `claud
 ### Integration Tests Guard
 **IMPORTANT**: `npm run test:integration` runs against live database tables and requires `SUPABASE_INT_SERVICE_ROLE_KEY`. It creates and destroys real users/rows. **Claude must request explicit user confirmation before running this suite.** Refer to [docs/guides/TESTING_GUIDE.md](file:///Users/francischukwuma/lokaa%20latest/lokaa-app/docs/guides/TESTING_GUIDE.md) and [tests/integration/README.md](file:///Users/francischukwuma/lokaa%20latest/lokaa-app/tests/integration/README.md).
 
+## Key Directories
+- `src/features/[name]/` — Self-contained feature modules (auth, chat, posts, search, spaces, tabs, users)
+- `src/views/` — Page-level components (e.g. `SpaceAboutPage`, `SpaceDashboard`)
+- `src/hooks/` — Global React hooks (auth, app lifecycle, member counts etc.)
+- `src/contexts/` — Global React contexts (e.g. `AuthContext`)
+- `src/stores/` — Global Zustand stores (e.g. `useAppStore`)
+- `src/integrations/` — Supabase client setup
+- `src/components/app/` — App shell & router (`ApplicationRouter.tsx`)
+- `supabase/migrations/` — All DB migrations
+
 ## Code & Architecture Guidelines
 
 - **Architecture**: Feature-first module structure in `src/features/[feature-name]/`. Keep feature folders self-contained (components, hooks, stores). Global stores go in `src/stores/`, contexts in `src/contexts/`, utilities in `src/utils/`.
