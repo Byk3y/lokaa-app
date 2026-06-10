@@ -11,10 +11,10 @@ import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 // Core user-facing pages (loaded frequently)
 // REMOVED: Space component - not used in current architecture (SpaceShellLayout + SpaceTabContent used instead)
 // export const Space = lazy(() => import('@/views/Space'));
-export const Dashboard = lazy(() => import('@/views/Dashboard'));
+export const Dashboard = lazyWithReload(() => import('@/views/Dashboard'), { id: 'Dashboard' });
 
 // Discover component with mobile preloading
-export const Discover = lazy(() => {
+export const Discover = lazyWithReload(() => {
   const importPromise = import('@/views/Discover');
   
   // Preload on mobile devices to prevent network timing issues
@@ -26,39 +26,39 @@ export const Discover = lazy(() => {
   }
   
   return importPromise;
-});
+}, { id: 'Discover' });
 
-export const Profile = lazy(() => import('@/views/Profile'));
-export const ChatPage = lazy(() => import('@/views/ChatPage'));
-export const NotificationsPage = lazy(() => import('@/views/NotificationsPage'));
+export const Profile = lazyWithReload(() => import('@/views/Profile'), { id: 'Profile' });
+export const ChatPage = lazyWithReload(() => import('@/views/ChatPage'), { id: 'ChatPage' });
+export const NotificationsPage = lazyWithReload(() => import('@/views/NotificationsPage'), { id: 'NotificationsPage' });
 
 // App layout and navigation
-export const AppLayout = lazy(() => import('@/components/layout/AppLayout'));
+export const AppLayout = lazyWithReload(() => import('@/components/layout/AppLayout'), { id: 'AppLayout' });
 
 // Settings and user pages
-export const Settings = lazy(() => import('@/views/UserSettings'));
-export const UserSettings = lazy(() => import('@/views/UserSettings'));
+export const Settings = lazyWithReload(() => import('@/views/UserSettings'), { id: 'UserSettings' });
+export const UserSettings = lazyWithReload(() => import('@/views/UserSettings'), { id: 'UserSettings' });
 
 // Space-related pages
-export const CreateSpace = lazy(() => import('@/views/CreateSpace'));
-export const CreateSpaceWrapper = lazy(() => import('@/views/CreateSpaceWrapper'));
-export const SpaceAboutPage = lazy(() => import('@/views/SpaceAboutPage'));
-export const SpaceJoinPage = lazy(() => import('@/views/SpaceJoinPage'));
-export const PostDetailPage = lazy(() => import('@/views/PostDetailPage'));
-export const CourseDetailPage = lazy(() => import('@/views/CourseDetailPage'));
+export const CreateSpace = lazyWithReload(() => import('@/views/CreateSpace'), { id: 'CreateSpace' });
+export const CreateSpaceWrapper = lazyWithReload(() => import('@/views/CreateSpaceWrapper'), { id: 'CreateSpaceWrapper' });
+export const SpaceAboutPage = lazyWithReload(() => import('@/views/SpaceAboutPage'), { id: 'SpaceAboutPage' });
+export const SpaceJoinPage = lazyWithReload(() => import('@/views/SpaceJoinPage'), { id: 'SpaceJoinPage' });
+export const PostDetailPage = lazyWithReload(() => import('@/views/PostDetailPage'), { id: 'PostDetailPage' });
+export const CourseDetailPage = lazyWithReload(() => import('@/views/CourseDetailPage'), { id: 'CourseDetailPage' });
 
 // Legacy redirect components for URL migration
-export const PostLegacyRedirect = lazy(() => import('@/components/PostLegacyRedirect'));
-export const CourseLegacyRedirect = lazy(() => import('@/components/CourseLegacyRedirect'));
-export const LessonLegacyRedirect = lazy(() => import('@/components/LessonLegacyRedirect'));
+export const PostLegacyRedirect = lazyWithReload(() => import('@/components/PostLegacyRedirect'), { id: 'PostLegacyRedirect' });
+export const CourseLegacyRedirect = lazyWithReload(() => import('@/components/CourseLegacyRedirect'), { id: 'CourseLegacyRedirect' });
+export const LessonLegacyRedirect = lazyWithReload(() => import('@/components/LessonLegacyRedirect'), { id: 'LessonLegacyRedirect' });
 
 // ✅ FIXED: Add tab components for SpaceShellLayout Outlet with proper props
-export const FeedTab = lazy(() => import('@/components/space/tabs/FeedTabWrapper'));
-export const AboutTab = lazy(() => import('@/components/space/AboutTab'));
-export const MembersTab = lazy(() => import('@/components/space/MembersTab'));
-export const ClassroomTab = lazy(() => import('@/components/space/tabs/ClassroomTabWrapper'));
-export const CalendarTab = lazy(() => import('@/components/space/tabs/CalendarTabWrapper'));
-export const LeaderboardTab = lazy(() => import('@/components/space/tabs/LeaderboardTabWrapper'));
+export const FeedTab = lazyWithReload(() => import('@/components/space/tabs/FeedTabWrapper'), { id: 'FeedTab' });
+export const AboutTab = lazyWithReload(() => import('@/components/space/AboutTab'), { id: 'AboutTab' });
+export const MembersTab = lazyWithReload(() => import('@/components/space/MembersTab'), { id: 'MembersTab' });
+export const ClassroomTab = lazyWithReload(() => import('@/components/space/tabs/ClassroomTabWrapper'), { id: 'ClassroomTab' });
+export const CalendarTab = lazyWithReload(() => import('@/components/space/tabs/CalendarTabWrapper'), { id: 'CalendarTab' });
+export const LeaderboardTab = lazyWithReload(() => import('@/components/space/tabs/LeaderboardTabWrapper'), { id: 'LeaderboardTab' });
 export const SearchTab = lazy(() => Promise.resolve({ 
   default: () => (
     <div className="flex items-center justify-center min-h-screen">
@@ -71,21 +71,21 @@ export const SearchTab = lazy(() => Promise.resolve({
 }));
 
 // Landing and marketing pages (can afford loading delay)
-export const SmartLanding = lazy(() => import('@/views/SmartLanding'));
-export const LandingPageWrapper = lazy(() => import('@/views/LandingPage').then(module => ({ default: module.LandingPageWrapper })));
+export const SmartLanding = lazyWithReload(() => import('@/views/SmartLanding'), { id: 'SmartLanding' });
+export const LandingPageWrapper = lazyWithReload(() => import('@/views/LandingPage').then(module => ({ default: module.LandingPageWrapper })), { id: 'LandingPageWrapper' });
 
 // Admin and debug pages (rarely used - perfect for lazy loading)
-export const StorageDebugger = lazy(() => import('@/views/StorageDebugger'));
-export const SpaceDebugPage = lazy(() => import('@/views/SpaceDebugPage'));
-export const DebugPage = lazy(() => import('@/views/DebugPage'));
-export const AuthConfirmPage = lazy(() => import('@/views/AuthConfirmPage'));
-export const AuthCallback = lazy(() => import('@/views/AuthCallback'));
-export const ResetPasswordPage = lazy(() => import('@/views/ResetPasswordPage'));
+export const StorageDebugger = lazyWithReload(() => import('@/views/StorageDebugger'), { id: 'StorageDebugger' });
+export const SpaceDebugPage = lazyWithReload(() => import('@/views/SpaceDebugPage'), { id: 'SpaceDebugPage' });
+export const DebugPage = lazyWithReload(() => import('@/views/DebugPage'), { id: 'DebugPage' });
+export const AuthConfirmPage = lazyWithReload(() => import('@/views/AuthConfirmPage'), { id: 'AuthConfirmPage' });
+export const AuthCallback = lazyWithReload(() => import('@/views/AuthCallback'), { id: 'AuthCallback' });
+export const ResetPasswordPage = lazyWithReload(() => import('@/views/ResetPasswordPage'), { id: 'ResetPasswordPage' });
 
 // Utility pages
 export const QuickSpaceRedirect = lazyWithReload(() => import('@/views/QuickSpaceRedirect'), { id: 'QuickSpaceRedirect' });
-export const SpaceRedirect = lazy(() => import('@/views/SpaceRedirect'));
-export const SpaceRedirectWithValidation = lazy(() => import('@/views/SpaceRedirect').then(module => ({ default: module.SpaceRedirectWithValidation })));
+export const SpaceRedirect = lazyWithReload(() => import('@/views/SpaceRedirect'), { id: 'SpaceRedirect' });
+export const SpaceRedirectWithValidation = lazyWithReload(() => import('@/views/SpaceRedirect').then(module => ({ default: module.SpaceRedirectWithValidation })), { id: 'SpaceRedirectWithValidation' });
 
 // Placeholder components for missing pages
 export const Start = lazy(() => Promise.resolve({ 
