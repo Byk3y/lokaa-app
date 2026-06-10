@@ -1,5 +1,5 @@
 import { log } from '@/utils/logger';
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { Loader2, ChevronLeft } from "lucide-react";
@@ -13,6 +13,7 @@ import { useSpaceAboutStore } from "@/features/spaces/store/space-about-store";
 import { fetchSpaceMediaFromSupabase, MediaItem } from "@/utils/mediaStorageUtils";
 import { getSupabaseClient } from "@/integrations/supabase/client";
 import { useSimpleMemberCounts } from "@/hooks/useSimpleMemberCounts";
+import { setPendingJoin, getPendingJoin, clearPendingJoin } from "@/utils/pendingJoin";
 
 // Main component that fetches space data and renders the content
 export default function SpaceAboutPage() {
@@ -34,6 +35,8 @@ export default function SpaceAboutPage() {
   const [checkingMembership, setCheckingMembership] = useState(true);
   const [joiningSpace, setJoiningSpace] = useState(false);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  // Guards the post-auth auto-join so it only runs once per page load.
+  const autoJoinAttemptedRef = useRef(false);
   
   // Use the useMemberCounts hook for real-time member counts
   const { 
@@ -146,8 +149,17 @@ export default function SpaceAboutPage() {
   }, [location.state]);
 
   const handleJoinSpace = async () => {
-    // If user is not authenticated, redirect to login
+    // If user is not authenticated, stash the join intent and send them through
+    // the auth flow. After they authenticate they are returned here (via
+    // redirect_after_login) and the join is resumed by the effect below.
     if (!user) {
+      if (spaceAboutData?.id && spaceAboutData?.subdomain) {
+        setPendingJoin({
+          spaceId: spaceAboutData.id,
+          subdomain: spaceAboutData.subdomain,
+          returnPath: location.pathname,
+        });
+      }
       navigate('/login', { state: { from: location } });
       return;
     }
@@ -183,6 +195,34 @@ export default function SpaceAboutPage() {
     }
   };
   
+  // Resume a join that was started while logged out. Once the user is
+  // authenticated and we know their membership status, if there's a pending
+  // join matching this space we complete it automatically (or send them in if
+  // they're already a member).
+  useEffect(() => {
+    if (autoJoinAttemptedRef.current) return;
+    if (!user || !spaceAboutData?.id || checkingMembership) return;
+
+    const pending = getPendingJoin();
+    if (!pending) return;
+
+    const matchesSpace =
+      pending.spaceId === spaceAboutData.id ||
+      pending.subdomain === spaceAboutData.subdomain;
+    if (!matchesSpace) return;
+
+    autoJoinAttemptedRef.current = true;
+    clearPendingJoin();
+
+    if (isMember) {
+      navigate(`/${spaceAboutData.subdomain}/space`, { replace: true });
+    } else {
+      void handleJoinSpace();
+    }
+    // handleJoinSpace is intentionally omitted; the ref guard prevents re-runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, spaceAboutData?.id, spaceAboutData?.subdomain, checkingMembership, isMember]);
+
   const handleEditAbout = () => {
     if (spaceAboutData?.subdomain) {
       navigate(`/${spaceAboutData.subdomain}/space/about`);

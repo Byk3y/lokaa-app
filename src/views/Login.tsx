@@ -84,8 +84,16 @@ export default function Login() {
             : error.message || 'Sign in failed. Please check your credentials and try again.'
         );
       } else {
+        // If an explicit post-auth return path is set (e.g. resuming a pending
+        // space join), defer navigation to the shared redirect_after_login
+        // mechanism instead of bouncing the user to their default space.
+        if (sessionStorage.getItem('redirect_after_login')) {
+          devLogger.log('Auth', 'Sign-in successful, deferring to redirect_after_login');
+          return;
+        }
+
         devLogger.log('Auth', 'Sign-in successful, attempting direct space redirection');
-        
+
         // First try direct redirection to any user spaces
         // This can bypass potential React state issues
         try {

@@ -44,6 +44,12 @@ export default function Signup() {
   // Only redirect if user is already logged in
   useEffect(() => {
     if (user) {
+      // Honor a pending post-auth redirect (e.g. resuming a space join) so the
+      // shared redirect_after_login mechanism can return the user to the about
+      // page instead of forcing /discover.
+      if (sessionStorage.getItem('redirect_after_login')) {
+        return;
+      }
       navigate("/discover", { replace: true });
     }
   }, [user, navigate]);
@@ -112,7 +118,14 @@ export default function Signup() {
             title: "Account created!",
             description: "Your account has been created successfully.",
           });
-          
+
+          // If resuming a pending action (e.g. a space join), defer to the
+          // shared redirect_after_login mechanism instead of forcing /discover.
+          if (sessionStorage.getItem('redirect_after_login')) {
+            setIsLoading(false);
+            return;
+          }
+
           // Redirect to discover page
           navigate('/discover', { replace: true });
         } else {
