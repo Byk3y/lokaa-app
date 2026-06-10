@@ -319,7 +319,7 @@ export default function MembersTab() {
   const inviteLink = useMemo(() => {
     if (!effectiveSpaceData?.subdomain) return "";
     const baseUrl = import.meta.env.VITE_APP_URL || "https://lokaa.app";
-    return `${baseUrl}/${effectiveSpaceData.subdomain}`;
+    return `${baseUrl}/${effectiveSpaceData.subdomain}/about`;
   }, [effectiveSpaceData?.subdomain]);
 
   const copyInviteLink = () => {

@@ -73,7 +73,7 @@ const SpaceInfoSidebar = memo(function SpaceInfoSidebar({
   const { totalMembers, adminMembers, onlineMembers, loading: countsLoading } = useSimpleMemberCounts(spaceId || '');
 
   const resolvedCoverUrl = coverImage ? resolveImageUrl(coverImage, spaceName) : null;
-  const spaceUrl = subdomain ? `lokaa.app/${subdomain}` : "lokaa.app/your-space";
+  const spaceUrl = subdomain ? `lokaa.app/${subdomain}/about` : "lokaa.app/your-space/about";
 
   // Use passed props for counts, fallback to hook data
   const displayMemberCount = memberCount ?? totalMembers ?? 0;

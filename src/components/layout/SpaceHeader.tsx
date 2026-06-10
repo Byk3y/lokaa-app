@@ -113,7 +113,7 @@ export default function SpaceHeader({
 
   const handleCopyInviteLink = async () => {
     if (storeSpace?.subdomain) {
-      const inviteUrl = `${window.location.origin}/${storeSpace.subdomain}`;
+      const inviteUrl = `${window.location.origin}/${storeSpace.subdomain}/about`;
       
       try {
         // Method 1: Try modern clipboard API

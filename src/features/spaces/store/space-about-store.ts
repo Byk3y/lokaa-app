@@ -111,6 +111,39 @@ const initialState: SpaceAboutState = {
   cache: {},
 };
 
+const toSpaceAboutData = (data: any, memberCount: number, onlineCount = 0, adminCount = 0): SpaceAboutData => ({
+  id: data.id,
+  name: data.name,
+  subdomain: data.subdomain,
+  description: data.description,
+  icon_image: data.icon_image,
+  cover_image: data.cover_image,
+  intro_media_type: data.intro_media_type,
+  intro_media_url: data.intro_media_url,
+  intro_media_thumbnail_url: data.intro_media_thumbnail_url,
+  about_description: data.about_description,
+  pricing_type: data.pricing_type || 'free',
+  price_per_month: data.price_per_month,
+  is_private: data.is_private || false,
+  primary_color: data.primary_color,
+  owner_id: data.owner_id,
+  created_at: data.created_at,
+  updated_at: data.updated_at,
+  member_count: memberCount,
+  online_count: onlineCount,
+  admin_count: adminCount,
+  owner: data.owner,
+  features: {
+    chat_enabled: true,
+    forum_enabled: true,
+    events_enabled: true,
+    classroom_enabled: true,
+    calendar_enabled: true,
+    map_enabled: true,
+    trial_enabled: true,
+  }
+});
+
 /**
  * Store for managing space about data
  */
@@ -147,44 +180,64 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
       log.debug('App', `[SpaceAboutStore] Fetching space about data for: ${spaceId || subdomain}`);
       log.debug('App', `[SpaceAboutStore] Using spaceId: ${spaceId}, subdomain: ${subdomain}`);
       
-      let query = getSupabaseClient()
-        .from('spaces')
-        .select(`
-          id,
-          name,
-          subdomain,
-          description,
-          icon_image,
-          cover_image,
-          intro_media_type,
-          intro_media_url,
-          intro_media_thumbnail_url,
-          about_description,
-          pricing_type,
-          price_per_month,
-          is_private,
-          primary_color,
-          owner_id,
-          created_at,
-          updated_at,
-          member_count,
-          owner:owner_id(
+      let data: any = null;
+      let error: any = null;
+
+      if (subdomain && !spaceId) {
+        log.debug('App', `[SpaceAboutStore] Querying public about RPC by subdomain: ${subdomain}`);
+        const rpcResult = await getSupabaseClient().rpc('about_page_get_space', {
+          target_subdomain: subdomain,
+        });
+
+        if (rpcResult.error) {
+          error = rpcResult.error;
+        } else if (rpcResult.data?.success === false) {
+          error = new Error(rpcResult.data.message || 'Space not found');
+        } else {
+          data = rpcResult.data?.space || null;
+        }
+      } else {
+        let query = getSupabaseClient()
+          .from('spaces')
+          .select(`
             id,
-            full_name,
-            avatar_url
-          )
-        `);
-      
-      if (spaceId) {
-        query = query.eq('id', spaceId);
-        log.debug('App', `[SpaceAboutStore] Querying by spaceId: ${spaceId}`);
-      } else if (subdomain) {
-        query = query.eq('subdomain', subdomain);
-        log.debug('App', `[SpaceAboutStore] Querying by subdomain: ${subdomain}`);
+            name,
+            subdomain,
+            description,
+            icon_image,
+            cover_image,
+            intro_media_type,
+            intro_media_url,
+            intro_media_thumbnail_url,
+            about_description,
+            pricing_type,
+            price_per_month,
+            is_private,
+            primary_color,
+            owner_id,
+            created_at,
+            updated_at,
+            member_count,
+            owner:owner_id(
+              id,
+              full_name,
+              avatar_url
+            )
+          `);
+        
+        if (spaceId) {
+          query = query.eq('id', spaceId);
+          log.debug('App', `[SpaceAboutStore] Querying by spaceId: ${spaceId}`);
+        } else if (subdomain) {
+          query = query.eq('subdomain', subdomain);
+          log.debug('App', `[SpaceAboutStore] Querying by subdomain: ${subdomain}`);
+        }
+        
+        log.debug('App', `[SpaceAboutStore] Executing query...`);
+        const queryResult = await query.single();
+        data = queryResult.data;
+        error = queryResult.error;
       }
-      
-      log.debug('App', `[SpaceAboutStore] Executing query...`);
-      const { data, error } = await query.single();
       
       log.debug('App', `[SpaceAboutStore] Query result:`, { data, error });
       
@@ -243,38 +296,7 @@ export const useSpaceAboutStore = create<SpaceAboutStore>((set, get) => ({
         }
       }
       
-      const spaceAboutData: SpaceAboutData = {
-        id: data.id,
-        name: data.name,
-        subdomain: data.subdomain,
-        description: data.description,
-        icon_image: data.icon_image,
-        cover_image: data.cover_image,
-        intro_media_type: data.intro_media_type,
-        intro_media_url: data.intro_media_url,
-        intro_media_thumbnail_url: data.intro_media_thumbnail_url,
-        about_description: data.about_description,
-        pricing_type: data.pricing_type,
-        price_per_month: data.price_per_month,
-        is_private: data.is_private,
-        primary_color: data.primary_color,
-        owner_id: data.owner_id,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        member_count: memberCount,
-        online_count: onlineCount,
-        admin_count: adminCount,
-        owner: data.owner,
-        features: {
-          chat_enabled: true, // Default features
-          forum_enabled: true,
-          events_enabled: true,
-          classroom_enabled: true,
-          calendar_enabled: true,
-          map_enabled: true,
-          trial_enabled: true,
-        }
-      };
+      const spaceAboutData = toSpaceAboutData(data, memberCount, onlineCount, adminCount);
       
       // Update cache
       const updatedCache = {
