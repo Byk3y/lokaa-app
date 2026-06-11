@@ -1,6 +1,5 @@
 import React from 'react';
-import { Globe, Lock, Users, Tag, FileText } from 'lucide-react';
-import { Separator } from "@/components/ui/separator";
+import { Globe, Lock, Tag } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import SpaceIntroDisplay from "@/components/space/SpaceIntroDisplay";
@@ -107,53 +106,7 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
             )}
           </div>
 
-          {/* Space Info Banner */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
-            <div className="flex items-center">
-              {isPrivate ? (
-                <Lock className="h-4 w-4 mr-1.5" />
-              ) : (
-                <Globe className="h-4 w-4 mr-1.5" />
-              )}
-              <span>{isPrivate ? 'Private Space' : 'Public Space'}</span>
-            </div>
-            <span className="hidden sm:inline">•</span>
-            <div className="flex items-center">
-              <Users className="h-4 w-4 mr-1.5" />
-              <span>{memberCount || 0} member{memberCount !== 1 ? 's' : ''}</span>
-            </div>
-            <span className="hidden sm:inline">•</span>
-            <div className="flex items-center">
-              <Tag className="h-4 w-4 mr-1.5" />
-              <span>
-                {pricingType === 'free' ? 'Free to Join' : `Paid ($${pricePerMonth || 0}/month)`}
-              </span>
-            </div>
-          </div>
-
-          {/* Mobile stats card — desktop shows these in the sidebar */}
-          {!isDesktop && (
-            <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-              <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-gray-700">
-                <div className="flex flex-col items-center justify-center py-4">
-                  <div className="text-xl font-bold text-gray-900 dark:text-white">{memberCount || 0}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Members</div>
-                </div>
-                <div className="flex flex-col items-center justify-center py-4">
-                  <div className="text-xl font-bold text-gray-900 dark:text-white">{onlineCount || 0}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Online</div>
-                </div>
-                <div className="flex flex-col items-center justify-center py-4">
-                  <div className="text-xl font-bold text-gray-900 dark:text-white">{adminCount || 0}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Admin</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <Separator className="my-6" />
-
-          {/* Created by Section — only when there's no media gallery (which already
+          {/* Created by — only when there's no media gallery (the gallery already
               shows the creator), to avoid duplicating the "Created by" block. */}
           {owner && (!mediaItems || mediaItems.length === 0) && (
             <div className="mb-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
@@ -174,21 +127,53 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
             </div>
           )}
 
-          {/* About Section */}
-          <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">About {name}</h2>
+          {/* Unified info + about panel — stats, meta, and description live on one
+              cohesive surface instead of separate floating segments. Member count
+              shows once here (mobile) / in the sidebar (desktop), not duplicated. */}
+          <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+            {/* Stats — mobile only; desktop shows these in the sidebar */}
+            {!isDesktop && (
+              <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-gray-700 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col items-center justify-center py-4">
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">{memberCount || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Members</div>
+                </div>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">{onlineCount || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Online</div>
+                </div>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">{adminCount || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Admin</div>
+                </div>
+              </div>
+            )}
+
+            {/* Meta strip — privacy + pricing */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-6 py-3.5 border-b border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">
+              <span className="inline-flex items-center gap-1.5">
+                {isPrivate ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+                {isPrivate ? 'Private Space' : 'Public Space'}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Tag className="h-4 w-4" />
+                {pricingType === 'free' ? 'Free to Join' : `Paid ($${pricePerMonth || 0}/month)`}
+              </span>
             </div>
-            
-            <div className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 whitespace-pre-line">
-              {aboutContent ? (
-                <p>{aboutContent}</p>
-              ) : (
-                <p className="text-gray-500 dark:text-gray-400 italic">
-                  The creator hasn't added a detailed description for this space yet.
-                  {shortDescription && ` However, we know that: "${shortDescription}"`}
-                </p>
-              )}
+
+            {/* About */}
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">About {name}</h2>
+              <div className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                {aboutContent ? (
+                  <p>{aboutContent}</p>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400 italic">
+                    The creator hasn't added a detailed description for this space yet.
+                    {shortDescription && ` However, we know that: "${shortDescription}"`}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
