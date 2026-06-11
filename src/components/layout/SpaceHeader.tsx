@@ -247,9 +247,10 @@ export default function SpaceHeader({
 
       </div>
 
-      {/* Mobile Search Overlay */}
+      {/* Mobile Search Bar - top bar only (not a full-screen overlay) so live
+          search results remain visible in the feed below as the user types. */}
       {showMobileSearch && (
-        <div className="fixed inset-0 z-50 bg-white flex items-start pt-4 px-4 lg:hidden">
+        <div className="fixed inset-x-0 top-0 z-50 bg-white border-b border-gray-200 shadow-sm flex items-center py-2.5 px-4 lg:hidden">
           <div className="flex w-full items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -266,7 +267,7 @@ export default function SpaceHeader({
               className="ml-3 text-gray-500 font-semibold text-base"
               onClick={() => {
                 setShowMobileSearch(false);
-                // FIXED: Removed handleSearchChange('') - don't clear search when closing
+                // Keep the query so results stay visible after closing the bar.
               }}
             >
               CANCEL
