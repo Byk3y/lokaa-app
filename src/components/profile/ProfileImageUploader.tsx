@@ -61,6 +61,13 @@ export default function ProfileImageUploader({
     lg: 'h-28 w-28',
   };
 
+  // Initials text size paired with each avatar size
+  const fallbackTextClasses = {
+    sm: 'text-sm',
+    md: 'text-xl',
+    lg: 'text-4xl',
+  };
+
   // Handler for clicking the avatar or upload button
   const handleUploadClick = () => {
     // If there's an existing image, open it in the cropper instead of selecting a file
@@ -341,12 +348,16 @@ export default function ProfileImageUploader({
   return (
     <div className={`relative ${className}`}>
       {/* Avatar display */}
-      <Avatar 
-        className={`${sizeClasses[size]} bg-blue-600 text-white font-semibold relative group cursor-pointer transition-transform hover:scale-105`}
+      <Avatar
+        className={`${sizeClasses[size]} font-semibold relative group cursor-pointer transition-transform hover:scale-105`}
         onClick={handleNewUpload}
       >
         <AvatarImage src={previewUrl || undefined} alt="Profile" />
-        <AvatarFallback>{userInitials}</AvatarFallback>
+        {/* Color must live on the fallback itself — the fallback fills the circle
+            with its own background, so a bg set on the Avatar root gets covered. */}
+        <AvatarFallback className={`bg-blue-600 text-white ${fallbackTextClasses[size]}`}>
+          {userInitials}
+        </AvatarFallback>
         
         {/* Improved overlay for hover effect with edit hint */}
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 flex flex-col items-center justify-center transition-all duration-200 rounded-full opacity-0 group-hover:opacity-100">
