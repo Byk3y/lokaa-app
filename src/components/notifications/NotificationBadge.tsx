@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import NotificationCenter from './NotificationCenter';
-import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 
 interface NotificationBadgeProps {
   className?: string;
@@ -25,22 +24,37 @@ export default function NotificationBadge({
   const { count, isLoading } = useUnreadNotificationCount();
   const bellButtonRef = React.useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
-  const isMobile = shouldEnableMobileFeatures();
+
+  // Decide mobile vs desktop behavior from the *live* viewport width rather than
+  // the session-cached user-agent detection. The cached value never updates when a
+  // user switches between mobile and desktop view, which caused the desktop bell to
+  // keep navigating to the stretched mobile /notifs page instead of opening the dropdown.
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setIsMobileViewport(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Treat the badge as mobile when explicitly placed in a mobile context or when the
+  // viewport is narrow (covers real mobile devices, which always have narrow viewports).
+  const useMobileBehavior = variant === 'mobile' || isMobileViewport;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    
-    // Check mobile detection
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
-    const isViewportMobile = windowWidth <= 768;
-    
+
     // On mobile, navigate to full-screen notifications page
-    if (isMobile || variant === 'mobile' || isViewportMobile) {
+    if (useMobileBehavior) {
       navigate('/notifs');
       return;
     }
-    
+
     // On desktop, show dropdown
     setIsOpen(!isOpen);
   };
@@ -153,7 +167,7 @@ export default function NotificationBadge({
       </button>
 
       {/* Notification Center Dropdown - Only show on desktop */}
-      {!isMobile && variant !== 'mobile' && (
+      {!useMobileBehavior && (
         <NotificationCenter
           isOpen={isOpen}
           onClose={handleClose}
