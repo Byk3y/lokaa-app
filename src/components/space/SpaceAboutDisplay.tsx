@@ -130,11 +130,32 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
               </span>
             </div>
           </div>
-          
+
+          {/* Mobile stats card — desktop shows these in the sidebar */}
+          {!isDesktop && (
+            <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+              <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-gray-700">
+                <div className="flex flex-col items-center justify-center py-4">
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">{memberCount || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Members</div>
+                </div>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">{onlineCount || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Online</div>
+                </div>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <div className="text-xl font-bold text-gray-900 dark:text-white">{adminCount || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Admin</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Separator className="my-6" />
 
-          {/* Created by Section */}
-          {owner && (
+          {/* Created by Section — only when there's no media gallery (which already
+              shows the creator), to avoid duplicating the "Created by" block. */}
+          {owner && (!mediaItems || mediaItems.length === 0) && (
             <div className="mb-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
@@ -171,18 +192,6 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
             </div>
           </div>
 
-          {/* Mobile-only join button - always show on mobile since no sidebar */}
-          {!isDesktop && onAction && (
-            <div className="mt-8 text-center">
-              <Button 
-                onClick={onAction}
-                className="bg-[#2AB5A0] hover:bg-[#249B8A] text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-md"
-              >
-                {isMember ? 'Go to Space' : (actionButtonText || 'Join Space')}
-              </Button>
-            </div>
-          )}
-
           {isMember && (
             <div className="mt-8 text-center">
               <p className="text-green-600 dark:text-green-400 font-semibold">You are a member of this space!</p>
@@ -215,6 +224,35 @@ const SpaceAboutDisplay: React.FC<SpaceAboutDisplayProps> = ({
           </div>
         )}
       </div>
+
+      {/* Mobile sticky join bar — keeps the primary CTA visible while the user
+          reads the page (the desktop sidebar serves this role on large screens). */}
+      {!isDesktop && onAction && (
+        <>
+          {/* Spacer so the fixed bar never overlaps the last content */}
+          <div className="h-24" aria-hidden="true" />
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.08)] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            <div className="max-w-7xl mx-auto flex items-center gap-3">
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                  {name}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {pricingType === 'free' ? 'Free to join' : `$${pricePerMonth || 0}/month`}
+                  {' · '}
+                  {memberCount || 0} member{memberCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <Button
+                onClick={onAction}
+                className="ml-auto flex-shrink-0 bg-[#2AB5A0] hover:bg-[#249B8A] text-white px-6 py-3 text-base font-semibold rounded-lg shadow-md"
+              >
+                {isMember ? 'Go to Space' : (actionButtonText || 'Join Space')}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
