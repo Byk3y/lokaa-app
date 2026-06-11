@@ -266,8 +266,10 @@ export default function SpaceHeader({
             <button
               className="ml-3 text-gray-500 font-semibold text-base"
               onClick={() => {
+                // Cancel exits search entirely: clear the query so the normal
+                // feed returns (isSearchActive -> false), then close the bar.
+                handleSearchChange('');
                 setShowMobileSearch(false);
-                // Keep the query so results stay visible after closing the bar.
               }}
             >
               CANCEL
