@@ -25,8 +25,9 @@ import { useSearchHook as useSearch } from '@/features/search/store/search-store
 import useSpaceSettingsStore from '@/hooks/useSpaceSettingsStore';
 import { Space } from "@/types/space";
 import { SpaceAssetsUtils } from '@/shared/utils/space-assets-utils';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitials, getAvatarColor } from '@/shared/utils/avatar-utils';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { shouldEnableMobileFeatures } from '@/utils/mobileDetection';
 import { getCurrentSpaceContext } from '@/utils/spaceContextUtils';
 
 // Modified Header component for Profile page to show Lokaa logo instead of space
@@ -287,8 +288,11 @@ export default function Profile() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { setGlobalSearch, setSpaceSearch } = useSearch();
 
-  // Detect mobile vs desktop for different layouts - use same detection as BottomNav
-  const isMobile = shouldEnableMobileFeatures();
+  // Detect mobile vs desktop from the *live* viewport width so the layout reacts
+  // when the user switches between mobile and desktop view. The previous user-agent
+  // detection was cached once per session and left the mobile layout stretched on
+  // desktop after a view switch.
+  const isMobile = useMediaQuery('(max-width: 768px)');
   
   // Get space data from store for mobile header icon (must be at top level)
   const { space: storeSpace, loadActiveSpace } = useSpaceSettingsStore();
