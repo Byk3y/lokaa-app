@@ -37,9 +37,13 @@ Avatar.displayName = AvatarPrimitive.Root.displayName;
 export const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
+>(({ className, referrerPolicy = "no-referrer", ...props }, ref) => (
+  // Default to no-referrer so Google-hosted avatars (lh3.googleusercontent.com)
+  // load reliably — Google rate-limits/blocks (429/403) requests that carry a
+  // Referer header, which otherwise makes OAuth profile pictures fail to load.
   <AvatarPrimitive.Image
     ref={ref}
+    referrerPolicy={referrerPolicy}
     className={cn("aspect-square h-full w-full", className)}
     {...props}
   />
