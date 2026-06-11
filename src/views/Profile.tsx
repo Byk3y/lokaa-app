@@ -517,21 +517,29 @@ export default function Profile() {
             <div className="px-4 py-6 text-center">
               {/* Avatar and Level Badge */}
               <div className="relative inline-block mb-1">
-                <div className="w-32 h-32 mx-auto mb-2">
-                  {profile.avatar_url ? (
-                    <img 
-                      src={profile.avatar_url} 
-                      alt={profile.full_name} 
-                      className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
-                    />
-                  ) : (
-                    <div className="w-full h-full rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center border-4 border-white shadow-lg">
-                      <span className="text-white text-2xl font-bold">
-                        {(profile.full_name || profile.first_name || 'U').charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                {/* Radix Avatar shows the fallback whenever the image is missing
+                    OR fails to load — avoids the broken-image alt text (the user's
+                    name) bleeding into an empty circle. */}
+                <Avatar className="w-32 h-32 mx-auto mb-2 border-4 border-white shadow-lg">
+                  <AvatarImage
+                    src={profile.avatar_url || undefined}
+                    alt={profile.full_name || 'User'}
+                    className="object-cover"
+                  />
+                  <AvatarFallback
+                    className="text-white text-4xl font-bold tracking-wide"
+                    style={{
+                      backgroundColor: getAvatarColor(
+                        profile.id || profile.full_name || profile.profile_url || 'user'
+                      ),
+                    }}
+                  >
+                    {getInitials(
+                      profile.full_name ||
+                        `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+                    )}
+                  </AvatarFallback>
+                </Avatar>
                 {/* Level Badge like Skool - positioned slightly to the right */}
                 <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 translate-x-3">
                   <div className="bg-blue-500 text-white text-sm font-bold px-3 py-1 rounded-full border-4 border-white shadow-lg">
