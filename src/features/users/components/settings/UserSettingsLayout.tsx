@@ -131,6 +131,9 @@ export default function UserSettingsLayout() {
                   currentSpaceName="Lokaa"
                   userId={user?.id || ''}
                   hideTriggerLabel={true}
+                  // Trigger is only the chevron, but "Lokaa" sits to its left;
+                  // shift the dropdown left so it aligns under the logo like the space header.
+                  dropdownAlignOffset={-130}
                 />
               </div>
             </div>

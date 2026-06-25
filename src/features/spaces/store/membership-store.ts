@@ -671,23 +671,11 @@ export const useMembershipStore = create<MembershipStore>((set, get) => ({
     const { refreshSpacesTrigger } = get();
     set({ refreshSpacesTrigger: refreshSpacesTrigger + 1 });
     
-    // Also invalidate user spaces cache so the drawer shows updated spaces
+    // Invalidate the shared user-spaces cache so the switcher, settings tab and
+    // mobile drawer all refetch updated spaces on their next refreshSpacesTrigger.
     const userSpacesStore = useUserSpacesStore.getState();
     userSpacesStore.invalidateCache();
-    
-    // CRITICAL FIX: Clear SpaceSwitcher's fast_path_spaces cache
-    // This ensures newly joined spaces appear immediately in the space switcher
-    try {
-      const { data: { user } } = await getSupabaseClient().auth.getUser();
-      if (user?.id) {
-        const cacheKey = `fast_path_spaces_${user.id}`;
-        localStorage.removeItem(cacheKey);
-        log.debug('App', '🧹 [MembershipStore] Cleared SpaceSwitcher cache for immediate space visibility');
-      }
-    } catch (error) {
-      log.warn('App', 'Failed to clear SpaceSwitcher cache:', error);
-    }
-    
+
     log.debug('App', '🔄 [MembershipStore] Triggered spaces refresh and invalidated user spaces cache');
   },
   

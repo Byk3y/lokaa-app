@@ -2,21 +2,26 @@ import { log } from '@/utils/logger';
 import { create } from 'zustand';
 import { getSupabaseClient } from '@/integrations/supabase/client';
 
-interface Space {
+// Shared shape for a user's space across the app (switcher, settings, mobile drawer).
+export interface UserSpace {
   id: string;
   name: string;
   subdomain: string;
   owner_id: string;
   icon_image?: string | null;
+  member_count?: number | null;
+  description?: string | null;
+  userRole: 'owner' | 'admin' | 'member';
 }
 
 interface SpaceMemberRecord {
   space_id: string;
-  spaces: Space | null;
+  role: string;
+  spaces: Omit<UserSpace, 'userRole'> | null;
 }
 
 interface UserSpacesState {
-  spaces: Space[];
+  spaces: UserSpace[];
   loading: boolean;
   error: string | null;
   lastFetchTime: number;
@@ -38,7 +43,8 @@ const CACHE_TTL = 10 * 60 * 1000;
 const STALE_THRESHOLD = 5 * 60 * 1000;
 
 // MOBILE OPTIMIZATION: localStorage cache key
-const STORAGE_KEY = 'user_spaces_cache';
+// v2: cached entries now include userRole / member_count / description.
+const STORAGE_KEY = 'user_spaces_cache_v2';
 
 // MOBILE OPTIMIZATION: Load cached spaces from localStorage
 const loadCachedSpaces = (userId: string): UserSpacesState => {
@@ -72,7 +78,7 @@ const loadCachedSpaces = (userId: string): UserSpacesState => {
 };
 
 // MOBILE OPTIMIZATION: Save spaces to localStorage
-const saveCachedSpaces = (userId: string, spaces: Space[], lastFetchTime: number) => {
+const saveCachedSpaces = (userId: string, spaces: UserSpace[], lastFetchTime: number) => {
   try {
     const cacheData = {
       spaces,
@@ -145,21 +151,24 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
       // Fetch spaces owned by the user
       const { data: ownedSpaces, error: ownedError } = await getSupabaseClient()
         .from('spaces')
-        .select('id, name, subdomain, owner_id, icon_image')
+        .select('id, name, subdomain, owner_id, icon_image, member_count, description')
         .eq('owner_id', userId);
 
       if (ownedError) {
         log.error('Hook', '[UserSpacesStore] Error fetching owned spaces:', ownedError);
       }
 
-      // Fetch spaces the user has access to via space_members table
+      // Fetch spaces the user has access to via space_members table.
+      // status='active' excludes banned/removed memberships from the user's lists.
       const { data: memberRecords, error: memberError } = await getSupabaseClient()
         .from('space_members')
         .select(`
           space_id,
-          spaces:space_id(id, name, subdomain, owner_id, icon_image)
+          role,
+          spaces:space_id(id, name, subdomain, owner_id, icon_image, member_count, description)
         `)
         .eq('user_id', userId)
+        .eq('status', 'active')
         .returns<SpaceMemberRecord[]>();
 
       if (memberError) {
@@ -167,13 +176,20 @@ export const useUserSpacesStore = create<UserSpacesStore>((set, get) => ({
       }
 
       const ownedSpacesArray = ownedSpaces || [];
-      const joinedSpaces = memberRecords
-        ?.filter((record: SpaceMemberRecord) => record.spaces !== null)
-        .map((record: SpaceMemberRecord) => record.spaces as Space) || [];
+      const joinedSpaces: UserSpace[] = (memberRecords || [])
+        .filter((record: SpaceMemberRecord) => record.spaces !== null)
+        .map((record: SpaceMemberRecord) => ({
+          ...(record.spaces as Omit<UserSpace, 'userRole'>),
+          userRole: (record.role as 'admin' | 'member') ?? 'member',
+        }));
 
-      const allSpacesMap = new Map<string, Space>();
-      ownedSpacesArray.forEach(space => allSpacesMap.set(space.id, space));
-      joinedSpaces.forEach(space => allSpacesMap.set(space.id, space));
+      const allSpacesMap = new Map<string, UserSpace>();
+      // Owned spaces always take the 'owner' role.
+      ownedSpacesArray.forEach(space => allSpacesMap.set(space.id, { ...space, userRole: 'owner' }));
+      // Joined spaces keep their membership role (unless already present as owned).
+      joinedSpaces.forEach(space => {
+        if (!allSpacesMap.has(space.id)) allSpacesMap.set(space.id, space);
+      });
 
       const allSpaces = Array.from(allSpacesMap.values());
       
