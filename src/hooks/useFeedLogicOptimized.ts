@@ -243,6 +243,31 @@ export function useFeedLogicOptimized({
 
   const [selectedTab, setSelectedTab] = useState("all");
 
+  // Reset the category filter when switching spaces. The selected tab holds a
+  // category UUID that only exists in one space, so carrying it into another
+  // space matches zero posts and the feed renders blank. (See blank-category bug.)
+  const previousSpaceIdForTabRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!stableSpaceId) return; // ignore transient undefined during navigation
+    if (
+      previousSpaceIdForTabRef.current &&
+      previousSpaceIdForTabRef.current !== stableSpaceId
+    ) {
+      setSelectedTab("all");
+    }
+    previousSpaceIdForTabRef.current = stableSpaceId;
+  }, [stableSpaceId]);
+
+  // Safety net: if the selected category no longer exists in the loaded set
+  // (e.g. it was deleted/archived, or a space switch left a stale id), fall
+  // back to "all" so posts stay visible instead of silently filtering to none.
+  useEffect(() => {
+    if (selectedTab === "all") return;
+    if (categoriesLoading || spaceCategories.length === 0) return;
+    const stillExists = spaceCategories.some((cat: any) => cat.id === selectedTab);
+    if (!stillExists) setSelectedTab("all");
+  }, [selectedTab, spaceCategories, categoriesLoading]);
+
   // ============================================================================
   // OWNER DETAILS & SETUP GUIDE
   // ============================================================================

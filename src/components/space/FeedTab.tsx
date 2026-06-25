@@ -204,13 +204,6 @@ function FeedTab({ user: userProp, isOwner: isOwnerProp, isAdmin: isAdminProp, p
 
 
 
-  // Debug posts loading state
-  useEffect(() => {
-    console.log(`🔍 [FeedTab] Posts loading state - postsLoading: ${postsLoading}, postsError: ${postsError}, fetchedPosts: ${fetchedPosts.length}, pinnedPosts: ${pinnedPosts.length}`);
-  }, [postsLoading, postsError, fetchedPosts.length, pinnedPosts.length]);
-
-
-  
   // Update search context when space changes
   useEffect(() => {
     if (currentSpaceData?.id) {
